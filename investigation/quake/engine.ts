@@ -102,14 +102,12 @@ export class Fault {
     const envelope=(1-smooth((dist-blockReach*.8)/(blockReach*.2)))*(1-smooth(f.end/Math.max(8,this.reach*.6)));
     const step=s.scarp==='stepped'?Math.min(1,(Math.floor(dist/3)+1)/3):1;
     const tilt=(hash(s.seed,6)*2-1)*(f.along/this.length-.5)*2.4+(hash(s.seed,7)*2-1)*clamp(dist/this.reach,0,1)*1.4;
-    const alongStep=hash(s.seed,Math.floor(f.along/18)+60)>.72?1:0;
     let dz=Math.round((side>0?this.lift+tilt:-this.lift*.55)*envelope*step);
     // Short secondary faults and sag pockets share the main fault's smooth, seeded stations.
     const branch=Math.floor(f.along/22),u=f.along/22-branch;
     if(dist<2.2&&u>.30&&u<.62&&hash(s.seed,branch+200)>.48)dz-=1;
     if(side<0&&dist>3&&dist<8&&u>.38&&u<.58&&hash(s.seed,branch+230)>.65)dz-=1;
-    const amount=(side>0?this.slide+alongStep:-this.slide*.25)*envelope*step;
-    return {...f,dz:s.mode==='lift'?dz:0,dx:s.mode==='slide'?Math.round(f.dx*amount):0,dy:s.mode==='slide'?Math.round(f.dy*amount):0};
+    return {...f,dz,dx:0,dy:0};
   }
 }
 /** Shared by the cursor and worker: the quiet refusal includes room for seeded bends. */
@@ -208,7 +206,13 @@ export class QuakePlan {
     }
   }
   private moveObjects(){
-    const {W,H}=this.map,occupied=new Uint8Array(W*H),all=[...this.map.entities].sort((a,b)=>Number(b.template==='StartingLocation')-Number(a.template==='StartingLocation'));
+    const {W,H}=this.map,occupied=new Uint8Array(W*H);
+    const staysInside=(e:typeof this.map.entities[number])=>{const f=this.fault.movement(e.x,e.y),moved={...e,x:e.x+f.dx,y:e.y+f.dy},fp=FOOTPRINTS[e.template]?.size??[1,1,1];return entityTiles(this.map,moved).length===fp[0]*fp[1];};
+    const inside=this.settings.mode==='slide'?new Map(this.map.entities.map(e=>[e.id,Number(staysInside(e))])):new Map<string,number>();
+    // Place intact interior blocks before the edge continuation. Clamped edge
+    // trees must not dislodge a ruin that has room for its full translation.
+    const all=[...this.map.entities].sort((a,b)=>Number(b.template==='StartingLocation')-Number(a.template==='StartingLocation')||
+      ((inside.get(b.id)??0)-(inside.get(a.id)??0)));
     const fallen=new Map(this.map.fallen.map(f=>[f.id,f]));
     for(const e of all){
       const old={...e},f=this.fault.movement(e.x,e.y),fp=FOOTPRINTS[e.template]?.size??[1,1,1];
@@ -217,7 +221,7 @@ export class QuakePlan {
       const margin=e.template==='StartingLocation'?1:0;
       const px=clamp(e.x+f.dx,margin-Math.min(...xs),W-1-margin-Math.max(...xs)),py=clamp(e.y+f.dy,margin-Math.min(...ys),H-1-margin-Math.max(...ys));
       e.x=px;e.y=py;
-      if(f.dx||f.dy){let found=false;
+      if(f.dx||f.dy||this.settings.mode==='slide'&&entityTiles(this.map,e,margin).some(i=>occupied[i])){let found=false;
         for(let radius=0;radius<=Math.max(W,H)&&!found;radius++)for(let yy=-radius;yy<=radius&&!found;yy++)for(let xx=-radius;xx<=radius&&!found;xx++){
           if(radius&&Math.abs(xx)!==radius&&Math.abs(yy)!==radius)continue;
           e.x=px+xx;e.y=py+yy;const tiles=entityTiles(this.map,e,margin);

@@ -6,7 +6,7 @@ No editor, generator, format, shared renderer or simulation files change in this
 
 Put **Quake** beside **Carve** and **Craterize** in the visually distinct forces group between Source and Remove (D203). Press and drag to paint a fault; ground reacts behind the cursor, and release completes the rupture. The left side moves by default. Show that side with a faint tint and let **X** flip it during the stroke. A fault through the start is red with “Start here”. This brush grammar supersedes the initial side-pick prototype.
 
-The small options row contains **Lift / Slide**, **Power**, **Sheer / Stepped**, **Side**, and **Try another**. Power controls displacement and shaking reach; stroke length controls the fault's extent. Selected Lift rises; the other side drops. Selected Slide moves along the stroke, the other side slips oppositely. A short stroke fades beyond its ends; a map-spanning fault moves its blocks through to the boundary. Strength uses Shift+scroll under D196; ordinary scroll zooms. Keep camera follow/shake in view options and honor reduced motion.
+The small options row contains **Lift / Slide**, **Power**, **Sheer / Stepped**, **Side**, and **Try another**. Power controls displacement and shaking reach; stroke length controls the fault's extent. Selected Lift rises; the other side drops. Selected Slide moves 3–20 tiles along the stroke's coherent heading, while the opposite bank stays on its old course. Short strokes retain full Power around their ends before fading outside the block. Strength uses Shift+scroll under D196; ordinary scroll zooms. Keep camera follow/shake in view options and honor reduced motion.
 
 ## One shared forces core
 
@@ -38,6 +38,8 @@ Carve's adapter advances its river head and owns its optional retained source. C
 Freeze geology at map load. Personality changes replace the force from its original ground; they do not change geology or stack a second event. A cancelled alternative restores the previously kept version. Seeds, settings, intent, final terrain, objects and water belong to the operation. Undo/redo/replay assign stored results, never re-simulate them.
 
 Expose `begin`, `update`, `end`, and `cancel` around that adapter. Each update replaces the intent inside one transaction; a worker's message cadence must never determine the saved terrain. Keep pen drawing independent of worker readiness, and retain subsequent strokes while the preceding result settles. Match the visible terrain's height/water bytes to each uploaded chunk before replacing its lighting. Share this plumbing rather than copying another event loop into each force.
+
+Let `ForceFrame` optionally carry source-tile provenance and previous-to-final offsets for terrain, water and object instances. Slide's forward transport supplies these directly. The shared view interpolates the real displacement over 240 ms, carries interrupted motion between revisions, and preserves the clock during water remeshing. Rigid tile faces avoid bending a whole greedy rectangle across the fault. A temporary solid surface fills the opening under the glide. Only the view uses fractional positions; saved terrain and objects remain integer. Clear interpolation on Esc/undo and snap to final positions under reduced motion. Test actual source-to-destination correspondence and identifiable ridge/object movement; changed-height counts cannot establish that Slide worked.
 
 ## Water and objects
 

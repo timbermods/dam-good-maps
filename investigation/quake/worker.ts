@@ -3,7 +3,7 @@ import { loadMap } from './maps';
 import { canonicalRun } from '../../src/core/sim/prefill';
 import { WaterSim } from '../../src/core/sim/water';
 import { operation,applyOperation,type QuakeOperation } from './operation';
-import { changedChunks,frameContext,makeChunk } from './meshes';
+import { changedChunks,frameContext,makeChunk,slideMotion,type SlideMotion } from './meshes';
 import { consequences } from './consequences';
 import { skyVisibility,shadowMap,objectCasters,tileData } from '../../src/render3d/light';
 import { entityView,soilView } from '../../src/render3d/model';
@@ -26,12 +26,15 @@ const yieldSlice=()=>new Promise<void>(r=>{if(++slices%4===0)setTimeout(r,0);els
 class Cancelled extends Error{}
 const check=(token:number)=>{if(token!==epoch)throw new Cancelled();};
 let checks:ReturnType<typeof consequences>|null=null;
-async function frame(reset=false,token=epoch,light=true){
- check(token);const context=frameContext(map),chunks=changedChunks(map,reset?null:last);
+async function frame(reset=false,token=epoch,light=true,motion?:SlideMotion){
+ // Keep tile faces separate until the glide has finished, including water
+ // settling remeshes. Zero travel preserves the view's current animation clock.
+ if(!motion&&plan?.settings.mode==='slide')motion={id:0,tiles:new Float32Array(map.W*map.H*3),objects:new Map()};
+ check(token);const context=frameContext(map),chunks=changedChunks(map,reset?null:last,motion);
  if(reset)send({type:'reset',W:map.W,H:map.H,name:map.name,rockLayers:map.rockLayers});
  // Geometry goes first: checks and lighting never delay the first visible ground change.
  for(const c of chunks){
-  check(token);const chunk=makeChunk(map,c.cx,c.cy,context,c.objects),buffers=new Set<ArrayBuffer>();
+  check(token);const chunk=makeChunk(map,c.cx,c.cy,context,c.objects,motion),buffers=new Set<ArrayBuffer>();
   const collect=(v:unknown):void=>{if(ArrayBuffer.isView(v))buffers.add(v.buffer as ArrayBuffer);else if(v&&typeof v==='object')for(const a of Object.values(v))collect(a);};collect(chunk);
   (postMessage as unknown as (m:unknown,t:Transferable[])=>void)({type:'chunk',chunk,epoch},[...buffers]);await yieldSlice();
  }
@@ -89,7 +92,7 @@ async function paint(token:number){
   const sim=new WaterSim(modelFor(map),map.water);
   for(let k=0;k<6;k++){check(token);sim.run(2);await yieldSlice();}
   map.water={depth:sim.D,contamination:sim.C};step=session.released&&revision===session.revision?8:7;
-  await frame(false,token,true);check(token);session.offset=p;session.applied=revision;
+  await frame(false,token,true,settings.mode==='slide'?slideMotion(p,session.offset,old):undefined);check(token);session.offset=p;session.applied=revision;
   send({type:'painted',revision,id:session.id});
   if(session.released&&revision===session.revision){
    series={base,settings,intent,nextSeed:settings.seed};await finish(token);brush=null;

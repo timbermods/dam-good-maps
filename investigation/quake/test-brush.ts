@@ -37,9 +37,9 @@ for(let seed=0;seed<cases;seed++){
 pass(`${cases} seeded random strokes: ${accepted} quakes, ${refused} explicit start refusals, zero silent failures`);
 
 const riverResults:Record<string,unknown>[]=[];
-for(const side of [1,-1] as const)for(const scarp of ['sheer','stepped'] as const)for(const diagonal of [false,true]){
+for(const power of [0,85,100])for(const side of [1,-1] as const)for(const scarp of ['sheer','stepped'] as const)for(const diagonal of [false,true]){
  const base=fixture('river',96),intent:Intent={side,path:diagonal?[{x:0,y:39},{x:95,y:57}]:[{x:0,y:48},{x:95,y:48}]};
- const settings={...DEFAULTS,mode:'slide' as const,power:85,scarp,seed:18},plan=quake(base,settings,intent),m=plan.map;
+ const settings={...DEFAULTS,mode:'slide' as const,power,scarp,seed:18},plan=quake(base,settings,intent),m=plan.map;
  assert.ok(plan.stats.channel>0);assert.equal(m.entities.filter(e=>e.template==='WaterSource').length,7);
  let live=snapshot(base);for(let k=1;k<=8;k++){live=reveal(plan,live,k);const sim=new WaterSim(modelFor(live),live.water).run(12);live.water={depth:sim.D,contamination:sim.C};}
  const sim=new WaterSim(modelFor(live),live.water).run(400);const wet=canonicalSettle(modelFor(m));
@@ -54,7 +54,7 @@ for(const side of [1,-1] as const)for(const scarp of ['sheer','stepped'] as cons
  assert.ok(connected(sim.D),`live river must flow through ${side}/${scarp}/${diagonal}`);
  assert.ok(connected(wet.depth),`canonical river must flow through ${side}/${scarp}/${diagonal}`);
  const downstream=Array.from({length:20},(_,y)=>Array.from(wet.depth.slice(y*96,(y+1)*96)).filter(v=>v>.02).length);
- assert.ok(downstream.every(n=>n>=3),'old downstream course stays wet');riverResults.push({side,scarp,diagonal,channel:plan.stats.channel,ticks:wet.ticks,settled:wet.settled});
+ assert.ok(downstream.every(n=>n>=3),'old downstream course stays wet');riverResults.push({power,side,scarp,diagonal,channel:plan.stats.channel,ticks:wet.ticks,settled:wet.settled});
 }
-pass('Slide rivers stay connected and wet downstream, live and canonical, on both sides and scarp styles');
+pass('24 Slide rivers stay connected and wet downstream, live and canonical, at low/high Power on both sides and scarp styles');
 writeFileSync('captures/brush-checks.json',JSON.stringify({passed,random:{cases,accepted,refused,ms:performance.now()-t0},rivers:riverResults},null,2)+'\n');

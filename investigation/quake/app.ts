@@ -6,7 +6,7 @@ import { sceneUniforms,terrainMaterial,waterMaterial,objectMaterial,tileTexture,
 import { MAPS } from './maps';
 import type { Chunk,Geometry } from './meshes';
 import type { QuakeOperation } from './operation';
-import { strokeReason,clamp,type Settings,type Point,type Intent } from './engine';
+import { strokeReason,clamp,slideTiles,type Settings,type Point,type Intent } from './engine';
 import { FaultBrush } from './brush';
 import { Rupture,type Head } from './effects';
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -27,15 +27,16 @@ groundMat.fragmentShader='uniform float rockBeds[23];\n'+groundMat.fragmentShade
 // The immediate local lurch follows the pen on the GPU; the worker supplies
 // lasting whole-level ground behind it. No per-vertex search along the path.
 const pen={value:new THREE.Vector4()},penForce={value:new THREE.Vector2()};
+const glideClock={value:0},glideEnabled={value:1};
 for(const material of [groundMat,waterMat,objectsMat]){
  material.uniforms.pen=pen;material.uniforms.penForce=penForce;
- material.vertexShader='uniform vec4 pen; uniform vec2 penForce;\n'+material.vertexShader.replace('vWorld = w.xyz;',`
+ material.uniforms.glideClock=glideClock;material.uniforms.glideEnabled=glideEnabled;
+ material.vertexShader='attribute vec4 slideFrom; uniform float glideClock; uniform float glideEnabled; uniform vec4 pen; uniform vec2 penForce;\n'+material.vertexShader.replace('vWorld = w.xyz;',`
+ w.xyz+=slideFrom.xyz*(1.0-smoothstep(0.0,240.0,glideClock-slideFrom.w))*glideEnabled;
  vec2 q=vec2(w.x,-w.z)-pen.xy;
  float wake=(1.0-smoothstep(1.0,7.0,length(q)))*(1.0-smoothstep(0.0,2.0,dot(q,pen.zw)));
  float side=smoothstep(-.4,.4,(pen.z*q.y-pen.w*q.x)*sign(penForce.x))-.35;
  w.y+=wake*side*abs(penForce.x)*(1.0-penForce.y);
- w.x+=wake*side*abs(penForce.x)*penForce.y*pen.z;
- w.z-=wake*side*abs(penForce.x)*penForce.y*pen.w;
  vWorld = w.xyz;`);
 }
 const chunks=new Map<string,THREE.Group>(),uploads:(Chunk|{checkpoint:{heights:Uint8Array}}|{lighting:Lighting})[]=[];
@@ -53,6 +54,8 @@ const surge=new Rupture();scene.add(surge.group);
 let W=0,H=0,heights=new Uint8Array(),keep=new Uint8Array(),busy=true,active=false,mode:'lift'|'slide'='lift',path:Point[]=[],effectPath:Point[]=[];
 let steps=0,epoch=0,top=false,settling=false,head:Head|null=null,startedAt=0;
 let canReroll=false,historyIndex=0,cachedAfterIndex=-1;
+let tileGlides=new Float32Array(),priorGlides=new Float32Array(),motionId=-1;
+let glideUploads=0,maxGlide=0;
 let savedRun:unknown=null,lastOperation:QuakeOperation|null=null,finishCache=false;
 interface Drawing {brush:FaultBrush;settings:Settings;id:number;started:boolean;ended:boolean;pickHeights:Uint8Array;keep:Uint8Array;refused:string|null;sentAt:number}
 let drawing:Drawing|null=null,painting:Drawing|null=null,strokeId=0,sideChoice:1|-1=1;
@@ -100,8 +103,11 @@ function updateReach(){
 }
 input('reach').onchange=updateReach;
 function restoreView(c:Cache|null){
-  if(!c)return;uploads.length=0;for(const g of chunks.values()){scene.remove(g);dispose(g);}chunks.clear();
-  for(const [key,g]of c.groups){chunks.set(key,g);scene.add(g);}heights=c.heights.slice();setLighting(c.lighting);
+  if(!c)return;tileGlides.fill(0);motionId=-1;uploads.length=0;for(const g of chunks.values()){scene.remove(g);dispose(g);}chunks.clear();
+  for(const [key,g]of c.groups){
+    g.traverse(o=>{if(o instanceof THREE.Mesh){const a=o.geometry.getAttribute('slideFrom');if(a){a.array.fill(0);a.needsUpdate=true;}}});
+    chunks.set(key,g);scene.add(g);
+  }heights=c.heights.slice();setLighting(c.lighting);
 }
 function pruneCaches(){
   const oldInstances=new Set(retainedInstances),old=new Set(retained);
@@ -119,6 +125,22 @@ function rollbackCaches(){
   priorCaches=null;pruneCaches();
 }
 function upload(c:Chunk){
+  if(c.motionId!==undefined&&c.motionId!==motionId){motionId=c.motionId;priorGlides=tileGlides.slice();}
+  const now=performance.now(),prior=c.motionId===undefined?tileGlides:priorGlides;
+  const carry=(x:number,z:number,delta:ArrayLike<number>)=>{
+    const xx=clamp(Math.floor(x+delta[0]),0,W-1),yy=clamp(Math.floor(-z-delta[2]),0,H-1),i=(yy*W+xx)*4;
+    const t=clamp((now-prior[i+3])/240,0,1),left=1-t*t*(3-2*t);
+    // Water/lighting remeshes retain the remaining motion and original clock.
+    if(!delta[0]&&!delta[1]&&!delta[2])return [prior[i]||0,prior[i+1]||0,prior[i+2]||0,prior[i+3]||0];
+    return [delta[0]+(prior[i]||0)*left,delta[1]+(prior[i+1]||0)*left,delta[2]+(prior[i+2]||0)*left,now];
+  };
+  const attribute=(d:Geometry)=>{
+    const a=new Float32Array(d.positions.length/3*4);
+    for(let v=0;v<d.positions.length;v+=12){let x=0,z=0;for(let k=0;k<4;k++){x+=d.positions[v+k*3]/4;z+=d.positions[v+k*3+2]/4;}
+      x-=Math.sign(d.normals[v])*.001;z-=Math.sign(d.normals[v+2])*.001;
+      const q=carry(x,z,d.glide?.subarray(v,v+3)??[0,0,0]);for(let k=0;k<4;k++)a.set(q,(v/3+k)*4);
+    }return new THREE.BufferAttribute(a,4);
+  };
   // Match shader height/water bytes to the chunk on screen. Stale height bytes
   // classify newly lowered ground as a cave and turn it almost black.
   if(lighting&&allCaches().some(saved=>saved?.lighting===lighting))setLighting({...lighting,tiles:lighting.tiles.slice()});
@@ -133,10 +155,16 @@ function upload(c:Chunk){
     scene.remove(group);group=group.clone(true);scene.add(group);chunks.set(c.key,group);
   }
   if(!group){group=new THREE.Group();scene.add(group);chunks.set(c.key,group);}
+  if(c.floor&&motion()){
+    const prior=group.getObjectByName('slide-floor') as THREE.Mesh|undefined;if(prior){if(!retained.has(prior.geometry))prior.geometry.dispose();group.remove(prior);}
+    const g=geometry(c.floor);g.setAttribute('slideFrom',new THREE.BufferAttribute(new Float32Array(c.floor.positions.length/3*4),4));
+    const floor=new THREE.Mesh(g,groundMat);floor.name='slide-floor';floor.userData.until=now+260;floor.renderOrder=-1;group.add(floor);
+  }
   for(const name of ['terrain','water']){
     const old=group.getObjectByName(name) as THREE.Mesh|undefined;
     if(old){if(!retained.has(old.geometry))old.geometry.dispose();group.remove(old);}
-    const mesh=new THREE.Mesh(geometry(name==='terrain'?c.terrain:c.water),name==='terrain'?groundMat:waterMat);
+    const d=name==='terrain'?c.terrain:c.water,g=geometry(d);g.setAttribute('slideFrom',attribute(d));
+    const mesh=new THREE.Mesh(g,name==='terrain'?groundMat:waterMat);mesh.frustumCulled=false;
     mesh.name=name;mesh.renderOrder=name==='water'?2:0;group.add(mesh);
   }
   if(c.objects){
@@ -144,14 +172,25 @@ function upload(c:Chunk){
     const objects=new THREE.Group();objects.name='objects';
     for(const o of c.objects){
       const m=new THREE.InstancedMesh(geometry(o.geometry),objectsMat,o.count);m.instanceMatrix.array.set(o.matrices);m.instanceMatrix.needsUpdate=true;
+      const a=new Float32Array(o.count*4);
+      for(let k=0;k<o.count;k++)a.set(carry(o.matrices[k*16+12],o.matrices[k*16+14],o.glide?.subarray(k*3,k*3+3)??[0,0,0]),k*4);
+      m.geometry.setAttribute('slideFrom',new THREE.InstancedBufferAttribute(a,4));m.frustumCulled=false;
       m.instanceColor=new THREE.InstancedBufferAttribute(o.colors,3);m.computeBoundingSphere();objects.add(m);
     }group.add(objects);
   }
+  // Update only after all mesh attributes have read the previous visible pose.
+  for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+    const xx=cx*32+x,yy=cy*32+y;if(xx>=W||yy>=H)continue;
+    const d=c.travel?.subarray((y*32+x)*3,(y*32+x)*3+3)??[0,0,0];
+    tileGlides.set(carry(xx+.5,-yy-.5,d),(yy*W+xx)*4);
+    if(c.travel){const distance=Math.hypot(d[0],d[2]);maxGlide=Math.max(maxGlide,distance);if(distance)glideUploads++;}
+  }
+  canvas.dataset.glideTiles=String(maxGlide);canvas.dataset.glideUploads=String(glideUploads);
 }
 function instruction(){notice.textContent=drawing?'Keep painting · X flips the side · Esc reverts':'Paint a fault across the land.';}
 worker.onmessage=(event:MessageEvent)=>{
  const m=event.data;if(m.epoch<epoch)return;epoch=m.epoch;
- if(m.type==='reset'){W=m.W;H=m.H;releaseCaches();uploads.length=0;for(const g of chunks.values()){dispose(g);scene.remove(g);}chunks.clear();groundMat.uniforms.rockBeds.value=m.rockLayers;resetView();}
+ if(m.type==='reset'){W=m.W;H=m.H;tileGlides=new Float32Array(W*H*4);priorGlides=tileGlides.slice();motionId=-1;glideUploads=maxGlide=0;releaseCaches();uploads.length=0;for(const g of chunks.values()){dispose(g);scene.remove(g);}chunks.clear();groundMat.uniforms.rockBeds.value=m.rockLayers;resetView();}
  if(m.type==='chunk')uploads.push(m.chunk);
  if(m.type==='checkpoint')uploads.push({checkpoint:{heights:heights.slice()}});
  if(m.type==='lighting')uploads.push({lighting:m});
@@ -159,7 +198,7 @@ worker.onmessage=(event:MessageEvent)=>{
   canReroll=!!m.canReroll;historyIndex=m.undo;heights=m.heights;keep=m.keep;head=m.head;effectPath=m.path;
   if(m.seed!==null)$('seed-label').textContent='Personality '+m.seed;
   if(!drawing)surge.set(head,effectPath,heights,W);
-  if(m.metrics){steps=m.metrics.steps;$('metrics').textContent=m.metrics.changed.toLocaleString()+' tiles moved · '+m.metrics.toppled+' trees toppled';}
+  if(m.metrics){steps=m.metrics.steps;$('metrics').textContent=(mode==='slide'?m.metrics.transported:m.metrics.changed).toLocaleString()+' tiles moved · '+m.metrics.toppled+' trees toppled';}
   else $('metrics').textContent='';
   $<HTMLButtonElement>('undo').disabled=!active&&!m.undo;$<HTMLButtonElement>('redo').disabled=active||!m.redo;
  }
@@ -191,7 +230,7 @@ function load(){
 }
 select.onchange=load;$('reset').onclick=load;
 for(const value of ['lift','slide'] as const)$(value).onclick=()=>{mode=value;for(const a of ['lift','slide'])$(a).setAttribute('aria-pressed',String(a===mode));powerLabel();instruction();};
-function powerLabel(){const p=Number(input('power').value);$('power-label').textContent=(mode==='lift'?1+Math.round(p*.075):1+Math.round(p*.13))+(mode==='lift'?' levels':' tiles');}
+function powerLabel(){const p=Number(input('power').value);$('power-label').textContent=(mode==='lift'?1+Math.round(p*.075):slideTiles(p))+(mode==='lift'?' levels':' tiles');}
 input('power').oninput=powerLabel;
 let nextSeed=crypto.getRandomValues(new Uint32Array(1))[0];
 function settings():Settings{return {mode,power:Number(input('power').value),scarp:$<HTMLSelectElement>('scarp').value as Settings['scarp'],seed:nextSeed++>>>0};}
@@ -246,7 +285,11 @@ function drawLine(points:Point[],side:1|-1,bad:boolean){
 function paintFrame(dt:number,t:number){
  penForce.value.set(0,0);
  if(!active&&!busy&&!uploads.length&&!finishCache){
-  const d=pendingStrokes.shift()??(drawing&&!drawing.started&&!drawing.refused?drawing:null);if(d)startPaint(d);
+  const candidate=drawing?.brush.intent().path;
+  // Slide needs the first movement's heading, not a guessed tap direction.
+  // A true tap is queued on release and still produces one full quake.
+  const headingReady=drawing?.settings.mode!=='slide'||!!candidate&&candidate.some(p=>Math.hypot(p.x-candidate[0].x,p.y-candidate[0].y)>.01);
+  const d=pendingStrokes.shift()??(drawing&&!drawing.started&&!drawing.refused&&headingReady?drawing:null);if(d)startPaint(d);
  }
  if(!drawing)return;const d=drawing;d.brush.advance(dt);const intent=d.brush.intent();path=intent.path;
  const reason=d.refused??strokeReason(path,d.keep,W);
@@ -296,6 +339,7 @@ new ResizeObserver(()=>{gl.setSize(canvas.clientWidth,canvas.clientHeight,false)
 let previous=performance.now(),fpsAt=previous,frames=0,frameMs:number[]=[],effectTime=0;
 const measurements:number[]=[];
 function animate(t:number){
+ glideClock.value=performance.now();glideEnabled.value=motion()?1:0;
  requestAnimationFrame(animate);const dt=Math.min(.05,(t-previous)/1000);frameMs.push(t-previous);if(active)measurements.push(t-previous);previous=t;frames++;
  const hadUploads=uploads.length>0,at=performance.now();let count=0;while(uploads.length&&count<2&&performance.now()-at<3){
   const item=uploads.shift()!;if('lighting' in item)setLighting(item.lighting);else if('checkpoint' in item){if(lighting){beforeCache={groups:new Map(chunks),...item.checkpoint,lighting};historyCaches.set(0,beforeCache);retain(beforeCache);}}else upload(item);
@@ -309,13 +353,24 @@ function animate(t:number){
  if(active&&head&&input('follow').checked&&motion()&&!settling){const target=new THREE.Vector3(head.x,head.z,-head.y),offset=target.sub(controls.target).multiplyScalar(1-Math.exp(-dt*1.4));controls.target.add(offset);camera.position.add(offset);}
  if(motion())effectTime+=dt;uniforms.time.value=motion()?effectTime:0;surge.update(effectTime,motion()&&active&&!settling);controls.update();
  for(const [key,g] of chunks){const [cx,cy]=key.split(',').map(Number),near=head&&Math.hypot(cx*32+16-head.x,cy*32+16-head.y)<18+Number(input('power').value)*.5;
+  const floor=g.getObjectByName('slide-floor') as THREE.Mesh|undefined;if(floor&&t>=floor.userData.until){g.remove(floor);if(!retained.has(floor.geometry))floor.geometry.dispose();}
   g.position.y=motion()&&active&&!settling&&near?Math.sin(t*.04+cx+cy)*.12:0;}
  const shake=motion()&&input('shake').checked&&active&&!settling ? .12 : 0;camera.position.x+=Math.sin(t*.045)*shake;camera.position.y+=Math.cos(t*.061)*shake;gl.render(scene,camera);camera.position.x-=Math.sin(t*.045)*shake;camera.position.y-=Math.cos(t*.061)*shake;
  if(t-fpsAt>=1000){const sorted=frameMs.sort((a,b)=>a-b);$('fps').textContent=Math.round(frames*1000/(t-fpsAt))+' fps · p95 '+Math.round(sorted[Math.floor(sorted.length*.95)]??0)+' ms';frameMs=[];frames=0;fpsAt=t;}
  if(!painting&&!busy&&!uploads.length&&active&&!settling&&t>=startedAt+Math.max(1,steps)*150)send({type:'advance'});
 }
 requestAnimationFrame(animate);powerLabel();
+function glideSample(){
+ const now=performance.now();
+ for(const g of chunks.values()){
+  const mesh=g.getObjectByName('terrain') as THREE.Mesh|undefined,a=mesh?.geometry.getAttribute('slideFrom'),p=mesh?.geometry.getAttribute('position');if(!a||!p)continue;
+  for(let k=0;k<a.count;k+=4){const dx=a.getX(k),dz=a.getZ(k),distance=Math.hypot(dx,dz),u=clamp((now-a.getW(k))/240,0,1);
+   if(distance>=2&&u>0&&u<1)return {distance,progress:u,remaining:distance*(1-u*u*(3-2*u)),enabled:glideEnabled.value,target:[p.getX(k),p.getZ(k)]};
+  }
+ }return null;
+}
 Object.assign(window,{quake:{get operation(){return lastOperation;},get bundle(){return savedRun;},get state(){return {steps,active,busy,settling,queued:uploads.length,finishCache,historyIndex,pending:pendingStrokes.length,drawing:!!drawing,W,H,mode,head,path,heights,measurements};},
+ get glide(){return glideSample();},
  capture:()=>{gl.render(scene,camera);const copy=document.createElement('canvas');copy.width=800;copy.height=Math.round(800*canvas.height/canvas.width);copy.getContext('2d')!.drawImage(canvas,0,0,copy.width,copy.height);return copy.toDataURL('image/jpeg',.78);},
  start:(settings:Settings,intent:Intent)=>begin(intent.side,{settings,intent}),
  project:(x:number,y:number)=>{const p=new THREE.Vector3(x+.5,heights[Math.floor(y)*W+Math.floor(x)]+.1,-y-.5).project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};}

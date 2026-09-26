@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { fixture } from './maps';
 import { DEFAULTS,quake,faultReason,snapshot,hash,slideTiles,paintWater,type Intent } from './engine';
 import { blockObject } from '../../src/core/format/entities';
+import { slideMotion,makeChunk,frameContext } from './meshes';
 
 const base=fixture('plain',64),cases=1600;
 // Spatially varying ground: detecting any changed height cannot prove a slide.
@@ -47,4 +48,15 @@ for(const power of [0,10,25,50,75,100])for(const scarp of ['sheer','stepped'] as
  assert.deepEqual(quake(m,s,intent).map,p.map);
 }
 console.log('PASS ridge profiles and named ruins move 3–20 tiles at all six Powers, both sides and scarp styles; X conserves water');
+const viewBase=fixture('slide',128),viewPlan=quake(viewBase,{...DEFAULTS,mode:'slide',power:100,seed:18},{side:1,path:[{x:0,y:64},{x:127,y:64}]}),motion=slideMotion(viewPlan,null,viewBase);
+const chunk=makeChunk(viewPlan.map,1,2,frameContext(viewPlan.map),true,motion);
+let movingQuads=0;
+for(let v=0;v<chunk.terrain.positions.length;v+=12){
+ const delta=Array.from(chunk.terrain.glide!.slice(v,v+3));
+ for(let k=1;k<4;k++)assert.deepEqual(Array.from(chunk.terrain.glide!.slice(v+k*3,v+k*3+3)),delta,'a whole face glides rigidly');
+ if(Math.hypot(delta[0],delta[2])>=20)movingQuads++;
+}
+assert.ok(movingQuads>100);assert.ok(chunk.objects!.some(o=>o.glide?.some(v=>Math.abs(v)>=20)));
+assert.ok(chunk.floor,'moving land has solid continuation underneath');
+console.log('PASS transferred terrain quads and object instances carry real 20-tile glide vectors');
 writeFileSync('captures/slide-checks.json',JSON.stringify({cases,accepted,refused,minFullOffsetTiles:minFull,minActualToExpected:minActual,powerRange:[slideTiles(0),slideTiles(100)],ms:performance.now()-start},null,2)+'\n');
