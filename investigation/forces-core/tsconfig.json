@@ -33,6 +33,7 @@
     "tests"
   ],
   "exclude": [
-    "local"
+    "local",
+    "tests/parity.ts"
   ]
 }

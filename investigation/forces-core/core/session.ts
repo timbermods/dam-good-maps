@@ -36,7 +36,7 @@ export class ForceSession {
   const a=this.active;if(!a||!a.plan)return;const token=this.slicer.epoch;
   a.step++;const previous=this.map;this.map=reveal(a.plan,previous,a.step);
   if(a.plan instanceof quake.QuakePlan)await liveWater(this.map,this.map,12,this.slicer,token);
-  else if(!(a.plan instanceof carve.CarveRun)&&!(a.plan instanceof crater.ImpactPlan))await liveWater(previous,this.map,8,this.slicer,token);
+  else if(!(a.plan instanceof carve.CarveRun))await liveWater(previous,this.map,8,this.slicer,token);
   trimRock(this.map);await this.frame();
   if(complete(a.plan,a.step))await this.finish();
  }
@@ -53,15 +53,18 @@ export class ForceSession {
  }
  async finish(){
   const a=this.active;if(!a?.plan)return;const token=this.slicer.epoch;
+  try {
   await this.emit({type:'settling',epoch:token});
   const water=await settle(this.map,a.plan,this.slicer,token,async ticks=>{await this.frame();await this.emit({type:'status',text:'Water finding its level…',ticks,epoch:token});});
-  this.slicer.check(token);reconcile(this.map);trimRock(this.map);
-  const problem=startProblem(this.map);if(problem)throw Error(problem+' · force reverted');
+  this.slicer.check(token);reconcile(this.map,a.before);trimRock(this.map);
+  const problem=startProblem(this.map);if(problem&&(a.request.verb==='quake'||problem==='Start needs flat ground'))throw Error(problem+' · force reverted');
+  if(problem)await this.emit({type:'warning',text:problem,epoch:token});
   const op=operation(a.before,this.map,a.request,a.step,water,a.replaces);
   await this.frame();this.slicer.check(token);
   this.past.push({op,base:snapshot(a.base),nextSeed:a.request.settings.seed??0});this.future=[];this.active=null;
   await this.frame({type:'frame',metadataOnly:true});await this.emit({type:'operation',op,epoch:token});
-  await this.emit({type:'finished',...water,epoch:token});
+  await this.emit({type:'finished',...water,warning:problem,epoch:token});
+  }catch(e){if(!(e instanceof Cancelled))this.cancel();throw e;}
  }
  cancel(){if(this.active){this.slicer.cancel();this.map=snapshot(this.active.before);this.active=null;return true;}return false;}
  undo(){if(this.cancel())return;if(this.past.length){const e=this.past.pop()!;this.map=applyOperation(this.map,e.op,true);this.future.push(e);}}
@@ -74,7 +77,9 @@ export class ForceSession {
   if(raw?.format!=='dgm-forces'||raw.version!==1||!Array.isArray(raw.operations)||raw.operations.length>10000)throw Error('Invalid forces project');
   let m=storedMap(raw.base);const entries:Entry[]=[];
   for(const op of raw.operations as ForceOperation[]){
-   const prior=entries.at(-1),base=op.params?.replaces&&op.params.replaces===prior?.op.params.id?prior.base:snapshot(m);
+   const prior=entries.at(-1);
+   if(op.params?.replaces&&op.params.replaces!==prior?.op.params.id)throw Error('Invalid variation predecessor');
+   const base=op.params?.replaces&&op.params.replaces===prior?.op.params.id?prior.base:snapshot(m);
    m=applyOperation(m,op);const seed=raw.nextSeeds?.[entries.length]??op.params.request.settings.seed??0;
    if(!Number.isInteger(seed)||seed<0||seed>0xffffffff)throw Error("Invalid variation seed");
    entries.push({op,base,nextSeed:seed});

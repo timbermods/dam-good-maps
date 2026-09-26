@@ -21,5 +21,5 @@ export const OPTIONS:Record<Verb,Option[]>={
   {key:'flows',label:'Flows',choices:[['light','Light'],['heavy','Heavy']]},{key:'ridges',label:'Ridges',toggle:true}],
  quake:[
   {key:'mode',label:'Mode',choices:[['lift','Lift'],['slide','Slide']]},power,
-  {key:'scarp',label:'Scarp',choices:[['sheer','Sheer'],['stepped','Stepped']]}]
+  {key:'scarp',label:'Scarp',choices:[['sheer','Sheer'],['stepped','Stepped']]},{key:'side',label:'Side',choices:[['1','Left'],['-1','Right']]}]
 };

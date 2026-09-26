@@ -28,11 +28,13 @@ export function topple(e:EntitySpec,fallen:Fallen[],f:Fallen){
  e.components={...e.components,LivingNaturalResource:{IsDead:true}};delete e.raw;ride(e,f.z);
 }
 /** Zones and displacement are verb-specific; persistence and support are shared. */
-export function reconcile(m:ForceMap):void {
+export function reconcile(m:ForceMap,before?:ForceMap):void {
  const ids=new Set(m.entities.map(e=>e.id));
  m.fallen=m.fallen.filter(f=>ids.has(f.id)).map(f=>({...f,z:m.heights[Math.floor(f.y)*m.W+Math.floor(f.x)]}));
  for(const e of m.entities){
   const tiles=entityTiles(m,e);if(!tiles.length)continue;
+  const old=before?.entities.find(o=>o.id===e.id);
+  if(before&&old&&old.x===e.x&&old.y===e.y&&tiles.every(i=>before.heights[i]===m.heights[i]))continue;
   // Keep the force's explicit destruction and footprint policies. All survivors
   // follow their supported ground (never retain stale raw Coordinates).
   if(tiles.every(i=>m.heights[i]===m.heights[tiles[0]]))ride(e,m.heights[tiles[0]]);

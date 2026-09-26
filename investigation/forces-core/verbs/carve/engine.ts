@@ -80,7 +80,7 @@ export class CarveRun {
     this.initialWater=input.water.depth.slice();this.intent={...intent};this.seed=mapSeed(input);this.character=new RiverCharacter(input,settings,this.seed,intent.origin,intent.end);this.previewBed=new Uint8Array(N).fill(255);
     let sourceId='carve-source-'+intent.origin+'-'+this.seed.toString(16);while(input.entities.some(e=>e.id===sourceId))sourceId+='-next';this.sourceId=sourceId;this.original=input.heights.slice();this.keep=protectedGround(input);this.course=new Course(input,settings,intent,this.character);
     if(this.keep[intent.origin]||(settings.mode==='aim'&&this.keep[intent.end!]))throw new Error('Choose a point outside the start’s protected ground');
-    this.map={...input,lava:input.lava?.slice(),heights:input.heights.slice(),entities:plainEntities(input.entities),water:{depth:input.water.depth.slice(),contamination:input.water.contamination.slice()}};
+    this.map={...input,...(input.lava?{lava:input.lava.slice()}:{}),heights:input.heights.slice(),entities:plainEntities(input.entities),water:{depth:input.water.depth.slice(),contamination:input.water.contamination.slice()}};
     this.sim=new WaterSim(modelFor(input),input.water);this.target=input.heights.slice();this.sign=new Int8Array(N);this.wear=new Float64Array(N);
     this.channel=new Uint8Array(N);this.visited=new Uint16Array(N);this.born=new Uint16Array(N);
     const x=intent.origin%input.W,y=Math.floor(intent.origin/input.W),p=settings.power/100;

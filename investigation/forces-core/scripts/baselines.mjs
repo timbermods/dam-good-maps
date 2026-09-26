@@ -5,10 +5,12 @@ import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),repo=path.resolve(root,'../..');
 const pins=JSON.parse(fs.readFileSync(path.join(root,'SOURCES.json'),'utf8'));
 const ported=process.argv.includes('--ported'),only=process.argv.find(v=>v.startsWith('--verb='))?.slice(7);
+const prepareOnly=process.argv.includes('--prepare');const executed=[];
 const tests={carve:['test.ts','test-course.ts','test-worker.ts'],craterize:['test.ts','test-worker.ts'],erupt:['test.ts','test-morphology.ts','test-water-rock.ts','test-worker.ts'],quake:['test.ts','test-brush.ts','test-slide.ts','test-worker.ts','test-maps.ts']};
 const dir=path.join(root,'local',ported?'ported':'baseline');
 for(const [verb,pin] of Object.entries(pins.prototypes)){
  if(only&&only!==verb)continue;
+ try{execFileSync('git',['cat-file','-e',pin+'^{commit}'],{cwd:repo,stdio:'ignore'});}catch{execFileSync('git',['fetch','origin',pin],{cwd:repo,stdio:'inherit'});}
  const cwd=path.join(dir,verb);fs.mkdirSync(path.join(cwd,'captures'),{recursive:true});fs.mkdirSync(path.join(cwd,'.cache'),{recursive:true});
  const names=execFileSync('git',['ls-tree','-r','--name-only',pin,'investigation/'+verb],{cwd:repo,encoding:'utf8'}).trim().split('\n');
  for(const file of names){
@@ -33,8 +35,11 @@ for(const [verb,pin] of Object.entries(pins.prototypes)){
   }
   fs.writeFileSync(dest,s);
  }
+ if(prepareOnly)continue;
  for(const test of tests[verb]){
   console.log('\n'+(ported?'PORTED ':'BASELINE ')+verb+'/'+test);
-  const r=spawnSync(process.execPath,['run.mjs',test],{cwd,stdio:'inherit'});if(r.status)process.exit(r.status);
+  const r=spawnSync(process.execPath,['run.mjs',test],{cwd,stdio:'inherit'});if(r.status)process.exit(r.status);executed.push(verb+'/'+test);
  }
 }
+
+if(!prepareOnly){fs.mkdirSync(path.join(root,'checks'),{recursive:true});fs.writeFileSync(path.join(root,'checks',ported?'legacy-ported.json':'legacy-baseline.json'),JSON.stringify({sources:pins.prototypes,passed:executed,bridge:'D164: starting trees API renamed to wood; zero-resource assertions unchanged.'},null,2)+'\n');}

@@ -2,6 +2,7 @@ export class Cancelled extends Error {}
 /** MessageChannel avoids accumulated Windows timer floors, with periodic task yields. */
 export class Slicer {
  epoch=0;maxSliceMs=0;private since=performance.now();private count=0;
+ begin(){this.since=performance.now();}
  cancel(){this.epoch++;}
  check(token:number){if(token!==this.epoch)throw new Cancelled();}
  async yield(token:number){

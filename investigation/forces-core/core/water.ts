@@ -14,7 +14,7 @@ export async function liveWater(previous:ForceMap,next:ForceMap,ticks:number,sli
 export async function settle(m:ForceMap,p:Plan|null,slicer:Slicer,token:number,onProgress?:(ticks:number)=>Promise<void>){
  // Preserve the prototypes' deliberate initial conditions: Crater retains its
  // lake volume; Carve retains simulated oxbows; Erupt and Quake use canonical prefill.
- const retained=p instanceof ImpactPlan?new SettleRun(new WaterSim(modelFor(m),m.water)):null;
+ const retained=p instanceof ImpactPlan?new SettleRun(new WaterSim(modelFor(m),p.before.water)):null;
  const run=retained??(p instanceof CarveRun?carveWaterRun(m,p):canonicalRun(modelFor(m)));
  const warm=!retained?new WaterSim(modelFor(m),m.water):null;
  let result:any=null;

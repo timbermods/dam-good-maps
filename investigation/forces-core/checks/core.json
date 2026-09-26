@@ -13,7 +13,8 @@
     "Slide transports volcanic strata; Lift moves strata vertically; no bit reaches the empty top layer",
     "The current Carve bends around Erupt’s hard lava, with fewer lava crossings",
     "Live Erupt ends in byte-exact repository canonical water",
-    "Invalid project numbers and corrupted result patches are rejected before typed-array narrowing"
+    "Invalid project numbers and corrupted result patches are rejected before typed-array narrowing",
+    "Carve cuts through Quake’s cliff and both forces replay exactly in order"
   ],
   "interplay": {
     "hardLavaStations": 13,
