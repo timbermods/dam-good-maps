@@ -512,3 +512,115 @@ pale wood, and apart from badwater sources" checked the pit 0.05 (luma) lighter 
 now "…: a dark pit, darker than badwater, …" and checks the pit at least 5 L* darker than badwater
 (5.4 today). Every capture was made again on the current maps (dev's start and edge rules changed
 them), with the before site built from current `dev`.
+
+### Waterfalls with shape and volume (2026-09-26, branch `look/waterfalls`, D201)
+
+Kyler: falls looked flat, streaky sheets painted on each block's face that cling to the stone. Built
+in the Standard look only; Map look 2's High mode adds mist, spray and splash rings later (D147).
+
+- **A fall leaves the lip and arcs down** (`src/render3d/falls.ts`): wherever water pours over a side
+  into water at least 0.3 lower, a curved translucent ribbon replaces the curtain. Its outer face is a
+  parabola from the brink (level there) to the pool; its inner face runs a lip's depth inside it, so
+  it has thickness, closed at a free end. Lips side by side pouring into the same water share their
+  corners, so a wide fall is one ribbon. Streaks rush down it, stretching as the water speeds up.
+  *(Superseded in part by D215, below: a corner of the lip was a free end, which split falls at
+  L-shaped lips.)*
+- **Further for stronger flow:** the view carries no flow, and needs none. At a drop the simulation
+  empties the lip tile every substep, so the flow over a side is the lip's depth over the substep,
+  shared among the sides it pours over by head. On generated maps this matches the simulation's own
+  outflow within 5% at nine falls in ten (tested; most are exact). The reach grows with flow and drop,
+  softly limited so the fall lands in its pool; a thin trickle also narrows.
+- **Foam at the lip, whitewater where it lands:** the ribbon breaks white over the brink, with a
+  ragged foam line on the water at the brink; a splash lies on the pool at the impact line, spreading
+  out past it. The old band of foam along the foot of the cliff is gone. *(D215, below: more of it.)*
+- **Cascades:** every step is its own fall, with its own lip, arc and splash, each kept on its step.
+- **Badwater falls** take badwater's body, streaks and foam from the shared palette, murky and nearly
+  opaque; they stay far darker than clean falls in greyscale and with colour blindness (tested).
+- **Cheap:** one instance (16 floats) per fall of one small shared template, bent into its arc by the
+  vertex shader; a chunk's falls are listed when its water is meshed, so only changed chunks are
+  listed again. From afar (a tile under 6 pixels), and always in the light look, a fall is a single
+  sheet. A changed tile now dirties the chunks two tiles round it (a fall reads its neighbours'
+  lips), not one. *(D215, below: three.)*
+- **Frame time (information),** Highlands 2 at 256² (141 falls) and a stress hillside at 256² (1,536
+  falls), before and after: on the RTX 4080 every orbit stays at the display's 129 fps, the render
+  call 0.2–0.3 ms, and the water's remesh 5.2 → 4.5 ms for every chunk, 1.9 ms for one tile, both
+  before and after; on the integrated Radeon with the CPU slowed 4×, still 128 fps, GPU time 5.7 ms
+  (unchanged) on Highlands 2 and 6.0 → 6.4 ms on the stress hillside, the remesh of every chunk
+  28.5 → 25.5 ms and of one tile 10 ms, as before.
+- **Tests changed (D148):** three tests read a fall as a curtain. `look.test.ts`'s "marks shores and
+  the foot of falls, and the drop of each fall" is now "marks shores, the foot of falls and their
+  brinks, and the drop of each fall" and reads the drop from the fall; `render3d.test.ts`'s water
+  meshing test is now "…with curtains toward lower neighbours and a fall into lower water"; and
+  `look-badwater.test.ts`'s "…never blends across dry ground or a fall" reads the fall's badwater
+  share from the fall. New: `tests/unit/look-waterfalls.test.ts`, `tests/contract/look-waterfalls.test.ts`
+  and `tests/e2e/look-waterfalls.spec.ts`.
+- The map's bytes are unchanged (the pinned download in `look-mine-ruins.test.ts` passes).
+- Captures: [docs/look/waterfalls/](../look/waterfalls/README.md), made with
+  `tools/capture-waterfalls.ts` (`--bench` measures the frame and remesh times).
+
+#### Kyler's review of the captures (2026-09-26, D215)
+
+Kyler: remove the V-shaped gap that splits falls into two ribbons (the sheet must be continuous), and
+add more whitewater and splash where the fall lands; then released as `look-waterfalls-done` without
+another review unless it looks off. Built on `look/waterfalls` after merging `dev` (Live editing, #60).
+
+- **The V gap, and the cause:** where one tile pours over two sides (an L-shaped lip, or every step
+  of a staircase lip where water crosses a cliff at a slant), each side's ribbon ended at the shared
+  corner as a free end, set in and closed, and the two arcs drew apart as they fell (one out south,
+  the other east): a V between two ribbons. Now each end of a lip knows how it goes on (`falls.ts`
+  `END`): straight into the next lip, free, round an outer corner (the same tile pours over the next
+  side too) or round an inner corner (the tile across it pours into the same landing). Round a corner
+  the two lips share the corner's surfaces, reach, thickness, badwater share, flow and room, and
+  their ribbons meet on the corner's diagonal: a ribbon runs on round an outer corner as far as it has
+  come out from the lip, and stops short at an inner one (at most half a tile); the far sheet and the
+  splash do the same. An L-shaped lip is one sheet wrapping round its corner; a staircase lip is one
+  zigzag sheet, each side as wide where it lands as at the lip. The reach and room at a shared corner
+  are the lesser of the two lips' (the mean before), so no ribbon overshoots its own pool. Tested edge
+  to edge (`fallPoint`, the vertex shader's placement in TypeScript).
+- **More whitewater and splash:** the splash on the pool now runs from the foot of the cliff to well
+  past the impact line (a spread of 0.7 + 0.6 × the reach + 0.09 × the drop, where the first round
+  had 0.3 + 0.2 × √flow + 0.05 × the drop; its room is three tiles where the pool goes on), as a white
+  core with a ragged edge, foam in blobs with dark bubbles between them, and a lace of foam (the
+  shared Voronoi pattern) drifting out and fading. A crown of whitewater billows up along the impact
+  line: an arch up to 0.6 of a tile either side and 1.25 times as tall, bigger for stronger and taller
+  falls, never more than 0.6 of the drop, never behind the cliff or past the pool, with spray rising
+  from it (close up only). The ribbon churns white higher up its foot. All of it in the landing zone
+  only; a cascade's whitewater stays on its step (tested). `fallSplash` gives the sizes.
+- **Smaller changes:** the streaks rush down at one pace (in the first round the pace grew with the
+  flow, so two lips of different flow side by side slid apart at their seam); the flow is carried per
+  corner; a changed water tile now dirties the chunks three tiles round it (a fall reads its pool that
+  far).
+- **With dev's Live editing:** falls honour the slice (cut above it, like the water) and clear water
+  (D196, D212): with T, or round a brush painting a submerged bed, a clean fall, its splash and crown
+  keep 0.3 of their opacity (`CLEAR_WATER.fall` in the shared palette), a faint veil through which the
+  cliff and bed show; a badwater fall keeps its colour, at most half see-through, with the same dark
+  stripes as clear badwater. The merge itself: `renderer.ts`'s imports and build record took both
+  sides; everything else merged cleanly.
+- **The gallery** gained an L-shaped lip (a channel whose last three tiles also pour east into a bay)
+  and a staircase lip (a band of water running at 45°, fed from a channel), and views of them and of
+  the strong fall's landing. The capture tool takes `--first` (the first round's sources) for the
+  D215 pairs, `--port`, and hides the page round the view whatever its layout (dev's editor wraps the
+  view in a frame and adds a minimap canvas).
+- **Tests changed (D148):** in `look-waterfalls.test.ts`, the ends are read as `END` states, not free
+  bits ("makes a wide fall one ribbon…" checks them); the pool test's room is 3 (its river goes on
+  three tiles); the cascade test checks the whitewater with `fallSplash`; the template's vertex bound
+  is 140, not 130 (the crown adds 16). New: "a lip that turns a corner is one sheet (D215)" (an outer
+  corner, an inner corner, a staircase), "whitewater where a fall lands (D215)" (in its pool, more for
+  stronger and taller falls, more than the first round's), and the falls' clear water and slice; the
+  e2e spec also draws with clear water on and under a slice.
+- The map's bytes are unchanged (rendering only; the pinned download in `look-mine-ruins.test.ts`
+  passes).
+- **Captures** remade on the current maps ([docs/look/waterfalls/](../look/waterfalls/README.md), 4.2
+  MB): the same views as before, dev beside now; new `d215-*.jpg` pairs with the first round (#53 at
+  b00b2fc) beside now: the L-shaped lip, the staircase lip, Highlands 4's fall from the review, and
+  the strong fall's landing; and clear water off and on. Looked at critically: no gap, seam or
+  floating fall; the corner of a mitre shows as a fold, as the cliff's own corner does. Older and not
+  D215's: where water speeds up toward a lip its surface steps down a little between tiles, and the
+  water mesher draws those small steps as faint grey curtains (dev draws them the same); where a
+  Blockage raises the water floor, the view draws water at ground level (the phantom small fall).
+- **Frame time after D215 (information,** `--bench`, this machine's RTX 2070 SUPER, shared with other
+  builds, so the CPU times are noisy), dev's curtains against now: Highlands 2 at 256² (141 falls)
+  orbits at the display's 170 fps either way, GPU time (median) 0.72 → 0.77 ms for the whole map and
+  0.65 → 0.88 ms close up, the water's remesh 16.3 → 14.2 ms for every chunk and 6.3 → 6.5 ms for one
+  tile; the stress hillside (1,536 falls) also at 170 fps, GPU time 0.87 → 1.12 ms and 0.54 → 0.80
+  ms, the remesh 105.5 → 89.0 ms and 9.8 → 10.3 ms. The template is 134 vertices (118 before D215).
