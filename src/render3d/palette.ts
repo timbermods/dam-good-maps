@@ -27,7 +27,7 @@ import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
 // for the pages and tests that read the palette.
-export { BADWATER, blendWater, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, waterBlend, waterBody, waterOpacity, type Rgb } from "./waterPalette";
+export { BADWATER, blendWater, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, WATER_UI, waterBlend, waterBody, waterOpacity, type Rgb } from "./waterPalette";
 
 /** What colours the tops of the ground. */
 export type GroundMode = "moisture" | "height";
@@ -61,6 +61,17 @@ export const GROUND = {
   contaminatedGrass: [0.46, 0.36, 0.17] as Rgb,
   /** Ground under water (seen through it). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
+} as const;
+
+/** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
+ *  (the editor's water-blue). A carve at work (D199): the foam surging round its head, the blocks
+ *  crumbling at its front (the cut earth), and the muddy water along its last stretch. */
+export const JUICE = {
+  dust: [0.72, 0.65, 0.54] as Rgb,
+  splash: [0.35, 0.82, 1.0] as Rgb,
+  foam: [0.92, 0.96, 0.87] as Rgb,
+  debris: [0.59, 0.51, 0.41] as Rgb,
+  mud: [0.57, 0.5, 0.34] as Rgb,
 } as const;
 
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */

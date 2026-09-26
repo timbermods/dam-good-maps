@@ -192,6 +192,22 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     const f = pick(rng, features.filter((g) => g.origin !== "generated"));
     return f ? { op: "reorderFeature", params: { id: f.id, index: rng.int(0, features.length) } } : null;
   }
+  if (roll >= 53 && roll < 60) {
+    // a brush stroke (live editing): a wandering path of dabs
+    const tool = pick(rng, ["raise", "lower", "flatten", "smooth", "naturalize"] as const)!;
+    let x = rng.int(4, W - 4) * 4 + 2;
+    let y = rng.int(4, H - 4) * 4 + 2;
+    const dabs: number[] = [];
+    for (let k = rng.int(1, 40); k > 0; k--) {
+      x = Math.min(4 * W - 1, Math.max(0, x + rng.int(-6, 7)));
+      y = Math.min(4 * H - 1, Math.max(0, y + rng.int(-6, 7)));
+      dabs.push(x, y);
+    }
+    return {
+      op: "brush",
+      params: { tool, size: rng.int(2, 19) / 2, strength: rng.int(1, 11), ...(tool === "flatten" ? { level: rng.int(0, 17) } : {}), ...(tool === "naturalize" ? { seed: rng.int(0, 1_000_000) } : {}), dabs },
+    };
+  }
   if (roll < 60) {
     const mode = pick(rng, ["raise", "lower", "flatten", "terrace", "smooth"] as const)!;
     const cells = rectRuns(rect(rng, W, H, 10, 8), W);
@@ -240,6 +256,7 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     { op: "deleteFeature", params: { id: "f-aaaaaaaaaaaaa" } },
     { op: "moveEntity", params: { id: guid(rng), x: 1, y: 1 } },
     { op: "sculpt", params: { mode: "raise", cells: [[H + 3, 0, 4]], amount: 1 } },
+    { op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [4 * W + 8, 10] } },
     { op: "placeEntity", params: { id: guid(rng), template: "Maple", x: 3, y: 3, orientation: "Cw0" } },
     { op: "regenerateRegion", params: { area: { runs: [[1, 1, 4]] }, seedVariant: 1, layers: ["terrain"] } },
   ] as EditOp[])!;

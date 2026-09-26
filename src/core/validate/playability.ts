@@ -328,8 +328,13 @@ export function basinLeak(p: ContainedPlan, h: Uint8Array, W: number, H: number)
 
 /** `water.source_in_flow` (Kyler, 2026-09-25, D171): a source is where water begins, never inside
  *  a flow that is already there (analysis/sources.ts). A design check, as Kyler's principles are: it
- *  must pass in `generate`, warns in `export` and is information on an import. */
+ *  must pass in `generate` and is information on an import. In the editor (`export`) sources go
+ *  anywhere (D184): the rule is for generated maps, so it does not apply there. */
 function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
+  if (c.profile === "export") {
+    c.notApplicable("water.source_in_flow", "design", "sources go anywhere in the editor (D184): the rule is for generated maps");
+    return;
+  }
   const r = sourcesInFlow(inp.model, inp.objects, inp.water.depth);
   if (!r.sources) {
     c.notApplicable("water.source_in_flow", "design", "no water sources on this map");

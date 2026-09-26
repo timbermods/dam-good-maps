@@ -45,6 +45,30 @@ export interface WaterModel {
   /** Every emitter. The out-of-map sides of each emitter tile are walls, also for emitters that
    *  are switched off (WaterMapBoundary decorates every water source). */
   emitters: Emitter[];
+  /** Water sealed basins keep from before they were sealed (a carve's oxbow lakes), in order: the
+   *  canonical settle starts their tiles from it (prefill.ts). */
+  retained?: readonly RetainedWater[];
+}
+
+/** Water a sealed basin keeps from before it was sealed (a carve's oxbow lake, D199, D216). With no
+ *  source feeding it, a basin cut off from its river would start the canonical settle dry; its
+ *  tiles start with the water that stood there instead, up to the surface it had (`floor` plus
+ *  `depth`) on the ground as it is now, and it evaporates as the game's water does. Stored with the
+ *  operation that sealed it, so the same document always settles the same. */
+export interface RetainedWater {
+  /** Tile indices, ascending. */
+  tiles: readonly number[];
+  /** Each tile's floor when the water was kept. */
+  floor: readonly number[];
+  depth: readonly number[];
+  contamination: readonly number[];
+}
+
+/** Two models keep the same retained water. */
+export function sameRetained(a: readonly RetainedWater[] | undefined, b: readonly RetainedWater[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a?.length || !b?.length) return !a?.length && !b?.length;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export interface WaterState {

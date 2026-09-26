@@ -59,7 +59,7 @@ function main(): void {
       report: { mustSay: buildable ? [`what was built for "${p.name}", and how it differs from the workshop pattern`] : [`the ${p.name} pattern is not something the editor builds yet`, "the nearest thing it can build, offered"] },
       pass: buildable ? ["the result validates", "the feature lands where asked"] : ["no proposal claims to build the pattern", "the offer is made"],
       reference: buildable
-        ? { calls: [], proposal: { steps: [landform ? { op: "addLandform", kind: kind as "hill", where, size: (p.size as "large") ?? "large" } : { op: "addSetPiece", kind: kind as "waterfall", where, size: (p.size as "large") ?? "large" }] } }
+        ? { calls: [], proposal: { steps: [landform ? { op: "brush", tool: kind === "canyon" || kind === "valley" ? "lower" : "raise", where, size: (p.size as "large") ?? "large", amount: 3 } : { op: "addSetPiece", kind: kind as "waterfall", where, size: (p.size as "large") ?? "large" }] } }
         : { calls: [{ tool: "limits", args: { kind: "landform" } }] },
       note: `from the workshop catalogue: ${p.description}`,
     };

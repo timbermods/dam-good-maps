@@ -131,6 +131,7 @@
         "height": { "type": "integer", "minimum": 0, "maximum": 16 },
         "base": { "type": "integer", "minimum": 0, "maximum": 16 },
         "bandDepth": { "type": "integer", "minimum": 2, "maximum": 32 },
+        "onGround": { "type": "boolean" },
         "along": {
           "type": "object",
           "additionalProperties": false,

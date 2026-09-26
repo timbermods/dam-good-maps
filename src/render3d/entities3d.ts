@@ -955,6 +955,11 @@ interface Batch {
   model: () => Model;
   matrices: number[];
   tints: number[];
+  /** Per instance: the object it draws, when it stands on its tile's ground and follows it as the
+   *  ground is painted (plants and ruins), or -1. */
+  follows: number[];
+  /** Per instance: the object it draws (a placed object's pop and wiggle, D205). */
+  objects: number[];
   /** Per instance: its minimum size (pixels a unit of the model takes at least, 0 for none), how
    *  far it rises for each time it grows, and the most it grows (the object shader's `grow`). */
   grows: number[];
@@ -978,13 +983,19 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
   const batch = (key: string, model: () => Model): Batch => {
     let b = batches.get(key);
     if (!b) {
-      b = { model, matrices: [], tints: [], grows: [] };
+      b = { model, matrices: [], tints: [], grows: [], follows: [], objects: [] };
       batches.set(key, b);
     }
     return b;
   };
+  /** The object whose instances follow its ground (see Batch.follows), or -1. */
+  let follow = -1;
+  /** The object being drawn. */
+  let object = -1;
   /** An instance: turned by `angle` about the vertical, scaled by s, at (px, py, pz). */
   const put = (b: Batch, px: number, py: number, pz: number, angle: number, s: number, tint: Rgb | number = 1, sy = s, grow: Grow = NO_GROW) => {
+    b.follows.push(follow);
+    b.objects.push(object);
     const c = Math.cos(angle);
     const n = Math.sin(angle);
     b.matrices.push(c * s, 0, -n * s, 0, 0, sy, 0, 0, n * s, 0, c * s, 0, px, py, pz, 1);
@@ -1002,6 +1013,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     const flags = v.flags[k];
     const key = modelKeyOf(template, flags);
     instances++;
+    follow = key === "ruin" || PLANTS.has(template) ? k : -1;
+    object = k;
     if (key === "ruin" && lite) {
       put(batch("ruin.lite", LITE_RUIN), x + 0.5, z, -(y + 0.5), 0, 1, 1, Number(template.slice(-1)));
       continue;
@@ -1070,6 +1083,12 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       mesh.instanceMatrix.array.set(b.matrices);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(b.tints), 3);
       mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array(b.grows), 3));
+      mesh.userData.objects = Int32Array.from(b.objects);
+      // what follows the ground as it is painted: each instance's object, and its height as built
+      if (b.follows.some((k) => k >= 0)) {
+        mesh.userData.follows = Int32Array.from(b.follows);
+        mesh.userData.ty0 = Float32Array.from({ length: n }, (_, i) => b.matrices[i * 16 + 13]);
+      }
     }
     mesh.instanceMatrix.needsUpdate = true;
     mesh.frustumCulled = false;

@@ -22,8 +22,9 @@ import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { previewSettle } from "../sim/preview";
-import type { WaterModel } from "../sim/water";
+import { previewSettle, staleWater } from "../sim/preview";
+import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
+import { isCarve } from "../forces/carve/op";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
@@ -46,6 +47,7 @@ import {
 } from "./raster/terrain";
 import { rasterizeResource, resourceOrder, type Placed } from "./raster/resources";
 import { objectTiles, rasterizeObjects } from "./objects";
+import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
@@ -74,6 +76,10 @@ export interface BaseLayer {
   entities: readonly EntitySpec[];
   /** Features the base already contains (a stored generation): not rasterized again. */
   frozen?: ReadonlySet<string>;
+  /** The water the file stores on each tile's top (an imported map's own water): what the editor's
+   *  water warm-starts from after the first edit (marked `preview`, so a canonical build never
+   *  takes it for a settle). */
+  water?: CanonicalWater;
 }
 
 /** What a regeneration kept of the previous generation inside locked regions (EDITOR_PLAN §3). */
@@ -139,6 +145,9 @@ export interface DirtyInfo {
   region: Rect | null;
   water: boolean;
   entities: boolean;
+  /** Bounding rectangle of the objects placed, moved or removed (null: none): an object placed by
+   *  hand changes no ground, and its checks still belong to the edit. */
+  objects: Rect | null;
 }
 
 export interface BuildOptions {
@@ -151,8 +160,10 @@ export interface BuildOptions {
   /** "preview": a rebuild whose water changed warm-starts from the previous build's water
    *  (sim/preview.ts, the editor's preview) instead of running the canonical settle. The result is
    *  marked `settle.preview`; `rebuild` without it replaces preview water with the canonical settle
-   *  (EDITOR_PLAN §6, PLAN §19.7). */
-  water?: "canonical" | "preview";
+   *  (EDITOR_PLAN §6, PLAN §19.7). "defer" (live editing): no settle at all; the last settled water
+   *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
+   *  settles it in the background, so an edit never waits on the water. */
+  water?: "canonical" | "preview" | "defer";
 }
 
 /** The last canonical settle and the model it ran on. The settle depends only on the water model,
@@ -176,7 +187,7 @@ function sameModel(a: WaterModel, aEmitters: string, m: WaterModel): boolean {
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
-  return true;
+  return sameRetained(a.retained, m.retained);
 }
 
 /** A built entity as a map object (for the water model and validation). */
@@ -250,6 +261,28 @@ export function buildTerrain(input: BuildInput): { heights: Uint8Array; channel:
   return { heights: terrain.heights, channel: terrain.channel, protect: terrain.protect };
 }
 
+/** The terrain `input` would build, worked out from `prev` round what differs (live editing: a
+ *  shape tool shows its real result while it is dragged). Steps 1–7 only, the same code as a
+ *  build: the heights are the ones a rebuild gives. `rect` bounds the tiles that can differ from
+ *  `prev` (null: none). The document's caches are left as they are. */
+export function previewTerrain(prev: BuildResult, input: BuildInput): { heights: Uint8Array; rect: Rect | null } {
+  if (prev.W !== input.W || prev.H !== input.H) throw new Error("a preview keeps the map's size");
+  // fields made for the shape being dragged stay out of the document's cache
+  const fields: FieldCache = new Map(prev.cache.fields);
+  const { terrain, region } = terrainStage(input, prev.cache, fields);
+  if (!region) return { heights: prev.heights, rect: null };
+  const { W, H } = input;
+  return { heights: terrain.heights, rect: { x0: Math.max(0, region.x0 - 1), y0: Math.max(0, region.y0 - 1), x1: Math.min(W - 1, region.x1 + 1), y1: Math.min(H - 1, region.y1 + 1) } };
+}
+
+/** A whole build of `input` from `prev` that leaves `prev`'s caches as they are (live editing: a
+ *  water tool's draft, whose water flows while it is drawn). Its water is `prev`'s, carried to the
+ *  new ground ("defer"); its water model has the draft's sources. */
+export function previewBuild(prev: BuildResult, input: BuildInput): BuildResult {
+  const own: BuildResult = { ...prev, cache: { ...prev.cache, fields: new Map(prev.cache.fields) } };
+  return rebuild(own, input, { water: "defer" });
+}
+
 /** An incremental build from `prev`, equal to a full build of `input` (PLAN §19.7); with
  *  `water: "preview"`, equal to it except for the water and what grows on it (see BuildOptions). */
 export function rebuild(prev: BuildResult, input: BuildInput, opts: BuildOptions = {}): BuildResult {
@@ -309,6 +342,17 @@ function featureKey(f: Feature): string {
   return JSON.stringify(f);
 }
 
+/** A sculpt edit's or stroke's params as a key (a stroke's dabs are long: each is written once). */
+const paramKeys = new WeakMap<object, string>();
+function paramsKey(p: object): string {
+  let k = paramKeys.get(p);
+  if (k === undefined) {
+    k = JSON.stringify(p);
+    paramKeys.set(p, k);
+  }
+  return k;
+}
+
 /** The tiles whose terrain may differ from the previous build's. */
 function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget): TileRegion | null {
   const { W, H } = input;
@@ -345,9 +389,15 @@ function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget):
   // sculpts: from the first difference on, old and new
   const sculpts = input.sculpts ?? [];
   let k = 0;
-  while (k < sculpts.length && k < prev.sculpts.length && prev.sculpts[k] === JSON.stringify(sculpts[k].params)) k++;
-  for (let j = k; j < sculpts.length; j++) rb.add(clipRect(sculptBounds(sculpts[j])!, W, H));
-  for (let j = k; j < prev.sculptEdits.length; j++) rb.add(clipRect(sculptBounds(prev.sculptEdits[j])!, W, H));
+  while (k < sculpts.length && k < prev.sculpts.length && prev.sculpts[k] === paramsKey(sculpts[k].params)) k++;
+  for (let j = k; j < sculpts.length; j++) {
+    const r = sculptBounds(sculpts[j], W);
+    if (r) rb.add(clipRect(r, W, H));
+  }
+  for (let j = k; j < prev.sculptEdits.length; j++) {
+    const r = sculptBounds(prev.sculptEdits[j], W);
+    if (r) rb.add(clipRect(r, W, H));
+  }
   if (prev.locked !== (input.locked ?? null)) return fullRegion(W, H);
   // rasterizers that read beyond the tiles they write rebuild whole when the region touches them
   for (let grew = true; grew && !rb.all; ) {
@@ -359,7 +409,8 @@ function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget):
     }
     for (const s of sculpts) {
       if (!sculptReadsNeighbours(s)) continue;
-      const b = clipRect(sculptBounds(s)!, W, H);
+      const sb = sculptBounds(s, W);
+      const b = sb && clipRect(sb, W, H);
       if (b && rb.intersects(b)) grew = rb.add(b) || grew;
     }
   }
@@ -413,8 +464,9 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   for (const f of input.features) if (f.kind === "river" && live(f)) rasterizeRiver(f, t);
   // 5. the start bench (and, later, object pads)
   for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
-  // 6. sculpt edits, in order
-  for (const s of input.sculpts ?? []) applySculpt(s, t);
+  // 6. sculpt edits and brush strokes, in order (the brushes leave an import's caves alone)
+  const caves = base && base.columns.size ? (i: number) => base.columns.has(i) : undefined;
+  for (const s of input.sculpts ?? []) applySculpt(s, t, caves);
   //    an imported map's caves and overhangs are left exactly as they are
   if (base) t.forEach((i) => {
     if (base.columns.has(i)) {
@@ -549,6 +601,28 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   let slopesKey = "";
   if (slopeStart && !base) {
     const targets = landformTargets(features.filter(live), target);
+    // the ground a walkable smooth stroke went over, and a ramped flatten's with the ground round
+    // it (its rim steps down to that ground, D204): the natural slopes join their steps too
+    for (const sc of input.sculpts ?? []) {
+      const p = sc.params as BrushParams;
+      if (!("dabs" in p)) continue;
+      const walk = p.tool === "smooth" && p.walkable;
+      const ramp = p.tool === "flatten" && p.edges === "ramped";
+      if (!walk && !ramp) continue;
+      targets.mask ??= new Uint8Array(N);
+      if (walk) markBrushTiles(p, W, H, targets.mask);
+      else {
+        const own = new Uint8Array(N);
+        markBrushTiles(p, W, H, own);
+        for (let i = 0; i < N; i++) {
+          if (!own[i]) continue;
+          const x = i % W;
+          const y = (i - x) / W;
+          for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) targets.mask[yy * W + xx] = 1;
+        }
+      }
+      targets.key += `|${walk ? "walk" : "ramp"}:${paramsKey(p)}`;
+    }
     rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel };
     slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}`;
   } else if (slopeStart && base) {
@@ -656,8 +730,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
     terrainFeatures: features.filter((f) => isTerrainKind(f) && live(f)).map((f) => JSON.parse(featureKey(f)) as Feature),
-    sculpts: (input.sculpts ?? []).map((s) => JSON.stringify(s.params)),
-    sculptEdits: (input.sculpts ?? []).map((s) => ({ params: JSON.parse(JSON.stringify(s.params)) })),
+    sculpts: (input.sculpts ?? []).map((s) => paramsKey(s.params)),
+    // (applied operations are never changed: their params are kept as they are)
+    sculptEdits: (input.sculpts ?? []).map((s) => ({ params: s.params })),
     base,
     locked: input.locked ?? null,
     terrain,
@@ -694,6 +769,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // 10. the canonical water settle (PLAN §19.7), then soil moisture and contamination on it
   const objects = entities.map(toMapObject);
   const model = waterModel(W, H, heights, objects);
+  // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater)
+  const retained: RetainedWater[] = [];
+  for (const s of input.sculpts ?? []) if (isCarve(s.params) && s.params.lake) retained.push(s.params.lake);
+  if (retained.length) model.retained = retained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
@@ -702,22 +781,34 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   let settle: CanonicalWater | null = null;
   let settleEntry = prev?.settle ?? null;
   if (needWater) {
-    const preview = opts.water === "preview";
+    const preview = opts.water === "preview" || opts.water === "defer";
     // the previous water serves when nothing that moves water changed; preview water only in a
     // preview build (anything else gets the canonical settle)
     if (settleEntry && sameModel(settleEntry.model, settleEntry.emitters, model) && (preview || !settleEntry.water.preview)) settle = settleEntry.water;
     else {
       settle = opts.settleCache?.get(model) ?? null;
+      let carried = false;
       if (!settle) {
-        if (preview && settleEntry && settleEntry.model.W === W && settleEntry.model.H === H) settle = previewSettle({ model: settleEntry.model, water: settleEntry.water }, model);
+        const warm = settleEntry && settleEntry.model.W === W && settleEntry.model.H === H;
+        if (opts.water === "defer" && warm) {
+          // the last settled water on the new ground; the entry stays the last settled state, so
+          // the background settle (and an undo back to it) start from there
+          settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
+          carried = true;
+        } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
           settle = canonicalSettle(model);
           opts.settleCache?.set(model, settle);
         }
       }
-      settleEntry = { model: { ...model, floor: model.floor.slice(), dam: model.dam ? model.dam.slice() : null }, emitters, water: settle };
+      if (!carried) settleEntry = { model: { ...model, floor: model.floor.slice(), dam: model.dam ? model.dam.slice() : null }, emitters, water: settle };
     }
   } else settleEntry = null;
+  // an imported map that keeps its file's water: that water is where the editor's next settle
+  // starts from (the file's water is not a canonical settle, so only preview builds take it)
+  if (fileWater && !settle && base?.water && (!settleEntry || !sameModel(settleEntry.model, settleEntry.emitters, model))) {
+    settleEntry = { model: { ...model, floor: model.floor.slice(), dam: model.dam ? model.dam.slice() : null }, emitters, water: base.water };
+  }
   const none = new Float64Array(N);
   const water = settle?.depth ?? none;
   const contamination = settle?.contamination ?? none;
@@ -987,11 +1078,29 @@ function dirtyInfo(prev: BuildResult, next: BuildResult, region: TileRegion | nu
   }
   let entities = prev.entities.length !== next.entities.length;
   for (let k = 0; k < next.entities.length && !entities; k++) if (entitySignature(prev.entities[k]) !== entitySignature(next.entities[k])) entities = true;
+  // where objects came, went or moved (their corners)
+  let objects: Rect | null = null;
+  if (entities) {
+    const was = new Map<string, string>();
+    for (const e of prev.entities) was.set(e.id, `${e.template}|${e.x}|${e.y}|${e.z}|${e.orientation}`);
+    const mark = (x: number, y: number) => {
+      if (!objects) objects = { x0: x, y0: y, x1: x, y1: y };
+      else objects = { x0: Math.min(objects.x0, x), y0: Math.min(objects.y0, y), x1: Math.max(objects.x1, x), y1: Math.max(objects.y1, y) };
+    };
+    const seen = new Set<string>();
+    for (const e of next.entities) {
+      seen.add(e.id);
+      const w = was.get(e.id);
+      if (w !== `${e.template}|${e.x}|${e.y}|${e.z}|${e.orientation}`) mark(e.x, e.y);
+    }
+    for (const e of prev.entities) if (!seen.has(e.id)) mark(e.x, e.y);
+  }
   return {
     terrain: x1 >= 0 ? { x0, y0, x1, y1 } : null,
     region: region ? { x0: region.x0, y0: region.y0, x1: region.x1, y1: region.y1 } : null,
     water,
     entities,
+    objects,
   };
 }
 

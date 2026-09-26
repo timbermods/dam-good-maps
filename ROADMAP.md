@@ -893,7 +893,8 @@ released as `live-editing-done` when Kyler says it feels right.
 Start (Water source, Badwater source); clear water only under or around the brush when it's over water,
 and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
 Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
-forces core (D216, D219), put on the preview, and released only after Kyler has tried them.
+forces core (D216, D219), put on the preview, and released only after Kyler has tried them. Both
+changes are built, and Carve with them, for the preview (`docs/progress/live-editing.md`).
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):
@@ -904,9 +905,12 @@ they conflict):
   always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
   full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
-1. **Top bar:** Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve, Craterize,
-   Quake, Erupt; a visually distinct group, D203, D206) | Remove. Every force's options row starts with
-   its mode switch. Erupt raises a volcano (Vent or Fissure, Power, Steep or Broad, a summit, flows, Try
+1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
+   Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
+   left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
+   preview and are released only after Kyler has tried them (D219): until then the public site shows
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
+   Power, Steep or Broad, a summit, flows, Try
    another); built from `investigation/erupt` once Kyler says it's ready. Quake splits the land along a drawn fault (Lift
    or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` once Kyler
    says it's ready. All four forces share one forces core.
@@ -922,21 +926,26 @@ they conflict):
    or under placed objects.
    Flatten (D204) starts from the stroke's own height, cuts and fills, has Cliff or Ramped edges,
    hints where the start fits, and carries trees and objects with the ground.
-   Hold F to resize the brush by dragging (D205).
+   Hold F to resize the brush by dragging (D205); the camera's old R and F zoom are gone (D212).
 2. **Water:** a reflection of the land being painted.
    - **Smart Lower:** a stroke that starts in or next to water carves a bed that keeps flowing
      downhill, so the water follows the brush; the ring turns softly blue. Anywhere else it is an
      ordinary Lower.
-   - **Source:** click to place, and water spreads at once; options: clean or bad, and strength.
+   - **Water source and Badwater source** (D212): on the left shelf, right after the start; click
+     to place, and water spreads at once; the row beneath sets the next one's strength.
      Shift+scroll over any source changes its strength live (a friendly note past the official
-     range, never a block); drag to move it; Delete or Remove makes its water recede. Anywhere in
-     the editor (D171 is for generated maps). Always findable, even underwater (an upwelling; a
-     marker with its strength when near or with Source picked; Markers shows all) (D196).
+     range, never a block); drag to move it; a click selects it (its strength, clean or bad,
+     Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
+     maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
+     with a source picked on the shelf; Markers shows all) (D196).
    - **Water is never an object** (D196): no river selection, panel or deletion; flow and clean or
      bad belong to sources; generated rivers are their sources and land. Hovering water shows its
      depth, bed level and contamination, and highlights the sources feeding it.
-   - **Seeing underwater** (D196): water turns transparent while a tool is picked; T or **Clear
-     water** toggles it otherwise; badwater stays distinct.
+   - **Seeing underwater** (D196, D212): only the water under and right round the brush turns
+     clear, and only while the brush is over water already there (painting a submerged bed); on
+     dry land the water stays as it is. T or **Clear water** clears all of it. Clear water still
+     reads as water (a faint blue tint, its ripples, a soft bright shoreline); badwater stays
+     distinct, for colour-blind players too.
    - **Everything else emerges:** lakes fill hollows, waterfalls form at drops, rivers join where
      they meet, and branches form wherever the land is cut from water.
    - **How water behaves:** water near an edit moves within a frame or two, then the rest of the
@@ -946,14 +955,16 @@ they conflict):
      badtide rules, from `investigation/cycles`; the whole cycle's timeline is the separate
      Weather view, D186); moisture spreading as the land greens; optional sounds of our own. The
      final water is always the game's settled result, at any speed.
-   - **Carve** (D194): a force of nature with its own button next to Source: Unleash and Aim
-     modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
-     (D181). Built from `investigation/carve` (PR #47) once Kyler says it's ready, keeping its full
-     feature set (D199): Width, Wander, variation, Try another path, Steep or Wide walls, Keep river or
-     Dry canyon, a following camera with carving effects, Stop, instant undo.
+   - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
+     Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
+     (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
+     Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
+     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, a
+     following camera with carving effects, Space to pause, Stop, Esc or Ctrl+Z to undo it
+     instantly. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
-   start, pine, birch, oak, berry bushes, ruins, the mine site, relics, natural slopes, blockages,
-   geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
+   start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
+   the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
    where it fits and red where it doesn't, with a quiet reason ("needs flat ground"). Click places,
    R rotates, Esc puts it back. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
@@ -962,8 +973,9 @@ they conflict):
    Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
    that hides everything above the level, the layer pick, and tools that act on the visible land.
    Also (D205): a corner minimap (on by default at 256², a toggle among the view buttons), small
-   satisfying feedback on every action with optional quiet sounds and reduced-motion support, and
-   camera bookmarks (Ctrl+Shift+1–9 to save, Shift+1–9 to glide back).
+   satisfying feedback on every action with quiet sounds (on by default, with a volume and an off
+   switch, D212) and reduced-motion support, and camera bookmarks (Ctrl+Shift+1–9 to save,
+   Shift+1–9 to glide back). The layer pick is Alt+middle-click (the game's) and Alt+click.
 5. **Header:** Undo and Redo icons with their shortcuts; one primary button, **Save to Timberborn**
    (merged in #40; in browsers that can't save to a folder, **Download .timber** takes its place);
    everything else (Open, Save project, Download .timber, History, New map) in one small menu.

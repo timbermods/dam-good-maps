@@ -1148,7 +1148,10 @@ checks:
    level. Water from each running emitter walks downhill or level on that filled surface. Every
    depression on the path starts full at its spill level. Every other tile of the path starts at
    `min(1, 0.3·Q/w)`: Q is the flow through it, and w the shorter of the row and column runs of
-   such tiles through it. The contamination starts at the badwater share of Q.
+   such tiles through it. The contamination starts at the badwater share of Q. A carve's sealed
+   oxbow lake (D216), a basin no source feeds, starts with the water the carve stored for it (the
+   water the game settled there just before its mouths closed, up to the surface it had), so it
+   holds water and then evaporates as an unfed lake does in the game.
 2. **Settle.** The exact simulation, checked every 128 ticks, until the total volume changes by
    under 0.2% and at least 99.5% of tiles move by at most 0.005 (the §11.3 rule, counted exactly,
    with sums in index order so the Python oracle stops on the same tick); at most 4 game days.
@@ -1266,7 +1269,8 @@ does (§19.5):
   `terrain.single_floor` (from 3D-a, `caves.headroom` in its place) and `water.source_in_flow`
   (sources start rivers, D171). They must pass in `generate`; in `export` they warn. For an
   imported map they are only information, because official and workshop maps with caves, or with
-  terrain up to 22, load fine in the game.
+  terrain up to 22, load fine in the game. `water.source_in_flow` does not apply in `export`:
+  in the editor sources go anywhere (D184).
 - **principle** (2026-09-25): a principle Kyler has decided about how a map is built (D115 (2)):
   `terrain.edge_wall` (no edge walls, D151), beside the dam-wall check M9a adds (D111). It must pass
   in `generate` and blocks the export in `export`; for an imported map it is information, and a
@@ -1948,7 +1952,8 @@ There is one reader and one writer (`core/format`), verified by the round-trip t
 - **Incremental rebuilds** of dirty regions are an optimization. A property test checks that an
   incremental rebuild equals a full rebuild after random edits.
 - **Water** written to a file comes from the canonical settle. It starts from a state computed only
-  from the document (empty, or the documented priority-flood pre-fill), runs a fixed tick schedule
+  from the document (empty, or the documented priority-flood pre-fill, with any sealed oxbow lake's
+  stored water, D216), runs a fixed tick schedule
   and stops on a deterministic test. Interactive previews may warm-start, but an export never uses
   their state.
 - **Versions:** a document records its `generatorVersion` and its built base. A newer generator

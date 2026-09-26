@@ -33,7 +33,7 @@ export type SlopeEdit =
 export type EntityEdit =
   | { seq: number; op: "placeEntity"; params: PlaceEntityParams }
   | { seq: number; op: "moveEntity"; params: { id: string; x: number; y: number; orientation?: Orientation } }
-  | { seq: number; op: "deleteEntities"; params: { entities: string[] } }
+  | { seq: number; op: "deleteEntities"; params: { entities: string[]; quiet?: boolean } }
   | { seq: number; op: "setEntityProps"; params: { id: string; components: Record<string, unknown> } };
 
 export interface Orphan {
@@ -263,7 +263,9 @@ export function applyEntityEdits(
           if (k < 0) missing.push(id);
           else removed.add(k);
         }
-        if (missing.length) rest.push({ ...ed, params: { entities: missing } });
+        // a carve's (quiet) edit finds what is still there: the resources its ground placed again
+        // may be gone, and that is fine
+        if (missing.length && !(ed.params.quiet && !allowPlace)) rest.push({ ...ed, params: { ...ed.params, entities: missing } });
         break;
       }
     }

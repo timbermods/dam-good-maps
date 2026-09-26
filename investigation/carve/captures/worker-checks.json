@@ -1,0 +1,17 @@
+{
+  "passed": [
+    "actual worker builds transferable clean meshes and live check status",
+    "idle pause preserves terrain, objects, water and deterministic duration",
+    "Stop keeps exactly the acknowledged prefix and uses repository canonical water",
+    "source creation and every terrain/object/water change belong to one exact undo operation",
+    "Esc interrupts chunk generation and restores exact pre-carve state without a history entry",
+    "Undo interrupts final water settling and reverts the whole carve",
+    "portable saved result replays exactly on a different loaded map without erosion",
+    "reroll preserves origin/settings and original geology, records a new seed, and replaces rather than stacks canyons",
+    "alternative undo/redo and cancellation restore the previously kept version exactly",
+    "saved alternative replays without erosion and retains its original terrain for a further deterministic reroll",
+    "aim auto-finishes at its destination; dry canyon leaves no water source",
+    "actual worker retains simulated oxbow water behind both sediment bars, then restores the entire lake with exact undo/redo"
+  ],
+  "operationBytes": 199922
+}

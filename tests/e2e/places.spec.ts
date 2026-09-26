@@ -111,11 +111,10 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   expect([info.W, info.H]).toEqual([SMALL.size, SMALL.size]);
   expect(new URL(page.url()).hash).toBe("#edit");
 
-  await page.getByRole("button", { name: "Export .timber" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("button", { name: "Export", exact: true })).toBeEnabled({ timeout: 120_000 });
-  const download = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  // the menu's Download .timber (the primary button saves into Timberborn's folder)
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
   expect(d.suggestedFilename()).toBe(`${SMALL.name}.timber`);
   expect(sha256(new Uint8Array(readFileSync(await d.path())))).toBe(SMALL.sha256);

@@ -16,8 +16,17 @@ interface Term {
   instead: string;
 }
 
+/** Retired interface text as a regular expression over the normalised text (and an example of it). */
+interface Pattern {
+  pattern: string;
+  retired: string;
+  instead: string;
+  example: string;
+}
+
 interface Config {
   terms: Term[];
+  patterns?: Pattern[];
   docs: string[];
   code: { dirs: string[]; files: string[]; extensions: string[] };
   allowedSections: { file: string; heading: string }[];
@@ -41,7 +50,11 @@ function pattern(term: string): RegExp {
   return new RegExp(`\\b${words.join(" ")}(?:s|es)?\\b`, "g");
 }
 
-const PATTERNS = CONFIG.terms.map((t) => ({ ...t, re: pattern(t.term) }));
+const PATTERNS = [
+  ...CONFIG.terms.map((t) => ({ ...t, re: pattern(t.term) })),
+  // retired interface text, as the config's regular expressions (a message a tool used to show)
+  ...(CONFIG.patterns ?? []).map((p) => ({ term: p.pattern, retired: p.retired, instead: p.instead, re: new RegExp(p.pattern, "g") })),
+];
 
 /**
  * Which lines may name a retired term: those between the allow markers (the marker lines included),
@@ -168,6 +181,18 @@ describe("retired terms stay retired (D188)", () => {
     ].join("\n");
     const hits = scan("docs/planted.md", text).map((h) => `${h.line} ${h.term.term}`);
     expect(hits).toEqual(["1 river tool", "2 river tool", "2 lake tool", "4 landform tool", "5 river tool", "5 Plant brush"]);
+  });
+
+  it("catches retired interface text: a planted message from an old tool, and every pattern's example", () => {
+    // the message Kyler saw on the preview (the Hill tool's limit, D182)
+    const planted = "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles…";
+    const hits = scan("src/editor/planted.ts", planted).map((h) => h.term.term);
+    expect(hits.length).toBeGreaterThanOrEqual(2);
+    expect(hits.some((t) => t.includes("reaches level"))).toBe(true);
+    expect(hits.some((t) => t.includes("its edge"))).toBe(true);
+    for (const p of CONFIG.patterns ?? []) expect(scan("src/editor/planted.ts", p.example).map((h) => h.term.term), p.example).toContain(p.pattern);
+    // and plain words stay plain
+    expect(scan("src/editor/planted.ts", "The water reaches level 7 here; a hill of our own.")).toEqual([]);
   });
 
   it("allows deliberate mentions between the markers and in the allowed sections", () => {

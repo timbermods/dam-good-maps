@@ -83,32 +83,21 @@ button[aria-pressed="true"] {
   margin: 0;
 }
 
-.segmented {
-  display: inline-flex;
-}
+/* the 3D view: the map, and its legend beside it */
 
-.segmented button {
-  border-radius: 0;
-  padding: 5px 14px;
-}
-
-.segmented button:first-child {
-  border-radius: 6px 0 0 6px;
-}
-
-.segmented button:last-child {
-  border-radius: 0 6px 6px 0;
-  margin-left: -1px;
-}
-
-/* the 3D view */
-
-.view3d {
-  position: relative;
+.view3d-frame {
+  display: flex;
   border: 1px solid var(--rule);
   border-radius: 6px;
   overflow: hidden;
   background: var(--map-bg);
+}
+
+.view3d {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .view3d canvas {
@@ -137,8 +126,6 @@ button[aria-pressed="true"] {
 }
 
 .view3d-controls button,
-.handles button,
-.tool-hint,
 .readout,
 .working {
   background: var(--overlay);
@@ -251,142 +238,32 @@ button[aria-pressed="true"] {
   align-items: center;
 }
 
-.pill {
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.pill.ok {
-  color: var(--ok);
-  border-color: var(--ok);
-}
-
-.pill.warn {
-  color: var(--warn);
-  border-color: var(--warn);
-}
-
-.pill.bad {
-  color: var(--bad);
-  border-color: var(--bad);
-}
-
-.pill.wait {
-  color: var(--muted);
-}
-
 .editor-main {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 0;
 }
 
-.tabs {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+/* the left shelf: a column of objects beside the map */
+.editor-main > .shelf {
   border-right: 1px solid var(--rule);
-  background: var(--panel);
-  min-height: 0;
-}
-
-.tablist {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 6px;
-  border-right: 1px solid var(--rule);
-}
-
-.tablist button {
-  border: none;
-  text-align: left;
-  padding: 8px 10px;
-}
-
-.tablist button[aria-selected="true"] {
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
-.tabpanel {
-  padding: 12px;
   overflow-y: auto;
-  min-width: 0;
-}
-
-.tabpanel h2 {
-  font-size: 0.95rem;
-  margin: 0 0 8px;
-}
-
-.tools {
-  margin-bottom: 14px;
-}
-
-.tool-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tool-options label {
-  display: block;
-  margin-top: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.tool-options select,
-.tool-options input[type="range"],
-.tool-options input[type="number"],
-.inspector input:not([type="checkbox"]) {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-}
-
-.tool-options select,
-.tool-options input[type="number"],
-.inspector input[type="number"] {
-  padding: 5px 6px;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-}
-
-.feature-list ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.feature-list li {
-  padding: 2px 0;
-}
-
-.feature-list button {
-  text-align: left;
-}
-
-.feature-list button[aria-current="true"] {
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.tag-user {
-  color: var(--muted);
-  font-size: 0.8rem;
 }
 
 .editor-map {
   position: relative;
   min-width: 0;
   min-height: 0;
+  /* the legend's width beside the map: the panels on the map's right keep clear of it */
+  --legend-space: 34px;
+}
+
+.editor-map:has(.view3d-frame.legend-none) {
+  --legend-space: 0px;
+}
+
+.editor-map:has(.view3d-frame.legend-open) {
+  --legend-space: 214px;
 }
 
 .editor-view {
@@ -396,43 +273,15 @@ button[aria-pressed="true"] {
   border-radius: 0;
 }
 
-.handles {
-  position: absolute;
-  display: flex;
-  gap: 6px;
-  transform: translate(-50%, -115%);
-}
-
-.handles .handle {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.handle.move {
-  cursor: grab;
-}
-
-.handle.move.disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.handle.delete {
-  color: var(--bad);
-}
-
-.tool-hint,
 .working {
   position: absolute;
-  top: 54px;
+  top: 100px;
   left: 10px;
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 0.9rem;
+  /* the map under it still takes clicks (the map's north edge often lies there) */
+  pointer-events: none;
 }
 
 .working {
@@ -441,19 +290,6 @@ button[aria-pressed="true"] {
   top: 16px;
 }
 
-.inspector {
-  position: absolute;
-  top: 64px;
-  right: 10px;
-  width: 250px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--overlay);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--rule);
-}
-
-.inspector header,
 .history header,
 .dialog header {
   display: flex;
@@ -462,22 +298,10 @@ button[aria-pressed="true"] {
   gap: 8px;
 }
 
-.inspector h2,
 .history h2,
 .dialog h2 {
   margin: 0;
   font-size: 1rem;
-}
-
-.inspector label {
-  display: block;
-  margin: 8px 0;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.inspector p {
-  margin: 6px 0;
 }
 
 .editor-message,
@@ -498,6 +322,15 @@ button[aria-pressed="true"] {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+/* a note of what a tool did lets clicks through to what lies under it (all but its close button) */
+.editor-message.info {
+  pointer-events: none;
+}
+
+.editor-message.info button {
+  pointer-events: auto;
 }
 
 .editor-message.error {
@@ -551,57 +384,6 @@ button[aria-pressed="true"] {
 }
 
 /* M5: the tool preview, the problems an edit made, the start's indicators, map layers */
-
-.preview-card,
-.instant {
-  position: absolute;
-  left: 10px;
-  bottom: 52px;
-  width: min(360px, 80%);
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--overlay);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--rule);
-  font-size: 0.9rem;
-}
-
-.preview-card h2,
-.instant h2 {
-  margin: 0 0 4px;
-  font-size: 1rem;
-}
-
-.preview-card ul,
-.instant ul,
-.inspector .report {
-  margin: 4px 0;
-  padding-left: 18px;
-}
-
-.preview-card footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.instant {
-  left: auto;
-  right: 10px;
-  bottom: 52px;
-  border-color: var(--bad);
-}
-
-.instant header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.instant h2 {
-  color: var(--bad);
-}
 
 .start-indicators {
   position: absolute;
@@ -663,49 +445,6 @@ button[aria-pressed="true"] {
 .start-indicators ul {
   margin: 0;
   padding-left: 18px;
-}
-
-.layer-toggle {
-  margin: 0 0 12px;
-}
-
-.advanced-toggle {
-  display: block;
-  margin: 0 0 8px;
-  font-size: 0.9rem;
-}
-
-.inspector .nudge {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 8px 0;
-}
-
-.inspector .nudge button {
-  min-width: 2.2em;
-}
-
-.inspector select {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  padding: 5px 6px;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-}
-
-.inspector details {
-  margin: 8px 0;
-  font-size: 0.9rem;
-}
-
-.tool-options .check,
-.inspector .check {
-  font-weight: 400;
 }
 
 /* dialogs */
@@ -783,7 +522,7 @@ button[aria-pressed="true"] {
     grid-template-columns: 1fr;
   }
 
-  .tabs {
+  .editor-main > .shelf {
     border-right: none;
     border-bottom: 1px solid var(--rule);
   }
@@ -799,69 +538,99 @@ button[aria-pressed="true"] {
   }
 }
 
-/* the 3D view's legend (Map look): what the colours mean */
+/* the legend beside the 3D view (a shared side panel; the editor keeps its panels clear of it) */
+.view3d-frame {
+  --side-panel-width: 214px;
+}
 
-.view3d-legend {
+/* the brush bar's place over the map: below the camera's buttons */
+.brush-bar-wrap {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
-  max-width: min(580px, calc(100% - 20px));
-  max-height: calc(100% - 20px);
-  overflow: hidden;
-  /* the map stays usable under the legend: only its summary takes the pointer */
+  top: 52px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: calc(100% - 20px);
   pointer-events: none;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: var(--overlay);
-  box-shadow: var(--shadow);
-  font-size: 0.8rem;
 }
 
-.view3d-legend summary {
+.brush-bar-wrap > * {
   pointer-events: auto;
-  width: fit-content;
-  cursor: pointer;
-  font-weight: 600;
-  padding: 2px 0;
 }
 
-.view3d-legend ul {
-  list-style: none;
-  margin: 2px 0 4px;
-  padding: 0;
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 14px;
+/* the brush's hint lets clicks through to the map under it (all but its close button) */
+.brush-bar-wrap > .map-note {
+  pointer-events: none;
 }
 
-@media (max-width: 760px) {
-  .view3d-legend ul {
-    grid-template-columns: auto;
+.brush-bar-wrap > .map-note button {
+  pointer-events: auto;
+}
+
+/* what a shape being dragged says, beside the pointer */
+.shape-note {
+  position: absolute;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+/* the start's reach while the pointer is on it: it fades when the pointer leaves (D184) */
+.start-reach {
+  transition: opacity 0.6s ease;
+}
+
+.start-reach.fading {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-reach {
+    transition: none;
   }
 }
 
-.view3d-legend .legend-head {
-  margin: 4px 0 0;
-  font-weight: 600;
+/* the minimap's corner: the map's lower left, above the hover readout */
+.editor-view .minimap {
+  position: absolute;
+  left: 10px;
+  bottom: 48px;
 }
 
-.view3d-legend .note {
-  margin: 0 0 4px;
+/* the water's time controls: the map's lower right corner, clear of the top bar and its options
+   row (the brushes paint mostly in the middle of the view) */
+.water-bar {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  max-width: calc(100% - 420px);
+  justify-content: flex-end;
+}
+
+/* a source's marker (D196): its strength, over it; quiet until its water is the pointer's */
+.source-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.source-marker {
+  position: absolute;
+  transform: translate(-50%, -120%);
+  padding: 2px 7px;
   font-size: 0.75rem;
-  opacity: 0.8;
+  white-space: nowrap;
+  border: 1px solid var(--accent);
 }
 
-.view3d-legend li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 3px 0;
+.source-marker.bad {
+  border-style: dashed;
+  border-color: var(--warn);
 }
 
-.view3d-legend .swatch {
-  flex: none;
-  width: 24px;
-  height: 16px;
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+.source-marker.feeding {
+  outline: 2px solid var(--accent);
+  font-weight: 600;
 }

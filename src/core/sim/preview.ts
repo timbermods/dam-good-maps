@@ -93,6 +93,75 @@ export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater
   return { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice(), preview: true };
 }
 
+/** The water to show at once after an edit, before it settles again (live editing): the last
+ *  settled water, carried over to the new ground. Where the ground changed, a tile that was wet
+ *  keeps the old water surface above its new floor (none where the floor rose over it), and a tile
+ *  that was dry stays dry; everything else is as it was. The background settle then flows it into
+ *  the new shape (`PreviewJob`). Never written to a file. */
+export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
+  const N = next.W * next.H;
+  const prev = from.water;
+  const depth = prev.depth.slice();
+  if (from.model.W === next.W && from.model.H === next.H) {
+    const a = from.model.floor;
+    const b = next.floor;
+    for (let i = 0; i < N; i++) {
+      if (a[i] === b[i] || !(depth[i] > 0)) continue;
+      const surface = a[i] + depth[i];
+      depth[i] = surface > b[i] ? surface - b[i] : 0;
+    }
+  }
+  return {
+    settled: false,
+    ticks: 0,
+    depth,
+    contamination: prev.contamination.slice(),
+    sat: prev.sat.slice(),
+    ...(prev.out ? { out: prev.out.slice() } : {}),
+    preview: true,
+    stale: true,
+  };
+}
+
+/** The editor's background settle after an edit (live editing, D133's live water): the preview's
+ *  warm start and stopping rule, run a few ticks at a time so the page gets the water as it flows
+ *  and a newer edit can take over from the water as it stands (`state`). */
+export class PreviewJob {
+  readonly sim: WaterSim;
+  private readonly run: PreviewRun;
+  private result: CanonicalWater | null = null;
+
+  constructor(
+    from: WarmState,
+    readonly model: WaterModel,
+  ) {
+    const { state, out } = warmStart(from, model);
+    this.sim = new WaterSim(model, state);
+    if (out) this.sim.out.set(out);
+    this.run = new PreviewRun(this.sim);
+  }
+
+  /** Run at most `ticks` more ticks; the settled preview water when it is done, else null. */
+  advance(ticks: number): CanonicalWater | null {
+    if (this.result) return this.result;
+    const r = this.run.advance(ticks);
+    if (!r) return null;
+    const sim = this.sim;
+    this.result = { ...r, depth: sim.D.slice(), contamination: sim.C.slice(), sat: sim.saturation(), out: sim.out.slice(), preview: true };
+    return this.result;
+  }
+
+  get ticks(): number {
+    return this.sim.ticks;
+  }
+
+  /** The water as it stands now: a newer edit warm-starts from it, so the water keeps flowing. */
+  state(): WarmState {
+    const sim = this.sim;
+    return { model: this.model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+  }
+}
+
 /** The preview's stopping rule: `SettleRun`'s test with the stricter share and shorter period. */
 class PreviewRun {
   private readonly run: SettleRun;

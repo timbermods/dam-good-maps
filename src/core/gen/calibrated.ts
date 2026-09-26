@@ -131,6 +131,10 @@ export const BUSHES = {
 
 export const RIVER_FLOW_MULTIPLIER = { trickle: 0.6, normal: 1, strong: 2, lush: 4 } as const;
 
+/** The strongest river an official map has, blocks of water per second: about its whole water
+ *  (water_strength_per_10k × area, about 7 on 256²). A drawn river may be stronger, and says so. */
+export const OFFICIAL_FLOW = 8;
+
 /** Badwater-to-clean strength ratio by the Badwater setting (PLAN §5.4; official median 0.65). */
 export const BADWATER_RATIO = { off: 0, low: 0.3, normal: 0.65, high: 1.2 } as const;
 
