@@ -12,7 +12,7 @@ engine. Nothing here changes `src/` or `tests/`; it imports them read-only.
 
 | Path | What it is |
 |---|---|
-| `requests.json` | The request corpus: 120 requests in 13 kinds, with their map setups, goals, expectations, feasibility, what the report must say, pass criteria and a reference solution. Written by `bin/corpus.ts`. |
+| `requests.json` | The request corpus: 131 requests in 13 kinds, with their map setups, goals, expectations, feasibility, what the report must say, pass criteria and a reference solution. Written by `bin/corpus.ts`. |
 | `lib/flow.ts` | River courses read from the actual flow (water surface, then bed), and the river network (tributaries, lakes). |
 | `lib/places.ts` | The place resolver: compass, places relative to features, flow-relative places; phrases or structured places. |
 | `lib/words.ts` | The judgement-word table (harsher, lush, dangerous, …) and the size words. |

@@ -46,8 +46,13 @@ export interface RiverParams {
   flow: number;
   style: "straight" | "meandering" | "braided";
   meander?: number;
-  entry: { edge: Edge } | { spring: Point } | { lake: string };
-  exit: { edge: Edge } | { lake: string } | { river: string };
+  /** Where its water comes from: the map edge (a sealed mouth), a spring, a lake, or (drawn in
+   *  the editor from existing water) a branch of that water at this point, with no source of its
+   *  own. */
+  entry: { edge: Edge } | { spring: Point } | { lake: string } | { branch: Point };
+  /** Where its water goes: the map edge, a lake, a river, or (drawn in the editor) the ground at
+   *  its end, where it fills the hollow there or runs on downhill. */
+  exit: { edge: Edge } | { lake: string } | { river: string } | { basin: Point };
   badwater: boolean;
   /** Raise the ground beside the channel to its banks (bed + bedDepth) where it is lower: rivers
    *  drawn in the editor keep their water on any terrain. Generated rivers run in their valley. */
@@ -102,6 +107,11 @@ export interface LandformParams {
    *  terraced every `bandDepth` tiles (6–12). Without it, every edge is a cliff. */
   base?: number;
   bandDepth?: number;
+  /** The landform stands on the ground under it (the ones the player draws): it only ever raises
+   *  the ground (a hill, a plateau, a ridge, an island) or only ever lowers it (a canyon, a valley),
+   *  so ground higher than a hill's steps stays, and nothing is dug into the ground beside it.
+   *  Without it (generated layouts), the landform sets the ground to its levels. */
+  onGround?: boolean;
   /** Landforms of a generated layout follow a river: the valley floor and the terrace bands on
    *  each side of it. */
   along?: {

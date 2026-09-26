@@ -1,164 +1,29 @@
-// The editor's panels (EDITOR_PLAN §4): the four tabs with their tools, the inspector of the
-// selected feature, the preview of a planned edit, the problems an edit made, the history list,
-// the map's health pill and the export dialog.
+// The editor's panels (EDITOR_PLAN §3): the water layers' words, Source's options, the start's
+// requirements while it moves, the history list, the map's health and its problems, and the
+// export dialog.
 
 import { proxy, type Remote } from "comlink";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { OpParams } from "../core/doc/ops";
-import type { Orientation } from "../core/format/footprints";
-import type { Feature, MapObjectFeature, SetPieceFeature } from "../core/features/schema";
-import { isLine, OBJECT_NAMES } from "../core/features/objects";
-import type { Facing } from "../core/features/setpieces/common";
+import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
-import type { EntityView } from "../render3d/model";
 import type { GeneratorApi } from "../worker/generator.worker";
-import type { CheckItem, CheckProgress, DamSiteView, EntityInfo, ExportCheck, SessionInfo, ToolPlan, ToolRequest, WaterLayers } from "../worker/session";
+import type { CheckItem, CheckProgress, ExportCheck, SessionInfo, WaterLayers } from "../worker/session";
 import type { FixOp } from "../core/validate/report";
 import { woodDetail } from "../core/analysis/wood";
-import { featureName, tabOf, type FeatureIndex, type StartCheck, type Tab } from "./features";
-import { ADVANCED_TOOLS, LAND_TOOLS, PLACE_TEMPLATES, RESOURCE_TOOLS, TOOL_HINTS, TOOL_NAMES, WATER_TOOLS, type Edge, type FlowWord, type Species, type ToolKind, type ToolOptions } from "./tools";
+import type { StartCheck } from "./features";
+import { plain } from "./words";
 
-// ------------------------------------------------------------------------------------- the tabs
+// ------------------------------------------------------------------------------ the water layers
 
-const TABS: { id: Tab; name: string }[] = [
-  { id: "land", name: "Land" },
-  { id: "water", name: "Water" },
-  { id: "resources", name: "Resources" },
-  { id: "start", name: "Start" },
-];
-
-const TOOLS_OF: Record<Tab, ToolKind[]> = { land: LAND_TOOLS, water: WATER_TOOLS, resources: RESOURCE_TOOLS, start: [] };
-
-const LIST_MAX = 40;
-
-export interface TabPanelProps {
-  tab: Tab;
-  onTab(t: Tab): void;
-  info: SessionInfo;
-  index: FeatureIndex;
-  selected: string | null;
-  onSelect(id: string): void;
-  tool: ToolKind | null;
-  onTool(t: ToolKind | null): void;
-  options: ToolOptions;
-  onOptions(o: ToolOptions): void;
-  damSites: DamSiteView[] | null;
-  onDamSites(show: boolean): void;
-  /** The water layer on show, and whether the map has tiles under roofs. */
-  layer: LayerKind;
-  onLayer(kind: LayerKind): void;
-  roofed: boolean;
-  /** Advanced mode (EDITOR_PLAN §4): objects placed by hand, unstable cores, numeric fields. */
-  advanced: boolean;
-  onAdvanced(on: boolean): void;
-}
-
-export function TabPanel(p: TabPanelProps) {
-  const tools = [...TOOLS_OF[p.tab], ...(p.advanced && p.tab === "resources" ? ADVANCED_TOOLS : [])];
-  const listRef = useRef<HTMLDivElement>(null);
-  // the player's own features first, then what the generator made
-  const inTab = p.info.features.filter((f) => tabOf(f) === p.tab);
-  const features = [...inTab.filter((f) => f.origin !== "generated"), ...inTab.filter((f) => f.origin === "generated")];
-  const shown = features.slice(0, LIST_MAX);
-  const onKey = (ev: KeyboardEvent) => {
-    const k = TABS.findIndex((t) => t.id === p.tab);
-    const next = ev.key === "ArrowDown" || ev.key === "ArrowRight" ? k + 1 : ev.key === "ArrowUp" || ev.key === "ArrowLeft" ? k - 1 : null;
-    if (next === null) return;
-    ev.preventDefault();
-    const t = TABS[(next + TABS.length) % TABS.length];
-    p.onTab(t.id);
-    (document.getElementById(`tab-${t.id}`) as HTMLElement | null)?.focus();
-  };
-  useEffect(() => {
-    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [p.selected]);
-  return (
-    <nav class="tabs" aria-label="Editing">
-      <div class="tablist" role="tablist" aria-orientation="vertical" onKeyDown={onKey}>
-        {TABS.map((t) => (
-          <button
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            key={t.id}
-            aria-selected={p.tab === t.id}
-            aria-controls="tabpanel"
-            tabIndex={p.tab === t.id ? 0 : -1}
-            onClick={() => p.onTab(t.id)}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
-      <div class="tabpanel" id="tabpanel" role="tabpanel" aria-labelledby={`tab-${p.tab}`}>
-        {tools.length ? (
-          <section class="tools" aria-label="Add">
-            <h2>Add</h2>
-            <div class="tool-buttons">
-              {tools.map((t) => (
-                <button type="button" key={t} class={p.tool === t ? "primary" : "ghost"} aria-pressed={p.tool === t} onClick={() => p.onTool(p.tool === t ? null : t)}>
-                  {TOOL_NAMES[t]}
-                </button>
-              ))}
-            </div>
-            {p.tool && tools.includes(p.tool) ? <ToolOptionsForm tool={p.tool} options={p.options} onOptions={p.onOptions} /> : null}
-          </section>
-        ) : null}
-        <label class="check advanced-toggle">
-          <input type="checkbox" checked={p.advanced} onChange={() => p.onAdvanced(!p.advanced)} />
-          Advanced
-        </label>
-        {p.advanced ? <p class="note">Click the map to see the objects on a tile and change them.</p> : null}
-        {p.tab === "water" ? <DamSiteToggle sites={p.damSites} onToggle={p.onDamSites} /> : null}
-        <LayerPicker layer={p.layer} onLayer={p.onLayer} roofed={p.roofed || p.info.kind === "import"} />
-        <TabNote tab={p.tab} info={p.info} />
-        <div class="feature-list" ref={listRef}>
-          {features.length ? <h2>On this map</h2> : null}
-          <ul>
-            {shown.map((f) => (
-              <li key={f.id}>
-                <button type="button" class="linkish" aria-current={p.selected === f.id} onClick={() => p.onSelect(f.id)}>
-                  {featureName(f)}
-                  {f.origin !== "generated" ? <span class="tag-user"> yours</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {features.length > shown.length ? <p class="muted">And {features.length - shown.length} more: click them on the map.</p> : null}
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-/** The water layers the map can show (EDITOR_PLAN §4 overlays, §6). */
 export type LayerKind = "none" | "moisture" | "badwater" | "drought" | "roofed";
 
-const LAYER_NAMES: Record<LayerKind, string> = {
+export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
   moisture: "Soil moisture",
   badwater: "Badwater",
   drought: "Drought",
   roofed: "Water under roofs",
 };
-
-function LayerPicker({ layer, onLayer, roofed }: { layer: LayerKind; onLayer(k: LayerKind): void; roofed: boolean }) {
-  const kinds: LayerKind[] = ["none", "moisture", "badwater", "drought", ...(roofed ? (["roofed"] as LayerKind[]) : [])];
-  return (
-    <section class="layer-toggle" aria-label="Water layers">
-      <label>
-        Show{" "}
-        <select value={layer} onChange={(e) => onLayer((e.target as HTMLSelectElement).value as LayerKind)}>
-          {kinds.map((k) => (
-            <option key={k} value={k}>
-              {LAYER_NAMES[k]}
-            </option>
-          ))}
-        </select>
-      </label>
-    </section>
-  );
-}
 
 /** What the water layer on the map shows, in a line or two. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
@@ -180,275 +45,25 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
   );
 }
 
-function DamSiteToggle({ sites, onToggle }: { sites: DamSiteView[] | null; onToggle(show: boolean): void }) {
+// ---------------------------------------------------------------------------- a source's strength
+
+/** Water's strength, blocks per second, with the brushes' slider: a few steps from a trickle to
+ *  the most the game handles; past the official maps' range it says so, never a block. */
+export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
+  const k = p.steps.reduce((best, f, j) => (Math.abs(f - p.value) < Math.abs(p.steps[best] - p.value) ? j : best), 0);
   return (
-    <section class="layer-toggle" aria-label="Dam sites">
-      <label class="check">
-        <input type="checkbox" checked={sites !== null} onChange={(e) => onToggle((e.target as HTMLInputElement).checked)} />
-        Show dam sites
+    <>
+      <label class="slider-field" title="Blocks of water a second">
+        {p.label ?? "Strength"}
+        <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
+        <output>{p.value} water/s</output>
       </label>
-      {sites ? (
-        sites.length ? (
-          <p class="note">
-            Striped lines mark the best places for a dam. The best holds {sites[0].volume.toLocaleString()} water behind {sites[0].length} tiles of dam, {sites[0].height} high.
-          </p>
-        ) : (
-          <p class="note">No good dam sites near the start. Add one on a river with the Dam site tool.</p>
-        )
-      ) : null}
-    </section>
+      {p.value > OFFICIAL_FLOW ? <p class="note">Stronger than any official map.</p> : null}
+    </>
   );
 }
 
-function TabNote({ tab, info }: { tab: Tab; info: SessionInfo }) {
-  const imported = info.kind === "import";
-  if (tab === "start") {
-    if (imported) return <p class="note">Drag the start's handle to move it. The district center needs level ground and a free tile at its door.</p>;
-    return <p class="note">Select the start, then drag its handle. Green means the district center fits and meets the start requirements: clean water within a short walk, and enough wood and berry bushes within 20 tiles' walk.</p>;
-  }
-  if (imported && tab === "land") return <p class="note">Imported maps have no features to select yet. Draw new land on top of the map.</p>;
-  return null;
-}
-
-function Num(p: { label: string; value: number; min: number; max: number; step?: number; onChange(v: number): void }) {
-  // what the player is typing, until it commits: a re-render meanwhile (the worker finishing an
-  // edit) must not put the old value back
-  const [draft, setDraft] = useState<string | null>(null);
-  return (
-    <label>
-      {p.label}
-      <input
-        type="number"
-        min={p.min}
-        max={p.max}
-        step={p.step ?? 1}
-        value={draft ?? p.value}
-        onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
-        onChange={(e) => {
-          const v = Number((e.target as HTMLInputElement).value);
-          setDraft(null);
-          if (Number.isFinite(v)) p.onChange(Math.min(p.max, Math.max(p.min, v)));
-        }}
-      />
-    </label>
-  );
-}
-
-function Pick<T extends string>(p: { label: string; value: T; choices: [T, string][]; onChange(v: T): void }) {
-  return (
-    <label>
-      {p.label}
-      <select value={p.value} onChange={(e) => p.onChange((e.target as HTMLSelectElement).value as T)}>
-        {p.choices.map(([v, name]) => (
-          <option value={v} key={v}>
-            {name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-const TURN_CHOICES: [Orientation, string][] = [
-  ["Cw0", "Turned 0°"],
-  ["Cw90", "Turned 90°"],
-  ["Cw180", "Turned 180°"],
-  ["Cw270", "Turned 270°"],
-];
-const FACING_CHOICES: [Facing, string][] = [
-  ["north", "North"],
-  ["east", "East"],
-  ["south", "South"],
-  ["west", "West"],
-];
-const FLOW_CHOICES: [FlowWord, string][] = [
-  ["gentle", "Gentle (1 water/s)"],
-  ["steady", "Steady (2 water/s)"],
-  ["strong", "Strong (4 water/s)"],
-];
-const EDGE_CHOICES: [Edge, string][] = [
-  ["gentle", "Gentle: 1-level steps, joined by slopes"],
-  ["terraced", "Terraced: wide 1-level bands"],
-  ["cliff", "Cliff: beavers need stairs"],
-];
-
-function ToolOptionsForm({ tool, options: o, onOptions }: { tool: ToolKind; options: ToolOptions; onOptions(o: ToolOptions): void }) {
-  const set = (patch: Partial<ToolOptions>) => onOptions({ ...o, ...patch });
-  const land = ["hill", "plateau", "ridge", "canyon", "valley", "island"].includes(tool);
-  return (
-    <div class="tool-options">
-      <p class="note">{TOOL_HINTS[tool]}</p>
-      {land ? (
-        <>
-          <label>
-            Height
-            <select value={String(o.height)} onChange={(e) => set({ height: Number((e.target as HTMLSelectElement).value) })}>
-              <option value="0">{tool === "canyon" || tool === "valley" ? "2 below the ground" : tool === "plateau" && o.edge === "cliff" ? "2 above the ground" : "3 above the ground"}</option>
-              {Array.from({ length: 16 }, (_, k) => k + 1).map((h) => (
-                <option value={String(h)} key={h}>
-                  Height {h}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Pick label="Edges" value={o.edge} choices={EDGE_CHOICES} onChange={(edge) => set({ edge })} />
-          {o.edge === "terraced" ? <Num label="Band depth (tiles)" value={o.bandDepth} min={6} max={12} onChange={(bandDepth) => set({ bandDepth })} /> : null}
-        </>
-      ) : null}
-      {tool === "river" ? <Pick label="Flow" value={o.flow} choices={FLOW_CHOICES} onChange={(flow) => set({ flow })} /> : null}
-      {tool === "lake" ? (
-        <>
-          <label>
-            Water level
-            <select value={String(o.level)} onChange={(e) => set({ level: Number((e.target as HTMLSelectElement).value) })}>
-              <option value="0">The lowest ground round it</option>
-              {Array.from({ length: 15 }, (_, k) => k + 1).map((h) => (
-                <option value={String(h)} key={h}>
-                  Level {h}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Pick
-            label="Spring"
-            value={String(o.spring)}
-            choices={[
-              ["0.25", "Trickle"],
-              ["0.5", "Gentle"],
-              ["1", "Steady"],
-            ]}
-            onChange={(v) => set({ spring: Number(v) })}
-          />
-        </>
-      ) : null}
-      {tool === "waterfall" ? (
-        <>
-          <Num label="Drop (levels)" value={o.drop} min={1} max={15} onChange={(drop) => set({ drop })} />
-          <p class="note">Away from a river, it also takes:</p>
-          <Num label="Width (tiles)" value={o.fallWidth} min={2} max={102} onChange={(fallWidth) => set({ fallWidth })} />
-          <Pick label="Falls toward" value={o.facing} choices={FACING_CHOICES} onChange={(facing) => set({ facing })} />
-          <Pick label="Flow" value={o.flow} choices={FLOW_CHOICES} onChange={(flow) => set({ flow })} />
-        </>
-      ) : null}
-      {tool === "damSite" ? <Num label="Dam height (levels above the river)" value={o.crest} min={1} max={4} onChange={(crest) => set({ crest })} /> : null}
-      {tool === "gorge" ? (
-        <>
-          <Num label="Length (tiles)" value={o.gorgeLength} min={6} max={40} onChange={(gorgeLength) => set({ gorgeLength })} />
-          <Num label="Width (tiles)" value={o.gorgeWidth} min={3} max={9} onChange={(gorgeWidth) => set({ gorgeWidth })} />
-          <Num label="Wall height (levels)" value={o.wallHeight} min={2} max={14} onChange={(wallHeight) => set({ wallHeight })} />
-          <label class="check">
-            <input type="checkbox" checked={o.stairs} onChange={() => set({ stairs: !o.stairs })} />
-            Stairs down to the water
-          </label>
-        </>
-      ) : null}
-      {tool === "terracedCliffs" ? (
-        <>
-          <Pick label="Faces" value={o.facing} choices={FACING_CHOICES} onChange={(facing) => set({ facing })} />
-          <Num label="Bands" value={o.bands} min={3} max={6} onChange={(bands) => set({ bands })} />
-          <Num label="Band depth (tiles)" value={o.bandDepth} min={6} max={12} onChange={(bandDepth) => set({ bandDepth })} />
-          <Num label="Width (tiles)" value={o.cliffWidth} min={6} max={60} onChange={(cliffWidth) => set({ cliffWidth })} />
-        </>
-      ) : null}
-      {tool === "badwater" ? <Num label="Strength (water/s)" value={o.strength} min={1} max={3} step={0.5} onChange={(strength) => set({ strength })} /> : null}
-      {tool === "relic" ? (
-        <Pick
-          label="Size"
-          value={o.relic}
-          choices={[
-            ["small", "Small (200 science)"],
-            ["medium", "Medium (800 science)"],
-            ["large", "Large (3,000 science)"],
-          ]}
-          onChange={(relic) => set({ relic })}
-        />
-      ) : null}
-      {tool === "object" ? <Pick label="Object" value={o.template} choices={PLACE_TEMPLATES} onChange={(template) => set({ template })} /> : null}
-      {tool === "mineSite" || tool === "relic" || tool === "geothermal" || tool === "core" || tool === "object" ? <Pick label="Facing" value={o.turn} choices={TURN_CHOICES} onChange={(turn) => set({ turn })} /> : null}
-      {tool === "core" ? (
-        <>
-          <Num label="Explosion radius" value={o.coreRadius} min={0} max={5} onChange={(coreRadius) => set({ coreRadius })} />
-          <Num label="Countdown starts in cycle" value={o.coreCycles} min={1} max={99} onChange={(coreCycles) => set({ coreCycles })} />
-        </>
-      ) : null}
-      {tool === "thornBelt" ? (
-        <label>
-          Thorns: {Math.round(o.density * 100)}% of the area
-          <input type="range" min="10" max="100" step="10" value={Math.round(o.density * 100)} onInput={(e) => set({ density: Number((e.target as HTMLInputElement).value) / 100 })} />
-        </label>
-      ) : null}
-      {tool === "forest" ? (
-        <label class="check">
-          <input type="checkbox" checked={o.life === "alive"} onChange={() => set({ life: o.life === "alive" ? "auto" : "alive" })} />
-          Only where trees live
-        </label>
-      ) : null}
-      {tool === "forest" ? (
-        <label>
-          Trees
-          <select value={o.species} onChange={(e) => set({ species: (e.target as HTMLSelectElement).value as Species })}>
-            <option value="mixed">Mixed</option>
-            <option value="Pine">Pine</option>
-            <option value="Birch">Birch</option>
-            <option value="Oak">Oak</option>
-          </select>
-        </label>
-      ) : null}
-      {tool === "forest" || tool === "berryPatch" ? (
-        <label>
-          Density: {Math.round(o.density * 100)}%
-          <input type="range" min="10" max="100" step="10" value={Math.round(o.density * 100)} onInput={(e) => set({ density: Number((e.target as HTMLInputElement).value) / 100 })} />
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------------------ the tool preview
-
-export interface PreviewProps {
-  plan: ToolPlan | null;
-  pending: boolean;
-  onPlace(): void;
-  onCancel(): void;
-}
-
-/** The planned edit before it is placed: what it does, every value reduced, what it clears. */
-export function PreviewCard({ plan, pending, onPlace, onCancel }: PreviewProps) {
-  const place = useRef<HTMLButtonElement>(null);
-  useEffect(() => place.current?.focus(), [plan]);
-  if (!plan && !pending) return null;
-  return (
-    <aside class="preview-card" aria-label="Preview">
-      {pending ? <p>Planning…</p> : null}
-      {plan && !plan.ok ? (
-        <p class="error" role="alert">
-          {plain(plan.errors[0] ?? "This does not fit here.")}
-        </p>
-      ) : null}
-      {plan?.ok ? (
-        <>
-          <h2>{plan.label}</h2>
-          <ul>
-            {plan.report.map((r) => (
-              <li key={r}>{plain(r)}</li>
-            ))}
-          </ul>
-        </>
-      ) : null}
-      <footer>
-        <button type="button" class="ghost" onClick={onCancel}>
-          {plan && !plan.ok ? "OK" : "Cancel"}
-        </button>
-        {plan?.ok ? (
-          <button type="button" class="primary" ref={place} onClick={onPlace}>
-            Place
-          </button>
-        ) : null}
-      </footer>
-    </aside>
-  );
-}
+// ------------------------------------------------------------------------------- the start
 
 /** The start's footprint check while it is dragged: whether it fits, the three start requirements
  *  (PLAN §5.6, D85, D164) with the map's numbers, and the targets it misses as warnings. */
@@ -478,361 +93,6 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
         ))}
       </ul>
     </div>
-  );
-}
-
-// -------------------------------------------------------------------------------- the inspector
-
-const TURN: Record<Orientation, Orientation> = { Cw0: "Cw90", Cw90: "Cw180", Cw180: "Cw270", Cw270: "Cw0" };
-const FACING: Record<Orientation, string> = { Cw0: "south", Cw90: "west", Cw180: "north", Cw270: "east" };
-const MOIST: Record<number, string> = { 1: "16 tiles", 2: "10 tiles", 3: "4 tiles", 4: "no tiles" };
-
-export interface InspectorProps {
-  feature: Feature;
-  index: FeatureIndex;
-  heights: Uint8Array;
-  entities: EntityView;
-  W: number;
-  blocked: string | null;
-  onClose(): void;
-  onDelete(): void;
-  onPatch(patch: OpParams["updateFeature"]["patch"], label: string): void;
-  /** Plan the feature again with a changed request (a tool's request for rivers, lakes,
-   *  landforms and set pieces), then apply it. */
-  onReplan(req: ToolRequest): void;
-  /** Plan a change and show it first, with its warnings (a river turned to badwater). */
-  onPlan(req: ToolRequest): void;
-}
-
-export function Inspector(p: InspectorProps) {
-  const f = p.feature;
-  const tiles = p.index.tilesOf(f);
-  let lo = 255;
-  let hi = 0;
-  for (const i of tiles) {
-    lo = Math.min(lo, p.heights[i]);
-    hi = Math.max(hi, p.heights[i]);
-  }
-  const owner = p.entities.owners.indexOf(f.id);
-  let objects = 0;
-  if (owner >= 0) for (let k = 0; k < p.entities.count; k++) if (p.entities.owner[k] === owner) objects++;
-  const name = featureName(f);
-  const facts: string[] = [];
-  if (tiles.length) facts.push(`${tiles.length.toLocaleString()} tiles`);
-  if (tiles.length) facts.push(lo === hi ? `height ${lo}` : `height ${lo}–${hi}`);
-  if (f.kind === "forest") facts.push(`${objects} trees`);
-  if (f.kind === "berryPatch") facts.push(`${objects} bushes`);
-  if (f.kind === "ruinField") facts.push(`${objects} ruin columns`);
-  if (f.kind === "river") facts.push(`${f.params.flow} water/s`);
-  if (f.kind === "lake") facts.push(`water level ${f.params.outlet.sill}`);
-  if (f.kind === "start") facts.push(`door faces ${FACING[f.params.orientation]}`);
-  if (f.kind === "mapObject" && isLine(f.params.kind)) facts.push(`${objects} ${f.params.kind === "thornBelt" ? "thorns" : "tiles"}`);
-  return (
-    <aside class="inspector" aria-label={`${name}, selected`}>
-      <header>
-        <h2>{name}</h2>
-        <button type="button" class="linkish" aria-label="Close" onClick={p.onClose}>
-          ×
-        </button>
-      </header>
-      <p class="muted">
-        {facts.join(" · ")}
-        {f.origin !== "generated" ? " · yours" : ""}
-      </p>
-      {(f.kind === "forest" || f.kind === "berryPatch") && (
-        <label>
-          Density: {Math.round(f.params.density * 100)}%
-          <input
-            type="range"
-            min="10"
-            max="100"
-            step="10"
-            value={Math.round(f.params.density * 100)}
-            onChange={(e) => p.onPatch({ params: { density: Number((e.target as HTMLInputElement).value) / 100 } }, `Change ${name.toLowerCase()} density`)}
-          />
-        </label>
-      )}
-      {f.kind === "landform" && f.params.outline && f.params.height !== undefined ? <LandformControls f={f} name={name} onPatch={p.onPatch} onReplan={p.onReplan} /> : null}
-      {f.kind === "river" ? <RiverControls f={f} onPatch={p.onPatch} onReplan={p.onReplan} onPlan={p.onPlan} /> : null}
-      {f.kind === "lake" && !f.params.planned && f.params.outlet.path ? <LakeControls f={f} onReplan={p.onReplan} /> : null}
-      {f.kind === "setPiece" ? <PieceControls f={f} onReplan={p.onReplan} /> : null}
-      {f.kind === "mapObject" ? <ObjectControls f={f} onReplan={p.onReplan} /> : null}
-      {f.kind === "start" ? (
-        <button type="button" class="ghost" onClick={() => p.onPatch({ params: { orientation: TURN[f.params.orientation] } }, "Turn the start")}>
-          Turn
-        </button>
-      ) : null}
-      <p class="note">{p.blocked ?? "Drag the handle on the map to move it, or focus the handle and use the arrow keys."}</p>
-      <button type="button" class="ghost danger" onClick={p.onDelete}>
-        Delete
-      </button>
-    </aside>
-  );
-}
-
-function LandformControls({ f, name, onPatch, onReplan }: { f: Extract<Feature, { kind: "landform" }>; name: string; onPatch: InspectorProps["onPatch"]; onReplan: InspectorProps["onReplan"] }) {
-  const pr = f.params;
-  const own = f.origin !== "generated";
-  const replan = (patch: { height?: number; edgeStyle?: Edge; bandDepth?: number }) =>
-    onReplan({ tool: "landform", outline: pr.outline!, kind: pr.kind, height: patch.height ?? pr.height, edgeStyle: patch.edgeStyle ?? pr.edgeStyle, ...(pr.bandDepth || patch.bandDepth ? { bandDepth: patch.bandDepth ?? pr.bandDepth } : {}) });
-  return (
-    <>
-      <label>
-        Height
-        <input
-          type="number"
-          min="0"
-          max="16"
-          value={pr.height}
-          onChange={(e) => {
-            const v = Math.round(Number((e.target as HTMLInputElement).value));
-            if (v >= 0 && v <= 16 && v !== pr.height) onPatch({ params: { height: v } }, `Change ${name.toLowerCase()} height`);
-          }}
-        />
-      </label>
-      {own ? <Pick label="Edges" value={pr.edgeStyle} choices={EDGE_CHOICES} onChange={(edgeStyle) => edgeStyle !== pr.edgeStyle && replan({ edgeStyle })} /> : null}
-      {own && pr.edgeStyle === "terraced" ? <Num label="Band depth (tiles)" value={pr.bandDepth ?? 8} min={6} max={12} onChange={(bandDepth) => replan({ bandDepth })} /> : null}
-    </>
-  );
-}
-
-function ObjectControls({ f, onReplan }: { f: MapObjectFeature; onReplan: InspectorProps["onReplan"] }) {
-  const pr = f.params;
-  if (!("x" in pr.placement)) return null;
-  const pl = pr.placement;
-  const replan = (patch: { orientation?: Orientation; core?: { radius: number; cycles: number } }) =>
-    onReplan({ tool: "object", kind: pr.kind, at: [pl.x, pl.y], orientation: patch.orientation ?? pl.orientation, ...(pr.core || patch.core ? { core: patch.core ?? pr.core } : {}) });
-  return (
-    <>
-      <button type="button" class="ghost" onClick={() => replan({ orientation: TURN[pl.orientation] })}>
-        Turn
-      </button>
-      {pr.kind === "unstableCore" && pr.core ? (
-        <>
-          <Num label="Explosion radius" value={pr.core.radius} min={0} max={5} onChange={(radius) => replan({ core: { ...pr.core!, radius } })} />
-          <Num label="Countdown starts in cycle" value={pr.core.cycles} min={1} max={99} onChange={(cycles) => replan({ core: { ...pr.core!, cycles } })} />
-        </>
-      ) : null}
-      <p class="note">{OBJECT_NAMES[pr.kind]}s can stand only on level, dry ground, away from rivers and the start.</p>
-    </>
-  );
-}
-
-function RiverControls({ f, onPatch, onReplan, onPlan }: { f: Extract<Feature, { kind: "river" }>; onPatch: InspectorProps["onPatch"]; onReplan: InspectorProps["onReplan"]; onPlan: InspectorProps["onPlan"] }) {
-  const pr = f.params;
-  const drawn = pr.banks === true;
-  const word: FlowWord | "exact" = pr.flow === 1 ? "gentle" : pr.flow === 2 ? "steady" : pr.flow === 4 ? "strong" : "exact";
-  const flows: [string, string][] = [...FLOW_CHOICES, ...(word === "exact" ? ([["exact", `${pr.flow} water/s`]] as [string, string][]) : [])];
-  const setFlow = (v: string) => {
-    const flow = { gentle: 1, steady: 2, strong: 4 }[v as FlowWord];
-    if (!flow || flow === pr.flow) return;
-    if (drawn) onReplan({ tool: "river", points: pr.path, flow, bedDepth: pr.bedDepth });
-    else onPatch({ params: { flow } }, "Change the river's flow");
-  };
-  return (
-    <>
-      <Pick label="Flow" value={word} choices={flows} onChange={setFlow} />
-      {drawn ? (
-        <label>
-          Bed depth
-          <select value={String(pr.bedDepth)} onChange={(e) => onReplan({ tool: "river", points: pr.path, flow: pr.flow, bedDepth: Number((e.target as HTMLSelectElement).value) })}>
-            {[1, 2, 3, 4].map((d) => (
-              <option value={String(d)} key={d}>
-                {d} below its banks
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      <button type="button" class="ghost" onClick={() => onPlan({ tool: "riverBadwater", river: f.id, on: !pr.badwater })}>
-        {pr.badwater ? "Make it clean" : "Make it badwater"}
-      </button>
-      <p class="note">{pr.badwater ? "Its water is badwater: nothing grows on the soil along it, and beavers can't drink it." : `Moist soil reaches ${MOIST[pr.bedDepth] ?? "a few tiles"} from its banks. Drag its handle to move it.`}</p>
-    </>
-  );
-}
-
-function LakeControls({ f, onReplan }: { f: Extract<Feature, { kind: "lake" }>; onReplan: InspectorProps["onReplan"] }) {
-  const pr = f.params;
-  const spring = "spring" in pr.inflow ? pr.inflow.spring : 0;
-  const replan = (patch: { level?: number; spring?: number }) => onReplan({ tool: "lake", outline: pr.outline, level: patch.level ?? pr.outlet.sill, floorDepth: pr.floorDepth, spring: patch.spring ?? spring });
-  return (
-    <>
-      <Num label="Water level" value={pr.outlet.sill} min={1} max={15} onChange={(level) => level !== pr.outlet.sill && replan({ level })} />
-      <Pick
-        label="Spring"
-        value={String(spring)}
-        choices={[
-          ["0", "None (it dries slowly)"],
-          ["0.25", "Trickle"],
-          ["0.5", "Gentle"],
-          ["1", "Steady"],
-        ]}
-        onChange={(v) => replan({ spring: Number(v) })}
-      />
-      <p class="note">The water fills to the level of its outlet, then flows out.</p>
-    </>
-  );
-}
-
-function PieceControls({ f, onReplan }: { f: SetPieceFeature; onReplan: InspectorProps["onReplan"] }) {
-  const req = f.params.request;
-  const plan = f.params.plan;
-  const kind = f.params.kind;
-  const replan = (patch: Record<string, number | string | boolean>) => onReplan({ tool: "setPiece", piece: kind, request: { ...req, ...patch } });
-  const generatedMarsh = kind === "badwaterBasin" && plan.mode === "marsh";
-  return (
-    <>
-      {kind === "waterfall" ? (
-        <>
-          <Num label="Drop (levels)" value={Number(plan.drop)} min={1} max={15} onChange={(drop) => replan({ drop })} />
-          {plan.mode === "standalone" ? (
-            <>
-              <Num label="Width (tiles)" value={Number(plan.width)} min={2} max={102} onChange={(width) => replan({ width })} />
-              <Pick
-                label="Flow"
-                value={typeof req.flow === "string" ? req.flow : "exact"}
-                choices={[...FLOW_CHOICES, ...(typeof req.flow === "number" ? ([["exact", `${req.flow} water/s`]] as [string, string][]) : [])]}
-                onChange={(flow) => flow !== "exact" && replan({ flow })}
-              />
-            </>
-          ) : null}
-        </>
-      ) : null}
-      {kind === "damSite" ? <Num label="Dam height (levels above the river)" value={Number(plan.crest)} min={1} max={4} onChange={(crest) => replan({ crest })} /> : null}
-      {kind === "gorge" ? (
-        <>
-          <Num label="Width (tiles)" value={Number(plan.width)} min={3} max={9} onChange={(width) => replan({ width })} />
-          <Num label="Wall height (levels)" value={Number(plan.wallHeight)} min={2} max={14} onChange={(wallHeight) => replan({ wallHeight })} />
-          <label class="check">
-            <input type="checkbox" checked={Number(plan.notchSide) !== 0} onChange={() => replan({ access: Number(plan.notchSide) !== 0 ? "none" : "stairs" })} />
-            Stairs down to the water
-          </label>
-        </>
-      ) : null}
-      {kind === "terracedCliffs" ? (
-        <>
-          <Num label="Bands" value={Number(plan.bands)} min={3} max={6} onChange={(bands) => replan({ bands })} />
-          <Num label="Band depth (tiles)" value={Number(plan.depth)} min={6} max={12} onChange={(depth) => replan({ depth })} />
-        </>
-      ) : null}
-      {kind === "badwaterBasin" && !generatedMarsh ? <Num label="Strength (water/s)" value={Number(plan.strength)} min={1} max={3} step={0.5} onChange={(strength) => replan({ strength })} /> : null}
-      {f.params.report.length ? (
-        <details>
-          <summary>What it does</summary>
-          <ul class="report">
-            {f.params.report.map((r) => (
-              <li key={r}>{plain(r)}</li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-    </>
-  );
-}
-
-// ------------------------------------------------------------------------------ objects (advanced)
-
-export interface EntityChange {
-  /** Merge patch on the entity's components (setEntityProps). */
-  props?: Record<string, unknown>;
-  /** A move by one tile, or a turn (moveEntity). */
-  move?: { dx: number; dy: number; turn: boolean };
-  remove?: boolean;
-}
-
-/** The objects on a clicked tile (advanced mode): each with its numbers, a turn, a nudge and delete.
- *  Water sources take a strength and a delay ("turns on at cycle N"); unstable cores a radius and a
- *  countdown. */
-export function EntityInspector({ list, onChange, onClose }: { list: EntityInfo[]; onChange(e: EntityInfo, c: EntityChange): void; onClose(): void }) {
-  const [k, setK] = useState(0);
-  const e = list[Math.min(k, list.length - 1)];
-  if (!e) return null;
-  const name = (t: string) => PLACE_TEMPLATES.find(([v]) => v === t)?.[1] ?? t.replace(/([a-z])([A-Z])/g, "$1 $2");
-  const c = e.components as Record<string, Record<string, unknown> | undefined>;
-  const ws = c.WaterSource;
-  const ta = c.TimeActivatedComponent;
-  const core = c.UnstableCore;
-  const delayed = ta?.IsEnabled === true;
-  const strength = Number(ws?.SpecifiedStrength ?? 0);
-  return (
-    <aside class="inspector entity-inspector" aria-label={`${name(e.template)}, selected`}>
-      <header>
-        <h2>{name(e.template)}</h2>
-        <button type="button" class="linkish" aria-label="Close" onClick={onClose}>
-          ×
-        </button>
-      </header>
-      {list.length > 1 ? (
-        <label>
-          On this tile
-          <select value={String(k)} onChange={(ev) => setK(Number((ev.target as HTMLSelectElement).value))}>
-            {list.map((x, j) => (
-              <option value={String(j)} key={x.id}>
-                {name(x.template)}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      <p class="muted">
-        ({e.x}, {e.y}), level {e.z} · {e.from}
-      </p>
-      {ws ? (
-        <>
-          <Num label="Strength (water/s)" value={strength} min={0} max={e.template === "BadwaterSource" ? 72 : 8} step={0.25} onChange={(v) => onChange(e, { props: { WaterSource: { SpecifiedStrength: v, CurrentStrength: delayed ? 0 : v } } })} />
-          <label class="check">
-            <input
-              type="checkbox"
-              checked={delayed}
-              onChange={() =>
-                onChange(e, {
-                  props: {
-                    // official maps' delayed sources start 10.5 days into their cycle
-                    TimeActivatedComponent: { IsEnabled: !delayed, CyclesUntilCountdownActivation: Number(ta?.CyclesUntilCountdownActivation ?? 5), DaysUntilActivation: delayed ? Number(ta?.DaysUntilActivation ?? 10) : 10.5, DaysPassed: 0 },
-                    WaterSource: { CurrentStrength: !delayed ? 0 : strength },
-                  },
-                })
-              }
-            />
-            Turns on later
-          </label>
-          {delayed ? (
-            <>
-              <Num label="In cycle" value={Number(ta?.CyclesUntilCountdownActivation ?? 5)} min={1} max={99} onChange={(v) => onChange(e, { props: { TimeActivatedComponent: { CyclesUntilCountdownActivation: v } } })} />
-              <Num label="After days" value={Number(ta?.DaysUntilActivation ?? 10.5)} min={0} max={30} step={0.5} onChange={(v) => onChange(e, { props: { TimeActivatedComponent: { DaysUntilActivation: v } } })} />
-              <p class="note">It stays off until then: the map's water is settled without it.</p>
-            </>
-          ) : null}
-        </>
-      ) : null}
-      {core ? (
-        <>
-          <Num label="Explosion radius" value={Number(core.ExplosionRadius ?? 2)} min={0} max={5} onChange={(v) => onChange(e, { props: { UnstableCore: { ExplosionRadius: v } } })} />
-          <Num label="Countdown starts in cycle" value={Number(ta?.CyclesUntilCountdownActivation ?? 5)} min={1} max={99} onChange={(v) => onChange(e, { props: { TimeActivatedComponent: { CyclesUntilCountdownActivation: v } } })} />
-        </>
-      ) : null}
-      <div class="row nudge" role="group" aria-label="Move by one tile">
-        <button type="button" class="ghost" aria-label="Move west" onClick={() => onChange(e, { move: { dx: -1, dy: 0, turn: false } })}>
-          ←
-        </button>
-        <button type="button" class="ghost" aria-label="Move north" onClick={() => onChange(e, { move: { dx: 0, dy: 1, turn: false } })}>
-          ↑
-        </button>
-        <button type="button" class="ghost" aria-label="Move south" onClick={() => onChange(e, { move: { dx: 0, dy: -1, turn: false } })}>
-          ↓
-        </button>
-        <button type="button" class="ghost" aria-label="Move east" onClick={() => onChange(e, { move: { dx: 1, dy: 0, turn: false } })}>
-          →
-        </button>
-        <button type="button" class="ghost" onClick={() => onChange(e, { move: { dx: 0, dy: 0, turn: true } })}>
-          Turn
-        </button>
-      </div>
-      <button type="button" class="ghost danger" onClick={() => onChange(e, { remove: true })}>
-        Delete
-      </button>
-    </aside>
   );
 }
 
@@ -883,28 +143,6 @@ export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJ
 
 // ------------------------------------------------------------------------------ health and export
 
-export function StatusPill({ check, busy, progress, onOpen }: { check: ExportCheck | null; busy: boolean; progress?: CheckProgress | null; onOpen(): void }) {
-  let text = progress?.stage === "water" ? `Settling water ${Math.round(progress.done * 100)}%` : "Checking…";
-  let tone = "wait";
-  if (check && !busy) {
-    if (check.blocking.length) {
-      text = `${check.blocking.length} problem${check.blocking.length > 1 ? "s" : ""}`;
-      tone = "bad";
-    } else if (check.warnings.length) {
-      text = `${check.warnings.length} warning${check.warnings.length > 1 ? "s" : ""}`;
-      tone = "warn";
-    } else {
-      text = "Ready to play";
-      tone = "ok";
-    }
-  }
-  return (
-    <button type="button" class={`pill ${tone}`} onClick={onOpen} title="Open the checks">
-      {text}
-    </button>
-  );
-}
-
 /** A problem's first tile, for "Show". */
 export function whereOf(c: CheckItem, entityAt: (id: string) => [number, number] | null): [number, number] | null {
   if (c.where?.tiles?.length) return c.where.tiles[0];
@@ -921,7 +159,7 @@ export interface ItemActions {
   canShow(c: CheckItem): boolean;
 }
 
-function Items({ items, actions }: { items: CheckItem[]; actions?: ItemActions }) {
+export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemActions }) {
   return (
     <ul>
       {items.map((c) => (
@@ -946,23 +184,6 @@ function Items({ items, actions }: { items: CheckItem[]; actions?: ItemActions }
         </li>
       ))}
     </ul>
-  );
-}
-
-/** The problems the last edit made (the instant checks), with their fixes. */
-export function InstantProblems({ items, actions, onClose }: { items: CheckItem[]; actions: ItemActions; onClose(): void }) {
-  if (!items.length) return null;
-  return (
-    <aside class="instant" role="alert" aria-label="Problems this edit made">
-      <header>
-        <h2>This edit made {items.length === 1 ? "a problem" : `${items.length} problems`}</h2>
-        <button type="button" class="linkish" aria-label="Dismiss" onClick={onClose}>
-          ×
-        </button>
-      </header>
-      <Items items={items} actions={actions} />
-      <p class="note">Fix it, undo the edit, or carry on: the map can't be exported until it is fixed.</p>
-    </aside>
   );
 }
 
@@ -1143,7 +364,4 @@ export function ExportDialog(p: ExportDialogProps) {
   );
 }
 
-/** Engine messages name ids; the player sees plain words. */
-export function plain(text: string): string {
-  return text.replace(/\b(f-[a-z0-9]{6,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/g, "it").replace(/^./, (c) => c.toUpperCase());
-}
+export { plain };

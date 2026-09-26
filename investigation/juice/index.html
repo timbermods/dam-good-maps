@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light"><title>Juice · Dam Good Maps</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header><a href="./" class="brand"><span class="brandmark" aria-hidden="true">≈</span> DAM GOOD MAPS <span class="slash">/</span> <span>Sound studio</span></a><span class="tag">JUICE INVESTIGATION</span></header>
+  <main>
+    <div class="intro"><p class="eyebrow">WOOD, EARTH & WATER</p><h1>A little life in the landscape.</h1><p>Small sounds for making a world. Pick a sound, paint a while, and listen to it change.</p></div>
+    <div class="workspace">
+      <aside class="controls" aria-label="Sound controls">
+        <div class="control-heading"><h2>Your listening space</h2><button id="enabled" class="toggle" aria-pressed="true">Sound on</button></div>
+        <label for="volume">Master volume <output id="volume-value">22%</output></label><input id="volume" type="range" min="0" max="100" value="22">
+        <p class="hint">Quiet is a good place to start.</p>
+        <div class="divider"></div>
+        <label for="size">Brush size <output id="size-value">35%</output></label><input id="size" type="range" min="0" max="100" value="35"><div class="ends"><span>A little touch</span><span>A broad stroke</span></div>
+        <label for="strength">Strength / force power <output id="strength-value">40%</output></label><input id="strength" type="range" min="0" max="100" value="40"><div class="ends"><span>Gentle</span><span>Catastrophe</span></div>
+        <label for="distance">Camera distance <output id="distance-value">Close</output></label><input id="distance" type="range" min="0" max="100" value="0"><div class="ends"><span>Right here</span><span>Far away</span></div>
+        <div class="divider"></div>
+        <label class="check"><input id="ambience" type="checkbox"> Water ambience</label><p class="hint">A stream and a small waterfall. Off by default.</p>
+        <button id="stop" class="stop">Stop everything <kbd>Esc</kbd></button>
+        <p id="status" class="status" role="status">Ready when you are. Click any sound to begin.</p>
+        <details><summary>Under the hood</summary><p>Every sound is made in code. No recordings or samples. Audio runs separately from the painting canvas.</p><p id="meter">No audio context created yet.</p><a href="./checks.html">Run browser checks →</a></details>
+      </aside>
+      <div class="studio">
+        <section class="garden" aria-labelledby="garden-title">
+          <div class="garden-top"><span class="eyebrow" id="garden-title">THE SOUND GARDEN</span><span id="scene-caption">Drag to raise a hillside</span></div>
+          <canvas id="garden" width="1000" height="420" tabindex="0" aria-label="Sound garden. Drag to paint with the selected brush. Hold Space to paint at the centre. Escape stops all sounds."></canvas>
+          <div class="transport"><div><span class="selected-label">NOW TRYING</span><strong id="selected">Raise</strong></div><button id="hold">Hold to paint</button><button id="replay" class="primary"><span aria-hidden="true">▶</span> Replay sound</button></div>
+        </section>
+        <section class="sequences" aria-label="In context sequences"><div><h2>Hear it in context</h2><p>A few seconds in the editor.</p></div><button data-sequence="hillside"><span aria-hidden="true">↗</span> Paint a hillside</button><button data-sequence="forest"><span aria-hidden="true">♧</span> Place a forest</button><button data-sequence="eruption"><span aria-hidden="true">△</span> A full eruption</button></section>
+        <section aria-labelledby="palette-title"><div class="palette-heading"><h2 id="palette-title">The sound palette</h2><span>Click to listen. Replay for a new variation.</span></div><div id="palette"></div></section>
+      </div>
+    </div>
+    <footer><span>Soft edges. Small surprises. No two touches quite alike.</span><span>Procedural Web Audio · integration proposal</span></footer>
+  </main>
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

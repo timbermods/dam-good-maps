@@ -1,13 +1,24 @@
 // Platform adapters (PLAN §19.9): the only code that differs between the website and the future
 // Claude artifact edition. The core never touches the DOM or a platform API.
 
-import { wrap, type Remote } from "comlink";
+import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
 
-/** workers: a module URL on the website (the artifact build will inline it as a blob). */
+/** workers: module URLs on the website (the artifact build will inline them as blobs). The
+ *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
+ *  a replica of the open map, and the two talk over a port of their own. */
 export function createGenerator(): Remote<GeneratorApi> {
   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
-  return wrap<GeneratorApi>(worker);
+  const api = wrap<GeneratorApi>(worker);
+  try {
+    const checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
+    const ch = new MessageChannel();
+    checks.postMessage({ checksPort: ch.port1 }, [ch.port1]);
+    void api.connectChecks(transfer(ch.port2, [ch.port2]));
+  } catch {
+    // no second worker: the checks run in the first one
+  }
+  return api;
 }
 
 /** files: save bytes under a file name. The artifact edition wraps .timber in a .zip (D10). */

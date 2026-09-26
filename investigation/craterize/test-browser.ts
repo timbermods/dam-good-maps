@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import { mkdirSync,writeFileSync,readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { browserHarness } from './browser-harness';
+import { fixture,placeMap } from './maps';
+import { impact,settleImpact,DEFAULTS } from './engine';
+const {page,errors,idle,close}=await browserHarness();
+const passed:string[]=[],measurements:any[]=[];const note=(s:string)=>{passed.push(s);console.log('PASS '+s);};
+const get=()=>page.evaluate(()=>(window as any).craterize.state);
+const heights=()=>page.evaluate(()=>(window as any).craterize.heights as number[]);
+const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const load=async(id:string)=>{await page.selectOption('#map',id);await idle();};
+async function strike(x=72,y=64){const pos=await page.evaluate(({x,y})=>(window as any).craterize.screen(x,y),{x,y});await page.mouse.click(pos.x,pos.y);await idle();}
+async function range(id:string,value:number){await page.locator('#'+id).evaluate((el,value)=>{(el as HTMLInputElement).value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));},value);}
+mkdirSync('local',{recursive:true});
+try{
+ await page.locator('#power').focus();await range('power',28);await page.locator('#auto-size').uncheck();await range('size',24);
+ await page.selectOption('#centre','bowl');await page.selectOption('#walls','steep');await page.selectOption('#debris','light');
+ const initial=hash(await heights());await strike();const op=await page.evaluate(()=>(window as any).craterize.operation);
+ assert.equal(op.params.settings.size,24);assert.equal(op.params.settings.centre,'bowl');assert.ok(op.params.terrain.length>100);
+ const node=impact(fixture(),op.params.settings,op.params.intent).map;settleImpact(node);
+ assert.equal(hash(await heights()),hash(Array.from(node.heights)));note('Pointer Strike, every control, and browser/Node terrain determinism');
+ const kept=hash(await heights());
+ await page.click('#undo');await idle();assert.equal(hash(await heights()),initial);
+ await page.click('#redo');await idle();assert.equal(hash(await heights()),kept);note('UI Undo and Redo restore exact terrain');
+ await page.click('#reroll');await idle();assert.equal((await get()).seed,1);assert.notEqual(hash(await heights()),kept);
+ await page.keyboard.press('Escape');await idle();assert.equal(hash(await heights()),kept);assert.equal((await get()).seed,op.params.settings.seed);
+ assert.equal(await page.evaluate(()=>(window as any).craterize.operation.params.settings.seed),op.params.settings.seed);
+ note('Try another uses a recorded seed; Esc restores the kept crater and its saved operation');
+ await page.click('#aim');
+ const a=await page.evaluate(()=>(window as any).craterize.screen(78,74)),b=await page.evaluate(()=>(window as any).craterize.screen(100,80));
+ await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:8});await page.mouse.up();await idle();
+ const aimed=await page.evaluate(()=>(window as any).craterize.operation);assert.equal(aimed.params.settings.mode,'aim');assert.notEqual(aimed.params.intent.origin,aimed.params.intent.end);note('Aim is a drag from impact along travel, not two clicks');
+ const keptAim=hash(await heights());
+ await page.evaluate(()=>{(window as any).craterize.strike({origin:45*128+80,end:45*128+100});});
+ await page.waitForFunction(()=>(window as any).craterize.state.age!==null);
+ const cancel=await page.evaluate(()=>{const t=performance.now();window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return {ms:performance.now()-t,heights:(window as any).craterize.heights};});
+ assert.equal(hash(cancel.heights),keptAim);await idle();assert.equal(hash(await heights()),keptAim);measurements.push({cancel128Ms:cancel.ms});note('Esc restores cached terrain in the input event before worker completion');
+ await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>(document.getElementById('motion') as HTMLInputElement).disabled);assert.equal((await get()).motion,false);
+ await page.click('#strike');await strike(60,50);assert.equal((await get()).motion,false);note('Reduced motion disables effects, camera motion and deformation playback');
+ const bundle=await page.evaluate(()=>JSON.parse(JSON.stringify((window as any).craterize.saved,(_k,v)=>ArrayBuffer.isView(v)?Array.from(v as unknown as number[]):v))),savedHash=hash(await heights());
+ await load('fixture:plain:256');
+ await page.locator('#about').evaluate(el=>(el as HTMLDetailsElement).open=true);
+ await page.setInputFiles('#replay-file',{name:'impact.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(bundle))});await idle();
+ assert.equal(hash(await heights()),savedHash);assert.equal((await get()).undo,1);
+ await page.click('#undo');await idle();await page.click('#redo');await idle();assert.equal(hash(await heights()),savedHash);
+ await page.click('#reroll');await idle();assert.equal((await get()).seed,bundle.operation.params.settings.seed+1);note('Saved impact replays across loaded maps with exact Undo, Redo and Try another');
+ await load('fixture:plain:128');await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.evaluate(()=>(window as any).craterize.focus(8,9,80));await page.waitForTimeout(120);
+ const start=await page.evaluate(()=>(window as any).craterize.screen(8,9));await page.mouse.move(start.x,start.y);await page.waitForTimeout(50);
+ assert.equal(await page.locator('#notice').textContent(),'Start here');await page.mouse.click(start.x,start.y);await page.waitForTimeout(100);
+ assert.equal((await get()).undo,0);note('Start hover shows the quiet refusal and cannot create an impact');
+ for(const id of ['seed:highlands:18:128','seed:riverValley:18:256','seed:canyon:10:128','place:near-yosemite-valley','place:near-geirangerfjord','place:near-grand-canyon-colorado']){
+  const t=Date.now();await load(id);const state=await get();
+  const expected=id.startsWith('place:')?placeMap(readFileSync('../../public/real-places/data/'+id.slice(6)+'.json.gz')).W:Number(id.split(':')[3]);
+  assert.equal(state.W,expected);assert.equal((await heights()).length,state.W*state.H);
+  measurements.push({map:id,loadMs:Date.now()-t,size:state.W});console.log('LOADED '+id);
+ }
+ note('Three generated seeds and three repository Real places load in the actual worker');
+ await load('fixture:plain:256');await page.getByText('The moment',{exact:true}).click();await page.locator('#motion').check();
+ await page.evaluate(()=>{(window as any).craterize.setSettings({...{mode:'strike',power:96,size:104,walls:'terraced',centre:'ring',debris:'heavy',rays:true,seed:19}});
+  (window as any).craterize.strike({origin:128*256+132});});
+ await page.waitForFunction(()=>(window as any).craterize.state.age!==null);
+ await page.waitForTimeout(1100);
+ const during=await get();const sorted=during.frameMs.filter((x:number)=>x>0).slice(-120).sort((a:number,b:number)=>a-b);
+ measurements.push({impact256:{fps:during.fps,p95Ms:sorted[Math.floor(sorted.length*.95)],maxMs:Math.max(...sorted)},render:await page.evaluate(()=>(window as any).craterize.renderer)});
+ await idle();await page.screenshot({path:'local/large-impact.png'});
+ const undo=await page.evaluate(()=>{const t=performance.now();document.getElementById('undo')!.click();return performance.now()-t;});await idle();
+ measurements.push({undo256Ms:undo});note('256² heavy ring with rays renders and undoes without a main-thread terrain calculation');
+ assert.deepEqual(errors,[]);note('No browser errors or shader errors');
+ writeFileSync('captures/browser-checks.json',JSON.stringify({passed,measurements,browser:'Headless Microsoft Edge on this Windows host'},null,2)+'\n');
+}finally{await close();}

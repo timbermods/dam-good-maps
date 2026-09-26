@@ -1,0 +1,308 @@
+{
+ "note": "exact cycle model (investigation/cycles), weather seed 1729, probes first-normal, first-badtide, late-hard; seeds 1-15 per theme at 128²; current: the study's own results/signatures.json for the same seeds",
+ "gens": {
+  "proto": {
+   "themes": {
+    "canyon": {
+     "maps": 15,
+     "groups": 5,
+     "largestGroupShare": 0.467,
+     "nearestPeerMedian": 0.034,
+     "longRetention": [
+      0,
+      0.114
+     ],
+     "startDays": [
+      0,
+      11
+     ],
+     "firstNormalKept": 0.4
+    },
+    "delta": {
+     "maps": 15,
+     "groups": 7,
+     "largestGroupShare": 0.4,
+     "nearestPeerMedian": 0.056,
+     "longRetention": [
+      0,
+      0.082
+     ],
+     "startDays": [
+      0,
+      14
+     ],
+     "firstNormalKept": 0.2
+    },
+    "highlands": {
+     "maps": 15,
+     "groups": 7,
+     "largestGroupShare": 0.267,
+     "nearestPeerMedian": 0.085,
+     "longRetention": [
+      0,
+      0.399
+     ],
+     "startDays": [
+      0,
+      13
+     ],
+     "firstNormalKept": 0.333
+    },
+    "islands": {
+     "maps": 15,
+     "groups": 11,
+     "largestGroupShare": 0.267,
+     "nearestPeerMedian": 0.092,
+     "longRetention": [
+      0.003,
+      0.422
+     ],
+     "startDays": [
+      0,
+      18
+     ],
+     "firstNormalKept": 0.2
+    },
+    "lakeBasin": {
+     "maps": 15,
+     "groups": 9,
+     "largestGroupShare": 0.267,
+     "nearestPeerMedian": 0.096,
+     "longRetention": [
+      0,
+      0.631
+     ],
+     "startDays": [
+      0,
+      21
+     ],
+     "firstNormalKept": 0.533
+    },
+    "riverValley": {
+     "maps": 15,
+     "groups": 4,
+     "largestGroupShare": 0.467,
+     "nearestPeerMedian": 0.032,
+     "longRetention": [
+      0,
+      0.053
+     ],
+     "startDays": [
+      0,
+      16
+     ],
+     "firstNormalKept": 0.067
+    }
+   },
+   "cheapAgainstExact": {
+    "maps": 90,
+    "longRetentionCorrelation": 1,
+    "shortRetentionCorrelation": 0.999,
+    "startDaysCorrelation": 0.987,
+    "exposureCorrelation": 0.451,
+    "retentionBinAgreement": 1,
+    "startBinAgreement": 0.533,
+    "firstDroughtAgreement": 0.978
+   }
+  },
+  "proto2": {
+   "themes": {
+    "canyon": {
+     "maps": 15,
+     "groups": 7,
+     "largestGroupShare": 0.333,
+     "nearestPeerMedian": 0.049,
+     "longRetention": [
+      0,
+      0.491
+     ],
+     "startDays": [
+      0,
+      15
+     ],
+     "firstNormalKept": 0.533
+    },
+    "delta": {
+     "maps": 15,
+     "groups": 9,
+     "largestGroupShare": 0.333,
+     "nearestPeerMedian": 0.051,
+     "longRetention": [
+      0,
+      0.496
+     ],
+     "startDays": [
+      0,
+      10
+     ],
+     "firstNormalKept": 0.2
+    },
+    "highlands": {
+     "maps": 15,
+     "groups": 10,
+     "largestGroupShare": 0.2,
+     "nearestPeerMedian": 0.079,
+     "longRetention": [
+      0,
+      0.29
+     ],
+     "startDays": [
+      0,
+      17
+     ],
+     "firstNormalKept": 0.467
+    },
+    "islands": {
+     "maps": 15,
+     "groups": 13,
+     "largestGroupShare": 0.133,
+     "nearestPeerMedian": 0.107,
+     "longRetention": [
+      0.001,
+      0.719
+     ],
+     "startDays": [
+      0,
+      18
+     ],
+     "firstNormalKept": 0.333
+    },
+    "lakeBasin": {
+     "maps": 15,
+     "groups": 10,
+     "largestGroupShare": 0.267,
+     "nearestPeerMedian": 0.091,
+     "longRetention": [
+      0,
+      0.481
+     ],
+     "startDays": [
+      0,
+      17
+     ],
+     "firstNormalKept": 0.133
+    },
+    "riverValley": {
+     "maps": 15,
+     "groups": 8,
+     "largestGroupShare": 0.2,
+     "nearestPeerMedian": 0.077,
+     "longRetention": [
+      0,
+      0.378
+     ],
+     "startDays": [
+      0,
+      17
+     ],
+     "firstNormalKept": 0.4
+    }
+   },
+   "cheapAgainstExact": {
+    "maps": 90,
+    "longRetentionCorrelation": 0.999,
+    "shortRetentionCorrelation": 0.999,
+    "startDaysCorrelation": 0.984,
+    "exposureCorrelation": 0.675,
+    "retentionBinAgreement": 0.978,
+    "startBinAgreement": 0.689,
+    "firstDroughtAgreement": 1
+   }
+  },
+  "current": {
+   "themes": {
+    "canyon": {
+     "maps": 15,
+     "groups": 1,
+     "largestGroupShare": 1,
+     "nearestPeerMedian": 0,
+     "longRetention": [
+      0,
+      0
+     ],
+     "startDays": [
+      0,
+      0
+     ],
+     "firstNormalKept": null
+    },
+    "delta": {
+     "maps": 15,
+     "groups": 3,
+     "largestGroupShare": 0.6,
+     "nearestPeerMedian": 0.021,
+     "longRetention": [
+      0,
+      0.069
+     ],
+     "startDays": [
+      0,
+      1
+     ],
+     "firstNormalKept": null
+    },
+    "highlands": {
+     "maps": 15,
+     "groups": 4,
+     "largestGroupShare": 0.467,
+     "nearestPeerMedian": 0.024,
+     "longRetention": [
+      0,
+      0.12
+     ],
+     "startDays": [
+      0,
+      1
+     ],
+     "firstNormalKept": null
+    },
+    "islands": {
+     "maps": 15,
+     "groups": 2,
+     "largestGroupShare": 0.867,
+     "nearestPeerMedian": 0.015,
+     "longRetention": [
+      0.484,
+      0.492
+     ],
+     "startDays": [
+      19,
+      20
+     ],
+     "firstNormalKept": null
+    },
+    "lakeBasin": {
+     "maps": 15,
+     "groups": 4,
+     "largestGroupShare": 0.467,
+     "nearestPeerMedian": 0.019,
+     "longRetention": [
+      0.493,
+      0.507
+     ],
+     "startDays": [
+      20,
+      20
+     ],
+     "firstNormalKept": null
+    },
+    "riverValley": {
+     "maps": 15,
+     "groups": 2,
+     "largestGroupShare": 0.8,
+     "nearestPeerMedian": 0.016,
+     "longRetention": [
+      0.068,
+      0.12
+     ],
+     "startDays": [
+      0,
+      1
+     ],
+     "firstNormalKept": null
+    }
+   },
+   "cheapAgainstExact": null
+  }
+ }
+}

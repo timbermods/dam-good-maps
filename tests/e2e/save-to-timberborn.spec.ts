@@ -61,25 +61,33 @@ test.describe("the generator page", () => {
   });
 });
 
-test.describe("the editor's export dialog", () => {
-  test("Save to Timberborn appears next to Export and falls back to a normal download", async ({ page }) => {
+test.describe("the editor's header", () => {
+  test("Save to Timberborn is the primary button and falls back to a normal download", async ({ page }) => {
     await declinesThePicker(page);
     await page.goto("./#s=1&z=96&d=n&t=riverValley");
     await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Refine this map" }).click();
     await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
 
-    await page.getByRole("button", { name: "Export .timber" }).click();
-    const dialog = page.getByRole("dialog");
-    const timberborn = dialog.getByRole("button", { name: "Save to Timberborn" });
-    await expect(timberborn).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Export", exact: true })).toBeEnabled({ timeout: 60_000 });
-
-    const download = page.waitForEvent("download");
+    const timberborn = page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Save to Timberborn" });
+    await expect(timberborn).toHaveClass(/primary/);
+    const download = page.waitForEvent("download", { timeout: 120_000 });
     await timberborn.click();
     await download;
-    await expect(dialog.getByText(/Move it to/)).toBeVisible();
-    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
+  });
+
+  test("without folder access the primary button is Download .timber", async ({ page }) => {
+    await noFolderAccess(page);
+    await page.goto("./#s=1&z=96&d=n&t=riverValley");
+    await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
+    await page.getByRole("button", { name: "Refine this map" }).click();
+    await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
+    const primary = page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Download .timber" });
+    await expect(primary).toHaveClass(/primary/);
+    const download = page.waitForEvent("download", { timeout: 120_000 });
+    await primary.click();
+    await download;
   });
 });
 

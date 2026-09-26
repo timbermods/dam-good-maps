@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="icon" href="data:,"><title>Craterize · Dam Good Maps</title></head>
+<body>
+<header><a class="brand" href="#about">DAM GOOD MAPS <span>FIELD STUDY / 02</span></a><div class="tool"><span class="spark">✦</span> Craterize</div><div class="history"><button id="undo" disabled title="Undo · Ctrl+Z">↶ Undo</button><button id="redo" disabled title="Redo · Ctrl+Shift+Z">Redo ↷</button></div></header>
+<main><canvas id="view" aria-label="Terrain. Click to strike, drag to aim. Right drag to orbit. Enter strikes at the keyboard cursor." tabindex="0"></canvas>
+<aside aria-label="Impact settings"><div class="eyebrow">A FORCE OF NATURE</div><h1>Leave a mark.</h1><p class="intro">A moment from the sky.<br>A new story in the land.</p>
+<div class="segment"><button id="strike" aria-pressed="true">Strike</button><button id="aim" aria-pressed="false">Aim ↗</button></div>
+<p id="gesture" class="hint">Click the land for a vertical impact.</p>
+<label for="power">Power <output id="power-label">55 · Impact</output></label><input id="power" type="range" min="0" max="100" value="55"><div class="ends"><span>Pebble</span><span>Extinction</span></div>
+<label class="check"><input id="auto-size" type="checkbox" checked> Size follows Power</label>
+<label for="size">Diameter <output id="size-label"></output></label><input id="size" type="range" min="4" max="180" value="55" disabled>
+<div class="two"><label for="walls">Walls<select id="walls"><option value="steep">Steep</option><option value="terraced" selected>Terraced</option></select></label><label for="centre">Centre<select id="centre"><option value="auto">Auto</option><option value="bowl">Bowl</option><option value="peak">Peak</option><option value="ring">Ring</option><option value="flat">Flat</option></select></label></div>
+<label for="debris">Debris<select id="debris"><option value="light">Light · low apron</option><option value="heavy" selected>Heavy · broad skirt</option></select></label>
+<label class="check"><input id="rays" type="checkbox"> Rays &amp; secondary pits</label>
+<button id="reroll" class="primary" disabled>✦ Try another</button><div id="seed-label" class="seed">Personality 0</div>
+<details><summary>The moment</summary><label class="check"><input id="motion" type="checkbox" checked> Impact effects</label><label class="check"><input id="shake" type="checkbox"> Camera shake</label><label class="check"><input id="follow" type="checkbox"> Follow the impact</label><p class="hint">Reduced motion turns these off.</p></details>
+<details id="about"><summary>Saved impact &amp; notes</summary><button id="save-run" disabled>Save impact</button><label class="file">Replay saved impact<input id="replay-file" type="file" accept=".json"></label><p class="hint">No water is added. Existing water finds its own level. Esc reverts the whole impact.</p><a href="./REPORT.md" target="_blank">Report &amp; captures ↗</a><a href="./ATTRIBUTION.md" target="_blank">Terrain credits ↗</a></details>
+</aside>
+<div class="map-picker"><label for="map">THE LAND</label><select id="map"></select><button id="reset" title="Reset this map">↻</button></div>
+<div class="views"><button id="top">Top-down</button><button id="home">Reset view</button></div>
+<div class="status"><span class="status-dot"></span><span id="notice" role="status" aria-live="polite">Loading land…</span></div>
+<div class="telemetry"><span id="fps">— fps</span><span id="dimensions"></span><span id="metrics"></span></div>
+<div class="controls-hint">Right drag · orbit &nbsp; Scroll · zoom &nbsp; Esc · revert</div>
+</main><script type="module" src="./app.ts"></script>
+</body></html>

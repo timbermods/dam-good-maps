@@ -1,0 +1,62 @@
+{
+  "date": "2026-09-26",
+  "runs": [
+    {
+      "config": "default GPU",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "cpuSlowdown": 1,
+      "map": "riverValley 256² seed 1",
+      "stroke": "Raise, 1011 tiles",
+      "refreshMs": 6.1,
+      "inputToFrameMs": {
+        "p50": 4.5,
+        "p95": 7.2,
+        "max": 8.3,
+        "samples": 59
+      },
+      "frameMs": {
+        "p50": 6.1,
+        "p95": 6.2,
+        "p99": 6.3,
+        "max": 9.5,
+        "overTwoRefreshes": 0,
+        "frames": 1590
+      },
+      "longTasksWhilePainting": [],
+      "longTasksAfterRelease": [],
+      "commitAfterReleaseMs": 162,
+      "undoToFrameMs": 8.4,
+      "strokeMismatches": 0
+    },
+    {
+      "config": "other GPU (AMD Radeon(TM) Graphics), CPU 4× slower, 1080p laptop screen at 150%",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x000013C0) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "cpuSlowdown": 4,
+      "map": "riverValley 256² seed 1",
+      "stroke": "Raise, 1297 tiles",
+      "refreshMs": 6.1,
+      "inputToFrameMs": {
+        "p50": 11.1,
+        "p95": 13.8,
+        "max": 18.1,
+        "samples": 41
+      },
+      "frameMs": {
+        "p50": 6.1,
+        "p95": 6.2,
+        "p99": 12,
+        "max": 42.5,
+        "overTwoRefreshes": 2,
+        "frames": 2546
+      },
+      "longTasksWhilePainting": [],
+      "longTasksAfterRelease": [
+        "125 ms at +131 ms",
+        "54 ms at +274 ms"
+      ],
+      "commitAfterReleaseMs": 260,
+      "undoToFrameMs": 63.3,
+      "strokeMismatches": 0
+    }
+  ]
+}

@@ -1,0 +1,176 @@
+{
+ "note": "Verticality 85 unlocked (heights up to 22), seeds 1–100 per theme at 128²: the land before the build (the product's build clips at 16 until M9a lifts it behind the probe lock)",
+ "maps": 600,
+ "all": {
+  "range": {
+   "p10": 13,
+   "median": 16,
+   "p90": 18
+  },
+  "levels": {
+   "p10": 8,
+   "median": 14,
+   "p90": 19
+  },
+  "maxHeight": {
+   "p10": 18,
+   "median": 19,
+   "p90": 20
+  },
+  "above16": {
+   "p10": 0.028,
+   "median": 0.082,
+   "p90": 0.155
+  },
+  "flatShare": {
+   "p10": 0.343,
+   "median": 0.489,
+   "p90": 0.618
+  },
+  "cliffShare": {
+   "p10": 0.178,
+   "median": 0.257,
+   "p90": 0.354
+  },
+  "top": {
+   "p10": 18.4,
+   "median": 19,
+   "p90": 19.6
+  }
+ },
+ "above16Maps": 1,
+ "byTheme": {
+  "riverValley": {
+   "range": {
+    "p10": 15,
+    "median": 16,
+    "p90": 18
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 20
+   },
+   "above16": {
+    "p10": 0.041,
+    "median": 0.088,
+    "p90": 0.146
+   },
+   "cliffShare": {
+    "p10": 0.205,
+    "median": 0.269,
+    "p90": 0.345
+   }
+  },
+  "canyon": {
+   "range": {
+    "p10": 15,
+    "median": 17,
+    "p90": 18
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 19
+   },
+   "above16": {
+    "p10": 0.036,
+    "median": 0.096,
+    "p90": 0.166
+   },
+   "cliffShare": {
+    "p10": 0.226,
+    "median": 0.296,
+    "p90": 0.38
+   }
+  },
+  "highlands": {
+   "range": {
+    "p10": 14,
+    "median": 16,
+    "p90": 18
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 20
+   },
+   "above16": {
+    "p10": 0.032,
+    "median": 0.1,
+    "p90": 0.193
+   },
+   "cliffShare": {
+    "p10": 0.231,
+    "median": 0.29,
+    "p90": 0.406
+   }
+  },
+  "lakeBasin": {
+   "range": {
+    "p10": 14,
+    "median": 16,
+    "p90": 18
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 20
+   },
+   "above16": {
+    "p10": 0.041,
+    "median": 0.091,
+    "p90": 0.154
+   },
+   "cliffShare": {
+    "p10": 0.208,
+    "median": 0.281,
+    "p90": 0.352
+   }
+  },
+  "delta": {
+   "range": {
+    "p10": 15,
+    "median": 16,
+    "p90": 18
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 19
+   },
+   "above16": {
+    "p10": 0.03,
+    "median": 0.076,
+    "p90": 0.135
+   },
+   "cliffShare": {
+    "p10": 0.156,
+    "median": 0.216,
+    "p90": 0.292
+   }
+  },
+  "islands": {
+   "range": {
+    "p10": 10,
+    "median": 14,
+    "p90": 17
+   },
+   "maxHeight": {
+    "p10": 18,
+    "median": 19,
+    "p90": 20
+   },
+   "above16": {
+    "p10": 0.019,
+    "median": 0.032,
+    "p90": 0.109
+   },
+   "cliffShare": {
+    "p10": 0.142,
+    "median": 0.191,
+    "p90": 0.233
+   }
+  }
+ }
+}

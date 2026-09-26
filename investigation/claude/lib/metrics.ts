@@ -17,6 +17,8 @@ import { measureLip } from "../../../src/core/features/setpieces/waterfall";
 import type { Feature, RiverFeature, SetPieceFeature } from "../../../src/core/features/schema";
 import { polygonMask } from "../../../src/core/features/geometry";
 import { runsToTiles } from "../../../src/core/math/grid";
+import { entityTiles } from "../../../src/core/features/edits";
+import { hollowAt } from "../../../src/core/features/hollow";
 import { rulesFor, type Rules } from "../../../src/core/validate/playability";
 import type { CheckResult, ValidationReport } from "../../../src/core/validate/report";
 import { locate, network } from "./flow";
@@ -144,16 +146,7 @@ export function measureFeature(s: MapSession, f: Feature): FeatureMeasure {
   const at = anchorOf(v, f);
   const out: FeatureMeasure = { id: f.id, kind: f.kind === "setPiece" ? f.params.kind : f.kind, at, where: compassWords(v, at[0], at[1]) };
   const net = network(v);
-  const l = locate(net, v.W, at[0], at[1]);
-  if (l) {
-    let bank = "on the river";
-    if (l.d >= l.course.width / 2) {
-      const st = v.start ? locate(net, v.W, v.start.x, v.start.y, l.course) : null;
-      bank = st ? (st.side === l.side ? "start's bank" : "opposite bank") : l.side > 0 ? "left bank" : "right bank";
-    }
-    out.course = { river: l.course.name, frac: round2(l.frac), bank, ...(l.d >= l.course.width / 2 ? { fromRiver: Math.round(l.d) } : {}) };
-  }
-  if (v.start) out.distanceToStart = round1(Math.hypot(at[0] - v.start.x, at[1] - v.start.y));
+  Object.assign(out, placeOf(v, at));
   if (f.kind === "setPiece") Object.assign(out, measurePiece(s, v, f));
   if (f.kind === "lake") {
     const m = polygonMask(f.params.outline, v.W, v.H);
@@ -193,6 +186,53 @@ export function measureFeature(s: MapSession, f: Feature): FeatureMeasure {
   }
   if (f.kind === "start") Object.assign(out, { level: v.start?.z, facing: f.params.orientation });
   return out;
+}
+
+/** Where a thing sits: along the valley's river (its name, the fraction from its source, the bank
+ *  relative to the start) and how far from the start. */
+function placeOf(v: MapView, at: [number, number]): Pick<FeatureMeasure, "course" | "distanceToStart"> {
+  const out: Pick<FeatureMeasure, "course" | "distanceToStart"> = {};
+  const net = network(v);
+  const l = locate(net, v.W, at[0], at[1]);
+  if (l) {
+    let bank = "on the river";
+    if (l.d >= l.course.width / 2) {
+      const st = v.start ? locate(net, v.W, v.start.x, v.start.y, l.course) : null;
+      bank = st ? (st.side === l.side ? "start's bank" : "opposite bank") : l.side > 0 ? "left bank" : "right bank";
+    }
+    out.course = { river: l.course.name, frac: round2(l.frac), bank, ...(l.d >= l.course.width / 2 ? { fromRiver: Math.round(l.d) } : {}) };
+  }
+  if (v.start) out.distanceToStart = round1(Math.hypot(at[0] - v.start.x, at[1] - v.start.y));
+  return out;
+}
+
+/** What a step made that is a source, not a feature (sources are entities): `source:<entity id>`. */
+export const SOURCE_PREFIX = "source:";
+
+/** Measure a source a step placed: where it stands (as a feature is measured), its strength, and,
+ *  when its water fills a hollow, the lake it makes (its area in tiles and its level). */
+export function measureSource(s: MapSession, id: string): FeatureMeasure | null {
+  const eid = id.startsWith(SOURCE_PREFIX) ? id.slice(SOURCE_PREFIX.length) : id;
+  const e = s.built.entities.find((x) => x.id === eid);
+  if (!e || (e.template !== "WaterSource" && e.template !== "BadwaterSource")) return null;
+  const v = viewOf(s);
+  const tiles = entityTiles(e);
+  const at = tiles[Math.floor(tiles.length / 2)] as [number, number];
+  const comps = (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+  const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
+  // a number, or the file's float wrapper ({ value })
+  const strength = typeof raw === "number" ? raw : raw && typeof raw === "object" && "value" in raw ? Number((raw as { value: unknown }).value) : null;
+  const out: FeatureMeasure = { id: `${SOURCE_PREFIX}${eid}`, kind: e.template === "BadwaterSource" ? "badwaterSource" : "source", at, where: compassWords(v, at[0], at[1]), strength, ...placeOf(v, at) };
+  const h = hollowAt(s.built.heights, null, v.W, v.H, at[0], at[1]);
+  if (h.fills) Object.assign(out, { lake: true, area: h.tiles, level: h.level });
+  return out;
+}
+
+/** Measure what a step made: a feature, or a source. */
+export function measureMade(s: MapSession, id: string): FeatureMeasure | null {
+  if (id.startsWith(SOURCE_PREFIX)) return measureSource(s, id);
+  const f = s.features.find((g) => g.id === id);
+  return f ? measureFeature(s, f) : null;
 }
 
 function measurePiece(s: MapSession, v: MapView, f: SetPieceFeature): Record<string, unknown> {

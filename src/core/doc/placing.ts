@@ -369,7 +369,11 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     if (blk.z < top) return "it would stand inside the ground: the ground under it is not level";
     if ((blk.below === "ground" || blk.below === "groundOrStackable") && blk.z > top) return "it would float: the ground under it is not level";
     const other = taken.get(i);
-    if (other) return other === "StartingLocation" ? "the district center stands there" : `a ${other.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()} stands there`;
+    if (other) {
+      if (other === "StartingLocation") return "the district center stands there";
+      const name = other === "UndergroundRuins" ? "mine site" : other.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name} stands there`;
+    }
   }
   return null;
 }

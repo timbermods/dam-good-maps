@@ -14,7 +14,7 @@
 import type { MapSession } from "../../../src/core/doc/session";
 import type { Conversation } from "./conversation";
 import { refContext } from "./conversation";
-import { MAP_METRICS, measureFeature, type Measured } from "./metrics";
+import { MAP_METRICS, measureFeature, measureSource, SOURCE_PREFIX, type Measured } from "./metrics";
 import { resolveRef, within, type Place } from "./places";
 import { viewOf } from "./view";
 
@@ -58,6 +58,23 @@ function subjectValue(s: MapSession, conv: Conversation, after: Measured, subjec
     const m = madeNow.find((x) => x.kind === kind);
     if (!m) return { value: undefined, error: `the proposal made no ${kind}` };
     subject = m.id;
+  }
+  // a source a step placed (an entity, not a feature): by its id, or by the handle it was given
+  const sourceId = subject.startsWith(SOURCE_PREFIX) ? subject : conv.handles[subject]?.startsWith(SOURCE_PREFIX) ? conv.handles[subject] : null;
+  if (sourceId) {
+    const m = measureSource(s, sourceId);
+    if (!m) return { value: undefined, error: `${subject} no longer exists` };
+    if (metric === "exists") return { value: true };
+    if (metric.startsWith("distanceTo:")) {
+      const other = resolveRef(viewOf(s), metric.slice(11), refContext(conv));
+      if (typeof other === "string") return { value: undefined, error: other };
+      let best = Infinity;
+      if (other.mask) {
+        for (let i = 0; i < other.mask.length; i++) if (other.mask[i]) best = Math.min(best, Math.hypot((i % s.size.x) - m.at[0], Math.floor(i / s.size.x) - m.at[1]));
+      } else best = Math.hypot(other.anchor[0] - m.at[0], other.anchor[1] - m.at[1]);
+      return { value: Math.round(best * 10) / 10, at: m.at };
+    }
+    return { value: metric === "at" ? m.at : path(m, metric), at: m.at };
   }
   if (subject === "map") {
     const d = MAP_METRICS[metric];

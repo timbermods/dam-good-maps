@@ -19,7 +19,7 @@ import type { MapSession } from "../../../src/core/doc/session";
 import type { Feature } from "../../../src/core/features/schema";
 import type { Conversation } from "./conversation";
 import { checkExpectations, valuesBefore, type Checked, type Expectation } from "./intent";
-import { guardsOf, measureFeature, measureSession, reservoirTiles, type Guard, type Measured } from "./metrics";
+import { guardsOf, measureFeature, measureMade, measureSession, reservoirTiles, type Guard, type Measured } from "./metrics";
 import { locate, network } from "./flow";
 import { compassWords } from "./places";
 import { writeReport } from "./report";
@@ -87,9 +87,13 @@ const PRIORITY: Record<string, number> = {
   moveStart: 2,
   moveFeature: 3,
   addRiver: 4,
+  "addSource:water": 4,
+  "addSource:badwater": 8,
+  // a spring that fills a hollow: after the brushes and sculpts that may have dug it
+  "addSource:hollow": 9.5,
   setRiverBadwater: 4,
+  changeSource: 4,
   addLake: 5,
-  addLandform: 5,
   changeFeature: 3,
   "addSetPiece:damSite": 6,
   "addSetPiece:gorge": 6,
@@ -98,12 +102,17 @@ const PRIORITY: Record<string, number> = {
   "addSetPiece:terracedCliffs": 7,
   "addSetPiece:badwaterBasin": 8,
   sculpt: 9,
+  brush: 9,
+  carve: 9,
   removeResources: 10,
   addResource: 10,
+  // Remove first, then objects from the shelf on the ground as it ends up
+  remove: 10,
+  placeObject: 10.5,
 };
 
 function priority(step: Step): number {
-  const key = step.op === "addSetPiece" ? `addSetPiece:${step.kind}` : step.op;
+  const key = step.op === "addSetPiece" ? `addSetPiece:${step.kind}` : step.op === "addSource" ? `addSource:${step.fillHollow ? "hollow" : step.kind}` : step.op;
   return PRIORITY[key] ?? 5;
 }
 
@@ -214,8 +223,8 @@ export function runProposal(s: MapSession, conv: Conversation, p: Proposal, mode
     .map((g) => ({ ...g, causedBy: results.find((r) => r.broke.includes(g.id))?.index ?? null }));
   const tradeoffs = interference(s, work, p, before, after, results, reordered, damsBefore);
   const measured = made.map((m) => {
-    const f = s.features.find((g) => g.id === m.id);
-    return f ? { handle: m.handle, ...measureFeature(s, f) } : { handle: m.handle, gone: true };
+    const f = measureMade(s, m.id);
+    return f ? { handle: m.handle, ...f } : { handle: m.handle, gone: true };
   });
   // features a step changed or moved are measured too, under their handle when they have one
   const handleOf = (id: string) => Object.entries(work.handles).find(([, v]) => v === id)?.[0];
@@ -413,7 +422,7 @@ function interference(s: MapSession, conv: Conversation, p: Proposal, before: Me
   // what the builders reduced or cleared
   for (const r of results) {
     for (const line of r.report) {
-      if (/reduced to|raised to|widened|moved \d+ tile|asked for \d/.test(line)) out.push({ kind: "reduced", text: line, steps: [r.index] });
+      if (/reduced to|raised to|widened|moved \d+ tile|asked for \d|reaches level \d+ here, not|too narrow to|stop at level/.test(line)) out.push({ kind: "reduced", text: line, steps: [r.index] });
       else if (/^clears /.test(line)) out.push({ kind: "cleared", text: line, steps: [r.index] });
       else if (/plants (a berry patch|a grove)/.test(line)) out.push({ kind: "start-moved", text: line, steps: [r.index] });
     }

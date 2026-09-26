@@ -24,6 +24,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [after-map-look-2.md](after-map-look-2.md) | After Map look (2): Kyler's decisions | 2026-09-25 |
 | [real-places.md](real-places.md) | Real places: a gallery of 85 real-terrain maps (released as `real-places-done`, after Map look) | 2026-09-25 |
 | [start-edge-rules.md](start-edge-rules.md) | Start and edge rules: no edge walls, maps need not hold their water, sources start rivers, the water rule over slopes, starting wood (generator 0.6.1) | 2026-09-25 |
+| [live-editing.md](live-editing.md) | Live editing: triage, terrain brushes, the water, smart Lower and Source, the top bar and brush kit, the left shelf and Remove (branch `feature/live-editing`) | 2026-09-25 |
 | [resources.md](resources.md) | Resources like the official maps: measured baselines, groves, patches, ruin fields, a mine site on every map (generator 0.6.2) | 2026-09-25 |
 | [docs-sweep.md](docs-sweep.md) | Docs sweep: the living docs against the editor vision, and the retired-terms guard (D188) | 2026-09-26 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |

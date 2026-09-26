@@ -1,0 +1,232 @@
+{
+  "passed": [
+    "tap, sub-tile and formerly failing short strokes all make a quake",
+    "pen smooths sub-tile positions, reaches the release point, flips, and bounds long strokes",
+    "1200 seeded random strokes: 861 quakes, 339 explicit start refusals, zero silent failures",
+    "24 Slide rivers stay connected and wet downstream, live and canonical, at low/high Power on both sides and scarp styles"
+  ],
+  "random": {
+    "cases": 1200,
+    "accepted": 861,
+    "refused": 339,
+    "ms": 5289.3023
+  },
+  "rivers": [
+    {
+      "power": 0,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 21,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 18,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 38,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 51,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 22,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 16,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 39,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 0,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 49,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 63,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 56,
+      "ticks": 768,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 80,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 89,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 63,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 52,
+      "ticks": 768,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 80,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 85,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 85,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 72,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": 1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 61,
+      "ticks": 768,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 89,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": 1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 94,
+      "ticks": 768,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": false,
+      "channel": 72,
+      "ticks": 640,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": -1,
+      "scarp": "sheer",
+      "diagonal": true,
+      "channel": 61,
+      "ticks": 768,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": false,
+      "channel": 89,
+      "ticks": 896,
+      "settled": true
+    },
+    {
+      "power": 100,
+      "side": -1,
+      "scarp": "stepped",
+      "diagonal": true,
+      "channel": 94,
+      "ticks": 1024,
+      "settled": true
+    }
+  ]
+}

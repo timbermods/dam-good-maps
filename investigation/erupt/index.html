@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="icon" href="data:,"><title>Erupt · Dam Good Maps</title></head>
+<body>
+<header><a class="brand" href="#about">DAM GOOD MAPS <span>FIELD STUDY / 04</span></a><div class="tool"><span class="spark">◬</span> Erupt</div><div class="history"><button id="undo" disabled title="Undo · Ctrl+Z">↶ Undo</button><button id="redo" disabled title="Redo · Ctrl+Shift+Z">Redo ↷</button></div></header>
+<main><canvas id="view" aria-label="Terrain. Click to erupt, drag a fissure. Right drag to orbit. Arrow keys move the cursor; Enter erupts." tabindex="0"></canvas>
+<section class="options" aria-label="Erupt options">
+  <div class="mode-control"><span class="option-label">Mode</span><div class="segment"><button id="vent" aria-pressed="true">Vent</button><button id="fissure" aria-pressed="false">Fissure</button></div></div>
+  <div class="power-control"><label for="power">Power <output id="power-label"></output></label><input id="power" type="range" min="0" max="100" value="62"></div>
+  <label for="shape">Shape<select id="shape"><option value="steep">Steep</option><option value="broad">Broad</option></select></label>
+  <label for="summit">Summit<select id="summit"><option value="auto">Auto</option><option value="peak">Peak</option><option value="crater">Crater</option><option value="caldera">Caldera</option></select></label>
+  <label for="flows">Flows<select id="flows"><option value="light">Light</option><option value="heavy" selected>Heavy</option></select></label>
+  <label class="check"><input id="ridges" type="checkbox" checked> Ridges</label>
+  <button id="reroll" class="primary" disabled>↻ Try another</button>
+</section>
+<div class="invitation"><div class="eyebrow">A FORCE OF NATURE</div><h1>Wake the mountain.</h1><p id="gesture">Click the land. Raise a volcano.</p></div>
+<div class="map-picker"><label for="map">THE LAND</label><select id="map"></select><button id="reset" title="Reset this map">↻</button></div>
+<div class="views"><button id="top">Top-down</button><button id="home">Reset view</button><details><summary>The moment</summary><label class="check"><input id="motion" type="checkbox" checked> Eruption effects</label><label class="check"><input id="shake" type="checkbox"> Camera shake</label><label class="check"><input id="follow" type="checkbox"> Follow</label><p class="hint">Reduced motion turns these off.</p></details></div>
+<details id="about" class="notes"><summary>Saved run &amp; notes</summary><div id="seed-label" class="seed">Personality</div><button id="save-run" disabled>Save run</button><label class="file">Replay saved run<input id="replay-file" type="file" accept=".json"></label><a href="./REPORT.md" target="_blank">Report &amp; captures ↗</a><a href="./ATTRIBUTION.md" target="_blank">Terrain credits ↗</a></details>
+<div class="status"><span class="status-dot"></span><span id="notice" role="status" aria-live="polite">Loading land…</span></div>
+<div class="telemetry"><span id="fps">— fps</span><span id="dimensions"></span><span id="metrics"></span></div>
+<div class="controls-hint">Right drag · orbit &nbsp; Scroll · zoom &nbsp; Esc · revert</div>
+</main><script type="module" src="./app.ts"></script></body></html>

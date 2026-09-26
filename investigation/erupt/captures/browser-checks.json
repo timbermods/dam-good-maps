@@ -1,0 +1,27 @@
+{
+  "passed": [
+    "Pointer click answers immediately and raises terrain within 650 ms",
+    "Plume and cooling continue after terrain completion, then fade completely",
+    "Undo and redo restore cached 3D terrain synchronously",
+    "Try another changes personality; undo returns the exact previous result",
+    "Esc reverts an active eruption immediately",
+    "Start footprint refuses with quiet inline feedback",
+    "Real pointer drag records a bent fissure",
+    "Reduced motion disables effects, shake and follow",
+    "Reduced-motion eruption skips plume, cooling and interpolation",
+    "Generated 256² map loads and erupts in the actual clean renderer",
+    "place:near-yosemite-valley loads with settled water (96 × 96)",
+    "place:near-geirangerfjord loads with settled water (128 × 128)",
+    "place:near-grand-canyon-colorado loads with settled water (256 × 256)"
+  ],
+  "undoMs": 0.5,
+  "generated256": {
+    "elapsedMs": 14627,
+    "firstTerrainMs": 842,
+    "fps": 165,
+    "p95Ms": 6.200000000004366,
+    "maxFrameMs": 54.69999999999709,
+    "sampleCount": 2311
+  },
+  "errors": []
+}
