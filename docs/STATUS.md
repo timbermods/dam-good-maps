@@ -22,11 +22,16 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
-- **Releasing:** `live-editing-done` (approved by you, D212), with the forces hidden on the public site (#69).
+- **Released: `live-editing-done`** ([#61](https://github.com/timbermods/dam-good-maps/pull/61), a7e0a9b; tagged at 985e1cf).
+  The deploy and the live check passed. I opened the public site's editor in a browser: Water source and Badwater source
+  are on the shelf and there are no forces; the preview shows the same editor with Carve. It also carries everything
+  that was waiting on `dev` (resources #43, generator 0.6.2; #45; #38; #46; #32).
 
 ### 3. On the preview for you to try
 
-Unchanged: <https://timbermods.github.io/dam-good-maps/preview/> shows Live editing's push 4 (59f826c).
+<https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**: the released editor plus **Carve** (key 7),
+from `feature/live-editing`. The four forces with the new juice sounds replace it on the preview once `feature/forces` is
+ready.
 
 ### 4. Probe batches
 

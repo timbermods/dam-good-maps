@@ -38,7 +38,7 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Work | Branch | PR | Worktree | Last commit | State |
 |---|---|---|---|---|---|
 | M9a, the new generator | `feature/m9a` | #56 (WIP) | `DamGoodMaps-m9a` | 12beeb3 (WIP) | building (§3) |
-| Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | on `dev`; releasing as `live-editing-done` |
+| Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | released: `live-editing-done` (#61, a7e0a9b) |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
 | Waterfalls (D201) | `look/waterfalls` | #53 | `DamGoodMaps-waterfalls` | b00b2fc | done; needs D215 fixes |
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
