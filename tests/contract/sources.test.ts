@@ -13,6 +13,9 @@ import { waterModel, type MapObject } from "../../src/core/sim/model";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { rulesFor, checkPlayability } from "../../src/core/validate/playability";
 import { Collector } from "../../src/core/validate/report";
+import { MapSession } from "../../src/core/doc/session";
+import { generate } from "../../src/core/gen/generate";
+import { makeSpec } from "../../src/core/spec/mapspec";
 
 const W = 48;
 const H = 24;
@@ -100,12 +103,18 @@ describe("water sources start rivers (D171)", () => {
     expect(flagged(h, objects).inFlow).toEqual([]);
   });
 
-  it("is a design check: it blocks a generated map, warns in export, and is information on an import", () => {
+  it("is a design check: it blocks a generated map and is information on an import; in the editor (export) sources go anywhere (D184)", () => {
     const h = river();
     const objects = [...mouth(h), source(30, 11, h[11 * W + 30], 1)];
     const model = waterModel(W, H, h, objects);
     const water = canonicalSettle(model);
-    for (const [profile, severity] of [["generate", "error"], ["export", "warning"], ["import", "info"]] as const) {
+    const editor = new Collector("export");
+    checkPlayability({ W, H, surface: h, objects, model, water, rules: rulesFor(null, "normal"), features: null }, editor);
+    const e = editor.checks.find((x) => x.id === "water.source_in_flow")!;
+    expect(e.ok).toBe(true);
+    expect(e.applicable).toBe(false);
+    expect(e.severity).toBe("info");
+    for (const [profile, severity] of [["generate", "error"], ["import", "info"]] as const) {
       const c = new Collector(profile);
       checkPlayability({ W, H, surface: h, objects, model, water, rules: rulesFor(null, "normal"), features: null }, c);
       const r = c.checks.find((x) => x.id === "water.source_in_flow")!;
@@ -115,5 +124,26 @@ describe("water sources start rivers (D171)", () => {
       expect(r.value).toBe(1);
       expect(r.where?.tiles).toEqual([[30, 11]]);
     }
+  });
+});
+
+describe("a source placed by hand in the editor (D184: sources go anywhere)", () => {
+  it("a source dropped in a river exports with no issue", () => {
+    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    const before = s.validate("export").report.checks.filter((c) => !c.ok).map((c) => c.id);
+    // the middle of the main river, away from the start
+    const start = s.built.start!;
+    let at = -1;
+    for (let i = 0; i < 96 * 96 && at < 0; i++) if (s.built.channel[i] && s.built.water[i] > 0.3 && Math.hypot((i % 96) - start.x, Math.floor(i / 96) - start.y) > 25) at = i;
+    expect(at).toBeGreaterThanOrEqual(0);
+    const u = s.apply({ op: "placeEntity", params: { id: "0f5a3c2e-1b7d-4e8a-9c6f-2d4b8a1e3f70", template: "WaterSource", x: at % 96, y: Math.floor(at / 96), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place water source");
+    expect(u.errors).toEqual([]);
+    const v = s.validate("export").report;
+    const c = v.checks.find((x) => x.id === "water.source_in_flow")!;
+    expect(c.ok).toBe(true);
+    expect(c.applicable).toBe(false);
+    expect(v.checks.filter((x) => !x.ok).map((x) => x.id)).toEqual(before);
   });
 });

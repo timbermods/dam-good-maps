@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Let the water carve · Dam Good Maps</title></head>
+<body>
+<header><div><b>Dam Good Maps</b><span>Let the water carve</span></div><select id="map" aria-label="Map"></select><button id="reset">Reload</button><a href="/ATTRIBUTION.md" target="_blank" rel="noopener">Credits</a></header>
+<main><canvas id="view" aria-label="3D map. Click an origin to unleash a river. In Aim mode click origin then destination. Drag to orbit, right drag to pan, scroll to zoom." tabindex="0"></canvas>
+<aside id="tools"><div class="settings">
+<div class="row"><button id="unleash" aria-pressed="true">Unleash</button><button id="aim" aria-pressed="false">Aim</button></div>
+<label class="power">Power <output id="power-label">65 · River</output><input id="power" type="range" min="0" max="100" value="65"></label>
+<div class="ends"><span>Creek</span><span>Catastrophe</span></div>
+<label class="power">Wander <output id="wander-label">35</output><input id="wander" type="range" min="0" max="100" value="35"></label>
+<div class="ends"><span>Straight</span><span>Winding</span></div>
+<label><input id="auto-width" type="checkbox" checked> Width follows Power</label>
+<label class="power">Width <output id="width-label">9.3 tiles</output><input id="width" type="range" min="2" max="24" step=".1" value="9.3" disabled></label>
+<button id="reroll" disabled>Try another path</button>
+<small id="seed-label">Personality 0</small>
+<label>Walls <select id="walls"><option value="steep">Steep</option><option value="wide">Wide</option></select></label>
+<label><input id="defy" type="checkbox" disabled> Defy gravity</label>
+<label><input id="dry" type="checkbox"> Dry canyon</label>
+<label><input id="follow" type="checkbox"> Follow the river</label>
+<details><summary>Saved runs &amp; display</summary><label><input id="layers" type="checkbox" checked> Rock layers</label><label><input id="motion" type="checkbox" checked> Motion effects</label><label><input id="reach" type="checkbox"> Show start reach</label><button id="save-run" disabled>Save run</button><label>Replay run <input id="replay-file" type="file" accept=".json"></label></details></div><div class="row"><button id="pause" disabled>Pause</button><button id="speed">1×</button><button id="stop" disabled>Stop</button></div>
+<div class="row"><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button></div>
+
+<small>Stop keeps the canyon.<br>Esc or Undo reverts the whole carve.</small>
+</aside>
+<div id="notice" role="status" aria-live="polite">Loading…</div>
+<div id="checks" role="status"></div>
+<div id="bottom"><span>Click to unleash · drag to orbit · right drag to pan · scroll to zoom · Space pause · WASD move</span><button id="top">Top-down</button><button id="home">Reset view</button><output id="fps">— fps</output></div>
+<div id="metrics"></div>
+</main><script type="module" src="/app.ts"></script></body></html>

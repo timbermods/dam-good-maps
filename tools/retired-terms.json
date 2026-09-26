@@ -1,0 +1,47 @@
+{
+  "about": "Names of retired features (Kyler, PLAN.md §20 D188 (3); docs/README.md, 'Retired terms'). tests/unit/retired-terms.test.ts, in CI's quick suite, fails when one reappears in a living document, the interface text or the editor code. Matching ignores case, ** and backticks, hyphens and underscores, and line breaks, splits camelCase, and takes simple plurals (tool, tools; brush, brushes). Add a term when a feature is retired.",
+  "terms": [
+    { "term": "landform tool", "retired": "D182", "instead": "the brushes: hills, plateaus, ridges and valleys come from painting" },
+    { "term": "river tool", "retired": "D184", "instead": "smart Lower and the shelf's sources" },
+    { "term": "lake tool", "retired": "D184", "instead": "lakes fill hollows by themselves" },
+    { "term": "Channel tool", "retired": "D184", "instead": "smart Lower" },
+    { "term": "Plant brush", "retired": "D184", "instead": "trees and bushes from the left shelf" },
+    { "term": "forest brush", "retired": "D184", "instead": "trees from the left shelf: click one, drag many" },
+    { "term": "berry brush", "retired": "D184", "instead": "berry bushes from the left shelf: click one, drag many" },
+    { "term": "resource brush", "retired": "D184", "instead": "trees and bushes from the left shelf" },
+    { "term": "live shape tool", "retired": "D182", "instead": "the brushes" },
+    { "term": "Terrace brush", "retired": "D184", "instead": "Flatten's \"in steps\" option" },
+    { "term": "Ramp brush", "retired": "D184", "instead": "Smooth's \"make walkable\" option" },
+    { "term": "Demolish tool", "retired": "D184", "instead": "Remove" },
+    { "term": "Show dropdown", "retired": "D184", "instead": "the view buttons" },
+    { "term": "Advanced checkbox", "retired": "D184", "instead": "smart defaults, with options hidden until wanted" },
+    { "term": "health pill", "retired": "D184", "instead": "the quiet dot" },
+    { "term": "Land tab", "retired": "D184", "instead": "the top bar and the left shelf" },
+    { "term": "Water tab", "retired": "D184", "instead": "the top bar and the left shelf" },
+    { "term": "Resources tab", "retired": "D184", "instead": "the top bar and the left shelf" },
+    { "term": "Start tab", "retired": "D184", "instead": "the start on the left shelf" },
+    { "term": "Source tool", "retired": "D212", "instead": "the Water source and Badwater source on the left shelf, right after the start" }
+  ],
+  "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
+  "patterns": [
+    { "pattern": "\\b(hill|plateau|ridge|canyon|valley|island|terraces?|mesa|valley floor): reaches level\\b", "retired": "D182", "instead": "the brushes: hills and valleys come from painting", "example": "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles" },
+    { "pattern": "\\bits edge (climbs|sinks) 1 level every\\b", "retired": "D182", "instead": "the brushes, whose edge slopes a level a tile", "example": "its edge sinks 1 level every 3 tiles from level 9" },
+    { "pattern": ">on this map<", "retired": "D184", "instead": "the land itself: the generator's features are its plan, never a list of objects", "example": "<h2>On this map</h2>" },
+    { "pattern": "\\bpick source\\b", "retired": "D212", "instead": "the shelf's Water source and Badwater source", "example": "Add water: pick Source, then click where the water starts." }
+  ],
+  "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],
+  "code": { "dirs": ["src"], "files": ["index.html"], "extensions": [".ts", ".tsx", ".css"] },
+  "allowedSections": [
+    { "file": "PLAN.md", "heading": "## 20. Editor decisions", "why": "the decision log is history" },
+    { "file": "EDITOR_PLAN.md", "heading": "# Part 3: superseded", "why": "it names what must not come back" }
+  ],
+  "markers": {
+    "about": "Text between these markers may name a retired feature on purpose, such as ROADMAP's 'Removed:' list.",
+    "open": "<!-- retired-terms:allow -->",
+    "close": "<!-- /retired-terms:allow -->"
+  },
+  "pendingRemoval": {
+    "about": "Editor files that still hold the old tools on dev. The Live editing work (feature/live-editing) empties this list as it replaces them; the test fails on a listed file that no longer holds a retired term, so the list only shrinks.",
+    "paths": []
+  }
+}

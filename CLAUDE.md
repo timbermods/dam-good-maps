@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+> **New milestone session? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says what's in flight, the order of
+> work, how things are run here, and the machine the session runs on (resumed 2026-09-26 on a dedicated computer).
+
 Dam Good Maps: a map generator for Timberborn. The README says what the repository holds.
 
 ## Standing rules
@@ -31,6 +34,12 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
     never autosave into Kyler's folders, and any file they create is removed afterwards); and only when no other
     heavy work is running on this machine.
   - While waiting for the yes, carry on with any work that doesn't need the batch.
+  - **Exception, on the dedicated machine only** (PLAN §20, D218): on the computer kept for this work
+    (docs/HANDOFF.md, "This machine"), a batch may run whenever the plan calls for one, without asking.
+    The other rules above still apply, and every batch and its results go into `docs/STATUS.md`.
+- Progress log (D221): add a short, plain comment to the "Progress log" issue
+  ([#57](https://github.com/timbermods/dam-good-maps/issues/57)) each time a step finishes, something is
+  released, a probe batch runs or something is parked for Kyler: what happened, links, what's next.
 - Never touch installed mods or saves otherwise. The maintainer (Kyler) tests in game himself.
 - At every milestone or step that changes generated maps, commit one small contact-sheet image to
   `docs/sheets/<step>.png`: seeds 1–30 of every built theme at 128², top-down, each labelled with its seed and
@@ -84,7 +93,7 @@ text.
   - the start and edge rules are tagged `start-edge-rules-done`; the Real places second round
     `real-places-2-done`; contaminated ground as a layer `look-contamination-done`, once Kyler approves it;
   - the Map look fixes, once Kyler approves each: badwater blending `look-badwater-done`; mine sites and ruins
-    `look-mine-ruins-done`;
+    `look-mine-ruins-done`; waterfalls `look-waterfalls-done`;
   - Map look 2 (after the Map quality checkpoint, before the Frame pass) is tagged `map-look-2-done`;
   - the Frame pass (after Map look 2, before the 3D stages) is tagged `frame-pass-done`;
   - the 3D terrain stages (after the Frame pass, before M10) are tagged `3d-a-done`, `3d-b-done` and `3d-c-done`;

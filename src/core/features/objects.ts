@@ -198,3 +198,19 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
 export function singleParams(kind: MapObjectKind, x: number, y: number, o: Orientation, core?: { radius: number; cycles: number }): MapObjectParams {
   return { kind, placement: { x, y, orientation: o }, ...(core ? { core } : {}) };
 }
+
+// --------------------------------------------------------------------------------- Remove
+
+/** What the editor's Remove takes (its filters, PLAN §20 D184). */
+export type RemoveKind = "trees" | "bushes" | "ruins" | "sources" | "slopes" | "objects";
+
+/** The kind of object a template is, for Remove's filters; null for the start, which stays. */
+export function removeKindOf(template: string): RemoveKind | null {
+  if (template === "StartingLocation") return null;
+  if (/^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent)$/.test(template)) return "trees";
+  if (/Bush$|^(Dandelion|Cattail|Spadderdock)$/.test(template)) return "bushes";
+  if (/^RuinColumnH/.test(template)) return "ruins";
+  if (template === "WaterSource" || template === "BadwaterSource") return "sources";
+  if (template === "Slope") return "slopes";
+  return "objects";
+}

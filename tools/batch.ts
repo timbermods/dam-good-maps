@@ -18,6 +18,7 @@ import { writeFileSync } from "node:fs";
 import { decodeProject, encodeProject, toDocument } from "../src/core/doc/document";
 import { MapSession } from "../src/core/doc/session";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
+import { officialRange } from "../src/core/gen/calibrated";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 
 function arg(name: string, fallback: string): string {
@@ -53,6 +54,10 @@ let reopened = 0;
 const reopenTimes: number[] = [];
 const reopenFailures: string[] = [];
 const failedChecks = new Map<string, number>(); // every failed attempt's blocking checks
+// information (Kyler, 2026-09-25): accepted maps whose amounts sit in the official maps' typical
+// range for their size and settings, and their mine sites
+const inRange = { trees: 0, bushes: 0, scrap: 0 };
+const mines: number[] = [];
 const advisory = new Map<string, number>();
 const lines: string[] = [];
 const log = (s: string) => {
@@ -74,6 +79,24 @@ for (const seed of seeds) {
   }
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
+  if (r.report.passed) {
+    const have = { trees: 0, bushes: 0, scrap: 0 };
+    let m = 0;
+    for (const e of r.built.entities) {
+      const t = e.template;
+      if (t === "Pine" || t === "Birch" || t === "Oak" || t === "Succulent") have.trees++;
+      else if (t === "BlueberryBush") have.bushes++;
+      else if (t.startsWith("RuinColumnH")) have.scrap += 15 * Number(t.slice(11));
+      else if (t === "UndergroundRuins") m++;
+    }
+    const s = r.spec.settings.resources;
+    const k = { trees: s.forestDensity / 100, bushes: s.berryBushes / 100, scrap: s.ruins / 100 };
+    for (const key of ["trees", "bushes", "scrap"] as const) {
+      const o = officialRange(key, size * size);
+      if (have[key] >= o.low * k[key] && have[key] <= o.high * k[key]) inRange[key]++;
+    }
+    mines.push(m);
+  }
   // the accepted map's project file reopens and rebuilds the same .timber
   let reopen = "";
   if (r.report.passed) {
@@ -103,6 +126,7 @@ log(`- attempts: mean ${(attempts.reduce((a, b) => a + b, 0) / n).toFixed(2)}, m
 log(`- time per map: median ${Math.round(sorted[n >> 1])} ms, p90 ${Math.round(sorted[Math.floor(n * 0.9)])} ms, max ${Math.round(sorted[n - 1])} ms`);
 log(`- checks that failed an attempt: ${[...failedChecks].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}`);
 log(`- advisory warnings on the accepted maps: ${[...advisory].map(([k, v]) => `${k} ${v}/${n}`).join(", ") || "none"}`);
+log(`- in the official maps' typical range for the size and settings (information): trees ${inRange.trees}/${final}, bushes ${inRange.bushes}/${final}, scrap ${inRange.scrap}/${final}; mine sites ${mines.length ? `${Math.min(...mines)}–${Math.max(...mines)}` : "none"}`);
 const rt = reopenTimes.slice().sort((a, b) => a - b);
 log(`- project round trip: ${reopened}/${final} accepted maps reopen from their project file and rebuild the same .timber${rt.length ? ` (median ${Math.round(rt[rt.length >> 1])} ms, max ${Math.round(rt[rt.length - 1])} ms)` : ""}`);
 for (const f of reopenFailures) log(`  - ${f}`);

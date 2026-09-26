@@ -15,6 +15,8 @@ pull request.
 | [ROADMAP.md](../ROADMAP.md) | The steps, in order, with what each delivers and what blocks it. |
 | [CLAUDE.md](../CLAUDE.md) | The standing rules for working in this repository. |
 | [STATUS.md](STATUS.md) | Where things stand now: what's done, running, and waiting on Kyler. |
+| [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: work in flight, the order of work, how things are run here. Read it first when starting a new session. |
+| [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. |
 
 ## History
 
@@ -32,5 +34,10 @@ These record what happened and why. They stay as written; superseded parts may b
 ## Retired terms
 
 Retired features must not come back. `tools/retired-terms.json` lists their names, and CI flags any that
-reappear in the living documents, the interface text or the editor code. Add a term when a feature is
-retired.
+reappear in the living documents, the interface text or the editor code (`tests/unit/retired-terms.test.ts`,
+in the quick suite). Add a term when a feature is retired.
+
+Deliberate mentions are allowed in `PLAN.md` §20, in EDITOR_PLAN.md's "Part 3: superseded", and between
+`<!-- retired-terms:allow -->` and `<!-- /retired-terms:allow -->`, as in ROADMAP's "Removed:" list. The
+JSON's `pendingRemoval` names the editor files that still hold the old tools until Live editing replaces
+them; that list only shrinks.

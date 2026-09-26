@@ -11,6 +11,8 @@
 // - rivers: the other tiles on the water's path start at the depth an open channel carries its
 //   flow with, about 0.3·Q/w (Q the flow through the tile, w the channel width there; a lip tile
 //   passes all its water each substep, PLAN §9.2).
+// A basin sealed off from its river (a carve's oxbow lake) then starts with the water it kept
+// (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources.
 
 import { MinHeap } from "../math/grid";
 import { SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
@@ -145,6 +147,19 @@ export function prefill(m: WaterModel): WaterState {
     depth[i] = d;
     contamination[i] = d > 0 && q[i] > 0 ? qBad[i] / q[i] : 0;
   }
+  // a sealed basin starts with the water it kept (water.ts RetainedWater), up to the surface it had
+  for (const lake of m.retained ?? [])
+    for (let k = 0; k < lake.tiles.length; k++) {
+      const i = lake.tiles[k];
+      if (m.floor[i] === lake.floor[k]) {
+        depth[i] = lake.depth[k];
+        contamination[i] = lake.contamination[k];
+      } else {
+        const d = lake.floor[k] + lake.depth[k] - m.floor[i];
+        depth[i] = d > 0 ? d : 0;
+        contamination[i] = d > 0 ? lake.contamination[k] : 0;
+      }
+    }
   return { depth, contamination };
 }
 
@@ -158,6 +173,10 @@ export interface CanonicalWater extends SettleResult {
   /** The editor's warm-started preview (sim/preview.ts), not the canonical settle: never written
    *  to a file, and replaced by the canonical settle in the background (EDITOR_PLAN §6). */
   preview?: boolean;
+  /** The last settled water carried over to changed ground while the water settles again in the
+   *  background (sim/preview.ts `staleWater`): shown at once after an edit, never written to a
+   *  file. Always `preview` too. */
+  stale?: boolean;
 }
 
 /** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game

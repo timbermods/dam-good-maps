@@ -131,6 +131,7 @@
         "height": { "type": "integer", "minimum": 0, "maximum": 16 },
         "base": { "type": "integer", "minimum": 0, "maximum": 16 },
         "bandDepth": { "type": "integer", "minimum": 2, "maximum": 32 },
+        "onGround": { "type": "boolean" },
         "along": {
           "type": "object",
           "additionalProperties": false,
@@ -217,7 +218,14 @@
         "area": { "$ref": "#/$defs/runs" },
         "scrapTarget": { "type": "integer", "minimum": 0 },
         "heightMix": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "number", "minimum": 0 } },
-        "centerBias": { "type": "number", "minimum": 0, "maximum": 2 }
+        "centerBias": { "type": "number", "minimum": 0, "maximum": 2 },
+        "layout": {
+          "description": "The official maps' look: the field's own storey mix, tilted by tallness (-1 short, 1 tall), a few towers among shorter columns, and the official shares of models and turns.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tallness"],
+          "properties": { "tallness": { "type": "number", "minimum": -1, "maximum": 1 } }
+        }
       }
     },
     "mapObject": {

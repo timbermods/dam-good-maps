@@ -12,8 +12,10 @@ differently, this file wins.
   set pieces and validation were each planned twice (once in each plan). Each is now one milestone
   that serves both halves.
 - **Editor-ready from the first milestone.** M1 already generates maps *from* parametric features
-  and offers them as a project file, so the editor, when it arrives, opens maps whose rivers,
-  plateaus and ruin fields are grabbable. No generator code is retrofitted later.
+  and offers them as a project file, so the editor opens every generated map with its plan kept,
+  for "Generate, keeping my edits", regenerate area and Claude's steering. No generator code is
+  retrofitted later. (The editor showed those features as objects with handles until Live
+  editing; the brushes shape the land now, D182, D184.)
 - **Every milestone ends with its blocking criteria met and its tests green.**
 - **Kyler's one rule** (Kyler, 2026-09-25; PLAN §20 D115). Acceptance covers only what a player
   would notice or what would break. Only three kinds of thing block: **breakage** (maps failing
@@ -43,7 +45,9 @@ differently, this file wins.
   or changes a way to edit or understand maps (M9a–c, the 3D stages, the Weather view, M10, M11,
   the refinement phase) also: (1) exposes that capability to M12's Claude layer as a bounded,
   validated operation or query tool entry, in the shape of the Claude groundwork's tools
-  (`investigation/claude/`), with its limits and its refusal reasons; (2) adds requests for it to
+  (`investigation/claude/`), with its limits and its refusal reasons (character and new features
+  steer the generator, D139; precise edits are brush-style operations, never landform objects,
+  D187); (2) adds requests for it to
   the Claude request suite (`investigation/claude/requests.json`), with measurable expectations
   and reference solutions; (3) re-runs every reference solution against the step's code, and
   fixes or re-tunes any that broke, so the suite stays green. No model or API key is needed; the
@@ -68,21 +72,26 @@ differently, this file wins.
 | M8 | Water preview and background validation in the editor; start requirements first | EDITOR §6, E5 · PLAN §5.6, §10, §11.4, §19.7 | yes (preview vs game, F3, F4) | xhigh |
 | Look | Map look, after M8, before M9 | Kyler's plan (PLAN §20, D86, D135) · EDITOR §8 · PLAN §14.2 (3D) | no (Kyler approves the look from captures) | high |
 | Places | Real places, right after Map look is released | the landscape survey (investigation/landscapes/) · PLAN §20 D136 | optional (a probe batch, if Kyler approves one) | high |
-| M9 | Interestingness, names, candidates, premises and variety (staged M9a–M9c) | PLAN §7.1, §7.9, §8, §12, §13 · the workshop study (D87) · EDITOR §7 words (D84) · the M9 design (D112) | a probe batch for M9a (D116) | xhigh |
+| M9 | Interestingness, names, candidates, premises and variety (staged M9a–M9c) | PLAN §7.1, §7.9, §8, §12, §13 · the workshop study (D87) · EDITOR_PLAN, Claude integration: spatial language and judgement words (D84) · the M9 design (D112) | a probe batch for M9a (D116) | xhigh |
 | Quality | Map quality checkpoint, after the M9 build: contact sheets, a probe batch, tuning rounds until Kyler says go | PLAN §20 D146 | yes (a probe batch, asked first) | high |
 | Look 2 | Map look 2: water and shadows (a High quality mode), after the checkpoint | PLAN §20 D147 | no | high |
 | Frame | Frame pass, after Map look 2, before the 3D stages | the impeccable-app-flow skill · PLAN §20 D113 | no | high |
 | 3D-a | Terrain above terrain: model, water and checks | investigation/terrain3d/DESIGN.md §2–4, §9 · PLAN §10, §11, §19.6, §19.8 · D118–D122 | no (the Probe's test maps are written) | xhigh |
 | 3D-b | Terrain above terrain: generation and Verticality | DESIGN.md §5 · PLAN §5.9 · D123, D132 | a probe batch (T1–T4, T6, T7; D145) | xhigh |
-| 3D-c | Terrain above terrain: the editor and the view | DESIGN.md §6–7 · EDITOR §4–6, §8 · D125, D126 | a probe batch (T5, T2 on edited maps) | xhigh |
-| Weather | Weather view, with live water, after the 3D stages, before M10 | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133 | a probe batch (calibration) | xhigh |
-| M10 | Sculpting, naturalize, symmetry | EDITOR §5, E6 | no | high |
-| M11 | Stamps, heightmap import, regenerate area, locks | EDITOR §3 (conflict rules), §5, E7 | no | high |
-| Refine | Refinement phase, after M11, before the design pass | Kyler's refinement notes · decisions-pending #2, #12, #13, #21, #29 | short (a dam at a new narrows holds) | xhigh |
+| 3D-c | Terrain above terrain: the editor and the view | DESIGN.md §6–7 · EDITOR_PLAN Part 1 §9 (carving is a brush), Architecture · D125, D126, D182 | a probe batch (T5, T2 on edited maps) | xhigh |
+| Weather | Weather view: the full cycle's timeline, after the 3D stages, before M10 | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186 | a probe batch (calibration) | xhigh |
+| M10 | Symmetry, and the brushes' extras (the brushes came with Live editing) | EDITOR_PLAN Part 1 §4, §9; Stamps and symmetry · D158, D182 | no | high |
+| M11 | Stamps painted as brushes, heightmap import, regenerate area, locks | EDITOR_PLAN: The map document (conflict rules), Stamps and symmetry · D182 | no | high |
+| Refine | Refinement phase, after M11, before the design pass | Kyler's refinement notes · decisions-pending #2, #12, #21, #29 (#13 is moot: D184 removed drawn rivers) | short (a dam at a new narrows holds) | xhigh |
 | Design | Design pass, after M11 and the refinement phase | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
-| M12 | Claude integration | EDITOR §7, §9 (Claude suite), E8 · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering and a provider-neutral layer (D139, D140) | yes (the waterfall and compound requests) | xhigh |
-| M13 | Usability, problem reports, versioned deploys | EDITOR §9, E9 · PLAN §2.3, §14, §15, old milestone 6 | yes (full journey) | high |
-| Later | See the end of this file | PLAN §5.7, old milestone 7 · EDITOR §10 Later | per item | — |
+| M12 | Claude integration | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
+| M13 | Usability, problem reports, versioned deploys | EDITOR_PLAN: Testing (usability tasks) · PLAN §2.3, §14, §15, old milestone 6 | yes (full journey) | high |
+| Later | See the end of this file | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
+
+In the rows for M1–M8 and Look, "EDITOR §n" and E1–E9 name EDITOR_PLAN.md's sections and
+milestones before its rewrite of 2026-09-25 (D188; its git history has them). Later rows name its
+current sections. M3–M8 below record the editor as built then; its tools with handles, drawn
+rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part 3).
 
 **Release points** (suggested):
 - after M2: a public generator beta (River Valley, validated water);
@@ -740,7 +749,9 @@ captures and released under its own tag; rendering only, so the map files don't 
 contaminated ground as a layer (D154, `look-contamination-done`, released); badwater blending
 smoothly into clean water, with #38's approved crimson badwater and a warm tint for partly bad water,
 in one shared water palette (D177, `look/badwater-blend`, `look-badwater-done`); and mine sites and
-ruins as models of our own (D178, `look/mine-site`, `look-mine-ruins-done`).
+ruins as models of our own (D178, `look/mine-site`, `look-mine-ruins-done`); and waterfalls with shape and
+volume (D201, `look/waterfalls`, `look-waterfalls-done`): falls that leave the lip and arc down as
+a translucent ribbon, foam at the lip, whitewater below, cascades as small falls.
 
 ---
 
@@ -846,6 +857,29 @@ Real places rebuild on it in their second round.
 byte checks) and the mine-site guarantee. Resource amounts in or out of the official range are
 information.
 
+**Status:** built on `feature/resources` (docs/progress/resources.md), PR #43 into `dev`, merged
+with the start and edge rules; generator 0.6.2.
+
+---
+
+## Badwater on every map
+
+A small step right after Resources like the official maps, and before the Real places rebuild
+(Kyler, 2026-09-26; PLAN §20 D200), built on branch `feature/badwater-source`:
+- at least one permanent badwater source on every map (generated maps, Real places, Pick a place),
+  a late-game resource like the mine site;
+- placed naturally (a spring in a hollow or side valley, never at random), at the per-difficulty
+  distance targets from the start (30 / 15 / 8 tiles);
+- count and strength like the official maps for the map's size, measured from the official maps
+  (first checking whether every official map has one);
+- a check in both validators, like `resources.mine_site`.
+- **No badwater**, an explicit option in the badwater setting for peaceful maps (the default is always
+  at least one source): no badwater sources are placed, badtides still happen, and the share link and
+  the map's description record the choice; generated maps, Real places and Pick a place respect it.
+
+**Blocking:** breakage (batches ≥ 98% final per theme and size, byte checks), and every map having its
+badwater source. Generated maps change (a generator version bump and a contact sheet, D144).
+
 ---
 
 ## Live editing
@@ -855,60 +889,96 @@ D158, D179–D184). Built on branch `feature/live-editing`, tried by Kyler on th
 <https://timbermods.github.io/dam-good-maps/preview/> (noindex; refreshed after every push), and
 released as `live-editing-done` when Kyler says it feels right.
 
+**Before `live-editing-done`** (Kyler, 2026-09-26; D212): sources move to the left shelf as two items after
+Start (Water source, Badwater source); clear water only under or around the brush when it's over water,
+and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
+Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
+forces core (D216, D219), put on the preview, and released only after Kyler has tried them. Both
+changes are built, and Carve with them, for the preview (`docs/progress/live-editing.md`).
+
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):
 - **Principles:** the land is the interface (feedback from the land itself, not from panels,
   dialogs or readouts); direct manipulation; few tools, each obvious; smart defaults, with options
   hidden until wanted; forgiveness (instant undo, Esc always backs out); one grammar (pick, paint or
-  place, see the result; [ and ] for size, scroll for strength, in every tool); things just work
-  (painting never waits on water and keeps full frame rate on 256²); landforms come from the
-  brushes, never from buttons (D182).
-1. **Top bar:** Raise, Lower, Flatten, Smooth, Naturalize | Source | Carve | Remove. A small row beneath
-   shows only the picked tool's options. The size ring is drawn on the land; strength shows only
-   while scrolling. Toggles, off by default: square shape, precise mode, straight lines, level
-   lines. Flatten has "in steps" (terraces); Smooth has "make walkable" (the game's natural slopes;
+  place, see the result; [ and ] for size, Shift+scroll for strength, in every tool; plain scroll
+  always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
+  full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
+  desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
+1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
+   Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
+   left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
+   preview and are released only after Kyler has tried them (D219): until then the public site shows
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
+   Power, Steep or Broad, a summit, flows, Try
+   another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land along a drawn fault (Lift
+   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` (#52, ready with Lift and
+   Slide, D219). All four forces share one forces core, built on `investigation/forces-core` (#59, D220).
+   Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
+   another); built from `investigation/craterize` (#51, ready, D216). A small row
+   beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
+   only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines,
+   level lines. Flatten has "in steps" (terraces); Smooth has "make walkable" (the game's natural slopes;
    the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
-   slot. Pen pressure sets strength on a tablet.
+   slot. Pen pressure sets strength on a drawing tablet.
    Hold to dig (D193): in precise mode, holding Lower or Raise keeps working a level at a time,
    with an optional "stop at" level (a faint plane, a pulse on arrival); never below the map's bottom
    or under placed objects.
+   Flatten (D204) starts from the stroke's own height, cuts and fills, has Cliff or Ramped edges,
+   hints where the start fits, and carries trees and objects with the ground.
+   Hold F to resize the brush by dragging (D205); the camera's old R and F zoom are gone (D212).
 2. **Water:** a reflection of the land being painted.
    - **Smart Lower:** a stroke that starts in or next to water carves a bed that keeps flowing
      downhill, so the water follows the brush; the ring turns softly blue. Anywhere else it is an
      ordinary Lower.
-   - **Source:** click to place, and water spreads at once; options: clean or bad, and strength.
+   - **Water source and Badwater source** (D212): on the left shelf, right after the start; click
+     to place, and water spreads at once; the row beneath sets the next one's strength.
      Shift+scroll over any source changes its strength live (a friendly note past the official
-     range, never a block); drag to move it; Delete or Remove makes its water recede. Anywhere in
-     the editor (D171 is for generated maps). Always findable, even underwater (an upwelling; a
-     marker with its strength when near or with Source picked; Markers shows all) (D196).
+     range, never a block); drag to move it; a click selects it (its strength, clean or bad,
+     Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
+     maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
+     with a source picked on the shelf; Markers shows all) (D196).
    - **Water is never an object** (D196): no river selection, panel or deletion; flow and clean or
      bad belong to sources; generated rivers are their sources and land. Hovering water shows its
      depth, bed level and contamination, and highlights the sources feeding it.
-   - **Seeing underwater** (D196): water turns transparent while a tool is picked; T or **Clear
-     water** toggles it otherwise; badwater stays distinct.
+   - **Seeing underwater** (D196, D212): only the water under and right round the brush turns
+     clear, and only while the brush is over water already there (painting a submerged bed); on
+     dry land the water stays as it is. T or **Clear water** clears all of it. Clear water still
+     reads as water (a faint blue tint, its ripples, a soft bright shoreline); badwater stays
+     distinct, for colour-blind players too.
    - **Everything else emerges:** lakes fill hollows, waterfalls form at drops, rivers join where
      they meet, and branches form wherever the land is cut from water.
    - **How water behaves:** water near an edit moves within a frame or two, then the rest of the
      map; a speed control (slower, normal, faster, instant; brisk by default: small edits settle
-     nearby in a second or two) (D197); the journey with pause, skip, replay,
-     follow, drought and badtide (the game's badtide rules, from `investigation/cycles`); moisture
-     spreading as the land greens; optional sounds of our own.
-   - **Carve** (D194): a force of nature with its own button next to Source: Unleash and Aim
-     modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
-     (D181). Built from `investigation/carve` (PR #47) once Kyler says it's ready. Local first, then the rest of the map in the background; the final water is
-     always the game's settled result.
+     nearby in a second or two) (D197); the journey with pause, skip, replay and follow; the
+     Drought and Badtide buttons, each showing what that event looks like on this map (the game's
+     badtide rules, from `investigation/cycles`; the whole cycle's timeline is the separate
+     Weather view, D186); moisture spreading as the land greens; optional sounds of our own. The
+     final water is always the game's settled result, at any speed.
+   - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
+     Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
+     (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
+     Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
+     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, a
+     following camera with carving effects, Space to pause, Stop, Esc or Ctrl+Z to undo it
+     instantly. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
-   start, pine, birch, oak, berry bushes, ruins, the mine site, relics, natural slopes, blockages,
-   geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
+   start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
+   the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
    where it fits and red where it doesn't, with a quiet reason ("needs flat ground"). Click places,
    R rotates, Esc puts it back. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
 4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Markers, and the overlays
    (moisture, contamination, drought). The legend appears only while an overlay is on.
+   Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
+   that hides everything above the level, the layer pick, and tools that act on the visible land.
+   Also (D205): a corner minimap (on by default at 256², a toggle among the view buttons), small
+   satisfying feedback on every action with quiet sounds (on by default, with a volume and an off
+   switch, D212) and reduced-motion support, and camera bookmarks (Ctrl+Shift+1–9 to save,
+   Shift+1–9 to glide back). The layer pick is Alt+middle-click (the game's) and Alt+click.
 5. **Header:** Undo and Redo icons with their shortcuts; one primary button, **Save to Timberborn**
-   (until `feature/save-to-timberborn` lands, and in browsers that can't save to a folder,
-   **Download .timber** takes its place); everything else (Open, Save project, Download .timber,
-   History, New map) in one small menu.
+   (merged in #40; in browsers that can't save to a folder, **Download .timber** takes its place);
+   everything else (Open, Save project, Download .timber, History, New map) in one small menu.
 6. **Quiet checks:** a small dot, green or amber; a click lists the problems, each highlighted on
    the map. Never a pop-up.
 7. **The start:** its water, wood and berry reach appears around it while hovered or dragged, then
@@ -918,10 +988,12 @@ they conflict):
    refused live; instant on 256².
 9. **First run:** three one-line hints (paint the land, place things, add water), then never again.
 
+<!-- retired-terms:allow -->
 **Removed:** the landform tools and their handles (D182); the river tool with its start and end
 rules, Natural or exact, width, depth and strength controls; the lake click-fill; the Channel tool;
 separate plant brushes; the cursor readouts (only the level number while flattening stays); the
 text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
+<!-- /retired-terms:allow -->
 
 **Kept:** the smooth camera (D180, approved by Kyler); every edit live, as one undo step, with
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
@@ -931,8 +1003,9 @@ out, clear trees and objects); Ctrl-click samples a level (on water, its bed); h
 an operation that replays exactly and survives regeneration and format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
 landforms already in a project open as plain terrain); Keep M12 ready (D134): Claude tool entries
-for every tool. Until the Frame pass, new interface uses the existing shared styles and components
-(D176).
+for every tool, as brush-style operations (strokes, sources, placements, Remove, the Select tool's
+actions), never landform objects (D187). Until the Frame pass, new interface uses the existing
+shared styles and components (D176).
 
 Built in pushes, water first, each put on the preview for Kyler.
 
@@ -1048,6 +1121,22 @@ a little noise, and two maps must play differently, not only look different.
 
 M9, M10 and M11 wait for that approval.
 
+**Design version 2 is approved** (Kyler, 2026-09-26; PLAN §20 D209). M9a builds on it, with:
+- **"Any" (Surprise me) as the default** (D208, D209): the genome drawn from broad ranges across all
+  themes, combining landforms, water features and intentions freely; a chosen theme only leans the
+  ranges. "Any" is measured like each theme (coherent, playable, no clones, no archetypes; the ≥98%
+  rule blocks) and is in the contact sheets.
+- **No ruler-straight rivers** (D209): rivers and badwater streams follow the land; the longest straight
+  run is measured against real terrain and the official maps, and a channel straighter than they ever
+  are blocks.
+- **Badwater on every map** (D200), and every rule since version 2 (D151–D153, D164, D167–D171, D172).
+- **The pending decisions:** #59, #60, #61, #62, #64, #65 and #68 as their defaults; no Dam site tool
+  (the natural narrows stays an internal operation for M12, #63); `water.storage_possible` is
+  information the generator prefers, not a guard (#67); Kyler picks the candidate intentions later
+  (#66).
+- **Models and priority** (D210): the M9a build on Opus 5.5 at xhigh, M9b and M9c at high, routine work
+  on Sonnet 5 at medium; M9a comes first when work competes for the machine.
+
 **Staging: M9a, M9b and M9c, approved by Kyler** (2026-09-25; PLAN §20 D145). From design version 1
 (`docs/m9-design.md` §16). M9 is built in three stages, each with its own deliverables, acceptance
 and release, tagged and released like a milestone. What goes into each stage waits for Kyler's
@@ -1138,6 +1227,9 @@ become recipes inside the system (design §3).
     version 2), and the measures as permanent measures (information, D115; the dam-wall check
     blocks). Surprise me and high Variety may reach high Verticality now and then; most maps
     never do (D132).
+  - **From Kyler's approval of version 2** (D209): Islands' sameness fixed (archipelagos across the
+    whole map, a sea off one edge, island chains, atolls), and his crater (26%) and waterfall-lake
+    (16%) intentions emerging more often through the steering. ("Any" moved to M9a.)
   - **Keep M12 ready** (D134): "make it more surprising", Variety, the recipes and the flow
     direction as tool entries; suite requests for them; every reference solution re-run.
   - Acceptance (D115): blocking: M6, the dam-wall check, finds no built wall; information: the
@@ -1171,14 +1263,14 @@ become recipes inside the system (design §3).
   - river courses read from the actual flow: each river's path in flow order, from its settled
     water surface (else its bed), with its tributaries, and a name for each ("the main river",
     "the north tributary", "the river from the east edge");
-  - the place resolver (EDITOR_PLAN §7 "Spatial language"): compass places, places relative to a
-    feature, and flow-relative places (upstream and downstream, a position along a river's course
-    from its source, the start's bank and the opposite bank, "this valley"), always read from the
-    river's actual flow, never from a compass direction; it returns the area, its reading and its
-    assumptions;
-  - the judgement-word table (EDITOR_PLAN §7 "Judgement words"): each word's levers, measured
-    targets, direction, size and guards. The groundwork's `lib/words.ts` checks only a target's
-    direction; M9 adds D84's sizes.
+  - the place resolver (EDITOR_PLAN.md, Claude integration, "Spatial language"): compass places,
+    places relative to a feature, and flow-relative places (upstream and downstream, a position
+    along a river's course from its source, the start's bank and the opposite bank, "this
+    valley"), always read from the river's actual flow, never from a compass direction; it returns
+    the area, its reading and its assumptions;
+  - the judgement-word table (EDITOR_PLAN.md, Claude integration, "Judgement words"): each word's
+    levers, measured targets, direction, size and guards. The groundwork's `lib/words.ts` checks
+    only a target's direction; M9 adds D84's sizes.
   - From the Claude groundwork, these files move: `investigation/claude/lib/view.ts` and
     `lib/flow.ts` → `src/core/analysis/view.ts` and `flow.ts` (shared with names and premises);
     `lib/places.ts` → `src/core/places/resolve.ts` (the editor's region tools can use it too);
@@ -1254,8 +1346,9 @@ Blocking:
   feature list holds a dam-site ridge. It runs on every milestone after M9 and blocks there too.
 - Names and premises match the features on 30 hand-checked maps, 10 of them at Variety 100.
 - The place resolver is tested on rivers flowing in every direction (the four edge directions
-  and the diagonal flow axes), a curved river, a drawn river and a tributary, so "upstream" is
-  never read as "west".
+  and the diagonal flow axes), a curved river, a river the test lays in any direction (with the
+  river planner the generator keeps; the editor has no drawn rivers since D184) and a tributary, so
+  "upstream" is never read as "west".
 - Every judgement word moves its measured targets in its direction on three maps (two River
   Valley sizes and a Canyon), keeps every guard, and says so when its settings are already at
   their limits or its theme is marked weak.
@@ -1374,9 +1467,9 @@ testers, without redesigning an interface that M10 and M11 are still adding to.
    generator, captioned with its seed and settings, with a way to roll another. For speed, show a
    still render made by our own renderer first, and load the live 3D view lazily behind it. Never
    game art or screenshots.
-6. The instruments (settings, map card, editor panels, reports) keep their layout and components.
-   They may take the new tokens' colours only where the guard tests and contrast checks pass. The
-   map is never styled.
+6. The instruments (settings, map card, the editor's bars and shelf, reports) keep their layout
+   and components. They may take the new tokens' colours only where the guard tests and contrast
+   checks pass. The map is never styled.
 
 **Rules:** every hard limit in impeccable-app-flow holds. No map changes, `shade.ts` untouched,
 contracts byte for byte, no state shown by colour alone, the test hooks kept.
@@ -1395,7 +1488,7 @@ contracts byte for byte, no state shown by colour alone, the test hooks kept.
 
 ## Terrain above terrain (3D-a, 3D-b, 3D-c)
 
-Its carving tools are built live from the start (D179).
+Carving is a brush, live from the start (D179, D182; EDITOR_PLAN.md Part 1, §9).
 
 After the M9 build and the Frame pass, and before the Weather view and M10 (Kyler, 2026-09-25;
 PLAN §20 D118–D127). Real 3D terrain is essential: caves, overhangs, tunnels and arches must be
@@ -1404,8 +1497,10 @@ them). The design is `investigation/terrain3d/DESIGN.md`, with the game's rules 
 `GAME_RULES.md`, the maps' use of caves in `MAPS.md`, and the repository's heightfield assumptions
 in `INVENTORY.md`. Each stage is released like a milestone.
 
-**Why this order.** M10's and M11's tools (brushes, naturalize, symmetry, stamps, regenerate area,
-locks) must work on runs. Building them on heights and retrofitting would redo their core.
+**Why this order.** The brushes came with Live editing, on heights, built on the terrain model so
+the 3D stages extend them (D158): 3D-a moves them onto runs, and 3D-c adds carving. M10's and
+M11's tools (symmetry, stamps, regenerate area, locks) are then built on runs from the start.
+Building them on heights and retrofitting would redo their core.
 
 **What blocks** (Kyler's one rule, D115): breakage; Kyler's principles (the support rule: 0
 dropped voxels; nothing stamped); and what a player feels (the page never stalls; progress is shown
@@ -1431,9 +1526,11 @@ while water settles). Budgets and measures are information.
    - `walk.levels`, `terrain.dropped`, `water.sealed_source`;
    - `terrain.single_floor` retired for generated maps.
 6. Imports: roofed water simulated (D100's exception retires); the cave cause of approximate
-   water retires (D98). Caves stay locked to the tools until 3D-c.
-7. The Probe's test maps T1–T6 (DESIGN.md §8), written, not played.
-8. **Keep M12 ready** (D134): "which levels can I reach without stairs?" and "where does water
+   water retires (D98). Caves stay locked to the brushes until 3D-c.
+7. The Live editing brushes and every recorded stroke move onto runs: on a map with no 3D forms a
+   stroke gives the same terrain as before.
+8. The Probe's test maps T1–T6 (DESIGN.md §8), written, not played.
+9. **Keep M12 ready** (D134): "which levels can I reach without stairs?" and "where does water
    stand under a roof?" as query tool entries; suite requests; every reference solution re-run.
 
 **Acceptance**
@@ -1444,14 +1541,15 @@ while water settles). Budgets and measures are information.
     fixtures;
   - the support check and the floor-aware slope and start checks are fixed and tested;
   - an unedited import still exports byte for byte;
+  - projects saved before 3D-a open with the same land, and their strokes replay exactly;
   - while water settles, progress shows and the page never stalls.
 - Information:
   - on the official cave maps, the canonical settle matches each map's own water at least as well
     as the investigation measured, and moisture per run matches the stored slots on at least 18 of
     19;
   - budgets: the settle ≤ 3 s at 256² on generated maps (D33), and no slower than today's on the
-    official maps; the instant checks ≤ 50 ms at 256² with the support rule (EDITOR_PLAN §9);
-    generation times.
+    official maps; the instant checks ≤ 50 ms at 256² with the support rule (EDITOR_PLAN.md,
+    Testing); generation times.
 
 **In-game check:** none. **Effort:** xhigh.
 
@@ -1509,18 +1607,27 @@ while water settles). Budgets and measures are information.
 **Delivers**
 1. One mesher for every tile (greedy faces per plane, undersides), sky light and sun visibility in
    3D, water per column, and Map look per run top (D126).
-2. 3D picking, selections and handles, and a level-slice cutaway.
-3. Tools: Carve, Fill, Tunnel, Arch, Cave, Ledge path and Overhang, each previewing what the
-   support rule would drop (D125).
+2. 3D picking and selections (the Select tool in 3D), and a level-slice cutaway.
+3. **Cave carving is a brush** (D182; EDITOR_PLAN.md Part 1, §9). D125's Carve cuts into the land
+   under the cursor, into a cliff face or beneath the ground, and its Fill fills a hollow back in.
+   They keep the brushes' grammar: the size ring, Shift+scroll for strength, one undo step per
+   stroke. Tunnels, arches, caves, ledge paths and overhangs come from carving, as hills and valleys
+   come from the brushes, never from buttons (D184; D182 makes D125's feature tools brush-first).
+   While painting, the stroke shows live what the support rule would drop (D125). The top bar's
+   Carve is the water's force (D194), so whether cave carving extends it, makes Lower and Raise
+   smarter, or earns its own button is decided when the stage is built (D184).
 4. Undo, generate-keeping-edits and 3D locks. Imported caves become editable (D40 retires).
-5. Claude's 3D feature kinds and places (the words land with M12).
+5. Claude and 3D: new 3D forms steer the generator (Verticality and the 3D processes, D139);
+   precise carving uses carve and fill strokes (D187). The words land with M12.
 6. **Keep M12 ready** (D134): "carve a tunnel", "cut an arch here", "fill this cave" and "lock this
-   cave" as bounded operations with their limits and refusal reasons (the support rule's); suite
-   requests; every reference solution re-run.
+   cave" as bounded brush-style operations (carve and fill strokes, a lock), never feature objects
+   (D187), with their limits and refusal reasons (the support rule's); suite requests; every
+   reference solution re-run.
 
 **Acceptance**
 - Blocking:
-  - every tool's result drops 0 voxels, or is refused with its reason;
+  - every stroke's result drops 0 voxels: what would fall shows while painting, and is refused
+    with its reason;
   - undo restores the exact runs, and an incremental build equals a full build after random carve
     and fill edits;
   - unedited imports export byte for byte;
@@ -1528,8 +1635,8 @@ while water settles). Budgets and measures are information.
 - Information:
   - `bench:3d` with 3D maps, in its budget configuration (a build < 1.5 s at 256², ≥ 60 fps with
     and without the cutaway), run because this stage is 3D-heavy;
-  - a feature edit committed (rasterize, remesh, re-light) ≤ 100 ms at 256²; a dirty-chunk remesh
-    ≤ 5 ms (EDITOR_PLAN §9);
+  - a stroke committed (rasterize, remesh, re-light) ≤ 100 ms at 256²; a dirty-chunk remesh
+    ≤ 5 ms (EDITOR_PLAN.md, Testing);
   - usability: "dig a tunnel between two valleys" and "cut away to see a cave" in under 2 minutes
     without help.
 
@@ -1548,10 +1655,16 @@ what that means for their colony. The exact cycle model (`investigation/cycles/`
 catalogue (`investigation/mechanics/`: CATALOGUE.md, VERIFIED.md, AXES.md; PR #11) turns the weather
 into play consequences.
 
+**What it is, beside the editor's buttons** (D186): the editor's **Drought** and **Badtide**
+buttons (Live editing, D180, D181) each show one event: what a drought, or a badtide, looks like on
+this map. The Weather view is separate: a fuller timeline of the whole cycle, opened when wanted.
+It builds on the same water journey and the same cycle model, and replaces neither button.
+
 **Delivers**
-1. A Weather view in the generator's preview and in the editor: **Normal**, **Drought** and
-   **Badtide**, a day slider and a play button, a legend that says what each colour means in words,
-   and a plain-language summary.
+1. A Weather view, opened when wanted from the generator's preview and from the editor: a
+   timeline of the whole cycle, with its **Normal**, **Drought** and **Badtide** phases in the
+   order the game plays them, a day slider and a play button, a legend that says what each colour
+   means in words, and a plain-language summary.
 2. The summary explains what the weather means for play, not only where the water goes:
    - the day the start's shore leaves a pump's reach (storage against access);
    - how much fertile land stays moist, and when it dries;
@@ -1576,11 +1689,11 @@ into play consequences.
 8. Calibrated against the real game with a DGM Probe batch (asked under D117).
 9. Every meaning readable, as Map look requires: words as well as colour, greyscale and
    colour-blind checks.
-10. **Live water** (Kyler's addition). When the water settles (after generating, after an edit in
-    the editor, or when a weather phase starts), the 3D view shows it flowing as it happens: water
-    spreading down channels, filling basins, spilling over falls. The simulation streams
-    intermediate states from its worker to the view at a steady frame rate, instead of only showing
-    the finished result.
+10. **Live water** (Kyler's addition). The editor already shows water flowing after every edit
+    (Live editing's paced journey, D179 (2)). This step brings the same live water to the
+    generator's preview, after generating, and to each phase of the timeline: the 3D view shows it
+    flowing as it happens (water spreading down channels, filling basins, spilling over falls),
+    streamed from the worker at a steady frame rate, instead of only the finished result.
     - The final water is exactly the same as today: live display only, never a different settle or
       a change to map bytes.
     - It can be skipped: a **show result** option, and reduced motion, jump straight to the settled
@@ -1599,7 +1712,8 @@ into play consequences.
   - the final water is identical with live display on and off;
   - the first key days appear quickly, and it never feels stalled (this replaces the 256² timeline
     budget);
-  - the editor stays responsive.
+  - the editor stays responsive, and its Drought and Badtide buttons keep working as they did
+    (D186).
 - Kyler approves the look from captures, live water included.
 - Information: the probe batch's timing comparison with the model (unless it reveals breakage); the
   3D budgets.
@@ -1613,38 +1727,47 @@ re-proved step by step, and the scheduling: the first drought first when it's on
 background start after generation, caching under the full input hash, cancellable batches.
 ---
 
-## M10. Sculpting, naturalize, symmetry
+## M10. Symmetry, and the brushes' extras
 
-Built live and brush-first (D179, D182): symmetry mirrors strokes live, and the advanced brushes follow
-Live editing's principles.
+The brushes are largely done: Live editing brought them forward from M10 (D158, D182, D184).
+Raise, Lower (smart near water), Flatten ("in steps"), Smooth ("make walkable") and Naturalize,
+circle and square shapes, precise mode, straight lines, level lines, pen pressure and the Select
+tool are built there, and 3D-a moves them onto runs. M10 adds symmetry, live and brush-first (D179,
+D182), and the extras the brushes still lack.
 
-**Delivers:** E6.
-- Advanced sculpt brushes and the naturalize brush.
-- Symmetry across all tools:
-  - mirror on any map, rotation-4 on square maps;
-  - entity orientation remapping;
-  - one start kept.
+**Delivers**
+- **Symmetry mirrors strokes live** (D182): every stroke, source, placement from the shelf and
+  removal is mirrored as it is made, as one undo step with the original.
+  - a mirror on any map, rotation-4 on square maps;
+  - entities' orientations remapped by the game's footprint rule (EDITOR_PLAN.md, Stamps and
+    symmetry);
+  - one start kept: the start is never mirrored (Timberborn 1.1 keeps one).
+  - Where it lives on screen follows D184: few tools, options hidden until wanted.
+- **The brushes' extras** (D158: M10 keeps symmetry and the advanced extras): whatever Kyler's
+  trials of the Live editing preview leave for later, each an option of an existing brush where it
+  can be, not a new button (D184).
 
 Symmetry also serves the workshop catalogue's symmetric layouts (6 workshop maps).
 
 - **Keep M12 ready** (D134): "naturalize this area", "raise this hill by two" and "make it
-  symmetric" as bounded operations with their limits and refusal reasons; suite requests; every
+  symmetric" as bounded brush-style operations (strokes, Select actions, the symmetry setting),
+  never landform objects (D187), with their limits and refusal reasons; suite requests; every
   reference solution re-run.
 
 **Acceptance** (Kyler's one rule, D115)
 - Blocking:
-  - the brushes, naturalize and symmetry work on runs (D118): caves, overhangs and arches survive
-    edits elsewhere, are mirrored exactly by symmetry, and the build's rule pass drops 0 voxels
-    after any brush;
-  - symmetric edits stay exactly symmetric, entities included;
-  - the naturalize brush never breaks `slopes.connect` or a set piece's protected tiles;
-  - the editor stays responsive while brushing: feedback within a frame, slower work in the
-    background.
+  - symmetry works on runs (D118): caves, overhangs and arches survive strokes elsewhere, are
+    mirrored exactly, and the build's rule pass drops 0 voxels after any mirrored stroke;
+  - mirrored strokes stay exactly symmetric, entities included, replay exactly, and undo as one
+    step;
+  - Naturalize never breaks `slopes.connect` or a set piece's protected tiles;
+  - the editor stays as responsive with symmetry on as Live editing requires: the display's frame
+    rate while painting on 256², feedback within a frame, slower work in the background.
 - Information:
-  - the performance budgets of EDITOR §9;
-  - from the workshop study (D87): the naturalize brush, on a generated map's terrain, against
-    the official median of steps in straight runs of 8+ (0.066) and a ridge crest variation of
-    0.25 or more (the naturalness metric M9 ports).
+  - the performance budgets (EDITOR_PLAN.md, Testing);
+  - from the workshop study (D87): Naturalize, on a generated map's terrain, against the official
+    median of steps in straight runs of 8+ (0.066) and a ridge crest variation of 0.25 or more (the
+    naturalness metric M9 ports).
 
 **In-game check:** no.
 
@@ -1654,13 +1777,18 @@ Symmetry also serves the workshop catalogue's symmetric layouts (6 workshop maps
 
 ## M11. Stamps, heightmap import, regenerate area, locks
 
-Built live and brush-first (D179, D182): stamps are painted onto the land; locks and regenerate area
-follow Live editing's principles;
-regenerating an area shows its result growing, never a frozen wait.
+Built live and brush-first (D179, D182): stamps are painted onto the land like a brush; locks and
+regenerate area follow Live editing's principles; regenerating an area shows its result growing,
+never a frozen wait.
 
-**Delivers:** E7.
-- The built-in stamp library, and user stamps with export and import (the entity transform rules
-  of EDITOR §5).
+**Delivers**
+- **Stamps, painted as brushes** (D182): a stamp is a brush whose tip is a shape of land (runs,
+  D118) with its water sources, objects and slopes. Picking one shows its ghost on the land under
+  the cursor; a click lays it, a drag paints it along the stroke (a line of mesas), R rotates and
+  a mirror flips it (the entity transform rules in EDITOR_PLAN.md, Stamps and symmetry). It blends
+  into the ground around it, the water responds at once, and each stamp is one undo step. What it
+  lays is ordinary land, shaped further with the brushes: no stamp object or handles remain.
+- User stamps: a Select tool selection saved as a stamp, with export and import.
 - Heightmap import scaled to 0–16, through the landscape survey's conversion pipeline, not just raw
   heights (Kyler, 2026-09-25; PLAN §20 D159): vertical mapping, rivers from the drainage, water
   sources, a start by Kyler's rules (D85/D153), and the current water rules (no walls or rims,
@@ -1669,25 +1797,30 @@ regenerating an area shows its result growing, never a frozen wait.
 - Regenerate an area, with constraints.
 - Locks and the conflict rules.
 - From the workshop study (D87):
-  - The built-in stamp library draws on the catalogue's best patterns: island in a moat, crater
-    lake with an island, spiral mountain and spiral quarry, heart-shaped lake (and other
-    outlines: star, crescent), badwater volcano, hanging lake on a mesa, mesa field, twin
-    waterfalls, oxbow lake, and dam narrows between two spurs; plus EDITOR §5's waterfall basin,
-    gorge dam site, terraced cliff, ruin district and island lake. Each stamp is a feature group
-    (landforms, lakes, set pieces, resources) with its own slopes; the recipes in
-    `investigation/workshop/recipes/` are their reference.
-  - The water builders `riverFork`, lake `outlets` and river `switchback` (PLAN §9.11).
+  - The built-in stamps draw on the catalogue's best patterns: island in a moat, crater lake with
+    an island, spiral mountain and spiral quarry, heart-shaped lake (and other outlines: star,
+    crescent), badwater volcano, hanging lake on a mesa, mesa field, twin waterfalls, oxbow lake,
+    and dam narrows between two spurs; plus the earlier plan's waterfall basin, gorge dam site,
+    terraced cliff, ruin district and island lake. The dam stamps follow D111: a natural narrows,
+    never a wall. Each stamp carries its own terrain, sources, objects and slopes; the recipes in
+    `investigation/workshop/recipes/` are their reference, and the builders (PLAN §9.11) may make
+    a stamp's shape, which is laid as plain land.
+  - The water builders `riverFork`, lake `outlets` and river `switchback` (PLAN §9.11) serve the
+    generator, and Claude through it (D139); in the editor, forks, outlets and switchbacks come
+    from smart Lower (D184).
 - Locks, stamps and regenerate-area on 3D regions (tiles and a z range); stamps carry runs (D118).
 - **Keep M12 ready** (D134): "lock this area", "regenerate the east third" and "put a spiral
-  mountain here" (a stamp) as bounded operations with their limits and refusal reasons; suite
-  requests; every reference solution re-run.
+  mountain here" (a stamp painted by the app) as bounded operations with their limits and refusal
+  reasons; suite requests; every reference solution re-run.
 
 **Acceptance** (Kyler's one rule, D115)
 - Blocking:
   - hand edits survive regeneration per the conflict rules;
   - stamps round-trip through export and import;
+  - a stamp paints as responsively as a brush: its ghost follows the cursor within a frame, and it
+    lays as one undo step that replays exactly;
   - a rotated or mirrored stamp passes the load checks;
-  - from the workshop study: each built-in stamp, placed rotated and mirrored at 20 random free
+  - from the workshop study: each built-in stamp, laid rotated and mirrored at 20 random free
     spots on 96², 128² and 256² maps of every theme, passes the load checks every time; each new
     builder's output passes the load checks.
 - Information: how often a stamped map still passes the `generate` profile (90% as the target);
@@ -1760,12 +1893,12 @@ improve once every tool exists. Each note is its own item, with its own tests.
    map, because the berry bushes near the start grow on water that drains in a drought.
 2. Pending decision [#12](docs/decisions-pending.md): narrow a generated fall's channel to 1–3
    tiles above the drop, for water wheels.
-3. Pending decision [#13](docs/decisions-pending.md): a river drawn across another river.
+3. Pending decision [#13](docs/decisions-pending.md): a river drawn across another river. Moot
+   since D184 removed drawn rivers from the editor: rivers join where they meet.
 4. Pending decision [#21](docs/decisions-pending.md): the measured targets that move less than
    their formulas (flat share, one-level share, cliff share).
-5. The river-pond crossing fix (a queued task): the editor's **River** tool refuses a drawn river
-   that crosses a riverside pond, so `tests/e2e/tools.spec.ts` draws on a map without ponds
-   (`&lk=0`).
+5. The river-pond crossing fix (a queued task): moot since D184 removed drawn rivers from the
+   editor. `tests/e2e/tools.spec.ts`'s map without ponds (`&lk=0`) goes with the old tools.
 6. The load checks (Kyler, 2026-09-25): the validators' load-class checks that real maps fail
    even though the game loads them. 12 of the 32 investigation maps fail one (unconnected slopes,
    a start on uneven ground, Meander Multiplayer's three starts; decisions-pending
@@ -1797,6 +1930,8 @@ What Kyler measured (River Valley, seed 4242, 128², Normal):
   walled outlet corridor.
 - Canyon's dam site is a squared-off narrows.
 - Drawn rivers in the editor raise their banks (D53), which can read as levees on sloped ground.
+  (D184 removed drawn rivers from the editor; the generator's highland streams use the same river
+  planner and raise the same banks.)
 
 Keep what the water physics requires: sealed edge mouths; a lake's level set by its outlet sill;
 a rim on every badwater basin (`water.badwater_contained`); reservoirs that meet high ground at
@@ -1806,19 +1941,19 @@ both ends. Change only the shapes.
 1. Measure first. A naturalness metric in the batch tools: the longest straight run of a height
    step, and how much a ridge's or rim's thickness and height vary along its length. Measure it
    on the 19 official maps and on generated maps, and set the targets from the official maps.
-2. (Changed by Kyler's no-dam-ridge decision, PLAN §20 D111: the generator builds no dam site at
-   all from M9a on, so this item applies to the editor's **Dam site** tool only, if the M9 design
-   keeps it.) Dam sites: a narrows between hillsides (two spurs closing in), with uneven thickness and
-   height. Not a straight ridge across the valley.
+2. (Changed by Kyler's no-dam-ridge decision, PLAN §20 D111, and by D182 and D184: the generator
+   builds no dam site at all from M9a on, and the editor has no set-piece tools, so this item
+   applies only to M11's dam stamps.) Dam sites: a narrows between hillsides (two spurs closing
+   in), with uneven thickness and height. Not a straight ridge across the valley.
 3. Badwater basins: an irregular pit and a winding ditch, still passing
    `water.badwater_contained`.
 4. Lake Basin: uneven terraces, not even rings; an outlet that isn't a straight corridor.
 5. Canyon's narrows: a rock-like outline, not rectangles.
-6. The editor's drawn-river banks: blend them into the ground beside them.
+6. The river planner's banks (D53), which the generator's highland streams use: blend them into
+   the ground beside them.
 7. Notes 1–6 and 8–9 above, each closed with Kyler's answer (or its default) and a test.
 8. **Keep M12 ready** (D134): the changed checks and shapes in the tools' answers ("why does this
-   fail validation?", the dam-site tool if it stays); suite requests; every reference solution
-   re-run.
+   fail validation?"); suite requests; every reference solution re-run.
 
 **Rules**
 - Every check keeps passing (`water.storage_possible` included, D111).
@@ -1870,10 +2005,10 @@ tip, in gentle or terraced steps, and the two spurs differ.
 - Information:
   - the naturalness metric for the 19 official maps and for the generated maps of every theme,
     with the targets set from the official maps recorded in PLAN §20;
-  - the badwater basins, Lake Basin terraces and outlet, Canyon narrows, the editor's drawn-river
-    banks and any dam-site tool against those targets;
-  - the spurs mode, if the Dam site tool keeps it: shoulder height std ≥ 0.25 and crest height
-    std within 12 tiles ≥ 1 as targets (official medians 0.47 and 1.75).
+  - the badwater basins, Lake Basin terraces and outlet, Canyon narrows, the highland streams'
+    banks and M11's dam stamps against those targets;
+  - the spurs mode, if the dam stamps use it: shoulder height std ≥ 0.25 and crest height std
+    within 12 tiles ≥ 1 as targets (official medians 0.47 and 1.75).
 
 **In-game check:** short, logged as pending (D11): build a dam at a new narrows and check that
 the basin fills without leaking round the spurs.
@@ -1904,19 +2039,44 @@ premise and its landmark. Copy uses the catalogue's words (M9's list).
 tokens), with the impeccable-app-flow's finish review on the new screens; no second full design
 pass.
 
-**Delivers:** E8, with the delivery choices from the M3 spike, built on the Claude groundwork
-(D88; `investigation/claude/`).
-- Its Claude panels are built in the design flow's update mode, from the DESIGN.md and
-  MEANING.md the design pass leaves behind.
-- The step schema (EDITOR_PLAN §7 "Steps", D89) and how each step becomes operations; a
-  feature-level map summary (at most about 16 KB; 3–7 KB measured).
+**The model** (Kyler, 2026-09-25; D139, D145 (7), D187; EDITOR_PLAN.md, Claude integration):
+- **A summoned chat box.** A small chat box summoned with a key, which disappears when done. Many
+  players won't use it, so it never takes permanent space.
+- **Claude steers the generator** for character and new features: intentions and settings, then
+  regenerate area with locks, checked with the analysis (below).
+- **Precise edits are brush-style operations,** the editor's own: strokes (Raise, Lower with smart
+  Lower near water, Flatten, Smooth, Naturalize; a size, a level, a path), sources (place, move,
+  strength, clean or bad), placements from the shelf (the start, trees and bushes, ruins and the
+  other objects), Remove, the Select tool's actions, and locks. Never landform, river, lake,
+  set-piece or resource-area objects (D182, D184).
+
+**Delivers:** the delivery choices from the M3 spike, built on the Claude groundwork (D88;
+`investigation/claude/`).
+- The chat box is built in the design flow's update mode, from the DESIGN.md and MEANING.md the
+  design pass leaves behind.
+- The step schema (EDITOR_PLAN.md, Claude integration, "Steps"; D89), revised to the model above,
+  and how each step becomes operations; a feature-level map summary (at most about 16 KB; 3–7 KB
+  measured). The groundwork's step kinds map as follows:
+  - kept: `changeSettings` (steering), `undoLast`;
+  - steering instead: `addSetPiece`, `changeSetPiece`, `addLandform`, `addLake` and new rivers
+    become intentions and regenerate area (D139, D145 (7));
+  - brush-style instead: `sculpt` becomes strokes; a precise new channel (`addRiver`) becomes smart
+    Lower strokes and a source; `setRiverBadwater` becomes switching the river's sources to bad;
+    `addResource` and `addMapObject` become placements from the shelf (trees and bushes painted in
+    clusters); `removeResources` and `deleteFeature` on objects become Remove; `moveStart` places
+    the start;
+  - retired: `changeFeature`, `moveFeature` and `deleteFeature` on landforms, rivers, lakes, set
+    pieces and resource areas: the editor no longer edits the generator's features as objects
+    (D182). A follow-up on something Claude made re-steers it, or refines it with brush-style
+    steps.
 - The tools: `resolve_region`, `find_sites`, `measure`, `list_features`, `limits`, `dry_run`,
-  `propose`. Each checks its own arguments and returns at most 32 KB. `find_sites` plans every
-  candidate with the real builders and checks it with a real build.
+  `propose`. Each checks its own arguments and returns at most 32 KB. `find_sites` finds where a
+  steered area, a stamp or a placement fits and checks each candidate with a real build;
+  `list_features` summarises what's on the map, read back from the land and the generator's plan.
 - The size-word resolver on top of PLAN §9.10 (D96), and M9's place resolver and judgement words.
-- Compound requests (EDITOR_PLAN §7, D84): goals with their own expectations; settings and
-  regeneration before placements, in the app's step order (D90); every goal checked on the
-  combined preview; interference between goals detected and named; guards held for the whole
+- Compound requests (EDITOR_PLAN.md, Claude integration; D84): goals with their own expectations;
+  settings and regeneration before placements, in the app's step order (D90); every goal checked
+  on the combined preview; interference between goals detected and named; guards held for the whole
   proposal (D91); the nearest feasible alternative offered for every goal not met, never
   substituted (D92).
 - Intent checks, and the loop's budget: 3 rounds and 10 tool calls for one goal, growing with the
@@ -1930,8 +2090,9 @@ pass.
   character ("harsher", "more vertical", "more varied") steer too, through settings and
   regenerating (Kyler, D145). Editor operations are for precise edits the player asks for ("move
   the start here", "widen this river by two", "delete that forest", "lock this area") and for
-  precise follow-ups ("make it wider"). Which of the suite's requests steer is in
-  M12-INTEGRATION.md §13.
+  precise follow-ups ("make it wider"), always as brush-style operations (D187). Which of the
+  suite's requests steer is in M12-INTEGRATION.md §13; its operations for drawn rivers, lakes,
+  landforms and resource areas are superseded by the model above.
 - **"Describe the map you want"** (D139): a player types a sentence; Claude turns it into
   intentions; the generator makes several candidates steered toward them; the analysis checks
   which really have them; Claude shows the ones that do and says honestly what didn't emerge;
@@ -1945,26 +2106,34 @@ pass.
 - The artifact edition: a single-file build declaring `sample` and `downloads` only, and a `.zip`
   download.
 - The Claude request suite (120 requests in 13 kinds, and those each earlier step added, D134)
-  running in Node, with reference solutions (EDITOR_PLAN §9). The reference solutions for
+  running in Node, with reference solutions (EDITOR_PLAN.md, Testing). The reference solutions for
   character and feature requests, Kyler's flagship requests included (the giant waterfall,
   S01–S04, and the compound request, M01; D145), steer the generator instead of building features
-  with planners (D139); requests marked "waiting for capability" are checked from the step that
-  provides it.
+  with planners (D139); precise requests use brush-style steps (D187); requests marked "waiting
+  for capability" are checked from the step that provides it. The requests whose reference
+  solutions still add landforms, lakes, drawn rivers or resource areas get new ones in this model
+  when the editor's old tools are removed; `docs/progress/docs-sweep.md` lists them, and which
+  planners the generator and the groundwork still need.
 - From the workshop study (D87): the catalogue is Claude's vocabulary. Each pattern a player might
-  ask for maps to a builder, a stamp or a feature, and the suite (EDITOR §9) gains these requests:
-  - "Add a spiral mountain in the north" → `spiral` up; "dig a spiral quarry" → `spiral` down.
-  - "Put an island in a moat near the east edge" → a lake with an island (stamp).
-  - "Make the lake heart-shaped" → the lake's outline replaced, its level kept.
-  - "Add a volcano that spills badwater, far from the start" → `cone` with a crater and a badwater
-    basin; the badwater distance rule decides "far".
-  - "Twin waterfalls on the south cliffs" → two standalone falls, the same facing, side by side.
-  - "A hanging lake on a mesa that pours into the river" → a mesa landform, a lake on it, its
-    outlet routed down.
-  - "A field of mesas with ruins on top" → `mesaField` with ruins on 2 tops.
-  - "Split the river round a big island" → `riverFork`.
-  - "Make the dam site less obvious" → the dam site's spurs mode (refinement phase); with
-    Reservoir help, if Kyler adopts it (decisions-pending #31), help `some`, or no dam site at
-    None.
+  ask for is steered (an intention, and the generator's builder behind it, with regenerate area),
+  or, when the player names an exact shape at an exact place, painted as a stamp (M11); never
+  added as a landform object. The suite (EDITOR_PLAN.md, Testing) gains these requests:
+  - "Add a spiral mountain in the north" → steer toward `spiral` up in the north third; "dig a
+    spiral quarry" → `spiral` down.
+  - "Put an island in a moat near the east edge" → steer, or the island-in-a-moat stamp.
+  - "Make the lake heart-shaped" → the heart-shaped lake stamp painted over the lake, its level
+    kept.
+  - "Add a volcano that spills badwater, far from the start" → steer toward `cone` with a crater
+    and a badwater source; the badwater distance rule decides "far".
+  - "Twin waterfalls on the south cliffs" → steer toward two falls, the same facing, side by side.
+  - "A hanging lake on a mesa that pours into the river" → steer toward a mesa with a lake on it,
+    its outlet running down.
+  - "A field of mesas with ruins on top" → steer toward `mesaField` with ruins on 2 tops.
+  - "Split the river round a big island" → steer toward `riverFork`, or smart Lower strokes that
+    cut a second arm.
+  - "Make the dam site less obvious" → steer toward a less obvious natural narrows (dam
+    opportunities only emerge from the terrain, D111); with Reservoir help, if Kyler adopts it
+    (decisions-pending #31), help `some`, or none.
   - "Make this map more surprising" → a `specPatch` raising Variety, with the premise drawn again.
 
 **From the Claude groundwork** (M12-INTEGRATION.md §1, §6, §8–§11). Build items:
@@ -1972,8 +2141,9 @@ pass.
   - `lib/metrics.ts` → `src/core/analysis/features.ts` (`reservoirTiles`, `reservoirIsClean` and
     the lip measures move to the builders once they return them);
   - `lib/sites.ts`, `lib/steps.ts`, `lib/compound.ts`, `lib/intent.ts`, `lib/report.ts`,
-    `lib/summary.ts`, `lib/tools.ts`, `lib/conversation.ts` → `src/claude/` (EDITOR §8's
-    `claude-bridge`: headless, no UI);
+    `lib/summary.ts`, `lib/tools.ts`, `lib/conversation.ts` → `src/claude/` (EDITOR_PLAN.md,
+    Architecture: `claude-bridge`, headless, no UI); `steps.ts` and `sites.ts` move revised to the
+    step kinds above, without the landform, lake and drawn-river steps;
   - `harness/bridge.ts`, `harness/loop.ts`, `harness/prompts.ts` → `src/platform/claude/` (a
     platform adapter, PLAN §19.9; route A's adapter joins it);
   - `harness/run-suite.ts` → `tools/claude-suite.ts` (nightly with a key; `--scripted` in CI);
@@ -1989,17 +2159,21 @@ pass.
   1. One undo entry for a whole proposal: `MapSession` gets a grouped entry (begin and end, or
      `applyAll` taking a `specPatch` first), so an accepted proposal undoes as one edit.
   2. Stable preview ids: a feature's id seeds its build (a dam site's ridge wobble), so
-     `planPiece` previews take an explicit id, or the wobble is seeded from the request.
+     `planPiece` previews take an explicit id, or the wobble is seeded from the request. (Only if
+     steering still previews a set piece: the dam-site ridge is gone, D111, and Claude no longer
+     places set pieces, D139.)
   3. Builders return what they measure: the dam site's reservoir tiles, the waterfall's lip, the
-     badwater basin's footprint and outlet tiles.
+     badwater basin's footprint and outlet tiles (for the analysis and the intent checks on
+     steered results).
   4. The Lake Basin reopen bug: fixed after M7 (9256161).
   5. The river badwater step: allowed for rivers that enter at a map edge (D80 builds them),
-     refused with the reason for rivers that start inland.
-  6. Step wrappers for M7's pieces and objects (§9): `addMapObject {kind, where, size}` for mine
-     sites, relics, geothermal fields, thorn belts, weirs, plugs and unstable cores, with a site
-     finder per kind and M7's placement emulation as the check; `addSetPiece` for `plugSpillway
-     {lake}`, `obstaclePayoff {where, rise 2–4, payoff}` and `secondDistrict {where}`, with
-     `find_sites` kinds for each.
+     refused with the reason for rivers that start inland. In the model above it switches the
+     river's sources to bad, as the editor's Source does (D184).
+  6. Step wrappers for M7's objects (§9): placements from the shelf, `addMapObject {kind, where,
+     size}` for mine sites, relics, geothermal fields, thorns, weirs, plugs and unstable cores,
+     with a site finder per kind and M7's placement emulation as the check. The planned
+     `addSetPiece` wrappers for `plugSpillway`, `obstaclePayoff` and `secondDistrict` steer the
+     generator instead (D139).
   7. Flow axes: nothing here; the resolver never assumes west to east, and M9 builds them.
   8. `regenerateRegion` (M11) for regional judgement words (D94; decisions-pending #43).
   9. Map objects in the way: the planners and `find_sites` try sites off map objects first; a
@@ -2016,7 +2190,9 @@ pass.
   and F08, which use it). Give the start search a pre-filter for `water.reservoir`, as it has for
   water, trees and berries (since D85 it is a target with an advisory warning, and still a guard
   when it passed before the proposal, D91). None of the failures was the resolver or the tools
-  misreading a request.
+  misreading a request. Then move every reference solution to the model above: steering for
+  character and new features, brush-style steps for precise edits (the requests and the planners
+  they use: `docs/progress/docs-sweep.md`).
 - **The workshop slot:** fill `requests.json`'s `workshopSlot` from the workshop catalogue
   (`investigation/workshop.json` `catalogue`) with `tools/claude-workshop-requests.ts`, then run
   the reference solutions of kind `workshop`.
@@ -2037,13 +2213,17 @@ pass.
   - an accepted proposal undoes as one edit, like a normal edit;
   - every reference solution passes on its map (96², 128², 256², and 48² for the reductions),
     including the 20-block waterfall with the reported reduction on 48², the compound,
-    impossible and conflicting requests (EDITOR_PLAN §9), and the workshop study's requests on
-    96², 128² and 256² maps (the intent checks measure the landmark: its extent, its levels, the
-    slopes joining a spiral's steps, the fork's two wet arms);
+    impossible and conflicting requests (EDITOR_PLAN.md, Testing), and the workshop study's
+    requests on 96², 128² and 256² maps (the intent checks measure the landmark: its extent, its
+    levels, the slopes joining a spiral's steps, the fork's two wet arms);
   - every report says honestly what was built and what didn't emerge: every compound request's
     report names every trade-off and every goal not met;
   - no request's input passes 64 KiB with the artifact limits on;
-  - results stay editable by hand, and follow-ups modify the right feature;
+  - no step adds a landform, river, lake, set-piece or resource-area object: character and new
+    features steer the generator, and precise edits are brush-style operations (D139, D187);
+  - results are ordinary land, editable with the brushes, and follow-ups change the right thing;
+  - the chat box appears only when summoned and is gone when done; it never takes permanent space
+    (D187);
   - the artifact edition passes a manual smoke test on the same requests;
   - "describe the map you want": the first good candidate appears quickly, and more stream in
     behind it while the player looks; waiting never feels like a stall; progress is shown and
@@ -2066,11 +2246,13 @@ dangerous badwater route on the opposite side.").
 the new screens; no second full design pass.
 
 **Delivers**
-- E9: the usability tasks, onboarding hints, shortcuts reference, help page, accessibility pass
-  and final performance pass.
+- The usability tasks (EDITOR_PLAN.md, Testing), a shortcuts reference, a help page, an
+  accessibility pass and a final performance pass. The first-run hints came with Live editing
+  (D184).
 - The rest of old PLAN milestone 6 (its design pass is now the Design pass step, before M12):
   - install help, including the extract step of the artifact edition;
-  - mobile layout;
+  - a mobile layout for the generator page and the Real places gallery; the editor is
+    desktop-first (D185);
   - versioned deploys at `/v/<version>/`.
 - A plain **Report a problem** link to the repository's GitHub issues, for bug reports (PLAN
   §2.3). The rating form and `tools/ratings.ts` are dropped (Kyler, 2026-09-25; D145, which
@@ -2082,10 +2264,21 @@ the new screens; no second full design pass.
 - Information: the usability tasks' times (under 2 minutes each for a first-time user, and the
   full journey under 10, as targets); Lighthouse performance on desktop (≥ 90 as the target).
 
-**In-game check:** yes, the full journey of EDITOR §9 task 7: generate, refine, ask Claude,
-export, load in Timberborn.
+**In-game check:** yes, the full journey (EDITOR_PLAN.md, Testing, usability task 7): generate,
+refine, ask Claude, export, load in Timberborn.
 
 **Effort:** high.
+
+---
+
+## Build time-lapse
+
+Near M13, with the sharing features (Kyler, 2026-09-26; PLAN §20 D205): replay a map's edit history
+at speed from the generated map, with a camera that glides to each edit, and save it as a WebM video
+to share. The history is already a list of operations that replay exactly (D158), so this reads it;
+it adds nothing to the editor's screen until used.
+
+**Blocking:** the replay matches the map exactly at its end; the page never freezes while recording.
 
 ---
 
@@ -2106,12 +2299,14 @@ Each item below stays behind a feature flag until its own in-game check passes:
 - seeps and an arid theme;
 - aquifers;
 - unstable cores out of Advanced;
-- "make editable" detection for imported maps;
 - share links that carry small edit lists;
 - a shared online stamp gallery;
-- tablet and touch support;
 - flood challenges: 4 workshop maps start flooded or in a badwater sea; they need a challenge
   profile that relaxes `start.dry` and `water.no_flood`, with a warning.
+
+No longer planned: touch support (the editor is desktop-first, D185; pen pressure on drawing
+tablets came with Live editing), and "make editable" detection for imported maps (the brushes edit
+any map as it is, D182).
 
 The workshop study's numbers for these (D87):
 - **Caves, overhangs and tunnels** moved into 3D-a–3D-c (investigation/terrain3d; D118). Within the

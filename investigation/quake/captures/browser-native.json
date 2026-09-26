@@ -1,0 +1,15 @@
+{
+  "engine": "three.js r186",
+  "strokeId": "1",
+  "penPoints": "232",
+  "side": "left",
+  "refused": "false",
+  "firstChangeMs": "29.399999976158142",
+  "paintedRevision": "2",
+  "paintedWhileHeld": "true",
+  "ruptureMs": "140.5",
+  "eventP95Ms": "6.200000000000728",
+  "eventMaxMs": "12.100000000000364",
+  "fps": "165 fps · p95 6 ms",
+  "map": "fixture:river:128"
+}

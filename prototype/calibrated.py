@@ -43,11 +43,11 @@ def reservoir_needed(difficulty: str) -> float:
 # aggregates official_small / _medium / _large / _max; small = 50x50 and 100x50).
 SIZE_ANCHORS = (3750, 16384, 36864, 65536)
 DENSITY = {
-    "scrap_per_1k_tiles": (840, 705, 236, 237),
-    "trees_per_10k": (1715, 1061, 534, 500),
-    "bushes_per_10k": (265, 92, 40, 38),
+    "scrap_per_1k_tiles": (840, 705, 236, 235),       # official-baselines.json class medians (Nomads,
+    "trees_per_10k": (1715, 1061, 544, 559),          # Oasis and each rate's clear outliers left out)
+    "bushes_per_10k": (265, 92, 40, 44),
     "water_strength_per_10k": (5.0, 2.2, 1.2, 1.1),   # official 8.5/1.5/1.0/1.1; floor of ~2 on small maps keeps rivers visible
-    "ruin_field_columns": (21, 31, 40, 41),
+    "ruin_field_columns": (19, 32, 39, 42),
     "basins_ge20": (1.5, 4, 15.5, 15),                 # natural basins of 20+ tiles per map (Lakes and basins)
 }
 
@@ -103,8 +103,8 @@ BUSHES = {
 # ---- ruins (calibration "ruins"; official aggregates)
 RUINS = {
     "scrap_per_1k_tiles": 280,       # official median 281 (p10 152, p90 724)
-    "height_shares": {"H1": 0.282, "H2": 0.224, "H3": 0.173, "H4": 0.103,
-                      "H5": 0.079, "H6": 0.052, "H7": 0.042, "H8": 0.044},
+    "height_shares": {"H1": 0.284, "H2": 0.221, "H3": 0.163, "H4": 0.1,     # official-baselines.json
+                      "H5": 0.084, "H6": 0.06, "H7": 0.038, "H8": 0.05},      # (Nomads, Oasis left out)
     "field_columns": [20, 25, 30, 38, 45, 55, 70],   # official field size median 38, max per map median 58
     "singles_share": 0.05,           # official: 97% of columns sit in fields of >= 10
     "center_bias": 0.35,             # mild lean of tall columns inward (official Spearman median -0.06, p10 -0.39)

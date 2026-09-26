@@ -267,9 +267,10 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 13: a seed on which every theme places every kind of object (a thorn belt is left out
-    // where it would cut the colony's land in two; generator 0.6.0 moved the start, D85)
-    const spec = makeSpec({ seed: 13, size: { x: 96, y: 96 }, theme });
+    // seed 15: a seed on which every theme places every kind of object (a thorn belt is left out
+    // where it would cut the colony's land in two; generator 0.6.0 moved the start, D85, and 0.6.2
+    // the objects and resources)
+    const spec = makeSpec({ seed: 15, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;

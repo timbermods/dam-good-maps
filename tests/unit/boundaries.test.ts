@@ -66,3 +66,13 @@ describe("the investigations stay out of the product", () => {
     expect(found).toHaveLength(6);
   });
 });
+
+describe("the editor never plans an object the generator made (D182, D184)", () => {
+  it("no page or worker code reaches the landform planner: its limit messages never show", () => {
+    // planLandform stays for the groundwork and the tests (old projects' landforms); the product's
+    // only mention of it is its definition
+    const files = sources(join(ROOT, "src")).filter((f) => relative(ROOT, f).split(sep).join("/") !== "src/core/doc/tools.ts");
+    const bad = files.filter((f) => /\bplanLandform\b/.test(readFileSync(f, "utf8"))).map((f) => relative(ROOT, f));
+    expect(bad).toEqual([]);
+  });
+});

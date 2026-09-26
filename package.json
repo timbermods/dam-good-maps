@@ -1,6 +1,6 @@
 {
   "name": "dam-good-maps",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Timberborn map generator: pick settings, preview the map, download a .timber file that plays in Timberborn 1.1.",
   "type": "module",
@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "try": "tsx tools/try.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:quick": "vitest run --project quick",
@@ -21,6 +22,7 @@
     "bench:water": "tsx tools/bench.ts --water",
     "bench:3d": "tsx tools/bench3d.ts",
     "bench:preview": "tsx tools/bench-preview.ts",
+    "bench:brush": "tsx tools/bench-brush.ts",
     "batch": "tsx tools/batch.ts",
     "fixtures": "python tools/export-fixtures.py",
     "build:spike": "tsx tools/build-spike.ts",

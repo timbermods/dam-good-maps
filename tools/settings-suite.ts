@@ -207,7 +207,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     setting: "Forest density",
-    target: "trees per 10k tiles, size-aware (medium 1,061 at 100%)",
+    target: "trees per 10k tiles, size-aware (medium 1,061 at 100%, which the seed moves within the official maps' typical range, 980–1,240)",
     theme: "riverValley",
     values: ["50", "200"],
     apply: (s, v) => (s.settings.resources.forestDensity = num(v)),
@@ -217,7 +217,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     setting: "Grove size",
-    target: "median grove 6 / 10 / 20 trees",
+    target: "median grove 20 / 40 / 80 trees away from the start (a grove: trees within 2 tiles of each other; official median 40)",
     theme: "riverValley",
     values: ["scattered", "bigWoods"],
     apply: (s, v) => (s.settings.resources.groveSize = v as MapSpec["settings"]["resources"]["groveSize"]),
@@ -249,7 +249,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     setting: "Berry bushes elsewhere",
-    target: "berry bushes per 10k tiles, size-aware (medium 92 at 100%)",
+    target: "berry bushes per 10k tiles, size-aware (medium 92 at 100%, which the seed moves within the official maps' typical range, 90–98)",
     theme: "riverValley",
     values: ["50", "300"],
     apply: (s, v) => (s.settings.resources.berryBushes = num(v)),
@@ -259,7 +259,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     setting: "Ruins and scrap",
-    target: "scrap per 1k tiles, size-aware (medium 705 at 100%)",
+    target: "scrap per 1k tiles, size-aware (medium 705 at 100%, which the seed moves within the official maps' typical range, 530–990)",
     theme: "riverValley",
     values: ["25", "300"],
     apply: (s, v) => (s.settings.resources.ruins = num(v)),
@@ -291,13 +291,13 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     setting: "Mine sites",
-    target: "mine sites (UndergroundRuins) on flat ground 60+ tiles out: 0–4",
+    target: "mine sites (UndergroundRuins) on flat ground 60+ tiles out: 1–4, at least one on every map",
     theme: "riverValley",
-    values: ["0", "3"],
+    values: ["1", "3"],
     apply: (s, v) => (s.settings.resources.mineSites = num(v)),
     metric: (m) => m.mines,
     expect: "up",
-    delta: 2,
+    delta: 1.5,
     digits: 1,
   },
   {

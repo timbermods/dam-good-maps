@@ -17,7 +17,7 @@ import type { BuildResult } from "../features/build";
 import { readTimber, type TimberFile } from "../format/timber";
 import { normalizeImport, type ImportReport } from "../format/normalize";
 import type { Runs } from "../math/grid";
-import { GENERATOR_VERSION, upgradeSpec, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, mapName, toTimberFile } from "../gen/pack";
@@ -39,6 +39,18 @@ export interface DocMeta {
   /** Set by the app when it saves (ISO 8601); never part of a build. */
   created?: string;
   modified?: string;
+  /** The editor's camera bookmarks (D205): a view per slot 1–9; never part of a build. */
+  views?: SavedView[];
+}
+
+/** A camera bookmark: where the editor's view was, in the renderer's terms. */
+export interface SavedView {
+  slot: number;
+  mode: "orbit" | "top";
+  yaw: number;
+  pitch: number;
+  distance: number;
+  target: [number, number, number];
 }
 
 /** What a regeneration kept of the previous generation under locks (EDITOR_PLAN §3). */
@@ -164,6 +176,8 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
   upgradeSpec((raw as { spec?: unknown }).spec);
+  // a spec saved before every map had a mine site may ask for none; it opens asking for one
+  upgradeMineSites((raw as { spec?: unknown }).spec);
   if (raw.formatVersion === 1) return fromV1(raw as unknown as DocumentV1);
   if (raw.formatVersion !== 2) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;

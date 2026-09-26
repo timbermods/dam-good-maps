@@ -2,7 +2,9 @@
 // start, berry patches beside water (the first ones near the start), and single-species groves:
 // alive on moist soil, stored dead on dry soil. Every theme's planner runs this on its built ground
 // (terrain, slopes, sources and the canonical settle), so the resources sit where the water keeps
-// them alive.
+// them alive. How much of each, and how it clusters, is the shared resource baseline
+// (resources/baseline.ts, Kyler's "Resources like the official maps"): the near-start groves and
+// patches come first, for the start requirements, and the baseline fills the rest of its budget.
 
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
@@ -15,8 +17,9 @@ import { distanceFrom, tilesToRuns } from "../math/grid";
 import { hash32, tileHash01 } from "../math/hash";
 import { stream } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { groupSizes, growBlob, pickSeeds, punchHoles } from "./blobs";
-import { BUSHES, density, FOREST, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
+import { pickSeeds } from "./blobs";
+import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
+import { growGroveAt, growPatchAt, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, succulentsOf, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
   W: number;
@@ -61,6 +64,8 @@ const NEAR_WALK = 20;
 export interface ResourceConstraints {
   protect: Uint8Array | null;
   lockedMask: Uint8Array | null;
+  /** Scrap already planned (the obstacle's ruins on a plateau): it counts toward the map's budget. */
+  scrapPlaced?: number;
 }
 
 /** The starting wood a tree of a living grove gives, on average (D164): its species' yield by the
@@ -135,74 +140,52 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const out: Feature[] = [];
   const anchorRole = (prefix: string, tiles: number[]) => `${prefix}/${tiles[0]}`;
 
-  // ---- ruin fields first: flat dry ground away from the start, one level each (PLAN §9.7)
+  // the map's amounts (the baseline): the official median for its size, moved within the typical
+  // range by the seed, times the settings
+  const budget = resourceBudget(W, H, spec.settings.resources, seed);
+  // the tiles the baseline's planners may not take: kept in step with `free`
+  const taken = new Uint8Array(N);
+  const ground: BaselineGround = { W, H, heights: g.heights, water: g.water, moisture: g.moisture, soilContamination: g.soilContamination, taken };
+  const syncTaken = () => {
+    for (let i = 0; i < N; i++) taken[i] = free[i] ? 0 : 1;
+  };
+  const takeFromBaseline = () => {
+    for (let i = 0; i < N; i++) if (taken[i]) free[i] = 0;
+  };
+
+  // ---- ruin fields first: flat dry ground away from the start, one level each (PLAN §9.7), each
+  //      with its own mix of heights and a few towers (resources/baseline.ts)
   const ruinRng = stream(seed, "ruins", candidate, attempt);
-  const mix = RUIN_HEIGHT_SHARES;
-  const meanH = mix.reduce((a, s, k) => a + s * (k + 1), 0);
-  const targetScrap = ((density("scrap_per_1k_tiles", area) * area) / 1000) * (spec.settings.resources.ruins / 100);
-  const targetColumns = Math.round(targetScrap / (15 * meanH));
-  const inFields = Math.round(targetColumns * (1 - RUINS.singlesShare));
-  const fm = density("ruin_field_columns", area);
-  const sizes = RUINS.sizeFactors.map((k) => Math.floor(fm * k));
-  const minStart = near.ruinsClear;
-  const ruinFree = new Uint8Array(N);
-  let allowedCount = 0;
-  for (let i = 0; i < N; i++) {
-    ruinFree[i] = free[i] && !moist[i] && startDist[i] >= minStart ? 1 : 0;
-    allowedCount += ruinFree[i];
-  }
-  if (allowedCount < 0.05 * N) {
-    // too little dry land away from water: allow moist ground too
-    for (let i = 0; i < N; i++) ruinFree[i] = free[i] && startDist[i] >= minStart ? 1 : 0;
-  }
-  const centres: [number, number][] = [];
-  let placed = 0;
-  for (let tries = 0; placed < inFields && tries < 200; tries++) {
-    const size = Math.min(ruinRng.pick(sizes), inFields - placed);
-    if (size < 12) break;
-    const cands: number[] = [];
-    for (let i = 0; i < N; i++) if (ruinFree[i]) cands.push(i);
-    if (!cands.length) break;
-    const s = ruinRng.pick(cands);
-    const sx = s % W;
-    const sy = (s - sx) / W;
-    if (centres.some(([cx, cy]) => (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy) < RUINS.minFieldSpacing * RUINS.minFieldSpacing)) continue;
-    const level = g.heights[s];
-    const allowed = new Uint8Array(N);
-    for (let i = 0; i < N; i++) allowed[i] = ruinFree[i] && g.heights[i] === level ? 1 : 0;
-    let tiles = growBlob(ruinRng, allowed, W, H, s, Math.floor(size / (1 - RUINS.holeShare)), RUINS.compactness);
-    if (tiles.length < Math.max(12, Math.floor(size / 2))) continue;
-    tiles = punchHoles(ruinRng, tiles, W, RUINS.holeShare);
-    const role = anchorRole("ruinField", tiles);
+  const fieldId = (tiles: number[]) => featureId(seed, "ruinField", anchorRole("ruinField", tiles));
+  syncTaken();
+  const ruinPlan = planRuinFields(ground, Math.max(0, budget.scrap - (constraints?.scrapPlaced ?? 0)), {
+    rng: ruinRng,
+    startDist: g.start ? startDist : null,
+    minStart: near.ruinsClear,
+    spacing: RUINS.minFieldSpacing,
+    fieldMedian: density("ruin_field_columns", area),
+    scrapOf: (tiles, t) => ruinColumns(tiles, W, stream(seed, fieldId(tiles), "heights"), t).scrap,
+  });
+  takeFromBaseline();
+  for (const field of ruinPlan.fields) {
+    const role = anchorRole("ruinField", field.tiles);
+    const tallness = field.tallness;
+    const id = featureId(seed, "ruinField", role);
     const f: RuinFieldFeature = {
-      id: featureId(seed, "ruinField", role),
+      id,
       kind: "ruinField",
       origin: "generated",
       role,
       locked: false,
-      params: { area: tilesToRuns(tiles, W), scrapTarget: Math.round(tiles.length * 15 * meanH), heightMix: [...mix], centerBias: RUINS.centerBias },
+      params: {
+        area: tilesToRuns(field.tiles, W),
+        scrapTarget: ruinColumns(field.tiles, W, stream(seed, id, "heights"), tallness).scrap,
+        heightMix: [...RUIN_HEIGHT_SHARES],
+        centerBias: 0,
+        layout: { tallness },
+      },
     };
     out.push(f);
-    // take the field and a one-tile moat so separate fields never touch
-    for (const i of tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
-        }
-      free[i] = 0;
-    }
-    let cx = 0;
-    let cy = 0;
-    for (const i of tiles) {
-      cx += i % W;
-      cy += (i - (i % W)) / W;
-    }
-    centres.push([cx / tiles.length, cy / tiles.length]);
-    placed += tiles.length;
   }
 
   // where the colony's walk holds little moist land (a narrow floodplain), the near-start berries
@@ -212,10 +195,13 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // where the walk holds little moist land, the near-start groves draw their species by the wood
   // they give as well as by the mix, so the land there still gives the starting wood (D164)
   let tight = false;
+  let dense = false;
   if (nearWalk) {
     let room = 0;
     for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
     const need = 1.25 * (near.bushes + near.trees);
+    // (the groves and patches' own gaps take ground too: fill them there)
+    dense = room < need / 0.75;
     if (room < need) {
       tight = true;
       const r = spec.settings.start.rules;
@@ -229,14 +215,18 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const vegRng = stream(seed, "veg", candidate, attempt);
   const waterDist = distanceFrom(wet, W, H);
   const nearWater = (i: number) => waterDist[i] <= 5;
-  const bushTotal = Math.floor(((density("bushes_per_10k", area) * area) / 1e4) * (spec.settings.resources.berryBushes / 100));
   let bushCount = 0;
-  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null): number => {
+  // near the start, patches and groves fill more of their ground (the start requirements count
+  // them there), and all of it where the colony's walk holds little moist land
+  const nearFill = { bushes: 0.85, trees: 0.7 };
+  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && moist[i] && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
-    const tiles = growBlob(vegRng, allowed, W, H, seedTile, size, 1.5);
-    for (const i of tiles) free[i] = 0;
+    const grown = growPatchAt(ground, vegRng, allowed, seedTile, size, fill);
+    if (!grown) return 0;
+    const tiles = grown.tiles;
+    for (const i of grown.area) free[i] = 0;
     const role = anchorRole("berryPatch", tiles);
     const f: BerryPatchFeature = {
       id: featureId(seed, "berryPatch", role),
@@ -270,7 +260,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (nearHere && free[i] && moist[i]) w[i] = (nearWater(i) ? 2 : 1) * byWalk(i);
       }
       for (const s of pickSeeds(vegRng, w, W, 6, 6)) {
-        got += patch(s, Math.min(each, Math.max(4, want - got)), 1, within);
+        got += patch(s, Math.min(each, Math.max(4, want - got)), 1, within, dense ? 1 : nearFill.bushes);
         if (got >= want) break;
       }
     }
@@ -287,40 +277,49 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     let got = 0;
     for (const s of pickSeeds(vegRng, w, W, 4, 6)) {
-      got += patch(s, Math.max(4, SITE_BUSHES - got), 1);
+      got += patch(s, Math.max(4, SITE_BUSHES - got), 1, null, nearFill.bushes);
       if (got >= SITE_BUSHES) break;
     }
   }
-  for (let guard = 0; bushCount < bushTotal && guard < 500; guard++) {
-    const w = new Float64Array(N);
-    for (let i = 0; i < N; i++) if (free[i] && moist[i]) w[i] = nearWater(i) ? 4 : 1;
-    const seeds = pickSeeds(vegRng, w, W, 1, 1);
-    if (!seeds.length) break;
-    const size = Math.max(4, Math.min(80, Math.floor(vegRng.logNormal(BUSHES.patchMedian, 0.6))));
-    if (patch(seeds[0], size, 0.55) === 0) break;
+  // the rest of the map's bushes: a few large patches beside water (the baseline)
+  syncTaken();
+  for (const p of planPatches(ground, budget.bushes - bushCount, { rng: vegRng, waterDist })) {
+    const role = anchorRole("berryPatch", p.tiles);
+    out.push({ id: featureId(seed, "berryPatch", role), kind: "berryPatch", origin: "generated", role, locked: false, params: { area: tilesToRuns(p.tiles, W), density: 1, ripeShare: 0.55 } });
+    bushCount += p.tiles.length;
   }
+  takeFromBaseline();
 
   // ---- groves: single-species, alive on moist soil and stored dead on dry soil (PLAN §7.7)
   const grove = FOREST.grove[spec.settings.resources.groveSize];
-  const treeTotal = Math.floor(((density("trees_per_10k", area) * area) / 1e4) * (spec.settings.resources.forestDensity / 100));
   const mixW = spec.settings.resources.speciesMix;
   const species = ["Pine", "Birch", "Oak", "Succulent"] as const;
   const speciesW = [mixW.pine, mixW.birch, mixW.oak, mixW.succulent];
   const anySpecies = speciesW.some((w) => w > 0);
   let treeCount = 0;
+  // the baseline's groves keep a clearing from these (the start's groves may stand close together:
+  // the start requirements count them)
+  const clearings = new Uint8Array(N);
   // the starting wood the last grove gives: its trees by its species' yield, but for the saplings
   // the forest's rasterizer will make (the same tile hash; D164)
   let groveLogs = 0;
   const woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
-  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, forWood = false): number => {
+  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
-    const tiles = growBlob(vegRng, allowed, W, H, seedTile, size, 0.8);
+    const grown = growGroveAt(ground, vegRng, allowed, seedTile, size, fill);
+    if (!grown) return 0;
+    const tiles = grown.tiles;
+    for (const i of grown.area) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) clearings[(y + dy) * W + x + dx] = 1;
+    }
     const byWood = forWood && woodW.some((w) => w > 0);
     let sp: (typeof species)[number] = species[anySpecies ? vegRng.weighted(byWood ? woodW : speciesW) : 0];
     if (sp === "Succulent" && living) sp = livingSpecies(speciesW); // succulents are the dry-land tree
-    for (const i of tiles) free[i] = 0;
+    for (const i of grown.area) free[i] = 0;
     const role = anchorRole("forest/grove", tiles);
     const f: ForestFeature = {
       id: featureId(seed, "forest", role),
@@ -357,7 +356,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (nearHere && free[i] && moist[i]) w[i] = byWalk(i);
       }
       for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, each, true, within, tight)) got += groveLogs;
+        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight)) got += groveLogs;
         if (got >= nearWood) break;
       }
     }
@@ -376,25 +375,30 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     let got = 0;
     const each = Math.floor(grove.median * 1.5);
     for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil(SITE_TREES / Math.max(1, each)) + 3), 5)) {
-      got += growGrove(s, each, true);
+      got += growGrove(s, each, true, null, nearFill.trees);
       if (got >= SITE_TREES) break;
     }
   }
-  const livingTarget = Math.floor(treeTotal * FOREST.livingShare);
-  for (const size of groupSizes(vegRng, Math.max(0, livingTarget - treeCount), grove.median, grove.cap)) {
-    const w = new Uint8Array(N);
-    for (let i = 0; i < N; i++) w[i] = free[i] && moist[i] ? 1 : 0;
-    const seeds = pickSeeds(vegRng, w, W, 1, 1);
-    if (!seeds.length) break;
-    growGrove(seeds[0], size, true);
+  // the rest of the map's trees (the baseline): living groves on moist ground, at most on a
+  // quarter of it, and the rest on dry ground, dead (or succulents); each grove one species
+  let moistRoom = 0;
+  for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
+  const livingWant = Math.max(0, Math.min(budget.living - succulentsOf(budget, spec.settings.resources) - treeCount, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
+  const dryWant = Math.max(0, budget.trees - treeCount - livingWant);
+  syncTaken();
+  for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist })) {
+    const role = anchorRole("forest/grove", gr.tiles);
+    out.push({
+      id: featureId(seed, "forest", role),
+      kind: "forest",
+      origin: "generated",
+      role,
+      locked: false,
+      params: { area: tilesToRuns(gr.tiles, W), density: 1, speciesMix: { [gr.species]: 1 }, groveSize: gr.tiles.length, life: "auto", youngShare: FOREST.youngShare },
+    });
+    treeCount += gr.tiles.length;
   }
-  for (const size of groupSizes(vegRng, Math.max(0, treeTotal - treeCount), grove.median, grove.cap)) {
-    const w = new Uint8Array(N);
-    for (let i = 0; i < N; i++) w[i] = free[i] && !moist[i] ? 1 : 0;
-    const seeds = pickSeeds(vegRng, w, W, 1, 1);
-    if (!seeds.length) break;
-    growGrove(seeds[0], size, false);
-  }
+  takeFromBaseline();
   return out;
 }
 

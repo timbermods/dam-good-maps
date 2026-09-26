@@ -1,0 +1,15 @@
+{
+  "passed": [
+    "Actual worker builds transferable clean-view meshes",
+    "Worker result matches model; GPU transition contains old and new land",
+    "Water and JSON operation match exact repository simulation result",
+    "Whole impact is one exact undo and redo step",
+    "Try another replaces from original terrain; undo returns the kept personality",
+    "Cancelled variation restores prior result and consumes its seed",
+    "Esc interrupts planning and mesh slices without adding history",
+    "Undo during water settling restores the complete pre-impact map",
+    "Cancellation during final lighting cannot accidentally commit history",
+    "Portable replay retains the original land, exact undo and deterministic reroll"
+  ],
+  "operationBytes": 792196
+}

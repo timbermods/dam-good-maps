@@ -318,7 +318,7 @@ Record every difference as a PLAN §20 decision ("Editor decisions").
 
 ## DGM Probe batches
 
-Each is launched only with Kyler's yes for that batch (D117). The probe (PR #18) is merged; each
+Each is launched only with Kyler's yes for that batch (D117). One exception, the night of 2026-09-26 only: Kyler pre-approved any batch prepared that night, with every usual safeguard (settings backed up and verified, saves and mods untouched, results in `C:\dgm-probe`, Steam running and Timberborn closed); from the next day, each batch needs his yes again. The probe (PR #18) is merged; each
 run keeps its results in `C:\dgm-probe\` (D149).
 
 | Batch | Step | What it must show | Status |

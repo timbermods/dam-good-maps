@@ -1,5 +1,8 @@
 # M9 design step, version 1: the prototype's numbers
 
+**Design version 2's numbers are in [REPORT-v2.md](REPORT-v2.md)**; this report stays as version 1
+left it.
+
 The numbers behind [docs/m9-design.md](../../docs/m9-design.md) (design version 1): a prototype
 generator that invents by composition and emergence, measured against the current generator
 (`m8-done`, 0.6.0) on the design's measures. Kyler approves design version 2, not this one; this

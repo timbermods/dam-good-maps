@@ -41,7 +41,8 @@ import { planRiver } from "../doc/tools";
 import { districtCandidates, obstacleSpots, planExtras } from "./extras";
 import { DISTRICT_RADIUS, districtTiles } from "../features/setpieces/secondDistrict";
 import { obstacleTiles } from "../features/setpieces/obstaclePayoff";
-import { RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
+import { RUIN_HEIGHT_SHARES } from "./calibrated";
+import { ruinColumns } from "../resources/baseline";
 import { walkRegions } from "../analysis/regions";
 import { slopeHighSide } from "../format/footprints";
 import { entityTiles } from "../features/edits";
@@ -738,6 +739,7 @@ export function objectsAndResources(
   // field on top; one flight of player stairs reaches it
   const keepOffResources = context?.protect ? context.protect.slice() : new Uint8Array(W * H);
   const extraFeatures: Feature[] = [];
+  let scrapPlaced = 0;
   if (obstacle) {
     const radius = W * H >= 128 * 128 ? 5 : 4;
     for (const [x, y] of obstacleSpots(base, [...layout, ...others], avoidAll, radius, 3, nearStartTargets(spec).ruinsClear)) {
@@ -748,10 +750,13 @@ export function objectsAndResources(
       const disc = obstacleTiles({ x, y, radius }, W, H);
       const b2 = buildWith([...layout, r.feature]);
       if (!keepsWalk(b2, disc.length)) continue;
-      const meanH = RUIN_HEIGHT_SHARES.reduce((a, s, k) => a + s * (k + 1), 0);
+      // a reward worth the climb: a field of the taller kind (resources/baseline.ts)
       const fr = "ruinField/obstacle";
+      const fid = featureId(seed, "ruinField", fr);
+      const tallness = 0.5;
+      scrapPlaced = ruinColumns(disc, W, stream(seed, fid, "heights"), tallness).scrap;
       layout.push(r.feature);
-      extraFeatures.push({ id: featureId(seed, "ruinField", fr), kind: "ruinField", origin: "generated", role: fr, locked: false, params: { area: tilesToRuns(disc, W), scrapTarget: Math.round(disc.length * 15 * meanH), heightMix: [...RUIN_HEIGHT_SHARES], centerBias: RUINS.centerBias } });
+      extraFeatures.push({ id: fid, kind: "ruinField", origin: "generated", role: fr, locked: false, params: { area: tilesToRuns(disc, W), scrapTarget: scrapPlaced, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
       for (const i of obstacleTiles({ x, y, radius: radius + 3 }, W, H)) avoidAll[i] = keepOffResources[i] = 1;
       base = b2;
       break;
@@ -773,7 +778,7 @@ export function objectsAndResources(
     layout.push(...kept);
     base = b2;
   }
-  const constraints = { protect: keepOffResources, lockedMask: context?.locked?.mask ?? null };
+  const constraints = { protect: keepOffResources, lockedMask: context?.locked?.mask ?? null, scrapPlaced };
   return [...extraFeatures, ...planResources(spec, base, candidate, attempt, constraints, sites)];
 }
 

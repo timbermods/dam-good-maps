@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import { chromium, type Page } from '@playwright/test';
+import { createServer } from 'vite';
+import { writeFileSync } from 'node:fs';
+import { DEFAULTS } from './engine';
+const server=await createServer();await server.listen();
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:960}}),errors:string[]=[];
+page.on('pageerror',e=>errors.push(e.message));
+const idle=()=>page.waitForFunction(()=>{const s=(window as any).erupt?.state;return s&&!s.busy&&!s.active&&!s.queued;},{},{timeout:180000});
+const heights=()=>page.evaluate(()=>(window as any).erupt.heights);
+const passed:string[]=[];const note=(v:string)=>{passed.push(v);console.log('PASS '+v);};
+const report:Record<string,unknown>={passed};
+try{
+ await page.goto(server.resolvedUrls!.local[0]);await idle();
+ const baseline=await heights();
+ const p=await page.evaluate(()=>(window as any).erupt.screen(64,64));
+ await page.mouse.click(p.x,p.y);assert((await page.evaluate(()=>(window as any).erupt.state)).active);
+ await page.waitForTimeout(650);assert.notDeepEqual(await heights(),baseline);await idle();
+ const final=await heights();note('Pointer click answers immediately and raises terrain within 650 ms');
+ assert.equal(await page.evaluate(()=>(window as any).erupt.state.effects),true);
+ await page.waitForFunction(()=>{const s=(window as any).erupt.state;return s.cooling>3&&s.effects;});
+ await page.waitForFunction(()=>(window as any).erupt.state.age===null);
+ note('Plume and cooling continue after terrain completion, then fade completely');
+ report.undoMs=await page.evaluate(()=>{const t=performance.now();document.getElementById('undo')!.click();return performance.now()-t;});
+ assert.deepEqual(await heights(),baseline);await idle();await page.locator('#redo').click();assert.deepEqual(await heights(),final);await idle();
+ note('Undo and redo restore cached 3D terrain synchronously');
+ await page.locator('#reroll').click();await idle();const variant=await heights();assert.notDeepEqual(variant,final);
+ await page.locator('#undo').click();assert.deepEqual(await heights(),final);await idle();
+ note('Try another changes personality; undo returns the exact previous result');
+ await page.evaluate(()=>(window as any).erupt.erupt({origin:72*128+70}));await page.waitForTimeout(550);await page.keyboard.press('Escape');
+ assert.deepEqual(await heights(),final);await idle();note('Esc reverts an active eruption immediately');
+ const s=await page.evaluate(()=>(window as any).erupt.screen(8,8));await page.mouse.move(s.x,s.y);
+ assert.equal(await page.locator('#notice').innerText(),'Start here');await page.mouse.click(s.x,s.y);assert.deepEqual(await heights(),final);note('Start footprint refuses with quiet inline feedback');
+ await page.evaluate(()=>(window as any).erupt.load('fixture:plain:128'));await idle();await page.locator('#fissure').click();
+ const points=await page.evaluate(()=>[ [35,45],[57,58],[85,47] ].map(([x,y])=>(window as any).erupt.screen(x,y)));
+ await page.mouse.move(points[0].x,points[0].y);await page.mouse.down();for(const p of points.slice(1))await page.mouse.move(p.x,p.y,{steps:18});await page.mouse.up();await idle();
+ const op=await page.evaluate(()=>(window as any).erupt.operation);assert.equal(op.params.settings.mode,'fissure');assert(op.params.intent.path.length>3);note('Real pointer drag records a bent fissure');
+ await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>(document.getElementById('shake') as HTMLInputElement).disabled);assert.equal(await page.evaluate(()=>(window as any).erupt.state.motion),false);assert(await page.locator('#follow').isDisabled());note('Reduced motion disables effects, shake and follow');
+ await page.evaluate(()=>(window as any).erupt.load('fixture:plain:128'));await idle();
+ await page.evaluate(s=>{const a=(window as any).erupt;a.setSettings({...s,seed:20});a.erupt({origin:64*128+64});},DEFAULTS);
+ await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>(window as any).erupt.state.effects),false);await idle();assert.equal(await page.evaluate(()=>(window as any).erupt.state.morph),1);note('Reduced-motion eruption skips plume, cooling and interpolation');
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('summary').filter({hasText:'The moment'}).click();await page.locator('#motion').check();
+ await page.evaluate(()=>(window as any).erupt.load('seed:riverValley:18:256'));await idle();
+ await page.evaluate(s=>(window as any).erupt.setSettings({...s,seed:420}),DEFAULTS);
+ const oldHeight=await page.evaluate(()=>(window as any).erupt.heightAt(140,140));
+ await page.evaluate(()=>(window as any).erupt.clearTimings());const started=Date.now();await page.evaluate(()=>(window as any).erupt.erupt({origin:140*256+140}));
+ await page.waitForFunction(h=>(window as any).erupt.heightAt(140,140)!==h,oldHeight);const firstTerrainMs=Date.now()-started;await idle();
+ const state=await page.evaluate(()=>(window as any).erupt.state),frames=state.frameMs.filter((v:number)=>v>0).sort((a:number,b:number)=>a-b);
+ report.generated256={elapsedMs:Date.now()-started,firstTerrainMs,fps:state.fps,p95Ms:frames[Math.floor(frames.length*.95)],maxFrameMs:Math.max(...frames),sampleCount:frames.length};
+ note('Generated 256² map loads and erupts in the actual clean renderer');
+ for(const id of ['place:near-yosemite-valley','place:near-geirangerfjord','place:near-grand-canyon-colorado']){
+   await page.evaluate(id=>(window as any).erupt.load(id),id);await idle();const s=await page.evaluate(()=>(window as any).erupt.state);assert(s.W>0);assert.equal((await heights()).length,s.W*s.H);note(id+' loads with settled water ('+s.W+' × '+s.H+')');
+ }
+ assert.deepEqual(errors,[]);report.errors=errors;writeFileSync('captures/browser-checks.json',JSON.stringify(report,null,2)+'\n');
+}finally{await browser.close();await server.close();}

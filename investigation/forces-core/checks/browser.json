@@ -1,0 +1,53 @@
+{
+  "passed": [
+    "All four buttons share one map and each options row starts with its mode switch",
+    "Pointer strike, whole-event undo and redo work on the shared map",
+    "Erupt beside a crater, cooling/plume, Try another and exact undo retain the preceding crater",
+    "Held painted Slide changes land before release; X flips; release is one undo",
+    "Start strikes show the shared refusal without a history entry",
+    "Two rapid painted strokes survive settling and remain separate undo steps",
+    "256² carving stays interactive and Esc restores the cached prior map",
+    "All four forces at 256² keep frame p95 below 34 ms, with exact cancellation/undo",
+    "System reduced motion overrides animations; no browser or shader errors"
+  ],
+  "measurements": [
+    {
+      "case": "256² active Carve",
+      "p95FrameMs": 8.100000000000364,
+      "maxFrameMs": 8.199999999999818
+    },
+    {
+      "case": "256² immediate visual Esc",
+      "ms": 0.40000003576278687
+    },
+    {
+      "case": "Escape through browser and worker",
+      "ms": 3.694899999998597
+    },
+    {
+      "case": "256² craterize/strike",
+      "p95FrameMs": 8.200000000000728,
+      "maxFrameMs": 15.399999999999636,
+      "longTasks": []
+    },
+    {
+      "case": "256² erupt/vent",
+      "p95FrameMs": 8.399999999999636,
+      "maxFrameMs": 8.900000000001455,
+      "longTasks": []
+    },
+    {
+      "case": "256² quake/lift",
+      "p95FrameMs": 8.5,
+      "maxFrameMs": 10.799999999999272,
+      "longTasks": []
+    },
+    {
+      "case": "256² quake/slide",
+      "p95FrameMs": 8.5,
+      "maxFrameMs": 10.399999999999636,
+      "longTasks": []
+    }
+  ],
+  "browser": "153.0.8010.48"
+}

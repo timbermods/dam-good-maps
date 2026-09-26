@@ -2,7 +2,8 @@
 // band from the official maps (investigation/calibration.json, official aggregates), and the
 // feasibility guards (PLAN §5.3). The share text for "Copy seed + settings" is built here too.
 
-import { density, LAKES, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
+import { density, LAKES, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
+import { resourceBudget } from "../core/resources/budget";
 import { flowBudget } from "../core/features/setpieces/common";
 import { THEME_NAMES, type Difficulty, type MapSpec, type Settings } from "../core/spec/mapspec";
 
@@ -90,10 +91,22 @@ export function fallsRoom(top: number): number {
   return Math.max(0, Math.floor((top - 3) / 2));
 }
 
+/** A count rounded to two significant figures, as a range on the panel reads. */
+function roundNice(v: number): number {
+  const p = v >= 1000 ? 100 : v >= 100 ? 10 : 1;
+  return Math.round(v / p) * p;
+}
+
 /** One line per reference band (official maps), keyed by setting. */
 export function band(key: string, spec: MapSpec): string {
   const s = spec.settings;
   const area = spec.size.x * spec.size.y;
+  // this map's resource amounts (the seed moves them within the official range), and that range
+  const budget = () => resourceBudget(spec.size.x, spec.size.y, s.resources, spec.seed);
+  const range = (k: "trees" | "bushes" | "scrap") => {
+    const r = officialRange(k, area);
+    return `${roundNice(r.low).toLocaleString()}–${roundNice(r.high).toLocaleString()}`;
+  };
   switch (key) {
     case "relief":
       return `Height range about ${Math.round(7 + 0.08 * s.terrain.relief)} levels. Official maps: 9–15, most 13.`;
@@ -128,17 +141,17 @@ export function band(key: string, spec: MapSpec): string {
     case "geothermal":
       return "Free power for a geothermal engine, on dry ground 30–120 tiles out.";
     case "mineSites":
-      return "Where the late scrap mine can be built. Official maps: 1–4, most 89 tiles out.";
+      return "Where the late scrap mine can be built. Every map has at least one. Official maps: 1–4.";
     case "forestDensity":
-      return `About ${Math.round(((density("trees_per_10k", area) * area) / 1e4) * (s.resources.forestDensity / 100)).toLocaleString()} trees on this map.`;
+      return `About ${budget().trees.toLocaleString()} trees, in groves with clearings. Official maps this size: ${range("trees")}.`;
     case "groveSize":
-      return "Official groves: most 10 trees.";
+      return "Official groves: most about 40 trees.";
     case "berriesNearStart":
       return "Never fewer than Minimum starting bushes. Official maps: most 57 within 20 tiles' walk.";
     case "berryBushes":
-      return `About ${Math.round(((density("bushes_per_10k", area) * area) / 1e4) * (s.resources.berryBushes / 100)).toLocaleString()} bushes on this map.`;
+      return `About ${budget().bushes.toLocaleString()} bushes, in a few large patches. Official maps this size: ${range("bushes")}.`;
     case "ruins":
-      return `About ${Math.round(((density("scrap_per_1k_tiles", area) * area) / 1e3) * (s.resources.ruins / 100)).toLocaleString()} scrap on this map.`;
+      return `About ${budget().scrap.toLocaleString()} scrap. Official maps this size: ${range("scrap")}.`;
     case "waterWithin":
       return "The walk to clean water a pump reaches, using only the map's own slopes. Official maps: most 12 tiles.";
     case "woodWithin20":

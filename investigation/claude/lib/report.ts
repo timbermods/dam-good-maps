@@ -51,7 +51,8 @@ function facts(m: Record<string, unknown>): string {
     const o = m.outlet as { to?: string; river?: string; frac?: number } | undefined;
     out.push(`${m.strength} blocks/s of badwater, draining ${o?.river ? `into ${o.river} ${Math.round((o.frac ?? 0) * 100)}% of the way down` : "to the map edge"}`);
   }
-  if (m.area !== undefined && m.kind === "lake") out.push(`${m.area} tiles at level ${m.level}`);
+  if (m.area !== undefined && (m.kind === "lake" || m.lake === true)) out.push(`${m.kind === "lake" ? "" : "a lake of "}${m.area} tiles at level ${m.level}`);
+  if ((m.kind === "source" || m.kind === "badwaterSource") && typeof m.strength === "number") out.push(`${m.strength} blocks/s of ${m.kind === "source" ? "water" : "badwater"}`);
   if (m.trees !== undefined) out.push(`${m.trees} trees`);
   if (m.bushes !== undefined) out.push(`${m.bushes} berry bushes`);
   if (m.scrap !== undefined) out.push(`${m.scrap} scrap`);
@@ -101,8 +102,11 @@ export function writeReport(r: ProposalResult, p: Proposal, after: Measured): st
     if (st.op === "changeSetPiece" || st.op === "changeFeature" || st.op === "moveFeature") {
       const meas = r.measured.find((x) => (x as { id?: string }).id === st.resolved.target) as Record<string, unknown> | undefined;
       const what = NAMES[String(meas?.kind ?? "")]?.replace(/^an? /, "the ") ?? "the feature";
-      lines.push(`${st.op === "moveFeature" ? "Moved" : "Changed"} ${what}${meas ? `: now ${facts(meas)}` : ""}.`);
+      lines.push(`${st.op === "moveFeature" ? "Moved" : "Changed"} ${what}${meas ? `: now ${facts(meas)}` : ""}${st.op === "changeFeature" && st.report.length ? ` (${st.report.join("; ")})` : ""}.`);
     }
+    // a brush says what it moved, by how much, and where its edge slopes; a source, where it is
+    // and what its water does
+    if (st.op === "brush" || st.op === "addSource") lines.push(`${st.report.join("; ").replace(/^./, (c) => c.toUpperCase())}.`);
   }
   // side effects (what a step cleared or planted) are reported, but they are not trade-offs
   for (const t of r.tradeoffs) if (t.kind !== "order") lines.push(t.kind === "cleared" || (t.kind === "start-moved" && !/regenerated/.test(t.text)) ? TEMPLATES.also(t.text) : TEMPLATES.tradeoff(t.text));

@@ -9,6 +9,8 @@ import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
+import { carveBounds, isCarve, type CarveParams } from "../../forces/carve/op";
+import { applyBrush, brushBounds, brushReadsNeighbours, type BrushParams } from "./brush";
 
 export const MAX_TERRAIN = 16; // PLAN §20, D4
 
@@ -55,10 +57,15 @@ export function rasterizeLandform(f: LandformFeature, t: BuildTarget): void {
   if (p.outline && p.height !== undefined) {
     const level = Math.min(MAX_TERRAIN, p.height);
     const step = edgeStep(p);
+    // a landform the player drew stands on the ground: it raises it, or lowers it, never both
+    const lowers = p.kind === "canyon" || p.kind === "valley";
+    const put = (i: number, v: number) => {
+      heights[i] = !p.onGround ? v : lowers ? Math.min(heights[i], v) : Math.max(heights[i], v);
+    };
     if (!step) {
       const mask = polygonMask(p.outline, t.W, t.H);
       t.forEach((i) => {
-        if (mask[i] && t.writable(i, f)) heights[i] = level;
+        if (mask[i] && t.writable(i, f)) put(i, level);
       });
       return;
     }
@@ -69,13 +76,20 @@ export function rasterizeLandform(f: LandformFeature, t: BuildTarget): void {
     t.forEach((i) => {
       const d = inward[i];
       if (d <= 0 || !t.writable(i, f)) return;
-      const k = Math.floor((d - 1) / step);
-      heights[i] = level >= base ? Math.min(level, base + 1 + k) : Math.max(level, base - 1 - k);
+      put(i, landformLevel(level, base, step, d));
     });
     return;
   }
   t.note(`landform ${f.id} (${p.kind}) has no shape this version can build`);
 }
+
+/** A gentle or terraced landform's level `d` tiles in from its outline (d ≥ 1): one level more
+ *  (or less) every `step` tiles from the base, up (or down) to its height. */
+export function landformLevel(level: number, base: number, step: number, d: number): number {
+  const k = Math.floor((d - 1) / step);
+  return level >= base ? Math.min(level, base + 1 + k) : Math.max(level, base - 1 - k);
+}
+
 
 /** Tiles between 1-level steps of a landform's edge: gentle 3, terraced its band depth (6–12);
  *  0 for a cliff (or a landform with no base). */
@@ -279,11 +293,19 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 // ---------------------------------------------------------------------------------------- sculpt
 
+/** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number };
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number } | BrushParams | CarveParams;
 }
 
-export function sculptBounds(s: SculptEdit): Rect | null {
+function isBrush(p: SculptEdit["params"]): p is BrushParams {
+  return "dabs" in p;
+}
+
+/** A sculpt's tiles' bounds; a carve's need the map's width (its tiles are indices). */
+export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
+  if (isBrush(s.params)) return brushBounds(s.params, Infinity, Infinity);
+  if (isCarve(s.params)) return carveBounds(s.params, W);
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -299,13 +321,40 @@ export function sculptBounds(s: SculptEdit): Rect | null {
 
 /** Brushes that read neighbouring cells: a rebuild that touches their cells rebuilds all of them. */
 export function sculptReadsNeighbours(s: SculptEdit): boolean {
-  return s.params.mode === "smooth";
+  if (isCarve(s.params)) return false;
+  return isBrush(s.params) ? brushReadsNeighbours(s.params) : s.params.mode === "smooth";
 }
 
-/** Apply one sculpt edit (step 6) to the region's cells. Heights stay within 0–16, the in-game
- *  editor's range (the brushes are defined that way, like the game's own). */
-export function applySculpt(s: SculptEdit, t: BuildTarget): void {
+/** Apply one sculpt edit or brush stroke (step 6) to the region's cells. Heights stay within
+ *  0–16, the in-game editor's range (the brushes are defined that way, like the game's own).
+ *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean): void {
   const { W, heights } = t;
+  if (isCarve(s.params)) {
+    // a force's result, literally (D194): its tiles take their levels, and the integrity pass leaves
+    // them as they are
+    const p = s.params;
+    for (let k = 0; k < p.tiles.length; k++) {
+      const i = p.tiles[k];
+      if (!t.inRegion(i) || keep?.(i)) continue;
+      heights[i] = p.heights[k];
+      t.protectedMask[i] = 1;
+    }
+    return;
+  }
+  if (isBrush(s.params)) {
+    const b = brushBounds(s.params, W, t.H);
+    if (!b || !t.touchesRegion(b)) return;
+    const was = s.params.precise ? heights.slice() : null;
+    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) : (i) => t.inRegion(i));
+    // a precise stroke's tiles stay as it left them: the integrity pass leaves them out (a one-tile
+    // pit stays a pit, D193)
+    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
+      const i = y * W + x;
+      if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
+    }
+    return;
+  }
   const p = s.params;
   if (p.mode === "smooth") {
     // the median of each cell's 3×3 neighbours inside the brush, read before the brush applies

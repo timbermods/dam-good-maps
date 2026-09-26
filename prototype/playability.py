@@ -36,8 +36,10 @@ START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "st
                 "start.wood", "start.ruins_clear", "plants.survive", "plants.drought", "water.reservoir",
                 "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access",
                 "extras.placement")
-# advisory from M8 (D85): generation targets with a warning, never a reason to reject a map
-ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought")
+# advisory from M8 (D85): generation targets with a warning, never a reason to reject a map; the
+# resource amounts are information (Kyler, 2026-09-25: resources like the official maps)
+ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought",
+                  "resources.scrap", "resources.trees", "resources.bushes")
 
 TREE_LOGS = {"Pine": 2, "Birch": 1, "Oak": 8}      # logs a grown tree gives (the game's specs)
 
@@ -201,11 +203,11 @@ def rules_for(spec, difficulty):
     }
 
 
-def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None):
+def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
     """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts)."""
     got = {} if water is None else water
     first = len(rep.checks)
-    _check_playability(m, rep, fps, difficulty, spec, features, got)
+    _check_playability(m, rep, fps, difficulty, spec, features, got, profile)
     why = approximate_reason(m, fps, got["D"])
     if why:
         for c in rep.checks[first:]:
@@ -329,7 +331,7 @@ def approximate_reason(m, fps, D):
     return "; ".join(reasons + evidence) if evidence else None
 
 
-def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None):
+def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
     h = m.surface()
     X, Y = m.size_x, m.size_y
     N = X * Y
@@ -367,7 +369,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     rep.add("water.clean_exists", n_clean >= 0.02 * N, f"{n_clean} tiles of clean water", n_clean, int(0.02 * N),
             advisory=True)
     _outflow(rep, D, sources, features, X, Y)
-    _sources_in_flow(rep, floor, sources, dam, D)
+    _sources_in_flow(rep, floor, sources, dam, D, profile)
     _, sizes = components(clean, connectivity=((1, 0), (-1, 0), (0, 1), (0, -1)))
     largest = max(sizes, default=0)
     rep.add("water.clean_reach", largest >= 40, f"largest clean water body {largest} tiles", largest, 40, advisory=True)
@@ -375,6 +377,10 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     M = moisture(h, D, C, sim.sat(), barrier)
     SC = contamination(h, D, C, barrier)
     water.update({"D": D, "C": C, "M": M, "SC": SC, "ticks": sim.ticks, "settled": settled})
+
+    # ---- a mine site on every map (Kyler, 2026-09-25)
+    mines = sum(1 for e in m.entities if e["Template"] == "UndergroundRuins" and "BlockObject" in e.get("Components", {}))
+    rep.add("resources.mine_site", mines >= 1, f"{mines} mine sites (at least one)", mines, 1)
 
     # ---- the start (vanilla: exactly one; start.count reports anything else)
     starts = [e for e in m.entities if e["Template"] == "StartingLocation" and "BlockObject" in e.get("Components", {})]
@@ -503,7 +509,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     for key, have, dkey, per in (("scrap", scrap, "scrap_per_1k_tiles", 1e3), ("trees", n_trees, "trees_per_10k", 1e4),
                                  ("bushes", n_bushes, "bushes_per_10k", 1e4)):
         need_k = 0.5 * cal.density(dkey, area) * area / per * rules["mult"][key]
-        rep.add(f"resources.{key}", have >= need_k, f"{have} {key} (at least {need_k:.0f})", have, round(need_k))
+        rep.add(f"resources.{key}", have >= need_k, f"{have} {key} (at least {need_k:.0f})", have, round(need_k),
+                advisory=True)
 
     # ---- ruins: fields of touching columns, each scavengeable from its own level
     if ruins:
@@ -798,8 +805,12 @@ def sources_in_flow(floor, sources, dam, D):
     return n_sources, sorted(flagged)
 
 
-def _sources_in_flow(rep, floor, sources, dam, D):
-    """water.source_in_flow (D171): no water source inside a flow that is already there."""
+def _sources_in_flow(rep, floor, sources, dam, D, profile=None):
+    """water.source_in_flow (D171): no water source inside a flow that is already there. In the
+    editor's export profile sources go anywhere (D184): the rule is for generated maps."""
+    if profile == "export":
+        rep.add("water.source_in_flow", True, "sources go anywhere in the editor (D184): the rule is for generated maps", na=True)
+        return
     n, flagged = sources_in_flow(floor, sources, dam, D)
     if not n:
         rep.add("water.source_in_flow", True, "no water sources on this map", na=True)

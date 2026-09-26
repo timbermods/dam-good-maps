@@ -260,6 +260,8 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       const bytes = fromBase64Url(raw);
       v = bytes && bytes.length === 4 ? Object.fromEntries(SPECIES.map((n, k) => [n, bytes[k]])) : undefined;
     }
+    // every map has at least one mine site (Kyler, 2026-09-25): an old link's 0 asks for one
+    if (sk.key === "ms" && v === 0) v = 1;
     const before = getAt(spec.settings, sk.path);
     setAt(spec.settings, sk.path, v);
     if (v === undefined || (typeof v === "number" && Number.isNaN(v)) || validateSpec(spec).length) {

@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import { mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');process.chdir(root);
+const entry=process.argv[2];if(!entry||!entry.endsWith('.ts')||entry.includes('..'))throw Error('Supply a local TypeScript entry');
+mkdirSync('local/cache',{recursive:true});
+const out=resolve('local/cache',entry.replaceAll('/','-').replace('.ts','.mjs'));
+await build({entryPoints:[entry],outfile:out,bundle:true,platform:'node',format:'esm',nodePaths:[resolve('node_modules')],external:['@napi-rs/canvas','esbuild','@playwright/test','vite']});
+await import(pathToFileURL(out).href);

@@ -1,0 +1,66 @@
+{
+  "passed": [
+    "Pointer Strike, every control, and browser/Node terrain determinism",
+    "UI Undo and Redo restore exact terrain",
+    "Try another uses a recorded seed; Esc restores the kept crater and its saved operation",
+    "Aim is a drag from impact along travel, not two clicks",
+    "Esc restores cached terrain in the input event before worker completion",
+    "Reduced motion disables effects, camera motion and deformation playback",
+    "Saved impact replays across loaded maps with exact Undo, Redo and Try another",
+    "Start hover shows the quiet refusal and cannot create an impact",
+    "Three generated seeds and three repository Real places load in the actual worker",
+    "256² heavy ring with rays renders and undoes without a main-thread terrain calculation",
+    "No browser errors or shader errors"
+  ],
+  "measurements": [
+    {
+      "cancel128Ms": 1.399999976158142
+    },
+    {
+      "map": "seed:highlands:18:128",
+      "loadMs": 1091,
+      "size": 128
+    },
+    {
+      "map": "seed:riverValley:18:256",
+      "loadMs": 20450,
+      "size": 256
+    },
+    {
+      "map": "seed:canyon:10:128",
+      "loadMs": 918,
+      "size": 128
+    },
+    {
+      "map": "place:near-yosemite-valley",
+      "loadMs": 2036,
+      "size": 96
+    },
+    {
+      "map": "place:near-geirangerfjord",
+      "loadMs": 2165,
+      "size": 128
+    },
+    {
+      "map": "place:near-grand-canyon-colorado",
+      "loadMs": 8701,
+      "size": 256
+    },
+    {
+      "impact256": {
+        "fps": 162,
+        "p95Ms": 6.200000000004366,
+        "maxMs": 7.900000000001455
+      },
+      "render": {
+        "calls": 250,
+        "triangles": 229268,
+        "geometries": 511
+      }
+    },
+    {
+      "undo256Ms": 1
+    }
+  ],
+  "browser": "Headless Microsoft Edge on this Windows host"
+}

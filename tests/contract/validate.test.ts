@@ -10,7 +10,7 @@ import { toTimberFile } from "../../src/core/gen/pack";
 import { mapObjects, waterModel, type MapObject } from "../../src/core/sim/model";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
-import { basinLeak } from "../../src/core/validate/playability";
+import { basinLeak, EXTRA_BANDS } from "../../src/core/validate/playability";
 import { blocks, type CheckResult } from "../../src/core/validate/report";
 import type { JsonObject } from "../../src/core/format/json";
 
@@ -30,7 +30,7 @@ describe("validation profiles (PLAN §19.5)", () => {
     }
     const ids = r.report.checks.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ["water.settles", "water.no_flood", "water.clean_exists", "water.outflow", "water.clean_reach", "water.badwater_contained", "water.reservoir", "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.ruins_clear", "plants.survive", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access", "extras.placement"]) {
+    for (const id of ["water.settles", "water.no_flood", "water.clean_exists", "water.outflow", "water.clean_reach", "water.badwater_contained", "water.reservoir", "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.ruins_clear", "plants.survive", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes", "resources.mine_site", "ruins.fields", "ruins.access", "extras.placement"]) {
       expect(ids, id).toContain(id);
     }
   });
@@ -79,13 +79,17 @@ describe("validation profiles (PLAN §19.5)", () => {
     expect(adv.advisory).toBe(true);
     for (const p of ["generate", "export", "import"] as const) expect(blocks(p, { ...adv, ok: false })).toBe(false);
     // the map objects' placement check applies to a map with relics, fields and mine sites (M7), and
-    // is not applicable, never blocking, on a map without them
+    // is not applicable, never blocking, on a map without them. Every generated map has a mine site
+    // (Kyler, 2026-09-25), so the map without them is a generated one with its objects taken out of
+    // its plan (D148: this used to ask for no mine sites)
     const ex = r.report.checks.find((c) => c.id === "extras.placement")!;
     expect(ex.applicable).not.toBe(false);
     expect(ex.ok).toBe(true);
-    const none = { ...spec.settings, hazards: { ...spec.settings.hazards, thornBelts: "off" as const }, resources: { ...spec.settings.resources, relics: "off" as const, geothermal: "off" as const, mineSites: 0 } };
+    const none = { ...spec.settings, hazards: { ...spec.settings.hazards, thornBelts: "off" as const }, resources: { ...spec.settings.resources, relics: "off" as const, geothermal: "off" as const, mineSites: 1 } };
     const bare = generate({ ...makeSpec({ seed: 4242, size: { x: 96, y: 96 } }), settings: none });
-    const na = bare.report.checks.find((c) => c.id === "extras.placement")!;
+    const noObjects = bare.features.filter((f) => f.kind !== "mapObject" || !(f.params.kind in EXTRA_BANDS));
+    expect(noObjects.length).toBe(bare.features.length - 1);
+    const na = validateBuilt(bare.spec, noObjects, bare.built).report.checks.find((c) => c.id === "extras.placement")!;
     expect(na.applicable).toBe(false);
     expect(na.ok).toBe(true);
     for (const p of ["generate", "export", "import"] as const) expect(blocks(p, na)).toBe(false);

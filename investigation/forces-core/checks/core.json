@@ -1,0 +1,23 @@
+{
+  "passed": [
+    "craterize/strike: deterministic, one operation, exact undo/redo and saved replay",
+    "erupt/vent: deterministic, one operation, exact undo/redo and saved replay",
+    "quake/lift: deterministic, one operation, exact undo/redo and saved replay",
+    "quake/slide: deterministic, one operation, exact undo/redo and saved replay",
+    "carve/aim: deterministic, one operation, exact undo/redo and saved replay",
+    "Craterize → Erupt → Quake shares one map, one geology layer and one history",
+    "Try another replaces from original ground; saved alternatives keep their base and next seed",
+    "Esc restores exact terrain, objects, water and hidden rock for every force",
+    "Every force shares the quiet start refusal and begins its options with Mode",
+    "Paint, Shift-click line, X flip and Esc share one input state",
+    "Slide transports volcanic strata; Lift moves strata vertically; no bit reaches the empty top layer",
+    "The current Carve bends around Erupt’s hard lava, with fewer lava crossings",
+    "Live Erupt ends in byte-exact repository canonical water",
+    "Invalid project numbers and corrupted result patches are rejected before typed-array narrowing",
+    "Carve cuts through Quake’s cliff and both forces replay exactly in order"
+  ],
+  "interplay": {
+    "hardLavaStations": 13,
+    "softLavaStations": 29
+  }
+}

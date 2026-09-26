@@ -11,7 +11,7 @@ import { makeSpec, type Difficulty, type MapSpec, type ThemeId } from "../../../
 import { applyMergePatch } from "../../../src/core/spec/mergepatch";
 import { runProposal } from "./compound";
 import { newConversation, type Conversation } from "./conversation";
-import type { Step } from "./steps";
+import { withSetupSteps, type Step } from "./steps";
 
 export interface Setup {
   /** Another setup to start from. */
@@ -84,7 +84,8 @@ export function openSetup(setups: Record<string, Setup>, which: string | Setup, 
   }
   const conv = newConversation(seed);
   for (const e of s.edits ?? []) {
-    const res = runProposal(session, conv, { request: e.request, steps: e.steps }, "propose");
+    // a setup may draw creeks and lakes as documents from before D184 hold them
+    const res = withSetupSteps(() => runProposal(session, conv, { request: e.request, steps: e.steps }, "propose"));
     if (!res.accepted) throw new Error(`setup edit "${e.request}" failed: ${[...res.errors, ...res.steps.flatMap((x) => x.errors)].join("; ")}`);
   }
   if (s.import) {

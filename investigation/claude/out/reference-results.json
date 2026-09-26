@@ -1,7 +1,7 @@
 {
- "ran": "2026-09-26T05:09:39.158Z",
- "passed": 105,
- "total": 120,
+ "ran": "2026-09-26T21:21:12.457Z",
+ "passed": 128,
+ "total": 141,
  "results": [
   {
    "id": "S01",
@@ -9,15 +9,15 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 5965,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1931,
+   "ms": 5595,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1913,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a waterfall: in the north third, 51% of the way down the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 16.5 tiles from the start.\nAlso: clears 21 trees.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 51% of the way down the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 16.5 tiles from the start.\nAlso: clears 1 tree.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "S02",
@@ -25,15 +25,15 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 30163,
-   "summaryBytes": 7509,
-   "maxResultBytes": 1956,
+   "ms": 18889,
+   "summaryBytes": 7665,
+   "maxResultBytes": 1932,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a waterfall: in the north third, 42 tiles from the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 92.2 tiles from the start.\nAlso: clears 3 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 156 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 46% of the way down the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 60.4 tiles from the start.\nAlso: clears 8 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 110 logs of wood nearby (at least 80))."
   },
   {
    "id": "S03",
@@ -41,33 +41,32 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 9455,
-   "summaryBytes": 5647,
+   "ms": 3626,
+   "summaryBytes": 5370,
    "maxResultBytes": 1914,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a waterfall: in the north third, 46% of the way down the main river, on the opposite bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 35.8 tiles from the start.\nAlso: clears 68 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 46% of the way down the main river, on the opposite bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 35.8 tiles from the start.\nAlso: clears 112 trees and 5 ruin columns.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "S04",
    "kind": "suite",
-   "pass": false,
-   "failures": [
-    "propose was not accepted; expected accepted (step 0: each step is an object with an op)",
-    "check propose steps.0.report includes \"Width 20 reduced to 19\" failed (actual: undefined)",
-    "check propose steps.0.report includes \"reduced to 1.15\" failed (actual: undefined)"
-   ],
+   "pass": true,
+   "failures": [],
    "calls": 3,
-   "ms": 2061,
-   "summaryBytes": 4877,
-   "maxResultBytes": 1914,
-   "accepted": false,
+   "ms": 3382,
+   "summaryBytes": 5072,
+   "maxResultBytes": 2446,
+   "accepted": true,
    "notMet": [],
-   "tradeoffs": [],
-   "draft": ""
+   "tradeoffs": [
+    "reduced",
+    "cleared"
+   ],
+   "draft": "Built a waterfall: in the north third, 24% of the way down the main river, on the opposite bank, 19 tiles of falling water, a 6-level drop, 1.15 blocks/s, 29.8 tiles from the start.\nTrade-off: Width 20 reduced to 19, the largest this map allows (40% of the map side along the lip).\nTrade-off: Flow 2 reduced to 1.15, the map's whole flow budget: the sheet over the lip is thinner.\nAlso: clears 26 trees, 16 ruin columns and 11 other objects.\nAlso: clears the thorn belt: the new feature covers its ground.\nEvery start rule still holds (clean water 7.4 tiles away (at most 20), 42 berry bushes nearby (at least 30), 307 logs of wood nearby (at least 80))."
   },
   {
    "id": "S05",
@@ -75,32 +74,29 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 8108,
-   "summaryBytes": 6690,
-   "maxResultBytes": 1719,
+   "ms": 2380,
+   "summaryBytes": 6415,
+   "maxResultBytes": 1520,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [
-    "reduced"
-   ],
-   "draft": "Changed the waterfall: now in the north third, 51% of the way down the main river, on the start's bank, 25 tiles of falling water, a 6-level drop, 2 blocks/s, 16.8 tiles from the start.\nTrade-off: Moved 1 tile along its lip, away from the river, to grow.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Changed the waterfall: now in the north third, 27 tiles from the main river, on the start's bank, 25 tiles of falling water, a 6-level drop, 2 blocks/s, 29.7 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "S06",
    "kind": "suite",
-   "pass": true,
-   "failures": [],
-   "calls": 3,
-   "ms": 15408,
-   "summaryBytes": 5941,
-   "maxResultBytes": 1553,
-   "accepted": true,
-   "notMet": [],
-   "tradeoffs": [
-    "cleared",
-    "start-moved"
+   "pass": false,
+   "failures": [
+    "propose was not accepted; expected accepted (step 0: moveStart needs to (a tile or a place) or facing)"
    ],
-   "draft": "Moved the start to the center, (52, 76).\nAlso: near the start there are now 107 trees (was 45) and 57 berry bushes (was 76).\nAlso: plants a berry patch of 21 bushes near the new start, for the start rules (30 bushes within 20 tiles).\nEvery start rule still holds (clean water 2.8 tiles away (at most 20), 57 berry bushes nearby (at least 30), 216 logs of wood nearby (at least 80))."
+   "calls": 3,
+   "ms": 13774,
+   "summaryBytes": 5646,
+   "maxResultBytes": 459,
+   "accepted": false,
+   "notMet": [],
+   "tradeoffs": [],
+   "draft": ""
   },
   {
    "id": "S07",
@@ -108,8 +104,8 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 10077,
-   "summaryBytes": 5941,
+   "ms": 3273,
+   "summaryBytes": 5646,
    "maxResultBytes": 2085,
    "accepted": true,
    "notMet": [],
@@ -117,7 +113,7 @@
     "reduced",
     "cleared"
    ],
-   "draft": "Built a dam site: in the west third, 28% of the way down the main river, a dam 9 tiles long would hold 789 blocks over 708 tiles, 13.2 tiles from the start.\nTrade-off: The dam site 39% down the main river now holds 1455 blocks instead of 1624: the new work sits in its basin.\nAlso: near the start there are now 70 trees (was 45) and 65 berry bushes (was 76).\nEvery start rule still holds (clean water 8.4 tiles away (at most 20), 65 berry bushes nearby (at least 30), 202 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the west third, 28% of the way down the main river, a dam 9 tiles long would hold 789 blocks over 708 tiles, 13.2 tiles from the start.\nTrade-off: The dam site 39% down the main river now holds 1455 blocks instead of 1624: the new work sits in its basin.\nAlso: near the start there are now 59 trees (was 60) and 36 berry bushes (was 48).\nEvery start rule still holds (clean water 8.4 tiles away (at most 20), 36 berry bushes nearby (at least 30), 157 logs of wood nearby (at least 80))."
   },
   {
    "id": "S08",
@@ -125,13 +121,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 1741,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1387,
+   "ms": 968,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1381,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a ruin field: in the northeast corner, 56 tiles from the main river, on the start's bank, 1185 scrap, 66.7 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a ruin field: in the southeast corner, 46 tiles from the main river, on the opposite bank, 1215 scrap, 99.3 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "S09",
@@ -139,13 +135,15 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 2834,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1373,
+   "ms": 1939,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1660,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [],
-   "draft": "Moved the badwater spring: now in the south third, 48 tiles from the main river, on the opposite bank, 2.34 blocks/s of badwater, draining to the map edge, 78.6 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "tradeoffs": [
+    "cleared"
+   ],
+   "draft": "Moved the badwater spring: now in the south third, 48 tiles from the main river, on the opposite bank, 2.34 blocks/s of badwater, draining to the map edge, 78.6 tiles from the start.\nAlso: clears 1 other object.\nAlso: clears the geothermal field: the new feature covers its ground.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "S10",
@@ -153,16 +151,16 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 7412,
-   "summaryBytes": 6243,
-   "maxResultBytes": 2025,
+   "ms": 5311,
+   "summaryBytes": 5968,
+   "maxResultBytes": 2024,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "start-moved",
     "less-flow"
    ],
-   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 282 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 200 logs of wood nearby (at least 80))."
   },
   {
    "id": "P01",
@@ -170,13 +168,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 8971,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1456,
+   "ms": 11688,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1789,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a lake: in the center, 64% of the way down the main river, on the start's bank, 92 tiles at level 5, 18 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 208 logs of wood nearby (at least 80))."
+   "draft": "Lowers 73 tiles: 49 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the center, 57% of the way down the main river, on the start's bank, a lake of 38 tiles at level 7, 1.5 blocks/s of water, 11 tiles from the start.\nA water source of 1.5 blocks/s at (45, 48); fills the hollow to level 7, about 38 tiles, then spills over its rim.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 270 logs of wood nearby (at least 80))."
   },
   {
    "id": "P02",
@@ -184,13 +182,17 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3771,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1481,
+   "ms": 3363,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1465,
    "accepted": true,
-   "notMet": [],
-   "tradeoffs": [],
-   "draft": "Built a landform: in the southwest corner, 28 tiles from the main river, on the start's bank, 39.8 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [
+    "reduced"
+   ],
+   "draft": "Raises 81 tiles: 29 by 3, 24 by 2, 28 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs); 1 tiles stop at level 16, the editor's limit.\nTrade-off: 1 tiles stop at level 16, the editor's limit.\nNot done: a small hill in the southwest corner. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "P03",
@@ -198,13 +200,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1111,
-   "summaryBytes": 6243,
+   "ms": 880,
+   "summaryBytes": 5968,
    "maxResultBytes": 1227,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a forest: in the southeast corner, 96% of the way down the main river, on the opposite bank, 85 trees, 90.8 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a forest: in the southeast corner, 96% of the way down the main river, on the opposite bank, 85 trees, 90.8 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P04",
@@ -212,13 +214,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1757,
-   "summaryBytes": 5647,
+   "ms": 1194,
+   "summaryBytes": 5370,
    "maxResultBytes": 1253,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a berry patch: in the west third, 33% of the way down the main river, on the start's bank, 85 berry bushes, 13.5 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 89 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Built a berry patch: in the west third, 33% of the way down the main river, on the start's bank, 85 berry bushes, 12.7 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 79 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "P05",
@@ -226,15 +228,15 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 4414,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1386,
+   "ms": 2670,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1392,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built terraced cliffs: in the northeast corner, 28 tiles from the main river, on the start's bank, 62.4 tiles from the start.\nAlso: clears 70 trees and 8 ruin columns.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built terraced cliffs: in the northeast corner, 28 tiles from the main river, on the start's bank, 62.4 tiles from the start.\nAlso: clears 162 trees and 18 ruin columns.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P06",
@@ -242,13 +244,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2665,
-   "summaryBytes": 6243,
+   "ms": 1771,
+   "summaryBytes": 5968,
    "maxResultBytes": 1574,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a gorge: in the east third, 81% of the way down the main river, 65.7 tiles from the start.\nAssumption: downstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a gorge: in the east third, 81% of the way down the main river, 65.7 tiles from the start.\nAssumption: downstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P07",
@@ -256,32 +258,29 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 3968,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1774,
+   "ms": 2796,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1632,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a waterfall: in the east third, 75% of the way down the main river, 55.5 tiles from the start.\nAssumption: downstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the center, 59% of the way down the main river, 28.3 tiles from the start.\nAssumption: downstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P08",
    "kind": "simple",
-   "pass": false,
-   "failures": [
-    "propose was not accepted; expected accepted (not accepted: it breaks entities.placement, extras.placement, which passed before (guards are never traded away))",
-    "guards broken: [{\"id\":\"entities.placement\",\"message\":\"UndergroundRuins at (86,81,16): floating at (86,85,16)\",\"causedByStep\":0},{\"id\":\"extras.placement\",\"message\":\"a mine site stands on uneven ground; a medium relic is within 2 tiles of water or in a reservoir site\",\"causedByStep\":0}]"
-   ],
+   "pass": true,
+   "failures": [],
    "calls": 2,
-   "ms": 2763,
-   "summaryBytes": 5647,
-   "maxResultBytes": 2385,
-   "accepted": false,
-   "notMet": [],
-   "tradeoffs": [
-    "guard"
+   "ms": 2966,
+   "summaryBytes": 5370,
+   "maxResultBytes": 2137,
+   "accepted": true,
+   "notMet": [
+    "g1"
    ],
-   "draft": "Built a river: in the northeast corner, 50% of the way down the river from the north edge, 54.4 tiles from the start.\nTrade-off: Entities.placement (step 0, addRiver): UndergroundRuins at (86,81,16): floating at (86,85,16).\nTrade-off: Extras.placement (step 0, addRiver): a mine site stands on uneven ground; a medium relic is within 2 tiles of water or in a reservoir site.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Built source: in the north third, 35 tiles from the main river, on the opposite bank, 1 blocks/s of water, 54.6 tiles from the start.\nA water source of 1 blocks/s at (60, 95).\nCarves a bed 2 tiles wide from the water at (60, 95) along 56 tiles, from level 13 down to level 3, never rising: the water follows it; it runs into the main river at (60, 40); it cuts up to 3 levels through higher ground: steep banks, beavers need stairs to cross.\nNot done: a creek from the north edge into the river. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "P09",
@@ -289,13 +288,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2203,
-   "summaryBytes": 5647,
+   "ms": 1733,
+   "summaryBytes": 5370,
    "maxResultBytes": 715,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Removed the badwaterBasin.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Removed the badwaterBasin.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "P10",
@@ -303,13 +302,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3015,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1546,
+   "ms": 2818,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1159,
    "accepted": true,
-   "notMet": [],
+   "notMet": [
+    "g1"
+   ],
    "tradeoffs": [],
-   "draft": "Built a landform: in the east third, 80% of the way down the main river, on the start's bank, 67.1 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Raises 197 tiles: 197 by 3; with cliff edges: beavers need stairs to climb them.\nNot done: a cliff-edged plateau in the east third. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P12",
@@ -317,13 +318,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3558,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1455,
+   "ms": 1702,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1134,
    "accepted": true,
-   "notMet": [],
+   "notMet": [
+    "g1"
+   ],
    "tradeoffs": [],
-   "draft": "Built a landform: in the south third, 49 tiles from the main river, on the opposite bank, 81.6 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Lowers 122 tiles: 122 by 3; with cliff edges: beavers need stairs to climb them.\nNot done: a canyon in the south third. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "P14",
@@ -331,15 +334,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3738,
-   "summaryBytes": 6243,
+   "ms": 1684,
+   "summaryBytes": 5968,
    "maxResultBytes": 1794,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a badwater spring: in the southeast corner, 32 tiles from the main river, on the opposite bank, 1.5 blocks/s of badwater, draining to the map edge, 114.2 tiles from the start.\nAlso: clears 32 trees.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a badwater spring: in the southeast corner, 32 tiles from the main river, on the opposite bank, 1.5 blocks/s of badwater, draining to the map edge, 114.2 tiles from the start.\nAlso: clears 11 trees.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F01",
@@ -347,13 +350,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3716,
-   "summaryBytes": 6690,
-   "maxResultBytes": 1518,
+   "ms": 2073,
+   "summaryBytes": 6415,
+   "maxResultBytes": 1515,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the waterfall: now in the north third, 51% of the way down the main river, on the start's bank, 20 tiles of falling water, a 8-level drop, 2 blocks/s, 16.5 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Changed the waterfall: now in the north third, 27 tiles from the main river, on the start's bank, 20 tiles of falling water, a 8-level drop, 2 blocks/s, 29.7 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F02",
@@ -361,13 +364,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3767,
-   "summaryBytes": 6690,
-   "maxResultBytes": 1449,
+   "ms": 2104,
+   "summaryBytes": 6415,
+   "maxResultBytes": 1444,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Moved the waterfall: now in the north third, 53% of the way down the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 22.4 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Moved the waterfall: now in the north third, 31 tiles from the main river, on the start's bank, 20 tiles of falling water, a 6-level drop, 2 blocks/s, 35.4 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F03",
@@ -375,13 +378,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3393,
-   "summaryBytes": 6690,
+   "ms": 1906,
+   "summaryBytes": 6415,
    "maxResultBytes": 728,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Removed the waterfall.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Removed the waterfall.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F04",
@@ -389,13 +392,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3588,
-   "summaryBytes": 6690,
+   "ms": 1639,
+   "summaryBytes": 6415,
    "maxResultBytes": 850,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Undid the last change (took back \"add a giant waterfall in the north part of the map that is roughly 20 blocks wide\").\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Undid the last change (took back \"add a giant waterfall in the north part of the map that is roughly 20 blocks wide\").\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F05",
@@ -403,13 +406,17 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 6539,
-   "summaryBytes": 5959,
-   "maxResultBytes": 1271,
+   "ms": 4652,
+   "summaryBytes": 5682,
+   "maxResultBytes": 1180,
    "accepted": true,
-   "notMet": [],
-   "tradeoffs": [],
-   "draft": "Changed the lake: now in the center, 64% of the way down the main river, on the start's bank, 92 tiles at level 5, 18 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 208 logs of wood nearby (at least 80))."
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [
+    "cleared"
+   ],
+   "draft": "Lowers 92 tiles: 92 by 1.\nAlso: near the start there are now 58 trees (was 70) and 48 berry bushes (was 48).\nNot done: the selected lake one level deeper. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "F06",
@@ -417,13 +424,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 6136,
-   "summaryBytes": 6058,
+   "ms": 3596,
+   "summaryBytes": 5781,
    "maxResultBytes": 1393,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the dam site: now in the east third, 80% of the way down the main river, a dam 6 tiles long would hold 1663 blocks over 876 tiles, 42 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Changed the dam site: now in the east third, 80% of the way down the main river, a dam 6 tiles long would hold 1663 blocks over 876 tiles, 42 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "F07",
@@ -431,13 +438,13 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 28871,
-   "summaryBytes": 7500,
-   "maxResultBytes": 1760,
+   "ms": 27886,
+   "summaryBytes": 7293,
+   "maxResultBytes": 1751,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Moved the badwater spring: now in the northeast corner, 52 tiles from the main river, on the start's bank, 2.5 blocks/s of badwater, draining to the map edge, 126.6 tiles from the start.\nEvery start rule still holds (clean water 6.2 tiles away (at most 20), 38 berry bushes nearby (at least 30), 385 logs of wood nearby (at least 80))."
+   "draft": "Moved the badwater spring: now in the southeast corner, 30 tiles from the main river, on the opposite bank, 2.5 blocks/s of badwater, draining to the map edge, 124.6 tiles from the start.\nEvery start rule still holds (clean water 13.9 tiles away (at most 20), 38 berry bushes nearby (at least 30), 130 logs of wood nearby (at least 80))."
   },
   {
    "id": "F08",
@@ -445,16 +452,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 24017,
-   "summaryBytes": 7500,
-   "maxResultBytes": 1424,
+   "ms": 23136,
+   "summaryBytes": 7293,
+   "maxResultBytes": 1250,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
-    "reduced",
-    "cleared"
+    "reduced"
    ],
-   "draft": "Undid the last change (took back \"Make this valley harsher. Put the start upstream, give me a huge dam opportunity halfway down, and create a dangerous badwater route on the opposite side.\").\nTrade-off: The dam site 49% down the main river now holds 0 blocks instead of 1199: the new work sits in its basin.\nAlso: near the start there are now 30 trees (was 103) and 46 berry bushes (was 38).\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Undid the last change (took back \"Make this valley harsher. Put the start upstream, give me a huge dam opportunity halfway down, and create a dangerous badwater route on the opposite side.\").\nTrade-off: The dam site 49% down the main river now holds 0 blocks instead of 1199: the new work sits in its basin.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "F09",
@@ -462,33 +468,32 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2790,
-   "summaryBytes": 6690,
-   "maxResultBytes": 1226,
+   "ms": 1709,
+   "summaryBytes": 6415,
+   "maxResultBytes": 1225,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a forest: in the north third, 48% of the way down the main river, on the start's bank, 35 trees, 10.8 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a forest: in the north third, 54% of the way down the main river, on the start's bank, 35 trees, 25.1 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "C01",
    "kind": "compass",
    "pass": false,
    "failures": [
-    "propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (1 breaks extras.placement)",
-    "expectation g1 new:lake at failed: the proposal made no lake"
+    "propose was not accepted; expected accepted (not accepted: it breaks extras.placement, which passed before (guards are never traded away))",
+    "guards broken: [{\"id\":\"extras.placement\",\"message\":\"a geothermal field is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site\",\"causedByStep\":1}]"
    ],
    "calls": 2,
-   "ms": 2852,
-   "summaryBytes": 6243,
-   "maxResultBytes": 2203,
+   "ms": 2646,
+   "summaryBytes": 5968,
+   "maxResultBytes": 2737,
    "accepted": false,
-   "notMet": [
-    "g1",
-    "g1"
+   "notMet": [],
+   "tradeoffs": [
+    "guard"
    ],
-   "tradeoffs": [],
-   "draft": "Not done: a lake in the northeast corner. New:lake at: the proposal made no lake.\nNearest I can do: the nearest place that fits: center, 61% of the way down the main river, about 61 tiles from the place asked for. Say \"yes\" to build that instead.\nNot done: a lake in the northeast corner. Every site that fits here breaks a check that passes now (1 breaks extras.placement).\nNearest I can do: the nearest place that fits: center, 61% of the way down the main river, about 61 tiles from the place asked for. Say \"yes\" to build that instead.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Lowers 81 tiles: 53 by 2, 28 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the northeast corner, 40 tiles from the main river, on the start's bank, a lake of 64 tiles at level 10, 1.5 blocks/s of water, 53.8 tiles from the start.\nA water source of 1.5 blocks/s at (103, 107); fills the hollow to level 10, about 64 tiles, then spills over its rim.\nTrade-off: Extras.placement (step 1, addSource): a geothermal field is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "C02",
@@ -496,13 +501,15 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2853,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1464,
+   "ms": 2974,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1205,
    "accepted": true,
-   "notMet": [],
+   "notMet": [
+    "g1"
+   ],
    "tradeoffs": [],
-   "draft": "Built a landform: in the north third, 46% of the way down the main river, on the opposite bank, 35.8 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Raises 81 tiles: 29 by 3, 24 by 2, 28 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nNot done: a hill in the north. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "C03",
@@ -510,13 +517,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 864,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1147,
+   "ms": 795,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1162,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a forest: in the west third, 24% of the way down the main river, on the opposite bank, 85 trees, 49 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a forest: in the southwest corner, 10% of the way down the main river, on the opposite bank, 85 trees, 83.2 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "C04",
@@ -524,13 +531,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 957,
-   "summaryBytes": 6243,
+   "ms": 740,
+   "summaryBytes": 5968,
    "maxResultBytes": 1179,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a ruin field: in the southwest corner, 37 tiles from the main river, on the opposite bank, 1185 scrap, 102.5 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a ruin field: in the southwest corner, 37 tiles from the main river, on the opposite bank, 1215 scrap, 102.5 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "C05",
@@ -538,13 +545,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2549,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1441,
+   "ms": 2121,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1135,
    "accepted": true,
-   "notMet": [],
+   "notMet": [
+    "g1"
+   ],
    "tradeoffs": [],
-   "draft": "Built a landform: in the center, 64% of the way down the main river, on the start's bank, 15.7 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Raises 81 tiles: 81 by 2; with cliff edges: beavers need stairs to climb them.\nNot done: a small plateau in the center. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "C06",
@@ -552,13 +561,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 8324,
-   "summaryBytes": 7509,
-   "maxResultBytes": 1766,
+   "ms": 7428,
+   "summaryBytes": 7665,
+   "maxResultBytes": 1831,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [],
-   "draft": "Built a waterfall: in the east third, 100% of the way down the main river, on the start's bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 93.5 tiles from the start.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 156 logs of wood nearby (at least 80))."
+   "tradeoffs": [
+    "cleared"
+   ],
+   "draft": "Built a waterfall: in the east third, 100% of the way down the main river, on the start's bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 93.5 tiles from the start.\nAlso: clears 2 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 110 logs of wood nearby (at least 80))."
   },
   {
    "id": "C07",
@@ -566,15 +577,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1666,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1865,
+   "ms": 1511,
+   "summaryBytes": 5968,
+   "maxResultBytes": 2069,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built terraced cliffs: in the southeast corner, 37 tiles from the main river, on the opposite bank, 88.6 tiles from the start.\nAlso: clears 27 trees, 21 ruin columns and 8 other objects.\nAlso: clears the thorn belt: the new feature covers its ground.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built terraced cliffs: in the southeast corner, 37 tiles from the main river, on the opposite bank, 88.6 tiles from the start.\nAlso: clears 29 trees, 19 ruin columns and 17 other objects.\nAlso: clears the thorn belt: the new feature covers its ground.\nAlso: clears the geothermal field: the new feature covers its ground.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "R01",
@@ -582,13 +593,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 902,
-   "summaryBytes": 6243,
+   "ms": 856,
+   "summaryBytes": 5968,
    "maxResultBytes": 1165,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a berry patch: in the north third, 53% of the way down the main river, on the start's bank, 85 berry bushes, 19.4 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a berry patch: in the north third, 53% of the way down the main river, on the start's bank, 85 berry bushes, 19.6 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "R02",
@@ -596,15 +607,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2862,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1892,
+   "ms": 2904,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1779,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [
-    "cleared"
-   ],
-   "draft": "Built a waterfall: in the southeast corner, 71% of the way down the main river, on the start's bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 38 tiles from the start.\nAlso: clears 16 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Built a waterfall: in the east third, 78% of the way down the main river, on the opposite bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 41.1 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "R03",
@@ -612,29 +621,29 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 954,
-   "summaryBytes": 6243,
+   "ms": 768,
+   "summaryBytes": 5968,
    "maxResultBytes": 1389,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "reduced"
    ],
-   "draft": "Built a forest: in the north third, 49% of the way down the main river, on the opposite bank, 3 trees, 14.8 tiles from the start.\nTrade-off: About 3 trees on 3 tiles (asked for 85: that is all the suitable ground there).\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a forest: in the north third, 49% of the way down the main river, on the opposite bank, 3 trees, 14.8 tiles from the start.\nTrade-off: About 3 trees on 3 tiles (asked for 85: that is all the suitable ground there).\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "R04",
    "kind": "feature-relative",
    "pass": true,
    "failures": [],
-   "calls": 1,
-   "ms": 2549,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1407,
+   "calls": 2,
+   "ms": 7239,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1724,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a lake: in the north third, 51% of the way down the main river, on the start's bank, 92 tiles at level 7, 16 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Lowers 73 tiles: 49 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the north third, 50% of the way down the main river, on the start's bank, a lake of 33 tiles at level 7, 1.5 blocks/s of water, 11 tiles from the start.\nA water source of 1.5 blocks/s at (61, 99); fills the hollow to level 7, about 33 tiles, then spills over its rim.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 45 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "R06",
@@ -642,13 +651,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1696,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1700,
+   "ms": 1650,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1454,
    "accepted": true,
-   "notMet": [],
+   "notMet": [
+    "g1"
+   ],
    "tradeoffs": [],
-   "draft": "Built a landform: in the east third, 70% of the way down the main river, on the start's bank, 44.7 tiles from the start.\nAssumption: \"lake\" read as the one in the east third, 55 tiles from the start: the one nearest the start, of 4.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Raises 81 tiles: 29 by 3, 24 by 2, 28 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nNot done: a hill beside the lake. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nAssumption: \"lake\" read as the one in the east third, 55 tiles from the start: the one nearest the start, of 4.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "R08",
@@ -656,13 +667,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 1904,
-   "summaryBytes": 6243,
+   "ms": 1833,
+   "summaryBytes": 5968,
    "maxResultBytes": 1575,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a dam site: in the center, 55% of the way down the main river, a dam 6 tiles long would hold 202 blocks over 202 tiles, 21.9 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the center, 60% of the way down the main river, a dam 6 tiles long would hold 243 blocks over 243 tiles, 31.1 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "W01",
@@ -670,8 +681,8 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2682,
-   "summaryBytes": 5941,
+   "ms": 2458,
+   "summaryBytes": 5646,
    "maxResultBytes": 2175,
    "accepted": true,
    "notMet": [],
@@ -679,7 +690,7 @@
     "reduced",
     "cleared"
    ],
-   "draft": "Built a dam site: in the west third, 23% of the way down the main river, a dam 10 tiles long would hold 560 blocks over 527 tiles, 21.2 tiles from the start.\nTrade-off: The dam site 39% down the main river now holds 1488 blocks instead of 1624: the new work sits in its basin.\nAlso: near the start there are now 60 trees (was 45) and 52 berry bushes (was 76).\nAssumption: upstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 7.2 tiles away (at most 20), 52 berry bushes nearby (at least 30), 234 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the west third, 23% of the way down the main river, a dam 10 tiles long would hold 560 blocks over 527 tiles, 21.2 tiles from the start.\nTrade-off: The dam site 39% down the main river now holds 1488 blocks instead of 1624: the new work sits in its basin.\nAlso: near the start there are now 42 trees (was 60) and 46 berry bushes (was 48).\nAssumption: upstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 7.2 tiles away (at most 20), 46 berry bushes nearby (at least 30), 215 logs of wood nearby (at least 80))."
   },
   {
    "id": "W02",
@@ -687,13 +698,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1577,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1729,
+   "ms": 1546,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1555,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a waterfall: in the center, 54% of the way down the main river, 20.5 tiles from the start.\nAssumption: downstream of the dam site read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the center, 54% of the way down the main river, 20.5 tiles from the start.\nAssumption: downstream of the dam site read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "W03",
@@ -701,29 +712,29 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 8202,
-   "summaryBytes": 6619,
+   "ms": 7907,
+   "summaryBytes": 6341,
    "maxResultBytes": 1955,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "reduced"
    ],
-   "draft": "Built a dam site: in the west third, 49% of the way down the north tributary, a dam 4 tiles long would hold 54 blocks over 42 tiles, 40.4 tiles from the start.\nTrade-off: The dam site 59% down the main river now holds 1294 blocks instead of 1390: the new work sits in its basin.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 196 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the west third, 49% of the way down the north tributary, a dam 4 tiles long would hold 54 blocks over 42 tiles, 40.4 tiles from the start.\nTrade-off: The dam site 59% down the main river now holds 1294 blocks instead of 1390: the new work sits in its basin.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 131 logs of wood nearby (at least 80))."
   },
   {
    "id": "W04",
    "kind": "flow-relative",
    "pass": true,
    "failures": [],
-   "calls": 1,
-   "ms": 6020,
-   "summaryBytes": 6619,
-   "maxResultBytes": 1700,
+   "calls": 2,
+   "ms": 27832,
+   "summaryBytes": 6341,
+   "maxResultBytes": 1918,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a lake: in the southeast corner, 16% of the way down the south tributary, on the start's bank, 92 tiles at level 11, 62.9 tiles from the start.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 196 logs of wood nearby (at least 80))."
+   "draft": "Lowers 73 tiles: 1 by 6, 4 by 5, 8 by 4, 16 by 3, 20 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the southeast corner, 16% of the way down the south tributary, on the start's bank, a lake of 32 tiles at level 11, 1.5 blocks/s of water, 61.5 tiles from the start.\nA water source of 1.5 blocks/s at (96, 10); fills the hollow to level 11, about 32 tiles, then spills over its rim.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 131 logs of wood nearby (at least 80))."
   },
   {
    "id": "W05",
@@ -733,7 +744,7 @@
     "setup: setup edit \"draw a creek from the east edge into the river\" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)"
    ],
    "calls": 0,
-   "ms": 1299,
+   "ms": 1237,
    "summaryBytes": 0,
    "maxResultBytes": 0
   },
@@ -745,7 +756,7 @@
     "setup: setup edit \"draw a creek from the north edge into the river\" failed: not accepted: it breaks entities.placement, extras.placement, which passed before (guards are never traded away)"
    ],
    "calls": 0,
-   "ms": 1851,
+   "ms": 2147,
    "summaryBytes": 0,
    "maxResultBytes": 0
   },
@@ -757,7 +768,7 @@
     "setup: setup edit \"draw a creek from the north edge into the river\" failed: not accepted: it breaks entities.placement, extras.placement, which passed before (guards are never traded away)"
    ],
    "calls": 0,
-   "ms": 1997,
+   "ms": 2115,
    "summaryBytes": 0,
    "maxResultBytes": 0
   },
@@ -767,13 +778,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2404,
-   "summaryBytes": 5941,
+   "ms": 2627,
+   "summaryBytes": 5646,
    "maxResultBytes": 1765,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a dam site: in the center, 56% of the way down the main river, a dam 10 tiles long would hold 2720 blocks over 2378 tiles, 43.3 tiles from the start.\nAssumption: upstream of the falls read along the main river, which flows west to east.\nEvery start rule still holds (clean water 7.2 tiles away (at most 20), 76 berry bushes nearby (at least 30), 128 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the center, 56% of the way down the main river, a dam 10 tiles long would hold 2720 blocks over 2378 tiles, 43.3 tiles from the start.\nAssumption: upstream of the falls read along the main river, which flows west to east.\nEvery start rule still holds (clean water 7.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 135 logs of wood nearby (at least 80))."
   },
   {
    "id": "W09",
@@ -781,34 +792,27 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2643,
-   "summaryBytes": 6243,
+   "ms": 2082,
+   "summaryBytes": 5968,
    "maxResultBytes": 1788,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Moved the badwater spring: now in the south third, 33 tiles from the main river, on the opposite bank, 2.34 blocks/s of badwater, draining to the map edge, 58.2 tiles from the start.\nAssumption: the bank opposite the start of the main river.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Moved the badwater spring: now in the south third, 33 tiles from the main river, on the opposite bank, 2.34 blocks/s of badwater, draining to the map edge, 58.2 tiles from the start.\nAssumption: the bank opposite the start of the main river.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "W10",
    "kind": "flow-relative",
-   "pass": false,
-   "failures": [
-    "propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (1 breaks extras.placement)",
-    "expectation g1 new:lake course.bank failed: the proposal made no lake",
-    "expectation g1 new:lake course.frac failed: the proposal made no lake"
-   ],
+   "pass": true,
+   "failures": [],
    "calls": 2,
-   "ms": 2625,
-   "summaryBytes": 6243,
-   "maxResultBytes": 2776,
-   "accepted": false,
-   "notMet": [
-    "g1",
-    "g1"
-   ],
+   "ms": 8144,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1836,
+   "accepted": true,
+   "notMet": [],
    "tradeoffs": [],
-   "draft": "Not done: a lake on the start's side, below it. New:lake course.bank: the proposal made no lake; new:lake course.frac: the proposal made no lake.\nNearest I can do: the nearest place that fits: center, 61% of the way down the main river, about 48 tiles from the place asked for. Say \"yes\" to build that instead.\nNot done: a lake on the start's side, below it. Every site that fits here breaks a check that passes now (1 breaks extras.placement).\nNearest I can do: the nearest place that fits: center, 61% of the way down the main river, about 48 tiles from the place asked for. Say \"yes\" to build that instead.\nAssumption: downstream of the start read along the main river, which flows west to east.\nAssumption: the bank the start is on of the main river.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Lowers 73 tiles: 49 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the northeast corner, 76% of the way down the main river, on the start's bank, a lake of 93 tiles at level 5, 1.5 blocks/s of water, 56.5 tiles from the start.\nA water source of 1.5 blocks/s at (105, 85); fills the hollow to level 5, about 93 tiles, then spills over its rim.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "W11",
@@ -816,15 +820,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 7133,
-   "summaryBytes": 7111,
-   "maxResultBytes": 2462,
+   "ms": 7428,
+   "summaryBytes": 7529,
+   "maxResultBytes": 2397,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [
-    "cleared"
-   ],
-   "draft": "Built a waterfall: in the south third, 25% of the way down the inflow from the south edge, on the start's bank, 5 tiles of falling water, a 6-level drop, 2 blocks/s, 90.5 tiles from the start.\nAlso: clears 8 trees.\nAssumption: \"upstream\" read as the upper third of the inflow from the south edge's course (it flows south to north, read from its water surface).\nEvery start rule still holds (clean water 5.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 277 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Built a waterfall: in the south third, 25% of the way down the inflow from the south edge, on the start's bank, 5 tiles of falling water, a 6-level drop, 2 blocks/s, 90.5 tiles from the start.\nAssumption: \"upstream\" read as the upper third of the inflow from the south edge's course (it flows south to north, read from its water surface).\nEvery start rule still holds (clean water 5.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 136 logs of wood nearby (at least 80))."
   },
   {
    "id": "W12",
@@ -832,13 +834,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1810,
-   "summaryBytes": 5668,
-   "maxResultBytes": 1457,
+   "ms": 1824,
+   "summaryBytes": 5509,
+   "maxResultBytes": 1390,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a gorge: in the east third, 77% of the way down the main river, 71.8 tiles from the start.\nEvery start rule still holds (clean water 3.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 204 logs of wood nearby (at least 80))."
+   "draft": "Built a gorge: in the east third, 92% of the way down the main river, 91.9 tiles from the start.\nEvery start rule still holds (clean water 3.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 368 logs of wood nearby (at least 80))."
   },
   {
    "id": "W13",
@@ -846,13 +848,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 4622,
-   "summaryBytes": 6619,
+   "ms": 4842,
+   "summaryBytes": 6341,
    "maxResultBytes": 2076,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a dam site: in the east third, 87% of the way down the main river, a dam 9 tiles long would hold 906 blocks over 781 tiles, 56.1 tiles from the start.\nAssumption: the south tributary read as the place where it meets the main river.\nAssumption: downstream of the south tributary read along the main river, which flows west to east.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 196 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the east third, 87% of the way down the main river, a dam 9 tiles long would hold 906 blocks over 781 tiles, 56.1 tiles from the start.\nAssumption: the south tributary read as the place where it meets the main river.\nAssumption: downstream of the south tributary read along the main river, which flows west to east.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 131 logs of wood nearby (at least 80))."
   },
   {
    "id": "W15",
@@ -860,13 +862,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 3158,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1557,
+   "ms": 3261,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1425,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a waterfall: in the north third, 49% of the way down the main river, 13.6 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 49% of the way down the main river, 13.6 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "J01",
@@ -874,13 +876,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2310,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1270,
+   "ms": 2197,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1271,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it lush: resources.forestDensity: 100 → 150; resources.berryBushes: 100 → 160; water.riverFlow: normal → strong; water.lakes: some → many.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 164 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it lush: resources.forestDensity: 100 → 150; resources.berryBushes: 100 → 160; water.riverFlow: normal → strong; water.lakes: some → many.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 222 logs of wood nearby (at least 80))."
   },
   {
    "id": "J02",
@@ -888,13 +890,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1456,
-   "summaryBytes": 5668,
+   "ms": 1340,
+   "summaryBytes": 5509,
    "maxResultBytes": 1412,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it easier: water.riverFlow: normal → strong; water.droughtReserve: normal → plenty; hazards.badwater: normal → low; resources.forestDensity: 80 → 104; resources.berryBushes: 100 → 140.\nEvery start rule still holds (clean water 2.8 tiles away (at most 20), 58 berry bushes nearby (at least 30), 195 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it easier: water.riverFlow: normal → strong; water.droughtReserve: normal → plenty; hazards.badwater: normal → low; resources.forestDensity: 80 → 104; resources.berryBushes: 100 → 140.\nEvery start rule still holds (clean water 2.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 110 logs of wood nearby (at least 80))."
   },
   {
    "id": "J03",
@@ -904,15 +906,15 @@
     "expectation g1 map badwaterDistance failed: it is 22.4, under 30"
    ],
    "calls": 1,
-   "ms": 2146,
-   "summaryBytes": 6243,
+   "ms": 2162,
+   "summaryBytes": 5968,
    "maxResultBytes": 1312,
    "accepted": true,
    "notMet": [
     "g1"
    ],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it dangerous: hazards.badwater: normal → high; hazards.badwaterDistance: 15 → 12.\nNot done: make it more dangerous. Map badwaterDistance: it is 22.4, under 30.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 121 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it dangerous: hazards.badwater: normal → high; hazards.badwaterDistance: 15 → 12.\nNot done: make it more dangerous. Map badwaterDistance: it is 22.4, under 30.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 152 logs of wood nearby (at least 80))."
   },
   {
    "id": "J04",
@@ -920,16 +922,16 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1789,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1910,
+   "ms": 1786,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1911,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "reduced",
     "less-flow"
    ],
-   "draft": "Changed the map's settings to make it barren: resources.forestDensity: 100 → 60; resources.berryBushes: 100 → 60; water.riverFlow: normal → trickle; water.lakes: some → few.\nTrade-off: The dam site 44% down the main river now holds 700 blocks instead of 763: the new settings reshaped the land around it.\nTrade-off: The river now brings 1.82 blocks/s instead of 3.03, so every reservoir fills more slowly, and the best dam site near the start now holds 715 blocks (was 772).\nEvery start rule still holds (clean water 8.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 230 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it barren: resources.forestDensity: 100 → 60; resources.berryBushes: 100 → 60; water.riverFlow: normal → trickle; water.lakes: some → few.\nTrade-off: The dam site 44% down the main river now holds 700 blocks instead of 763: the new settings reshaped the land around it.\nTrade-off: The river now brings 1.82 blocks/s instead of 3.03, so every reservoir fills more slowly, and the best dam site near the start now holds 715 blocks (was 772).\nEvery start rule still holds (clean water 8.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 109 logs of wood nearby (at least 80))."
   },
   {
    "id": "J05",
@@ -937,15 +939,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2155,
-   "summaryBytes": 6243,
+   "ms": 1953,
+   "summaryBytes": 5968,
    "maxResultBytes": 1299,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "start-moved"
    ],
-   "draft": "Changed the map's settings to make it rugged: terrain.relief: 50 → 75; terrain.terracing: 45 → 65; water.waterfalls: few → many.\nTrade-off: The regenerated map put the start 30 tiles from where it was, at (48, 68) in the center: distances to the start changed.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 136 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it rugged: terrain.relief: 50 → 75; terrain.terracing: 45 → 65; water.waterfalls: few → many.\nTrade-off: The regenerated map put the start 30 tiles from where it was, at (48, 68) in the center: distances to the start changed.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 122 logs of wood nearby (at least 80))."
   },
   {
    "id": "J06",
@@ -953,15 +955,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 4082,
-   "summaryBytes": 7111,
+   "ms": 3748,
+   "summaryBytes": 7529,
    "maxResultBytes": 1211,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "start-moved"
    ],
-   "draft": "Changed the map's settings to make it flatter: terrain.relief: 40 → 15; terrain.terracing: 40 → 20.\nTrade-off: The regenerated map put the start 64 tiles from where it was, at (13, 50) in the west third: distances to the start changed.\nEvery start rule still holds (clean water 6.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 181 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it flatter: terrain.relief: 40 → 15; terrain.terracing: 40 → 20.\nTrade-off: The regenerated map put the start 64 tiles from where it was, at (13, 50) in the west third: distances to the start changed.\nEvery start rule still holds (clean water 6.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 193 logs of wood nearby (at least 80))."
   },
   {
    "id": "J07",
@@ -969,13 +971,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3096,
-   "summaryBytes": 5647,
-   "maxResultBytes": 968,
+   "ms": 3231,
+   "summaryBytes": 5370,
+   "maxResultBytes": 967,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it richer: resources.ruins: 100 → 130; resources.forestDensity: 100 → 110.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 158 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it richer: resources.ruins: 100 → 130; resources.forestDensity: 100 → 110.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 170 logs of wood nearby (at least 80))."
   },
   {
    "id": "J08",
@@ -983,15 +985,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2366,
-   "summaryBytes": 6243,
+   "ms": 2145,
+   "summaryBytes": 5968,
    "maxResultBytes": 1247,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "start-moved"
    ],
-   "draft": "Changed the map's settings to make it roomier: terrain.buildableLand: normal → generous; terrain.relief: 50 → 40.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (46, 58) in the center: distances to the start changed.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 115 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it roomier: terrain.buildableLand: normal → generous; terrain.relief: 50 → 40.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (46, 58) in the center: distances to the start changed.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 144 logs of wood nearby (at least 80))."
   },
   {
    "id": "J09",
@@ -999,13 +1001,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 8670,
-   "summaryBytes": 5647,
+   "ms": 2963,
+   "summaryBytes": 5370,
    "maxResultBytes": 976,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it safer: hazards.badwater: normal → off; hazards.badwaterDistance: 15 → 39.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 206 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it safer: hazards.badwater: normal → off; hazards.badwaterDistance: 15 → 39.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 114 logs of wood nearby (at least 80))."
   },
   {
    "id": "J11",
@@ -1013,13 +1015,13 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 3421,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1568,
+   "ms": 6767,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1802,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a lake: in the south third, 44 tiles from the main river, on the opposite bank, 817 tiles at level 9, 74.5 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Lowers 285 tiles: 229 by 2, 56 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the south third, 33 tiles from the main river, on the opposite bank, a lake of 208 tiles at level 9, 1.5 blocks/s of water, 68.1 tiles from the start.\nA water source of 1.5 blocks/s at (54, 30); fills the hollow to level 9, about 208 tiles, then spills over its rim.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "J13",
@@ -1027,13 +1029,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2354,
-   "summaryBytes": 6243,
+   "ms": 2349,
+   "summaryBytes": 5968,
    "maxResultBytes": 1164,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Changed the map's settings to make it wetter: water.riverFlow: normal → strong; water.lakes: some → many; water.droughtReserve: normal → plenty.\nEvery start rule still holds (clean water 7.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 187 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it wetter: water.riverFlow: normal → strong; water.lakes: some → many; water.droughtReserve: normal → plenty.\nEvery start rule still holds (clean water 7.4 tiles away (at most 20), 48 berry bushes nearby (at least 30), 124 logs of wood nearby (at least 80))."
   },
   {
    "id": "M01",
@@ -1041,35 +1043,33 @@
    "pass": true,
    "failures": [],
    "calls": 4,
-   "ms": 35140,
-   "summaryBytes": 6243,
-   "maxResultBytes": 6684,
+   "ms": 51671,
+   "summaryBytes": 5968,
+   "maxResultBytes": 6963,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "less-flow",
     "start-moved",
-    "cleared",
     "map-wide"
    ],
-   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nMoved the start to the west third, (8, 56).\nBuilt a dam site: in the center, 57% of the way down the main river, a dam 4 tiles long would hold 1650 blocks over 1546 tiles, 65.9 tiles from the start.\nBuilt a badwater spring: in the southwest corner, 9% of the way down the main river, on the opposite bank, 2.5 blocks/s of badwater, draining to the map edge, 32.1 tiles from the start.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60: the reservoir at dam takes about 12.7 minutes to fill, 1.7× as long as it would have, and the best dam site near the start now holds 139 blocks (was 262).\nAlso: plants a berry patch of 28 bushes near the new start, for the start rules (30 bushes within 20 tiles).\nAlso: clears the medium relic: its ground is no longer level.\nAlso: clears 71 ruin columns.\nTrade-off: Settings apply to the whole map, not one valley: the change reaches every part of it.\nAssumption: \"upstream\" read as the upper third of the main river's course (it flows west to east, read from its water surface).\nAssumption: the bank opposite the start of the main river.\nEvery start rule still holds (clean water 6.2 tiles away (at most 20), 38 berry bushes nearby (at least 30), 385 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nMoved the start to the west third, (16, 76).\nBuilt a dam site: in the center, 57% of the way down the main river, a dam 4 tiles long would hold 1636 blocks over 1532 tiles, 53.2 tiles from the start.\nBuilt a badwater spring: in the southwest corner, 16% of the way down the main river, on the opposite bank, 2.5 blocks/s of badwater, draining to the map edge, 42.4 tiles from the start.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60: the reservoir at dam takes about 12.6 minutes to fill, 1.7× as long as it would have.\nAlso: plants a berry patch of 38 bushes near the new start, for the start rules (30 bushes within 20 tiles).\nAlso: plants a grove of 33 trees near the new start, for the start rules (80 logs within 20 tiles).\nTrade-off: Settings apply to the whole map, not one valley: the change reaches every part of it.\nAssumption: \"upstream\" read as the upper third of the main river's course (it flows west to east, read from its water surface).\nAssumption: the bank opposite the start of the main river.\nEvery start rule still holds (clean water 13.9 tiles away (at most 20), 38 berry bushes nearby (at least 30), 130 logs of wood nearby (at least 80))."
   },
   {
    "id": "M02",
    "kind": "compound",
    "pass": true,
    "failures": [],
-   "calls": 1,
-   "ms": 5335,
-   "summaryBytes": 5647,
-   "maxResultBytes": 2859,
+   "calls": 2,
+   "ms": 10976,
+   "summaryBytes": 5370,
+   "maxResultBytes": 3046,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
-    "cleared",
-    "order"
+    "cleared"
    ],
-   "draft": "Built a lake: in the center, 64% of the way down the main river, on the start's bank, 92 tiles at level 5, 18 tiles from the start.\nBuilt a waterfall: in the north third, 43% of the way down the main river, on the opposite bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 33.5 tiles from the start.\nAlso: clears 5 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 208 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 43% of the way down the main river, on the opposite bank, 8 tiles of falling water, a 6-level drop, 2 blocks/s, 33.5 tiles from the start.\nLowers 73 tiles: 49 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the center, 57% of the way down the main river, on the start's bank, a lake of 38 tiles at level 7, 1.5 blocks/s of water, 11 tiles from the start.\nA water source of 1.5 blocks/s at (45, 48); fills the hollow to level 7, about 38 tiles, then spills over its rim.\nAlso: clears 18 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 270 logs of wood nearby (at least 80))."
   },
   {
    "id": "M03",
@@ -1077,38 +1077,38 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2600,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1941,
+   "ms": 2603,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1945,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "order"
    ],
-   "draft": "Changed the map's settings to make it lush: resources.forestDensity: 100 → 150; resources.berryBushes: 100 → 160; water.riverFlow: normal → strong; water.lakes: some → many.\nBuilt a forest: in the west third, 24% of the way down the main river, on the opposite bank, 85 trees, 49 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 194 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it lush: resources.forestDensity: 100 → 150; resources.berryBushes: 100 → 160; water.riverFlow: normal → strong; water.lakes: some → many.\nBuilt a forest: in the west third, 24% of the way down the main river, on the opposite bank, 85 trees, 48.8 tiles from the start.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 142 logs of wood nearby (at least 80))."
   },
   {
    "id": "M04",
    "kind": "compound",
    "pass": false,
    "failures": [
-    "propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (8 breaks extras.placement; 1 breaks start.wood, extras.placement; 1 breaks start.food, start.wood, extras.placement), and nowhere else on this map either",
-    "expectation g1 start course.frac failed: it went from 0.34 to 0.34, not up"
+    "propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (4 breaks extras.placement; 2 breaks start.food, extras.placement; 3 breaks start.wood, extras.placement; 1 breaks start.food, start.wood, extras.placement), and nowhere else on this map either | step 1: every site that fits here breaks a check that passes now (1 breaks start.food)",
+    "expectation g1 start course.frac failed: it went from 0.34 to 0.34, not up",
+    "expectation g2 new:damSite course.frac failed: the proposal made no damSite"
    ],
    "calls": 1,
-   "ms": 21218,
-   "summaryBytes": 5944,
-   "maxResultBytes": 3696,
+   "ms": 15367,
+   "summaryBytes": 5644,
+   "maxResultBytes": 4284,
    "accepted": false,
    "notMet": [
     "g1",
+    "g2",
+    "g1",
     "g1"
    ],
-   "tradeoffs": [
-    "reduced",
-    "cleared"
-   ],
-   "draft": "Built a dam site: in the west third, 30% of the way down the main river, a dam 5 tiles long would hold 193 blocks over 157 tiles, 15.3 tiles from the start.\nTrade-off: The dam site 43% down the main river now holds 1247 blocks instead of 1460: the new work sits in its basin.\nAlso: near the start there are now 52 trees (was 60) and 41 berry bushes (was 89).\nNot done: the start downstream. Start course.frac: it went from 0.34 to 0.34, not up.\nNot done: the start downstream. Every site that fits here breaks a check that passes now (8 breaks extras.placement; 1 breaks start.wood, extras.placement; 1 breaks start.food, start.wood, extras.placement), and nowhere else on this map either.\nAssumption: \"downstream\" read as the lower third of the main river's course (it flows west to east, read from its water surface).\nAssumption: upstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 41 berry bushes nearby (at least 30), 111 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Not done: the start downstream. Start course.frac: it went from 0.34 to 0.34, not up.\nNearest I can do: the nearest place that fits: north third, 43% of the way down the main river, about 35 tiles from the place asked for. Say \"yes\" to build that instead.\nNot done: a dam site just upstream of the new start. New:damSite course.frac: the proposal made no damSite.\nNearest I can do: the nearest place that fits: north third, 43% of the way down the main river, about 35 tiles from the place asked for. Say \"yes\" to build that instead.\nNot done: the start downstream. Every site that fits here breaks a check that passes now (4 breaks extras.placement; 2 breaks start.food, extras.placement; 3 breaks start.wood, extras.placement; 1 breaks start.food, start.wood, extras.placement), and nowhere else on this map either.\nNot done: the start downstream. Every site that fits here breaks a check that passes now (1 breaks start.food).\nNearest I can do: the nearest place that fits: north third, 43% of the way down the main river, about 35 tiles from the place asked for. Say \"yes\" to build that instead.\nAssumption: \"downstream\" read as the lower third of the main river's course (it flows west to east, read from its water surface).\nAssumption: upstream of the start read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 52 berry bushes nearby (at least 30), 150 logs of wood nearby (at least 80))."
   },
   {
    "id": "M05",
@@ -1116,13 +1116,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 4413,
-   "summaryBytes": 6243,
-   "maxResultBytes": 2589,
+   "ms": 4051,
+   "summaryBytes": 5968,
+   "maxResultBytes": 2583,
    "accepted": true,
    "notMet": [],
-   "tradeoffs": [],
-   "draft": "Built a gorge: in the center, 41% of the way down the main river, 18.4 tiles from the start.\nBuilt a waterfall: in the center, 54% of the way down the main river, 20.5 tiles from the start.\nAssumption: downstream of gorge read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 144 logs of wood nearby (at least 80))."
+   "tradeoffs": [
+    "cleared"
+   ],
+   "draft": "Built a gorge: in the center, 41% of the way down the main river, 18.4 tiles from the start.\nBuilt a waterfall: in the center, 54% of the way down the main river, 20.5 tiles from the start.\nAlso: near the start there are now 36 trees (was 48) and 46 berry bushes (was 46).\nAssumption: downstream of gorge read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 92 logs of wood nearby (at least 80))."
   },
   {
    "id": "M06",
@@ -1132,17 +1134,15 @@
     "expectation g2 map badwaterDistance failed: it is 22.6, under 30"
    ],
    "calls": 1,
-   "ms": 4681,
-   "summaryBytes": 5647,
-   "maxResultBytes": 2204,
+   "ms": 2641,
+   "summaryBytes": 5370,
+   "maxResultBytes": 2192,
    "accepted": true,
    "notMet": [
     "g2"
    ],
-   "tradeoffs": [
-    "cleared"
-   ],
-   "draft": "Built a badwater spring: in the southeast corner, 71% of the way down the main river, on the start's bank, 2.5 blocks/s of badwater, draining to the map edge, 35.5 tiles from the start.\nAlso: clears 29 trees.\nNot done: the start's water stays clean. Map badwaterDistance: it is 22.6, under 30.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "tradeoffs": [],
+   "draft": "Built a badwater spring: in the east third, 61% of the way down the main river, on the opposite bank, 2.5 blocks/s of badwater, draining into the main river 73% of the way down, 30.4 tiles from the start.\nNot done: the start's water stays clean. Map badwaterDistance: it is 22.6, under 30.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "M07",
@@ -1150,15 +1150,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3792,
-   "summaryBytes": 5647,
-   "maxResultBytes": 3085,
+   "ms": 2862,
+   "summaryBytes": 5370,
+   "maxResultBytes": 3403,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "order"
    ],
-   "draft": "Changed the map's settings to make it easier: water.riverFlow: normal → strong; water.droughtReserve: normal → plenty; hazards.badwater: normal → low; resources.forestDensity: 100 → 130; resources.berryBushes: 100 → 140.\nBuilt a lake: in the west third, 16% of the way down the main river, on the start's bank, 45 tiles at level 7, 14 tiles from the start.\nBuilt a berry patch: in the center, 61% of the way down the main river, on the start's bank, 85 berry bushes, 14.3 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 36 berry bushes nearby (at least 30), 147 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it easier: water.riverFlow: normal → strong; water.droughtReserve: normal → plenty; hazards.badwater: normal → low; resources.forestDensity: 100 → 130; resources.berryBushes: 100 → 140.\nLowers 46 tiles: 22 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the east third, 100% of the way down the main river, on the opposite bank, a lake of 27 tiles at level 4, 1.5 blocks/s of water, 57 tiles from the start.\nA water source of 1.5 blocks/s at (91, 48); fills the hollow to level 4, about 27 tiles, then spills over its rim.\nBuilt a berry patch: in the center, 61% of the way down the main river, on the start's bank, 85 berry bushes, 14.3 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 64 berry bushes nearby (at least 30), 192 logs of wood nearby (at least 80))."
   },
   {
    "id": "M08",
@@ -1166,8 +1166,8 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 13495,
-   "summaryBytes": 6243,
+   "ms": 11336,
+   "summaryBytes": 5968,
    "maxResultBytes": 3333,
    "accepted": true,
    "notMet": [
@@ -1177,7 +1177,7 @@
     "start-moved",
     "less-flow"
    ],
-   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nBuilt a dam site: in the west third, 36% of the way down the main river, a dam 6 tiles long would hold 479 blocks over 466 tiles, 15.5 tiles from the start.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60: the reservoir at damsite-1 takes about 3.7 minutes to fill, 1.7× as long as it would have.\nNot done: a big reservoir near the start. New:damSite reservoir.volume: it is 479, under 633.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 306 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nBuilt a dam site: in the west third, 36% of the way down the main river, a dam 6 tiles long would hold 479 blocks over 466 tiles, 15.5 tiles from the start.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60: the reservoir at damsite-1 takes about 3.7 minutes to fill, 1.7× as long as it would have.\nNot done: a big reservoir near the start. New:damSite reservoir.volume: it is 479, under 633.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 48 berry bushes nearby (at least 30), 200 logs of wood nearby (at least 80))."
   },
   {
    "id": "M09",
@@ -1185,13 +1185,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 7502,
-   "summaryBytes": 6538,
+   "ms": 7328,
+   "summaryBytes": 6412,
    "maxResultBytes": 2208,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a waterfall: in the center, 82% of the way down the north tributary, 34.5 tiles from the start.\nBuilt a waterfall: in the east third, 69% of the way down the south tributary, 69.3 tiles from the start.\nEvery start rule still holds (clean water 6.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 180 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the center, 82% of the way down the north tributary, 34.5 tiles from the start.\nBuilt a waterfall: in the east third, 69% of the way down the south tributary, 69.3 tiles from the start.\nEvery start rule still holds (clean water 6.8 tiles away (at most 20), 48 berry bushes nearby (at least 30), 143 logs of wood nearby (at least 80))."
   },
   {
    "id": "M10",
@@ -1199,9 +1199,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 94654,
-   "summaryBytes": 7509,
-   "maxResultBytes": 5139,
+   "ms": 71455,
+   "summaryBytes": 7665,
+   "maxResultBytes": 5244,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
@@ -1209,7 +1209,7 @@
     "cleared",
     "order"
    ],
-   "draft": "Built a dam site: in the east third, 78% of the way down the main river, a dam 9 tiles long would hold 11043 blocks over 9695 tiles, its water is contaminated, 52.4 tiles from the start.\nBuilt a waterfall: in the north third, 46 tiles from the main river, on the start's bank, 38 tiles of falling water, a 6-level drop, 2 blocks/s, 83.4 tiles from the start.\nBuilt a ruin field: in the southeast corner, 83 tiles from the main river, on the opposite bank, 3435 scrap, 130.3 tiles from the start.\nTrade-off: The badwater spring f-xl22qlcxxjqs2 lies inside the reservoir the dam site damsite-1 would hold: a dam there floods it and the water turns to badwater.\nTrade-off: The badwater spring f-lhzvulole5hh6 lies inside the reservoir the dam site damsite-1 would hold: a dam there floods it and the water turns to badwater.\nAlso: clears 14 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 43 berry bushes nearby (at least 30), 118 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the east third, 78% of the way down the main river, a dam 9 tiles long would hold 11043 blocks over 9695 tiles, its water is contaminated, 52.4 tiles from the start.\nBuilt a waterfall: in the north third, 46 tiles from the main river, on the start's bank, 38 tiles of falling water, a 6-level drop, 2 blocks/s, 83.4 tiles from the start.\nBuilt a ruin field: in the southeast corner, 83 tiles from the main river, on the opposite bank, 3465 scrap, 130.3 tiles from the start.\nTrade-off: The badwater spring f-xl22qlcxxjqs2 lies inside the reservoir the dam site damsite-1 would hold: a dam there floods it and the water turns to badwater.\nTrade-off: The badwater spring f-lhzvulole5hh6 lies inside the reservoir the dam site damsite-1 would hold: a dam there floods it and the water turns to badwater.\nAlso: near the start there are now 104 trees (was 120) and 44 berry bushes (was 48).\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 44 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "V01",
@@ -1217,15 +1217,15 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 4409,
-   "summaryBytes": 6243,
-   "maxResultBytes": 4575,
+   "ms": 4772,
+   "summaryBytes": 5968,
+   "maxResultBytes": 4572,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a waterfall: in the north third, 51% of the way down the main river, on the start's bank, 9 tiles of falling water, a 6-level drop, 2 blocks/s, 16.1 tiles from the start.\nBuilt terraced cliffs: in the southwest corner, 16% of the way down the main river, on the opposite bank, 61.4 tiles from the start.\nAlso: clears 8 trees.\nAlso: clears 94 trees, 17 berry bushes, 32 ruin columns and 2 other objects.\nAlso: clears the mine site: the new feature covers its ground.\nAlso: clears the mine site: the new feature covers its ground.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 51% of the way down the main river, on the start's bank, 9 tiles of falling water, a 6-level drop, 2 blocks/s, 18.9 tiles from the start.\nBuilt terraced cliffs: in the southwest corner, 16% of the way down the main river, on the opposite bank, 61.4 tiles from the start.\nAlso: clears 3 trees.\nAlso: clears 44 trees, 18 berry bushes, 17 ruin columns and 1 other object.\nAlso: clears the mine site: the new feature covers its ground.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "V02",
@@ -1233,16 +1233,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 5213,
-   "summaryBytes": 5647,
-   "maxResultBytes": 3091,
+   "ms": 4668,
+   "summaryBytes": 5370,
+   "maxResultBytes": 3008,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
-    "reduced",
-    "cleared"
+    "reduced"
    ],
-   "draft": "Built a gorge: in the north third, 45% of the way down the main river, 18.8 tiles from the start.\nBuilt a waterfall: in the southeast corner, 83% of the way down the main river, on the start's bank, 5 tiles of falling water, a 6-level drop, 2 blocks/s, 39.8 tiles from the start.\nTrade-off: The dam site 44% down the main river now holds 737 blocks instead of 763: the new work sits in its basin.\nAlso: clears 4 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 66 berry bushes nearby (at least 30), 204 logs of wood nearby (at least 80))."
+   "draft": "Built a gorge: in the north third, 45% of the way down the main river, 18.8 tiles from the start.\nBuilt a waterfall: in the east third, 78% of the way down the main river, on the opposite bank, 5 tiles of falling water, a 6-level drop, 2 blocks/s, 41.1 tiles from the start.\nTrade-off: The dam site 44% down the main river now holds 737 blocks instead of 763: the new work sits in its basin.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "V04",
@@ -1250,16 +1249,16 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 9840,
-   "summaryBytes": 7509,
-   "maxResultBytes": 2251,
+   "ms": 9688,
+   "summaryBytes": 7665,
+   "maxResultBytes": 2232,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "reduced",
     "cleared"
    ],
-   "draft": "Built a waterfall: in the north third, 54 tiles from the main river, on the start's bank, 90 tiles of falling water, a 6-level drop, 2.28 blocks/s, 98.4 tiles from the start.\nTrade-off: Flow 2 raised to 2.28: a lip 90 wide dries out below that.\nAlso: clears 19 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 156 logs of wood nearby (at least 80))."
+   "draft": "Built a waterfall: in the north third, 46% of the way down the main river, on the start's bank, 90 tiles of falling water, a 6-level drop, 2.28 blocks/s, 60.4 tiles from the start.\nTrade-off: Flow 2 raised to 2.28: a lip 90 wide dries out below that.\nAlso: clears 18 trees.\nEvery start rule still holds (clean water 4.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 110 logs of wood nearby (at least 80))."
   },
   {
    "id": "V05",
@@ -1267,15 +1266,15 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2863,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1568,
+   "ms": 3001,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1811,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built terraced cliffs: in the southwest corner, 27 tiles from the main river, on the start's bank, 23.8 tiles from the start.\nAlso: clears 51 trees.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Built terraced cliffs: in the southwest corner, 27 tiles from the main river, on the start's bank, 23.8 tiles from the start.\nAlso: clears 33 trees and 6 other objects.\nAlso: clears the thorn belt: the new feature covers its ground.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "V06",
@@ -1283,9 +1282,9 @@
    "pass": true,
    "failures": [],
    "calls": 3,
-   "ms": 3090,
-   "summaryBytes": 5668,
-   "maxResultBytes": 2762
+   "ms": 2684,
+   "summaryBytes": 5509,
+   "maxResultBytes": 2758
   },
   {
    "id": "I01",
@@ -1293,8 +1292,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 323,
-   "summaryBytes": 4877,
+   "ms": 248,
+   "summaryBytes": 5072,
    "maxResultBytes": 817
   },
   {
@@ -1303,8 +1302,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 926,
-   "summaryBytes": 5647,
+   "ms": 816,
+   "summaryBytes": 5370,
    "maxResultBytes": 1914
   },
   {
@@ -1313,8 +1312,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2339,
-   "summaryBytes": 6690,
+   "ms": 1256,
+   "summaryBytes": 6415,
    "maxResultBytes": 1913
   },
   {
@@ -1323,8 +1322,8 @@
    "pass": true,
    "failures": [],
    "calls": 0,
-   "ms": 870,
-   "summaryBytes": 5647,
+   "ms": 833,
+   "summaryBytes": 5370,
    "maxResultBytes": 0
   },
   {
@@ -1333,8 +1332,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 833,
-   "summaryBytes": 5647,
+   "ms": 780,
+   "summaryBytes": 5370,
    "maxResultBytes": 483
   },
   {
@@ -1343,22 +1342,21 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 841,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1174
+   "ms": 803,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1398
   },
   {
    "id": "I07",
    "kind": "impossible",
    "pass": false,
    "failures": [
-    "check call:0 ok false  failed (actual: true)",
-    "check call:0 reason includes \"within 42 tiles of the start\" failed (actual: undefined)"
+    "check call:0 reason includes \"within 42 tiles of the start\" failed (actual: \"every site that fits here breaks a check that passes now (1 breaks entities.placement, water.badwater_contained; 1 breaks resources.mine_site), and nowhere els)"
    ],
    "calls": 1,
-   "ms": 954,
-   "summaryBytes": 4877,
-   "maxResultBytes": 1411
+   "ms": 1184,
+   "summaryBytes": 5072,
+   "maxResultBytes": 496
   },
   {
    "id": "I08",
@@ -1366,8 +1364,8 @@
    "pass": true,
    "failures": [],
    "calls": 0,
-   "ms": 829,
-   "summaryBytes": 5647,
+   "ms": 844,
+   "summaryBytes": 5370,
    "maxResultBytes": 0
   },
   {
@@ -1378,9 +1376,9 @@
     "expectation g1 new:badwaterBasin distanceToStart failed: it is 27.9, under 40"
    ],
    "calls": 2,
-   "ms": 1854,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1932,
+   "ms": 1662,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1872,
    "accepted": true,
    "notMet": [
     "g1"
@@ -1388,7 +1386,7 @@
    "tradeoffs": [
     "cleared"
    ],
-   "draft": "Built a badwater spring: in the northwest corner, 38% of the way down the main river, on the start's bank, 1.5 blocks/s of badwater, draining to the map edge, 27.9 tiles from the start.\nAlso: clears 3 trees and 43 ruin columns.\nNot done: badwater just upstream of the start. New:badwaterBasin distanceToStart: it is 27.9, under 40.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 160 logs of wood nearby (at least 80))."
+   "draft": "Built a badwater spring: in the northwest corner, 38% of the way down the main river, on the start's bank, 1.5 blocks/s of badwater, draining to the map edge, 27.9 tiles from the start.\nAlso: clears 5 trees.\nNot done: badwater just upstream of the start. New:badwaterBasin distanceToStart: it is 27.9, under 40.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 46 berry bushes nearby (at least 30), 112 logs of wood nearby (at least 80))."
   },
   {
    "id": "X02",
@@ -1396,9 +1394,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 833,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1071
+   "ms": 808,
+   "summaryBytes": 5968,
+   "maxResultBytes": 1073
   },
   {
    "id": "X03",
@@ -1406,9 +1404,9 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 5017,
-   "summaryBytes": 5647,
-   "maxResultBytes": 886
+   "ms": 24438,
+   "summaryBytes": 5370,
+   "maxResultBytes": 518
   },
   {
    "id": "X04",
@@ -1416,16 +1414,16 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 5900,
-   "summaryBytes": 5944,
-   "maxResultBytes": 4196,
+   "ms": 3907,
+   "summaryBytes": 5644,
+   "maxResultBytes": 3661,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [
     "badwater-poisons-reservoir",
     "cleared"
    ],
-   "draft": "Built a dam site: in the southeast corner, 92% of the way down the main river, a dam 6 tiles long would hold 2639 blocks over 2079 tiles, its water is contaminated, 76.2 tiles from the start.\nBuilt a badwater spring: in the east third, 79% of the way down the main river, on the opposite bank, 1.5 blocks/s of badwater, draining into the main river 79% of the way down, 56.7 tiles from the start.\nTrade-off: The badwater spring badwater lies inside the reservoir the dam site dam would hold: a dam there floods it and the water turns to badwater.\nTrade-off: The badwater from badwater joins the main river 79% of the way down, above the dam site dam (91%): its reservoir would fill with badwater (the preview's water there is already contaminated).\nAlso: clears 19 trees and 1 other object.\nAlso: clears the thorn belt: the new feature covers its ground.\nAssumption: upstream of dam read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 89 berry bushes nearby (at least 30), 119 logs of wood nearby (at least 80))."
+   "draft": "Built a dam site: in the southeast corner, 92% of the way down the main river, a dam 6 tiles long would hold 2856 blocks over 2144 tiles, its water is contaminated, 76.2 tiles from the start.\nBuilt a badwater spring: in the southeast corner, 82% of the way down the main river, on the start's bank, 1.5 blocks/s of badwater, draining to the map edge, 56.1 tiles from the start.\nTrade-off: The badwater spring badwater lies inside the reservoir the dam site dam would hold: a dam there floods it and the water turns to badwater.\nAlso: clears the mine site: its ground is no longer level.\nAlso: clears 51 trees and 10 berry bushes.\nAssumption: upstream of dam read along the main river, which flows west to east.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 52 berry bushes nearby (at least 30), 150 logs of wood nearby (at least 80))."
   },
   {
    "id": "X09",
@@ -1435,8 +1433,8 @@
     "check call:0 sites.0.measured.reservoirClean false  failed (actual: true)"
    ],
    "calls": 2,
-   "ms": 10467,
-   "summaryBytes": 6243,
+   "ms": 3935,
+   "summaryBytes": 5968,
    "maxResultBytes": 1702
   },
   {
@@ -1445,9 +1443,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 823,
-   "summaryBytes": 6243,
-   "maxResultBytes": 1447
+   "ms": 484,
+   "summaryBytes": 5968,
+   "maxResultBytes": 451
   },
   {
    "id": "X06",
@@ -1455,8 +1453,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 8341,
-   "summaryBytes": 6243,
+   "ms": 4205,
+   "summaryBytes": 5968,
    "maxResultBytes": 2061,
    "accepted": true,
    "notMet": [],
@@ -1464,7 +1462,7 @@
     "start-moved",
     "less-flow"
    ],
-   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nChanged the map's settings.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 96 berry bushes nearby (at least 30), 158 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings to make it harsher: water.riverFlow: normal → trickle; water.droughtReserve: normal → scarce; hazards.badwater: normal → high; resources.forestDensity: 100 → 75; resources.berryBushes: 100 → 70.\nChanged the map's settings.\nTrade-off: The regenerated map put the start 40 tiles from where it was, at (45, 58) in the center: distances to the start changed.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly.\nEvery start rule still holds (clean water 7.7 tiles away (at most 20), 96 berry bushes nearby (at least 30), 124 logs of wood nearby (at least 80))."
   },
   {
    "id": "X07",
@@ -1472,9 +1470,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 11128,
-   "summaryBytes": 5647,
-   "maxResultBytes": 668
+   "ms": 6004,
+   "summaryBytes": 5370,
+   "maxResultBytes": 670
   },
   {
    "id": "X08",
@@ -1485,9 +1483,9 @@
     "expectation g1 new:damSite reservoir.volume failed: the proposal made no damSite"
    ],
    "calls": 1,
-   "ms": 5594,
-   "summaryBytes": 6243,
-   "maxResultBytes": 3453,
+   "ms": 4368,
+   "summaryBytes": 5968,
+   "maxResultBytes": 3447,
    "accepted": false,
    "notMet": [
     "g1",
@@ -1496,19 +1494,19 @@
    "tradeoffs": [
     "less-flow"
    ],
-   "draft": "Changed the map's settings.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly, and the best dam site near the start now holds 253 blocks (was 262).\nNot done: a huge reservoir near the start. New:damSite reservoir.volume: the proposal made no damSite.\nNearest I can do: the best this place allows: a reservoir of 125 blocks; or the full size fits at east third, 83% of the way down the main river, about 68 tiles from the place asked for (a reservoir of 2875 blocks). Say \"yes\" to build that instead.\nNot done: a huge reservoir near the start. Nothing here reaches the reservoir of at least 1518 blocks.\nNearest I can do: the best this place allows: a reservoir of 125 blocks; or the full size fits at east third, 83% of the way down the main river, about 68 tiles from the place asked for (a reservoir of 2875 blocks). Say \"yes\" to build that instead.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 42 berry bushes nearby (at least 30), 158 logs of wood nearby (at least 80))."
+   "draft": "Changed the map's settings.\nTrade-off: The river now brings 2.16 blocks/s instead of 3.60, so every reservoir fills more slowly, and the best dam site near the start now holds 253 blocks (was 262).\nNot done: a huge reservoir near the start. New:damSite reservoir.volume: the proposal made no damSite.\nNearest I can do: the best this place allows: a reservoir of 59 blocks; or the full size fits at east third, 83% of the way down the main river, about 68 tiles from the place asked for (a reservoir of 2875 blocks). Say \"yes\" to build that instead.\nNot done: a huge reservoir near the start. Nothing here reaches the reservoir of at least 1518 blocks.\nNearest I can do: the best this place allows: a reservoir of 59 blocks; or the full size fits at east third, 83% of the way down the main river, about 68 tiles from the place asked for (a reservoir of 2875 blocks). Say \"yes\" to build that instead.\nEvery start rule still holds (clean water 8.8 tiles away (at most 20), 42 berry bushes nearby (at least 30), 148 logs of wood nearby (at least 80))."
   },
   {
    "id": "Q01",
    "kind": "question",
    "pass": false,
    "failures": [
-    "check call:0 failing includes \"start.water\" failed (actual: \"[{\\\"id\\\":\\\"start.reach\\\",\\\"message\\\":\\\"252 dry tiles are walkable from the start through slopes (the target is 1300; official p10 1,007)\\\",\\\"advisory\\\":true},{)"
+    "check call:0 failing includes \"start.water\" failed (actual: \"[{\\\"id\\\":\\\"start.reach\\\",\\\"message\\\":\\\"262 dry tiles are walkable from the start through slopes (the target is 1300; official p10 1,007)\\\",\\\"advisory\\\":true},{)"
    ],
    "calls": 1,
-   "ms": 329,
-   "summaryBytes": 4877,
-   "maxResultBytes": 3071
+   "ms": 328,
+   "summaryBytes": 5072,
+   "maxResultBytes": 3078
   },
   {
    "id": "Q02",
@@ -1516,8 +1514,8 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 775,
-   "summaryBytes": 6243,
+   "ms": 586,
+   "summaryBytes": 5968,
    "maxResultBytes": 2930
   },
   {
@@ -1526,8 +1524,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 3722,
-   "summaryBytes": 6243,
+   "ms": 3020,
+   "summaryBytes": 5968,
    "maxResultBytes": 1339
   },
   {
@@ -1536,8 +1534,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 851,
-   "summaryBytes": 6243,
+   "ms": 549,
+   "summaryBytes": 5968,
    "maxResultBytes": 866
   },
   {
@@ -1546,9 +1544,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1502,
-   "summaryBytes": 6619,
-   "maxResultBytes": 1163
+   "ms": 1260,
+   "summaryBytes": 6341,
+   "maxResultBytes": 1162
   },
   {
    "id": "Q06",
@@ -1556,8 +1554,8 @@
    "pass": true,
    "failures": [],
    "calls": 2,
-   "ms": 2274,
-   "summaryBytes": 6690,
+   "ms": 1235,
+   "summaryBytes": 6415,
    "maxResultBytes": 1913
   },
   {
@@ -1566,9 +1564,9 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1834,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1826
+   "ms": 1520,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1824
   },
   {
    "id": "Z01",
@@ -1576,8 +1574,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2467,
-   "summaryBytes": 2456,
+   "ms": 2323,
+   "summaryBytes": 2452,
    "maxResultBytes": 2752
   },
   {
@@ -1586,13 +1584,13 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 4415,
-   "summaryBytes": 2177,
+   "ms": 3872,
+   "summaryBytes": 2173,
    "maxResultBytes": 1049,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a ruin field: in the northeast corner, 1500 scrap, 60.9 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 210 logs of wood nearby (at least 80))."
+   "draft": "Built a ruin field: in the northeast corner, 1545 scrap, 48.6 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   },
   {
    "id": "Z03",
@@ -1600,8 +1598,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1146,
-   "summaryBytes": 5647,
+   "ms": 722,
+   "summaryBytes": 5370,
    "maxResultBytes": 233
   },
   {
@@ -1610,23 +1608,23 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 883,
-   "summaryBytes": 5647,
-   "maxResultBytes": 223
+   "ms": 746,
+   "summaryBytes": 5370,
+   "maxResultBytes": 204
   },
   {
    "id": "Z05",
    "kind": "safety",
    "pass": true,
    "failures": [],
-   "calls": 2,
-   "ms": 7875,
-   "summaryBytes": 5647,
-   "maxResultBytes": 1366,
+   "calls": 3,
+   "ms": 9529,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1703,
    "accepted": true,
    "notMet": [],
    "tradeoffs": [],
-   "draft": "Built a lake: in the center, 64% of the way down the main river, on the start's bank, 92 tiles at level 5, 18 tiles from the start.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 69 berry bushes nearby (at least 30), 208 logs of wood nearby (at least 80))."
+   "draft": "Lowers 73 tiles: 49 by 2, 24 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the center, 57% of the way down the main river, on the start's bank, a lake of 38 tiles at level 7, 1.5 blocks/s of water, 11 tiles from the start.\nA water source of 1.5 blocks/s at (45, 48); fills the hollow to level 7, about 38 tiles, then spills over its rim.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 270 logs of wood nearby (at least 80))."
   },
   {
    "id": "Z06",
@@ -1634,8 +1632,8 @@
    "pass": true,
    "failures": [],
    "calls": 0,
-   "ms": 1520,
-   "summaryBytes": 2177,
+   "ms": 1382,
+   "summaryBytes": 2173,
    "maxResultBytes": 0
   },
   {
@@ -1644,8 +1642,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 1056,
-   "summaryBytes": 5647,
+   "ms": 907,
+   "summaryBytes": 5370,
    "maxResultBytes": 840
   },
   {
@@ -1654,8 +1652,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2002,
-   "summaryBytes": 6243,
+   "ms": 1487,
+   "summaryBytes": 5968,
    "maxResultBytes": 1474
   },
   {
@@ -1664,8 +1662,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 580,
-   "summaryBytes": 6243,
+   "ms": 475,
+   "summaryBytes": 5968,
    "maxResultBytes": 408
   },
   {
@@ -1674,8 +1672,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 924,
-   "summaryBytes": 5647,
+   "ms": 736,
+   "summaryBytes": 5370,
    "maxResultBytes": 310
   },
   {
@@ -1684,8 +1682,8 @@
    "pass": true,
    "failures": [],
    "calls": 1,
-   "ms": 2310,
-   "summaryBytes": 6243,
+   "ms": 482,
+   "summaryBytes": 5968,
    "maxResultBytes": 425
   },
   {
@@ -1694,9 +1692,339 @@
    "pass": true,
    "failures": [],
    "calls": 0,
-   "ms": 908,
-   "summaryBytes": 5647,
+   "ms": 718,
+   "summaryBytes": 5370,
    "maxResultBytes": 0
+  },
+  {
+   "id": "B01",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2085,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1621,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [
+    "reduced",
+    "cleared"
+   ],
+   "draft": "Raises 63 tiles: 35 by 2, 28 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nTrade-off: The dam site 44% down the main river now holds 560 blocks instead of 763: the new work sits in its basin.\nAlso: near the start there are now 44 trees (was 57) and 42 berry bushes (was 48).\nNot done: the ground just west of the start 2 levels higher. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.4 tiles away (at most 20), 42 berry bushes nearby (at least 30), 332 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B07",
+   "kind": "conflicting",
+   "pass": true,
+   "failures": [],
+   "calls": 1,
+   "ms": 1947,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1573
+  },
+  {
+   "id": "B02",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2719,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1260,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Flattens 74 of 105 tiles to level 8; the other 31 slope toward it from the ground round the place, a level a tile (a brush makes no cliffs).\nNot done: flat ground at level 8 around (70, 70). No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B03",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2219,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1176,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Smooths 216 of 1643 tiles in 2 passes: the steepest step there goes from 4 to 2 levels.\nNot done: the high ground in the north third smoothed. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B04",
+   "kind": "impossible",
+   "pass": true,
+   "failures": [],
+   "calls": 1,
+   "ms": 884,
+   "summaryBytes": 5370,
+   "maxResultBytes": 900
+  },
+  {
+   "id": "B05",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 3224,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1398,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Raises 181 tiles: 73 by 4, 32 by 3, 36 by 2, 40 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nNot done: a gentle hill near (70, 70), 4 levels high. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B06",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 1,
+   "ms": 2712,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1149,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Raises 105 tiles: 105 by 3; with cliff edges: beavers need stairs to climb them.\nNot done: a cliff-edged mesa near (80, 20), 3 levels high. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B08",
+   "kind": "compound",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 3267,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1989,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Lowers 49 tiles: 29 by 2, 20 by 1 (its edge slopes a level a tile to the ground round it: a brush makes no cliffs).\nBuilt lake: in the northeast corner, 31 tiles from the main river, on the opposite bank, a lake of 32 tiles at level 11, 1 blocks/s of water, 51.4 tiles from the start.\nA water source of 1 blocks/s at (80, 70); fills the hollow to level 11, about 32 tiles, then spills over its rim.\nNot done: a small pond near (80, 70), filled with water. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B09",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 3,
+   "ms": 2179,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1422,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Built source: in the northwest corner, 26% of the way down the main river, on the opposite bank, 4 blocks/s of water, 35.1 tiles from the start.\nA water source of 4 blocks/s at (22, 80).\nNot done: a strong water source in the northwest corner. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B10",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2266,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1536,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Built badwaterSource: in the southeast corner, 29 tiles from the main river, on the start's bank, 3 blocks/s of badwater, 54.6 tiles from the start.\nA badwater source of 3 blocks/s at (69, 5).\nNot done: a badwater source of 3 blocks/s in the southeast corner. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B12",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 3686,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1018,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Not done: the main river's sources give 4 blocks/s in all. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B13",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 1591,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1239,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Flattens 138 of 197 tiles to benches every 2 levels from level 15 (the place's middle level).\nNot done: terraces every two levels on the northeast hillside. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B14",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2196,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1567,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Flattens 57 of 81 tiles to level 11 (the place's middle level); the other 24 slope toward it from the ground round the place, a level a tile (a brush makes no cliffs); with ramped edges: the game's natural slopes join its rim's steps, so beavers can walk up.\nNot done: a flat plateau in the southwest, reachable on foot. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B15",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2633,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1385,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Smooths 39 of 197 tiles in 3 passes: the steepest step there goes from 3 to 1 levels; made walkable: the game's natural slopes join the steps it leaves, so beavers can walk up.\nNot done: the south's steps worn to one level, with slopes on them. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B16",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 1067,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1046,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Not done: a medium relic in the east third, turned a quarter. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B17",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 1018,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1034,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Not done: no trees or bushes left in the north-west corner. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B18",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 1,
+   "ms": 1049,
+   "summaryBytes": 5370,
+   "maxResultBytes": 965,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Moved the start to the center, (34, 47).\nNot done: the start's door faces east. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 278 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B19",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 4561,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1954,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Built source: in the northeast corner, 39 tiles from the main river, on the opposite bank, 5.375 blocks/s of water, 60.4 tiles from the start.\nNot done: a river carved from the east hills, still flowing. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B20",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2930,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1789,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [
+    "reduced",
+    "cleared"
+   ],
+   "draft": "Trade-off: The dam site 44% down the main river now holds 729 blocks instead of 763: the new work sits in its basin.\nAlso: near the start there are now 58 trees (was 57) and 39 berry bushes (was 48).\nNot done: a narrow dry canyon from the east side to the river. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 39 berry bushes nearby (at least 30), 486 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B21",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 2111,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1762,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Built source: in the center, 68% of the way down the main river, 5.375 blocks/s of water, 26.9 tiles from the start.\nNot done: a river cut from (60, 40) through to (85, 60). No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
+  },
+  {
+   "id": "B11",
+   "kind": "simple",
+   "pass": true,
+   "failures": [],
+   "calls": 2,
+   "ms": 1756,
+   "summaryBytes": 5370,
+   "maxResultBytes": 1666,
+   "accepted": true,
+   "notMet": [
+    "g1"
+   ],
+   "tradeoffs": [],
+   "draft": "Carves a bed 2 tiles wide from the main river at (72, 40) along 41 tiles, from level 3 down to level 1, never rising: the water follows it; it runs off the map edge at (72, 0), where its water leaves the map; it cuts up to 13 levels through higher ground: steep banks, beavers need stairs to cross.\nNot done: a straight channel from the main river to the south edge. No expectation checks this goal: if no step does it, say why it was left out and what you offer instead.\nEvery start rule still holds (clean water 8.2 tiles away (at most 20), 48 berry bushes nearby (at least 30), 302 logs of wood nearby (at least 80))."
   }
  ]
 }

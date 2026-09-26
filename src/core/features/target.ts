@@ -146,6 +146,12 @@ export class BuildTarget {
     return this.features.get(id);
   }
 
+  /** Whether a rectangle meets the region's bounding box (a quick test before a stroke's work). */
+  touchesRegion(b: Rect): boolean {
+    const r = this.region;
+    return b.x0 <= r.x1 && b.x1 >= r.x0 && b.y0 <= r.y1 && b.y1 >= r.y0;
+  }
+
   inRegion(i: number): boolean {
     const r = this.region;
     const x = i % this.W;

@@ -103,7 +103,7 @@ describe("URL codec (PLAN §14.5)", () => {
         ruins: int(25, 300),
         relics: pick(["off", "some"] as const),
         geothermal: pick(["off", "some"] as const),
-        mineSites: int(0, 4),
+        mineSites: int(1, 4), // every map has at least one (Kyler, 2026-09-25; D148)
       };
       st.start = {
         area: pick(["small", "normal", "large"] as const),

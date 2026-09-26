@@ -1,0 +1,243 @@
+{
+  "small-bowl": {
+    "title": "A small bowl",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "strike",
+      "power": 22,
+      "size": 22,
+      "walls": "steep",
+      "centre": "bowl",
+      "debris": "light",
+      "rays": false,
+      "seed": 2
+    },
+    "intent": {
+      "origin": 8256
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.19129999995231628,
+      0.29619999998807905,
+      0.525,
+      0.8027999999523163,
+      1.0992999999523163,
+      1.4150999999642373,
+      null
+    ],
+    "changed": 510
+  },
+  "peak": {
+    "title": "A mountain rebounds",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "strike",
+      "power": 62,
+      "size": 52,
+      "walls": "terraced",
+      "centre": "peak",
+      "debris": "heavy",
+      "rays": false,
+      "seed": 5
+    },
+    "intent": {
+      "origin": 8256
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.18399999998807925,
+      0.29199999998807924,
+      0.5206999999761583,
+      0.7988999999642374,
+      1.0903999999642373,
+      1.4109999999880793,
+      null
+    ],
+    "changed": 8353
+  },
+  "ring-rays": {
+    "title": "A ring crater with a debris starburst",
+    "map": "fixture:plain:256",
+    "settings": {
+      "mode": "strike",
+      "power": 97,
+      "size": 104,
+      "walls": "terraced",
+      "centre": "ring",
+      "debris": "heavy",
+      "rays": true,
+      "seed": 7
+    },
+    "intent": {
+      "origin": 32896
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.18169999995231637,
+      0.2894999999642373,
+      0.5205999999880792,
+      0.8014000000000001,
+      1.0935999999880792,
+      1.4141999999523163,
+      null
+    ],
+    "changed": 37347
+  },
+  "glancing": {
+    "title": "A glancing strike throws downrange",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "aim",
+      "power": 66,
+      "size": 38,
+      "walls": "terraced",
+      "centre": "bowl",
+      "debris": "heavy",
+      "rays": true,
+      "seed": 11
+    },
+    "intent": {
+      "origin": 8248,
+      "end": 9966
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.1808999999642374,
+      0.2896999999761583,
+      0.5226999999761583,
+      0.8013999999642374,
+      1.0888999999642375,
+      1.4123,
+      null
+    ],
+    "changed": 6565
+  },
+  "river-dam": {
+    "title": "Debris dams the river",
+    "map": "fixture:river:128",
+    "settings": {
+      "mode": "strike",
+      "power": 75,
+      "size": 34,
+      "walls": "terraced",
+      "centre": "bowl",
+      "debris": "heavy",
+      "rays": false,
+      "seed": 17
+    },
+    "intent": {
+      "origin": 8254
+    },
+    "settled": true,
+    "waterTicks": 2176,
+    "frameTimes": [
+      null,
+      0.17899999995231702,
+      0.28729999996423794,
+      0.5182000000000008,
+      0.7967999999642379,
+      1.088299999964238,
+      1.411299999964238,
+      null
+    ],
+    "changed": 4226
+  },
+  "overlap": {
+    "title": "The newest rim cuts through the old",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "strike",
+      "power": 58,
+      "size": 42,
+      "walls": "terraced",
+      "centre": "peak",
+      "debris": "heavy",
+      "rays": false,
+      "seed": 9
+    },
+    "intent": {
+      "origin": 8654
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.17979999996423793,
+      0.2878999999880798,
+      0.5178999999880798,
+      0.797999999952317,
+      1.0885999999761589,
+      1.4107000000000007,
+      null
+    ],
+    "changed": 5397
+  },
+  "walls-steep": {
+    "title": "Steep walls",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "strike",
+      "power": 74,
+      "size": 54,
+      "walls": "steep",
+      "centre": "flat",
+      "debris": "heavy",
+      "rays": false,
+      "seed": 6
+    },
+    "intent": {
+      "origin": 8256
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.19219999996423576,
+      0.29409999999999853,
+      0.5258999999523148,
+      0.8032999999880777,
+      1.0949999999761566,
+      1.4158999999523147,
+      null
+    ],
+    "changed": 9855
+  },
+  "walls-terraced": {
+    "title": "Terraced walls",
+    "map": "fixture:plain:128",
+    "settings": {
+      "mode": "strike",
+      "power": 74,
+      "size": 54,
+      "walls": "terraced",
+      "centre": "flat",
+      "debris": "heavy",
+      "rays": false,
+      "seed": 6
+    },
+    "intent": {
+      "origin": 8256
+    },
+    "settled": true,
+    "waterTicks": 128,
+    "frameTimes": [
+      null,
+      0.1848999999642401,
+      0.2938000000000029,
+      0.5238000000000029,
+      0.803999999988082,
+      1.095499999988082,
+      1.418199999976161,
+      null
+    ],
+    "changed": 9722
+  }
+}

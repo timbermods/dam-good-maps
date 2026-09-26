@@ -32,12 +32,14 @@ export interface StorageDetail {
   need: number;
 }
 
-export function storagePossible(h: Uint8Array, W: number, H: number, built: BuildResult, v: Validation, spec: MapSpec): CheckResult & { detail?: StorageDetail } {
+export function storagePossible(h: Uint8Array, W: number, H: number, built: BuildResult, v: Validation, spec: MapSpec, startWater?: { ok: boolean; tile: [number, number] | null }): CheckResult & { detail?: StorageDetail } {
   const N = W * H;
   const need = reservoirNeeded(spec.designedFor);
   const total = need * RESERVE[spec.settings.water.droughtReserve];
-  const sw = v.report.checks.find((c) => c.id === "start.water");
-  const tile = sw?.where?.tiles?.[0];
+  // the water the start drinks from: the validator's start.water, or (design version 2) the tile
+  // Kyler's start water rule found
+  const sw = startWater ?? v.report.checks.find((c) => c.id === "start.water");
+  const tile = startWater ? startWater.tile : sw && "where" in sw ? sw.where?.tiles?.[0] : undefined;
   const res = v.report.checks.find((c) => c.id === "water.reservoir");
   const D = built.water;
   const C = built.contamination;

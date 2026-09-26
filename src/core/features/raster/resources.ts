@@ -9,6 +9,7 @@ import { hash32, tileHash01 } from "../../math/hash";
 import { runsToTiles } from "../../math/grid";
 import { stream, type Rng } from "../../math/rng";
 import { entityId } from "../ids";
+import { ruinColumns } from "../../resources/baseline";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../schema";
 
 /** What resources are placed on. `occupied` is updated as tiles are taken. */
@@ -174,6 +175,16 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
   const { W } = g;
   const out: Placed = { entities: [], tiles: [] };
   const tiles = runsToTiles(f.params.area, W).filter((i) => i >= 0 && i < g.heights.length);
+  if (f.params.layout) {
+    // the official maps' look (resources/baseline.ts)
+    const c = ruinColumns(tiles, W, stream(g.seed, f.id, "heights"), f.params.layout.tallness);
+    tiles.forEach((i, k) => {
+      if (!take(g, f, i, out)) return;
+      const h = c.storeys[k];
+      out.entities.push(ruin({ id: entityId(f.id, `RuinColumnH${h}`, i), owner: f.id, x: i % W, y: (i - (i % W)) / W, z: g.heights[i], height: h, variant: c.variants[k], orientation: c.orientations[k] }));
+    });
+    return out;
+  }
   const heights = assignRuinHeights(tiles, W, stream(g.seed, f.id, "heights"), f.params.heightMix, f.params.centerBias);
   const sVariant = hash32(g.seed, f.id, "variant");
   const sOrient = hash32(g.seed, f.id, "orientation");

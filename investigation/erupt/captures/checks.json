@@ -1,0 +1,8 @@
+{
+  "determinism": true,
+  "settings": 32,
+  "undoReplayAndCanonical": true,
+  "objectsAndStart": true,
+  "plan256Ms": 27,
+  "changed256": 4634
+}

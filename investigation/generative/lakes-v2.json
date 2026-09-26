@@ -1,0 +1,2929 @@
+{
+ "method": "investigation/generative/v2/lakes.ts: lakes (level water, 60+ tiles at 128², off the edge) by roundness 4πA/P², fill, elongation and branching; island seas by water share, the main body, land apart and islands of 30+ tiles. Chosen before any result was read.",
+ "sets": {
+  "v2-128-before": {
+   "classes": {
+    "lakes": {
+     "lakes": 1164,
+     "roundness": {
+      "n": 1164,
+      "p10": 0.081,
+      "median": 0.204,
+      "p90": 0.408
+     },
+     "fill": {
+      "n": 1164,
+      "p10": 0.123,
+      "median": 0.299,
+      "p90": 0.542
+     },
+     "elongation": {
+      "n": 1164,
+      "p10": 1.201,
+      "median": 1.723,
+      "p90": 3.225
+     },
+     "branching": {
+      "n": 1164,
+      "p10": 1.321,
+      "median": 1.582,
+      "p90": 2.059
+     },
+     "roundShare": 0.029
+    },
+    "craters": {
+     "lakes": 210,
+     "roundness": {
+      "n": 210,
+      "p10": 0.109,
+      "median": 0.259,
+      "p90": 0.49
+     },
+     "fill": {
+      "n": 210,
+      "p10": 0.18,
+      "median": 0.409,
+      "p90": 0.662
+     },
+     "elongation": {
+      "n": 210,
+      "p10": 1.104,
+      "median": 1.418,
+      "p90": 2.515
+     },
+     "branching": {
+      "n": 210,
+      "p10": 1.279,
+      "median": 1.53,
+      "p90": 2.177
+     },
+     "roundShare": 0.081
+    },
+    "ponds": {
+     "lakes": 746,
+     "roundness": {
+      "n": 746,
+      "p10": 0.096,
+      "median": 0.183,
+      "p90": 0.401
+     },
+     "fill": {
+      "n": 746,
+      "p10": 0.093,
+      "median": 0.185,
+      "p90": 0.446
+     },
+     "elongation": {
+      "n": 746,
+      "p10": 1.394,
+      "median": 2.754,
+      "p90": 5.812
+     },
+     "branching": {
+      "n": 746,
+      "p10": 1.244,
+      "median": 1.407,
+      "p90": 1.611
+     },
+     "roundShare": 0.027
+    },
+    "intentionMaps": {
+     "lakes": 88,
+     "roundness": {
+      "n": 88,
+      "p10": 0.075,
+      "median": 0.218,
+      "p90": 0.469
+     },
+     "fill": {
+      "n": 88,
+      "p10": 0.095,
+      "median": 0.31,
+      "p90": 0.62
+     },
+     "elongation": {
+      "n": 88,
+      "p10": 1.177,
+      "median": 1.576,
+      "p90": 3.749
+     },
+     "branching": {
+      "n": 88,
+      "p10": 1.235,
+      "median": 1.543,
+      "p90": 2.096
+     },
+     "roundShare": 0.068
+    }
+   },
+   "byTheme": {
+    "canyon": {
+     "lakes": 153,
+     "roundness": {
+      "n": 153,
+      "p10": 0.052,
+      "median": 0.132,
+      "p90": 0.295
+     },
+     "fill": {
+      "n": 153,
+      "p10": 0.079,
+      "median": 0.209,
+      "p90": 0.397
+     },
+     "elongation": {
+      "n": 153,
+      "p10": 1.242,
+      "median": 1.925,
+      "p90": 3.623
+     },
+     "branching": {
+      "n": 153,
+      "p10": 1.413,
+      "median": 1.728,
+      "p90": 2.185
+     },
+     "roundShare": 0.007
+    },
+    "delta": {
+     "lakes": 212,
+     "roundness": {
+      "n": 212,
+      "p10": 0.096,
+      "median": 0.236,
+      "p90": 0.473
+     },
+     "fill": {
+      "n": 212,
+      "p10": 0.161,
+      "median": 0.34,
+      "p90": 0.599
+     },
+     "elongation": {
+      "n": 212,
+      "p10": 1.157,
+      "median": 1.679,
+      "p90": 3.076
+     },
+     "branching": {
+      "n": 212,
+      "p10": 1.281,
+      "median": 1.532,
+      "p90": 2.001
+     },
+     "roundShare": 0.052
+    },
+    "highlands": {
+     "lakes": 213,
+     "roundness": {
+      "n": 213,
+      "p10": 0.068,
+      "median": 0.166,
+      "p90": 0.345
+     },
+     "fill": {
+      "n": 213,
+      "p10": 0.109,
+      "median": 0.267,
+      "p90": 0.434
+     },
+     "elongation": {
+      "n": 213,
+      "p10": 1.246,
+      "median": 1.882,
+      "p90": 3.547
+     },
+     "branching": {
+      "n": 213,
+      "p10": 1.356,
+      "median": 1.605,
+      "p90": 2.078
+     },
+     "roundShare": 0.009
+    },
+    "islands": {
+     "lakes": 185,
+     "roundness": {
+      "n": 185,
+      "p10": 0.106,
+      "median": 0.217,
+      "p90": 0.421
+     },
+     "fill": {
+      "n": 185,
+      "p10": 0.151,
+      "median": 0.319,
+      "p90": 0.572
+     },
+     "elongation": {
+      "n": 185,
+      "p10": 1.157,
+      "median": 1.587,
+      "p90": 2.898
+     },
+     "branching": {
+      "n": 185,
+      "p10": 1.32,
+      "median": 1.585,
+      "p90": 1.965
+     },
+     "roundShare": 0.022
+    },
+    "lakeBasin": {
+     "lakes": 205,
+     "roundness": {
+      "n": 205,
+      "p10": 0.112,
+      "median": 0.257,
+      "p90": 0.44
+     },
+     "fill": {
+      "n": 205,
+      "p10": 0.17,
+      "median": 0.365,
+      "p90": 0.566
+     },
+     "elongation": {
+      "n": 205,
+      "p10": 1.194,
+      "median": 1.543,
+      "p90": 2.686
+     },
+     "branching": {
+      "n": 205,
+      "p10": 1.294,
+      "median": 1.513,
+      "p90": 1.938
+     },
+     "roundShare": 0.049
+    },
+    "riverValley": {
+     "lakes": 196,
+     "roundness": {
+      "n": 196,
+      "p10": 0.074,
+      "median": 0.218,
+      "p90": 0.364
+     },
+     "fill": {
+      "n": 196,
+      "p10": 0.112,
+      "median": 0.287,
+      "p90": 0.527
+     },
+     "elongation": {
+      "n": 196,
+      "p10": 1.263,
+      "median": 1.815,
+      "p90": 3.585
+     },
+     "branching": {
+      "n": 196,
+      "p10": 1.335,
+      "median": 1.559,
+      "p90": 1.96
+     },
+     "roundShare": 0.031
+    }
+   },
+   "islands": {
+    "maps": 200,
+    "water": {
+     "n": 200,
+     "p10": 0.057,
+     "median": 0.129,
+     "p90": 0.22
+    },
+    "mainWater": {
+     "n": 200,
+     "p10": 0.034,
+     "median": 0.088,
+     "p90": 0.192
+    },
+    "apart": {
+     "n": 200,
+     "p10": 0,
+     "median": 0.007,
+     "p90": 0.361
+    },
+    "islands": {
+     "n": 200,
+     "p10": 0,
+     "median": 1,
+     "p90": 2
+    },
+    "islandMedian": {
+     "n": 200,
+     "p10": 0,
+     "median": 62,
+     "p90": 3233
+    },
+    "reads": 0
+   },
+   "seasByTheme": {
+    "canyon": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.035,
+      "median": 0.068,
+      "p90": 0.135
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.021,
+      "median": 0.046,
+      "p90": 0.098
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.189
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2505
+     },
+     "reads": 0
+    },
+    "delta": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.051,
+      "median": 0.11,
+      "p90": 0.186
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.029,
+      "median": 0.066,
+      "p90": 0.156
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.006,
+      "p90": 0.215
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 54,
+      "p90": 2142
+     },
+     "reads": 0
+    },
+    "highlands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.051,
+      "median": 0.095,
+      "p90": 0.165
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.024,
+      "median": 0.061,
+      "p90": 0.127
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.092
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1233
+     },
+     "reads": 0
+    },
+    "islands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.057,
+      "median": 0.129,
+      "p90": 0.22
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.034,
+      "median": 0.088,
+      "p90": 0.192
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.007,
+      "p90": 0.361
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 62,
+      "p90": 3233
+     },
+     "reads": 0
+    },
+    "lakeBasin": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.058,
+      "median": 0.151,
+      "p90": 0.236
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.033,
+      "median": 0.085,
+      "p90": 0.204
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.002,
+      "p90": 0.169
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2105
+     },
+     "reads": 0
+    },
+    "riverValley": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.05,
+      "median": 0.095,
+      "p90": 0.161
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.026,
+      "median": 0.062,
+      "p90": 0.142
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.241
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 3408
+     },
+     "reads": 0
+    }
+   }
+  },
+  "v1-128": {
+   "classes": {
+    "lakes": {
+     "lakes": 847,
+     "roundness": {
+      "n": 847,
+      "p10": 0.068,
+      "median": 0.146,
+      "p90": 0.381
+     },
+     "fill": {
+      "n": 847,
+      "p10": 0.095,
+      "median": 0.227,
+      "p90": 0.506
+     },
+     "elongation": {
+      "n": 847,
+      "p10": 1.202,
+      "median": 2.014,
+      "p90": 3.871
+     },
+     "branching": {
+      "n": 847,
+      "p10": 1.344,
+      "median": 1.631,
+      "p90": 2.093
+     },
+     "roundShare": 0.035
+    },
+    "craters": {
+     "lakes": 0,
+     "roundness": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "fill": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "elongation": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "branching": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "roundShare": 0
+    },
+    "ponds": {
+     "lakes": 484,
+     "roundness": {
+      "n": 484,
+      "p10": 0.095,
+      "median": 0.165,
+      "p90": 0.353
+     },
+     "fill": {
+      "n": 484,
+      "p10": 0.093,
+      "median": 0.165,
+      "p90": 0.399
+     },
+     "elongation": {
+      "n": 484,
+      "p10": 1.557,
+      "median": 3.108,
+      "p90": 5.945
+     },
+     "branching": {
+      "n": 484,
+      "p10": 1.265,
+      "median": 1.418,
+      "p90": 1.596
+     },
+     "roundShare": 0.012
+    },
+    "intentionMaps": {
+     "lakes": 0,
+     "roundness": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "fill": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "elongation": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "branching": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "roundShare": 0
+    }
+   },
+   "byTheme": {
+    "canyon": {
+     "lakes": 120,
+     "roundness": {
+      "n": 120,
+      "p10": 0.06,
+      "median": 0.127,
+      "p90": 0.221
+     },
+     "fill": {
+      "n": 120,
+      "p10": 0.071,
+      "median": 0.178,
+      "p90": 0.335
+     },
+     "elongation": {
+      "n": 120,
+      "p10": 1.564,
+      "median": 2.559,
+      "p90": 4.19
+     },
+     "branching": {
+      "n": 120,
+      "p10": 1.437,
+      "median": 1.662,
+      "p90": 2.065
+     },
+     "roundShare": 0
+    },
+    "delta": {
+     "lakes": 135,
+     "roundness": {
+      "n": 135,
+      "p10": 0.076,
+      "median": 0.161,
+      "p90": 0.321
+     },
+     "fill": {
+      "n": 135,
+      "p10": 0.11,
+      "median": 0.22,
+      "p90": 0.435
+     },
+     "elongation": {
+      "n": 135,
+      "p10": 1.346,
+      "median": 2.304,
+      "p90": 4.365
+     },
+     "branching": {
+      "n": 135,
+      "p10": 1.372,
+      "median": 1.598,
+      "p90": 1.945
+     },
+     "roundShare": 0.007
+    },
+    "highlands": {
+     "lakes": 201,
+     "roundness": {
+      "n": 201,
+      "p10": 0.066,
+      "median": 0.131,
+      "p90": 0.396
+     },
+     "fill": {
+      "n": 201,
+      "p10": 0.092,
+      "median": 0.198,
+      "p90": 0.497
+     },
+     "elongation": {
+      "n": 201,
+      "p10": 1.208,
+      "median": 2.028,
+      "p90": 3.791
+     },
+     "branching": {
+      "n": 201,
+      "p10": 1.354,
+      "median": 1.644,
+      "p90": 2.052
+     },
+     "roundShare": 0.03
+    },
+    "islands": {
+     "lakes": 79,
+     "roundness": {
+      "n": 79,
+      "p10": 0.069,
+      "median": 0.125,
+      "p90": 0.26
+     },
+     "fill": {
+      "n": 79,
+      "p10": 0.146,
+      "median": 0.299,
+      "p90": 0.455
+     },
+     "elongation": {
+      "n": 79,
+      "p10": 1.145,
+      "median": 1.562,
+      "p90": 3.271
+     },
+     "branching": {
+      "n": 79,
+      "p10": 1.433,
+      "median": 1.93,
+      "p90": 2.469
+     },
+     "roundShare": 0.025
+    },
+    "lakeBasin": {
+     "lakes": 161,
+     "roundness": {
+      "n": 161,
+      "p10": 0.083,
+      "median": 0.238,
+      "p90": 0.519
+     },
+     "fill": {
+      "n": 161,
+      "p10": 0.13,
+      "median": 0.342,
+      "p90": 0.64
+     },
+     "elongation": {
+      "n": 161,
+      "p10": 1.1,
+      "median": 1.581,
+      "p90": 2.943
+     },
+     "branching": {
+      "n": 161,
+      "p10": 1.267,
+      "median": 1.49,
+      "p90": 2.079
+     },
+     "roundShare": 0.118
+    },
+    "riverValley": {
+     "lakes": 151,
+     "roundness": {
+      "n": 151,
+      "p10": 0.069,
+      "median": 0.142,
+      "p90": 0.335
+     },
+     "fill": {
+      "n": 151,
+      "p10": 0.097,
+      "median": 0.206,
+      "p90": 0.46
+     },
+     "elongation": {
+      "n": 151,
+      "p10": 1.352,
+      "median": 2.124,
+      "p90": 4.315
+     },
+     "branching": {
+      "n": 151,
+      "p10": 1.378,
+      "median": 1.627,
+      "p90": 2.046
+     },
+     "roundShare": 0.013
+    }
+   },
+   "islands": {
+    "maps": 200,
+    "water": {
+     "n": 200,
+     "p10": 0.139,
+     "median": 0.212,
+     "p90": 0.304
+    },
+    "mainWater": {
+     "n": 200,
+     "p10": 0.123,
+     "median": 0.209,
+     "p90": 0.302
+    },
+    "apart": {
+     "n": 200,
+     "p10": 0.109,
+     "median": 0.343,
+     "p90": 0.538
+    },
+    "islands": {
+     "n": 200,
+     "p10": 1,
+     "median": 2,
+     "p90": 4
+    },
+    "islandMedian": {
+     "n": 200,
+     "p10": 127,
+     "median": 2068,
+     "p90": 5121
+    },
+    "reads": 0.005
+   },
+   "seasByTheme": {
+    "canyon": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.042,
+      "median": 0.07,
+      "p90": 0.111
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.029,
+      "median": 0.053,
+      "p90": 0.101
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.131,
+      "p90": 0.405
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 1890,
+      "p90": 5863
+     },
+     "reads": 0
+    },
+    "delta": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.069,
+      "median": 0.108,
+      "p90": 0.161
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.051,
+      "median": 0.093,
+      "p90": 0.149
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.001,
+      "median": 0.195,
+      "p90": 0.459
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 2,
+      "p90": 3
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 1335,
+      "p90": 5514
+     },
+     "reads": 0
+    },
+    "highlands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.052,
+      "median": 0.086,
+      "p90": 0.149
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.033,
+      "median": 0.062,
+      "p90": 0.117
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 0.308
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 3563
+     },
+     "reads": 0
+    },
+    "islands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.139,
+      "median": 0.212,
+      "p90": 0.304
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.123,
+      "median": 0.209,
+      "p90": 0.302
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.109,
+      "median": 0.343,
+      "p90": 0.538
+     },
+     "islands": {
+      "n": 200,
+      "p10": 1,
+      "median": 2,
+      "p90": 4
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 127,
+      "median": 2068,
+      "p90": 5121
+     },
+     "reads": 0.005
+    },
+    "lakeBasin": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.054,
+      "median": 0.12,
+      "p90": 0.198
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.039,
+      "median": 0.099,
+      "p90": 0.191
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.045,
+      "p90": 0.435
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 610,
+      "p90": 5208
+     },
+     "reads": 0
+    },
+    "riverValley": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.049,
+      "median": 0.087,
+      "p90": 0.147
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.034,
+      "median": 0.071,
+      "p90": 0.141
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.104,
+      "p90": 0.402
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 1253,
+      "p90": 5035
+     },
+     "reads": 0
+    }
+   }
+  },
+  "cur-128": {
+   "classes": {
+    "lakes": {
+     "lakes": 450,
+     "roundness": {
+      "n": 450,
+      "p10": 0.035,
+      "median": 0.077,
+      "p90": 0.146
+     },
+     "fill": {
+      "n": 450,
+      "p10": 0.076,
+      "median": 0.089,
+      "p90": 0.146
+     },
+     "elongation": {
+      "n": 450,
+      "p10": 1.705,
+      "median": 2.909,
+      "p90": 10.592
+     },
+     "branching": {
+      "n": 450,
+      "p10": 1.142,
+      "median": 1.703,
+      "p90": 2.169
+     },
+     "roundShare": 0
+    },
+    "craters": {
+     "lakes": 0,
+     "roundness": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "fill": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "elongation": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "branching": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "roundShare": 0
+    },
+    "ponds": {
+     "lakes": 111,
+     "roundness": {
+      "n": 111,
+      "p10": 0.177,
+      "median": 0.402,
+      "p90": 0.526
+     },
+     "fill": {
+      "n": 111,
+      "p10": 0.166,
+      "median": 0.306,
+      "p90": 0.372
+     },
+     "elongation": {
+      "n": 111,
+      "p10": 1.624,
+      "median": 2.766,
+      "p90": 3.762
+     },
+     "branching": {
+      "n": 111,
+      "p10": 1.088,
+      "median": 1.161,
+      "p90": 1.39
+     },
+     "roundShare": 0
+    },
+    "intentionMaps": {
+     "lakes": 0,
+     "roundness": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "fill": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "elongation": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "branching": {
+      "n": 0,
+      "p10": null,
+      "median": null,
+      "p90": null
+     },
+     "roundShare": 0
+    }
+   },
+   "byTheme": {
+    "canyon": {
+     "lakes": 125,
+     "roundness": {
+      "n": 125,
+      "p10": 0.128,
+      "median": 0.14,
+      "p90": 0.153
+     },
+     "fill": {
+      "n": 125,
+      "p10": 0.078,
+      "median": 0.083,
+      "p90": 0.089
+     },
+     "elongation": {
+      "n": 125,
+      "p10": 7.265,
+      "median": 9.602,
+      "p90": 13.273
+     },
+     "branching": {
+      "n": 125,
+      "p10": 1.115,
+      "median": 1.155,
+      "p90": 1.205
+     },
+     "roundShare": 0
+    },
+    "delta": {
+     "lakes": 126,
+     "roundness": {
+      "n": 126,
+      "p10": 0.028,
+      "median": 0.038,
+      "p90": 0.086
+     },
+     "fill": {
+      "n": 126,
+      "p10": 0.067,
+      "median": 0.084,
+      "p90": 0.111
+     },
+     "elongation": {
+      "n": 126,
+      "p10": 2.102,
+      "median": 2.808,
+      "p90": 4.395
+     },
+     "branching": {
+      "n": 126,
+      "p10": 1.684,
+      "median": 2.065,
+      "p90": 2.405
+     },
+     "roundShare": 0
+    },
+    "highlands": {
+     "lakes": 166,
+     "roundness": {
+      "n": 166,
+      "p10": 0.052,
+      "median": 0.075,
+      "p90": 0.123
+     },
+     "fill": {
+      "n": 166,
+      "p10": 0.084,
+      "median": 0.116,
+      "p90": 0.208
+     },
+     "elongation": {
+      "n": 166,
+      "p10": 1.446,
+      "median": 2.27,
+      "p90": 3.658
+     },
+     "branching": {
+      "n": 166,
+      "p10": 1.532,
+      "median": 1.758,
+      "p90": 2.023
+     },
+     "roundShare": 0
+    },
+    "islands": {
+     "lakes": 1,
+     "roundness": {
+      "n": 1,
+      "p10": 0.168,
+      "median": 0.168,
+      "p90": 0.168
+     },
+     "fill": {
+      "n": 1,
+      "p10": 0.134,
+      "median": 0.134,
+      "p90": 0.134
+     },
+     "elongation": {
+      "n": 1,
+      "p10": 6.996,
+      "median": 6.996,
+      "p90": 6.996
+     },
+     "branching": {
+      "n": 1,
+      "p10": 1.317,
+      "median": 1.317,
+      "p90": 1.317
+     },
+     "roundShare": 0
+    },
+    "lakeBasin": {
+     "lakes": 2,
+     "roundness": {
+      "n": 2,
+      "p10": 0.159,
+      "median": 0.159,
+      "p90": 0.159
+     },
+     "fill": {
+      "n": 2,
+      "p10": 0.099,
+      "median": 0.099,
+      "p90": 0.099
+     },
+     "elongation": {
+      "n": 2,
+      "p10": 6.968,
+      "median": 6.968,
+      "p90": 6.968
+     },
+     "branching": {
+      "n": 2,
+      "p10": 1.193,
+      "median": 1.193,
+      "p90": 1.193
+     },
+     "roundShare": 0
+    },
+    "riverValley": {
+     "lakes": 30,
+     "roundness": {
+      "n": 30,
+      "p10": 0.062,
+      "median": 0.072,
+      "p90": 0.081
+     },
+     "fill": {
+      "n": 30,
+      "p10": 0.087,
+      "median": 0.106,
+      "p90": 0.122
+     },
+     "elongation": {
+      "n": 30,
+      "p10": 1.522,
+      "median": 2.141,
+      "p90": 3.072
+     },
+     "branching": {
+      "n": 30,
+      "p10": 1.558,
+      "median": 1.701,
+      "p90": 1.866
+     },
+     "roundShare": 0
+    }
+   },
+   "islands": {
+    "maps": 200,
+    "water": {
+     "n": 200,
+     "p10": 0.313,
+     "median": 0.339,
+     "p90": 0.359
+    },
+    "mainWater": {
+     "n": 200,
+     "p10": 0.297,
+     "median": 0.322,
+     "p90": 0.342
+    },
+    "apart": {
+     "n": 200,
+     "p10": 0.539,
+     "median": 0.611,
+     "p90": 0.664
+    },
+    "islands": {
+     "n": 200,
+     "p10": 7,
+     "median": 8,
+     "p90": 9
+    },
+    "islandMedian": {
+     "n": 200,
+     "p10": 167,
+     "median": 213,
+     "p90": 269
+    },
+    "reads": 0.255
+   },
+   "seasByTheme": {
+    "canyon": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.04,
+      "median": 0.042,
+      "p90": 0.046
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.034,
+      "median": 0.035,
+      "p90": 0.035
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.489,
+      "median": 0.495,
+      "p90": 0.499
+     },
+     "islands": {
+      "n": 200,
+      "p10": 1,
+      "median": 1,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 7676,
+      "median": 7774,
+      "p90": 7838
+     },
+     "reads": 0
+    },
+    "delta": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.082,
+      "median": 0.094,
+      "p90": 0.103
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.064,
+      "median": 0.07,
+      "p90": 0.076
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.469,
+      "median": 0.497,
+      "p90": 0.512
+     },
+     "islands": {
+      "n": 200,
+      "p10": 2,
+      "median": 3,
+      "p90": 4
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 178,
+      "median": 338,
+      "p90": 7040
+     },
+     "reads": 0
+    },
+    "highlands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.069,
+      "median": 0.076,
+      "p90": 0.084
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.05,
+      "median": 0.064,
+      "p90": 0.071
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.485,
+      "p90": 0.498
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 7325,
+      "p90": 7555
+     },
+     "reads": 0
+    },
+    "islands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.313,
+      "median": 0.339,
+      "p90": 0.359
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.297,
+      "median": 0.322,
+      "p90": 0.342
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.539,
+      "median": 0.611,
+      "p90": 0.664
+     },
+     "islands": {
+      "n": 200,
+      "p10": 7,
+      "median": 8,
+      "p90": 9
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 167,
+      "median": 213,
+      "p90": 269
+     },
+     "reads": 0.255
+    },
+    "lakeBasin": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.246,
+      "median": 0.268,
+      "p90": 0.288
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.231,
+      "median": 0.251,
+      "p90": 0.272
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.43,
+      "median": 0.529,
+      "p90": 0.616
+     },
+     "islands": {
+      "n": 200,
+      "p10": 3,
+      "median": 3,
+      "p90": 3
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 1605,
+      "median": 2541,
+      "p90": 3245
+     },
+     "reads": 0
+    },
+    "riverValley": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.06,
+      "median": 0.066,
+      "p90": 0.071
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.054,
+      "median": 0.058,
+      "p90": 0.065
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.472,
+      "median": 0.489,
+      "p90": 0.497
+     },
+     "islands": {
+      "n": 200,
+      "p10": 1,
+      "median": 1,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 7217,
+      "median": 7490,
+      "p90": 7629
+     },
+     "reads": 0
+    }
+   }
+  },
+  "v2-128": {
+   "classes": {
+    "lakes": {
+     "lakes": 1154,
+     "roundness": {
+      "n": 1154,
+      "p10": 0.07,
+      "median": 0.153,
+      "p90": 0.323
+     },
+     "fill": {
+      "n": 1154,
+      "p10": 0.12,
+      "median": 0.262,
+      "p90": 0.462
+     },
+     "elongation": {
+      "n": 1154,
+      "p10": 1.247,
+      "median": 1.902,
+      "p90": 3.486
+     },
+     "branching": {
+      "n": 1154,
+      "p10": 1.375,
+      "median": 1.671,
+      "p90": 2.283
+     },
+     "roundShare": 0.015
+    },
+    "craters": {
+     "lakes": 188,
+     "roundness": {
+      "n": 188,
+      "p10": 0.074,
+      "median": 0.239,
+      "p90": 0.48
+     },
+     "fill": {
+      "n": 188,
+      "p10": 0.168,
+      "median": 0.397,
+      "p90": 0.645
+     },
+     "elongation": {
+      "n": 188,
+      "p10": 1.096,
+      "median": 1.422,
+      "p90": 3.046
+     },
+     "branching": {
+      "n": 188,
+      "p10": 1.277,
+      "median": 1.55,
+      "p90": 2.345
+     },
+     "roundShare": 0.074
+    },
+    "ponds": {
+     "lakes": 721,
+     "roundness": {
+      "n": 721,
+      "p10": 0.106,
+      "median": 0.195,
+      "p90": 0.387
+     },
+     "fill": {
+      "n": 721,
+      "p10": 0.101,
+      "median": 0.216,
+      "p90": 0.42
+     },
+     "elongation": {
+      "n": 721,
+      "p10": 1.429,
+      "median": 2.481,
+      "p90": 5.579
+     },
+     "branching": {
+      "n": 721,
+      "p10": 1.259,
+      "median": 1.414,
+      "p90": 1.636
+     },
+     "roundShare": 0.018
+    },
+    "intentionMaps": {
+     "lakes": 97,
+     "roundness": {
+      "n": 97,
+      "p10": 0.076,
+      "median": 0.166,
+      "p90": 0.317
+     },
+     "fill": {
+      "n": 97,
+      "p10": 0.109,
+      "median": 0.275,
+      "p90": 0.451
+     },
+     "elongation": {
+      "n": 97,
+      "p10": 1.257,
+      "median": 1.922,
+      "p90": 3.931
+     },
+     "branching": {
+      "n": 97,
+      "p10": 1.352,
+      "median": 1.58,
+      "p90": 2.22
+     },
+     "roundShare": 0.01
+    }
+   },
+   "byTheme": {
+    "canyon": {
+     "lakes": 155,
+     "roundness": {
+      "n": 155,
+      "p10": 0.055,
+      "median": 0.115,
+      "p90": 0.275
+     },
+     "fill": {
+      "n": 155,
+      "p10": 0.074,
+      "median": 0.204,
+      "p90": 0.417
+     },
+     "elongation": {
+      "n": 155,
+      "p10": 1.305,
+      "median": 1.964,
+      "p90": 4.002
+     },
+     "branching": {
+      "n": 155,
+      "p10": 1.44,
+      "median": 1.725,
+      "p90": 2.176
+     },
+     "roundShare": 0
+    },
+    "delta": {
+     "lakes": 187,
+     "roundness": {
+      "n": 187,
+      "p10": 0.082,
+      "median": 0.173,
+      "p90": 0.385
+     },
+     "fill": {
+      "n": 187,
+      "p10": 0.135,
+      "median": 0.273,
+      "p90": 0.472
+     },
+     "elongation": {
+      "n": 187,
+      "p10": 1.243,
+      "median": 1.874,
+      "p90": 3.054
+     },
+     "branching": {
+      "n": 187,
+      "p10": 1.338,
+      "median": 1.64,
+      "p90": 2.167
+     },
+     "roundShare": 0.027
+    },
+    "highlands": {
+     "lakes": 217,
+     "roundness": {
+      "n": 217,
+      "p10": 0.069,
+      "median": 0.158,
+      "p90": 0.31
+     },
+     "fill": {
+      "n": 217,
+      "p10": 0.119,
+      "median": 0.247,
+      "p90": 0.4
+     },
+     "elongation": {
+      "n": 217,
+      "p10": 1.317,
+      "median": 1.9,
+      "p90": 3.286
+     },
+     "branching": {
+      "n": 217,
+      "p10": 1.402,
+      "median": 1.674,
+      "p90": 2.2
+     },
+     "roundShare": 0
+    },
+    "islands": {
+     "lakes": 159,
+     "roundness": {
+      "n": 159,
+      "p10": 0.066,
+      "median": 0.113,
+      "p90": 0.257
+     },
+     "fill": {
+      "n": 159,
+      "p10": 0.146,
+      "median": 0.304,
+      "p90": 0.525
+     },
+     "elongation": {
+      "n": 159,
+      "p10": 1.14,
+      "median": 1.71,
+      "p90": 3.365
+     },
+     "branching": {
+      "n": 159,
+      "p10": 1.386,
+      "median": 2.002,
+      "p90": 2.866
+     },
+     "roundShare": 0.013
+    },
+    "lakeBasin": {
+     "lakes": 225,
+     "roundness": {
+      "n": 225,
+      "p10": 0.082,
+      "median": 0.177,
+      "p90": 0.349
+     },
+     "fill": {
+      "n": 225,
+      "p10": 0.144,
+      "median": 0.278,
+      "p90": 0.438
+     },
+     "elongation": {
+      "n": 225,
+      "p10": 1.253,
+      "median": 1.883,
+      "p90": 3.507
+     },
+     "branching": {
+      "n": 225,
+      "p10": 1.353,
+      "median": 1.605,
+      "p90": 2.171
+     },
+     "roundShare": 0.022
+    },
+    "riverValley": {
+     "lakes": 211,
+     "roundness": {
+      "n": 211,
+      "p10": 0.074,
+      "median": 0.176,
+      "p90": 0.316
+     },
+     "fill": {
+      "n": 211,
+      "p10": 0.113,
+      "median": 0.251,
+      "p90": 0.472
+     },
+     "elongation": {
+      "n": 211,
+      "p10": 1.294,
+      "median": 2.098,
+      "p90": 3.679
+     },
+     "branching": {
+      "n": 211,
+      "p10": 1.38,
+      "median": 1.598,
+      "p90": 1.996
+     },
+     "roundShare": 0.024
+    }
+   },
+   "islands": {
+    "maps": 200,
+    "water": {
+     "n": 200,
+     "p10": 0.132,
+     "median": 0.271,
+     "p90": 0.422
+    },
+    "mainWater": {
+     "n": 200,
+     "p10": 0.082,
+     "median": 0.264,
+     "p90": 0.42
+    },
+    "apart": {
+     "n": 200,
+     "p10": 0.001,
+     "median": 0.214,
+     "p90": 0.508
+    },
+    "islands": {
+     "n": 200,
+     "p10": 0,
+     "median": 3,
+     "p90": 6
+    },
+    "islandMedian": {
+     "n": 200,
+     "p10": 0,
+     "median": 248,
+     "p90": 2746
+    },
+    "reads": 0.17
+   },
+   "seasByTheme": {
+    "canyon": {
+     "maps": 198,
+     "water": {
+      "n": 198,
+      "p10": 0.039,
+      "median": 0.066,
+      "p90": 0.136
+     },
+     "mainWater": {
+      "n": 198,
+      "p10": 0.018,
+      "median": 0.044,
+      "p90": 0.108
+     },
+     "apart": {
+      "n": 198,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.142
+     },
+     "islands": {
+      "n": 198,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 198,
+      "p10": 0,
+      "median": 0,
+      "p90": 1860
+     },
+     "reads": 0
+    },
+    "delta": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.054,
+      "median": 0.108,
+      "p90": 0.187
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.028,
+      "median": 0.068,
+      "p90": 0.168
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.005,
+      "p90": 0.374
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 1,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 57,
+      "p90": 2984
+     },
+     "reads": 0
+    },
+    "highlands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.051,
+      "median": 0.102,
+      "p90": 0.165
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.02,
+      "median": 0.061,
+      "p90": 0.137
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 0.097
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1315
+     },
+     "reads": 0
+    },
+    "islands": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.132,
+      "median": 0.271,
+      "p90": 0.422
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.082,
+      "median": 0.264,
+      "p90": 0.42
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0.001,
+      "median": 0.214,
+      "p90": 0.508
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 3,
+      "p90": 6
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 248,
+      "p90": 2746
+     },
+     "reads": 0.17
+    },
+    "lakeBasin": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.063,
+      "median": 0.14,
+      "p90": 0.21
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.034,
+      "median": 0.088,
+      "p90": 0.177
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.196
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 2187
+     },
+     "reads": 0.005
+    },
+    "riverValley": {
+     "maps": 200,
+     "water": {
+      "n": 200,
+      "p10": 0.052,
+      "median": 0.092,
+      "p90": 0.159
+     },
+     "mainWater": {
+      "n": 200,
+      "p10": 0.024,
+      "median": 0.057,
+      "p90": 0.124
+     },
+     "apart": {
+      "n": 200,
+      "p10": 0,
+      "median": 0.001,
+      "p90": 0.286
+     },
+     "islands": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 1
+     },
+     "islandMedian": {
+      "n": 200,
+      "p10": 0,
+      "median": 0,
+      "p90": 4110
+     },
+     "reads": 0
+    }
+   }
+  }
+ },
+ "refs": {
+  "workshop": {
+   "lakes": {
+    "lakes": 218,
+    "roundness": {
+     "n": 218,
+     "p10": 0.049,
+     "median": 0.143,
+     "p90": 0.383
+    },
+    "fill": {
+     "n": 218,
+     "p10": 0.1,
+     "median": 0.23,
+     "p90": 0.504
+    },
+    "elongation": {
+     "n": 218,
+     "p10": 1.273,
+     "median": 2.075,
+     "p90": 3.888
+    },
+    "branching": {
+     "n": 218,
+     "p10": 1.306,
+     "median": 1.676,
+     "p90": 2.599
+    },
+    "roundShare": 0.023
+   },
+   "seas": {
+    "islandSeas": 19,
+    "maps": 130
+   }
+  },
+  "official": {
+   "lakes": {
+    "lakes": 33,
+    "roundness": {
+     "n": 33,
+     "p10": 0.077,
+     "median": 0.279,
+     "p90": 0.521
+    },
+    "fill": {
+     "n": 33,
+     "p10": 0.131,
+     "median": 0.26,
+     "p90": 0.633
+    },
+    "elongation": {
+     "n": 33,
+     "p10": 1.159,
+     "median": 1.631,
+     "p90": 3.142
+    },
+    "branching": {
+     "n": 33,
+     "p10": 1.241,
+     "median": 1.42,
+     "p90": 1.885
+    },
+    "roundShare": 0.152
+   },
+   "seas": {
+    "islandSeas": 1,
+    "maps": 19
+   },
+   "named": {
+    "oThousandIslands": {
+     "water": 0.495,
+     "mainWater": 0.483,
+     "apart": 0.528,
+     "islands": 35,
+     "islandMedian": 267,
+     "reads": true
+    }
+   }
+  }
+ },
+ "survey": {
+  "lakes": {
+   "lakes": 65,
+   "roundness": {
+    "n": 65,
+    "p10": 0.048,
+    "median": 0.138,
+    "p90": 0.347
+   },
+   "fill": {
+    "n": 65,
+    "p10": 0.09,
+    "median": 0.234,
+    "p90": 0.44
+   },
+   "elongation": {
+    "n": 65,
+    "p10": 1.372,
+    "median": 2.049,
+    "p90": 3.882
+   },
+   "branching": {
+    "n": 65,
+    "p10": 1.29,
+    "median": 1.649,
+    "p90": 2.641
+   },
+   "roundShare": 0
+  },
+  "byFamily": {
+   "canyon": {
+    "lakes": 3,
+    "roundness": {
+     "n": 3,
+     "p10": 0.023,
+     "median": 0.083,
+     "p90": 0.083
+    },
+    "fill": {
+     "n": 3,
+     "p10": 0.029,
+     "median": 0.12,
+     "p90": 0.12
+    },
+    "elongation": {
+     "n": 3,
+     "p10": 1.84,
+     "median": 3.381,
+     "p90": 3.381
+    },
+    "branching": {
+     "n": 3,
+     "p10": 1.349,
+     "median": 1.649,
+     "p90": 1.649
+    },
+    "roundShare": 0
+   },
+   "gorge": {
+    "lakes": 1,
+    "roundness": {
+     "n": 1,
+     "p10": 0.142,
+     "median": 0.142,
+     "p90": 0.142
+    },
+    "fill": {
+     "n": 1,
+     "p10": 0.284,
+     "median": 0.284,
+     "p90": 0.284
+    },
+    "elongation": {
+     "n": 1,
+     "p10": 1.272,
+     "median": 1.272,
+     "p90": 1.272
+    },
+    "branching": {
+     "n": 1,
+     "p10": 1.855,
+     "median": 1.855,
+     "p90": 1.855
+    },
+    "roundShare": 0
+   },
+   "delta": {
+    "lakes": 7,
+    "roundness": {
+     "n": 7,
+     "p10": 0.033,
+     "median": 0.101,
+     "p90": 0.269
+    },
+    "fill": {
+     "n": 7,
+     "p10": 0.084,
+     "median": 0.239,
+     "p90": 0.475
+    },
+    "elongation": {
+     "n": 7,
+     "p10": 1.221,
+     "median": 1.849,
+     "p90": 3.882
+    },
+    "branching": {
+     "n": 7,
+     "p10": 1.325,
+     "median": 2.269,
+     "p90": 2.585
+    },
+    "roundShare": 0
+   },
+   "braided": {
+    "lakes": 7,
+    "roundness": {
+     "n": 7,
+     "p10": 0.041,
+     "median": 0.077,
+     "p90": 0.326
+    },
+    "fill": {
+     "n": 7,
+     "p10": 0.071,
+     "median": 0.265,
+     "p90": 0.379
+    },
+    "elongation": {
+     "n": 7,
+     "p10": 1.63,
+     "median": 2.311,
+     "p90": 2.678
+    },
+    "branching": {
+     "n": 7,
+     "p10": 1.315,
+     "median": 1.726,
+     "p90": 2.564
+    },
+    "roundShare": 0
+   },
+   "meander": {
+    "lakes": 10,
+    "roundness": {
+     "n": 10,
+     "p10": 0.017,
+     "median": 0.089,
+     "p90": 0.301
+    },
+    "fill": {
+     "n": 10,
+     "p10": 0.042,
+     "median": 0.221,
+     "p90": 0.321
+    },
+    "elongation": {
+     "n": 10,
+     "p10": 1.588,
+     "median": 2.049,
+     "p90": 3.165
+    },
+    "branching": {
+     "n": 10,
+     "p10": 1.29,
+     "median": 1.941,
+     "p90": 2.84
+    },
+    "roundShare": 0
+   },
+   "fan": {
+    "lakes": 0,
+    "roundness": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "fill": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "elongation": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "branching": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "roundShare": 0
+   },
+   "caldera": {
+    "lakes": 2,
+    "roundness": {
+     "n": 2,
+     "p10": 0.347,
+     "median": 0.347,
+     "p90": 0.347
+    },
+    "fill": {
+     "n": 2,
+     "p10": 0.257,
+     "median": 0.257,
+     "p90": 0.257
+    },
+    "elongation": {
+     "n": 2,
+     "p10": 1.749,
+     "median": 1.749,
+     "p90": 1.749
+    },
+    "branching": {
+     "n": 2,
+     "p10": 1.154,
+     "median": 1.154,
+     "p90": 1.154
+    },
+    "roundShare": 0
+   },
+   "cone": {
+    "lakes": 3,
+    "roundness": {
+     "n": 3,
+     "p10": 0.18,
+     "median": 0.252,
+     "p90": 0.252
+    },
+    "fill": {
+     "n": 3,
+     "p10": 0.231,
+     "median": 0.452,
+     "p90": 0.452
+    },
+    "elongation": {
+     "n": 3,
+     "p10": 1.22,
+     "median": 1.379,
+     "p90": 1.379
+    },
+    "branching": {
+     "n": 3,
+     "p10": 1.404,
+     "median": 1.593,
+     "p90": 1.593
+    },
+    "roundShare": 0
+   },
+   "mesa": {
+    "lakes": 5,
+    "roundness": {
+     "n": 5,
+     "p10": 0.086,
+     "median": 0.147,
+     "p90": 0.153
+    },
+    "fill": {
+     "n": 5,
+     "p10": 0.167,
+     "median": 0.247,
+     "p90": 0.307
+    },
+    "elongation": {
+     "n": 5,
+     "p10": 1.298,
+     "median": 1.615,
+     "p90": 1.704
+    },
+    "branching": {
+     "n": 5,
+     "p10": 1.609,
+     "median": 1.642,
+     "p90": 1.782
+    },
+    "roundShare": 0
+   },
+   "badlands": {
+    "lakes": 0,
+    "roundness": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "fill": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "elongation": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "branching": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "roundShare": 0
+   },
+   "karst": {
+    "lakes": 4,
+    "roundness": {
+     "n": 4,
+     "p10": 0.043,
+     "median": 0.177,
+     "p90": 0.192
+    },
+    "fill": {
+     "n": 4,
+     "p10": 0.217,
+     "median": 0.217,
+     "p90": 0.434
+    },
+    "elongation": {
+     "n": 4,
+     "p10": 1.372,
+     "median": 1.903,
+     "p90": 2.17
+    },
+    "branching": {
+     "n": 4,
+     "p10": 1.279,
+     "median": 1.502,
+     "p90": 1.789
+    },
+    "roundShare": 0
+   },
+   "fjord": {
+    "lakes": 3,
+    "roundness": {
+     "n": 3,
+     "p10": 0.139,
+     "median": 0.143,
+     "p90": 0.143
+    },
+    "fill": {
+     "n": 3,
+     "p10": 0.105,
+     "median": 0.11,
+     "p90": 0.11
+    },
+    "elongation": {
+     "n": 3,
+     "p10": 1.858,
+     "median": 3.41,
+     "p90": 3.41
+    },
+    "branching": {
+     "n": 3,
+     "p10": 1.285,
+     "median": 1.359,
+     "p90": 1.359
+    },
+    "roundShare": 0
+   },
+   "glacial": {
+    "lakes": 0,
+    "roundness": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "fill": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "elongation": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "branching": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "roundShare": 0
+   },
+   "escarpment": {
+    "lakes": 3,
+    "roundness": {
+     "n": 3,
+     "p10": 0.049,
+     "median": 0.086,
+     "p90": 0.086
+    },
+    "fill": {
+     "n": 3,
+     "p10": 0.097,
+     "median": 0.195,
+     "p90": 0.195
+    },
+    "elongation": {
+     "n": 3,
+     "p10": 1.76,
+     "median": 2.245,
+     "p90": 2.245
+    },
+    "branching": {
+     "n": 3,
+     "p10": 1.618,
+     "median": 1.822,
+     "p90": 1.822
+    },
+    "roundShare": 0
+   },
+   "plateau": {
+    "lakes": 6,
+    "roundness": {
+     "n": 6,
+     "p10": 0.068,
+     "median": 0.094,
+     "p90": 0.156
+    },
+    "fill": {
+     "n": 6,
+     "p10": 0.165,
+     "median": 0.284,
+     "p90": 0.435
+    },
+    "elongation": {
+     "n": 6,
+     "p10": 1.411,
+     "median": 1.428,
+     "p90": 2.351
+    },
+    "branching": {
+     "n": 6,
+     "p10": 1.561,
+     "median": 1.919,
+     "p90": 2.312
+    },
+    "roundShare": 0
+   },
+   "lakes": {
+    "lakes": 2,
+    "roundness": {
+     "n": 2,
+     "p10": 0.184,
+     "median": 0.184,
+     "p90": 0.184
+    },
+    "fill": {
+     "n": 2,
+     "p10": 0.111,
+     "median": 0.111,
+     "p90": 0.111
+    },
+    "elongation": {
+     "n": 2,
+     "p10": 1.9,
+     "median": 1.9,
+     "p90": 1.9
+    },
+    "branching": {
+     "n": 2,
+     "p10": 1.313,
+     "median": 1.313,
+     "p90": 1.313
+    },
+    "roundShare": 0
+   },
+   "confluence": {
+    "lakes": 0,
+    "roundness": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "fill": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "elongation": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "branching": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "roundShare": 0
+   },
+   "falls": {
+    "lakes": 7,
+    "roundness": {
+     "n": 7,
+     "p10": 0.048,
+     "median": 0.086,
+     "p90": 0.122
+    },
+    "fill": {
+     "n": 7,
+     "p10": 0.038,
+     "median": 0.179,
+     "p90": 0.231
+    },
+    "elongation": {
+     "n": 7,
+     "p10": 1.12,
+     "median": 2.804,
+     "p90": 4.554
+    },
+    "branching": {
+     "n": 7,
+     "p10": 1.29,
+     "median": 1.508,
+     "p90": 2.092
+    },
+    "roundShare": 0
+   },
+   "coast": {
+    "lakes": 1,
+    "roundness": {
+     "n": 1,
+     "p10": 0.288,
+     "median": 0.288,
+     "p90": 0.288
+    },
+    "fill": {
+     "n": 1,
+     "p10": 0.171,
+     "median": 0.171,
+     "p90": 0.171
+    },
+    "elongation": {
+     "n": 1,
+     "p10": 1.982,
+     "median": 1.982,
+     "p90": 1.982
+    },
+    "branching": {
+     "n": 1,
+     "p10": 1.16,
+     "median": 1.16,
+     "p90": 1.16
+    },
+    "roundShare": 0
+   },
+   "archipelago": {
+    "lakes": 1,
+    "roundness": {
+     "n": 1,
+     "p10": 0.082,
+     "median": 0.082,
+     "p90": 0.082
+    },
+    "fill": {
+     "n": 1,
+     "p10": 0.282,
+     "median": 0.282,
+     "p90": 0.282
+    },
+    "elongation": {
+     "n": 1,
+     "p10": 2.198,
+     "median": 2.198,
+     "p90": 2.198
+    },
+    "branching": {
+     "n": 1,
+     "p10": 2.201,
+     "median": 2.201,
+     "p90": 2.201
+    },
+    "roundShare": 0
+   },
+   "random": {
+    "lakes": 0,
+    "roundness": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "fill": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "elongation": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "branching": {
+     "n": 0,
+     "p10": null,
+     "median": null,
+     "p90": null
+    },
+    "roundShare": 0
+   }
+  },
+  "archipelago": {
+   "maps": 2,
+   "water": {
+    "n": 2,
+    "p10": 0.181,
+    "median": 0.181,
+    "p90": 0.181
+   },
+   "mainWater": {
+    "n": 2,
+    "p10": 0.132,
+    "median": 0.132,
+    "p90": 0.132
+   },
+   "apart": {
+    "n": 2,
+    "p10": 0,
+    "median": 0,
+    "p90": 0
+   },
+   "islands": {
+    "n": 2,
+    "p10": 0,
+    "median": 0,
+    "p90": 0
+   },
+   "islandMedian": {
+    "n": 2,
+    "p10": 0,
+    "median": 0,
+    "p90": 0
+   },
+   "reads": 0
+  },
+  "seas": {
+   "canyon": {
+    "maps": 5,
+    "reads": 0
+   },
+   "gorge": {
+    "maps": 5,
+    "reads": 0
+   },
+   "delta": {
+    "maps": 3,
+    "reads": 0
+   },
+   "braided": {
+    "maps": 5,
+    "reads": 0
+   },
+   "meander": {
+    "maps": 5,
+    "reads": 0
+   },
+   "fan": {
+    "maps": 4,
+    "reads": 0
+   },
+   "caldera": {
+    "maps": 5,
+    "reads": 0
+   },
+   "cone": {
+    "maps": 5,
+    "reads": 0
+   },
+   "mesa": {
+    "maps": 5,
+    "reads": 0
+   },
+   "badlands": {
+    "maps": 4,
+    "reads": 0
+   },
+   "karst": {
+    "maps": 5,
+    "reads": 0
+   },
+   "fjord": {
+    "maps": 5,
+    "reads": 0
+   },
+   "glacial": {
+    "maps": 5,
+    "reads": 0
+   },
+   "escarpment": {
+    "maps": 5,
+    "reads": 0
+   },
+   "plateau": {
+    "maps": 5,
+    "reads": 0
+   },
+   "lakes": {
+    "maps": 2,
+    "reads": 0
+   },
+   "confluence": {
+    "maps": 2,
+    "reads": 0
+   },
+   "falls": {
+    "maps": 5,
+    "reads": 0
+   },
+   "coast": {
+    "maps": 3,
+    "reads": 0
+   },
+   "archipelago": {
+    "maps": 2,
+    "reads": 0
+   },
+   "random": {
+    "maps": 3,
+    "reads": 0
+   }
+  }
+ }
+}

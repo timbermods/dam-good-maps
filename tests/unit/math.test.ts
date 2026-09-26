@@ -24,7 +24,8 @@ describe("deterministic math", () => {
   it("density interpolates between the official size classes", () => {
     expect(density("scrap_per_1k_tiles", 16384)).toBeCloseTo(705, 9);
     expect(density("scrap_per_1k_tiles", 100)).toBe(840);
-    expect(density("scrap_per_1k_tiles", 70000)).toBe(237);
+    // the max class's median as measured without Nomads and Oasis (Kyler, 2026-09-25; D148)
+    expect(density("scrap_per_1k_tiles", 70000)).toBe(235);
     const mid = density("trees_per_10k", 9216);
     expect(mid).toBeGreaterThan(1061);
     expect(mid).toBeLessThan(1715);

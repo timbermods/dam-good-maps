@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel, the
 // URL codec, the editor's SpecPatch and Claude all produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.6.1";
+export const GENERATOR_VERSION = "0.6.2";
 export const SPEC_VERSION = 1;
 
 export type ThemeId = "riverValley" | "canyon" | "highlands" | "lakeBasin" | "delta" | "islands";
@@ -55,7 +55,7 @@ export interface Settings {
     ruins: number; // 25–300 (%)
     relics: "off" | "some";
     geothermal: "off" | "some";
-    mineSites: number; // 0–4
+    mineSites: number; // 1–4: every map has at least one (Kyler, 2026-09-25)
   };
   start: {
     area: "small" | "normal" | "large";
@@ -160,6 +160,13 @@ export function upgradeSpec(spec: unknown): void {
   const trees = rules.treesWithin20;
   delete rules.treesWithin20;
   if (!("woodWithin20" in rules) && typeof trees === "number" && Number.isFinite(trees)) rules.woodWithin20 = woodForTrees(trees);
+}
+
+/** A spec stored before every map had a mine site (Kyler, 2026-09-25) may ask for none: it asks for
+ *  one. Changes the spec in place; anything else is left for the schema to judge. */
+export function upgradeMineSites(spec: unknown): void {
+  const r = (spec as { settings?: { resources?: Record<string, unknown> } } | null)?.settings?.resources;
+  if (r && typeof r === "object" && r.mineSites === 0) r.mineSites = 1;
 }
 
 export function mineSitesForSize(x: number, y: number): number {

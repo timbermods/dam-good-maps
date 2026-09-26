@@ -1,14 +1,17 @@
 // Calibrated targets (PLAN §4, §5): the TypeScript side of prototype/calibrated.py. The numbers come
 // from investigation/calibration.json; tests/contract/calibrated.test.ts asserts the two agree.
 
-/** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). */
+/** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). The resource rows
+ *  (scrap, trees, bushes, ruin field columns) are investigation/official-baselines.json's class
+ *  medians: Nomads and Oasis left out (Kyler), and the clear outliers of each rate (Beaverome's trees,
+ *  Lakes' bushes). */
 export const SIZE_ANCHORS = [3750, 16384, 36864, 65536] as const;
 export const DENSITY = {
-  scrap_per_1k_tiles: [840, 705, 236, 237],
-  trees_per_10k: [1715, 1061, 534, 500],
-  bushes_per_10k: [265, 92, 40, 38],
+  scrap_per_1k_tiles: [840, 705, 236, 235],
+  trees_per_10k: [1715, 1061, 544, 559],
+  bushes_per_10k: [265, 92, 40, 44],
   water_strength_per_10k: [5.0, 2.2, 1.2, 1.1],
-  ruin_field_columns: [21, 31, 40, 41],
+  ruin_field_columns: [19, 32, 39, 42],
   /** Natural basins of 20+ tiles per map (analyze_maps.py `basins.count_ge20`; PLAN §5.3 Lakes and
    *  basins): the official size-class medians. */
   basins_ge20: [1.5, 4, 15.5, 15],
@@ -53,8 +56,56 @@ export function lnDet(x: number): number {
   return 2 * sum + k * 0.6931471805599453;
 }
 
-/** Official ruin column height shares H1…H8 (calibration.json ruin_height_shares.official). */
-export const RUIN_HEIGHT_SHARES = [0.282, 0.224, 0.173, 0.103, 0.079, 0.052, 0.042, 0.044];
+/** Official ruin column height shares H1…H8 (official-baselines.json `ruins.storeys`, Nomads and
+ *  Oasis left out). */
+export const RUIN_HEIGHT_SHARES = [0.284, 0.221, 0.163, 0.1, 0.084, 0.06, 0.038, 0.05];
+
+/** How far official maps of one size spread around their size's median: the 25th and 75th
+ *  percentile factors (official-baselines.json `rates.*.factors`, measured on the large and max
+ *  maps, five or six of each). A map's amount lands between them: its typical range. */
+export const SPREAD = {
+  trees: [0.923, 1.171],
+  bushes: [0.977, 1.07],
+  scrap: [0.752, 1.407],
+} as const;
+
+/** The official median and typical range (25th to 75th percentile) of a resource at a map's size:
+ *  trees, berry bushes, or scrap. */
+export function officialRange(kind: "trees" | "bushes" | "scrap", area: number): { median: number; low: number; high: number } {
+  const median = kind === "trees" ? (density("trees_per_10k", area) * area) / 1e4 : kind === "bushes" ? (density("bushes_per_10k", area) * area) / 1e4 : (density("scrap_per_1k_tiles", area) * area) / 1e3;
+  const [lo, hi] = SPREAD[kind];
+  return { median, low: median * lo, high: median * hi };
+}
+
+/** How the official maps lay out their resources (official-baselines.json; Kyler's "Resources like
+ *  the official maps", 2026-09-25). Groves are trees within 2 tiles of each other, patches bushes
+ *  within 2 tiles, fields ruin columns that touch. */
+export const OFFICIAL_LAYOUT = {
+  /** Share of all trees alive: 25th and 75th percentiles (about two thirds of pines, birches and
+   *  oaks are stored dead). */
+  livingShare: [0.267, 0.434],
+  /** Trees per grove: median, log-normal spread and cap (median 40; 25th 18, 75th 81; the largest
+   *  grove of a map about 212). */
+  grove: { median: 40, sigma: 0.9, cap: 250 },
+  /** Mean share of a grove tree's eight neighbours that hold a tree. */
+  groveFill: 0.41,
+  /** Living trees on at most this share of moist land (official 25th–75th 0.13–0.19, 90th 0.21). */
+  moistCover: 0.25,
+  /** Bushes per patch: median, spread and cap (median 46; 25th 35, 75th 58; the largest about 64). */
+  patch: { median: 44, sigma: 0.3, cap: 80 },
+  /** Mean share of a patch bush's eight neighbours that hold a bush. */
+  patchFill: 0.63,
+  /** Bushes stand this near water (median 4 tiles). */
+  patchWater: 4,
+  /** Model variants A–E: A a little more often than the rest. */
+  ruinVariants: { A: 0.261, B: 0.188, C: 0.185, D: 0.182, E: 0.184 },
+  /** Ruin orientations: mostly as the editor places them, Cw0. */
+  ruinOrientations: { Cw0: 0.593, Cw90: 0.139, Cw180: 0.098, Cw270: 0.17 },
+  /** A field's columns fill this share of their bounding box (25th 0.50, 75th 0.64). */
+  fieldFill: 0.56,
+  /** Mean storeys per field: 10th and 90th percentiles (some fields short, some tall). */
+  fieldMeanStoreys: [2.19, 3.88],
+} as const;
 
 export const RUINS = {
   singlesShare: 0.05,
@@ -79,6 +130,10 @@ export const BUSHES = {
 };
 
 export const RIVER_FLOW_MULTIPLIER = { trickle: 0.6, normal: 1, strong: 2, lush: 4 } as const;
+
+/** The strongest river an official map has, blocks of water per second: about its whole water
+ *  (water_strength_per_10k × area, about 7 on 256²). A drawn river may be stronger, and says so. */
+export const OFFICIAL_FLOW = 8;
 
 /** Badwater-to-clean strength ratio by the Badwater setting (PLAN §5.4; official median 0.65). */
 export const BADWATER_RATIO = { off: 0, low: 0.3, normal: 0.65, high: 1.2 } as const;

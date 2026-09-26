@@ -19,7 +19,7 @@ import { polygonMask } from "../features/geometry";
 import { OBJECT_NAMES, objectTiles } from "../features/objects";
 import { channelTiles } from "../features/route";
 import type { Feature, MapObjectFeature } from "../features/schema";
-import { density, DROUGHT, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
+import { DROUGHT, officialRange, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { distanceFrom } from "../math/grid";
 import { soilContamination } from "../sim/contamination";
 import { droughtStorage } from "../sim/drought";
@@ -228,6 +228,18 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
     naturalStorage: 0,
   };
 
+  // ---- a mine site on every map (Kyler, 2026-09-25): the late game's lasting source of scrap
+  let mines = 0;
+  for (const o of objects) if (o.template === "UndergroundRuins") mines++;
+  c.add({
+    id: "resources.mine_site",
+    class: "playability",
+    ok: mines >= 1,
+    value: mines,
+    limit: 1,
+    message: mines ? `${mines} mine site${mines > 1 ? "s" : ""} (every map needs at least one)` : "no mine site: every map needs at least one, the late game's lasting source of scrap metal",
+  });
+
   // ---- the start (vanilla: exactly one; `start.count` reports anything else)
   const starts = objects.map((o, k) => [o, k] as const).filter(([o]) => o.template === "StartingLocation");
   if (starts.length !== 1) {
@@ -316,8 +328,13 @@ export function basinLeak(p: ContainedPlan, h: Uint8Array, W: number, H: number)
 
 /** `water.source_in_flow` (Kyler, 2026-09-25, D171): a source is where water begins, never inside
  *  a flow that is already there (analysis/sources.ts). A design check, as Kyler's principles are: it
- *  must pass in `generate`, warns in `export` and is information on an import. */
+ *  must pass in `generate` and is information on an import. In the editor (`export`) sources go
+ *  anywhere (D184): the rule is for generated maps, so it does not apply there. */
 function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
+  if (c.profile === "export") {
+    c.notApplicable("water.source_in_flow", "design", "sources go anywhere in the editor (D184): the rule is for generated maps");
+    return;
+  }
   const r = sourcesInFlow(inp.model, inp.objects, inp.water.depth);
   if (!r.sources) {
     c.notApplicable("water.source_in_flow", "design", "no water sources on this map");
@@ -343,8 +360,9 @@ const START_CHECKS = [
   "plants.survive", "plants.drought", "water.reservoir", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
   "ruins.access", "extras.placement",
 ];
-/** Advisory from M8 (D85): generation targets with a warning, never a reason to reject a map. */
-const ADVISORY_START = new Set(["start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought"]);
+/** Advisory from M8 (D85): generation targets with a warning, never a reason to reject a map. The
+ *  resource amounts are information (Kyler, 2026-09-25: resources like the official maps). */
+const ADVISORY_START = new Set(["start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes"]);
 
 function checkOutflow(inp: PlayabilityInput, c: Collector): void {
   const { W, H, model, water, features } = inp;
@@ -685,7 +703,9 @@ function checkStart(
     message: `the best dam site within ${RESERVOIR_RADIUS} tiles${deep > 0 ? `, at least ${deep} deep on average,` : ""} holds ${Math.round(best ? best.volume : 0)} and natural pools keep ${Math.round(natural)}; ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`,
   });
 
-  // resource totals: at least half the official median for this map size (about the official p10)
+  // resource totals, information (never a reason to reject): a warning below half the official
+  // median for this map size at the map's settings (about the official 10th percentile), and where
+  // the amount sits against the official typical range (resources/baseline.ts)
   const area = N;
   let scrap = 0;
   let treeTotal = 0;
@@ -698,19 +718,26 @@ function checkStart(
     } else if ((TREES as readonly string[]).includes(o.template) || o.template === "Succulent") treeTotal++;
     else if (o.template === "BlueberryBush") bushTotal++;
   }
-  const res: [string, number, number, string][] = [
-    ["scrap", scrap, (0.5 * density("scrap_per_1k_tiles", area) * area) / 1e3 * rules.multipliers.scrap, "scrap metal in ruins"],
-    ["trees", treeTotal, (0.5 * density("trees_per_10k", area) * area) / 1e4 * rules.multipliers.trees, "trees"],
-    ["bushes", bushTotal, (0.5 * density("bushes_per_10k", area) * area) / 1e4 * rules.multipliers.bushes, "berry bushes"],
+  const res: ["scrap" | "trees" | "bushes", number, string][] = [
+    ["scrap", scrap, "scrap metal in ruins"],
+    ["trees", treeTotal, "trees"],
+    ["bushes", bushTotal, "berry bushes"],
   ];
-  for (const [key, have, need2, what] of res) {
+  for (const [key, have, what] of res) {
+    const band = officialRange(key, area);
+    const k = rules.multipliers[key];
+    const need2 = 0.5 * band.median * k;
+    const lo = Math.round(band.low * k);
+    const hi = Math.round(band.high * k);
+    const where = have < lo ? "below" : have > hi ? "above" : "within";
     c.add({
       id: `resources.${key}`,
       class: "playability",
+      advisory: true,
       ok: have >= need2,
       value: have,
       limit: Math.round(need2),
-      message: `${have} ${what} (at least ${Math.round(need2)}: half the official median for this map size)`,
+      message: `${have.toLocaleString("en-US")} ${what}: ${where} the official maps' typical range for this size${k !== 1 ? " and setting" : ""} (${lo.toLocaleString("en-US")}–${hi.toLocaleString("en-US")})${have >= need2 ? "" : `; under half their median (${Math.round(need2).toLocaleString("en-US")})`}`,
     });
   }
 

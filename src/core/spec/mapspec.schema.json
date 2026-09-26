@@ -86,7 +86,7 @@
             "ruins": { "type": "integer", "minimum": 25, "maximum": 300 },
             "relics": { "enum": ["off", "some"] },
             "geothermal": { "enum": ["off", "some"] },
-            "mineSites": { "type": "integer", "minimum": 0, "maximum": 4 }
+            "mineSites": { "type": "integer", "minimum": 1, "maximum": 4 }
           }
         },
         "start": {

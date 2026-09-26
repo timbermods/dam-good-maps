@@ -5,6 +5,10 @@
 
 import type { MapSession } from "../../../src/core/doc/session";
 import { planContextOf, planLake, planLandform, startProblem, pieceTiles } from "../../../src/core/doc/tools";
+import { applyBrush } from "../../../src/core/features/raster/brush";
+import { hollowAt } from "../../../src/core/features/hollow";
+import { entityTiles } from "../../../src/core/features/edits";
+import { nearExtras, patchStrokes } from "./dig";
 import { pointAtArc } from "../../../src/core/features/geometry";
 import { planSetPiece, type PlanContext, type PlanRecord } from "../../../src/core/features/setpieces";
 import { reservoirOf, type DamSitePlan } from "../../../src/core/features/setpieces/damSite";
@@ -68,6 +72,8 @@ export interface SiteQuery {
   verify?: boolean;
   /** Sites for moving this set piece: each is checked as the piece rebuilt there. */
   replaces?: string;
+  /** Lakes: a planned lake's outline (setups only), not a hollow to dig. */
+  planned?: boolean;
 }
 
 export interface Site {
@@ -79,6 +85,8 @@ export interface Site {
   course?: { river: string; frac: number };
   /** The step that builds it (for propose): ready to use as it is. */
   step: Record<string, unknown>;
+  /** A second step that finishes it (a lake's spring, after its hollow is dug). */
+  then?: Record<string, unknown>;
   measured: Record<string, unknown>;
   meetsSize: boolean;
   report: string[];
@@ -173,10 +181,10 @@ export function findSites(s: MapSession, q: SiteQuery & { farFirst?: boolean }, 
         continue;
       }
       tries++;
-      let res = verifier(s, q.replaces ? { ...x.step, replaces: q.replaces } : x.step);
-      // a lake a river already fills needs no spring of its own: a source starts water, never
-      // stands in a flow (D171)
-      if (x.kind === "lake" && q.request?.spring === undefined && x.step.spring === undefined && !res.error && res.broken.length === 1 && res.broken[0] === "water.source_in_flow") {
+      let res = verifier(s, q.replaces ? { ...x.step, replaces: q.replaces } : x.then ? { ...x.step, then: x.then } : x.step);
+      // a planned lake a river already fills needs no spring of its own: a source starts water,
+      // never stands in a flow (D171)
+      if (x.kind === "lake" && x.step.op === "addLake" && q.request?.spring === undefined && x.step.spring === undefined && !res.error && res.broken.length === 1 && res.broken[0] === "water.source_in_flow") {
         const fed = { ...x.step, spring: 0 };
         const again = verifier(s, fed);
         if (!again.error && !again.broken.length) {
@@ -311,13 +319,14 @@ function search(s: MapSession, v: MapView, q: SiteQuery & { farFirst?: boolean }
     case "start":
       return starts(s, v, q, mask);
     case "lake":
-      return lakes(s, v, q, mask, size !== undefined ? sizeTarget("lake", size, { W: v.W, H: v.H, designedFor }) ?? undefined : undefined);
+      return (q.planned ? plannedLakes : lakes)(s, v, q, mask, size !== undefined ? sizeTarget("lake", size, { W: v.W, H: v.H, designedFor }) ?? undefined : undefined);
     case "forest":
     case "berryPatch":
     case "ruinField":
       return resources(s, v, q, mask);
     default:
-      return landforms(s, v, q, mask);
+      // hills and valleys come from the brushes (D182)
+      return { sites: [], searched: 0, why: "hills, plateaus, ridges, canyons and valleys come from the brushes: use the brush step (raise or lower a place, with size, amount and edges)" };
   }
 }
 
@@ -842,7 +851,91 @@ function dilate(v: MapView, mask: Uint8Array, r: number): Uint8Array {
   return out;
 }
 
+/** Lakes (D184: a lake is dug and filled, not placed as a shape): a round hollow dug with a lower
+ *  brush, 2 levels (deeper on sloping ground), on dry ground off the start's own area, and a
+ *  spring at its lowest point that
+ *  fills it. Each site is measured by digging it on a copy of the ground: the hollow's area and its
+ *  level. Its step digs the hollow; `then` puts the spring in it (propose both, in that order). */
 function lakes(s: MapSession, v: MapView, q: SiteQuery, mask: Uint8Array, target?: SizeTarget): Found {
+  const sd = startDistance(v);
+  const want = target ? (target.approx ?? ((target.min ?? 60) + (target.max ?? target.min ?? 60)) / 2) : Number(q.request?.area ?? 80);
+  const r0 = Math.max(3, Math.round(Math.sqrt(want / Math.PI)));
+  const cands = gridTiles(v, dilate(v, mask, r0), 150, r0 + 4).filter((i) => !v.channel[i] && (!sd || sd[i] >= r0 + 5));
+  // nearest the place first
+  const ex = extent(v, mask);
+  if (ex) cands.sort((a, b) => Number(!mask[a]) - Number(!mask[b]) || Math.hypot((a % v.W) - ex.centroid[0], Math.floor(a / v.W) - ex.centroid[1]) - Math.hypot((b % v.W) - ex.centroid[0], Math.floor(b / v.W) - ex.centroid[1]));
+  // the objects on the ground (plants a pond drowns, ruins that float on changed ground)
+  const occ = new Uint8Array(v.W * v.H);
+  for (const e of s.built.entities) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < v.W && ty < v.H) occ[ty * v.W + tx] = 1;
+  const extras = nearExtras(s, 3);
+  // the ground the brushes paint (an imported map's caves and overhangs stay as they are)
+  const state = s.terrainState();
+  const pre = state.pre;
+  const roofed = new Uint8Array(v.W * v.H);
+  for (const k of state.columns) roofed[k] = 1;
+  const sites: Site[] = [];
+  let why: string | undefined = cands.length ? undefined : "a lake is dug off the start's own area: none fits there";
+  let searched = 0;
+  for (const i of cands) {
+    if (sites.length >= 8 || searched >= 60) break;
+    const x = i % v.W;
+    const y = (i - x) / v.W;
+    searched++;
+    // off the water, and the objects on the ground round it
+    let wet = false;
+    let objects = 0;
+    for (let yy = Math.max(0, y - r0 - 1); yy <= Math.min(v.H - 1, y + r0 + 1); yy++)
+      for (let xx = Math.max(0, x - r0 - 1); xx <= Math.min(v.W - 1, x + r0 + 1); xx++) {
+        const d2 = (xx - x) ** 2 + (yy - y) ** 2;
+        const k = yy * v.W + xx;
+        if (d2 <= (r0 + 1) ** 2 && (v.water[k] > 0.05 || v.channel[k] || extras[k])) wet = true;
+        if (d2 <= (r0 + 1) ** 2) objects += occ[k];
+      }
+    if (wet) {
+      why ??= "every spot here touches water, or a relic, geothermal field or mine site that must stay off water: a lake is dug on dry ground away from them";
+      continue;
+    }
+    // the patch the brush step paints (the place round the spot, as the step reads it), dug 2
+    // levels deep, deeper on sloping ground (up to 6) until it holds the size asked for
+    const place = resolve(v, { near: [x, y], within: r0 });
+    if (!place.ok) continue;
+    const disc = place.mask;
+    const tiles: number[] = [];
+    for (let k = 0; k < disc.length; k++) if (disc[k] && !roofed[k]) tiles.push(k);
+    let h = { fills: false, level: 0, tiles: 0, low: 0 };
+    let amount = 2;
+    for (; amount <= 6; amount += 2) {
+      const dug = pre.slice();
+      for (const p of patchStrokes(pre, disc, tiles, v.W, v.H, { tool: "lower", amount, passes: 1 }).strokes) applyBrush(p, dug, v.W, v.H, (k) => !roofed[k]);
+      h = hollowAt(dug, null, v.W, v.H, x, y);
+      if (h.fills && h.tiles >= 9 && (!target || meets(target, h.tiles) || h.tiles >= want * 0.8)) break;
+    }
+    amount = Math.min(amount, 6);
+    if (!h.fills || h.tiles < 9) {
+      why ??= "the ground slopes away here: a hollow dug here would drain";
+      continue;
+    }
+    sites.push({
+      rank: 0,
+      kind: "lake",
+      at: [x, y],
+      where: compassWords(v, x, y),
+      course: courseInfo(v, x, y),
+      step: { op: "brush", tool: "lower", where: { near: [x, y], within: r0 }, amount },
+      then: { op: "addSource", kind: "water", at: [x, y], fillHollow: true },
+      measured: { area: h.tiles, level: h.level, ...(objects ? { objectsOnIt: objects } : {}) },
+      meetsSize: meets(target, h.tiles),
+      report: [`a hollow dug ${amount} levels deep and ${2 * r0} tiles across; a spring fills it to level ${h.level}, about ${h.tiles} tiles`],
+    });
+  }
+  // bare ground first: a pond there drowns nothing
+  sites.sort((p, q2) => Number(!!p.measured.objectsOnIt) - Number(!!q2.measured.objectsOnIt));
+  return { sites: spaced(sites, r0 * 2), searched, target, why: sites.length ? undefined : why };
+}
+
+/** A planned lake's outline (setups only: a corpus map with a lake, as documents from before D184
+ *  hold them): an octagon where the lake planner fits one. */
+function plannedLakes(s: MapSession, v: MapView, q: SiteQuery, mask: Uint8Array, target?: SizeTarget): Found {
   const ctx = planContextOf(s);
   const sd = startDistance(v);
   const want = target ? (target.approx ?? ((target.min ?? 60) + (target.max ?? target.min ?? 60)) / 2) : Number(q.request?.area ?? 80);

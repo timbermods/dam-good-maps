@@ -7,6 +7,11 @@
 //
 // Thorn belts are the "thorn-barred valley" of PLAN §9.4: a blotchy belt across the way from the
 // start to a relic or a geothermal field, never within 20 tiles of the start.
+//
+// Every map has at least one mine site (Kyler, 2026-09-25): they are placed first, by the rule the
+// resource baseline shares with Real places (resources/baseline.ts `pickMineSite`): flat, dry 5×5
+// ground with a level ring, away from water, in their band from the start (a third of the band
+// beyond its start where there is room), on ground the colony walks to when there is any there.
 
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
@@ -19,7 +24,9 @@ import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
+import { pickMineSite } from "../resources/baseline";
+import { entityTiles } from "../features/edits";
 
 export interface ExtrasInput {
   spec: MapSpec;
@@ -40,7 +47,8 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   const s = spec.settings;
   const area = spec.size.x * spec.size.y;
   const out: Partial<Record<MapObjectKind, number>> = {};
-  out.mineSite = s.resources.mineSites;
+  // at least one on every map (Kyler); old share links with 0 decode to 1
+  out.mineSite = Math.max(1, Math.min(4, s.resources.mineSites));
   if (s.resources.geothermal === "some") out.geothermal = 1 + (area >= 128 * 128 ? 1 : 0) + (area >= 192 * 192 ? 1 : 0);
   if (s.resources.relics === "some") {
     out.relicSmall = 1 + rng.int(0, 3);
@@ -133,12 +141,40 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         }
   };
 
+  // where the colony walks from the start (its slopes, round the objects that block walking): a
+  // mine site on that ground needs no player stairs
+  const walkBlocked = new Uint8Array(N);
+  const links: [number, number][] = [];
+  for (const e of b.entities) {
+    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) walkBlocked[y * W + x] = 1;
+    if (e.template !== "Slope") continue;
+    const [dx, dy] = slopeHighSideOf(e.orientation);
+    const hx = e.x + dx;
+    const hy = e.y + dy;
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
+  }
+  const regions = walkRegions(h, W, H, walkBlocked, links);
+  const root = regions[sy * W + sx];
+
   for (const kind of ORDER) {
     const want = counts[kind] ?? 0;
     const band = EXTRA_BANDS[kind];
     // a little inside the validator's band, so rounding never puts an object on its edge
     const lo = (band.scaled ? band.lo * scale : band.lo) + 1;
     const hi = (band.scaled ? band.hi * scale : band.hi) - 1;
+    if (kind === "mineSite") {
+      for (let k = 0; k < want; k++) {
+        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length;
+        // (a third of the band's start beyond it, where the band has room)
+        const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root }, rng, { lo, hi, far: lo + (band.scaled ? band.lo * scale : band.lo) / 3 }, fits);
+        if (!spot) break;
+        const { id: fid, role } = id(kind, k);
+        out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x: spot.x, y: spot.y, orientation: spot.orientation } } });
+        placed.push({ kind, tiles: spot.tiles });
+        take(spot.tiles, 3);
+      }
+      continue;
+    }
     for (let k = 0; k < want; k++) {
       const orientation: Orientation = ORIENTATIONS[rng.int(0, 4)];
       const [a, c] = rotatedSize(kind, orientation);
