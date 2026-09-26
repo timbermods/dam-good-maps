@@ -2163,6 +2163,14 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!params) return refused(["Nothing changed"]);
     water = r.liveWater();
   }
+  // objects the map placed again while the force worked (its settled water re-planted the trees) may
+  // be gone by now: the force's object changes are for the ones still there
+  const here = new Set(s.built.entities.map((e) => e.id));
+  if (params.replaces === undefined) {
+    params = { ...params, removed: params.removed.filter((id) => here.has(id)) };
+    if (params.moved) params.moved = params.moved.filter((m) => here.has(m.id));
+    if (params.felled) params.felled = params.felled.filter((m) => here.has(m.id));
+  }
   handoff = water;
   const res = s.apply({ op: "forceResult", params }, "user");
   if (!res.ok) {
