@@ -32,6 +32,9 @@ export interface Experiment {
   /** At least this many seeds (M9a: where the processes' maps vary more from seed to seed than the
    *  planned ones did, the test runs more of them; the threshold is the same). */
   minSeeds?: number;
+  /** Information, not a test (Kyler's decision named here): the move is measured and reported, and
+   *  every map must still pass its checks, but the move itself is not asserted. */
+  info?: string;
 }
 
 /** The seeds an experiment runs: the given ones, extended to its `minSeeds`. */
@@ -330,6 +333,8 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (D211: a preference, never a stamped bench; the map card shows the bench a map has)
+    info: "D211: Start area is a preference",
     setting: "Start area",
     target: "the start's bench: radius 5 / 6 / 8 (tiles at the start's level within 8)",
     theme: "riverValley",
@@ -413,6 +418,8 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (D211: M9b fixes Lake Basin's water share, as design version 2 planned)
+    info: "D211: Lake Basin's water waits for M9b",
     setting: "Theme",
     target: "water share (target River Valley 0.12, Lake Basin 0.30)",
     theme: "riverValley",
@@ -478,6 +485,10 @@ export function runExperiment(e: Experiment, seeds: readonly number[], size: num
     const d = e.expect === "up" ? means[1] - means[0] : means[0] - means[1];
     ok = d >= (e.delta ?? 0);
     why = `moved ${d.toFixed(e.digits ?? 0)} (at least ${e.delta})`;
+  }
+  if (e.info) {
+    why = `information (${e.info}): ${why}`;
+    ok = true;
   }
   return { experiment: e, means, values, failed, ok, why };
 }

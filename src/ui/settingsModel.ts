@@ -61,10 +61,12 @@ export const GROVES: Choice<Settings["resources"]["groveSize"]>[] = [
   { value: "normal", label: "Normal" },
   { value: "bigWoods", label: "Big woods" },
 ];
+/** Start area is a preference, never a promise (D211): the land leans toward a tighter or roomier
+ *  bench round the district center, and the map card shows the bench a map has. */
 export const AREAS: Choice<Settings["start"]["area"]>[] = [
-  { value: "small", label: "Small" },
+  { value: "small", label: "Prefer tight" },
   { value: "normal", label: "Normal" },
-  { value: "large", label: "Large" },
+  { value: "large", label: "Prefer roomy" },
 ];
 
 /** Blocks of water a reservoir holds per tile: 2 deep, 3 on Hard (PLAN §5.3, §11.4). */

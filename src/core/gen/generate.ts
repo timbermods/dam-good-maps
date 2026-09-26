@@ -49,7 +49,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
+import { AVAILABLE_THEMES, THEME_PRESETS, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -202,6 +202,12 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   let genomes = 0;
   let replans = 0;
   let settles = 0;
+  // storage near the start is preferred, never required (#67). When the player asked for more drought
+  // reserve than the theme's own, a passing map without it is kept while a few more attempts look
+  // for one (the same field first, then new land); otherwise the first passing map stands
+  const reserveAsked = RESERVE[specIn.settings.water.droughtReserve] / RESERVE[THEME_PRESETS[specIn.theme].droughtReserve];
+  const storageTries = reserveAsked > 1 ? 3 : 0;
+  let tried = 0;
   for (let attempt = 0; attempt < max; attempt++) {
     if (!land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
       opts.onProgress?.({ attempt, stage: "land" });
@@ -222,9 +228,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     last = a;
     if (a.passed && !a.noStorage) return a.result;
     if (a.passed && !fallback) fallback = a;
-    // storage near the start is preferred, never required (#67): one more plan on this field may
-    // find a start with it; otherwise the map without it stands
-    if (fallback && (fallback !== a || !a.replannable || replans >= REPLANS)) return fallback.result;
+    if (fallback && tried++ >= storageTries) return fallback.result;
     failures.push({ attempt, failed: a.passed ? ["water.storage_possible (preferred)"] : failedIds(a.result) });
   }
   const out = (fallback ?? last!).result;
@@ -578,14 +582,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return a;
   };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
-  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1): StartPick | null => {
+  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null): StartPick | null => {
     const model = waterModel(W, H, h, []);
     const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
     const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
     const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -710,7 +714,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (d[i] < badWithin + 2) out[i] = 1;
     return out;
   };
-  let pick = settlerOn(b1.water, b1.contamination, b1.moisture, 1, beyondBad(b1)) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad));
+  // (near the guess the hollows were planned from, so they keep the distance the settings ask for)
+  const near = bad.features.length ? guess : null;
+  let pick = settlerOn(b1.water, b1.contamination, b1.moisture, 1, beyondBad(b1), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
   if (!pick && bad.features.length) {
     // the hollow took the only good place for a start: the start first, then the hollow
     h.set(hLand);
@@ -722,13 +728,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   if (!pick) return fail("no start", b1, true);
   // the hollows' badwater (their water and the soil it soaks, down to where their ditches end) came
-  // within the badwater distance of the start: plan them again from the start as it is, once
+  // within the badwater distance of the start, or lies much farther than it (the start stands far
+  // from the guess they were planned from: the settled water moved the good places, and D200 puts
+  // badwater at about the distance the settings ask, 30 / 15 / 8 tiles by difficulty): plan them
+  // again from the start as it is, once
   if (bad.features.length && !lastAttempt) {
     const near = beyondBad(b1);
     let hit = false;
     for (let dy = -1; dy <= 1 && !hit; dy++) for (let dx = -1; dx <= 1 && !hit; dx++) if (near[(pick.y + dy) * W + pick.x + dx] && !avoidOf(bad)[(pick.y + dy) * W + pick.x + dx]) hit = true;
-    if (hit) {
-      const keepOff = orMask(badAsk.keepOff ?? null, bad.avoid);
+    let far = false;
+    if (!hit) {
+      const m = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (b1.soilContamination[i] > 0 || (b1.water[i] > 0.05 && b1.contamination[i] >= 0.05)) m[i] = 1;
+      const d = distanceFrom(m, W, H);
+      let at = Infinity;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) at = Math.min(at, d[(pick.y + dy) * W + pick.x + dx]);
+      // (a hollow aims at the distance plus 11 tiles; its soil spreads a few tiles nearer)
+      far = at > badAsk.distance + 26;
+    }
+    if (hit || far) {
+      const keepOff = hit ? orMask(badAsk.keepOff ?? null, bad.avoid) : (badAsk.keepOff ?? null);
       h.set(hLand);
       for (const f of bad.features) contains.delete(f.id);
       const again = planBadwater(h, W, H, b1.water, hy, { ...badAsk, keepOff }, seed, attempt * 4 + 2, pick);
@@ -891,7 +910,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const bytes = passed ? writeTimber(file) : new Uint8Array();
   return {
     passed,
-    replannable: !passed && same,
+    // (a map that passed without storage near the start may be planned again on its field, for one)
+    replannable: same && (!passed || info.storage === false),
     noStorage: passed && info.storage === false,
     result: {
       spec: shown,

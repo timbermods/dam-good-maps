@@ -566,7 +566,7 @@ const GROUND_OBJECTS = new Set([
  *  it no longer holds (uneven ground, a river's channel, the new feature's body) is cleared, and the
  *  report says which. `ops` are the edit's operations; `edited` the features they plan (left alone).
  *  Returns the operations that clear objects, and the report's lines. */
-export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited: ReadonlySet<string>): { ops: EditOp[]; report: string[] } {
+export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited: ReadonlySet<string>): { ops: EditOp[]; report: string[]; refuse?: string } {
   const { x: W, y: H } = s.size;
   const N = W * H;
   // the features after the edit
@@ -639,6 +639,18 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
       report.push(`the ${name} moves to the new ground`);
     }
   }
+  // another feature's water or badwater source (a river's spring, a lake's, a badwater hollow's):
+  // it belongs to that feature and can be neither moved nor cleared with the ground, so an edit
+  // that reshapes the ground under it is refused
+  for (const e of before.entities) {
+    if ((e.template !== "WaterSource" && e.template !== "BadwaterSource") || edited.has(e.owner)) continue;
+    const tiles = entityTiles(e);
+    if (!hit(tiles)) continue;
+    if (tiles.some(([x, y]) => x < 0 || y < 0 || x >= W || y >= H || after.heights[y * W + x] !== before.heights[y * W + x] || body[y * W + x])) {
+      const what = e.template === "BadwaterSource" ? "a badwater spring" : "a water source";
+      return { ops: [], report: [], refuse: `it would reshape the ground under ${what} at (${e.x}, ${e.y}): place it farther from it` };
+    }
+  }
   // the imported map's own objects and objects placed by hand: the loader keeps them only on
   // ground at their level
   const gone: string[] = [];
@@ -664,6 +676,7 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
 export function withObjectsOnNewGround<F extends Feature>(s: MapSession, r: PlannedEdit<F>, edited: string): PlannedEdit<F> {
   if (!r.ok) return r;
   const extra = objectsOnNewGround(s, r.ops, new Set([edited]));
+  if (extra.refuse) return fail(extra.refuse);
   if (!extra.ops.length && !extra.report.length) return r;
   return { ...r, ops: [...r.ops, ...extra.ops], report: [...r.report, ...extra.report] };
 }

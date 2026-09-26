@@ -65,6 +65,9 @@ const badwater: number[] = [];
 let badwaterShort = 0;
 const advisory = new Map<string, number>();
 const straight: { run: number; canal: number }[] = [];
+// information: accepted maps with a second district's site (D77: only where one fits) and ruins on a rise
+let districts = 0;
+let rises = 0;
 const lines: string[] = [];
 const log = (s: string) => {
   lines.push(s);
@@ -83,6 +86,8 @@ for (const seed of seeds) {
     final++;
     if (r.attempts === 1) first++;
     if (r.info.straight) straight.push(r.info.straight);
+    if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "secondDistrict")) districts++;
+    if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "obstaclePayoff")) rises++;
   }
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
@@ -142,6 +147,7 @@ const spread = (v: number[]) => {
   return s.length ? `median ${s[s.length >> 1].toFixed(1)}, p90 ${s[Math.floor(s.length * 0.9)].toFixed(1)}, max ${s[s.length - 1].toFixed(1)}` : "none";
 };
 log(`- straight channels on the accepted maps (information; D209: past the limits a map is planned again): the longest straight bank ${spread(straight.map((x) => x.run))} tiles (limit ${STRAIGHT_LIMITS.run}), the longest canal ${spread(straight.map((x) => x.canal))} (limit ${STRAIGHT_LIMITS.canal})`);
+log(`- set pieces the land held (information): a second district's site on ${districts}/${final} accepted maps, ruins on a rise on ${rises}/${final}`);
 const rt = reopenTimes.slice().sort((a, b) => a - b);
 log(`- project round trip: ${reopened}/${final} accepted maps reopen from their project file and rebuild the same .timber${rt.length ? ` (median ${Math.round(rt[rt.length >> 1])} ms, max ${Math.round(rt[rt.length - 1])} ms)` : ""}`);
 for (const f of reopenFailures) log(`  - ${f}`);

@@ -156,7 +156,8 @@ describe("set pieces, lakes and landforms beside map objects leave none floating
   });
 
   it("an object a lake would drown is cleared, and the report says so", () => {
-    const s = session("riverValley", 13);
+    // (a map whose small relic stands where a lake may go: at 0.7.0 seed 13's is by the map edge)
+    const s = session("riverValley", 1);
     const relic = objectOf(s, "relicSmall", 1)!;
     const { x: W, y: H } = s.size;
     const [x, y] = objectTiles(relic, W, H)[0];

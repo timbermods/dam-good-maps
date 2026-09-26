@@ -114,12 +114,15 @@ describe("drops above 15 are reduced", () => {
     expect(r.ok).toBe(false);
   });
   it("an on-river fall asked to drop 16 drops at most what its river's bed allows downstream", () => {
-    // a river whose bed has room below it (generator 0.7.0: main rivers often cut to level 0)
+    // a river and a place along it whose bed has room below it (generator 0.7.0: main rivers often
+    // cut to level 0, and the land's own falls take their stretch of a river)
     const s = session(96, 4);
-    const plan = (river: RiverFeature) => planPiece(s, "waterfall", { mode: "on-river", river: river.id, at: 70, drop: 16 }, "11111111-2222-4333-8444-555555555555");
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river" && plan(f).ok)!;
-    expect(river).toBeDefined();
-    const r = plan(river);
+    const plan = (river: RiverFeature, at: number) => planPiece(s, "waterfall", { mode: "on-river", river: river.id, at, drop: 16 }, "11111111-2222-4333-8444-555555555555");
+    const places = s.features.filter((f): f is RiverFeature => f.kind === "river").flatMap((f) => [30, 40, 50, 60, 70].map((at) => ({ river: f, at })));
+    const place = places.find((p) => plan(p.river, p.at).ok)!;
+    expect(place).toBeDefined();
+    const river = place.river;
+    const r = plan(river, place.at);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const drop = Number(r.feature.params.plan.drop);

@@ -79,6 +79,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
         <div><dt>River</dt><dd>{f.cleanSources} sources, {f.cleanFlow} water/s</dd></div>
         <div><dt>Badwater</dt><dd>{f.badwaterFlow ? `${f.badwaterFlow} water/s from ${f.badwaterSources} source${f.badwaterSources > 1 ? "s" : ""}` : "none"}</dd></div>
         <div><dt>Under water</dt><dd>{Math.round(f.wetShare * 100)}% of the map</dd></div>
+        {f.startBench !== null ? <div><dt>Start bench</dt><dd>{f.startBench} level tiles round the district center</dd></div> : null}
         <div><dt>Water from the start</dt><dd>{f.waterDistance === null ? "none within reach" : `${f.waterDistance} tiles' walk`}</dd></div>
         <div>
           <dt>Best dam site</dt>

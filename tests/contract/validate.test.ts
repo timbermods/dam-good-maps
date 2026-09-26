@@ -106,21 +106,40 @@ describe("validation profiles (PLAN §19.5)", () => {
     const c = r.report.checks.find((x) => x.id === "water.badwater_contained")!;
     expect(c.applicable).not.toBe(false);
     expect(c.ok).toBe(true);
-    // cut a notch through one basin's rim, away from its outlet: the water rising in the basin
-    // leaves by it, and the check fails
+    // cut a notch from the pit out through its rim, away from its outlet, down to the pit's floor
+    // until it meets ground below the floor or the map's edge: the water rising in the basin
+    // leaves by it, and the check fails (M9a: a hollow is dug two levels into high ground, so the
+    // notch runs as far as its rim is wide, not the old box's 4–6 tiles)
     const p = (basins[0].params as { plan: unknown }).plan as { x: number; y: number; floor: number; outlet: number[]; outletLevels: number[]; outletWidth: number };
     const W = r.built.W;
+    const H = r.built.H;
     const h = r.built.heights.slice();
     const out = new Set<number>();
     for (let k = 0; k + 1 < p.outlet.length; k += 2) out.add(p.outlet[k + 1] * W + p.outlet[k]);
     const cx = p.x + 1;
     const cy = p.y + 1;
     let cut = false;
-    for (const [dx, dy] of [[0, 4], [0, -4], [4, 0], [-4, 0]]) {
-      const a = (cy + dy) * W + cx + dx;
-      const b = (cy + 2 * Math.sign(dy) + dy) * W + cx + dx + 2 * Math.sign(dx);
-      if (cut || out.has(a) || out.has(b)) continue;
-      for (let k = 4; k <= 6; k++) h[(cy + Math.sign(dy) * k) * W + cx + Math.sign(dx) * k] = p.floor;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      if (cut) break;
+      const line: number[] = [];
+      let through = false;
+      for (let k = 2; ; k++) {
+        const x = cx + dx * k;
+        const y = cy + dy * k;
+        if (x < 0 || y < 0 || x >= W || y >= H) {
+          through = true;
+          break;
+        }
+        const i = y * W + x;
+        if (out.has(i)) break;
+        if (h[i] < p.floor) {
+          through = true;
+          break;
+        }
+        line.push(i);
+      }
+      if (!through || line.some((i) => h[i] > p.floor + 1) === false) continue;
+      for (const i of line) h[i] = p.floor;
       cut = true;
     }
     expect(cut).toBe(true);

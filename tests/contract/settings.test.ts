@@ -25,7 +25,8 @@ const SEEDS = parseSeeds(process.env.DGM_SETTINGS_SEEDS ?? "1-4");
 const SIZE = Number(process.env.DGM_SETTINGS_SIZE ?? 96);
 
 describe("each setting moves its measured target (ROADMAP M6)", () => {
-  it.each(EXPERIMENTS.map((e) => [e.setting, e] as const))("%s", (_, e) => {
+  // (an experiment that is information, D211, still runs: its maps must pass their checks)
+  it.each(EXPERIMENTS.map((e) => [e.info ? `${e.setting} (information: ${e.info})` : e.setting, e] as const))("%s", (_, e) => {
     const o = runExperiment(e, seedsFor(e, SEEDS), SIZE);
     expect(o.ok, `${e.setting} (${e.values.join(" → ")}): ${e.target}; means ${o.means.map((m) => m.toFixed(e.digits ?? 0)).join(" → ")}; ${o.why}`).toBe(true);
     // every map of the experiment is still a valid map

@@ -1,7 +1,12 @@
 # M9a: terrain and water from processes
 
-> **Work in progress (paused 2026-09-26).** The branch is not complete; CI's heavy-tests job and
-> some quick tests are red until the next session's steps below. See "Next session" at the end.
+> **Work in progress (resumed 2026-09-26 on the dedicated machine).** Done in this session: the
+> settings experiments move their targets on CI's seeds 1–4 at 96² (D211 applied: Start area and
+> Theme are information; Start area reads as a preference and the map card shows the bench), the
+> two reshape tests, and the quick tests re-seeded for the generator as it now is (see "Tests
+> updated"). Next: the full batches (step 3 of "Next session"), the contact sheet, the Claude suite,
+> docs and browser tests, the merge of `dev`, and the probe maps. The latest state of each step is
+> in "Next session" at the end.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -106,6 +111,35 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
   still come", D200) and, above 16, that the game's map editor edits only up to 16 (D172). Any's
   maps are named "Dam Good Map" in the game's list.
 
+### Changes in the session that resumed on the dedicated machine (2026-09-26)
+
+- **Badwater at the distance the settings ask** (D200 (2)): the settler picks the real start,
+  among the places nearly as good as the best, nearest the guess the hollows were planned from; and
+  when the start still stands far from it (the settled water moved the good places), so the nearest
+  badwater lies more than 26 tiles beyond the distance asked, the hollows are planned again from the
+  start, once (as when they come too near). At 96² with a Badwater distance of 20 every map of
+  seeds 1–8 now has its badwater 19–27 tiles off (47 and 68 on two before); Designed for (Easy →
+  Hard) moves it 16 tiles.
+- **The badwater budget's total** (D200 (3)): where fewer hollows fit than the budget asks (a
+  small map), the ones placed share its total strength, each up to the builder's 3. Badwater Off →
+  High now moves the badwater-to-clean ratio 0.86 (0.55 before).
+- **Drought reserve** (decisions-pending #71, a default): a reserve larger than the theme's own adds
+  valley lakes along the rivers and keeps a passing map without storage near the start while up to
+  three more attempts look for one; a smaller reserve takes valley lakes away. The storage
+  preference in `generate` never ran before (a passing map was never planned again). Scarce →
+  Plenty moves the stored water 410 on seeds 1–4 and 810 on 1–12 (the wrong way before).
+- **Start area** (D211; decisions-pending #70): its choices read Prefer tight, Normal and Prefer
+  roomy, its note says it is a preference, and the map card shows the **Start bench** (level tiles
+  round the district center, within 8). Its experiment and Theme's are information
+  (`tools/settings-suite.ts` `info`).
+- **The editor keeps other features' sources on their ground** (decisions-pending #72, a default):
+  a lake, landform, set piece or move that would reshape the ground under another feature's water
+  or badwater source is refused with the reason (Lake Basin seed 13's lake left a badwater spring
+  floating).
+- **Tools:** `tools/settings-batch.ts --detail` (each seed's value), `tools/batches.ts` (every theme
+  and size at once, reports in `investigation/m9a/local/batches/`, a summary table), and the batch
+  report counts second-district sites and ruins on a rise (information).
+
 ## Results
 
 (Filled in as the batches run; see the sections below.)
@@ -128,6 +162,22 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
   cut to level 0), the 20-wide fall at 128² a seed whose fall water settles within 4 days.
 - `document.test.ts`: format 3, and the format-1 stand-in is a map without natural ramps.
 - `look-mine-ruins.test.ts`: the live check's pinned sha256 for 0.7.0.
+- Resumed session (2026-09-26):
+  - `settings.test.ts` and `tools/settings-suite.ts`: Start area and Theme are information (D211);
+    their maps must still pass their checks, and the test's title says "information".
+  - `validate.test.ts`, `water.badwater_contained`: the notch runs from the pit through its whole
+    rim to lower ground or the map's edge (a hollow is dug two levels into high ground; the old
+    box's rim was 4–6 tiles), and must cross ground above the sill.
+  - `objects.test.ts`: the editor's weir and plug take the first free place from 30 tiles down the
+    main river (the tool refuses where another object stands, as it should); the second district's
+    site (Islands 2, 3, 5 and Any 7), ruins on a rise (Highlands 1, Islands 2, Lake Basin 2, Delta
+    3) and the generated weir (Islands 3, Canyon 3, Lake Basin 4, Highlands 3, Islands 4) moved to
+    maps that have them.
+  - `setpieces.test.ts`: the on-river fall asked to drop 16 takes the first river and place (30–70
+    tiles along it) whose bed has room below (main rivers often cut to level 0, and the land's own
+    falls take their stretch).
+  - `reshape.test.ts`: the lake over a relic uses River Valley seed 1 (seed 13's relic now stands by
+    the map edge, where no lake may go).
 
 ## API changes (for the Live editing merge)
 

@@ -356,7 +356,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </Section>
 
       <Section title="Advanced: start rules">
-        <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} band="The flat bench round the district center, and the land you need nearby." onChange={(v) => set((c) => (c.start.area = v))} />
+        <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} band="A preference: the land leans toward a tighter or roomier bench round the district center. The map card shows the bench you got." onChange={(v) => set((c) => (c.start.area = v))} />
         <Num id="rule-water" label="Water without stairs (tiles)" value={s.start.rules.waterWithin} min={4} max={40} band={`${band("waterWithin", spec)} Default ${d.waterWithin}.`} onChange={(v) => set((c) => (c.start.rules.waterWithin = v))} />
         <Num id="rule-wood" label="Minimum starting wood (logs)" value={s.start.rules.woodWithin20} min={0} max={800} band={`${band("woodWithin20", spec)} Default ${d.woodWithin20}.`} onChange={(v) => set((c) => (c.start.rules.woodWithin20 = v))} />
         <Num id="rule-bushes" label="Minimum starting bushes" value={s.start.rules.bushesWithin20} min={0} max={200} band={`${band("bushesWithin20", spec)} Default ${d.bushesWithin20}.`} onChange={(v) => set((c) => (c.start.rules.bushesWithin20 = v))} />

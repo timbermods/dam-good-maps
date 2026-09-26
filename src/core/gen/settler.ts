@@ -69,6 +69,10 @@ export interface SettlerOptions {
    *  start should have within 40 tiles (the colony's need times the Drought reserve, PLAN §11.4):
    *  places with more are preferred (#67: information the generator prefers, never a guard). */
   storage?: { kept: ArrayLike<number>; want: number } | null;
+  /** Where the start was expected (the guess the badwater hollows were planned from): among the
+   *  places nearly as good as the best, the one nearest it, so the hollows keep the distance the
+   *  settings asked for. Without it, one of them at random. */
+  near?: { x: number; y: number } | null;
 }
 
 /** Shore tiles: dry ground beside clean water 0.3+ deep whose surface a pump on that ground
@@ -423,9 +427,19 @@ export function pickStart(
     top.push(c);
   }
   if (!top.length) return bankStart(h, W, H, water, hydro, rng, margin, avoid);
-  // one of the best few, among those nearly as good as the best (the settings' preferences hold)
+  // one of the best few, among those nearly as good as the best (the settings' preferences hold):
+  // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);
-  const c = good[rng.int(0, good.length)];
+  let c = good[rng.int(0, good.length)];
+  const near = opts.near;
+  if (near) {
+    const d2 = (t: (typeof good)[number]) => {
+      const tx = t.i % W;
+      const ty = (t.i - tx) / W;
+      return (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y);
+    };
+    for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
+  }
   const x = c.i % W;
   const y = (c.i - x) / W;
   return { x, y, level: h[c.i], orientation: c.o, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };

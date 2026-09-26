@@ -122,14 +122,24 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
 
   it("a weir and a plug close a river's channel wall to wall and hold its water", () => {
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
-    const at = 30;
+    // the first free place from 30 tiles down the river (M9a: the generator's own weir or another
+    // object may stand at any one place, and the tool refuses there, as it should)
+    const free = (kind: "weir" | "plug", from: number, k: number) => {
+      let last = "";
+      for (let at = from; at < from + 60; at += 3) {
+        const p = planObject(s, { kind, river: { id: river.id, at } }, uuid(k));
+        if (p.ok) return { at, p };
+        last = p.errors.join("; ");
+      }
+      throw new Error(`no free place for a ${kind} from ${from} tiles down the river: ${last}`);
+    };
+    const { at, p: weir } = free("weir", 30, 60);
     const line = acrossRiver(s, river.id, at);
     expect(line.length).toBeGreaterThanOrEqual(3);
-    const weir = planObject(s, { kind: "weir", river: { id: river.id, at } }, uuid(60));
     expect(weir.ok, JSON.stringify(weir)).toBe(true);
     if (weir.ok) expect(s.applyAll(weir.ops, "user", weir.label).errors).toEqual([]);
     expect(s.built.waterModel.dam).not.toBeNull();
-    const plug = planObject(s, { kind: "plug", river: { id: river.id, at: at + 30 } }, uuid(61));
+    const { p: plug } = free("plug", at + 30, 61);
     expect(plug.ok, JSON.stringify(plug)).toBe(true);
     if (plug.ok) expect(s.applyAll(plug.ops, "user", plug.label).errors).toEqual([]);
     const blocks = s.built.entities.filter((e) => e.template === "Blockage" && e.owner === uuid(61));
@@ -310,7 +320,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
     // maps with a site at generator 0.7.0 (D77: a site only where one fits)
-    for (const [theme, seed] of [["riverValley", 2], ["islands", 3], ["islands", 6], ["riverValley", 9]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 2], ["islands", 3], ["islands", 5], ["any", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -344,7 +354,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.7.0)
     let seen = 0;
-    for (const [theme, seed] of [["islands", 2], ["canyon", 2], ["lakeBasin", 2], ["delta", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 1], ["islands", 2], ["lakeBasin", 2], ["delta", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -377,7 +387,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
     // maps with a weir at generator 0.7.0 (half the maps try one, where a river's channel takes it)
-    for (const [theme, seed] of [["islands", 3], ["canyon", 3], ["lakeBasin", 4], ["riverValley", 4], ["islands", 4]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 3], ["canyon", 3], ["lakeBasin", 4], ["highlands", 3], ["islands", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

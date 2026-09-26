@@ -743,6 +743,11 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
     if (at >= 0) g.parts.splice(at, 1);
   }
+  // the reserve itself (not the difficulty's drought): valley lakes along the rivers, where starts
+  // are found, more for a larger reserve and fewer for a smaller one
+  const rr = RESERVE[s.water.droughtReserve] / RESERVE[p.droughtReserve];
+  if (rr > 1) g.troughs += 1.2 * (rr - 1);
+  else if (rr < 1) g.troughs *= rr;
   // lakes and basins
   const dl = LAKE_STEP[s.water.lakes] - LAKE_STEP[p.lakes];
   if (s.water.lakes === "none") {

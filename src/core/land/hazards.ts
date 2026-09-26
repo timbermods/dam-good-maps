@@ -14,6 +14,7 @@
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
 import { featureId } from "../features/ids";
+import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
 import type { Feature, SetPieceFeature } from "../features/schema";
 import { hash32 } from "../math/hash";
@@ -229,6 +230,17 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     out.features.push(f);
     out.count++;
     placed.push([cx, cy]);
+  }
+  // fewer hollows fit than were asked for (a small map, few rises): the ones placed carry the
+  // budget's total between them, each up to the builder's strongest, so the map's badwater stays
+  // about what the official maps have for its size (D200)
+  if (out.count > 0 && out.count < ask.count) {
+    const each = Math.min(B.each.max, Math.max(ask.strength, Math.floor((ask.count * ask.strength) / out.count / B.each.step) * B.each.step));
+    for (const f of out.features) {
+      if (f.kind !== "setPiece") continue;
+      (f.params.plan as { strength: number }).strength = each;
+      (f.params.request as { strength: number }).strength = each;
+    }
   }
   out.heights = hh;
   return out;

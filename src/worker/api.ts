@@ -2,6 +2,7 @@
 // downloads need, with the big arrays as typed arrays (transferred, not copied).
 
 import { encodeProject, projectFileName, generatedDocument } from "../core/doc/document";
+import { startBench } from "../core/analysis/metrics";
 import { isSapling, type WoodBySpecies } from "../core/analysis/wood";
 import type { JsonObject } from "../core/format/json";
 import type { BuildResult } from "../core/features/build";
@@ -47,6 +48,9 @@ export interface MapFacts {
    *  saplings' logs there, still growing. */
   woodBySpecies: WoodBySpecies | null;
   woodGrowing: number;
+  /** The start's bench: tiles at the district center's level within 8 tiles (Start area is a
+   *  preference, D211; null without a start). */
+  startBench: number | null;
   settle: { ticks: number; settled: boolean };
 }
 
@@ -147,6 +151,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     waterDistance: a && Number.isFinite(a.waterDistance) ? Math.round(a.waterDistance * 10) / 10 : null,
     woodBySpecies: a ? { ...a.woodBySpecies } : null,
     woodGrowing: a ? a.woodGrowing : 0,
+    startBench: b.start ? startBench(b.heights, b.W, b.H, b.start) : null,
     settle: { ticks: b.settle.ticks, settled: b.settle.settled },
   };
   return {

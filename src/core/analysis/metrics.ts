@@ -241,15 +241,7 @@ export function measure(m: Measurable): MapMetrics {
   const groveMedian = groves.length ? groves[groves.length >> 1] : 0;
 
   // ---- the start's bench
-  let benchTiles = 0;
-  const st = m.built.start;
-  if (st) {
-    for (let y = st.y - 8; y <= st.y + 8; y++)
-      for (let x = st.x - 8; x <= st.x + 8; x++) {
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        if ((x - st.x) * (x - st.x) + (y - st.y) * (y - st.y) <= 64 && h[y * W + x] === st.z) benchTiles++;
-      }
-  }
+  const benchTiles = m.built.start ? startBench(h, W, H, m.built.start) : 0;
 
   // ---- the water leaving by the map edge: separate wet stretches of the border, apart from the
   //      sources' own tiles (a river's mouth, each channel of a delta; from M9a a delta's channels
@@ -332,4 +324,16 @@ export function measure(m: Measurable): MapMetrics {
     ruinsNearest,
     benchTiles,
   };
+}
+
+/** The start's bench (Start area, a preference since D211; the map card shows it): tiles at the
+ *  district center's level within 8 tiles of its middle. */
+export function startBench(h: ArrayLike<number>, W: number, H: number, st: { x: number; y: number; z: number }): number {
+  let n = 0;
+  for (let y = st.y - 8; y <= st.y + 8; y++)
+    for (let x = st.x - 8; x <= st.x + 8; x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      if ((x - st.x) * (x - st.x) + (y - st.y) * (y - st.y) <= 64 && h[y * W + x] === st.z) n++;
+    }
+  return n;
 }
