@@ -1,24 +1,29 @@
-// Map look, waterfalls with shape and volume (PLAN §20 D201): before and after captures of falls,
-// side by side, at the view's default angle and at a low angle, and a greyscale and a
+// Map look, waterfalls with shape and volume (PLAN §20 D201, D215): before and after captures of
+// falls, side by side, at the view's default angle and at a low angle, and a greyscale and a
 // colour-blindness sheet of the after views; and, with --bench, the frame time and the water's
 // remesh time on 256² maps with many falls, before and after (information).
 //
 //   git archive --output=.scratch/before.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json
 //   mkdir -p .scratch/before && tar -xf .scratch/before.tar -C .scratch/before
-//   npx tsx tools/capture-waterfalls.ts [--before .scratch/before] [--out docs/look/waterfalls] [--quality 80] [--only gallery,maps]
+//   (and the same for the first round, #53 at b00b2fc, into .scratch/first)
+//   npx tsx tools/capture-waterfalls.ts [--before .scratch/before] [--first .scratch/first] [--port 4195] [--out docs/look/waterfalls] [--quality 80] [--only gallery,maps]
 //   npx tsx tools/capture-waterfalls.ts --bench [--before .scratch/before] [--seconds 6]
+//   npx tsx tools/capture-waterfalls.ts --draft [maps] [--clear] [--slice N]
 //
 // Two kinds of scene, our own renders only:
 // - the fall gallery: a small map made here, its water settled by the game's water rules (the
 //   canonical settle), with a tall fall, a stepped cascade, a strong wide fall beside a thin weak
-//   one, and a badwater fall, all facing the default camera;
+//   one, a badwater fall, an L-shaped lip and a staircase lip, all facing the default camera;
 // - generated 256² maps, opened in the editor: the tallest fall of Highlands 4, the cascade of
 //   Highlands 8, the strongest fall of Canyon 3, a badwater fall of Lake Basin 3, and the whole of
 //   Highlands 2 (the generated map with the most falls) from afar. Each view is found on the map
 //   (`FIND_JS`).
 // The before site is built from --before (a copy of dev's site sources), the after site from this
 // checkout; both open in the installed Chrome on the GPU (the Standard look), the same scene drawn
-// from the same cameras at the same moment of the water's movement.
+// from the same cameras at the same moment of the water's movement. With --first (a copy of the
+// first round's sources, before D215), the views D215 is about (the corner lips, the landing, and
+// the fall of Kyler's review, Highlands 4's) are also drawn by it, beside the after site's:
+// d215-*.jpg.
 
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -73,14 +78,17 @@ interface Case {
   id: string;
   name: string;
   views: { key: string; label: string; view: View }[];
+  /** Compared with the first round (D215) rather than with dev. */
+  d215?: boolean;
 }
 
 /** The gallery's views: every fall faces south, toward the default camera. */
 function galleryCases(): Case[] {
   /** The default angle, and a low one from the side, to see the arc. */
-  const c = (id: string, name: string, target: [number, number, number], distance: number, low: [number, number, number]): Case => ({
+  const c = (id: string, name: string, target: [number, number, number], distance: number, low: [number, number, number], d215 = false): Case => ({
     id,
     name,
+    d215,
     views: [
       { key: "default", label: "default angle", view: { mode: "orbit", yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance, target } },
       { key: "low", label: "low angle", view: { mode: "orbit", yaw: low[0], pitch: low[1], distance: low[2], target } },
@@ -91,9 +99,9 @@ function galleryCases(): Case[] {
     c("gallery-cascade", "a stepped cascade (five steps)", [13.5, 7, -18], 24, [-0.3, 0.42, 24]),
     c("gallery-strong-weak", "a strong wide fall (left) and a thin weak one (right)", [29.5, 5, -14.4], 26, [-0.9, 0.28, 26]),
     c("gallery-badwater", "a badwater fall", [41.5, 5, -14.6], 16, [-0.85, 0.3, 17]),
-    c("gallery-l-lip", "an L-shaped lip (one tile pours south and east)", [52, 4.5, -15.4], 15, [0.6, 0.3, 16]),
-    c("gallery-staircase", "a staircase lip (water crossing the cliff at a slant)", [71, 4.8, -25.5], 20, [0.55, 0.3, 19]),
-    c("gallery-splash", "where the strong fall lands", [25, 2.6, -13.4], 11, [-0.45, 0.45, 11]),
+    c("gallery-l-lip", "an L-shaped lip", [52, 4.5, -15.4], 15, [0.6, 0.3, 16], true),
+    c("gallery-staircase", "a staircase lip", [71, 4.8, -25.5], 20, [0.3, 0.3, 19], true),
+    c("gallery-splash", "where the strong fall lands", [25, 2.6, -13.4], 11, [-0.45, 0.45, 11], true),
   ];
 }
 
@@ -106,10 +114,12 @@ interface MapCase {
   /** What to find on it: the tallest fall, the longest cascade, a badwater fall, the strongest fall,
  *  or the whole map. */
   find: "tallest" | "cascade" | "badwater" | "strong" | "whole";
+  /** Also compared with the first round (D215). */
+  d215?: boolean;
 }
 
 const MAPS: MapCase[] = [
-  { id: "highlands-4-tall", name: "Highlands (4), 256×256: its tallest fall", fragment: "#s=4&z=256&d=n&t=highlands", find: "tallest" },
+  { id: "highlands-4-tall", name: "Highlands (4), 256×256: its tallest fall", fragment: "#s=4&z=256&d=n&t=highlands", find: "tallest", d215: true },
   { id: "highlands-8-cascade", name: "Highlands (8), 256×256: a cascade", fragment: "#s=8&z=256&d=n&t=highlands", find: "cascade" },
   { id: "canyon-3-strong", name: "Canyon (3), 256×256: its strongest fall", fragment: "#s=3&z=256&d=n&t=canyon", find: "strong" },
   { id: "lakeBasin-3-badwater", name: "Lake Basin (3), 256×256: badwater falls", fragment: "#s=3&z=256&d=n&t=lakeBasin", find: "badwater" },
@@ -243,14 +253,14 @@ async function open(page: Page, port: number, fragment: string): Promise<void> {
   await page.evaluate(`window.dgm3d.renderer.setClock(${CLOCK})`);
   // only the scene: the view's buttons, the inspector and the handles hidden (whatever holds the
   // view: the page's layout differs between builds)
-  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .editor-view canvas { visibility: visible !important; }" });
+  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .view3d > canvas { visibility: visible !important; }" });
 }
 
 async function shot(page: Page, v: View): Promise<Buffer> {
   await page.evaluate(`window.dgm3d.renderer.setView(${JSON.stringify(v)})`);
   await page.evaluate("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))");
   await page.waitForTimeout(250);
-  return page.locator(".editor-view canvas").screenshot({ type: "png" });
+  return page.locator(".view3d > canvas").screenshot({ type: "png" });
 }
 
 /** Page-side image work: side-by-side pairs, sheets, and the colour transforms (Machado, Oliveira
@@ -322,6 +332,8 @@ async function main() {
   mkdirSync(OUT, { recursive: true });
   const before = await site(BEFORE, "before", BEFORE_PORT);
   const after = await site(resolve("."), "after", AFTER_PORT);
+  const firstDir = arg("first");
+  const first = firstDir ? await site(resolve(firstDir), "first", FIRST_PORT) : null;
   let browser: Browser | null = null;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
@@ -335,23 +347,37 @@ async function main() {
     await tool.goto(`http://localhost:${AFTER_PORT}/`);
     const afterShots: { short: string; png: Buffer; angled: boolean }[] = [];
     const notes: string[] = [];
-    const pair = async (id: string, name: string, key: string, label: string, b: Buffer, a: Buffer) => {
-      await compose(tool, [b, a], [`Before (dev): ${name}, ${label}`, `After: ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `${id}-${key}.jpg`));
+    const pair = async (id: string, name: string, key: string, label: string, b: Buffer, a: Buffer, d215 = false, sheets = true) => {
+      if (d215) await compose(tool, [b, a], [`Before D215 (first round): ${name}, ${label}`, `After D215: ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `d215-${id.replace(/^gallery-/, "")}-${key}.jpg`));
+      else await compose(tool, [b, a], [`Before (dev): ${name}, ${label}`, `After: ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `${id}-${key}.jpg`));
       // (the sheets are labelled by the pair's file name: the full labels do not fit)
-      afterShots.push({ short: `${id}-${key}`, png: a, angled: key === "default" });
+      if (sheets) afterShots.push({ short: `${d215 ? "d215-" : ""}${id.replace(/^gallery-/, d215 ? "" : "gallery-")}-${key}`, png: a, angled: key === "default" });
     };
     if (!ONLY || ONLY.includes("gallery")) {
       const g = gallery();
-      const cases = galleryCases();
+      const cases = galleryCases().filter((c) => !c.d215 || first);
       const shots: Record<string, Buffer> = {};
-      for (const [label, port] of [["after", AFTER_PORT], ["before", BEFORE_PORT]] as const) {
+      for (const [label, port] of [["after", AFTER_PORT], ["before", BEFORE_PORT], ["first", FIRST_PORT]] as const) {
+        if (label === "first" && !first) continue;
         await open(page, port, "#s=1&z=96&d=n&t=riverValley");
         checkGpu((await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string);
         const b = (await page.evaluate(`(${GALLERY_JS})(${JSON.stringify(g)})`)) as { falls?: number; waterQuads: number };
         notes.push(`gallery (${label}): ${b.waterQuads} water quads${b.falls !== undefined ? `, ${b.falls} falls` : ""}`);
-        for (const c of cases) for (const v of c.views) shots[`${label} ${c.id} ${v.key}`] = await shot(page, v.view);
+        for (const c of cases) {
+          if (label === "before" && c.d215) continue;
+          if (label === "first" && !c.d215) continue;
+          for (const v of c.views) shots[`${label} ${c.id} ${v.key}`] = await shot(page, v.view);
+        }
+        if (label === "after") {
+          // clear water (T, D196, D212): the falls turn to a faint veil
+          const v = cases.find((c) => c.id === "gallery-strong-weak")!.views[0].view;
+          await page.evaluate("window.dgm3d.renderer.setClearWater(true)");
+          shots.clear = await shot(page, v);
+          await page.evaluate("window.dgm3d.renderer.setClearWater(false)");
+        }
       }
-      for (const c of cases) for (const v of c.views) await pair(c.id, `Gallery, ${c.name}`, v.key, v.label, shots[`before ${c.id} ${v.key}`], shots[`after ${c.id} ${v.key}`]);
+      for (const c of cases) for (const v of c.views) await pair(c.id, `Gallery, ${c.name}`, v.key, v.label, shots[`${c.d215 ? "first" : "before"} ${c.id} ${v.key}`], shots[`after ${c.id} ${v.key}`], c.d215);
+      await compose(tool, [shots["after gallery-strong-weak default"], shots.clear], ["Clear water off: the gallery's strong, weak and badwater falls", "Clear water on (T): the same"], 2, 0.75, [null, null], join(OUT, "clear-water.jpg"));
     }
     if (!ONLY || ONLY.includes("maps")) {
       for (const m of MAPS) {
@@ -367,6 +393,10 @@ async function main() {
         for (const v of views) shotsAfter[v.key] = await shot(page, v.view);
         await open(page, BEFORE_PORT, m.fragment);
         for (const v of views) await pair(m.id, m.name, v.key, v.label, await shot(page, v.view), shotsAfter[v.key]);
+        if (m.d215 && first) {
+          await open(page, FIRST_PORT, m.fragment);
+          for (const v of views) await pair(m.id, m.name, v.key, v.label, await shot(page, v.view), shotsAfter[v.key], true, false);
+        }
       }
     }
     // the sheets: every after view in greyscale; the default-angle after views in the three simulations
@@ -391,6 +421,7 @@ async function main() {
     await browser?.close();
     await before.close();
     await after.close();
+    await first?.close();
   }
 }
 

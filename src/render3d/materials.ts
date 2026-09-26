@@ -1167,7 +1167,8 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           float foam = smoothstep(0.1 + 0.4 * up, 0.24 + 0.42 * up, bil);
           foam = max(foam, (1.0 - smoothstep(0.0, 0.4, up)) * (0.55 + 0.45 * bil));
           foam = max(foam, smoothstep(0.52, 0.78, spray) * (1.0 - smoothstep(0.35, 1.0, up)) * 0.85) * amount;
-          foam *= smoothstep(0.0, 0.15, end) * mix(0.7, 1.0, weak);
+          // (ragged at a free end)
+          foam *= smoothstep(0.0, 0.25, end + 0.15 * (bil - 0.6)) * mix(0.7, 1.0, weak);
           c = foamColour;
           alpha = foam * FALL_FOAM;
         } else if (kind > 3.5) {
@@ -1197,7 +1198,8 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           float blobs = smoothstep(0.4, 0.52, 0.55 * blot + 0.45 * churn) * (0.75 + 0.25 * churn);
           float broken = pow(tail, 0.7) * max(blobs, lace * 0.85);
           float foam = (core * (0.8 + 0.2 * churn) + (1.0 - core) * broken) * amount;
-          foam *= smoothstep(0.0, 0.2, end) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);
+          // (fading at its edges: raggedly past a free end, toward the cliff, and at its outer edge)
+          foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);
           c = foamColour;
           alpha = foam * FALL_FOAM;
         } else {
