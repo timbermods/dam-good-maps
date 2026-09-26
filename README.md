@@ -40,7 +40,8 @@ The editor:
 - The row under the brushes holds their options: **Square**, **Precise**, **Straight lines** and
   **Level lines**. **Flatten** adds **In steps** and **Edges**. **Smooth** adds **Make walkable**,
   which lays the game's slopes.
-- A **Lower** stroke that starts in water carves a bed the water follows. Its ring turns blue.
+- A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
+  blue.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
@@ -56,8 +57,8 @@ The editor:
   it. **Drought** and **Badtide** show what each does to the map.
 - A brush over water clears the water around it, so you see the bed. **Clear water** (T) clears all
   of it.
-- The view buttons add **Top-down**, **Height colours**, **Markers**, **Moisture**, **Badwater**,
-  **Drought**, **Dam sites**, the **Minimap** and **Sound**.
+- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Moisture**,
+  **Badwater**, **Drought**, **Dam sites**, **Minimap** and **Sound**.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
