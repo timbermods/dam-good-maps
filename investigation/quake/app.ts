@@ -374,4 +374,7 @@ Object.assign(window,{quake:{get operation(){return lastOperation;},get bundle()
  capture:()=>{gl.render(scene,camera);const copy=document.createElement('canvas');copy.width=800;copy.height=Math.round(800*canvas.height/canvas.width);copy.getContext('2d')!.drawImage(canvas,0,0,copy.width,copy.height);return copy.toDataURL('image/jpeg',.78);},
  start:(settings:Settings,intent:Intent)=>begin(intent.side,{settings,intent}),
  project:(x:number,y:number)=>{const p=new THREE.Vector3(x+.5,heights[Math.floor(y)*W+Math.floor(x)]+.1,-y-.5).project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};}
-}});load();
+}});
+// A shareable local entry point for trying the revised Slide immediately.
+if(new URLSearchParams(location.search).has('slide')){select.value='fixture:slide:128';showSettings({mode:'slide',power:100,scarp:'sheer',seed:0});}
+load();

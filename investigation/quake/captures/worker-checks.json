@@ -18,12 +18,12 @@
   "measurements": [
     {
       "case": "first changed frame",
-      "ms": 188.48919999999998
+      "ms": 219.50340000000006
     },
     {
       "case": "256² rupture seven of eight fronts",
-      "firstMs": 333.0802999999996,
-      "ms": 1219.6401999999998
+      "firstMs": 347.9260000000004,
+      "ms": 1265.937500000001
     }
   ]
 }

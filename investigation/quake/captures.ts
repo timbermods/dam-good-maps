@@ -1,7 +1,7 @@
 // Carve's CPU capture pipeline, recording real Quake fronts and repository water.
 import { createCanvas,ImageData,type Canvas } from '@napi-rs/canvas';
 import { GIFEncoder,quantize,applyPalette } from 'gifenc';
-import { mkdirSync,writeFileSync } from 'node:fs';
+import { mkdirSync,writeFileSync,readFileSync } from 'node:fs';
 import { topDown,isometric,type Picture } from '../workshop/lib/render';
 import { canonicalSettle } from '../../src/core/sim/prefill';
 import { WaterSim } from '../../src/core/sim/water';
@@ -19,7 +19,8 @@ function panel(title:string,f:Frame):Canvas{
 }
 function gif(name:string,canvases:Canvas[]){const enc=GIFEncoder();canvases.forEach((c,k)=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,palette=quantize(d,128);enc.writeFrame(applyPalette(d,palette),c.width,c.height,{palette,repeat:0,delay:k===0?850:k===canvases.length-1?1700:180});});enc.finish();writeFileSync('captures/'+name+'.gif',enc.bytes());}
 function save(name:string,title:string,frames:Frame[]){gif(name,frames.map(f=>panel(title,f)));const c=createCanvas(1200,300),ctx=c.getContext('2d');[frames[0],frames[4],frames.at(-1)!].forEach((f,k)=>ctx.drawImage(panel(title,f),k*400,0,400,300));writeFileSync('captures/'+name+'.png',c.toBuffer('image/png'));}
-const scenarios:Record<string,unknown>={};
+const slideOnly=process.argv.includes('--slide-only');
+const scenarios:Record<string,unknown>=slideOnly?JSON.parse(readFileSync('captures/scenarios.json','utf8')):{};
 function sequence(id:string,m:QuakeMap,s:Settings,intent:Intent){
  const plan=quake(m,s,intent),frames:Frame[]=[{map:snapshot(m),label:'Before · personality '+s.seed}];let state=snapshot(m),previous:QuakePlan|null=null;
  // The stroke grows under the pen now; don't replay the retired release-then-race interaction.
@@ -37,8 +38,9 @@ function sequence(id:string,m:QuakeMap,s:Settings,intent:Intent){
 }
 mkdirSync('captures',{recursive:true});mkdirSync('samples',{recursive:true});
 const line=(y=64,side:1|-1=1):Intent=>({side,path:[{x:0,y},{x:127,y}]}),s={...DEFAULTS,seed:18,power:65};
+save('river-slide','Slide · 20 tiles of ridge and river offset',sequence('river-slide',fixture('slide'),{...s,mode:'slide',power:100},line()));
+if(!slideOnly){
 save('river-lift','Lift · a river becomes a waterfall',sequence('river-lift',fixture('river'),s,line()));
-save('river-slide','Slide · a connected dog-leg river',sequence('river-slide',fixture('river'),{...s,mode:'slide',power:85},line()));
 const first=sequence('rift-first',fixture('plain'),{...s,seed:2},line(43,-1)),second=sequence('rift-second',first.at(-1)!.map,{...s,seed:5},line(80,1));
 save('rift-valley','Two faults · a new rift valley',[...first.slice(0,9),...second]);
 save('lake-spill','Lift & tilt · a lake spills',sequence('lake-spill',fixture('lake'),{...s,seed:29,power:85},line(55)));
@@ -46,4 +48,5 @@ const sheer=sequence('sheer',fixture('river'),s,line()),stepped=sequence('steppe
 const comparison=sheer.map((f,k)=>{const c=createCanvas(960,360),ctx=c.getContext('2d');ctx.drawImage(panel('Sheer · one cliff',f),0,0,480,360);ctx.drawImage(panel('Stepped · parallel benches',stepped[k]),480,0,480,360);return c;});gif('scarps',comparison);writeFileSync('captures/scarps.png',comparison.at(-1)!.toBuffer('image/png'));
 const small=fixture('plain',32),intent:Intent={side:1,path:[{x:0,y:24},{x:31,y:24}]},after=quake(small,s,intent).map,w=canonicalSettle(modelFor(after));after.water={depth:w.depth,contamination:w.contamination};
 writeFileSync('samples/tiny-quake.json',JSON.stringify({format:1,base:small,quakeBase:small,operation:operation(small,after,s,intent,w)},(_k,v)=>ArrayBuffer.isView(v)?Array.from(v as unknown as number[]):v)+'\n');
+}
 writeFileSync('captures/scenarios.json',JSON.stringify(scenarios,null,2)+'\n');

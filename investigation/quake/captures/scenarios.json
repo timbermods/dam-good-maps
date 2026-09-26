@@ -35,7 +35,7 @@
   "river-slide": {
     "settings": {
       "mode": "slide",
-      "power": 85,
+      "power": 100,
       "scarp": "sheer",
       "seed": 18
     },
@@ -53,12 +53,14 @@
       ]
     },
     "stats": {
-      "changed": 2366,
-      "raised": 2194,
-      "dropped": 2517,
-      "moved": 860,
+      "changed": 2659,
+      "raised": 3596,
+      "dropped": 3735,
+      "moved": 441,
       "toppled": 31,
-      "channel": 50
+      "channel": 52,
+      "transported": 8084,
+      "fullOffset": 6874
     },
     "water": {
       "settled": true,

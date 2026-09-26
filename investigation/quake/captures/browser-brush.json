@@ -1,4 +1,52 @@
 {
+  "metrics": {
+    "gestureMs": 300.89999997615814,
+    "paint": {
+      "engine": "three.js r186",
+      "glideTiles": "0",
+      "glideUploads": "0",
+      "strokeId": "1",
+      "penPoints": "544",
+      "side": "left",
+      "refused": "false",
+      "firstChangeMs": "99.40000003576279",
+      "paintedRevision": "27",
+      "paintedWhileHeld": "true",
+      "ruptureMs": "2091.5",
+      "eventP95Ms": "6.199999999999818",
+      "eventMaxMs": "18.199999999999818"
+    },
+    "unrecordedPaint": {
+      "engine": "three.js r186",
+      "glideTiles": "0",
+      "glideUploads": "0",
+      "strokeId": "2",
+      "penPoints": "547",
+      "side": "right",
+      "refused": "false",
+      "paintedRevision": "20",
+      "ruptureMs": "1603.199999988079",
+      "eventP95Ms": "6.200000000000728",
+      "eventMaxMs": "7.600000000000364",
+      "firstChangeMs": "54.10000002384186",
+      "paintedWhileHeld": "true"
+    },
+    "slide": {
+      "engine": "three.js r186",
+      "glideTiles": "17",
+      "glideUploads": "32064",
+      "strokeId": "8",
+      "penPoints": "360",
+      "side": "left",
+      "refused": "false",
+      "paintedRevision": "20",
+      "ruptureMs": "1462",
+      "eventP95Ms": "6.200000000000728",
+      "eventMaxMs": "8.200000000000728",
+      "firstChangeMs": "37.80000001192093",
+      "paintedWhileHeld": "true"
+    }
+  },
   "passed": [
     "256² curved brush changes terrain while held and creates one quake on release",
     "whole-stroke undo and redo",
@@ -9,47 +57,5 @@
     "rapid strokes queue during settling and each remain undoable",
     "Slide painted through the river with a connected channel",
     "effects off preserves the same interaction"
-  ],
-  "metrics": {
-    "gestureMs": 305.2999999523163,
-    "paint": {
-      "engine": "three.js r186",
-      "strokeId": "1",
-      "penPoints": "543",
-      "side": "left",
-      "refused": "false",
-      "firstChangeMs": "77.60000002384186",
-      "paintedRevision": "26",
-      "paintedWhileHeld": "true",
-      "ruptureMs": "2049.600000023842",
-      "eventP95Ms": "6.199999999998909",
-      "eventMaxMs": "18.199999999999818"
-    },
-    "unrecordedPaint": {
-      "engine": "three.js r186",
-      "strokeId": "2",
-      "penPoints": "546",
-      "side": "right",
-      "refused": "false",
-      "paintedRevision": "20",
-      "ruptureMs": "1608.300000011921",
-      "eventP95Ms": "6.199999999998909",
-      "eventMaxMs": "7.100000000000364",
-      "firstChangeMs": "46.90000003576279",
-      "paintedWhileHeld": "true"
-    },
-    "slide": {
-      "engine": "three.js r186",
-      "strokeId": "8",
-      "penPoints": "361",
-      "side": "left",
-      "refused": "false",
-      "paintedRevision": "20",
-      "ruptureMs": "1443.5999999642372",
-      "eventP95Ms": "6.200000000000728",
-      "eventMaxMs": "11.5",
-      "firstChangeMs": "23.899999976158142",
-      "paintedWhileHeld": "true"
-    }
-  }
+  ]
 }
