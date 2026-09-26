@@ -1,0 +1,11 @@
+{
+  "name": "dam-good-maps-juice",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "bench": "node tests/bench.mjs"
+  },
+  "engines": { "node": ">=22" }
+}
