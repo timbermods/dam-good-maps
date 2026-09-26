@@ -120,6 +120,10 @@ export const CLEAR_WATER = {
   stripe: 0.45,
   /** Round the brush, the clear water fades back to normal over this many tiles. */
   fade: 1.5,
+  /** A clean fall, its splash and its crown keep this share of their opacity (D201): a faint veil of
+   *  streaks and foam, so the cliff behind it and the bed below show; a badwater fall keeps its
+   *  colour, at most `badOpacity` opaque, with the stripes. */
+  fall: 0.3,
 } as const;
 
 /** Badwater's depth, opacity and surface. */
@@ -345,6 +349,7 @@ export const WATER_GLSL = /* glsl */ `
   #define CLEAR_BAD_OPACITY ${f(CLEAR_WATER.badOpacity)}
   #define CLEAR_STRIPE ${f(CLEAR_WATER.stripe)}
   #define CLEAR_FADE ${f(CLEAR_WATER.fade)}
+  #define CLEAR_FALL ${f(CLEAR_WATER.fall)}
   #define WATER_WARM ${glColor(WATER.warm)}
   #define WATER_CREST_AMOUNT ${f(WATER_SURFACE.crest)}
   #define WATER_REFLECT ${f(WATER_SURFACE.reflect)}

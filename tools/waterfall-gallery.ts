@@ -1,7 +1,8 @@
 // The fall gallery (PLAN §20 D201): a small map of our own for the waterfall captures
 // (tools/capture-waterfalls.ts), its water settled by the game's water rules (the canonical
-// settle): a tall fall, a stepped cascade, a strong wide fall beside a thin weak one, and a badwater
-// fall, each fed by its own source and facing south, toward the view's default camera.
+// settle): a tall fall, a stepped cascade, a strong wide fall beside a thin weak one, a badwater
+// fall, and (D215) a fall over an L-shaped lip and one over a staircase lip, each fed by its own
+// source and facing south (or south-east), toward the view's default camera.
 
 import { soilContamination } from "../src/core/sim/contamination";
 import { moisture } from "../src/core/sim/moisture";
@@ -20,9 +21,13 @@ export interface Gallery {
 
 /** The gallery's ground (x east, y north): a channel along the south carrying the falls' water off
  *  the west edge, a basin of its own for the badwater fall draining south, and to the north, each
- *  in its own block, a channel fed by a source running south to a lip over the cliff. */
+ *  in its own block, a channel fed by a source running south to a lip over the cliff. To the east
+ *  (D215), two lips that turn corners, over a basin draining south: a channel whose last three
+ *  tiles also pour east into a bay beside it (an L-shaped lip round an outer corner), and a band of
+ *  water running diagonally, pouring over a staircase lip (outer and inner corners, one after
+ *  another, as where a river crosses a cliff at a slant). */
 export function galleryMap(): { W: number; H: number; heights: Uint8Array; emitters: Emitter[] } {
-  const W = 56;
+  const W = 80;
   const H = 48;
   const h = new Uint8Array(W * H).fill(4);
   const set = (x0: number, x1: number, y0: number, y1: number, v: number) => {
@@ -51,6 +56,22 @@ export function galleryMap(): { W: number; H: number; heights: Uint8Array; emitt
   set(35, 36, 15, 46, 8);
   // a badwater fall, three wide
   set(40, 43, 15, 46, 8);
+  // the basin below the corners, draining off the south edge
+  set(46, 78, 0, 11, 2);
+  set(47, 78, 11, 15, 1);
+  // an L-shaped lip: a channel three wide (8 into 1), its last three tiles also pouring east into a
+  // bay beside it
+  set(49, 52, 15, 46, 8);
+  set(52, 55, 15, 18, 1);
+  // a staircase lip: a band of water four wide running north-east at 45°, its south-east side a
+  // staircase over the basin (8 into 1), the basin open to the south-east of it; fed from the north
+  // by a channel three wide
+  for (let x = 58; x < 78; x++) {
+    const d = 15 + (x - 60);
+    if (x >= 60) for (let y = 15; y < Math.min(29, d); y++) h[y * W + x] = 1;
+    if (x < 74) for (let y = Math.max(15, d); y < Math.min(46, d + 4); y++) h[y * W + x] = 8;
+  }
+  set(71, 74, 31, 46, 8);
   const row = (x0: number, x1: number, y: number) => Array.from({ length: x1 - x0 }, (_, k) => y * W + x0 + k);
   const emitters: Emitter[] = [
     { cells: row(4, 7, 44), strength: 2.4, contamination: 0 },
@@ -58,6 +79,8 @@ export function galleryMap(): { W: number; H: number; heights: Uint8Array; emitt
     { cells: row(20, 30, 44), strength: 18, contamination: 0 },
     { cells: row(35, 36, 44), strength: 0.1, contamination: 0 },
     { cells: row(40, 43, 44), strength: 2.1, contamination: 1 },
+    { cells: row(49, 52, 44), strength: 4, contamination: 0 },
+    { cells: row(71, 74, 44), strength: 3, contamination: 0 },
   ];
   return { W, H, heights: h, emitters };
 }

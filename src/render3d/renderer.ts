@@ -663,6 +663,7 @@ export class MapRenderer {
     g.setAttribute("fMore", new InterleavedBufferAttribute(buf, 4, 12));
     g.instanceCount = count;
     // the bounds: every lip's corner, from its landing to its top, and as far out as a fall reaches
+    // (and runs on round a corner, D215)
     let x0 = Infinity;
     let x1 = -Infinity;
     let y0 = Infinity;
@@ -678,7 +679,7 @@ export class MapRenderer {
       y0 = Math.min(y0, data[o + 6], data[o + 7]);
       y1 = Math.max(y1, data[o + 4], data[o + 5]);
     }
-    const pad = 2.5;
+    const pad = 4.5;
     const c = new Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     g.boundingSphere = new Sphere(c, Math.hypot((x1 - x0) / 2 + pad, (y1 - y0) / 2 + 0.1, (z1 - z0) / 2 + pad));
     const mesh = new Mesh(g, this.fallMat);

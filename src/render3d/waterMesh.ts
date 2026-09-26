@@ -281,8 +281,9 @@ export function lowerByTile(sw: SurfaceWater, view: WaterView): Map<number, numb
 
 /** Chunks whose water differs between two surface-water states: a tile's surface, depth or
  *  blended badwater share changed (the blend reaches a few tiles past a change of badwater). A
- *  top's corners and curtains read the tiles round it, and a fall the flow of the lips beside it,
- *  which reads the tiles round them, so a chunk is also dirty when a tile up to two away changed. */
+ *  top's corners and curtains read the tiles round it, and a fall the flow of the lips beside it and
+ *  round its corners (which reads the tiles round them) and the pool up to three tiles out (its
+ *  splash's room), so a chunk is also dirty when a tile up to three away changed. */
 export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: SurfaceWater, aLower: number, bLower: number): Set<string> {
   const out = new Set<string>();
   const nx = Math.ceil(W / CHUNK);
@@ -293,12 +294,12 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
     return out;
   }
   const dirty = new Uint8Array(nx * ny);
-  /** The chunks of the tiles up to two from (x, y). */
+  /** The chunks of the tiles up to three from (x, y). */
   const mark = (x: number, y: number) => {
-    const cx0 = Math.floor(Math.max(0, x - 2) / CHUNK);
-    const cx1 = Math.floor(Math.min(W - 1, x + 2) / CHUNK);
-    const cy0 = Math.floor(Math.max(0, y - 2) / CHUNK);
-    const cy1 = Math.floor(Math.min(H - 1, y + 2) / CHUNK);
+    const cx0 = Math.floor(Math.max(0, x - 3) / CHUNK);
+    const cx1 = Math.floor(Math.min(W - 1, x + 3) / CHUNK);
+    const cy0 = Math.floor(Math.max(0, y - 3) / CHUNK);
+    const cy1 = Math.floor(Math.min(H - 1, y + 3) / CHUNK);
     for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
   };
   const ba = blendedBadwater(W, H, a);

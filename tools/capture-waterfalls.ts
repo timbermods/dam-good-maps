@@ -43,6 +43,12 @@ const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** The low angle: 17° above the horizon. */
 const LOW_PITCH = 0.3;
 const GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"];
+/** The sites' ports: --port P serves the after site at P, the before site at P + 1 and the first
+ *  round's at P + 2 (on a shared machine, each run its own). */
+const PORT = Number(arg("port") ?? 4195);
+const AFTER_PORT = PORT;
+const BEFORE_PORT = PORT + 1;
+const FIRST_PORT = PORT + 2;
 
 type View = { mode: "top" | "orbit"; yaw: number; pitch: number; distance: number; target: [number, number, number] };
 
@@ -85,6 +91,9 @@ function galleryCases(): Case[] {
     c("gallery-cascade", "a stepped cascade (five steps)", [13.5, 7, -18], 24, [-0.3, 0.42, 24]),
     c("gallery-strong-weak", "a strong wide fall (left) and a thin weak one (right)", [29.5, 5, -14.4], 26, [-0.9, 0.28, 26]),
     c("gallery-badwater", "a badwater fall", [41.5, 5, -14.6], 16, [-0.85, 0.3, 17]),
+    c("gallery-l-lip", "an L-shaped lip (one tile pours south and east)", [52, 4.5, -15.4], 15, [0.6, 0.3, 16]),
+    c("gallery-staircase", "a staircase lip (water crossing the cliff at a slant)", [71, 4.8, -25.5], 20, [0.55, 0.3, 19]),
+    c("gallery-splash", "where the strong fall lands", [25, 2.6, -13.4], 11, [-0.45, 0.45, 11]),
   ];
 }
 
@@ -232,8 +241,9 @@ async function open(page: Page, port: number, fragment: string): Promise<void> {
   await page.waitForTimeout(2500);
   await page.evaluate("window.dgmEditor.idle()");
   await page.evaluate(`window.dgm3d.renderer.setClock(${CLOCK})`);
-  // only the scene: the view's buttons, the inspector and the handles hidden
-  await page.addStyleTag({ content: ".view3d > :not(canvas), .editor-map > :not(.view3d) { visibility: hidden !important; }" });
+  // only the scene: the view's buttons, the inspector and the handles hidden (whatever holds the
+  // view: the page's layout differs between builds)
+  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .editor-view canvas { visibility: visible !important; }" });
 }
 
 async function shot(page: Page, v: View): Promise<Buffer> {
@@ -310,8 +320,8 @@ function checkGpu(renderer: string): void {
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
-  const before = await site(BEFORE, "before", 4195);
-  const after = await site(resolve("."), "after", 4196);
+  const before = await site(BEFORE, "before", BEFORE_PORT);
+  const after = await site(resolve("."), "after", AFTER_PORT);
   let browser: Browser | null = null;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
@@ -322,7 +332,7 @@ async function main() {
       if (m.type() === "error") errors.push(m.text());
     });
     const tool = await browser.newPage();
-    await tool.goto(`http://localhost:4196/`);
+    await tool.goto(`http://localhost:${AFTER_PORT}/`);
     const afterShots: { short: string; png: Buffer; angled: boolean }[] = [];
     const notes: string[] = [];
     const pair = async (id: string, name: string, key: string, label: string, b: Buffer, a: Buffer) => {
@@ -334,7 +344,7 @@ async function main() {
       const g = gallery();
       const cases = galleryCases();
       const shots: Record<string, Buffer> = {};
-      for (const [label, port] of [["after", 4196], ["before", 4195]] as const) {
+      for (const [label, port] of [["after", AFTER_PORT], ["before", BEFORE_PORT]] as const) {
         await open(page, port, "#s=1&z=96&d=n&t=riverValley");
         checkGpu((await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string);
         const b = (await page.evaluate(`(${GALLERY_JS})(${JSON.stringify(g)})`)) as { falls?: number; waterQuads: number };
@@ -346,7 +356,7 @@ async function main() {
     if (!ONLY || ONLY.includes("maps")) {
       for (const m of MAPS) {
         console.log(m.name);
-        await open(page, 4196, m.fragment);
+        await open(page, AFTER_PORT, m.fragment);
         checkGpu((await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string);
         const found = await findOn(page, m.find);
         if (!found.views.length) throw new Error(`${m.name}: no fall found`);
@@ -355,7 +365,7 @@ async function main() {
         notes.push(`${m.id}: ${found.count} fall faces${b ? `; the view's fall at tile (${b.x}, ${b.y}), side ${["east", "west", "north", "south"][b.k]}, ${b.drop.toFixed(2)} levels` : ""}`);
         const shotsAfter: Record<string, Buffer> = {};
         for (const v of views) shotsAfter[v.key] = await shot(page, v.view);
-        await open(page, 4195, m.fragment);
+        await open(page, BEFORE_PORT, m.fragment);
         for (const v of views) await pair(m.id, m.name, v.key, v.label, await shot(page, v.view), shotsAfter[v.key]);
       }
     }
@@ -449,8 +459,8 @@ async function otherGpu(): Promise<{ name: string; luid: string } | null> {
 /** --bench [--gpu other]: on the default GPU, or on the machine's other one with the page's CPU
  *  slowed 4× (a laptop's stand-in, as bench3d.ts's third configuration). */
 async function bench(): Promise<void> {
-  const before = await site(BEFORE, "before", 4195);
-  const after = await site(resolve("."), "after", 4196);
+  const before = await site(BEFORE, "before", BEFORE_PORT);
+  const after = await site(resolve("."), "after", AFTER_PORT);
   const keepDrawing = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"];
   const other = arg("gpu") === "other" ? await otherGpu() : null;
   if (arg("gpu") === "other" && !other) throw new Error("no other GPU");
@@ -462,7 +472,7 @@ async function bench(): Promise<void> {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
     }
-    for (const [label, port] of [["before", 4195], ["after", 4196]] as const) {
+    for (const [label, port] of [["before", BEFORE_PORT], ["after", AFTER_PORT]] as const) {
       for (const scene of ["highlands-2", "terraces"] as const) {
         await open(page, port, "#s=2&z=256&d=n&t=highlands");
         const gpu = (await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string;
@@ -499,7 +509,7 @@ async function bench(): Promise<void> {
 async function draft(): Promise<void> {
   const dir = ".scratch/waterfalls-draft";
   mkdirSync(dir, { recursive: true });
-  const after = await site(resolve("."), "after", 4196);
+  const after = await site(resolve("."), "after", AFTER_PORT);
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
   try {
     const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
@@ -507,10 +517,13 @@ async function draft(): Promise<void> {
     page.on("console", (m) => {
       if (m.type() === "error" || m.type() === "warning") console.log(`console: ${m.text().slice(0, 2000)}`);
     });
-    await open(page, 4196, "#s=1&z=96&d=n&t=riverValley");
+    await open(page, AFTER_PORT, "#s=1&z=96&d=n&t=riverValley");
     checkGpu((await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string);
     const b = await page.evaluate(`(${GALLERY_JS})(${JSON.stringify(gallery())})`);
     console.log(JSON.stringify(b));
+    // --clear: clear water on (T); --slice N: the world sliced at layer N
+    if (process.argv.includes("--clear")) await page.evaluate("window.dgm3d.renderer.setClearWater(true)");
+    if (arg("slice")) await page.evaluate(`window.dgm3d.renderer.setSlice(${Number(arg("slice"))})`);
     for (const c of galleryCases()) for (const v of c.views) writeFileSync(join(dir, `${c.id}-${v.key}.png`), await shot(page, v.view));
     const extra = (arg("views") ?? "").split(",").filter(Boolean);
     for (const e of extra) {
@@ -519,7 +532,7 @@ async function draft(): Promise<void> {
     }
     if (process.argv[process.argv.indexOf("--draft") + 1] === "maps")
       for (const m of MAPS) {
-        await open(page, 4196, m.fragment);
+        await open(page, AFTER_PORT, m.fragment);
         const found = await findOn(page, m.find);
         console.log(m.id, found.count, JSON.stringify(found.best), JSON.stringify(found.views.map((v) => v.view)));
         for (const v of found.views) writeFileSync(join(dir, `${m.id}-${v.key}.png`), await shot(page, v.view));

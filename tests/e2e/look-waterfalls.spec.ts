@@ -1,7 +1,8 @@
-// Waterfalls with shape and volume (PLAN §20 D201) in the page: a generated map's falls are drawn
-// (one instance each, per chunk) without a shader error, in the look the browser gets (the Standard
-// look on a GPU, the Light look in software), and they follow the water: a lip gone dry takes its
-// fall with it, and the water coming back brings it back, with no fall left behind.
+// Waterfalls with shape and volume (PLAN §20 D201, D215) in the page: a generated map's falls are
+// drawn (one instance each, per chunk) without a shader error, in the look the browser gets (the
+// Standard look on a GPU, the Light look in software), with clear water on and off and under a
+// slice, and they follow the water: a lip gone dry takes its fall with it, and the water coming back
+// brings it back, with no fall left behind.
 
 import { expect, test } from "@playwright/test";
 
@@ -30,6 +31,16 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
   const before = await falls();
   expect(before).toBeGreaterThan(10);
   expect(await drawn()).toBe(0);
+  // with clear water (T), and with the world sliced at a layer (D196, D212)
+  await page.evaluate(() => window.dgm3d!.renderer.setClearWater(true));
+  expect(await drawn()).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setSlice(6));
+  expect(await drawn()).toBe(0);
+  await page.evaluate(() => {
+    window.dgm3d!.renderer.setSlice(null);
+    window.dgm3d!.renderer.setClearWater(false);
+  });
+  expect(await falls()).toBe(before);
 
   // a lip gone dry: its falls go (and nothing else of the water changed)
   const lip = await page.evaluate(() => {

@@ -1,17 +1,19 @@
-// Waterfalls with shape and volume (PLAN §20 D201): where water pours over a lip into lower water,
-// it leaves the lip and arcs outward and down into the pool, further for stronger flow; a wide fall
-// is one ribbon, closed only at its free ends; a stepped cascade is a fall at every step, each with
-// its own lip and splash; badwater falls take badwater's colours and stay apart from clean falls in
-// greyscale and with colour blindness; the falls follow every water update. Rendering only: the
-// map's bytes are pinned by tests/contract/look-mine-ruins.test.ts.
+// Waterfalls with shape and volume (PLAN §20 D201, D215): where water pours over a lip into lower
+// water, it leaves the lip and arcs outward and down into the pool, further for stronger flow; a wide
+// fall is one ribbon, closed only at its free ends, and a lip that turns a corner (an L-shaped lip, a
+// staircase) is one sheet, with no gap where the sides meet; whitewater where it lands stays in its
+// pool; a stepped cascade is a fall at every step, each with its own lip and splash; badwater falls
+// take badwater's colours and stay apart from clean falls in greyscale and with colour blindness;
+// the falls follow every water update. Rendering only: the map's bytes are pinned by
+// tests/contract/look-mine-ruins.test.ts.
 
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
-import { arcLength, arcPoint, FALL_MIN, FALL_SHAPE, FALL_SPLASH, FALL_STRIDE, fallReach, fallTemplate, fallThickness, firstCorner, lipOutflow, tangent } from "../../src/render3d/falls";
+import { arcLength, arcPoint, END, FALL_MIN, FALL_SHAPE, FALL_SPLASH, FALL_STRIDE, fallEnds, fallPoint, fallReach, fallSplash, fallTemplate, fallThickness, firstCorner, lipOutflow, tangent } from "../../src/render3d/falls";
 import { fallMaterial, sceneUniforms } from "../../src/render3d/materials";
 import { surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
 import { changedWaterChunks, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
-import { WATER, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
+import { CLEAR_WATER, WATER, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
 import { DT } from "../../src/core/sim/water";
 
 /** A map of heights (rows from y = 0) with water `depth` deep on every tile where `wet` says. */
@@ -37,14 +39,16 @@ function meshAll(s: ReturnType<typeof scene>): WaterMeshData[] {
   return out;
 }
 
+/** A fall instance, decoded. */
+function decode(f: Float32Array) {
+  const { side, ends, room } = fallEnds(f);
+  return { corner: [f[0], -f[1]] as [number, number], side, ends, flow: [f[3], f[15]], top: [f[4], f[5]], land: [f[6], f[7]], reach: [f[8], f[9]], thickness: [f[10], f[11]], bad: [f[12], f[13]], room, raw: f };
+}
+
 /** Every fall of a scene, decoded. */
 function falls(s: ReturnType<typeof scene>) {
   const list = [];
-  for (const m of meshAll(s))
-    for (let k = 0; k < m.fallCount; k++) {
-      const f = m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE);
-      list.push({ corner: [f[0], -f[1]] as [number, number], side: f[2] % 4, free: Math.floor(f[2] / 4), flow: f[3], top: [f[4], f[5]], land: [f[6], f[7]], reach: [f[8], f[9]], thickness: [f[10], f[11]], bad: [f[12], f[13]], room: f[14], depth: f[15] });
-    }
+  for (const m of meshAll(s)) for (let k = 0; k < m.fallCount; k++) list.push(decode(m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE)));
   return list;
 }
 
@@ -150,9 +154,12 @@ describe("falls in the water mesh", () => {
       expect(f.top).toEqual([6.5, 6.5]);
       expect(f.land).toEqual([3.5, 3.5]);
       // the lip empties over its one lower side each substep: its depth over the substep
-      expect(f.flow).toBeCloseTo(0.5 / DT, 6);
+      expect(f.flow[0]).toBeCloseTo(0.5 / DT, 6);
+      expect(f.flow[1]).toBeCloseTo(0.5 / DT, 6);
+      // the river goes on three tiles past the lip: the splash may spread over them all, the arc
+      // over two
       expect(f.reach[0]).toBeCloseTo(fallReach(0.5 / DT, 3, 2), 6);
-      expect(f.room).toBe(2);
+      expect(f.room).toEqual([3, 3]);
       // the lip edge: x = 2, one tile of it
       expect(f.corner[0]).toBe(2);
     }
@@ -195,11 +202,15 @@ describe("falls in the water mesh", () => {
       expect(list[k].thickness[1]).toBe(list[k + 1].thickness[0]);
       expect(list[k].land[1]).toBe(list[k + 1].land[0]);
     }
-    expect(list.map((f) => f.free)).toEqual([1, 0, 2]);
+    expect(list.map((f) => f.ends)).toEqual([
+      [END.free, END.joined],
+      [END.joined, END.joined],
+      [END.joined, END.free],
+    ]);
     // a single tile's fall is free at both ends
     const one = falls(scene([[9, 9, 9], [6, 3, 3], [9, 9, 9]], (x, y) => (y === 1 ? 0.3 : 0)));
     expect(one.length).toBe(1);
-    expect(one[0].free).toBe(3);
+    expect(one[0].ends).toEqual([END.free, END.free]);
     expect(firstCorner(0, 1, 0)).toEqual([1, 1]);
   });
 
@@ -217,12 +228,13 @@ describe("falls in the water mesh", () => {
         expect(f.corner[0]).toBe((k + 1) * len);
         expect(f.top[0] - f.land[0]).toBeCloseTo(2, 5);
         if (k + 1 < list.length) expect(f.land[0]).toBeCloseTo(list[k + 1].top[0], 5);
-        // its arc and its splash stay on its own step, short of the next lip (the last lands at
-        // the map's edge)
-        expect(f.room).toBe(len === 2 && k + 1 < list.length ? 2 : 1);
-        expect(f.reach[0]).toBeLessThan(f.room);
-        const spread = FALL_SPLASH.base + FALL_SPLASH.flow * Math.sqrt(f.flow) + FALL_SPLASH.drop * 2;
-        expect(Math.min(f.room - 0.06, f.reach[0] + spread)).toBeLessThan(len);
+        // its arc and its whitewater stay on its own step, short of the next lip (the last lands
+        // at the map's edge)
+        expect(f.room).toEqual(Array(2).fill(len === 2 && k + 1 < list.length ? 2 : 1));
+        expect(f.reach[0]).toBeLessThan(f.room[0]);
+        const w = fallSplash(f.flow[0], f.top[0] - f.land[0], f.reach[0], f.room[0]);
+        expect(w.out).toBeLessThan(len);
+        expect(f.reach[0] + w.ahead).toBeLessThan(len);
       });
       // each step's water is a lip at its end and takes a fall at its start
       const m = meshAll(s)[0];
@@ -257,26 +269,180 @@ describe("falls in the water mesh", () => {
     const changed = changedWaterChunks(W, H, a.sw, b.sw, 0, 0);
     expect([...changed].sort()).toEqual(["0,0", "1,0"]);
     const at = (s: ReturnType<typeof scene>, x: number) => falls(s).find((f) => f.corner[0] === x + 1)!;
-    expect(at(b, 32).flow).toBeLessThan(at(a, 32).flow);
+    const flow = (f: ReturnType<typeof falls>[number]) => f.flow[0] + f.flow[1];
+    expect(flow(at(b, 32))).toBeLessThan(flow(at(a, 32)));
     // (along a lip pouring north the tangent runs west: x = 31's first corner is the one it shares
     // with x = 32)
     expect(tangent(2)).toEqual([-1, 0]);
     expect(at(b, 31).reach[0]).toBeLessThan(at(a, 31).reach[0]);
     expect(at(b, 31).reach[1]).toBe(at(a, 31).reach[1]);
-    const key = (f: ReturnType<typeof falls>[number]) => JSON.stringify(f);
+    const key = (f: ReturnType<typeof falls>[number]) => JSON.stringify([...f.raw]);
     const fresh = falls(b).map(key).sort();
     const kept = meshAll(a).map((m, cx) => (changed.has(`${cx},0`) ? meshWaterChunk(W, H, b.heights, b.sw, b.view, null, cx, 0) : m));
     const remeshed: string[] = [];
-    for (const m of kept)
-      for (let k = 0; k < m.fallCount; k++) {
-        const f = m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE);
-        remeshed.push(key({ corner: [f[0], -f[1]], side: f[2] % 4, free: Math.floor(f[2] / 4), flow: f[3], top: [f[4], f[5]], land: [f[6], f[7]], reach: [f[8], f[9]], thickness: [f[10], f[11]], bad: [f[12], f[13]], room: f[14], depth: f[15] }));
-      }
+    for (const m of kept) for (let k = 0; k < m.fallCount; k++) remeshed.push(key(decode(m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE))));
     expect(remeshed.sort()).toEqual(fresh);
     // a lip gone dry leaves no fall behind
     const dry = scene(rows, (x, y) => (y >= 1 && y <= 4 && x >= 12 && x < 52 && !(x === 20 && y === 2) ? 0.3 : 0));
     expect(falls(dry).length).toBe(39);
     expect(falls(a).length).toBe(40);
+  });
+});
+
+describe("a lip that turns a corner is one sheet (D215)", () => {
+  /** A fall's edge at its end u: points down its outer face, then its inner face. */
+  const edge = (f: Float32Array, u: 0 | 1, until = 1) => {
+    const pts: [number, number, number][] = [];
+    for (const inner of [false, true])
+      for (let k = 0; k <= 24; k++) {
+        const w = k / 24;
+        const [out] = arcPoint(f[8 + u], f[4 + u], f[6 + u], f[10 + u], w, inner);
+        if (out <= until) pts.push(fallPoint(f, u, w, inner));
+      }
+    return pts;
+  };
+  const expectSame = (a: [number, number, number][], b: [number, number, number][]) => {
+    expect(a.length).toBeGreaterThan(4);
+    expect(a.length).toBe(b.length);
+    a.forEach((p, i) => p.forEach((v, c) => expect(v).toBeCloseTo(b[i][c], 6)));
+  };
+  /** The corner's values two lips share. */
+  const expectShared = (a: ReturnType<typeof falls>[number], ua: 0 | 1, b: ReturnType<typeof falls>[number], ub: 0 | 1) => {
+    for (const k of ["top", "land", "reach", "thickness", "bad", "flow", "room"] as const) expect(a[k][ua]).toBe(b[k][ub]);
+  };
+
+  it("meets round an outer corner (an L-shaped lip): the two sides' ribbons share the corner and meet on its diagonal, at every height", () => {
+    // a pool at 6 whose corner tile (2, 2) pours south and east into a river at 3 wrapping round it
+    const s = scene(
+      [
+        [3, 3, 3, 3, 3],
+        [3, 3, 3, 3, 3],
+        [6, 6, 6, 3, 3],
+        [6, 6, 6, 9, 9],
+        [9, 9, 9, 9, 9],
+      ],
+      (x, y) => (y <= 1 || (y === 2 && x >= 3) ? 0.5 : y <= 3 && x <= 2 ? 0.4 : 0),
+    );
+    const list = falls(s);
+    expect(list.length).toBe(4);
+    const south = list.find((f) => f.side === 3 && f.corner[0] === 2)!;
+    const east = list.find((f) => f.side === 0)!;
+    expect(east.corner).toEqual([3, 2]);
+    expect(south.ends).toEqual([END.joined, END.outward]);
+    expect(east.ends).toEqual([END.outward, END.free]);
+    expectShared(south, 1, east, 0);
+    // the south ribbon runs on round the corner and the east one back round it: one edge, running
+    // out along the corner's diagonal, so no gap opens between them as they arc out
+    const a = edge(south.raw, 1);
+    expectSame(a, edge(east.raw, 0));
+    for (const [x, , z] of a) expect(x - 3).toBeCloseTo(2 + z, 6);
+    // (as a free end each stood in from the corner, and the two drew apart as they fell: the V)
+  });
+
+  it("meets round an inner corner: the ribbons pouring into the same water stop short on its diagonal, and never cross", () => {
+    // a pool at 6, L-shaped, round a river at 3: tile (0, 1) pours east and tile (1, 2) south into
+    // the same river tile (1, 1)
+    const s = scene(
+      [
+        [3, 3, 3, 9],
+        [6, 3, 3, 9],
+        [6, 6, 6, 9],
+        [9, 9, 9, 9],
+      ],
+      (x, y) => (y === 3 || x === 3 ? 0 : (x === 0 && y >= 1) || y === 2 ? 0.4 : 0.5),
+    );
+    const list = falls(s);
+    const east = list.find((f) => f.side === 0)!;
+    const south = list.find((f) => f.side === 3 && f.corner[0] === 1)!;
+    expect(east.corner).toEqual([1, 1]);
+    expect(south.corner).toEqual([1, 2]);
+    expect(east.ends[1]).toBe(END.inward);
+    expect(south.ends[0]).toBe(END.inward);
+    // (and the east lip's other end turns the outer corner of the same tile)
+    expect(east.ends[0]).toBe(END.outward);
+    expectShared(east, 1, south, 0);
+    // one edge along the corner's diagonal, as far out as a ribbon may stop short
+    const a = edge(east.raw, 1, END.inwardMost);
+    expectSame(a, edge(south.raw, 0, END.inwardMost));
+    for (const [x, , z] of a) expect(x - 1).toBeCloseTo(2 + z, 6);
+  });
+
+  it("makes a staircase lip (water crossing a cliff at a slant) one zigzag sheet, as wide where it lands as at the lip", () => {
+    // a pool at 6 above a staircase edge (every tile with y > x), a river at 3 below it
+    const N = 7;
+    const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (y > x ? 6 : 3)));
+    const s = scene(rows, (x, y) => (y > x ? 0.4 : 0.5));
+    const list = falls(s);
+    // each tile of the staircase pours south and east
+    expect(list.length).toBe(2 * (N - 1));
+    const at = (x: number, side: number) => list.find((f) => f.side === side && (side === 3 ? f.corner[0] === x : f.corner[0] === x + 1))!;
+    for (let x = 0; x < N - 1; x++) {
+      const south = at(x, 3);
+      const east = at(x, 0);
+      // the south side turns out round the tile's corner into its east side
+      expect(south.ends[1]).toBe(END.outward);
+      expect(east.ends[0]).toBe(END.outward);
+      expectSame(edge(south.raw, 1), edge(east.raw, 0));
+      if (x + 1 < N - 1) {
+        // and the east side turns in at the step, into the next tile's south side
+        const next = at(x + 1, 3);
+        expect(east.ends[1]).toBe(END.inward);
+        expect(next.ends[0]).toBe(END.inward);
+        expectSame(edge(east.raw, 1, END.inwardMost), edge(next.raw, 0, END.inwardMost));
+        // one end runs on as far as the other stops short: each side keeps its width, a tile, as
+        // the sheet moves out
+        for (let k = 0; k <= 10; k++) {
+          const w = k / 10;
+          const [out] = arcPoint(east.reach[0], east.top[0], east.land[0], east.thickness[0], w);
+          if (out > END.inwardMost || Math.abs(east.reach[0] - east.reach[1]) > 1e-9) continue;
+          const p0 = fallPoint(east.raw, 0, w);
+          const p1 = fallPoint(east.raw, 1, w);
+          expect(Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])).toBeCloseTo(1, 6);
+        }
+      }
+    }
+  });
+});
+
+describe("whitewater where a fall lands (D215)", () => {
+  it("stays in its pool: the splash out past the impact line but not past its room, the crown on the pool, never behind the cliff nor most of the drop tall", () => {
+    for (const room of [1, 2, 3])
+      for (const drop of [0.35, 1, 2, 5, 11])
+        for (const flow of [0.01, 0.05, 0.2, 0.8, 1.8, 6]) {
+          const reach = fallReach(flow, drop, Math.min(room, 2));
+          const w = fallSplash(flow, drop, reach, room);
+          expect(w.back).toBeGreaterThan(0);
+          expect(w.out).toBeLessThanOrEqual(room - FALL_SPLASH.edge + 1e-9);
+          // (out past the impact line, where the pool has room)
+          expect(w.out).toBeGreaterThanOrEqual(Math.min(reach + 0.1, room - FALL_SPLASH.edge) - 1e-9);
+          expect(reach - w.behind).toBeGreaterThanOrEqual(w.back - 1e-9);
+          // (a fall at the edge of its room: nothing ahead)
+          expect(reach + w.ahead).toBeLessThanOrEqual(Math.max(reach, room - FALL_SPLASH.edge) + 1e-9);
+          expect(w.tall).toBeLessThanOrEqual(FALL_SPLASH.crownOfDrop * drop + 1e-9);
+          expect(w.tall).toBeGreaterThan(0);
+        }
+  });
+
+  it("is more for stronger and taller falls, and more than the first round's (#53 before D215)", () => {
+    for (const drop of [1, 3, 6]) {
+      const flows = [0.02, 0.1, 0.4, 1, 2];
+      const crown = flows.map((q) => fallSplash(q, drop, 0.5, 3).tall);
+      for (let k = 1; k < crown.length; k++) expect(crown[k]).toBeGreaterThanOrEqual(crown[k - 1]);
+    }
+    for (const flow of [0.1, 0.8]) expect(fallSplash(flow, 6, 0.5, 3).spread).toBeGreaterThan(fallSplash(flow, 1, 0.5, 3).spread);
+    for (const room of [1, 2, 3])
+      for (const drop of [1, 3, 8])
+        for (const flow of [0.05, 0.5, 1.8]) {
+          const reach = fallReach(flow, drop, Math.min(room, 2));
+          // the first round: 0.3 + 0.2 √flow + 0.05 · (the drop, to 6) out past the impact line, a
+          // third of that back toward the cliff, within a room of at most 2 tiles
+          const was = 0.3 + 0.2 * Math.sqrt(flow) + 0.05 * Math.min(drop, 6);
+          const wasOut = Math.min(Math.min(room, 2) - 0.06, reach + was);
+          const wasBack = Math.max(0.03, reach - 0.3 * was);
+          const w = fallSplash(flow, drop, reach, room);
+          expect(w.out).toBeGreaterThanOrEqual(wasOut);
+          expect(w.out - w.back).toBeGreaterThan(wasOut - wasBack);
+        }
   });
 });
 
@@ -295,6 +461,18 @@ describe("a fall's colours", () => {
       expect(m.transparent).toBe(true);
       expect(m.depthWrite).toBe(false);
     }
+  });
+
+  it("turn see-through with clear water (T, or round the brush), and a fall is cut at the slice, as the water is", () => {
+    for (const lite of [false, true]) {
+      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
+      for (const use of ["clearWater", "clearAround", "CLEAR_FADE", "CLEAR_FALL", "CLEAR_BAD_OPACITY", "CLEAR_STRIPE"]) expect(m.fragmentShader).toContain(use);
+      expect(m.fragmentShader).toMatch(/if \(vWorld\.y > slice \+ 0\.05\) discard;/);
+    }
+    // a clean fall keeps a faint veil, from the shared palette
+    expect(WATER_GLSL).toContain(`#define CLEAR_FALL ${CLEAR_WATER.fall}`);
+    expect(CLEAR_WATER.fall).toBeGreaterThan(0.1);
+    expect(CLEAR_WATER.fall).toBeLessThan(0.5);
   });
 
   it("keep a badwater fall apart from a clean one in greyscale and with colour blindness", () => {
@@ -322,21 +500,23 @@ describe("a fall's colours", () => {
 });
 
 describe("the fall template", () => {
-  it("is small and shared: a close-up ribbon with thickness and ends, a sheet from afar, and a splash", () => {
+  // (D148: since D215 it also holds the crown of whitewater, 16 vertices more: the bound on its
+  // vertices went from 130 to 140)
+  it("is small and shared: a close-up ribbon with thickness and ends, a sheet from afar, a splash and a crown", () => {
     const { rib, index } = fallTemplate();
     const kinds = new Map<number, number>();
     for (let v = 0; v < rib.length / 4; v++) kinds.set(rib[v * 4 + 3], (kinds.get(rib[v * 4 + 3]) ?? 0) + 1);
-    expect([...kinds.keys()].sort()).toEqual([0, 1, 2, 3, 4]);
-    // the inner and outer faces (close up) and the far sheet, each spanning the lip from the brink
-    // (w = 0) to the pool (w = 1)
-    for (const kind of [0, 3]) {
+    expect([...kinds.keys()].sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    // the inner and outer faces (close up), the far sheet and the crown, each spanning the lip from
+    // the brink (w = 0) to the pool (w = 1), or round the crown from its foot to its foot
+    for (const kind of [0, 3, 5]) {
       const ws = [];
       for (let v = 0; v < rib.length / 4; v++) if (rib[v * 4 + 3] === kind) ws.push(rib[v * 4 + 1]);
       expect(Math.min(...ws)).toBe(0);
       expect(Math.max(...ws)).toBe(1);
     }
     expect(index.length / 3).toBeLessThan(120);
-    expect(rib.length / 4).toBeLessThan(130);
+    expect(rib.length / 4).toBeLessThan(140);
     for (const i of index) expect(i).toBeLessThan(rib.length / 4);
   });
 });
