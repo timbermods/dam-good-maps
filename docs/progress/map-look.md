@@ -618,3 +618,9 @@ another review unless it looks off. Built on `look/waterfalls` after merging `de
   D215's: where water speeds up toward a lip its surface steps down a little between tiles, and the
   water mesher draws those small steps as faint grey curtains (dev draws them the same); where a
   Blockage raises the water floor, the view draws water at ground level (the phantom small fall).
+- **Frame time after D215 (information,** `--bench`, this machine's RTX 2070 SUPER, shared with other
+  builds, so the CPU times are noisy), dev's curtains against now: Highlands 2 at 256² (141 falls)
+  orbits at the display's 170 fps either way, GPU time (median) 0.72 → 0.77 ms for the whole map and
+  0.65 → 0.88 ms close up, the water's remesh 16.3 → 14.2 ms for every chunk and 6.3 → 6.5 ms for one
+  tile; the stress hillside (1,536 falls) also at 170 fps, GPU time 0.87 → 1.12 ms and 0.54 → 0.80
+  ms, the remesh 105.5 → 89.0 ms and 9.8 → 10.3 ms. The template is 134 vertices (118 before D215).
