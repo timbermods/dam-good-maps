@@ -38,14 +38,11 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Work | Branch | PR | Worktree | Last commit | State |
 |---|---|---|---|---|---|
 | M9a, the new generator | `feature/m9a` | #56 (WIP) | `DamGoodMaps-m9a` | 12beeb3 (WIP) | building (§3) |
-| Live editing | `feature/live-editing` | none yet | `DamGoodMaps-live` | b4d7c27 (WIP, CI green) | four D184 pushes done; Carve port WIP |
+| Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | on `dev`; releasing as `live-editing-done` |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
 | Waterfalls (D201) | `look/waterfalls` | #53 | `DamGoodMaps-waterfalls` | b00b2fc | done; needs D215 fixes |
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
-| Carve (Codex) | `investigation/carve` | #47 | `DamGoodMaps-carve-check` (detached, for checks only) | 6b9d4e6 | ready (D216); merge at the next boundary |
-| Craterize (Codex) | `investigation/craterize` | #51 | none | 2f4963c | ready (D216) |
-| Erupt (Codex) | `investigation/erupt` | #50 | none | 89c6842 | ready (D216) |
-| Quake (Codex) | `investigation/quake` | #52 | none | a293e41 | ready with Lift and Slide (D219) |
+| The four forces (Codex's #47, #51, #50, #52, #59; #58's sounds) | merged into `dev` 2026-09-26 | | | | built next on the forces core, for the preview (§4) |
 
 `main` is at 8995cee (`look-badwater-done`). The old machine's worktrees (`C:\Users\Kyler\code\…`) don't exist here.
 
@@ -157,7 +154,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **Merged into `dev`, not yet released:** resources like the official maps (#43, generator 0.6.2), Pick a place's
   signature water (#45), Map look 2's investigation (#38), the docs sweep and retired-terms guard (#46), design version 2
   (#32). They ship with the next release.
-- **Held:** #54 (goes in with M9a, D213); #47, #51, #50 and #52 wait only for the next boundary (D216, D219).
+- **Held:** #54 (goes in with M9a, D213).
+- **Merged at the Live editing boundary (2026-09-26):** #60 (Live editing), and the investigations #58 (juice), #59
+  (forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52 (Quake); about 30 MB, mostly GIF captures Kyler reviewed.
 - **Waiting on Kyler:** his picks of places to drop (§6); his look at each release candidate; #66.
 
 ## 6. Open questions and running tasks

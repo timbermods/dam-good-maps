@@ -17,7 +17,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
 
 ### 2. Released or merged
 
-Nothing yet.
+- **Merged into `dev`** (2026-09-26, the Live editing boundary):
+  - [#60](https://github.com/timbermods/dam-good-maps/pull/60) Live editing: D212's two changes (Water source and Badwater
+    source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
+  - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
+    (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
+- **Releasing:** `live-editing-done` (approved by you, D212), with the forces hidden on the public site (#69).
 
 ### 3. On the preview for you to try
 
@@ -34,6 +39,12 @@ frozen (D218 lets it run without asking on this machine).
 - **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
   the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
   forces' release ([decisions-pending.md](decisions-pending.md)).
+- **#70: oxbow lakes keep their water.** A fresh settle starts a sealed basin dry, so Carve's operation stores the water the
+  bend held when it closed, and every settle and the export start the lake from it; the game then lets an unfed lake
+  evaporate. Maps without such a lake are unchanged.
+- **#71: small Live editing choices:** key 6 picks Water source; when a brush counts as over water; the clear water's tint,
+  ripples and shoreline values; how far Claude's carve step searches.
+- **#72:** the quiet dot's "water still changing" for an evaporating oxbow lake stays as it is.
 
 ### 6. What failed or got stuck, and what I did
 

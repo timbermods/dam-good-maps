@@ -911,11 +911,11 @@ they conflict):
    preview and are released only after Kyler has tried them (D219): until then the public site shows
    no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
    Power, Steep or Broad, a summit, flows, Try
-   another); built from `investigation/erupt` once Kyler says it's ready. Quake splits the land along a drawn fault (Lift
-   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` once Kyler
-   says it's ready. All four forces share one forces core.
+   another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land along a drawn fault (Lift
+   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` (#52, ready with Lift and
+   Slide, D219). All four forces share one forces core, built on `investigation/forces-core` (#59, D220).
    Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
-   another); built from `investigation/craterize` once Kyler says it's ready. A small row
+   another); built from `investigation/craterize` (#51, ready, D216). A small row
    beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
    only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines,
    level lines. Flatten has "in steps" (terraces); Smooth has "make walkable" (the game's natural slopes;
