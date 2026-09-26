@@ -624,3 +624,6 @@ another review unless it looks off. Built on `look/waterfalls` after merging `de
   0.65 → 0.88 ms close up, the water's remesh 16.3 → 14.2 ms for every chunk and 6.3 → 6.5 ms for one
   tile; the stress hillside (1,536 falls) also at 170 fps, GPU time 0.87 → 1.12 ms and 0.54 → 0.80
   ms, the remesh 105.5 → 89.0 ms and 9.8 → 10.3 ms. The template is 134 vertices (118 before D215).
+
+**Released on 2026-09-26 as `look-waterfalls-done`** (D215, approved): #53 merged into `dev` (70ce2a8), tagged at
+ee83466, released into `main` in #62 (a73b4b8); the deploy and the live check passed.

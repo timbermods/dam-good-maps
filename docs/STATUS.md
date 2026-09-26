@@ -26,7 +26,8 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
   gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
   crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
   looks broken; close up, the foam lace's dark bubble cells read a little like cracked tiles, which is a matter of taste
-  for you. **Releasing as `look-waterfalls-done`** (approved, D215).
+  for you. **Released as `look-waterfalls-done`** ([#62](https://github.com/timbermods/dam-good-maps/pull/62), a73b4b8;
+  tagged at ee83466); the deploy and the live check passed.
 - **Released: `live-editing-done`** ([#61](https://github.com/timbermods/dam-good-maps/pull/61), a7e0a9b; tagged at 985e1cf).
   The deploy and the live check passed. I opened the public site's editor in a browser: Water source and Badwater source
   are on the shelf and there are no forces; the preview shows the same editor with Carve. It also carries everything
