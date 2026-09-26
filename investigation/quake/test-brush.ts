@@ -31,7 +31,7 @@ for(let seed=0;seed<cases;seed++){
  const intent:Intent={path:points,side:seed%2?1:-1},settings={...DEFAULTS,power:seed%101,seed,mode:seed%3?'lift' as const:'slide' as const,scarp:seed%2?'sheer' as const:'stepped' as const};
  const reason=faultReason(m,intent);
  if(reason){assert.equal(reason,'Start here');assert.throws(()=>quake(m,settings,intent),/Start here/);refused++;continue;}
- const p=quake(m,settings,intent);assert.ok(p.stats.changed>0,`non-refused stroke ${seed} must change ground`);
+ const p=quake(m,settings,intent);assert.ok(settings.mode==='slide'?p.stats.fullOffset>0:p.stats.changed>0,`non-refused stroke ${seed} must change ground`);
  assert.ok(p.map.heights.every(h=>h>=0&&h<=22));assert.deepEqual(p.map.entities.map(e=>e.id),m.entities.map(e=>e.id));accepted++;
 }
 pass(`${cases} seeded random strokes: ${accepted} quakes, ${refused} explicit start refusals, zero silent failures`);

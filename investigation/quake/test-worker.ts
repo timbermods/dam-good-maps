@@ -72,7 +72,8 @@ try{
   if(faultReason(randomBefore,stroke)){refused++;continue;}
   const s={...settings,seed,mode:seed%2?'lift' as const:'slide' as const,power:seed%101};
   const result=await command({type:'brush-begin',id:100+seed,settings:s,intent:stroke},{on:'started',msg:{type:'brush-end',id:100+seed,intent:stroke}});
-  const op=result.find(m=>m.type==='operation')?.op;assert.ok(op?.params.terrain.length,`worker stroke ${seed} must quake`);assert.equal(result.filter(m=>m.type==='finished').length,1);
+  const op=result.find(m=>m.type==='operation')?.op,finished=result.find(m=>m.type==='finished');
+  assert.ok(op&&(s.mode==='slide'?finished?.stats.fullOffset>0:op.params.terrain.length),`worker stroke ${seed} must quake`);assert.equal(result.filter(m=>m.type==='finished').length,1);
   await command({type:'undo'});assert.deepEqual(await snap(),randomBefore);count++;
  }
  pass(`128 random real-worker strokes: ${count} completed quakes and exact undos, ${refused} visible start refusals`);

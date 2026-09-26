@@ -9,7 +9,7 @@
     "cases": 1200,
     "accepted": 861,
     "refused": 339,
-    "ms": 2660.1452
+    "ms": 2364.4838
   },
   "rivers": [
     {
@@ -17,30 +17,30 @@
       "scarp": "sheer",
       "diagonal": false,
       "channel": 63,
-      "ticks": 512,
+      "ticks": 640,
       "settled": true
     },
     {
       "side": 1,
       "scarp": "sheer",
       "diagonal": true,
-      "channel": 70,
-      "ticks": 640,
+      "channel": 56,
+      "ticks": 768,
       "settled": true
     },
     {
       "side": 1,
       "scarp": "stepped",
       "diagonal": false,
-      "channel": 99,
-      "ticks": 640,
+      "channel": 80,
+      "ticks": 896,
       "settled": true
     },
     {
       "side": 1,
       "scarp": "stepped",
       "diagonal": true,
-      "channel": 107,
+      "channel": 89,
       "ticks": 896,
       "settled": true
     },
@@ -48,7 +48,7 @@
       "side": -1,
       "scarp": "sheer",
       "diagonal": false,
-      "channel": 54,
+      "channel": 63,
       "ticks": 640,
       "settled": true
     },
@@ -56,7 +56,7 @@
       "side": -1,
       "scarp": "sheer",
       "diagonal": true,
-      "channel": 62,
+      "channel": 52,
       "ticks": 768,
       "settled": true
     },
@@ -64,16 +64,16 @@
       "side": -1,
       "scarp": "stepped",
       "diagonal": false,
-      "channel": 102,
-      "ticks": 640,
+      "channel": 80,
+      "ticks": 896,
       "settled": true
     },
     {
       "side": -1,
       "scarp": "stepped",
       "diagonal": true,
-      "channel": 127,
-      "ticks": 640,
+      "channel": 85,
+      "ticks": 896,
       "settled": true
     }
   ]

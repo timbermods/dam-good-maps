@@ -10,6 +10,8 @@ export interface Point {x:number;y:number}
 export interface Intent {path:Point[];side:1|-1}
 export interface Settings {mode:'lift'|'slide';power:number;scarp:'sheer'|'stepped';seed:number}
 export const DEFAULTS:Settings={mode:'lift',power:60,scarp:'sheer',seed:1};
+/** Whole-tile travel of the selected block; short strokes retain full Power. */
+export const slideTiles=(power:number)=>3+Math.round(power*.17);
 export const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 export const smooth=(v:number)=>{v=clamp(v,0,1);return v*v*(3-2*v);};
 export const plainEntities=(e:EntitySpec[]):EntitySpec[]=>JSON.parse(JSON.stringify(e,(_k,v)=>v instanceof JsonFloat?v.value:v));
@@ -46,14 +48,20 @@ export function validateSettings(s:Settings,m:QuakeMap,i:Intent){
 export interface Segment {a:Point;b:Point;dx:number;dy:number;length:number;along:number}
 export class Fault {
   readonly points:Point[]=[];readonly segments:Segment[]=[];length=0;readonly reach:number;readonly lift:number;readonly slide:number;
+  readonly heading:Point;
   constructor(readonly settings:Settings,readonly intent:Intent){
-    this.reach=14+settings.power*.50;this.lift=1+Math.round(settings.power*.075);this.slide=1+Math.round(settings.power*.13);
+    this.reach=14+settings.power*.50;this.lift=1+Math.round(settings.power*.075);this.slide=slideTiles(settings.power);
     // Resample by arc length. Coherent seed noise has a wavelength, never per-tile static.
     const raw:Segment[]=[];let length=0;
     for(let k=1;k<intent.path.length;k++){const a=intent.path[k-1],b=intent.path[k],l=Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2);if(l<.01)continue;raw.push({a,b,dx:(b.x-a.x)/l,dy:(b.y-a.y)/l,length:l,along:length});length+=l;}
     // A tap or sub-tile stroke is a small tear too. The old three-tile guard
     // threw inside pointermove and silently stranded ordinary short drags.
     if(length<.001){const a=intent.path[0],b={x:a.x+(a.x>.25?-.25:.25),y:a.y};raw.push({a,b,dx:b.x>a.x?1:-1,dy:0,length:.25,along:0});length=.25;}
+    // One block has one heading. Seeded crack roughness must not shear a ridge
+    // into unrelated tile motions. A closed stroke uses its longest chord.
+    const first=raw[0].a;let end=raw.at(-1)!.b;
+    if(Math.hypot(end.x-first.x,end.y-first.y)<.1)end=raw.reduce((best,s)=>Math.hypot(s.b.x-first.x,s.b.y-first.y)>Math.hypot(best.x-first.x,best.y-first.y)?s.b:best,end);
+    const span=Math.hypot(end.x-first.x,end.y-first.y)||1;this.heading={x:(end.x-first.x)/span,y:(end.y-first.y)/span};
     const wavelength=7+hash(settings.seed,9)*14,rough=.35+hash(settings.seed,11)*1.3;
     for(let d=0;d<length+4;d+=4){const t=Math.min(d,length),r=raw.find(s=>t<=s.along+s.length)??raw[raw.length-1],f=t-r.along;
       const n=t/wavelength,k=Math.floor(n),a=hash(settings.seed,k+100)*2-1,b=hash(settings.seed,k+101)*2-1;
@@ -70,6 +78,24 @@ export class Fault {
   }
   movement(x:number,y:number){
     const f=this.at(x,y),s=this.settings,side=f.d>=0?1:-1,dist=Math.abs(f.d);
+    if(s.mode==='slide'){
+      // A short stroke still grabs a block, including room behind its ends for
+      // the entire translation. Fade only the outside of that block, never its
+      // advertised travel. The opposite bank stays on its original course.
+      const reach=Math.max(this.reach,this.length*1.3,this.slide+12);
+      const envelope=(1-smooth((dist-reach)/12))*(1-smooth((f.end-this.slide-8)/12));
+      // Stepped splits the perimeter into benches; even a bank narrower than
+      // three tiles gets the full offset at the fault itself.
+      const weight=s.scarp==='stepped'?Math.ceil(envelope*3)/3:envelope;
+      const amount=(f.d>=-.01?this.slide:0)*weight;
+      const direction=this.heading;
+      let dx=Math.round(direction.x*amount),dy=Math.round(direction.y*amount);
+      // Rounding a diagonal must not silently subtract a tile from Power.
+      if(amount===this.slide&&Math.hypot(dx,dy)<this.slide){
+        if(Math.abs(direction.x)>=Math.abs(direction.y))dx+=Math.sign(direction.x);else dy+=Math.sign(direction.y);
+      }
+      return {...f,dz:0,dx,dy};
+    }
     // The block continues to the map edge for a map-spanning stroke. Fading a long
     // lifted block back down nearby makes an artificial upstream dam, not a scarp.
     const blockReach=Math.max(this.reach,this.length*1.3);
@@ -102,26 +128,45 @@ export function faultReason(m:QuakeMap,intent:Intent):string|null{
 }
 export class QuakePlan {
   readonly map:QuakeMap;readonly fault:Fault;readonly arrival:Float32Array;readonly dx:Int16Array;readonly dy:Int16Array;
-  readonly stats={changed:0,raised:0,dropped:0,moved:0,toppled:0,channel:0};private row=0;private done=false;
+  /** Destination -> actual original ground tile, shared by transport and view. */
+  readonly source:Uint32Array;
+  readonly stats={changed:0,raised:0,dropped:0,moved:0,toppled:0,channel:0,transported:0,fullOffset:0};private row=0;private done=false;
   constructor(readonly before:QuakeMap,readonly settings:Settings,readonly intent:Intent){
     validateSettings(settings,before,intent);this.fault=new Fault(settings,intent);const reason=faultReason(before,intent);if(reason)throw Error(reason);
     this.map=snapshot(before);this.arrival=new Float32Array(before.W*before.H);this.dx=new Int16Array(this.arrival.length);this.dy=new Int16Array(this.arrival.length);
+    this.source=Uint32Array.from(this.arrival,(_,i)=>i);
   }
   advance(rows=4):boolean{
     if(this.done)return true;const {W,H}=this.map,end=Math.min(H,this.row+rows);
     for(let y=this.row;y<end;y++)for(let x=0;x<W;x++){
       const i=y*W+x,f=this.fault.movement(x,y);this.arrival[i]=clamp(f.along/this.fault.length*.82+Math.abs(f.d)/this.fault.reach*.12,0,.94);
       this.dx[i]=f.dx;this.dy[i]=f.dy;
-      // Backtrace the block, with nearest continuation at edges: never wrap or leave missing cells.
-      let sx=x,sy=y;
-      if(this.settings.mode==='slide'){for(let k=0;k<3;k++){const v=this.fault.movement(sx,sy);sx=x-v.dx;sy=y-v.dy;}}
-      const src=clamp(Math.round(sy),0,H-1)*W+clamp(Math.round(sx),0,W-1);
+      // Continuation fills any opening. Exact forward transport below owns the
+      // moving block; an iterative inverse can oscillate across its boundary.
+      const src=clamp(y-f.dy,0,H-1)*W+clamp(x-f.dx,0,W-1);this.source[i]=src;
       this.map.heights[i]=clamp(this.before.heights[src]+f.dz,0,Math.min(22,this.map.maxHeight));
     }
     this.row=end;if(end<H)return false;
-    if(this.settings.mode==='slide')this.connectRivers();
-    this.ensureTear();this.moveObjects();
+    if(this.settings.mode==='slide'){this.transport();this.connectRivers();}
+    else this.ensureTear();
+    this.moveObjects();
+    if(this.settings.mode==='slide')for(let j=0;j<W*H;j++){
+      const i=this.source[j],distance=Math.hypot(j%W-i%W,Math.floor(j/W)-Math.floor(i/W));
+      if(distance>0&&this.map.heights[j]===this.before.heights[i])this.stats.transported++;
+      if(distance>=this.fault.slide&&this.map.heights[j]===this.before.heights[i])this.stats.fullOffset++;
+    }
     this.map.heights.forEach((h,i)=>{const d=h-this.before.heights[i];if(d)this.stats.changed++;this.stats.raised+=Math.max(0,d);this.stats.dropped+=Math.max(0,-d);});this.done=true;return true;
+  }
+  private transport(){
+    const {W,H}=this.map,priority=new Float32Array(W*H).fill(-1);
+    // Deterministic scatter: the most displaced ground owns overlaps at a
+    // bend. Core cells beat stationary ground and the feathered perimeter.
+    for(let i=0;i<W*H;i++){
+      const x=i%W+this.dx[i],y=Math.floor(i/W)+this.dy[i];if(x<0||y<0||x>=W||y>=H)continue;
+      const j=y*W+x,travel=Math.hypot(this.dx[i],this.dy[i]);
+      if(travel<priority[j])continue;
+      priority[j]=travel;this.source[j]=i;this.map.heights[j]=this.before.heights[i];this.arrival[j]=this.arrival[i];
+    }
   }
   private connectRivers(){
     const {W,H}=this.map,band=this.settings.scarp==='stepped'?10:2.5;
@@ -203,10 +248,8 @@ export function quake(m:QuakeMap,s:Settings,i:Intent){const p=new QuakePlan(m,s,
 export function paintWater(old:QuakeMap,p:QuakePlan,offset:QuakePlan|null):WaterState{
  const {W,H}=old,D=new Float64Array(W*H),C=new Float64Array(D.length);
  for(let i=0;i<D.length;i++){
-  const x=i%W,y=Math.floor(i/W);let bx=x,by=y;
-  if(offset&&p.settings.mode==='slide')for(let k=0;k<3;k++){
-   const j=clamp(Math.round(by),0,H-1)*W+clamp(Math.round(bx),0,W-1);bx=x-offset.dx[j];by=y-offset.dy[j];
-  }
+  const x=i%W,y=Math.floor(i/W),origin=offset&&p.settings.mode==='slide'?offset.source[i]:i;
+  const bx=origin%W,by=Math.floor(origin/W);
   const b=clamp(Math.round(by),0,H-1)*W+clamp(Math.round(bx),0,W-1);
   const j=p.settings.mode==='slide'?clamp(Math.round(by)+p.dy[b],0,H-1)*W+clamp(Math.round(bx)+p.dx[b],0,W-1):i;
   D[j]+=old.water.depth[i];C[j]+=old.water.depth[i]*old.water.contamination[i];

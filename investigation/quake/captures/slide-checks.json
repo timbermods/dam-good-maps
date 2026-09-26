@@ -1,0 +1,12 @@
+{
+  "cases": 1600,
+  "accepted": 1351,
+  "refused": 249,
+  "minFullOffsetTiles": 30,
+  "minActualToExpected": 1,
+  "powerRange": [
+    3,
+    20
+  ],
+  "ms": 1593.9014
+}

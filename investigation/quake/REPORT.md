@@ -2,6 +2,14 @@
 
 Paint a fault. The land tears behind your hand, objects ride with it, and existing water finds a new way through.
 
+## Slide displacement revision
+
+The previous Slide could sample nearly stationary terrain because its three-pass inverse oscillated across the moving block boundary. A short stroke also lost most of its offset in endpoint tapering. Its test only required a changed height, so a one-level fallback scarp hid failed sideways movement.
+
+Slide now transports the source ground forward by **3–20 tiles** (Power 0–100), using a coherent heading for the block and extending full-strength support beyond short stroke endpoints. Seeded bends define the crack; the heading follows the stroke's overall direction, with its longest chord used for closed strokes. Stepped divides the outside transition into three bands without reducing the main block's offset. Open edges use ground continuation. The unchanged bank keeps its old river course; a carved channel joins the displaced mouth. No extra water is added.
+
+`test-slide.ts` follows actual original tiles to their destinations and compares heights, rather than counting arbitrary changes: **1,600 random Slide strokes, 1,351 accepted, 249 start refusals, minimum 30 tiles transported by at least the displayed Power in every accepted stroke**. Separate ridge and named-ruin checks cover six Powers, both sides and both scarp styles. All eight river cases remain connected in live and canonical water. The former mixed-mode test is retained for Lift and now checks Slide transport separately.
+
 ```sh
 npm --prefix investigation/quake run demo
 ```
