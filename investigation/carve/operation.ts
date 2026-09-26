@@ -1,6 +1,6 @@
 import type { CarveMap, Settings } from './engine';
 import type { EntitySpec } from '../../src/core/format/entities';
-import type { CanonicalWater } from '../../src/core/sim/prefill';
+import type { CarveWater } from './water';
 
 function freeze<T>(v:T):T {
   if(v && typeof v==='object' && !Object.isFrozen(v)) {
@@ -17,17 +17,17 @@ export interface CarveOperation {
     entitiesBefore: EntitySpec[]; entitiesAfter: EntitySpec[];
     waterBefore: { depth: number[]; contamination: number[] };
     waterAfter: { depth: number[]; contamination: number[] };
-    settled: boolean; settleTicks: number;
+    settled: boolean; settleTicks: number; waterSolve?:{method:'canonical'|'retained-oxbow';preClosure?:{settled:boolean;ticks:number}};
   };
 }
-export function operation(before: CarveMap, after: CarveMap, settings: Settings, steps: number, reason: string, water: CanonicalWater): CarveOperation {
+export function operation(before: CarveMap, after: CarveMap, settings: Settings, steps: number, reason: string, water: CarveWater): CarveOperation {
   const terrain: [number, number, number][] = [];
   for (let i = 0; i < before.heights.length; i++) if (before.heights[i] !== after.heights[i]) terrain.push([i, before.heights[i], after.heights[i]]);
   return { op: 'carveResult', version: 1, params: { W: before.W, H: before.H, settings: { ...settings }, steps, reason, terrain,
     entitiesBefore: freeze(structuredClone(before.entities)), entitiesAfter: freeze(structuredClone(after.entities)),
     waterBefore: { depth: Array.from(before.water.depth), contamination: Array.from(before.water.contamination) },
     waterAfter: { depth: Array.from(water.depth), contamination: Array.from(water.contamination) },
-    settled: water.settled, settleTicks: water.ticks } };
+    settled: water.settled, settleTicks: water.ticks, waterSolve:{method:water.method??'canonical',...(water.preClosure?{preClosure:water.preClosure}:{})} } };
 }
 export function applyOperation(map: CarveMap, op: CarveOperation, undo = false): CarveMap {
   const p = op.params;

@@ -113,6 +113,17 @@ check('Wander makes a longer, overshooting course through actual terrain and sti
  assert.ok(Math.max(...winding.path.map(s=>s.x))-Math.min(...winding.path.map(s=>s.x))>20);
  assert.notDeepEqual(straight.map.heights,winding.map.heights);
 });
+check('maximum Wander leaves asymmetric cut banks and shallow inner shelves in actual terrain',()=>{
+ const r=complete(fixture('oxbow',96),{mode:'aim',power:85,width:6,wander:100,seed:1},{origin:80*96+48,end:96+48});
+ const bends=r.path.slice(8,24).filter(p=>Math.abs(p.bend)>.6);
+ const sample=(p:typeof bends[number],side:number)=>r.map.heights[Math.round(p.y-p.dx*side*Math.sign(p.bend))*96+Math.round(p.x+p.dy*side*Math.sign(p.bend))];
+ assert.ok(bends.length>=6);
+ assert.ok(bends.filter(p=>sample(p,2)<sample(p,-2)).length>=bends.length*.8,'outer bend must be deeper');
+ assert.ok(bends.filter(p=>sample(p,4)<sample(p,-4)).length>=bends.length*.7,'scour must widen the outer bank');
+ const ratios=r.path.map((p,k)=>({bend:Math.abs(p.bend),ratio:p.width/r.character.width(k*1.35)}));
+ const mean=(a:typeof ratios)=>a.reduce((v,p)=>v+p.ratio,0)/a.length;
+ assert.ok(mean(ratios.filter(p=>p.bend>.8))>mean(ratios.filter(p=>p.bend<.15))*1.4,'straights must contract between the broad bends');
+});
 check('independent width makes deep slots or wide shallow cuts; linked width matches the explicit natural width',()=>{
  const slot=complete(large,{mode:'aim',power:95,width:2,wander:15,seed:1},largeAim);
  const lazy=complete(large,{mode:'aim',power:15,width:24,wander:15,seed:1},largeAim);

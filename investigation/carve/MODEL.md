@@ -21,12 +21,24 @@ improve endpoint distance or downstream potential. A blocked advancing route
 ends the force as power spent. Old path segments cannot be crossed.
 
 At high Wander, a long single bend with a narrow neck can receive one cutoff.
-The shortcut deepens through the neck, while scour deepens the old bend and
-leaves its downstream arm perched. This makes an oxbow backwater connected
-at its old inlet, not an artificially filled isolated lake. It keeps the tile
-direction lock: no excavated tile is raised to close an arm. Canonical water
-must actually fill the lake and flow through the shortcut. The capture's old
-downstream arm is dry at the settled result.
+A route-only look-ahead reserves transverse mouth bars at both ends. Scour
+and sediment infill combine in the same step, with explicit sediment thickness
+and gross debris accounting, so the exposed ground never reverses direction.
+This approximation preserves the no-flicker rule. A lower shortcut and the
+scoured crescent leave an isolated basin behind those two bars.
+
+The lake inherits water produced by the repository's pre-closure solve.
+Then WaterSim and SettleRun run on the final terrain, with the real source,
+normal evaporation and unchanged convergence test. This history-aware solve
+is necessary because a fresh canonical solve starts an isolated basin empty.
+Only the disconnected lake component retains earlier water; other tiles use
+normal prefill. It has no hidden source or fixed level. An evaporating lake
+can reach the usual four-day solve limit while still wet; preserve that
+settled=false result. A dry canyon never adds retained oxbow water.
+
+Bend curvature is measured over six stations. It moves the cut bank outward,
+widens the bend and scours up to two extra levels on the outside. Inner banks
+retain whole-level shelves; straights contract. The same lanes feed VFX.
 
 The personality seed chooses smooth width and swing phases plus pool/rapid/fall
 spacing. These use distance and forward progress, never wall time. Extra
@@ -58,8 +70,8 @@ complete alluvial transport or bank-migration model.
 The head and muddy ribbon preview the force. WaterSim advances existing water
 as the floor changes. The final source is a real Timberborn source. Its strength follows
 nominal Width (D199); linked Width preserves the default Power relationship;
-canonicalRun chooses the final water from terrain and sources alone. Closed
-basins fill. A dry canyon omits the new source. Exact history stores results,
+ordinary runs use canonicalRun; sealed oxbows use the two-stage repo solve
+described above. A dry canyon omits the new source. Exact history stores results,
 so future changes to this algorithm cannot change replay.
 
 M9 v2 was read only at c77026b271519290ab6dd9b4a9c29890e822fd2f:

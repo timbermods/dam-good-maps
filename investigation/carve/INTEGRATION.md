@@ -12,11 +12,12 @@ acknowledged step count and end reason. Authoritative output is:
 - sorted [tile, before, after] whole-level terrain triples;
 - complete before/after entity payloads, including the new source and objects removed;
 - exact before/after Float64 water depth and contamination;
-- canonical convergence flag and tick count.
+- convergence flag and total tick count;
+- optional waterSolve method and pre-closure solve diagnostics.
 
 Source creation belongs to the carve itself. Starting a run captures the base
-before adding water. Stop retains its acknowledged prefix, then canonicalRun
-settles it and one operation commits. Automatic completion does the same.
+before adding water. Stop retains its acknowledged prefix, then the repo
+water solver settles it and one operation commits. Automatic completion does the same.
 Esc or Undo restores the base and discards the transaction. Cancellation is
 still available during the final solve. The demo worker uses an epoch checked
 between slices, so stale chunks cannot reappear after cancellation.
@@ -94,14 +95,52 @@ The 909-case sweep tests the heading bound, every rolling progress window,
 termination and segment intersections, including the linked-width defaults.
 
 At Wander 85+, sufficient power may cut one detected narrow neck per run.
-oxbow.ts requires one long bend on one side of its shortcut, not several
-unrelated swings. The shortcut is cut lower, with extra scour in the old bend
-and its downstream arm left perched. This creates a backwater lake connected
-at the old inlet: no cut tile is raised to seal it, and no isolated pond is
-filled artificially. All target changes use the usual integer work, debris,
-object removal and extrema checks. The diagnostic oxbow record is not required
-for exact replay; the result operation stores every resulting tile and water
-value. Let canonical water dry a remnant if its actual geometry cannot retain it.
+oxbow.ts requires one long bend on one side of its shortcut. A route-only
+look-ahead using the same deterministic guidance reserves two transverse
+mouth bars before work begins. It stops at the first eligible cutoff or route
+end. It does not advance terrain or presentation time; actual changes still
+start near the source. Measured constructor work was about 20 ms at 256² in
+the flat study, off the main thread; production should slice this preparation
+as well if larger maps or guidance changes increase it.
+
+Mouth deposition uses a separate whole-level sediment thickness. Scour below
+a bar and equal sediment infill happen in one model step, leaving its net
+surface unchanged. Gross cut and deposited counts include this exchange;
+their difference still equals net terrain loss. This is a deliberate
+unresolved scour-and-fill approximation to retain the one-direction-per-tile
+rule. It is not a simulation of a mouth visibly cutting down and later rising.
+The crescent scours below both bars while the shortcut takes the live river.
+All exposed changes retain integer work, extrema rejection and start safety.
+
+Six-station curvature gives each bend an outward-shifted cut bank and up to
+two levels of extra outer scour. Inner shelves remain shallower; straights
+contract between bends. Split lanes and VFX use the same profile. Geology and
+the progress guard are unchanged.
+
+For sealed lakes, water.ts detects the low connected component between the
+bars and rejects one connected to the shortcut or source. It runs the repo's
+canonical solve on the pre-closure terrain with the real source, then retains
+only that simulated water in the isolated component. Everything else starts
+with the final terrain's normal prefill. The repo's WaterSim + SettleRun then
+settles the whole map in two-tick worker slices, with unchanged evaporation
+and convergence rules. Preview ribbon depths never enter this solve; no
+extra source or prescribed lake level is used. Dry canyon uses canonicalRun.
+
+This is a history-aware initial state, not canonical terrain-and-sources-only
+water. A fresh canonical solve cannot remember an isolated lake. Adoption
+therefore needs an explicit retained-water policy for edit/save/export: store
+and validate the lake's initial water (or the literal settled result), then
+use the repo simulation. Today's production canonical export would empty it.
+Do not silently change that production contract as part of this investigation.
+Replay already stores exact Float64 results and needs no new simulation.
+The optional waterSolve diagnostic records retained-oxbow and pre-closure
+convergence/ticks; old v1 operations still replay unchanged.
+
+The closed lake evaporates, so it may never pass a strict steady-water test
+while it still contains water. Keep the repo's four-day limit and settled=false
+when reached; the capture does reach that limit with a full crescent remaining.
+The tests also run 256 extra repo ticks and verify retention. Never disable
+evaporation or relax convergence merely to make the indicator green.
 
 The personality mixer remains stateless. Width and grade vary by course
 distance; lateral swing phase advances with forward progress. No decision
@@ -122,8 +161,8 @@ signs prevent oscillating cut/fill. Debris accumulates at the moving front and
 builds a coherent receiving fan/delta outside its open central channel.
 
 The live force ribbon is a visual preview. Existing water also advances in
-WaterSim as terrain changes, so drainage is visible. Completion always replaces
-the preview with canonicalRun from terrain and real sources. Preserve and show
+WaterSim as terrain changes, so drainage is visible. Completion replaces
+the preview with the repository solve described above. Preserve and show
 settled=false if its existing limit is hit. A retained source may fill a closed
 endpoint basin into a lake. Never fake a permanently downhill water surface.
 D199 on current dev specifies a retained source following Width. The demo maps
@@ -148,7 +187,7 @@ presentation rate. Ten acknowledged steps mean one carve second on every PC.
 Stop stores the acknowledged count. The front may receive 50% extra display
 time at breakthroughs/falls when Follow is on; this changes no model state.
 
-The worker builds one 32² chunk between yields; canonical water advances two
+The worker builds one 32² chunk between yields; each water stage advances two
 ticks between yields. Checks, moisture, sky and shadow baking run off-thread
 with yields between stages. These stages and a model step are indivisible;
 measure them at 256² rather than treating the upload budget as a hard deadline.
@@ -172,7 +211,9 @@ responsiveness, memory and 256² FPS on the user's hardware after integration.
 Read-only source: investigation/generative-v2 at
 c77026b271519290ab6dd9b4a9c29890e822fd2f. V2 files live under
 investigation/generative/v2/, not an investigation/generative-v2 directory.
-No commits from that branch were merged or cherry-picked.
+No commits from that branch were merged or cherry-picked into this worktree.
+The fetched dev now contains PR #32 via f04674d. Its field.ts, levels.ts,
+hydro.ts and terrain.ts match the read-only c77026b snapshot used here.
 
 The new force aligns with v2 field.ts resistance: incision is multiplied by
 (1 - 0.85 * hardness), bank retreat by (1 - 0.8 * hardness). Its whole-level
@@ -187,7 +228,7 @@ The course guide also directly reuses dev's M9 drainage priority flood. It
 supplies downstream direction and progress on flats, not the carving work.
 Canonical water retains the repo's separate source-aware priority flood.
 
-After PR #32 merges and those processes are promoted:
+With PR #32 now merged, these adoption steps remain proposals:
 
 1. Extract a shared geology query and resistance constants into core. Persist
    the generator's layer stack and competent outcrop field as map metadata.

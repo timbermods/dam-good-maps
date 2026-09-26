@@ -3,7 +3,8 @@
     "All 101 Wander values at low/high Power and linked-width defaults on Unleash, Aim and uphill Aim: 909 complete runs without circling",
     "Every rolling 16-move reach reduces endpoint distance or M9 downstream potential; stalled reaches straighten",
     "Every heading stays within the same 110-degree guide limit; no head path intersects a non-adjacent segment",
-    "Maximum Wander forms a real narrow-neck bend, cuts a shortcut and leaves a canonically filled oxbow with a dry abandoned downstream arm",
+    "Maximum Wander forms a real narrow-neck bend, cuts a shortcut and leaves a sealed crescent lake with deposited sediment and dry terrain at both old mouths",
+    "Retained lake survives 256 further repo ticks; two-stage settling is bit-exact across slice sizes; dry canyon stays dry",
     "Oxbow carving stays monotone, conserves debris, creates no isolated extrema and replays/undoes exactly"
   ],
   "runs": 909,
@@ -24,7 +25,13 @@
   "progressWindowMoves": 16,
   "oxbow": {
     "step": 104,
-    "wetPoolStations": 18,
-    "settled": true
+    "wetPoolStations": 13,
+    "basinTiles": 108,
+    "barSediment": [
+      3,
+      3
+    ],
+    "minimumLakeDepth": 3.666244275907248,
+    "settled": false
   }
 }

@@ -4,7 +4,7 @@ import { mkdirSync,writeFileSync } from 'node:fs';
 import { CarveRun,DEFAULTS,objects,modelFor,type CarveMap,type Settings,type Intent,type Head } from './engine';
 import { fixture,loadMap } from './maps';
 import type { Oxbow } from './oxbow';
-import { canonicalSettle } from '../../src/core/sim/prefill';
+import { carveWaterSettle } from './water';
 import { topDown,isometric,type Picture } from '../workshop/lib/render';
 import { snapshot } from './meshes';
 mkdirSync('captures',{recursive:true});
@@ -33,7 +33,9 @@ function panel(title:string,f:Frame,mainPlan=false):Canvas{
     const at=point(p);ctx.strokeStyle='#b26935';ctx.fillStyle='#263e38';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(385,y-4);ctx.lineTo(at.x,at.y);ctx.stroke();ctx.beginPath();ctx.arc(at.x,at.y,3,0,Math.PI*2);ctx.stroke();
     ctx.font='14px sans-serif';ctx.fillText(text,386,y);
    }
-   ctx.font='12px sans-serif';ctx.fillText(f.head?'The shortcut is opening.':'The old downstream arm is dry.',386,409);
+   for(const b of f.oxbow.bars){const p=point(b);ctx.fillStyle='#f5d49b';ctx.strokeStyle='#864d2f';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();ctx.stroke();}
+   ctx.fillStyle='#62766c';ctx.font='12px sans-serif';ctx.fillText(f.head?'The shortcut is opening.':'Two silt bars hold the crescent lake.',386,409);
+   ctx.fillText('Gold markers: deposited mouth bars',386,429);
   }else{ctx.font='14px sans-serif';ctx.fillText('A broad swing, then a shortcut.',382,336);}
  }else{
  ctx.drawImage(iso,10,91,620,365);
@@ -66,9 +68,9 @@ function sequence(id:string,title:string,m:CarveMap,s:Partial<Settings>,intent:I
   run.step();
   if(k%8===0&&!run.metrics.stable)frames.push({map:snapshot(run.map),label:(k/10).toFixed(1)+(run.metrics.oxbows?' s · neck shortcut + oxbow':' s · carving'),cut:run.metrics.cut,deposited:run.metrics.deposited,head:{...run.head},oxbow:run.oxbows.at(-1)});
  }
- const w=canonicalSettle(modelFor(run.map)),last=snapshot(run.map);last.water={depth:w.depth,contamination:w.contamination};
+ const w=carveWaterSettle(run.map,run),last=snapshot(run.map);last.water={depth:w.depth,contamination:w.contamination};
  frames.push({map:last,label:'After · '+run.metrics.reason+' · '+(run.metrics.steps/10).toFixed(1)+' s',cut:run.metrics.cut,deposited:run.metrics.deposited,head:null,oxbow:run.oxbows.at(-1)});
- results[id]={intent,settings:run.settings,metrics:run.metrics,oxbows:run.oxbows.map(o=>({start:o.start,end:o.end,step:o.step,floor:o.floor})),water:{settled:w.settled,ticks:w.ticks}};
+ results[id]={intent,settings:run.settings,metrics:run.metrics,oxbows:run.oxbows.map(o=>({start:o.start,end:o.end,step:o.step,floor:o.floor,bars:o.bars})),water:{settled:w.settled,ticks:w.ticks,method:w.method??'canonical',preClosure:w.preClosure}};
  const n=Math.min(18,frames.length),selected=Array.from({length:n},(_,i)=>frames[Math.round(i*(frames.length-1)/(n-1))]);
  if(publish){const plan=id==='maximum-wander-oxbow';gif(id,selected.map(f=>panel(title,f,plan)));sheet(id,title,selected,plan);}
  console.log(id,run.metrics.cut,run.metrics.reason);return selected;

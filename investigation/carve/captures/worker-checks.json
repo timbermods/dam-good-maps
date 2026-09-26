@@ -10,7 +10,8 @@
     "reroll preserves origin/settings and original geology, records a new seed, and replaces rather than stacks canyons",
     "alternative undo/redo and cancellation restore the previously kept version exactly",
     "saved alternative replays without erosion and retains its original terrain for a further deterministic reroll",
-    "aim auto-finishes at its destination; dry canyon leaves no water source"
+    "aim auto-finishes at its destination; dry canyon leaves no water source",
+    "actual worker retains simulated oxbow water behind both sediment bars, then restores the entire lake with exact undo/redo"
   ],
-  "operationBytes": 199766
+  "operationBytes": 199922
 }

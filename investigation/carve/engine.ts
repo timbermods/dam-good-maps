@@ -1,4 +1,4 @@
-import { findNeck, type Oxbow } from './oxbow';
+import { findNeck, mouthFloors, type Oxbow } from './oxbow';
 import { Course, HEADING_LIMIT, angleDelta, segmentsCross } from './course';
 import { RiverCharacter, type Lane } from './character';
 import { JsonFloat } from '../../src/core/format/json';
@@ -45,7 +45,7 @@ export function protectedGround(m:CarveMap):Uint8Array {
 }
 export interface Head {x:number;y:number;z:number;dx:number;dy:number;width:number;event:'surge'|'breakthrough'|'waterfall'|'rock'|'split'|'rapids'|'oxbow';cut:number;lanes?:Lane[]}
 export interface Metrics {cut:number;deposited:number;exported:number;suspended:number;bankCuts:number;bendCuts:number;steps:number;stable:boolean;distance:number;reason:string;splits:number;waterfalls:number;rapids:number;oxbows:number}
-export interface Station {x:number;y:number;bed:number;width:number;dx:number;dy:number;lanes:Lane[]}
+export interface Station {x:number;y:number;bed:number;width:number;dx:number;dy:number;bend:number;lanes:Lane[]}
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 
 /** Terrain-derived, coherent horizontal beds, shared v2 hardness coefficients below. */
@@ -63,6 +63,7 @@ export function hardness(level:number,layers:boolean,seed=0):number {
  */
 export class CarveRun {
   readonly map:CarveMap; readonly original:Uint8Array; readonly initialWater:Float64Array; readonly keep:Uint8Array;
+  closure:CarveMap|null=null; readonly sediment:Uint8Array; private barFloor:Uint8Array; private planned:Oxbow|null=null;
   readonly sign:Int8Array; readonly target:Uint8Array; readonly wear:Float64Array;
   readonly character:RiverCharacter; readonly course:Course; readonly oxbows:Oxbow[]=[]; readonly path:Station[]=[]; readonly seed:number; readonly intent:Intent; readonly sourceId:string;
   readonly metrics:Metrics={cut:0,deposited:0,exported:0,suspended:0,bankCuts:0,bendCuts:0,steps:0,stable:false,distance:0,reason:'',splits:0,waterfalls:0,rapids:0,oxbows:0};
@@ -71,9 +72,9 @@ export class CarveRun {
   private born=new Uint16Array();private heading=0;private bed=0;private energy=0;
   private splitSeen=new Set<string>();private previewBed:Uint8Array;private previewCells=new Set<number>();
   private ended=false;private tail=0;private quiet=0;private depositQueue:number[]=[];private depositDone=false;
-  constructor(input:CarveMap,readonly settings:Settings,intent:Intent) {
+  constructor(input:CarveMap,readonly settings:Settings,intent:Intent,private planning=false) {
     settings=this.settings={...settings};settings.wander??=35;settings.width??=null;settings.seed??=0;
-    const N=input.W*input.H;
+    const N=input.W*input.H;this.sediment=new Uint8Array(N);this.barFloor=new Uint8Array(N);
     if(input.heights.length!==N||!Number.isInteger(intent.origin)||intent.origin<0||intent.origin>=N||
        !['unleash','aim'].includes(settings.mode)||!['steep','wide'].includes(settings.walls)||
        !Number.isFinite(settings.power)||settings.power<0||settings.power>100)throw new Error('Invalid carve settings');
@@ -95,6 +96,14 @@ export class CarveRun {
       throw new Error('The end point is uphill. Turn on Defy gravity to cut it down.');
     }
     this.stamp(x,y);
+    if(!planning&&this.character.wander>=.85&&settings.power/100*this.character.intensity>=.6){
+      // Route-only look-ahead reserves the two depositional mouths before either
+      // is exposed. Actual work still advances locally, in acknowledged steps.
+      const plan=new CarveRun(input,settings,intent,true);
+      while(!plan.ended&&!plan.oxbows.length){plan.metrics.steps+=2;plan.advanceHead();}
+      this.planned=plan.oxbows[0]??null;
+      if(this.planned)this.barFloor=mouthFloors(this.planned,input.W,input.H,this.original);
+    }
     if(!settings.dry)this.map.entities=placeSource(this.map,intent.origin,sourceStrength(settings.power,settings.width),this.sourceId).entities;
   }
   private hard(level:number):number {
@@ -108,7 +117,12 @@ export class CarveRun {
     const drop=this.character.grade(this.metrics.distance,this.settings.power),oldBed=this.bed;
     const grade=Math.max(0,sourceBed-drop);
     this.bed=Math.min(this.bed,grade,Math.max(0,Math.max(Math.min(2,raw),raw-incision)-drop));
-    const width=this.character.width(this.metrics.distance),dx=Math.cos(this.heading),dy=Math.sin(this.heading);
+    const reachWidth=this.character.width(this.metrics.distance),dx=Math.cos(this.heading),dy=Math.sin(this.heading);
+    // Curvature over a reach, not a single candidate turn: coherent cut banks
+    // and inner shelves survive at maximum Wander without speckled tile noise.
+    const prior=this.path[Math.max(0,this.path.length-6)];
+    const bend=prior?clamp(angleDelta(this.heading,Math.atan2(prior.dy,prior.dx))/.9,-1,1):0;
+    const width=reachWidth*(1-.22*this.character.wander+.5*Math.abs(bend));
     const {lanes,knob}=this.character.lanes(x,y,dx,dy,width);
     let event:Head['event']='surge';
     if(oldBed-this.bed>=2){this.metrics.waterfalls++;event='waterfall';}
@@ -119,14 +133,20 @@ export class CarveRun {
       event='split';
     }
 
-    this.path.push({x,y,bed:this.bed,width,dx,dy,lanes});
-    for(const lane of lanes){
+    // Positive curvature turns left; its faster outer bank lies to the right.
+    for(const lane of lanes){lane.x+=dy*reachWidth*bend*.35;lane.y-=dx*reachWidth*bend*.35;}
+    this.path.push({x,y,bed:this.bed,width,dx,dy,bend,lanes});
+    if(!this.planning)for(const lane of lanes){
       const depth=Math.max(1,raw-this.bed),shoulder=this.settings.walls==='wide'?depth*.9:Math.min(2,depth*.15),radius=lane.width+shoulder+1;
       for(let yy=Math.max(0,Math.floor(lane.y-radius));yy<=Math.min(H-1,Math.ceil(lane.y+radius));yy++)
         for(let xx=Math.max(0,Math.floor(lane.x-radius));xx<=Math.min(W-1,Math.ceil(lane.x+radius));xx++){
           const i=yy*W+xx;if(this.keep[i]||this.character.rock[i]||this.sign[i]>0)continue;
           const d=Math.hypot(xx-lane.x,yy-lane.y),slope=this.settings.walls==='wide'?1:4;
-          let t=this.bed+Math.max(0,Math.ceil((d-lane.width)*slope));
+          const outside=((xx-x)*dy-(yy-y)*dx)*Math.sign(bend);
+          const innerShelf=Math.abs(bend)>.3&&outside<-reachWidth*.2
+            ?Math.min(2,Math.ceil((-outside/reachWidth-.2)*Math.abs(bend)*2)):0;
+          const scour=Math.min(2,Math.floor(Math.max(0,outside/reachWidth-.15)*Math.abs(bend)*3));
+          let t=Math.max(0,this.bed-scour)+innerShelf+Math.max(0,Math.ceil((d-lane.width)*slope));
           if(d>lane.width&&this.hard(t)>.5)t++;
           const work=p*this.character.intensity;
           if(work<.45)t=Math.max(t,this.original[i]-Math.max(1,Math.round(1+6*work)));
@@ -153,17 +173,28 @@ export class CarveRun {
   }
   private tryCutoff(){
     if(this.character.wander<.85||this.oxbows.length||this.settings.power/100*this.character.intensity<.6)return;
-    const cut=findNeck(this.path,this.metrics.steps);if(!cut)return;
+    const cut=this.planning?findNeck(this.path,this.metrics.steps)
+      :this.planned?.end===this.path.length-1?this.planned:null;
+    if(!cut)return;
     const width=Math.min(this.path[cut.start].width,this.head.width);
     for(const p of cut.neck){
       if(p.x<width+2||p.y<width+2||p.x>this.map.W-width-3||p.y>this.map.H-width-3)return;
       for(let dy=-Math.ceil(width);dy<=Math.ceil(width);dy++)for(let dx=-Math.ceil(width);dx<=Math.ceil(width);dx++)
         if(this.keep[this.at(p.x+dx,p.y+dy)]||this.character.rock[this.at(p.x+dx,p.y+dy)])return;
     }
-    for(const p of cut.neck)this.cutAt(p.x,p.y,cut.floor,width*.75);
-    // Scour the abandoned bend below its inlet. Its unlowered downstream arm
-    // keeps it out of the main through-flow; no cut tile is raised to seal it.
-    for(let k=0;k<cut.pool.length;k++){const p=cut.pool[k];this.cutAt(p.x,p.y,k<3?cut.floor:Math.max(0,cut.floor-1),Math.max(1.2,width*.72));}
+    if(!this.planning){
+      // The river existed before its mouths silted shut. Keep a deterministic
+      // pre-closure bed for the repository's water solve, not preview depths.
+      const heights=this.map.heights.map((h,i)=>h-this.sediment[i]);
+      this.closure={...this.map,heights,entities:plainEntities(this.map.entities)};
+    }
+    if(!this.planning)for(const p of cut.neck)this.cutAt(p.x,p.y,cut.floor,width*.75);
+    // Scour the crescent below both sediment sills; the reserved bar surface
+    // holds while its substrate is exchanged for carried material.
+    if(!this.planning){
+      for(const p of cut.pool)this.cutAt(p.x,p.y,Math.max(0,cut.floor-1),Math.max(1.2,width*.72));
+      for(const b of cut.bars)this.cutAt(b.x,b.y,cut.floor,1.5);
+    }
     this.bed=Math.min(this.bed,cut.floor);this.oxbows.push(cut);this.metrics.oxbows++;
     this.head.event='oxbow';
   }
@@ -233,15 +264,18 @@ export class CarveRun {
     this.metrics.steps++;const p=this.settings.power/100;
     // Reveal a forceful, paced head while unfinished cuts deepen behind it.
     if(!this.ended&&this.metrics.steps%2===0)this.advanceHead();
-    const delta=new Int8Array(this.original.length);
+    const delta=new Int8Array(this.original.length),infill:number[]=[];
     for(const i of this.active){
-      const h=this.map.heights[i];if(h<=this.target[i]){this.active.delete(i);continue;}
+      const h=this.map.heights[i]-this.sediment[i];if(h<=this.target[i]){this.active.delete(i);continue;}
       const age=this.metrics.steps-this.born[i],bank=!this.channel[i];
       // Wide terraces retreat after the head, not simultaneously across the map.
       if(bank&&age<4)continue;
       const hard=this.hard(h),coefficient=bank?1-.8*hard:1-.85*hard;
       this.wear[i]+=(.75+2.4*p)*Math.min(2,this.character.intensity)*coefficient*(bank?.65:1);
-      if(this.wear[i]>=1)delta[i]=-1;
+      if(this.wear[i]>=1){
+        if(this.barFloor[i]&&this.map.heights[i]<=this.barFloor[i])infill.push(i);
+        else delta[i]=-1;
+      }
     }
     if(this.ended){
       this.tail++;if(!this.depositDone)this.planDeposit();
@@ -260,6 +294,12 @@ export class CarveRun {
         if(Math.hypot(i%this.map.W-this.head.x,Math.floor(i/this.map.W)-this.head.y)<this.head.width+2)frontCut++;
       }else{this.metrics.deposited++;this.metrics.suspended--;}
     }
+    // Sub-grid scour and fill are applied together: gross sediment volume is
+    // accounted, but no exposed terrain cell ever reverses its direction.
+    for(const i of infill){
+      this.sediment[i]++;this.metrics.cut++;this.metrics.deposited++;
+      this.wear[i]=Math.max(0,this.wear[i]-1);
+    }
     this.head.cut=frontCut;this.head.z=Math.min(...(this.head.lanes??[this.head]).map(l=>this.map.heights[this.at(l.x,l.y)]))+.7;
     if(frontCut>60&&this.head.event==='surge')this.head.event='breakthrough';
     else if(!frontCut&&this.active.size)this.head.event='rock';
@@ -270,7 +310,7 @@ export class CarveRun {
     }
     for(const i of changed)this.sim.F[i]=this.map.heights[i];
     this.sim.run(2);this.map.water={depth:this.sim.D.slice(),contamination:this.sim.C.slice()};this.previewWater();
-    this.quiet=changed.length?0:this.quiet+1;
+    this.quiet=changed.length||infill.length?0:this.quiet+1;
     if(this.ended&&(!this.active.size||this.quiet>=24||this.tail>=220)){
       this.metrics.stable=true;if(this.metrics.reason==='map edge'){this.metrics.exported=this.metrics.suspended;this.metrics.suspended=0;}
     }
@@ -278,9 +318,9 @@ export class CarveRun {
   }
   private previewWater() {
     // The force's muddy ribbon is a preview, not counterfeit game water. Keep it
-    // inside the excavated channel; final water always comes from canonicalRun.
+    // inside the excavated channel; final water always comes from the repository water solver.
     for(const i of this.active)if(this.sign[i]<0)this.map.water.depth[i]=0;
-    for(const i of this.previewCells)if(this.sign[i]<0&&this.map.heights[i]<=this.previewBed[i]+2)
+    for(const i of this.previewCells)if(this.sign[i]<0&&!this.sediment[i]&&this.map.heights[i]<=this.previewBed[i]+2)
       this.map.water.depth[i]=.45+.5*this.settings.power/100;
   }
   private rejectIsolated(d:Int8Array) {

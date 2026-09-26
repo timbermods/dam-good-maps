@@ -15,11 +15,11 @@
       "layers": true
     },
     "metrics": {
-      "cut": 5766,
-      "deposited": 61,
+      "cut": 7390,
+      "deposited": 63,
       "exported": 0,
-      "suspended": 5705,
-      "bankCuts": 2628,
+      "suspended": 7327,
+      "bankCuts": 3629,
       "bendCuts": 2,
       "steps": 64,
       "stable": true,
@@ -27,13 +27,14 @@
       "reason": "lake",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 6,
+      "rapids": 5,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 640
+      "ticks": 768,
+      "method": "canonical"
     }
   },
   "aimed-ridge": {
@@ -53,25 +54,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 8115,
-      "deposited": 4,
+      "cut": 9341,
+      "deposited": 0,
       "exported": 0,
-      "suspended": 8111,
-      "bankCuts": 6107,
+      "suspended": 9341,
+      "bankCuts": 6535,
       "bendCuts": 2,
-      "steps": 103,
+      "steps": 104,
       "stable": true,
       "distance": 48.518226818815236,
       "reason": "destination",
       "splits": 1,
       "waterfalls": 1,
-      "rapids": 15,
+      "rapids": 10,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 384
+      "ticks": 512,
+      "method": "canonical"
     }
   },
   "defy-uphill": {
@@ -91,25 +93,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 7357,
+      "cut": 8694,
       "deposited": 0,
       "exported": 0,
-      "suspended": 7357,
-      "bankCuts": 3827,
+      "suspended": 8694,
+      "bankCuts": 4494,
       "bendCuts": 1,
-      "steps": 83,
+      "steps": 86,
       "stable": true,
       "distance": 46.69696530249471,
       "reason": "destination",
       "splits": 0,
       "waterfalls": 1,
-      "rapids": 17,
+      "rapids": 13,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 512
+      "ticks": 512,
+      "method": "canonical"
     }
   },
   "creek-mountain": {
@@ -128,25 +131,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 436,
+      "cut": 488,
       "deposited": 20,
       "exported": 0,
-      "suspended": 416,
-      "bankCuts": 174,
+      "suspended": 468,
+      "bankCuts": 196,
       "bendCuts": 5,
-      "steps": 97,
+      "steps": 74,
       "stable": true,
       "distance": 40.50000000000002,
       "reason": "lake",
       "splits": 0,
       "waterfalls": 1,
-      "rapids": 8,
+      "rapids": 6,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 384
+      "ticks": 384,
+      "method": "canonical"
     }
   },
   "straight": {
@@ -166,11 +170,11 @@
       "layers": true
     },
     "metrics": {
-      "cut": 2790,
+      "cut": 2919,
       "deposited": 72,
       "exported": 0,
-      "suspended": 2718,
-      "bankCuts": 1187,
+      "suspended": 2847,
+      "bankCuts": 1270,
       "bendCuts": 2,
       "steps": 107,
       "stable": true,
@@ -184,7 +188,8 @@
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 512
+      "ticks": 512,
+      "method": "canonical"
     }
   },
   "winding": {
@@ -204,11 +209,11 @@
       "layers": true
     },
     "metrics": {
-      "cut": 6411,
-      "deposited": 58,
+      "cut": 7148,
+      "deposited": 41,
       "exported": 0,
-      "suspended": 6353,
-      "bankCuts": 3335,
+      "suspended": 7107,
+      "bankCuts": 3497,
       "bendCuts": 24,
       "steps": 196,
       "stable": true,
@@ -216,13 +221,14 @@
       "reason": "destination",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 20,
+      "rapids": 17,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 896
+      "ticks": 768,
+      "method": "canonical"
     }
   },
   "slot": {
@@ -242,11 +248,11 @@
       "layers": true
     },
     "metrics": {
-      "cut": 1338,
+      "cut": 1350,
       "deposited": 63,
       "exported": 0,
-      "suspended": 1275,
-      "bankCuts": 873,
+      "suspended": 1287,
+      "bankCuts": 880,
       "bendCuts": 1,
       "steps": 107,
       "stable": true,
@@ -260,7 +266,8 @@
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 256
+      "ticks": 256,
+      "method": "canonical"
     }
   },
   "wide-lazy": {
@@ -280,11 +287,11 @@
       "layers": true
     },
     "metrics": {
-      "cut": 1306,
-      "deposited": 128,
+      "cut": 1607,
+      "deposited": 125,
       "exported": 0,
-      "suspended": 1178,
-      "bankCuts": 632,
+      "suspended": 1482,
+      "bankCuts": 853,
       "bendCuts": 6,
       "steps": 85,
       "stable": true,
@@ -292,13 +299,14 @@
       "reason": "power spent",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 3,
+      "rapids": 2,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 384
+      "ticks": 512,
+      "method": "canonical"
     }
   },
   "personality-1": {
@@ -318,25 +326,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 4509,
-      "deposited": 84,
+      "cut": 4878,
+      "deposited": 92,
       "exported": 0,
-      "suspended": 4425,
-      "bankCuts": 2162,
+      "suspended": 4786,
+      "bankCuts": 2229,
       "bendCuts": 13,
-      "steps": 160,
+      "steps": 162,
       "stable": true,
       "distance": 86.9231490851004,
       "reason": "destination",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 20,
+      "rapids": 13,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 768
+      "ticks": 768,
+      "method": "canonical"
     }
   },
   "personality-2": {
@@ -356,25 +365,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 4434,
-      "deposited": 40,
+      "cut": 5249,
+      "deposited": 44,
       "exported": 0,
-      "suspended": 4394,
-      "bankCuts": 2051,
+      "suspended": 5205,
+      "bankCuts": 2408,
       "bendCuts": 9,
-      "steps": 164,
+      "steps": 141,
       "stable": true,
       "distance": 88.90569436504252,
       "reason": "destination",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 20,
+      "rapids": 12,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 768
+      "ticks": 768,
+      "method": "canonical"
     }
   },
   "split-reach": {
@@ -394,25 +404,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 10346,
+      "cut": 11997,
       "deposited": 0,
       "exported": 0,
-      "suspended": 10346,
-      "bankCuts": 4936,
+      "suspended": 11997,
+      "bankCuts": 5635,
       "bendCuts": 2,
-      "steps": 127,
+      "steps": 152,
       "stable": true,
       "distance": 75.91311890723162,
       "reason": "destination",
       "splits": 1,
       "waterfalls": 0,
-      "rapids": 33,
+      "rapids": 14,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 512
+      "ticks": 512,
+      "method": "canonical"
     }
   },
   "maximum-wander-oxbow": {
@@ -432,19 +443,19 @@
       "layers": true
     },
     "metrics": {
-      "cut": 16188,
-      "deposited": 0,
+      "cut": 18335,
+      "deposited": 181,
       "exported": 0,
-      "suspended": 16188,
-      "bankCuts": 8772,
+      "suspended": 18154,
+      "bankCuts": 9738,
       "bendCuts": 22,
-      "steps": 251,
+      "steps": 250,
       "stable": true,
       "distance": 144.95155337270756,
       "reason": "destination",
       "splits": 0,
       "waterfalls": 0,
-      "rapids": 23,
+      "rapids": 26,
       "oxbows": 1
     },
     "oxbows": [
@@ -452,12 +463,35 @@
         "start": 25,
         "end": 52,
         "step": 104,
-        "floor": 1
+        "floor": 1,
+        "bars": [
+          {
+            "x": 39.77472011466422,
+            "y": 62.96185065917684,
+            "dx": -0.908766248008822,
+            "dy": -0.4173055313316231,
+            "width": 3.7156615452426602,
+            "level": 4
+          },
+          {
+            "x": 37.27446625021632,
+            "y": 51.04548669383549,
+            "dx": 0.985153602566838,
+            "dy": -0.17167521472123046,
+            "width": 6.47010504443194,
+            "level": 4
+          }
+        ]
       }
     ],
     "water": {
-      "settled": true,
-      "ticks": 640
+      "settled": false,
+      "ticks": 3840,
+      "method": "retained-oxbow",
+      "preClosure": {
+        "settled": true,
+        "ticks": 768
+      }
     }
   },
   "generated-force": {
@@ -476,25 +510,26 @@
       "layers": true
     },
     "metrics": {
-      "cut": 4881,
+      "cut": 6141,
       "deposited": 0,
-      "exported": 4881,
+      "exported": 6141,
       "suspended": 0,
-      "bankCuts": 2299,
+      "bankCuts": 3148,
       "bendCuts": 11,
-      "steps": 132,
+      "steps": 131,
       "stable": true,
       "distance": 68.85000000000002,
       "reason": "map edge",
       "splits": 0,
       "waterfalls": 2,
-      "rapids": 19,
+      "rapids": 10,
       "oxbows": 0
     },
     "oxbows": [],
     "water": {
       "settled": true,
-      "ticks": 768
+      "ticks": 768,
+      "method": "canonical"
     }
   }
 }

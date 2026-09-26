@@ -4,6 +4,7 @@ import { build } from 'esbuild';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { writeFileSync } from 'node:fs';
+import { carveWaterSettle } from './water';
 import { canonicalSettle } from '../../src/core/sim/prefill';
 import { CarveRun,modelFor,DEFAULTS,type CarveMap } from './engine';
 import { applyOperation,type CarveOperation } from './operation';
@@ -91,6 +92,19 @@ try{
  let ended=false;for(let i=0;i<250&&!ended;i++)ended=(await command({type:'advance'})).some(m=>m.type==='finished');
  assert.ok(ended);const dry=await snap();assert.ok(!dry.entities.some(e=>e.id.startsWith('carve-source')));assert.ok(dry.water.depth.every(v=>v===0));
  passed.push('aim auto-finishes at its destination; dry canyon leaves no water source');
+ await command({type:'load',id:'fixture:oxbow'});const oxbowBase=await snap();
+ const oxbowSettings={...DEFAULTS,mode:'aim',power:85,width:6,wander:100,seed:1},oxbowIntent={origin:80*96+48,end:96+48};
+ await command({type:'start',settings:oxbowSettings,intent:oxbowIntent});
+ const oxbowReference=new CarveRun(oxbowBase,{...oxbowSettings,mode:'aim'},oxbowIntent);
+ let oxbowEnd:Message[]=[];
+ while(!oxbowReference.metrics.stable){oxbowReference.step();oxbowEnd=await command({type:'advance'});}
+ const oxbowMap=await snap(),oxbowWater=carveWaterSettle(oxbowReference.map,oxbowReference);
+ const oxbowOp=oxbowEnd.find(m=>m.type==='operation')!.op as CarveOperation;
+ assert.equal(oxbowOp.params.waterSolve?.method,'retained-oxbow');
+ assert.deepEqual(oxbowMap.water.depth,oxbowWater.depth);assert.deepEqual(oxbowMap.heights,oxbowReference.map.heights);
+ await command({type:'undo'});assert.deepEqual(await snap(),oxbowBase);
+ await command({type:'redo'});assert.deepEqual(await snap(),oxbowMap);
+ passed.push('actual worker retains simulated oxbow water behind both sediment bars, then restores the entire lake with exact undo/redo');
  writeFileSync('captures/worker-checks.json',JSON.stringify({passed,operationBytes:JSON.stringify(op).length},null,2)+'\n');
  console.log(passed.map(p=>'PASS '+p).join('\n'));
 }finally{await worker.terminate();}

@@ -1,6 +1,6 @@
 import { CarveRun, DEFAULTS, modelFor, type CarveMap, type Settings, type Intent } from './engine';
 import { loadMap } from './maps';
-import { canonicalRun } from '../../src/core/sim/prefill';
+import { carveWaterRun } from './water';
 import { applyOperation, operation, type CarveOperation } from './operation';
 import { changedChunks, frameContext, makeChunk, snapshot } from './meshes';
 import { consequences } from './consequences';
@@ -42,7 +42,7 @@ async function frame(reset=false,token=epoch) {
     canReroll:!!variations.get(undo[undo.length-1]),seed:run?.settings.seed??variations.get(undo[undo.length-1])?.settings.seed??null});
 }
 async function settle(token:number) {
-  const r=canonicalRun(modelFor(map));let result=null;
+  const r=carveWaterRun(map,run);let result=null;
   while(!result){
     check(token);result=r.advance(2);
     if(r.ticks%128===0)send({type:'status',text:'Settling the river · '+Math.round(100*r.ticks/r.maxTicks)+'% · Esc still reverts'});

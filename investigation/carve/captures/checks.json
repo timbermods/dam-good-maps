@@ -12,6 +12,7 @@
     "keep river follows nominal width, linked to power by default; dry canyon adds no source",
     "check status and start reach update from changed terrain and resources without blocking it",
     "Wander makes a longer, overshooting course through actual terrain and still reaches the aimed destination",
+    "maximum Wander leaves asymmetric cut banks and shallow inner shelves in actual terrain",
     "independent width makes deep slots or wide shallow cuts; linked width matches the explicit natural width",
     "each recorded personality is bit-exact; changing its seed changes landforms without moving the geology",
     "smooth reaches narrow into rapids and include actual whole-level waterfall drops",
@@ -27,15 +28,15 @@
     "generated 256 map preserves start and exact complete operation"
   ],
   "timings": {
-    "128 step p95 ms": 1.6342999999999392,
-    "128 apply and undo ms": 7.481700000000274,
-    "256 step p95 ms": 5.580899999999929,
-    "256 apply and undo ms": 35.37590000000091
+    "128 step p95 ms": 1.5752999999999702,
+    "128 apply and undo ms": 4.1961999999998625,
+    "256 step p95 ms": 4.872400000000198,
+    "256 apply and undo ms": 9.436400000000503
   },
   "terrainHashes": {
-    "mountain": "2061741536c0c36adc84403c57aaa8521a074ff2b0833ac81bc10aceb3d93196",
-    "ridge": "bad8a3b7b31719d92cb5c3b5372d080568e4c82000d0a87de27c047cebee1e1f",
-    "defy": "a61a209cb740aee2965ea6575bcecb8bb478aabaeb0b3515cba3a99f9cdffde0"
+    "mountain": "e75f2f4fded487ec73b65f4d1fff62d002bb899e9a393b845c9cf4b8ed974588",
+    "ridge": "14bdba4551c0610f71a46fc8272fd52ca299c6132b352cd114fe46d95e8eda49",
+    "defy": "1ee056c4779a9300fb0230036d673c9deaf3e460c0f355b9ab0c13c734df14c4"
   },
   "hardwareFPS": "User PC acceptance required; CPU timings are not frame rates"
 }
