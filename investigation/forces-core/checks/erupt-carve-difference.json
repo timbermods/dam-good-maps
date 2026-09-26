@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "river": {
+      "before": 0.25893596270602576,
+      "after": 4.151252272570178,
+      "settled": true,
+      "unchangedEmitters": true
+    },
+    "carve": {
+      "hardLavaStations": 13,
+      "softLavaStations": 29,
+      "hardCut": 1010,
+      "softCut": 1064
+    }
+  },
+  "sharedLatestCarve": {
+    "river": {
+      "before": 0.25893596270602576,
+      "after": 4.151252272570178,
+      "settled": true,
+      "unchangedEmitters": true
+    },
+    "carve": {
+      "hardLavaStations": 14,
+      "softLavaStations": 29,
+      "hardCut": 1126,
+      "softCut": 1108
+    }
+  },
+  "reason": "Erupt bundled an older Carve; the common core uses pinned latest Carve plus volcanic hardness."
+}

@@ -55,6 +55,7 @@ import {
   UnsignedByteType,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderTarget,
   type Texture,
   type WebGLRenderer,
@@ -97,6 +98,20 @@ export interface SceneUniforms {
   patternTex: { value: Texture | null };
   /** The view's height in CSS pixels (objects' minimum sizes). */
   viewHeight: { value: number };
+  /** Clear water (D196, D212): 1 makes all the water see-through (T; the bed, ledges and sources
+   *  show), with badwater still plainly marked; 0 the normal look. */
+  clearWater: { value: number };
+  /** Clear water round the brush (D212): its middle (tiles), the radius it is clear to, and 1 while
+   *  it paints a submerged bed (0: nowhere). */
+  clearAround: { value: Vector4 };
+  /** The layer the world is sliced at (D196, the game's layers): everything above it is cut away;
+   *  99 shows it all. */
+  slice: { value: number };
+  /** Level lines (the brush kit's toggle): a thin line along every edge where the ground steps down. */
+  levelLines: { value: number };
+  /** Where the sources are (`sourceTiles`): R a clean source's middle tile, G a bad one's, B one the
+   *  pointer's water comes from (D196). */
+  sourceTex: { value: DataTexture };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -119,6 +134,11 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     mapSize: { value: new Vector2(W, H) },
     patternTex: { value: null },
     viewHeight: { value: 800 },
+    clearWater: { value: 0 },
+    clearAround: { value: new Vector4(0, 0, 0, 0) },
+    slice: { value: 99 },
+    levelLines: { value: 0 },
+    sourceTex: { value: overlayTexture(1, 1) },
   };
 }
 
@@ -320,6 +340,11 @@ const COMMON = /* glsl */ `
   uniform sampler2D siteEdges;
   uniform vec2 mapSize;
   uniform sampler2D patternTex;
+  uniform float clearWater;
+  uniform vec4 clearAround;
+  uniform float slice;
+  uniform float levelLines;
+  uniform sampler2D sourceTex;
 
   float bitOf(float v, float b) { return mod(floor(v / b + 0.001), 2.0); }
 
@@ -414,10 +439,14 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     defines: { LITE: lite ? 1 : 0 },
     uniforms: { ...scene, ...own } as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
+      uniform float slice;
       varying vec3 vWorld;
       varying vec3 vNormal;
       void main() {
         vec4 w = modelMatrix * vec4(position, 1.0);
+        // the game's layers: the ground above the slice is cut away (its walls fold down, its tops
+        // lie on the cut)
+        w.y = min(w.y, slice);
         vWorld = w.xyz;
         vNormal = normal;
         gl_Position = projectionMatrix * viewMatrix * w;
@@ -664,6 +693,25 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
             c = mix(c, ${glColor(MINE.outline)}, smoothstep(0.7, 1.2, s) * (1.0 - smoothstep(2.5, 3.0, s)));
           }
         }
+        if (n.y > 0.5) {
+          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch
+          if (slice < 90.0 && h0 > slice + 0.5) {
+            float hs = step(0.5, fract((g.x + g.y) * 3.0));
+            c = mix(c, vec3(0.5, 0.47, 0.43), 0.6) * (0.86 + 0.14 * hs);
+          }
+          // level lines: a thin dark line on each tile edge where the ground steps down
+          else if (levelLines > 0.5) {
+            vec2 fo = fract(g);
+            float e = 9.0;
+            if (heightOf(tileAt(tile + vec2(1.0, 0.0))) < h0) e = min(e, 1.0 - fo.x);
+            if (heightOf(tileAt(tile + vec2(-1.0, 0.0))) < h0) e = min(e, fo.x);
+            if (heightOf(tileAt(tile + vec2(0.0, 1.0))) < h0) e = min(e, 1.0 - fo.y);
+            if (heightOf(tileAt(tile + vec2(0.0, -1.0))) < h0) e = min(e, fo.y);
+            float px = max(fwidth(g.x), 0.002);
+            float lw = max(0.04, 1.2 * px);
+            c = mix(c, ${glColor(WALL.groove)}, (1.0 - smoothstep(lw, lw + px, e)) * 0.8);
+          }
+        }
         if (hover.z > 0.5 && tile == hover.xy) {
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
@@ -822,6 +870,32 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
+        // right round the brush while it paints a submerged bed, fading back over a tile or two.
+        // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
+        // its shore; badwater keeps its colour, half see-through, with dark diagonal stripes
+        float clr = clearWater;
+        if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        if (clr > 0.001) {
+          float badish = max(bad, smoothstep(0.05, 0.5, cont));
+          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
+          vec3 bc = mix(murky, murky * CLEAR_STRIPE, stripe);
+          vec3 cc = c;
+          float ca = alpha * mix(0.35, 0.7, badish);
+          if (n.y > 0.5) {
+            float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
+            cc = WATER_CLEAR_TINT * light;
+            cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
+            cc = mix(cc, WATER_SKY, fres * WATER_REFLECT);
+            cc += sunColor * (spec * WATER_SPEC + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
+            cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
+            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = mix(ca, CLEAR_BAD_OPACITY, badish);
+          }
+          c = mix(c, mix(cc, bc, badish), clr);
+          alpha = mix(alpha, ca, clr);
+        }
         if (n.y > 0.5) {
           vec4 o = texture2D(overlay, (floor(g) + 0.5) / mapSize);
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
@@ -831,6 +905,38 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);
         }
+        // the game's layers: water above the slice is cut away
+        if (vWorld.y > slice + 0.05) discard;
+        // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
+        // it, so it is found even deep under water; brighter while the pointer's water comes from it
+        #if !LITE
+        if (n.y > 0.5) {
+          vec2 st = floor(g);
+          float up = 0.0;
+          float hl = 0.0;
+          float badSrc = 0.0;
+          for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++) {
+              vec2 sq = st + vec2(float(dx), float(dy));
+              vec4 sv = texture2D(sourceTex, (sq + 0.5) / mapSize);
+              if (sv.r + sv.g < 0.5) continue;
+              float d = length(g - sq - 0.5);
+              float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
+              float ph2 = fract(ph + 0.5);
+              float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
+              float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
+              float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
+              up = max(up, here);
+              badSrc = max(badSrc, sv.g * here);
+              hl = max(hl, sv.b * (1.0 - smoothstep(0.25, 1.2, d)) * (0.55 + 0.45 * sin(time * 3.0)));
+            }
+          vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
+          c = mix(c, uc, up * 0.55);
+          alpha = mix(alpha, 0.85, up * 0.5);
+          c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
+          alpha = mix(alpha, 0.9, hl * 0.4);
+        }
+        #endif
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }
     `,
@@ -941,6 +1047,8 @@ export function objectMaterial(scene: SceneUniforms, lite = false): ShaderMateri
       varying float vFoot;
       ${COMMON}
       void main() {
+        // the game's layers: what stands above the slice is cut away
+        if (vWorld.y > slice + 0.02) discard;
         vec3 n = normalize(vNormal);
         float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);

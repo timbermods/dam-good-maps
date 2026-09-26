@@ -1,170 +1,161 @@
 # Reference solutions: results
 
-Every request's reference solution, run through MapSession with the real validators by `bin/reference.ts`. 77 of 120 pass.
+Every request's reference solution, run through MapSession with the real validators by `bin/reference.ts`. 128 of 141 pass.
 
 | Id | Kind | Pass | Tool calls | Accepted | Unmet goals | Trade-offs | ms |
 |---|---|---|---|---|---|---|---|
-| S01 | suite | yes | 3 | yes |  | cleared | 24010 |
-| S02 | suite | yes | 3 | yes |  |  | 47826 |
-| S03 | suite | yes | 3 | yes |  | cleared | 15427 |
-| S04 | suite | **no** | 3 | no |  |  | 4742 |
-| S05 | suite | **no** | 0 |  |  |  | 3875 |
-| S06 | suite | yes | 3 | yes |  | cleared, start-moved | 25468 |
-| S07 | suite | **no** | 2 | no | g1, g1 |  | 62986 |
-| S08 | suite | yes | 2 | yes |  |  | 2973 |
-| S09 | suite | yes | 3 | yes |  |  | 7074 |
-| S10 | suite | yes | 2 | yes |  | start-moved, less-flow | 10964 |
-| P01 | simple | yes | 2 | yes |  | cleared | 6621 |
-| P02 | simple | yes | 1 | yes |  |  | 3373 |
-| P03 | simple | yes | 1 | yes |  |  | 2525 |
-| P04 | simple | **no** | 1 | yes | g1 | reduced | 1873 |
-| P05 | simple | yes | 2 | yes |  | cleared | 9418 |
-| P06 | simple | yes | 2 | yes |  |  | 6376 |
-| P07 | simple | yes | 2 | yes |  |  | 11547 |
-| P08 | simple | **no** | 2 | no | g1, g1 |  | 1658 |
-| P09 | simple | **no** | 2 | no |  | guard | 2305 |
-| P10 | simple | yes | 1 | yes |  |  | 5242 |
-| P12 | simple | yes | 1 | yes |  |  | 4484 |
-| P14 | simple | yes | 1 | yes |  |  | 5254 |
-| F01 | followup | **no** | 0 |  |  |  | 3411 |
-| F02 | followup | **no** | 0 |  |  |  | 3280 |
-| F03 | followup | **no** | 0 |  |  |  | 3447 |
-| F04 | followup | **no** | 0 |  |  |  | 3499 |
-| F05 | followup | **no** | 2 | yes | g1 |  | 5004 |
-| F06 | followup | yes | 2 | yes |  |  | 5446 |
-| F07 | followup | **no** | 0 |  |  |  | 36455 |
-| F08 | followup | **no** | 0 |  |  |  | 35830 |
-| F09 | followup | **no** | 0 |  |  |  | 4701 |
-| C01 | compass | **no** | 2 | no | g1, g1 |  | 10056 |
-| C02 | compass | yes | 2 | yes |  |  | 3835 |
-| C03 | compass | yes | 1 | yes |  |  | 2728 |
-| C04 | compass | yes | 1 | yes |  |  | 2777 |
-| C05 | compass | yes | 1 | yes |  |  | 2990 |
-| C06 | compass | yes | 1 | yes |  |  | 23064 |
-| C07 | compass | yes | 1 | yes |  | cleared | 3996 |
-| R01 | feature-relative | yes | 2 | yes |  | reduced | 2052 |
-| R02 | feature-relative | yes | 1 | yes |  |  | 2482 |
-| R03 | feature-relative | yes | 1 | yes |  | reduced | 2518 |
-| R04 | feature-relative | yes | 1 | yes |  |  | 5922 |
-| R06 | feature-relative | yes | 1 | yes |  |  | 4204 |
-| R08 | feature-relative | yes | 2 | yes |  |  | 5188 |
-| W01 | flow-relative | yes | 2 | yes |  |  | 14357 |
-| W02 | flow-relative | **no** | 1 | no | g1, g1 |  | 3122 |
-| W03 | flow-relative | **no** | 2 | no | g1, g1 |  | 7564 |
-| W04 | flow-relative | **no** | 1 | no | g1, g1 |  | 2594 |
-| W05 | flow-relative | **no** | 0 |  |  |  | 1355 |
-| W06 | flow-relative | **no** | 0 |  |  |  | 788 |
-| W07 | flow-relative | **no** | 0 |  |  |  | 1127 |
-| W08 | flow-relative | **no** | 2 | no | g1, g1 |  | 21708 |
-| W09 | flow-relative | yes | 2 | yes |  |  | 3855 |
-| W10 | flow-relative | yes | 2 | yes |  |  | 5114 |
-| W11 | flow-relative | **no** | 1 | no | g1, g1 |  | 4463 |
-| W12 | flow-relative | yes | 1 | yes |  |  | 4749 |
-| W13 | flow-relative | **no** | 2 | no | g1, g1 |  | 2387 |
-| W15 | flow-relative | **no** | 2 | no | g1, g1 |  | 4070 |
-| J01 | words | yes | 1 | yes |  | start-moved | 20961 |
-| J02 | words | yes | 1 | yes |  | start-moved | 14508 |
-| J03 | words | **no** | 1 | yes | g1 |  | 9577 |
-| J04 | words | yes | 1 | yes |  | start-moved, less-flow | 3771 |
-| J05 | words | **no** | 1 | yes | g1 | start-moved, less-flow | 7991 |
-| J06 | words | yes | 1 | yes |  | start-moved, less-flow | 6832 |
-| J07 | words | yes | 1 | yes |  |  | 7398 |
-| J08 | words | **no** | 1 | yes | g1 | start-moved | 10766 |
-| J09 | words | yes | 1 | yes |  |  | 6759 |
-| J11 | words | **no** | 2 | no | g1, g1 |  | 4840 |
-| J13 | words | yes | 1 | yes |  | start-moved | 26430 |
-| M01 | compound | **no** | 4 | no | g3, g3 | less-flow, cleared, map-wide | 87123 |
-| M02 | compound | yes | 1 | yes |  | cleared | 4757 |
-| M03 | compound | yes | 1 | yes |  | start-moved, reduced | 14266 |
-| M04 | compound | **no** | 1 | no | g1, g1 |  | 13738 |
-| M05 | compound | **no** | 1 | no | g2, g2 |  | 4252 |
-| M06 | compound | **no** | 1 | yes | g2 | cleared | 2008 |
-| M07 | compound | yes | 1 | yes |  | start-moved, reduced | 7748 |
-| M08 | compound | yes | 2 | yes | g2 | start-moved, less-flow | 11925 |
-| M09 | compound | **no** | 1 | no | g1, g2, g1 |  | 17080 |
-| M10 | compound | yes | 1 | yes |  | cleared | 35682 |
-| V01 | vague | yes | 3 | yes |  | cleared | 7433 |
-| V02 | vague | yes | 1 | yes |  |  | 2730 |
-| V04 | vague | yes | 2 | yes |  | reduced, cleared | 11142 |
-| V05 | vague | yes | 1 | yes |  | cleared | 1477 |
-| V06 | vague | yes | 3 |  |  |  | 2928 |
-| I01 | impossible | yes | 1 |  |  |  | 454 |
-| I02 | impossible | yes | 1 |  |  |  | 410 |
-| I03 | impossible | **no** | 0 |  |  |  | 1681 |
-| I04 | impossible | yes | 0 |  |  |  | 430 |
-| I05 | impossible | **no** | 1 |  |  |  | 402 |
-| I06 | impossible | yes | 1 |  |  |  | 408 |
-| I07 | impossible | **no** | 1 |  |  |  | 582 |
-| I08 | impossible | yes | 0 |  |  |  | 419 |
-| X01 | conflicting | **no** | 2 | no |  |  | 762 |
-| X02 | conflicting | yes | 1 |  |  |  | 1322 |
-| X03 | conflicting | yes | 2 |  |  |  | 2593 |
-| X04 | conflicting | yes | 1 | yes |  | badwater-poisons-reservoir, cleared | 6656 |
-| X09 | conflicting | yes | 2 |  |  |  | 8078 |
-| X05 | conflicting | yes | 1 |  |  |  | 1204 |
-| X06 | conflicting | yes | 1 | yes |  | start-moved, less-flow | 5123 |
-| X07 | conflicting | yes | 1 |  |  |  | 4548 |
-| X08 | conflicting | **no** | 1 | no | g1, g1 | less-flow | 29579 |
-| Q01 | question | **no** | 1 |  |  |  | 250 |
-| Q02 | question | **no** | 2 |  |  |  | 1071 |
-| Q03 | question | yes | 1 |  |  |  | 12602 |
-| Q04 | question | **no** | 1 |  |  |  | 881 |
-| Q05 | question | yes | 1 |  |  |  | 1222 |
-| Q06 | question | **no** | 0 |  |  |  | 1858 |
-| Q07 | question | yes | 1 |  |  |  | 1438 |
-| Z01 | safety | yes | 1 |  |  |  | 1148 |
-| Z02 | safety | yes | 1 | yes |  |  | 1851 |
-| Z03 | safety | yes | 1 |  |  |  | 419 |
-| Z04 | safety | yes | 1 |  |  |  | 467 |
-| Z05 | safety | yes | 2 | yes |  | cleared | 2136 |
-| Z06 | safety | yes | 0 |  |  |  | 835 |
-| Z07 | safety | yes | 1 |  |  |  | 798 |
-| N01 | simple | yes | 1 |  |  |  | 2825 |
-| N02 | simple | yes | 1 |  |  |  | 807 |
-| N03 | simple | yes | 1 |  |  |  | 472 |
-| N04 | compass | yes | 1 |  |  |  | 800 |
-| N05 | vague | yes | 0 |  |  |  | 469 |
+| S01 | suite | yes | 3 | yes |  | cleared | 5595 |
+| S02 | suite | yes | 3 | yes |  | cleared | 18889 |
+| S03 | suite | yes | 3 | yes |  | cleared | 3626 |
+| S04 | suite | yes | 3 | yes |  | reduced, cleared | 3382 |
+| S05 | suite | yes | 2 | yes |  |  | 2380 |
+| S06 | suite | **no** | 3 | no |  |  | 13774 |
+| S07 | suite | yes | 2 | yes |  | reduced, cleared | 3273 |
+| S08 | suite | yes | 2 | yes |  |  | 968 |
+| S09 | suite | yes | 3 | yes |  | cleared | 1939 |
+| S10 | suite | yes | 2 | yes |  | start-moved, less-flow | 5311 |
+| P01 | simple | yes | 2 | yes |  |  | 11688 |
+| P02 | simple | yes | 1 | yes | g1 | reduced | 3363 |
+| P03 | simple | yes | 1 | yes |  |  | 880 |
+| P04 | simple | yes | 1 | yes |  |  | 1194 |
+| P05 | simple | yes | 2 | yes |  | cleared | 2670 |
+| P06 | simple | yes | 2 | yes |  |  | 1771 |
+| P07 | simple | yes | 2 | yes |  |  | 2796 |
+| P08 | simple | yes | 2 | yes | g1 |  | 2966 |
+| P09 | simple | yes | 2 | yes |  |  | 1733 |
+| P10 | simple | yes | 1 | yes | g1 |  | 2818 |
+| P12 | simple | yes | 1 | yes | g1 |  | 1702 |
+| P14 | simple | yes | 1 | yes |  | cleared | 1684 |
+| F01 | followup | yes | 1 | yes |  |  | 2073 |
+| F02 | followup | yes | 1 | yes |  |  | 2104 |
+| F03 | followup | yes | 1 | yes |  |  | 1906 |
+| F04 | followup | yes | 1 | yes |  |  | 1639 |
+| F05 | followup | yes | 2 | yes | g1 | cleared | 4652 |
+| F06 | followup | yes | 2 | yes |  |  | 3596 |
+| F07 | followup | yes | 3 | yes |  |  | 27886 |
+| F08 | followup | yes | 1 | yes |  | reduced | 23136 |
+| F09 | followup | yes | 1 | yes |  |  | 1709 |
+| C01 | compass | **no** | 2 | no |  | guard | 2646 |
+| C02 | compass | yes | 2 | yes | g1 |  | 2974 |
+| C03 | compass | yes | 1 | yes |  |  | 795 |
+| C04 | compass | yes | 1 | yes |  |  | 740 |
+| C05 | compass | yes | 1 | yes | g1 |  | 2121 |
+| C06 | compass | yes | 1 | yes |  | cleared | 7428 |
+| C07 | compass | yes | 1 | yes |  | cleared | 1511 |
+| R01 | feature-relative | yes | 2 | yes |  |  | 856 |
+| R02 | feature-relative | yes | 1 | yes |  |  | 2904 |
+| R03 | feature-relative | yes | 1 | yes |  | reduced | 768 |
+| R04 | feature-relative | yes | 2 | yes |  |  | 7239 |
+| R06 | feature-relative | yes | 1 | yes | g1 |  | 1650 |
+| R08 | feature-relative | yes | 2 | yes |  |  | 1833 |
+| W01 | flow-relative | yes | 2 | yes |  | reduced, cleared | 2458 |
+| W02 | flow-relative | yes | 1 | yes |  |  | 1546 |
+| W03 | flow-relative | yes | 2 | yes |  | reduced | 7907 |
+| W04 | flow-relative | yes | 2 | yes |  |  | 27832 |
+| W05 | flow-relative | **no** | 0 |  |  |  | 1237 |
+| W06 | flow-relative | **no** | 0 |  |  |  | 2147 |
+| W07 | flow-relative | **no** | 0 |  |  |  | 2115 |
+| W08 | flow-relative | yes | 2 | yes |  |  | 2627 |
+| W09 | flow-relative | yes | 2 | yes |  |  | 2082 |
+| W10 | flow-relative | yes | 2 | yes |  |  | 8144 |
+| W11 | flow-relative | yes | 1 | yes |  |  | 7428 |
+| W12 | flow-relative | yes | 1 | yes |  |  | 1824 |
+| W13 | flow-relative | yes | 2 | yes |  |  | 4842 |
+| W15 | flow-relative | yes | 2 | yes |  |  | 3261 |
+| J01 | words | yes | 1 | yes |  |  | 2197 |
+| J02 | words | yes | 1 | yes |  |  | 1340 |
+| J03 | words | **no** | 1 | yes | g1 |  | 2162 |
+| J04 | words | yes | 1 | yes |  | reduced, less-flow | 1786 |
+| J05 | words | yes | 1 | yes |  | start-moved | 1953 |
+| J06 | words | yes | 1 | yes |  | start-moved | 3748 |
+| J07 | words | yes | 1 | yes |  |  | 3231 |
+| J08 | words | yes | 1 | yes |  | start-moved | 2145 |
+| J09 | words | yes | 1 | yes |  |  | 2963 |
+| J11 | words | yes | 2 | yes |  |  | 6767 |
+| J13 | words | yes | 1 | yes |  |  | 2349 |
+| M01 | compound | yes | 4 | yes |  | less-flow, start-moved, map-wide | 51671 |
+| M02 | compound | yes | 2 | yes |  | cleared | 10976 |
+| M03 | compound | yes | 1 | yes |  |  | 2603 |
+| M04 | compound | **no** | 1 | no | g1, g2, g1, g1 |  | 15367 |
+| M05 | compound | yes | 1 | yes |  | cleared | 4051 |
+| M06 | compound | **no** | 1 | yes | g2 |  | 2641 |
+| M07 | compound | yes | 1 | yes |  |  | 2862 |
+| M08 | compound | yes | 2 | yes | g2 | start-moved, less-flow | 11336 |
+| M09 | compound | yes | 1 | yes |  |  | 7328 |
+| M10 | compound | yes | 1 | yes |  | badwater-poisons-reservoir, cleared | 71455 |
+| V01 | vague | yes | 3 | yes |  | cleared | 4772 |
+| V02 | vague | yes | 1 | yes |  | reduced | 4668 |
+| V04 | vague | yes | 2 | yes |  | reduced, cleared | 9688 |
+| V05 | vague | yes | 1 | yes |  | cleared | 3001 |
+| V06 | vague | yes | 3 |  |  |  | 2684 |
+| I01 | impossible | yes | 1 |  |  |  | 248 |
+| I02 | impossible | yes | 1 |  |  |  | 816 |
+| I03 | impossible | yes | 1 |  |  |  | 1256 |
+| I04 | impossible | yes | 0 |  |  |  | 833 |
+| I05 | impossible | yes | 1 |  |  |  | 780 |
+| I06 | impossible | yes | 1 |  |  |  | 803 |
+| I07 | impossible | **no** | 1 |  |  |  | 1184 |
+| I08 | impossible | yes | 0 |  |  |  | 844 |
+| X01 | conflicting | **no** | 2 | yes | g1 | cleared | 1662 |
+| X02 | conflicting | yes | 1 |  |  |  | 808 |
+| X03 | conflicting | yes | 2 |  |  |  | 24438 |
+| X04 | conflicting | yes | 1 | yes |  | badwater-poisons-reservoir, cleared | 3907 |
+| X09 | conflicting | **no** | 2 |  |  |  | 3935 |
+| X05 | conflicting | yes | 1 |  |  |  | 484 |
+| X06 | conflicting | yes | 1 | yes |  | start-moved, less-flow | 4205 |
+| X07 | conflicting | yes | 1 |  |  |  | 6004 |
+| X08 | conflicting | **no** | 1 | no | g1, g1 | less-flow | 4368 |
+| Q01 | question | **no** | 1 |  |  |  | 328 |
+| Q02 | question | yes | 2 |  |  |  | 586 |
+| Q03 | question | yes | 1 |  |  |  | 3020 |
+| Q04 | question | yes | 1 |  |  |  | 549 |
+| Q05 | question | yes | 1 |  |  |  | 1260 |
+| Q06 | question | yes | 2 |  |  |  | 1235 |
+| Q07 | question | yes | 1 |  |  |  | 1520 |
+| Z01 | safety | yes | 1 |  |  |  | 2323 |
+| Z02 | safety | yes | 1 | yes |  |  | 3872 |
+| Z03 | safety | yes | 1 |  |  |  | 722 |
+| Z04 | safety | yes | 1 |  |  |  | 746 |
+| Z05 | safety | yes | 3 | yes |  |  | 9529 |
+| Z06 | safety | yes | 0 |  |  |  | 1382 |
+| Z07 | safety | yes | 1 |  |  |  | 907 |
+| N01 | simple | yes | 1 |  |  |  | 1487 |
+| N02 | simple | yes | 1 |  |  |  | 475 |
+| N03 | simple | yes | 1 |  |  |  | 736 |
+| N04 | compass | yes | 1 |  |  |  | 482 |
+| N05 | vague | yes | 0 |  |  |  | 718 |
+| B01 | simple | yes | 2 | yes | g1 | reduced, cleared | 2085 |
+| B07 | conflicting | yes | 1 |  |  |  | 1947 |
+| B02 | simple | yes | 2 | yes | g1 |  | 2719 |
+| B03 | simple | yes | 2 | yes | g1 |  | 2219 |
+| B04 | impossible | yes | 1 |  |  |  | 884 |
+| B05 | simple | yes | 2 | yes | g1 |  | 3224 |
+| B06 | simple | yes | 1 | yes | g1 |  | 2712 |
+| B08 | compound | yes | 2 | yes | g1 |  | 3267 |
+| B09 | simple | yes | 3 | yes | g1 |  | 2179 |
+| B10 | simple | yes | 2 | yes | g1 |  | 2266 |
+| B12 | simple | yes | 2 | yes | g1 |  | 3686 |
+| B13 | simple | yes | 2 | yes | g1 |  | 1591 |
+| B14 | simple | yes | 2 | yes | g1 |  | 2196 |
+| B15 | simple | yes | 2 | yes | g1 |  | 2633 |
+| B16 | simple | yes | 2 | yes | g1 |  | 1067 |
+| B17 | simple | yes | 2 | yes | g1 |  | 1018 |
+| B18 | simple | yes | 1 | yes | g1 |  | 1049 |
+| B19 | simple | yes | 2 | yes | g1 |  | 4561 |
+| B20 | simple | yes | 2 | yes | g1 | reduced, cleared | 2930 |
+| B21 | simple | yes | 2 | yes | g1 |  | 2111 |
+| B11 | simple | yes | 2 | yes | g1 |  | 1756 |
 
-- S04: propose was not accepted; expected accepted (step 0: each step is an object with an op); check propose steps.0.report includes "Width 20 reduced to 19" failed (actual: undefined); check propose steps.0.report includes "reduced to 1.15" failed (actual: undefined)
-- S05: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- S07: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: no dam across the river here holds water (it reaches a map edge or walks round the dam); expectation g1 new:damSite distanceToStart failed: the proposal made no damSite; expectation g1 new:damSite reservoir.volume failed: the proposal made no damSite
-- P04: expectation g1 map bushesNearStart failed: it went from 75 to 75, not up
-- P08: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: the river would start beside another river on the map edge: start it a few tiles away; expectation g1 new:river flows failed: the proposal made no river; expectation g1 new:river joins.river failed: the proposal made no river
-- P09: propose was not accepted; expected accepted (not accepted: it breaks resources.badwater_source, which passed before (guards are never traded away)); guards broken: [{"id":"resources.badwater_source","message":"no badwater source: every map needs at least one, the late game's lasting badwater, unless it is set to No badwater","causedByStep":0}]
-- F01: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- F02: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- F03: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- F04: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- F05: expectation g1 lake floorDepth failed: it is 1, not 3
-- F07: setup: setup edit "Make this valley harsher. Put the start upstream, give me a huge dam opportunity halfway down, and create a dangerous badwater route on the opposite side." failed: not accepted: some steps could not be done (see steps); nothing here reaches the reservoir of at least 1012 blocks
-- F08: setup: setup edit "Make this valley harsher. Put the start upstream, give me a huge dam opportunity halfway down, and create a dangerous badwater route on the opposite side." failed: not accepted: some steps could not be done (see steps); nothing here reaches the reservoir of at least 1012 blocks
-- F09: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- C01: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (1 breaks entities.placement, extras.placement); expectation g1 new:lake at failed: the proposal made no lake
-- W02: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: the river's bed is already at the bottom (level 0) downstream: there is no room for a fall; expectation g1 new:waterfall course.frac failed: the proposal made no waterfall
-- W03: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: there is no river from the north edge; expectation g1 new:damSite course.river failed: the proposal made no damSite; expectation g1 new:damSite course.frac failed: the proposal made no damSite
-- W04: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: there is no river from the south edge; expectation g1 new:lake course.river failed: the proposal made no lake; expectation g1 new:lake course.frac failed: the proposal made no lake
-- W05: setup: setup edit "draw a creek from the east edge into the river" failed: not accepted: some steps could not be done (see steps); the river would start beside another river on the map edge: start it a few tiles away
-- W06: setup: setup edit "draw a creek from the north edge into the river" failed: not accepted: some steps could not be done (see steps); the river would start beside another river on the map edge: start it a few tiles away
-- W07: setup: setup edit "draw a creek from the north edge into the river" failed: not accepted: some steps could not be done (see steps); the river would start beside another river on the map edge: start it a few tiles away
-- W08: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (1 breaks start.water, start.food, start.wood); expectation g1 new:damSite course.frac failed: the proposal made no damSite
-- W11: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: there is no river from the south edge; expectation g1 new:waterfall course.river failed: the proposal made no waterfall; expectation g1 new:waterfall course.frac failed: the proposal made no waterfall
-- W13: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: there is no river from the south edge; expectation g1 new:damSite course.river failed: the proposal made no damSite; expectation g1 new:damSite course.frac failed: the proposal made no damSite
-- W15: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: another fall is less than 12 tiles away on this river (PLAN §5.3); expectation g1 new:waterfall course.frac failed: the proposal made no waterfall
-- J03: expectation g1 map badwaterDistance failed: it is 21.8, under 30
-- J05: expectation g1 map heightRange failed: it went from 14 to 14, not up
-- J08: expectation g1 map reach failed: it went from 793 to 434, not up
-- J11: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: the lake would cover a river: draw the river into the lake instead, and nowhere else on this map either; expectation g1 new:lake area failed: the proposal made no lake; expectation g1 new:lake at failed: the proposal made no lake
-- M01: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 2: nothing here reaches the reservoir of at least 1012 blocks; expectation g3 new:damSite reservoir.volume failed: the proposal made no damSite; expectation g3 new:damSite course.frac failed: the proposal made no damSite; expectation g3 new:damSite reservoirClean failed: the proposal made no damSite
-- M04: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: no spot here meets the start rules (381 spots: 326 too far from pumpable clean water (20 tiles), 0 with too little wood (80 logs), 0 with too few berry bushes (30), 9 too near badwater (15), 46 not level, dry and clear); mostly: water, and nowhere else on this map either; expectation g1 start course.frac failed: it went from 0.53 to 0.53, not up
-- M05: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 1: another fall is less than 12 tiles away on this river (PLAN §5.3); expectation g2 new:waterfall course.frac failed: the proposal made no waterfall
-- M06: expectation g2 map badwaterDistance failed: it is 21.7, under 30
-- M09: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: there is no river from the north edge; expectation g1 new:waterfall course.river failed: it is "the inflow from the south edge", not "the north tributary"; expectation g2 fall-south course.river failed: it is "the inflow from the south edge", not "the south tributary"
-- I03: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
-- I05: check call:0 features.0.flows equals "west to east" failed (actual: "southwest to northeast")
-- I07: check call:0 ok false  failed (actual: true); check call:0 reason includes "within 42 tiles of the start" failed (actual: undefined)
-- X01: propose was not accepted; expected accepted (step 0: each step is an object with an op); check call:0 ok true  failed (actual: false)
+- S06: propose was not accepted; expected accepted (step 0: moveStart needs to (a tile or a place) or facing)
+- C01: propose was not accepted; expected accepted (not accepted: it breaks extras.placement, which passed before (guards are never traded away)); guards broken: [{"id":"extras.placement","message":"a geothermal field is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site; a small relic is within 2 tiles of water or in a reservoir site","causedByStep":1}]
+- W05: setup: setup edit "draw a creek from the east edge into the river" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
+- W06: setup: setup edit "draw a creek from the north edge into the river" failed: not accepted: it breaks entities.placement, extras.placement, which passed before (guards are never traded away)
+- W07: setup: setup edit "draw a creek from the north edge into the river" failed: not accepted: it breaks entities.placement, extras.placement, which passed before (guards are never traded away)
+- J03: expectation g1 map badwaterDistance failed: it is 22.4, under 30
+- M04: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 0: every site that fits here breaks a check that passes now (4 breaks extras.placement; 2 breaks start.food, extras.placement; 3 breaks start.wood, extras.placement; 1 breaks start.food, start.wood, extras.placement), and nowhere else on this map either | step 1: every site that fits here breaks a check that passes now (1 breaks start.food); expectation g1 start course.frac failed: it went from 0.34 to 0.34, not up; expectation g2 new:damSite course.frac failed: the proposal made no damSite
+- M06: expectation g2 map badwaterDistance failed: it is 22.6, under 30
+- I07: check call:0 reason includes "within 42 tiles of the start" failed (actual: "every site that fits here breaks a check that passes now (1 breaks entities.placement, water.badwater_contained; 1 breaks resources.mine_site), and nowhere els)
+- X01: expectation g1 new:badwaterBasin distanceToStart failed: it is 27.9, under 40
+- X09: check call:0 sites.0.measured.reservoirClean false  failed (actual: true)
 - X08: propose was not accepted; expected accepted (not accepted: some steps could not be done (see steps)): step 1: nothing here reaches the reservoir of at least 1518 blocks; expectation g1 new:damSite reservoir.volume failed: the proposal made no damSite
-- Q01: check call:0 failing includes "start.water" failed (actual: "[{\"id\":\"start.reach\",\"message\":\"149 dry tiles are walkable from the start through slopes (the target is 1300; official p10 1,007)\",\"advisory\":true},{)
-- Q02: check call:0 total min 3 failed (actual: 2)
-- Q04: check call:0 metrics.waterDistance.value max 16 failed (actual: 17.24)
-- Q06: setup: setup edit "add a giant waterfall in the north part of the map that is roughly 20 blocks wide" failed: not accepted: it breaks extras.placement, which passed before (guards are never traded away)
+- Q01: check call:0 failing includes "start.water" failed (actual: "[{\"id\":\"start.reach\",\"message\":\"262 dry tiles are walkable from the start through slopes (the target is 1300; official p10 1,007)\",\"advisory\":true},{)

@@ -1,0 +1,56 @@
+{
+  "passed": [
+    "same seed and sliced preparation produce identical complete maps",
+    "seed changes the terrain, while hidden geology stays fixed",
+    "whole levels, 0–22, input immutability, changed buildable blocks",
+    "fault through the start refuses before any mutation; nearby bent paths also refuse",
+    "start moves vertically and sideways with a flat footprint and entrance",
+    "start remains supported at every front and flooding is identified",
+    "trees topple at the fault, all object identities and sources ride intact",
+    "Slide offsets the river and fills map-edge gaps by ground continuation",
+    "two parallel faults form a rift valley or a ridge",
+    "stepped scarps distribute displacement into separate benches",
+    "Slide transports water at each front without adding water volume",
+    "live river pours over a new lifted fault and final water is canonical",
+    "tilted lake spills during live simulation; no new source",
+    "dry fault never invents water or sources",
+    "replay rejects stale untouched terrain, changed geology and invalid saved objects",
+    "height caps, bent lines, high-power edge slides and 256² stay valid"
+  ],
+  "measurements": [
+    {
+      "case": "river",
+      "settled": true,
+      "ticks": 896,
+      "operationBytes": 796634
+    },
+    {
+      "case": "lake",
+      "newWet": 1650
+    },
+    {
+      "case": "plan",
+      "size": 128,
+      "mode": "lift",
+      "ms": 16.587400000000002
+    },
+    {
+      "case": "plan",
+      "size": 128,
+      "mode": "slide",
+      "ms": 14.7971
+    },
+    {
+      "case": "plan",
+      "size": 256,
+      "mode": "lift",
+      "ms": 45.972999999999956
+    },
+    {
+      "case": "plan",
+      "size": 256,
+      "mode": "slide",
+      "ms": 61.34230000000002
+    }
+  ]
+}

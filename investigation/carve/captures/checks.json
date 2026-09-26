@@ -1,0 +1,42 @@
+{
+  "passed": [
+    "every step: whole levels, one terrain direction, no new one-tile extrema, start support and debris volume",
+    "first second has visible local chunks, not distant sheet erosion",
+    "power sets incision and width; catastrophe removes much more land than creek",
+    "wide walls make broad terraces, steep walls preserve a narrower gorge",
+    "hard layers delay breakthroughs; bands are deterministically derived from terrain",
+    "aim breaks through a ridge with a curved course; low power lets the land win",
+    "defy gravity cuts an uphill destination into a connected descending floor",
+    "same input and duration has exact output independent of presentation batching",
+    "objects on excavated footprints are removed; the start is never removed",
+    "keep river follows nominal width, linked to power by default; dry canyon adds no source",
+    "check status and start reach update from changed terrain and resources without blocking it",
+    "Wander makes a longer, overshooting course through actual terrain and still reaches the aimed destination",
+    "maximum Wander leaves asymmetric cut banks and shallow inner shelves in actual terrain",
+    "independent width makes deep slots or wide shallow cuts; linked width matches the explicit natural width",
+    "each recorded personality is bit-exact; changing its seed changes landforms without moving the geology",
+    "smooth reaches narrow into rapids and include actual whole-level waterfall drops",
+    "split channels surround a coherent hard core and rejoin a descending route without flicker or single-tile rubble",
+    "legacy settings are defaulted without mutation and invalid character values are rejected",
+    "canonical water is bit-exact with different slice sizes",
+    "one stored result restores terrain, source, removed objects and water exactly after JSON replay",
+    "worker mesh data supports the actual clean terrain, water and object shaders",
+    "real map near-yosemite-valley accepts source-local carving",
+    "real map near-geirangerfjord accepts source-local carving",
+    "real map near-grand-canyon-colorado accepts source-local carving",
+    "generated 128 map preserves start and exact complete operation",
+    "generated 256 map preserves start and exact complete operation"
+  ],
+  "timings": {
+    "128 step p95 ms": 1.5752999999999702,
+    "128 apply and undo ms": 4.1961999999998625,
+    "256 step p95 ms": 4.872400000000198,
+    "256 apply and undo ms": 9.436400000000503
+  },
+  "terrainHashes": {
+    "mountain": "e75f2f4fded487ec73b65f4d1fff62d002bb899e9a393b845c9cf4b8ed974588",
+    "ridge": "14bdba4551c0610f71a46fc8272fd52ca299c6132b352cd114fe46d95e8eda49",
+    "defy": "1ee056c4779a9300fb0230036d673c9deaf3e460c0f355b9ab0c13c734df14c4"
+  },
+  "hardwareFPS": "User PC acceptance required; CPU timings are not frame rates"
+}

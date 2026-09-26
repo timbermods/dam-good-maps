@@ -60,13 +60,11 @@ test.describe("every investigation map imports, renders and exports unchanged (l
       await page.screenshot({ path: `.scratch/renders/${name.replace(/\.timber$/, "")}.png` });
       console.log(`${name}: ${info.W}×${info.H}, ${build.terrainQuads} terrain quads, ${build.waterQuads} water quads, ${build.instances} objects, ${drawn.triangles} triangles, built in ${Math.round(build.ms)} ms`);
 
-      // export without edits: nothing blocks, nothing to confirm
-      await page.getByRole("button", { name: "Export .timber" }).click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.getByRole("button", { name: "Export", exact: true })).toBeEnabled({ timeout: 120_000 });
-      await expect(dialog.getByText("Warnings")).toHaveCount(0);
-      const download = page.waitForEvent("download");
-      await dialog.getByRole("button", { name: "Export", exact: true }).click();
+      // export without edits: nothing blocks, nothing worth a look
+      await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 120_000 });
+      const download = page.waitForEvent("download", { timeout: 120_000 });
+      await page.getByRole("button", { name: "More", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Download .timber" }).click();
       const d = await download;
       expect(d.suggestedFilename()).toBe(name);
       const out = new Uint8Array(readFileSync(await d.path()));

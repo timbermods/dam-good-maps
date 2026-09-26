@@ -48,6 +48,7 @@ export default function Preview3D({ result }: { result: GenerateResponse }) {
   };
   const [hover, setHover] = useState<string | null>(null);
   const dam = useMemo(() => damTiles(result), [result]);
+  const legendExtra = useMemo(() => (dam.length ? [{ swatch: damLegendSwatch(), label: "Best dam site", markers: true, tiles: dam.map(([x, y]) => y * result.W + x) }] : []), [dam, result.W]);
   const onReady = (r: MapRenderer) => {
     const data = r.overlayData();
     if (!data) return;
@@ -62,7 +63,7 @@ export default function Preview3D({ result }: { result: GenerateResponse }) {
       label="3D view of the map. Drag to turn, right-drag to move, wheel to zoom."
       hoverText={hover}
       onReady={onReady}
-      legendExtra={dam.length ? [{ swatch: damLegendSwatch(), label: "Best dam site", markers: true }] : []}
+      legendExtra={legendExtra}
       onHover={(hit) => setHover(hit ? describeTile(context(), hit.x, hit.y) : null)}
     />
   );

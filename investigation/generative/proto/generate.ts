@@ -49,7 +49,8 @@ export interface ProtoInfo {
   ms: Record<string, number>;
 }
 
-export type ProtoResult = GenerateResult & { recipe: string | null; genome: Genome; info: ProtoInfo; storage: CheckResult };
+// (the product's GenerateResult as it was before M9a: M9a added its own info, field, intentions and timings)
+export type ProtoResult = Omit<GenerateResult, "info" | "field" | "intentions" | "timings"> & Partial<Pick<GenerateResult, "field" | "intentions" | "timings">> & { recipe: string | null; genome: Genome; info: ProtoInfo; storage: CheckResult };
 
 /** One flatten edit per level: the terrain as the build's step 6 applies it. */
 export function sculptsOf(h: Uint8Array, W: number): SculptEdit[] {

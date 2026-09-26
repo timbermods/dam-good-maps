@@ -30,8 +30,9 @@ export const failing = (checks: readonly CheckResult[]) => checks.filter((c) => 
 export const PLACES_HAVE_EDGE_WALLS = true;
 
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
- *  another source already feeds (`water.source_in_flow`, a design check: it warns in the export
- *  profile). Real places 2 places sources only at heads and empties this list. */
+ *  another source already feeds (`water.source_in_flow`, a design check: it fails the generate
+ *  profile; in the export profile it does not apply, since sources go anywhere in the editor,
+ *  D184). Real places 2 places sources only at heads and empties this list. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
   "near-altiplano", "near-atacama-fan", "near-badlands-national-park", "near-bandiagara",
   "near-blue-mountains-jamison", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
