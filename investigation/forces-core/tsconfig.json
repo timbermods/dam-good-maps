@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "three": [
+        "node_modules/@types/three"
+      ],
+      "three/*": [
+        "node_modules/@types/three/*"
+      ],
+      "fflate": [
+        "node_modules/fflate"
+      ]
+    }
+  },
+  "include": [
+    "core",
+    "verbs",
+    "demo",
+    "worker.ts",
+    "tests"
+  ],
+  "exclude": [
+    "local"
+  ]
+}

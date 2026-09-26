@@ -13,3 +13,5 @@ Work starts from dev at 4f1b8c6. Source commits are pinned in SOURCES.json.
 ## Steps
 
 1. Read the project contracts, pin prototype sources, and isolate the investigation.
+
+2. Extracted the four terrain models onto shared map, seed, object-footprint, rock, scheduling, water and exact-result history services. All 45 direct source comparisons pass, including every Carve step. Core checks cover all modes, replay, variation bases, start refusals and hard-lava interplay. Current dev renamed the start resource API to wood (D164); the legacy runner bridges that name and uses the wood target.
