@@ -1,14 +1,33 @@
-# Waterfalls with shape and volume (D201)
+# Waterfalls with shape and volume (D201, D215)
 
-Before (dev) on the left, after (branch `look/waterfalls`) on the right: the Standard look, the same
-camera and water time. The gallery is a small map of our own, its water settled by the game's water
-rules; the rest are generated 256² maps. Made with `tools/capture-waterfalls.ts`.
+The Standard look, the same camera and water time on each side. The gallery is a small map of our
+own, its water settled by the game's water rules; the rest are generated 256² maps. Made with
+`tools/capture-waterfalls.ts`.
+
+## Kyler's review (D215): one sheet, more whitewater
+
+The first round (#53 before D215) on the left, now on the right.
+
+| Image | What to look at |
+|---|---|
+| [d215-l-lip-default.jpg](d215-l-lip-default.jpg) | An L-shaped lip: one tile pours south and east. The two sides now meet at the corner as one sheet. |
+| [d215-l-lip-low.jpg](d215-l-lip-low.jpg) | The same lip from low down: the V between two ribbons is gone; the sheet wraps round the corner, with whitewater along its foot. |
+| [d215-staircase-default.jpg](d215-staircase-default.jpg) | Water crossing the cliff at a slant: a staircase lip, every step an outer and an inner corner. |
+| [d215-staircase-low.jpg](d215-staircase-low.jpg) | The staircase from low down: one zigzag curtain instead of a comb of separate ribbons. |
+| [d215-highlands-4-tall-default.jpg](d215-highlands-4-tall-default.jpg) | Highlands 4's tallest fall, the V from the review: now one sheet. |
+| [d215-highlands-4-tall-low.jpg](d215-highlands-4-tall-low.jpg) | The same fall from low down. |
+| [d215-splash-default.jpg](d215-splash-default.jpg) | Where the strong fall lands, from above: a white core along the impact line, foam and a lace of foam drifting out. |
+| [d215-splash-low.jpg](d215-splash-low.jpg) | The landing from low down: a crown of whitewater along the impact line. |
+
+## Before (dev) and after
+
+Dev's falls on the left (a flat curtain on the cliff), now on the right.
 
 | Image | What to look at |
 |---|---|
 | [gallery-tall-default.jpg](gallery-tall-default.jpg) | An 11-level fall from above: it leaves the lip and lands out from the cliff, with whitewater there. |
 | [gallery-tall-low.jpg](gallery-tall-low.jpg) | The same fall from the side: the arc off the lip, and the cliff showing behind it. |
-| [gallery-cascade-default.jpg](gallery-cascade-default.jpg) | Five steps: each is its own small fall, with a lip, an arc and a splash. |
+| [gallery-cascade-default.jpg](gallery-cascade-default.jpg) | Five steps: each is its own small fall, with a lip, an arc and whitewater, kept on its step. |
 | [gallery-cascade-low.jpg](gallery-cascade-low.jpg) | The cascade from low down. |
 | [gallery-strong-weak-default.jpg](gallery-strong-weak-default.jpg) | A strong ten-wide fall beside a thin one-wide trickle, from above. |
 | [gallery-strong-weak-low.jpg](gallery-strong-weak-low.jpg) | The same from the side: the strong fall arcs far out; the trickle is a narrow stream close to the rock. |
@@ -18,11 +37,17 @@ rules; the rest are generated 256² maps. Made with `tools/capture-waterfalls.ts
 | [highlands-4-tall-low.jpg](highlands-4-tall-low.jpg) | The same fall from low down. |
 | [highlands-8-cascade-default.jpg](highlands-8-cascade-default.jpg) | Highlands 8: a 5-level fall into a small pool, then a second fall. |
 | [highlands-8-cascade-low.jpg](highlands-8-cascade-low.jpg) | The same pair of falls from low down. |
-| [canyon-3-strong-default.jpg](canyon-3-strong-default.jpg) | Canyon 3's strongest fall, a common 2-level river step. |
+| [canyon-3-strong-default.jpg](canyon-3-strong-default.jpg) | Canyon 3's strongest fall, a 2-level river step over a staircase lip. |
 | [canyon-3-strong-low.jpg](canyon-3-strong-low.jpg) | The same river's steps from low down. |
 | [lakeBasin-3-badwater-default.jpg](lakeBasin-3-badwater-default.jpg) | Lake Basin 3: badwater falls from a basin. |
 | [lakeBasin-3-badwater-low.jpg](lakeBasin-3-badwater-low.jpg) | The same falls from low down. |
 | [highlands-2-whole-default.jpg](highlands-2-whole-default.jpg) | Highlands 2, the generated map with the most falls (141), whole, from afar. |
 | [highlands-2-whole-mid.jpg](highlands-2-whole-mid.jpg) | Highlands 2's corner with the most falls, closer. |
-| [greyscale.jpg](greyscale.jpg) | Every after view in greyscale: falls stay light, badwater falls dark. |
+
+## Clear water, greyscale and colour blindness
+
+| Image | What to look at |
+|---|---|
+| [clear-water.jpg](clear-water.jpg) | Clear water off and on (T): clean falls turn to a faint veil, the badwater fall keeps its colour with stripes. |
+| [greyscale.jpg](greyscale.jpg) | Every after view in greyscale: falls and whitewater stay light, badwater falls dark. |
 | [colour-blindness.jpg](colour-blindness.jpg) | The default-angle after views with deuteranopia, protanopia and tritanopia. |

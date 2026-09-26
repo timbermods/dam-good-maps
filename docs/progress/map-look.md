@@ -610,3 +610,11 @@ another review unless it looks off. Built on `look/waterfalls` after merging `de
   e2e spec also draws with clear water on and under a slice.
 - The map's bytes are unchanged (rendering only; the pinned download in `look-mine-ruins.test.ts`
   passes).
+- **Captures** remade on the current maps ([docs/look/waterfalls/](../look/waterfalls/README.md), 4.2
+  MB): the same views as before, dev beside now; new `d215-*.jpg` pairs with the first round (#53 at
+  b00b2fc) beside now: the L-shaped lip, the staircase lip, Highlands 4's fall from the review, and
+  the strong fall's landing; and clear water off and on. Looked at critically: no gap, seam or
+  floating fall; the corner of a mitre shows as a fold, as the cliff's own corner does. Older and not
+  D215's: where water speeds up toward a lip its surface steps down a little between tiles, and the
+  water mesher draws those small steps as faint grey curtains (dev draws them the same); where a
+  Blockage raises the water floor, the view draws water at ground level (the phantom small fall).
