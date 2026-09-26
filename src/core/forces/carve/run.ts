@@ -8,6 +8,13 @@
 // end. Each tile changes in one direction only, no step leaves a new one-tile pit or spike, and
 // the start's ground is never touched.
 //
+// Bends vary (D199): measured over six stations, a bend's outer bank is cut wider and up to two
+// levels deeper, its inner bank keeps shallow shelves, and the straights between bends narrow, so
+// even at the highest Wander it is never a uniform tube. At high Wander and Power one narrow neck
+// can be cut through: a route-only look-ahead reserves two sediment bars across the old bend's
+// mouths before either is exposed, the crescent between them scours while the bars hold, and the
+// sealed bend becomes an oxbow lake (oxbow.ts; its water, water.ts).
+//
 // Keep river leaves a real water source at the origin, its strength following the river's Width
 // (D199); Dry canyon leaves none. The preview water flows on as the floor changes; the water the
 // map keeps is always the game's settled result, worked out after the carve.
@@ -25,7 +32,7 @@ import { WaterSim, type WaterModel } from "../../sim/water";
 import { entityTiles, protectedGround, type ForceHead, type ForceMap, type ForceRun, type Lane } from "../force";
 import { RiverCharacter } from "./character";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
-import { findNeck, type Oxbow } from "./oxbow";
+import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -81,6 +88,8 @@ export interface Station {
   width: number;
   dx: number;
   dy: number;
+  /** Curvature over the last six stations, -1 to 1 (positive turns left). */
+  bend: number;
   lanes: Lane[];
 }
 
@@ -112,6 +121,13 @@ export class CarveRun implements ForceRun {
   readonly original: Uint8Array;
   readonly initialWater: Float64Array;
   readonly keep: Uint8Array;
+  /** The map just before a cut-off bend's mouths silted shut (its sediment taken out): the oxbow
+   *  lake keeps the water the game settles on it (water.ts). */
+  closure: ForceMap | null = null;
+  /** Whole levels of sediment laid in each tile (an oxbow's two mouth bars). */
+  readonly sediment: Uint8Array;
+  private barFloor: Uint8Array;
+  private planned: Oxbow | null = null;
   readonly sign: Int8Array;
   readonly target: Uint8Array;
   readonly wear: Float64Array;
@@ -143,12 +159,15 @@ export class CarveRun implements ForceRun {
   private depositQueue: number[] = [];
   private depositDone = false;
 
-  constructor(input: ForceMap, settings: CarveSettings, intent: CarveIntent, options: CarveOptions = {}) {
+  /** `planning`: a route-only look-ahead (it moves the head and finds the cut-off, never the land). */
+  constructor(input: ForceMap, settings: CarveSettings, intent: CarveIntent, options: CarveOptions = {}, private readonly planning = false) {
     settings = this.settings = { ...settings };
     settings.wander ??= 35;
     settings.width ??= null;
     settings.seed ??= 0;
     const N = input.W * input.H;
+    this.sediment = new Uint8Array(N);
+    this.barFloor = new Uint8Array(N);
     if (
       input.heights.length !== N ||
       !Number.isInteger(intent.origin) ||
@@ -203,6 +222,17 @@ export class CarveRun implements ForceRun {
       throw new Error("The end point is uphill. Turn on Defy gravity to cut it down.");
     }
     this.stamp(x, y);
+    if (!planning && this.character.wander >= 0.85 && (settings.power / 100) * this.character.intensity >= 0.6) {
+      // Route-only look-ahead reserves the two depositional mouths before either is exposed. Actual
+      // work still advances locally, in acknowledged steps.
+      const plan = new CarveRun(input, settings, intent, { keep: options.keep ?? null, sourceId: this.sourceId }, true);
+      while (!plan.ended && !plan.oxbows.length) {
+        plan.metrics.steps += 2;
+        plan.advanceHead();
+      }
+      this.planned = plan.oxbows[0] ?? null;
+      if (this.planned) this.barFloor = mouthFloors(this.planned, input.W, input.H, this.original);
+    }
     if (!settings.dry) {
       const e = waterSource({ id: this.sourceId, owner: PLACED, x, y, z: this.map.heights[intent.origin], strength: sourceStrength(settings.power, settings.width) });
       this.map.entities = [...this.map.entities.filter((g) => g.id !== this.sourceId), e];
@@ -251,9 +281,14 @@ export class CarveRun implements ForceRun {
     const oldBed = this.bed;
     const grade = Math.max(0, sourceBed - drop);
     this.bed = Math.min(this.bed, grade, Math.max(0, Math.max(Math.min(2, raw), raw - incision) - drop));
-    const width = this.character.width(this.metrics.distance);
+    const reachWidth = this.character.width(this.metrics.distance);
     const dx = Math.cos(this.heading);
     const dy = Math.sin(this.heading);
+    // Curvature over a reach, not a single candidate turn: coherent cut banks and inner shelves
+    // survive at maximum Wander without speckled tile noise.
+    const prior = this.path[Math.max(0, this.path.length - 6)];
+    const bend = prior ? clamp(angleDelta(this.heading, Math.atan2(prior.dy, prior.dx)) / 0.9, -1, 1) : 0;
+    const width = reachWidth * (1 - 0.22 * this.character.wander + 0.5 * Math.abs(bend));
     const { lanes, knob } = this.character.lanes(x, y, dx, dy, width);
     let event: ForceHead["event"] = "surge";
     if (oldBed - this.bed >= 2) {
@@ -272,8 +307,14 @@ export class CarveRun implements ForceRun {
       event = "split";
     }
 
-    this.path.push({ x, y, bed: this.bed, width, dx, dy, lanes });
+    // Positive curvature turns left; its faster outer bank lies to the right.
     for (const lane of lanes) {
+      lane.x += dy * reachWidth * bend * 0.35;
+      lane.y -= dx * reachWidth * bend * 0.35;
+    }
+    this.path.push({ x, y, bed: this.bed, width, dx, dy, bend, lanes });
+    // (a look-ahead only moves the head: it never works the land)
+    for (const lane of this.planning ? [] : lanes) {
       const depth = Math.max(1, raw - this.bed);
       const shoulder = this.settings.walls === "wide" ? depth * 0.9 : Math.min(2, depth * 0.15);
       const radius = lane.width + shoulder + 1;
@@ -283,7 +324,10 @@ export class CarveRun implements ForceRun {
           if (this.keep[i] || this.character.rock[i] || this.sign[i] > 0) continue;
           const d = Math.hypot(xx - lane.x, yy - lane.y);
           const slope = this.settings.walls === "wide" ? 1 : 4;
-          let t = this.bed + Math.max(0, Math.ceil((d - lane.width) * slope));
+          const outside = ((xx - x) * dy - (yy - y) * dx) * Math.sign(bend);
+          const innerShelf = Math.abs(bend) > 0.3 && outside < -reachWidth * 0.2 ? Math.min(2, Math.ceil((-outside / reachWidth - 0.2) * Math.abs(bend) * 2)) : 0;
+          const scour = Math.min(2, Math.floor(Math.max(0, outside / reachWidth - 0.15) * Math.abs(bend) * 3));
+          let t = Math.max(0, this.bed - scour) + innerShelf + Math.max(0, Math.ceil((d - lane.width) * slope));
           if (d > lane.width && this.hard(t) > 0.5) t++;
           const work = p * this.character.intensity;
           if (work < 0.45) t = Math.max(t, this.original[i] - Math.max(1, Math.round(1 + 6 * work)));
@@ -325,7 +369,7 @@ export class CarveRun implements ForceRun {
 
   private tryCutoff() {
     if (this.character.wander < 0.85 || this.oxbows.length || (this.settings.power / 100) * this.character.intensity < 0.6) return;
-    const cut = findNeck(this.path, this.metrics.steps);
+    const cut = this.planning ? findNeck(this.path, this.metrics.steps) : this.planned?.end === this.path.length - 1 ? this.planned : null;
     if (!cut) return;
     const width = Math.min(this.path[cut.start].width, this.head.width);
     for (const p of cut.neck) {
@@ -333,12 +377,16 @@ export class CarveRun implements ForceRun {
       for (let dy = -Math.ceil(width); dy <= Math.ceil(width); dy++)
         for (let dx = -Math.ceil(width); dx <= Math.ceil(width); dx++) if (this.keep[this.at(p.x + dx, p.y + dy)] || this.character.rock[this.at(p.x + dx, p.y + dy)]) return;
     }
-    for (const p of cut.neck) this.cutAt(p.x, p.y, cut.floor, width * 0.75);
-    // Scour the abandoned bend below its inlet. Its unlowered downstream arm keeps it out of the
-    // main through-flow; no cut tile is raised to seal it.
-    for (let k = 0; k < cut.pool.length; k++) {
-      const p = cut.pool[k];
-      this.cutAt(p.x, p.y, k < 3 ? cut.floor : Math.max(0, cut.floor - 1), Math.max(1.2, width * 0.72));
+    if (!this.planning) {
+      // The river existed before its mouths silted shut. Keep a deterministic pre-closure bed for
+      // the game's water settle, not the preview's depths.
+      const heights = this.map.heights.map((h, i) => h - this.sediment[i]);
+      this.closure = { ...this.map, heights, entities: this.map.entities.slice() };
+      for (const p of cut.neck) this.cutAt(p.x, p.y, cut.floor, width * 0.75);
+      // Scour the crescent below both sediment sills; the reserved bar surface holds while its
+      // substrate is exchanged for carried material.
+      for (const p of cut.pool) this.cutAt(p.x, p.y, Math.max(0, cut.floor - 1), Math.max(1.2, width * 0.72));
+      for (const b of cut.bars) this.cutAt(b.x, b.y, cut.floor, 1.5);
     }
     this.bed = Math.min(this.bed, cut.floor);
     this.oxbows.push(cut);
@@ -469,8 +517,9 @@ export class CarveRun implements ForceRun {
     // Reveal a forceful, paced head while unfinished cuts deepen behind it.
     if (!this.ended && this.metrics.steps % 2 === 0) this.advanceHead();
     const delta = new Int8Array(this.original.length);
+    const infill: number[] = [];
     for (const i of this.active) {
-      const h = this.map.heights[i];
+      const h = this.map.heights[i] - this.sediment[i];
       if (h <= this.target[i]) {
         this.active.delete(i);
         continue;
@@ -482,7 +531,10 @@ export class CarveRun implements ForceRun {
       const hard = this.hard(h);
       const coefficient = bank ? 1 - 0.8 * hard : 1 - 0.85 * hard;
       this.wear[i] += (0.75 + 2.4 * p) * Math.min(2, this.character.intensity) * coefficient * (bank ? 0.65 : 1);
-      if (this.wear[i] >= 1) delta[i] = -1;
+      if (this.wear[i] >= 1) {
+        if (this.barFloor[i] && this.map.heights[i] <= this.barFloor[i]) infill.push(i);
+        else delta[i] = -1;
+      }
     }
     if (this.ended) {
       this.tail++;
@@ -515,6 +567,14 @@ export class CarveRun implements ForceRun {
           this.metrics.suspended--;
         }
       }
+    // Sub-grid scour and fill are applied together: gross sediment volume is accounted, but no
+    // exposed terrain cell ever reverses its direction.
+    for (const i of infill) {
+      this.sediment[i]++;
+      this.metrics.cut++;
+      this.metrics.deposited++;
+      this.wear[i] = Math.max(0, this.wear[i] - 1);
+    }
     this.head.cut = frontCut;
     this.head.z = Math.min(...(this.head.lanes ?? [this.head]).map((l) => this.map.heights[this.at(l.x, l.y)])) + 0.7;
     if (frontCut > 60 && this.head.event === "surge") this.head.event = "breakthrough";
@@ -531,7 +591,7 @@ export class CarveRun implements ForceRun {
     this.sim.run(2);
     this.map.water = { depth: this.sim.D.slice(), contamination: this.sim.C.slice() };
     this.previewWater();
-    this.quiet = changed.length ? 0 : this.quiet + 1;
+    this.quiet = changed.length || infill.length ? 0 : this.quiet + 1;
     if (this.ended && (!this.active.size || this.quiet >= 24 || this.tail >= 220)) {
       this.metrics.stable = true;
       if (this.metrics.reason === "map edge") {
@@ -546,7 +606,7 @@ export class CarveRun implements ForceRun {
     // The force's muddy ribbon is a preview, not counterfeit game water. Keep it inside the
     // excavated channel; the map's water always comes from the canonical settle.
     for (const i of this.active) if (this.sign[i] < 0) this.map.water.depth[i] = 0;
-    for (const i of this.previewCells) if (this.sign[i] < 0 && this.map.heights[i] <= this.previewBed[i] + 2) this.map.water.depth[i] = 0.45 + (0.5 * this.settings.power) / 100;
+    for (const i of this.previewCells) if (this.sign[i] < 0 && !this.sediment[i] && this.map.heights[i] <= this.previewBed[i] + 2) this.map.water.depth[i] = 0.45 + (0.5 * this.settings.power) / 100;
   }
 
   private rejectIsolated(d: Int8Array) {

@@ -23,7 +23,8 @@ import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
-import type { WaterModel } from "../sim/water";
+import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
+import { isCarve } from "../forces/carve/op";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
@@ -186,7 +187,7 @@ function sameModel(a: WaterModel, aEmitters: string, m: WaterModel): boolean {
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
-  return true;
+  return sameRetained(a.retained, m.retained);
 }
 
 /** A built entity as a map object (for the water model and validation). */
@@ -768,6 +769,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // 10. the canonical water settle (PLAN §19.7), then soil moisture and contamination on it
   const objects = entities.map(toMapObject);
   const model = waterModel(W, H, heights, objects);
+  // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater)
+  const retained: RetainedWater[] = [];
+  for (const s of input.sculpts ?? []) if (isCarve(s.params) && s.params.lake) retained.push(s.params.lake);
+  if (retained.length) model.retained = retained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change

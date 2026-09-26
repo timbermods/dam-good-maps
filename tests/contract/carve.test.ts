@@ -18,8 +18,12 @@ import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
 import { CarveRun, DEFAULTS, hardness, mapSeed, modelFor, sourceStrength, type CarveIntent, type CarveSettings } from "../../src/core/forces/carve/run";
 import { protectedGround, STEPS_PER_SECOND, type ForceMap } from "../../src/core/forces/force";
 import { generate } from "../../src/core/gen/generate";
+import { readTimber } from "../../src/core/format/timber";
+import { storedWater } from "../../src/core/format/world";
+import { oxbowBasin, oxbowLake } from "../../src/core/forces/carve/water";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
-import { canonicalSettle } from "../../src/core/sim/prefill";
+import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
+import { WaterSim } from "../../src/core/sim/water";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -305,6 +309,80 @@ describe("the force: Aim, Defy gravity and Wander", () => {
   });
 });
 
+describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches)", () => {
+  const ox = study("oxbow", 96);
+  const winding: Partial<CarveSettings> = { mode: "aim", power: 85, width: 6, wander: 100, seed: 1 };
+  const aimed = { origin: 80 * 96 + 48, end: 96 + 48 };
+  const at = (p: { x: number; y: number }) => Math.round(p.y) * 96 + Math.round(p.x);
+  const r = complete(ox, winding, aimed);
+  const cut = r.oxbows[0];
+  const lake = oxbowLake(r);
+  const model = { ...modelFor(r.map), ...(lake ? { retained: [lake] } : {}) };
+  const water = canonicalSettle(model);
+
+  it("bends are wider and deeper on the outside, the straights narrower: never a uniform tube", () => {
+    const bends = r.path.slice(8, 24).filter((p) => Math.abs(p.bend) > 0.6);
+    const sample = (p: (typeof bends)[number], side: number) => r.map.heights[Math.round(p.y - p.dx * side * Math.sign(p.bend)) * 96 + Math.round(p.x + p.dy * side * Math.sign(p.bend))];
+    expect(bends.length).toBeGreaterThanOrEqual(6);
+    // the outer bank is deeper and cut further out than the inner one
+    expect(bends.filter((p) => sample(p, 2) < sample(p, -2)).length).toBeGreaterThanOrEqual(bends.length * 0.8);
+    expect(bends.filter((p) => sample(p, 4) < sample(p, -4)).length).toBeGreaterThanOrEqual(bends.length * 0.7);
+    // broad bends, contracting straights
+    const ratios = r.path.map((p, k) => ({ bend: Math.abs(p.bend), ratio: p.width / r.character.width(k * 1.35) }));
+    const mean = (a: typeof ratios) => a.reduce((v, p) => v + p.ratio, 0) / a.length;
+    expect(mean(ratios.filter((p) => p.bend > 0.8))).toBeGreaterThan(mean(ratios.filter((p) => p.bend < 0.15)) * 1.4);
+  });
+
+  it("a cut-off bend becomes an oxbow lake, sealed by sediment at both mouths, and the shortcut carries the river", () => {
+    expect(r.reason).toBe("destination");
+    expect(r.oxbows.length).toBe(1);
+    expect((cut.end - cut.start) * 1.35).toBeGreaterThan(Math.hypot(cut.neck[0].x - cut.neck.at(-1)!.x, cut.neck[0].y - cut.neck.at(-1)!.y) * 2.2);
+    expect(lake).not.toBeNull();
+    expect(cut.pool.filter((p) => water.depth[at(p)] > 1).length).toBeGreaterThan(12);
+    for (const b of cut.bars) {
+      expect(water.depth[at(b)]).toBe(0);
+      expect(r.sediment[at(b)]).toBeGreaterThan(0);
+      expect(r.map.heights[at(b)]).toBeGreaterThanOrEqual(b.level);
+    }
+    const basin = oxbowBasin(r);
+    expect(basin.length).toBeGreaterThan(70);
+    expect(cut.pool.every((p) => basin.includes(at(p)))).toBe(true);
+    expect(lake!.tiles).toEqual(basin.slice().sort((a, b) => a - b));
+    expect(cut.neck.every((p) => water.depth[at(p)] > 0.05)).toBe(true);
+    // the game's settle from the land and the sources alone would leave the crescent dry
+    const fresh = canonicalSettle(modelFor(r.map));
+    expect(cut.pool.filter((p) => fresh.depth[at(p)] > 1).length).toBeLessThan(cut.pool.filter((p) => water.depth[at(p)] > 1).length / 4);
+    // the two-stage settle is exact however it is sliced
+    const run = canonicalRun(model);
+    let sliced = run.advance(7);
+    while (!sliced) sliced = run.advance(7);
+    expect(Array.from(sliced.depth)).toEqual(Array.from(water.depth));
+    // a dry canyon keeps no water
+    const dry = complete(ox, { ...winding, dry: true }, aimed);
+    expect(dry.oxbows.length).toBe(1);
+    expect(oxbowLake(dry)).toBeNull();
+    expect(canonicalSettle(modelFor(dry.map)).depth.every((v) => v === 0)).toBe(true);
+  });
+
+  it("an unfed oxbow lake evaporates under the game's rules: correct physics, and nothing refills it", () => {
+    // no source feeds it: the carve's only source is at its origin
+    expect(r.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.y * 96 + e.x)).toEqual([aimed.origin]);
+    const sim = new WaterSim(model, water);
+    const volume = () => lake!.tiles.reduce((v, i) => v + sim.D[i], 0);
+    sim.run(256);
+    // it survives the next ticks of the game's rules as a lake
+    expect(cut.pool.every((p) => sim.D[at(p)] > 2)).toBe(true);
+    let last = volume();
+    for (let k = 0; k < 6; k++) {
+      sim.run(256);
+      const v = volume();
+      expect(v).toBeLessThan(last);
+      last = v;
+    }
+    for (const b of cut.bars) expect(sim.D[at(b)]).toBe(0);
+  });
+});
+
 // ------------------------------------------------------------------------ the carve in the document
 
 /** A carve run to its end (or `steps` steps) on the session's map, as the operation the editor makes. */
@@ -364,8 +442,10 @@ describe("a carve in the document (breakage rule)", () => {
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     const again = MapSession.open(decodeProject(s.project()));
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
-    expect(ids(again)).toEqual(ids(s));
+    // the objects once the water has settled (the resources follow the settled water, not the water
+    // carried over while it settles)
     s.settleCanonical();
+    expect(ids(again)).toEqual(ids(s));
     expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(again.exportTimber().bytes))).toBe(true);
     // undo: exactly what was there
     expect(s.undo()).toBe(true);
@@ -426,6 +506,39 @@ describe("a carve in the document (breakage rule)", () => {
     op.params.tiles.forEach((i, k) => expect(s.built.heights[i]).toBe(op.params.heights[k]));
   });
 
+  it("an oxbow lake's water is kept with its carve: the map settles with it, the project and the file keep it, and undo takes it away", () => {
+    const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    const before = Array.from(s.built.water);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [30, 84], 1200, {}, [66, 12]);
+    const lake = op.params.lake!;
+    expect(lake.tiles.length).toBeGreaterThan(70);
+    expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
+    expect(s.apply(op, "user").errors).toEqual([]);
+    s.settleCanonical();
+    const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
+    expect(deep).toBeGreaterThan(lake.tiles.length / 2);
+    // the same carve without its kept water: the game's settle from the land and the sources alone
+    const bare = MapSession.fromGenerated(r, r.file);
+    const { lake: _lake, ...params } = op.params;
+    expect(bare.apply({ op: "carve", params }, "user").errors).toEqual([]);
+    bare.settleCanonical();
+    expect(lake.tiles.filter((i) => bare.built.water[i] > 1).length).toBeLessThan(deep / 4);
+    // the project file replays it, and the file the game loads holds the lake
+    const again = MapSession.open(decodeProject(s.project()));
+    again.settleCanonical();
+    expect(Array.from(again.built.water)).toEqual(Array.from(s.built.water));
+    const file = s.exportTimber().bytes;
+    expect(Buffer.from(file).equals(Buffer.from(again.exportTimber().bytes))).toBe(true);
+    const stored = storedWater(readTimber(file).world.singletons, 96, 96);
+    const wet = new Map(Array.from(stored.tile, (t, k) => [t, stored.depth[k]]));
+    expect(lake.tiles.filter((i) => (wet.get(i) ?? 0) > 1).length).toBe(deep);
+    // undo: the water as it was
+    expect(s.undo()).toBe(true);
+    s.settleCanonical();
+    expect(Array.from(s.built.water)).toEqual(before);
+  });
+
   it("the engine refuses a carve that doesn't fit: off the map, out of order, past the levels, or with objects that aren't there", () => {
     const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
@@ -442,6 +555,10 @@ describe("a carve in the document (breakage rule)", () => {
       { removed: ["00000000-0000-4000-8000-000000000000"] },
       { mode: "aim" },
       { replaces: 999 },
+      { lake: { tiles: [5, 4], floor: [1, 1], depth: [1, 1], contamination: [0, 0] } },
+      { lake: { tiles: [5], floor: [1, 2], depth: [1], contamination: [0] } },
+      { lake: { tiles: [5], floor: [1], depth: [-1], contamination: [0] } },
+      { lake: { tiles: [64 * 64], floor: [1], depth: [1], contamination: [0] } },
     ];
     for (const b of bad) expect(s.apply({ op: "carve", params: { ...base, ...b } }).errors.length, JSON.stringify(b)).toBeGreaterThan(0);
     // the schema agrees with Ajv
@@ -454,6 +571,9 @@ describe("a carve in the document (breakage rule)", () => {
       { op: "carve", params: { ...base, walls: "sheer" } },
       { op: "carve", params: { ...base, source: { id: "x", x: 1, y: 2, strength: 4 } } },
       { op: "carve", params: { ...base, heights: undefined } },
+      { op: "carve", params: { ...base, lake: { tiles: [5, 6], floor: [3, 3], depth: [1.25, 0.5], contamination: [0, 0.1] } } },
+      { op: "carve", params: { ...base, lake: { tiles: [5], floor: [3], depth: [-1], contamination: [0] } } },
+      { op: "carve", params: { ...base, lake: { tiles: [5], floor: [3], depth: [1] } } },
       { op: "deleteEntities", params: { entities: ["11111111-2222-4333-8444-555555555555"], quiet: true } },
     ];
     for (const v of samples) expect(checkSchema(opsSchema as Record<string, unknown>, v).length === 0, JSON.stringify(v)).toBe(validate(v));

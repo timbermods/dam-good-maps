@@ -8,6 +8,7 @@ import { placementOf, type EntitySpec } from "../../format/entities";
 import { forceResult, type ForceMap } from "../force";
 import type { CarveParams } from "./op";
 import { sourceStrength, type CarveRun, type CarveSettings } from "./run";
+import { oxbowLake } from "./water";
 
 /** The map a force starts from: the build's ground and objects (those standing on the map), and
  *  the water as it stands (`water`: the water in flight, when there is some). */
@@ -44,6 +45,7 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
   const src = run.source;
   if (!out.tiles.length && !src) return null;
   const set = rec.settings;
+  const lake = oxbowLake(run);
   return {
     mode: set.mode,
     origin: rec.origin,
@@ -62,6 +64,7 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     heights: out.heights,
     removed: out.removed,
     ...(src ? { source: { id: src.id, x: src.x, y: src.y, strength: sourceStrength(set.power, set.width) } } : {}),
+    ...(lake ? { lake } : {}),
     ...(rec.replaces !== undefined ? { replaces: rec.replaces } : {}),
   };
 }

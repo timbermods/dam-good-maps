@@ -3,9 +3,11 @@
 // its levels with the sculpts (step 6, the tiles kept out of the integrity pass, as a precise
 // stroke's are), then its objects' changes with the entity edits (the objects that lost their
 // ground, and the source it keeps). "Try another path" is a carve that replaces the last one: the
-// document then leaves the earlier carve out, and undoing it brings that carve back.
+// document then leaves the earlier carve out, and undoing it brings that carve back. A carve that
+// sealed an oxbow lake keeps the lake's water (`lake`, water.ts): the map's water settles from it.
 
 import type { Rect } from "../../features/target";
+import type { RetainedWater } from "../../sim/water";
 
 export interface CarveParams {
   /** What the player asked for (a record: replay never runs the carve). */
@@ -32,6 +34,9 @@ export interface CarveParams {
   removed: string[];
   /** Keep river: the water source it leaves at the origin (its strength follows the Width). */
   source?: { id: string; x: number; y: number; strength: number };
+  /** The water its sealed oxbow lake keeps (its tiles ascending, their floors, depths and
+   *  contamination then). */
+  lake?: RetainedWater;
   /** Try another path: the carve (its operation's seq) this one replaces. */
   replaces?: number;
 }
@@ -75,6 +80,19 @@ export function carveProblems(p: CarveParams, W: number, H: number, maxLevel: nu
   if (p.source) {
     if (!inMap(p.source.x, p.source.y)) return ["the carve's source is off the map"];
     if (!(p.source.strength > 0 && p.source.strength <= 8)) return ["a carve's source gives 0 to 8 water a second"];
+  }
+  if (p.lake) {
+    const { tiles, floor, depth, contamination } = p.lake;
+    if (floor.length !== tiles.length || depth.length !== tiles.length || contamination.length !== tiles.length) return ["a carve's lake needs a floor, a depth and a contamination for each of its tiles"];
+    let prev = -1;
+    for (let k = 0; k < tiles.length; k++) {
+      const i = tiles[k];
+      if (!Number.isInteger(i) || i <= prev || i >= W * H) return ["a carve's lake tiles must be on the map, in order, once each"];
+      prev = i;
+      if (!(floor[k] >= 0 && floor[k] <= 64)) return ["a carve's lake floors are 0 to 64"];
+      if (!(depth[k] >= 0 && depth[k] <= 32)) return ["a carve's lake depths are 0 to 32"];
+      if (!(contamination[k] >= 0 && contamination[k] <= 1)) return ["a carve's lake contamination is 0 to 1"];
+    }
   }
   return [];
 }

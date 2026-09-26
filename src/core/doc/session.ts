@@ -17,7 +17,7 @@ import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type Base
 import type { TerrainState } from "../features/raster/strokePreview";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
-import type { WaterModel } from "../sim/water";
+import { sameRetained, type WaterModel } from "../sim/water";
 import { pathField, polygonMask } from "../features/geometry";
 import { entityJson, placementOf, rawEntity } from "../format/entities";
 import { fromBase64, toBase64 } from "../format/base64";
@@ -968,7 +968,7 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   for (let i = 0; i < a.floor.length; i++) if (a.floor[i] !== b.floor[i]) return false;
   if (!!a.dam !== !!b.dam) return false;
   if (a.dam && b.dam) for (let i = 0; i < a.dam.length; i++) if (a.dam[i] !== b.dam[i]) return false;
-  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters);
+  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameRetained(a.retained, b.retained);
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {

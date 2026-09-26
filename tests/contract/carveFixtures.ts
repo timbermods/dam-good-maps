@@ -4,10 +4,11 @@
 import { bush, startingLocation, tree, type EntitySpec } from "../../src/core/format/entities";
 import type { ForceMap } from "../../src/core/forces/force";
 
-export type StudyKind = "mountain" | "ridge" | "uphill";
+export type StudyKind = "mountain" | "ridge" | "uphill" | "oxbow";
 
 /** A W × W study: "mountain" drains to a lake, "ridge" stands across an aimed course, "uphill"
- *  rises toward the aimed end. Each has a start on a bench and rows of trees and bushes. */
+ *  rises toward the aimed end, "oxbow" is level ground where a winding carve can cut off a bend.
+ *  Each has a start on a bench and rows of trees and bushes. */
 export function study(kind: StudyKind = "mountain", W = 96): ForceMap {
   const H = W;
   const h = new Uint8Array(W * H);
@@ -22,6 +23,7 @@ export function study(kind: StudyKind = "mountain", W = 96): ForceMap {
       if (y < 3 && side < W * 0.23) level = 4;
       if (kind === "ridge") level = Math.round(5 + 9 * Math.exp(-Math.pow((y - W * 0.5) / (W * 0.1), 2)) + 1.3 * Math.sin(x * 0.11));
       if (kind === "uphill") level = Math.round(4 + 11 * (1 - u) + Math.max(0, side - 8) * 0.18);
+      if (kind === "oxbow") level = 14;
       h[y * W + x] = Math.min(16, level);
       if (kind === "mountain" && u < 0.3 && side < W * 0.23) depth[y * W + x] = Math.max(0, 4 - h[y * W + x]);
     }
