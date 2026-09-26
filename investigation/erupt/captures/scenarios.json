@@ -1,0 +1,72 @@
+[
+  {
+    "id": "steep-crater",
+    "seed": 891,
+    "operation": 4634,
+    "renderer": {
+      "calls": 70,
+      "triangles": 68518,
+      "geometries": 137
+    }
+  },
+  {
+    "id": "broad-shield",
+    "seed": 891,
+    "operation": 16238,
+    "renderer": {
+      "calls": 70,
+      "triangles": 63556,
+      "geometries": 137
+    }
+  },
+  {
+    "id": "huge-caldera",
+    "seed": 78,
+    "operation": 15935,
+    "renderer": {
+      "calls": 70,
+      "triangles": 75792,
+      "geometries": 137
+    }
+  },
+  {
+    "id": "fissure-valley",
+    "seed": 54,
+    "operation": 5259,
+    "renderer": {
+      "calls": 72,
+      "triangles": 59678,
+      "geometries": 140
+    }
+  },
+  {
+    "id": "river-lake",
+    "seed": 76,
+    "operation": 3478,
+    "renderer": {
+      "calls": 73,
+      "triangles": 58134,
+      "geometries": 141
+    }
+  },
+  {
+    "id": "volcanic-field",
+    "seed": 315,
+    "operation": 3037,
+    "renderer": {
+      "calls": 70,
+      "triangles": 69940,
+      "geometries": 207
+    }
+  },
+  {
+    "id": "carve-lava",
+    "seed": 18,
+    "operation": 480,
+    "renderer": {
+      "calls": 70,
+      "triangles": 34098,
+      "geometries": 207
+    }
+  }
+]

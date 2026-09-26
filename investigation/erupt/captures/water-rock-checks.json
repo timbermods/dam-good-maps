@@ -1,0 +1,14 @@
+{
+  "river": {
+    "before": 0.25893596270602576,
+    "after": 4.151252272570178,
+    "settled": true,
+    "unchangedEmitters": true
+  },
+  "carve": {
+    "hardLavaStations": 13,
+    "softLavaStations": 29,
+    "hardCut": 1010,
+    "softCut": 1064
+  }
+}

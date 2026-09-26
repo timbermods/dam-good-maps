@@ -1,0 +1,18 @@
+{
+  "equalPower": 62,
+  "steep": {
+    "height": 19,
+    "widthAtHalfHeight": 13
+  },
+  "broad": {
+    "height": 7,
+    "widthAtHalfHeight": 31
+  },
+  "fissureExactCases": 4,
+  "calderaBasinExact": true,
+  "lobeCountRange": [
+    4,
+    10
+  ],
+  "minimumBend": 2.3985550868706205
+}
