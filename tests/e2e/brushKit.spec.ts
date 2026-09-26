@@ -73,7 +73,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   // the sounds: on and quiet by default, an off switch, the volume beside it (D212)
   const soundButton = page.getByRole("button", { name: "Sound", exact: true });
   await expect(soundButton).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("slider", { name: "Sound volume" })).toHaveCount(1);
+  await soundButton.hover();
+  await expect(page.getByRole("slider", { name: "Sound volume" })).toBeVisible();
   await soundButton.click();
   await expect(soundButton).toHaveAttribute("aria-pressed", "false");
   await soundButton.click();

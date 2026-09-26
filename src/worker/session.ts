@@ -1259,7 +1259,11 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
  *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water). */
 export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string }> {
   const s = need();
-  const bg = await backgroundCheck(onProgress);
+  const v0 = version;
+  let bg = await backgroundCheck(onProgress);
+  // a newer check of the same map (the page's own, started just after the map opened) takes this
+  // one's place: check again, and give up only when the map itself changed
+  for (let k = 0; !bg && k < 4 && session === s && version === v0; k++) bg = await backgroundCheck(onProgress);
   if (!bg) return { ok: false, errors: ["the map changed while it was checked: export again"], bytes: new Uint8Array(), fileName: "" };
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => b.message), bytes: new Uint8Array(), fileName: "" };
