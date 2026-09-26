@@ -1,0 +1,9 @@
+{
+  "base": "4f1b8c6c77478de62470e5e346c5c85afabf8c19",
+  "prototypes": {
+    "carve": "6b9d4e630b9464836d520281ee48cfe880375717",
+    "craterize": "2f4963c3d54f47bce35d00c6cbdff2fa254b064a",
+    "erupt": "89c6842ac25f41ff78641aae166c568b17521349",
+    "quake": "a293e419a02c46b2856b83862ecc1eccccf7737c"
+  }
+}
