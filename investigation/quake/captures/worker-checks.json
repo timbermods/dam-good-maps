@@ -1,0 +1,29 @@
+{
+  "passed": [
+    "actual worker builds transferable clean terrain, water and object meshes",
+    "live fronts finish in one operation with exact repository canonical water",
+    "one undo/redo restores every terrain, object, fallen tree and water byte",
+    "Esc interrupts sliced planning and leaves no history entry",
+    "Undo interrupts chunk generation and restores the entire prior map",
+    "Esc cancels canonical settling without recording partial changes",
+    "Try another starts from original ground with a recorded new seed",
+    "cancelling an alternative restores the kept quake exactly",
+    "saved alternative replays exactly on another loaded map",
+    "256² real worker responds progressively and cancels exactly",
+    "held pen changes ground before release; X replans from base; release creates one exact undo",
+    "coalesced fast input and a release during preparation produce the same exact result",
+    "Esc cancels held brush during planning, mesh upload and live water without a history entry",
+    "128 random real-worker strokes: 81 completed quakes and exact undos, 47 visible start refusals"
+  ],
+  "measurements": [
+    {
+      "case": "first changed frame",
+      "ms": 219.50340000000006
+    },
+    {
+      "case": "256² rupture seven of eight fronts",
+      "firstMs": 347.9260000000004,
+      "ms": 1265.937500000001
+    }
+  ]
+}

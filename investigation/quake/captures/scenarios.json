@@ -1,0 +1,235 @@
+{
+  "river-lift": {
+    "settings": {
+      "mode": "lift",
+      "power": 65,
+      "scarp": "sheer",
+      "seed": 18
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 64
+        },
+        {
+          "x": 127,
+          "y": 64
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 43779,
+      "dropped": 24781,
+      "moved": 860,
+      "toppled": 31,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 896
+    }
+  },
+  "river-slide": {
+    "settings": {
+      "mode": "slide",
+      "power": 100,
+      "scarp": "sheer",
+      "seed": 18
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 64
+        },
+        {
+          "x": 127,
+          "y": 64
+        }
+      ]
+    },
+    "stats": {
+      "changed": 2659,
+      "raised": 3596,
+      "dropped": 3735,
+      "moved": 441,
+      "toppled": 31,
+      "channel": 52,
+      "transported": 8084,
+      "fullOffset": 6874
+    },
+    "water": {
+      "settled": true,
+      "ticks": 768
+    }
+  },
+  "rift-first": {
+    "settings": {
+      "mode": "lift",
+      "power": 65,
+      "scarp": "sheer",
+      "seed": 2
+    },
+    "intent": {
+      "side": -1,
+      "path": [
+        {
+          "x": 0,
+          "y": 43
+        },
+        {
+          "x": 127,
+          "y": 43
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 35460,
+      "dropped": 32265,
+      "moved": 949,
+      "toppled": 22,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 128
+    }
+  },
+  "rift-second": {
+    "settings": {
+      "mode": "lift",
+      "power": 65,
+      "scarp": "sheer",
+      "seed": 5
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 80
+        },
+        {
+          "x": 127,
+          "y": 80
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 38795,
+      "dropped": 30712,
+      "moved": 949,
+      "toppled": 21,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 128
+    }
+  },
+  "lake-spill": {
+    "settings": {
+      "mode": "lift",
+      "power": 85,
+      "scarp": "sheer",
+      "seed": 29
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 55
+        },
+        {
+          "x": 127,
+          "y": 55
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 66929,
+      "dropped": 28435,
+      "moved": 798,
+      "toppled": 28,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 768
+    }
+  },
+  "sheer": {
+    "settings": {
+      "mode": "lift",
+      "power": 65,
+      "scarp": "sheer",
+      "seed": 18
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 64
+        },
+        {
+          "x": 127,
+          "y": 64
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 43779,
+      "dropped": 24781,
+      "moved": 860,
+      "toppled": 31,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 896
+    }
+  },
+  "stepped": {
+    "settings": {
+      "mode": "lift",
+      "power": 65,
+      "scarp": "stepped",
+      "seed": 18
+    },
+    "intent": {
+      "side": 1,
+      "path": [
+        {
+          "x": 0,
+          "y": 64
+        },
+        {
+          "x": 127,
+          "y": 64
+        }
+      ]
+    },
+    "stats": {
+      "changed": 16384,
+      "raised": 41493,
+      "dropped": 23627,
+      "moved": 860,
+      "toppled": 31,
+      "channel": 0
+    },
+    "water": {
+      "settled": true,
+      "ticks": 1024
+    }
+  }
+}

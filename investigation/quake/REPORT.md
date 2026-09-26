@@ -1,0 +1,89 @@
+# Quake
+
+Paint a fault. The land tears behind your hand, objects ride with it, and existing water finds a new way through.
+
+## Slide displacement revision
+
+The previous Slide could sample nearly stationary terrain because its three-pass inverse oscillated across the moving block boundary. A short stroke also lost most of its offset in endpoint tapering. Its test only required a changed height, so a one-level fallback scarp hid failed sideways movement.
+
+Slide now transports the source ground forward by **3–20 tiles** (Power 0–100), using a coherent heading for the block and extending full-strength support beyond short stroke endpoints. Seeded bends define the crack; the heading follows the stroke's overall direction, with its longest chord used for closed strokes. Stepped divides the outside transition into three bands without reducing the main block's offset. Open edges use ground continuation. The unchanged bank keeps its old river course; a carved channel joins the displaced mouth. No extra water is added.
+
+`test-slide.ts` follows actual original tiles to their destinations and compares heights, rather than counting arbitrary changes: **1,600 random Slide strokes, 1,351 accepted, 249 start refusals, minimum 30 tiles transported by at least the displayed Power in every accepted stroke**. Separate ridge and named-ruin checks cover six Powers, both sides and both scarp styles. All 24 river cases remain connected in live and canonical water, including Power 0 and 100. The former mixed-mode test is retained for Lift and now checks Slide transport separately.
+
+The terrain, water faces and object instances receive their actual previous-to-final offsets and glide over **240 ms**. Extending a stroke carries any unfinished motion forward; water remeshing preserves its clock. A temporary solid surface fills openings under the moving block. Esc/undo clears all remaining motion immediately. Reduced motion skips interpolation. Slide waits for the first pointer movement to establish its heading; a stationary tap still quakes on release. Lift's immediate response is preserved.
+
+**Keep Slide.** It now produces an unmistakable offset in the ridge, river, forest and ruins. The actual browser recording verified a **20-tile ruin displacement**, 98 intermediate motion samples while held, and a first visible glide at **67 ms**. Frame times during capture were **6.2 ms p95 / 12.1 ms maximum** on this PC. Low Power moved the same ruin **three tiles**. The 256² short-stroke, X, Esc, exact undo/redo and effects-off checks all passed. [Slide evidence](captures/browser-slide.json), [transport regression](captures/slide-checks.json).
+
+For a clear first try, choose **Study · Slide · river, ridge & ruins · 128²**, select Slide, and paint left to right across the middle. At Power 100 the upper ridge, river and ruin row move twenty tiles.
+
+```sh
+npm --prefix investigation/quake run demo
+```
+
+The launcher installs its own dependencies and prints a free local port. The picker includes generated 128² and 256² seeds, three Real places, and clearly labelled process studies. **Press, paint, release.** The left side moves by default, with a faint tint while drawing. **X** flips it mid-stroke; **Side** offers the same choice. Pick **Lift / Slide**, **Power**, and **Sheer / Stepped**. **Try another** changes the saved seed from the original ground.
+
+**Esc or Undo restores the entire quake**, including objects and water, even during settling. Saved quakes replay their stored result exactly. Right-drag orbits, middle-drag pans, scroll zooms, and WASD moves. Camera follow and shake are optional. Reduced motion disables the effects and camera motion.
+
+## Captures
+
+The clean 3D demo, captured directly from its WebGL canvas:
+
+![Clean-view waterfall and exposed rock](captures/clean-view.jpg)
+
+The Lift recording shows an actual curved 256² brush stroke, with the button held while the land changes. [Still image](captures/brush-paint.jpg).
+
+![Painting a fault in the browser](captures/brush-paint.gif)
+
+The refreshed Slide recording shows the actual held brush and full 20-tile glide. [Before/after still](captures/slide-glide.png).
+
+![Full-power Slide while painting](captures/slide-glide.gif)
+
+Slide joins the river's displaced mouths with a short channel along the fault:
+
+![Connected dog-leg river in the browser](captures/clean-slide.jpg)
+
+The five refreshed sequences below use the growing brush path and live WaterSim states. Their last frame uses canonical water. They use Carve's CPU capture renderer; the browser recordings show the clean renderer and effects. Each GIF has a same-name PNG for reduced motion. [Settings and seeds](captures/scenarios.json).
+
+![River crossing a lifted fault](captures/river-lift.gif)
+![Slide offsetting a river](captures/river-slide.gif)
+![Two faults making a rift valley](captures/rift-valley.gif)
+![A tilted block spilling its lake](captures/lake-spill.gif)
+![Sheer and Stepped scarps](captures/scarps.gif)
+
+## Checks
+
+```sh
+npm --prefix investigation/quake test
+npm --prefix investigation/quake run typecheck
+npm --prefix investigation/quake run build
+npm --prefix investigation/quake run captures
+```
+
+All pass. [Model checks](captures/checks.json) cover whole levels, deterministic seeds/slices, unchanged inputs, buildable blocks, fault refusal, moving starts, object transport, edge continuity, rifts/ridges, scarps, dry ground, live waterfalls/lake spill, and exact or rejected replay. [Actual worker checks](captures/worker-checks.json) cover cancellation during planning, meshing and settling, one-step undo/redo, alternate personalities, and portable saved results. [All picker maps](captures/map-checks.json) pass both movement modes.
+
+[Brush regressions](captures/brush-checks.json) exercise **1,200 random strokes: 861 quakes, 339 explicit start refusals, zero silent failures**. They include taps, sub-tile drags, bends, both sides and modes, low power, empty and height-capped ground. Twenty-four river cases verify a continuous wet route from the moved sources through the fault to the old downstream course, both live and canonical. The actual worker also completed **81 random quakes with exact undo**, with 47 start refusals out of 128 candidates.
+
+[Browser checks](captures/browser-brush.json) cover a held curved stroke at 256², one-pixel strokes, X mid-stroke, the options row, Esc, red start refusal, undo/redo, rapid consecutive strokes, Slide, and effects off. Open `/browser-check.html` on the local demo and click **Run brush checks** to reproduce them. It drives the actual DOM input handlers and worker; a native pointer drag was checked separately.
+
+The latest common brush check also passed all nine scenarios. Its unrecorded 256² Lift run measured **54 ms to changed terrain, 6.2 ms p95 frame time, and 7.6 ms maximum frame time**. The recorded run measured 99 ms, 6.2 ms p95, and 18.2 ms maximum, including canvas capture overhead. The Lift GIF remains the preceding brush revision's recording; the Slide captures are refreshed here. Rupture duration follows the hand. These measurements describe this PC. Generation still takes several seconds in the worker. No Timberborn process was launched.
+
+Open `/browser-slide.html` and click **Run Slide checks** for the five dedicated Slide scenarios and recording. Run `node investigation/quake/run.mjs capture-slide.ts` to package those frames. `node investigation/quake/run.mjs captures.ts --slide-only` refreshes just the Slide model sequence.
+
+## Brush revision — supersedes the initial side-pick interaction
+
+- The old pointer handler sampled two-tile moves, then constructed a fault whose minimum length was three tiles. That exception could stop the live line. A completed drag also waited for a separate side click. Both paths are removed. Lift retains its small tear for taps and capped ground. Slide always transports the block and no longer substitutes a vertical scarp for sideways motion.
+- Picking uses the ray's continuous surface position against the stroke's original ground, avoiding tile snapping and feedback from the moving terrain. An 18 ms pen filter removes jitter. Reusable line/tint buffers update at display rate; a small GPU lurch and the dust head follow the cursor immediately. Primary pen/touch input belongs to painting, while right/middle input controls the camera.
+- Worker updates coalesce to the latest growing path without starving visible ground changes. Each revision starts from the same base and seed; X recomputes the selected side rather than stacking another quake. Release drains the final revision and stores one operation. Additional strokes entered during settling are retained in order, each with its own undo.
+- A start-crossing stroke turns red with “Start here” and restores any partial work. Esc also invalidates queued uploads and restores the complete view before worker acknowledgement. Lighting and surface-height bytes travel with terrain chunks so lowered ground is not mistaken for a dark cave.
+- Slide identifies the original wet crossings and cuts between the transported river mouths, following the short fault offset at the existing bed level. It preserves sources and transports warm water without creating volume. Canonical water must also remain connected downstream; a dry trench alone does not pass the tests.
+
+## Decisions and limits
+
+- Started from dev `08039c5` in an isolated checkout; unrelated workspace work stays intact. All authored files stay here. The requested scope takes precedence over root-document/contact-sheet rules. No generator theme changed.
+- Read Carve at `b14e23f` and Craterize's available local implementation based on `62a8b97`. Craterize was still being built and had no remote branch at task start. Reused their worker/cancellation pattern, clean shell and meshes, fixed effects pool, frozen geology, fallen-tree state and literal-result operation. No PR was reviewed.
+- Long blocks continue to the edge; an early test caught an artificial upstream dam caused by fading displacement too soon. Slide retains full Power around short faults and fades only outside that block. At the map boundary some individual cells/objects have less travel because they must stay in bounds; the interior block still receives the expected offset. Interior objects are placed before clamped edge objects, so an edge tree cannot push an intact ruin off its destination. Terrain gaps use ground continuation.
+- Terrain is always whole levels, bounded by the map limit and 22. The start keeps its footprint and entrance apron. Canonical water that would flood it causes the whole event to revert. Resource reach remains a quiet consequence check.
+- Quake creates no source and does not prefill live water. The final water is the repository's canonical result. Source-free puddles can disappear at that handover. Fallen trees have a saved demo pose; production project/export support is an integration proposal.
+- This is a terrain force, not a tectonic-physics model. History keeps render caches and literal water checkpoints in memory. [INTEGRATION.md](INTEGRATION.md) proposes one shared forces core and its production memory budget.
+
+The initial foundation, model, live demo, and validation were committed separately. The brush revision adds separate model/channel, interaction, and capture/documentation commits on the same branch and PR. Large builds, dependencies and working captures are ignored. [A small saved quake](samples/tiny-quake.json) exercises portable replay.

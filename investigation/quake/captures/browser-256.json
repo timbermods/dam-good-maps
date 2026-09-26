@@ -1,0 +1,15 @@
+{
+  "engine": "three.js r186",
+  "glideTiles": "0",
+  "glideUploads": "0",
+  "strokeId": "1",
+  "penPoints": "544",
+  "side": "left",
+  "refused": "false",
+  "firstChangeMs": "99.40000003576279",
+  "paintedRevision": "27",
+  "paintedWhileHeld": "true",
+  "ruptureMs": "2091.5",
+  "eventP95Ms": "6.199999999999818",
+  "eventMaxMs": "18.199999999999818"
+}
