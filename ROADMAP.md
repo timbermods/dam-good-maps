@@ -892,7 +892,8 @@ released as `live-editing-done` when Kyler says it feels right.
 **Before `live-editing-done`** (Kyler, 2026-09-26; D212): sources move to the left shelf as two items after
 Start (Water source, Badwater source); clear water only under or around the brush when it's over water,
 and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
-Carve, Craterize and Erupt merged and built as buttons on one shared forces core (D216); Quake held.
+Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
+forces core (D216, D219), put on the preview, and released only after Kyler has tried them.
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):

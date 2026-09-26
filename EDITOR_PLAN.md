@@ -94,18 +94,18 @@ editor is desktop-first (D185).
   **Steep** or **Terraced** walls; **Centre** (Auto, Bowl, Peak, Ring, Flat); **Debris** (Light or
   Heavy, with or without Rays); **Try another**; the impact moment with radial tree knockdown. Newer
   impacts overprint older ones; it refuses to strike where the start sits and never adds water; one
-  undo step, and Esc reverts. Prototyped on `investigation/craterize` (held until Kyler says it's ready).
+  undo step, and Esc reverts. Prototyped on `investigation/craterize` (#51, ready: D216).
 - **Quake, a force of nature** (D203): in the forces group with Carve and Craterize. It splits the land
   along a drawn fault line: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; **Try
   another** (including a natural tilt); objects ride with the land; it refuses a fault through the start
-  and never adds water; one undo step, and Esc reverts. Prototyped on `investigation/quake` (held until
-  Kyler says it's ready).
+  and never adds water; one undo step, and Esc reverts. Prototyped on `investigation/quake` (#52, ready with
+  both Lift and Slide: D219).
 - **Erupt, a force of nature** (D206): in the forces group. It raises a volcano: **Mode** (**Vent** or
   **Fissure**); **Power**; **Shape** (**Steep** or **Broad**); **Summit** (Auto, Peak, Crater, Caldera);
   **Flows** (Light or Heavy, with or without Ridges); **Try another**. Fresh volcanic rock is hard for
   Carve; flows can dam rivers; objects ride the rising ground; overlapping eruptions build volcanic
   fields; it refuses to erupt where the start sits and never adds water; one undo step, and Esc
-  reverts. Prototyped on `investigation/erupt` (held until Kyler says it's ready).
+  reverts. Prototyped on `investigation/erupt` (#50, ready: D216).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
@@ -162,7 +162,7 @@ Make a valley, drop a source, and there's a river.
   - **Stop** keeps what's carved; Esc or undo reverts the whole carve instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. It's being prototyped on
-  `investigation/carve` (PR #47, held until Kyler says it's ready).
+  `investigation/carve` (PR #47, ready: D216).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 

@@ -1,112 +1,87 @@
 # Status
 
-> **Paused on 2026-09-26** until Kyler's usage resets (2026-09-29). Everything in flight, the order of work and how
-> things are run are in **[HANDOFF.md](HANDOFF.md)**. Kyler's latest decisions are D211–D217 (PLAN §20); they aren't built yet.
+One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
+handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
+([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-One page, rewritten at every step and stop. Updated 2026-09-25, after the tall-maps probe batch and
-the Live editing preview. The decisions' full text is in
-[PLAN.md §20](../PLAN.md#20-editor-decisions), and the order of work in [ROADMAP.md](../ROADMAP.md).
+## Summary for Kyler (updated 2026-09-26, 12:45, after the takeover)
 
-## Morning summary, 2026-09-26 (Kyler has answered most of it: see D211–D217 and HANDOFF.md)
+The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
 
-Most important first. Nothing below was released without your approval.
+### 1. Needs your decision or your eyes
 
-### 1. Design version 2: approved by you overnight, and M9a is being built
+1. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
+2. **Real places (#35), the places to drop:** `C:\dgm-workshop\places\sheet.html` is on your main PC, not here. The D214
+   water changes and the "Centre" titles go ahead without it; the drops and the release wait for you.
 
-- Merged: PR #32 (f04674d). Your conditions and decisions are D209 and D210.
-- The review material stays on `dev`:
-  - [docs/m9-design.md](m9-design.md): §0 changes, §6 intentions, §17 risks, §18 the M9a–c split, §19 your decisions;
-  - `investigation/generative/REPORT-v2.md`;
-  - one contact sheet per theme in `docs/sheets/design-v2/`, plus `docs/sheets/design-v2.png`;
-  - the ten briefs in `investigation/generative/briefs/v2/`, with their renders in `investigation/generative/renders/v2/`.
-- **M9a** is running on `feature/m9a` ([PR #56](https://github.com/timbermods/dam-good-maps/pull/56), work in progress),
-  first on the machine. Its first slice is in: the generator from the processes, "Any" by default with a
-  Verticality slider, the straight-river check, format 3, generator 0.7.0, and 100% final on its first
-  128² batches, "Any" included. Its in-game gate batch is prepared (15 maps, about 1½ hours) and waits for
-  your yes.
-  - It includes "Any" as the default, no ruler-straight rivers, badwater on every map, and every rule since version 2.
-  - Its agent definitions (M9a on Opus at xhigh, M9b and M9c at high, routine work on Sonnet at medium) are in `.claude/agents/`. They load from the next session, so tonight's M9a agent runs on Opus 5.5 at this session's effort.
+### 2. Released or merged
 
-### 2. Waiting on you
+Nothing yet.
 
-1. **Try Live editing:** <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**. All four D184 pushes are there (59f826c):
-   - the top bar and brush kit, and Flatten (D204);
-   - the left shelf with live ghosts;
-   - **Remove**;
-   - the view buttons with the game's layers (D207);
-   - the header with **Save to Timberborn** and the quiet dot;
-   - the minimap and camera bookmarks.
+### 3. On the preview for you to try
 
-   Say when it feels right, and it releases as `live-editing-done`. Three defaults to confirm or flip:
-   - the camera's old R/F zoom is gone, so F can resize the brush and R can turn objects;
-   - juice sounds are on by default, quiet, with a volume and an off switch;
-   - picking a layer takes the game's Alt+middle-click, and Alt+click is kept too.
-2. **Waterfalls (D201):** [PR #53](https://github.com/timbermods/dam-good-maps/pull/53), captures in `docs/look/waterfalls/` on its branch. Judge:
-   - how far falls reach, how white they are, and how strong the splash is;
-   - L-shaped lips make a V with a gap.
+Unchanged: <https://timbermods.github.io/dam-good-maps/preview/> shows Live editing's push 4 (59f826c).
 
-   Approving releases it as `look-waterfalls-done`.
-3. **Real places, second round:** [PR #35](https://github.com/timbermods/dam-good-maps/pull/35).
-   - 150 places, rebuilt without walls. Only badwater is still to come; it's added once #54 merges.
-   - Say which places should go: `C:\dgm-workshop\places\sheet.html`, where all 150 are numbered, with a before/after for the walls in `walls.html`.
-   - Check the second-map titles: eleven end in "Centre", and one reads "Mahabaleshwar East, Western Ghats".
-   - 25 maps needed 8× the official water strength.
-4. **Badwater on every map (D200):** [PR #54](https://github.com/timbermods/dam-good-maps/pull/54), generator
-   0.6.3, finished. It adds a "No badwater" option, and the batches finish 100% (2,760 maps). Every
-   official map has lasting badwater: 18 have a badwater source, and Spillage has seeps. Your calls:
-   - **The contact sheet** `docs/sheets/badwater-source.png` (on its branch): most maps now get 2 sources
-     at 128² and 3–4 at 192² and 256². Its badwater streams run ruler-straight with right-angle turns,
-     from today's generator: exactly what D209 fixes in M9a. Anything merged into `dev` ships with the
-     next release, so choose:
-     - **A:** merge #54 now; the next release carries those straight streams until M9a replaces the
-       generator;
-     - **B (my recommendation):** hold #54 and let M9a take it in, since badwater is part of M9a anyway.
-       The Real places rebuild uses only #54's placement module (`src/core/resources/badwater.ts`),
-       which doesn't draw streams, so it can take that part alone.
-   - **Claude's "remove the badwater spring"** (P09) on a map with one source left: set the map to "No
-     badwater", or refuse? It refuses for now.
-5. **The forces prototypes are held until you say each is ready:**
-   - Erupt [#50](https://github.com/timbermods/dam-good-maps/pull/50);
-   - Craterize [#51](https://github.com/timbermods/dam-good-maps/pull/51);
-   - Quake [#52](https://github.com/timbermods/dam-good-maps/pull/52).
-6. **The docs sweep's two readings of your decisions** (#46, merged):
-   - whether 3D carving gets its own Carve and Fill buttons, or makes Lower and Raise smarter;
-   - how M12's Claude steps map onto the new editor (ROADMAP M12, "The model").
-7. **Pending #66:** your pick of the candidate intentions.
+### 4. Probe batches
 
-### 3. Released, merged and finished overnight
+None yet. The probe is set up here (runner tests pass, the mod builds against this install, your game settings are backed
+up in `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\`). The first batch will be M9a's 15 maps once its generator is
+frozen (D218 lets it run without asking on this machine).
 
-- **Released** (each live check passed):
-  - `look-mine-ruins-done`, `start-edge-rules-done` and `save-to-timberborn-done` (PR #48);
-  - `look-badwater-done` (PR #49).
-- **Merged into `dev`:**
-  - #40 Save to Timberborn;
-  - #41 the badwater blend;
-  - #42 mine sites and ruins;
-  - #43 resources (generator 0.6.2; 2,760 maps, 100% final);
-  - #44 the start and edge rules;
-  - #45 Pick a place's signature water;
-  - #38 Map look 2's investigation;
-  - #46 the docs sweep and the retired-terms guard;
-  - #32 design version 2.
-- **Live editing:** pushes 1–4 are on the preview, with your D193–D207.
-- **Recorded:** decisions D192–D210, and the repository size rule for investigations (D195).
-- **Probe batches:** none ran. The machine was never quiet: M9a and the batches ran all night. M9a's in-game gate batch will be ready later and needs your yes (the usual rule applies again today).
+### 5. Defaults I chose
 
-### 4. What failed or got stuck, and what I did
+None yet.
 
-- **Two agents stopped by accident** (design version 2 and resources): replaced in their own worktrees, and no work was lost.
-- **The resources agent handed back early once:** it was resumed and finished.
-- **A leftover Hill message on the preview:** removed. The retired-terms guard now also catches retired interface text, with a test.
-- **The water on screen could lag the map's water on slow machines:** fixed in Live editing.
-- **Not addressed:** where a Blockage raises the water floor, the 3D view draws the water at ground level, so a small fall shows there that the simulation doesn't have. This is older than tonight's work.
-- **The Claude reference suite:** 13 failures on `dev` come from generator changes moving their setups; the re-tune is scheduled after the generator steps.
+### 6. What failed or got stuck, and what I did
 
-### 5. Still running
+- **The old machine's `.scratch/` helpers didn't come across** (gitignored): M9a's `settings-run.ts`, `one.ts` and
+  `run-batches.sh`, Live editing's `carve-equiv.ts` and GPU/soft Playwright configs, `notify.ps1`, and their saved results.
+  I'll rebuild what the work needs, and commit reusable ones under `tools/`.
+- **The Python installer (MSI) failed** in this shell (Windows Installer couldn't read its own cache). I used python.org's
+  NuGet build of the same Python 3.12.10 instead, signed by the Python Software Foundation.
+- **My slip, fixed within a minute:** the probe's `build-mod` also installs the mod into `Documents\Timberborn\Mods` unless
+  told `--no-install`. I removed the `DGMProbe` folder at once; Timberborn wasn't running, and your other mods weren't
+  touched. HANDOFF now says to build with `--no-install`.
+- **Timberborn was open when I arrived;** you closed it (12:05).
 
-- M9a (`feature/m9a`).
-- The badwater step's final checks (#54).
-- The Real places rebuild's badwater stage, after #54 merges.
+### 7. Still running
+
+- Keeping the machine awake (`tools/keep-awake.ps1`, no settings changed).
+- M9a (next: the settings experiments and test fixes).
+
+## The takeover, 2026-09-26
+
+**This computer** (details in [HANDOFF.md §9](HANDOFF.md#9-this-machine)): Windows 10 Pro 22H2, Ryzen 5 3600, 32 GB.
+- **Tools installed** (per user, official sources, no administrator rights, no system settings changed): Node 22.23.3,
+  Python 3.12.10 with numpy and pillow, the .NET 8 SDK 8.0.425, ilspycmd 8.2. Git and gh were here (gh logged in).
+- **Repository and worktrees** under `C:\Users\krams\code\`: `DamGoodMaps` (dev), `-m9a`, `-live`, `-waterfalls`,
+  `-places`, and `-carve-check` (#47, detached, for checks); `npm ci` in each.
+- **Timberborn** 1.1.2.4-52e959e-sw (Steam build 25096761) at `C:\Program Files (x86)\Steam\steamapps\common\Timberborn`:
+  the same build the repository was verified against, so nothing our code relies on changed. `investigation/decompiled/`
+  regenerated from it (497 files).
+- **Sleep and restarts:** the power plan never sleeps or hibernates on mains power. Automatic updates are off by policy
+  (last update 2023), so no update restart is scheduled or likely. Windows restarts itself after a crash; HANDOFF §9 says
+  how to resume.
+- **Not here:** `C:\dgm-workshop` and `C:\dgm-reference`. The local-only official-map tests stay skipped here, as on CI.
+
+**The starting point, checked against HANDOFF.md:**
+
+| What | Handoff | Found | Local checks |
+|---|---|---|---|
+| `dev` | 4f1b8c6 | 4f1b8c6 | CI green |
+| `main` | 8995cee | 8995cee | |
+| M9a (`feature/m9a`, #56) | 12beeb3, CI red until settings and test fixes | 12beeb3, CI red | typecheck passes; quick suite: 7 failures, the same 7 as CI (below) |
+| Live editing (`feature/live-editing`) | b4d7c27, CI not yet seen green | b4d7c27, **CI green** | typecheck passes; quick suite all green (587 tests) |
+| Carve (#47) | 6b9d4e6 | 6b9d4e6, CI green | typecheck passes; quick suite green (420); its own tests and typecheck pass |
+| Quake (#52) | 4e8115a, held | **a293e41**, Codex's Slide round done, CI green | ready (D219) |
+| Craterize #51, Erupt #50, waterfalls #53, places #35 | 2f4963c, 89c6842, b00b2fc, a59c051 | the same, CI green | |
+| `investigation/forces-core`, `investigation/juice` | expected from Codex | not pushed yet | |
+
+**M9a's 7 quick-suite failures at 12beeb3** (identical here and on CI): `look-mine-ruins` (the pinned sha256); in
+`objects.test`: the weir and plug, the second district's site, ruins on a rise, the generated weir; `setpieces.test`: the
+on-river fall's drop; `validate.test`: `water.badwater_contained`. Differences from the handoff's list: `badwater.test`
+passes, and the `setpieces` and two weir tests weren't listed.
 
 ## Decisions since M8
 
@@ -225,6 +200,16 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D208 (for M9b): themes become optional leanings; the default is "Any" (Surprise me), combining landforms, water and intentions freely; measured for coherence, playability and no archetype clusters.
 - D209: design version 2 approved; M9a builds it with "Any" as the default and no ruler-straight rivers; M9b fixes Islands' sameness and raises Kyler's crater and waterfall-lake intentions; pending #59–#68 decided (#66 later).
 - D210: M9a on Opus 5.5 at xhigh, M9b and M9c at high, routine work on Sonnet 5 at medium; M9a first when work competes.
+- D211: M9a's settings: Lake Basin's water share is information until M9b; Start area is a preference ("prefer a roomy / tight start"), and the map card shows the actual bench size.
+- D212: Live editing's two changes before release: sources on the left shelf (Water source, Badwater source, after Start); clear water only under and around the brush over water, still reading as water; defaults confirmed.
+- D213: #54 goes in with M9a; removing the last badwater spring switches the map to No badwater.
+- D214: Real places: strengths near the official range, the start moved closer to water, places that can't work dropped; "Centre" titles renamed.
+- D215: waterfalls: no V-shaped gap, more whitewater and splash; then released.
+- D216: Carve, Craterize and Erupt ready; one shared forces core. D217: 3D carving is smarter Lower and Raise.
+- D218: on the dedicated machine only, probe batches run without asking first; reported in STATUS.
+- D219: Quake is ready with both Lift and Slide; all four forces go to the preview, released after Kyler tries them.
+- D220: Codex's forces-core and juice investigations merged once green and adopted as proposals.
+- D221: a "Progress log" issue (#57) gets a short comment at each step, release, probe batch or parked item.
 
 ## Done and released
 
@@ -257,50 +242,28 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 
 ## Running
 
-- **M9a**, the generator from design version 2 (D209: "Any" as the default, no ruler-straight rivers,
-  every rule since version 2), on branch `feature/m9a`; first on the machine (D210).
-- **M9 design version 2**, on branch `investigation/generative-v2` (a PR into `dev` when done,
-  not merged).
-- **Badwater on every map** (D200), on branch `feature/badwater-source`.
-- **Real places, second round**: the rebuild through the resources planner, without walls, about 150
-  places, on `feature/real-places-2` (PR #35).
-- **The Claude suite's setups** (D134): 101 of 120 reference solutions pass on `dev`; the 19 failures are
-  setups tuned on M7's maps that later generator changes moved (M12-INTEGRATION §11). They are re-tuned
-  once the start and edge rules and the resources step land, since both change generated maps again.
-- **Real places, second round** (D155–D157), on branch `feature/real-places-2`; its rebuild without
-  walls and the growth to about 150 places wait for the start and edge rules.
-- **Live editing** (D158, D179–D184), on branch `feature/live-editing`: the camera (approved) and
-  water part 1 are on the preview address; next water per D184 (smart Lower, Source, part 2's paced
-  water), then the rest of D184's design in pushes.
-- **The docs sweep** (D188), on branch `chore/docs-sweep`: the living docs checked against the
-  editor vision, and CI's retired-terms guard. What the Live editing work must keep, and the
-  editor text it still has to change: [progress/docs-sweep.md](progress/docs-sweep.md).
-- **Map look fixes**, each judged by Kyler from captures: badwater blending (D177) on
-  `look/badwater-blend` (#41, approved: the warm-midpoint blend is in, ready to release as
-  `look-badwater-done`);
-  mine sites and ruins (D178) on `look/mine-site`.
-- Dependabot: the Actions updates merge when CI is green; the majors (#24, #25) wait for the
-  deliberate upgrade step (D150).
-- **Held:** `investigation/craterize` (Craterize, D202) and `investigation/quake` (Quake, D203) and
-  `investigation/erupt` (Erupt, D206) when their PRs open, until Kyler says each is ready.
-- **Held:** #47 (Carve) until Codex reports its two new touches done (the variation at high Wander, oxbow
-  lakes); then it merges at the next boundary, and the Carve button keeps them (D194, D199).
+In the order of work (HANDOFF.md §1; M9a first on the machine, D210):
+- **M9a**, the generator from design version 2 (D209), on `feature/m9a` ([#56](https://github.com/timbermods/dam-good-maps/pull/56)):
+  the settings and test fixes, full batches, the contact sheet, the Claude suite re-tune, docs and CI, then its probe batch.
+- **Live editing** on `feature/live-editing`: the Carve port (WIP, green), then D212's two changes, then the
+  `live-editing-done` release (approved).
+- **Next:** the four forces (#47, #51, #50, #52; D216, D219) on one forces core, to the preview; waterfalls (#53, D215),
+  then `look-waterfalls-done` (approved); Real places round 2 (#35, D214).
+- **Held:** #54 (inside M9a, D213). Dependabot majors #24 and #25 wait for the upgrade step (D150).
 
 ## Waiting on Kyler
 
-1. Try each Live editing push on <https://timbermods.github.io/dam-good-maps/preview/>; it is
-   released when it feels right.
-2. Approve design version 2 when it's built, with what goes into each M9 stage; approve the
-   feedback proposal (D137).
-3. A yes before each probe batch; the next is M9a's.
-4. Open decisions: 47 in [decisions-pending.md](decisions-pending.md), each with a default.
-5. Optional: the pending in-game checks ([ingame-log.md](ingame-log.md)), the M3 spike page
-   ([What Kyler needs to do](progress/kyler-todo.md), item 4).
+1. M9a's release, after its probe batch (the release needs your yes).
+2. Try the forces on the preview once they're there; they're released after you've tried them (D219).
+3. Real places: the places to drop, from the sheet on your main PC (D214).
+4. Pending #66 (the candidate intentions), and any default the session chose while you were away
+   ([decisions-pending.md](decisions-pending.md)).
+5. Optional: the pending in-game checks ([ingame-log.md](ingame-log.md)).
 
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D197.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D221.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
