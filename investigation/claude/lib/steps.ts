@@ -98,7 +98,7 @@ export type Step =
   | { op: "brush"; tool: BrushTool; where?: Where; path?: Point[]; amount?: number; level?: number; passes?: number; size?: SizeWord | number; edges?: "slope" | "cliff" | "ramped"; steps?: number; walkable?: boolean }
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
-  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; handle?: string }
+  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
   | { op: "undoLast" };
 
 export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "undoLast"] as const;
@@ -330,6 +330,7 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.defyGravity !== undefined && typeof s.defyGravity !== "boolean") errs.push("defyGravity is true or false (aimed carves: it cuts to an end uphill)");
       if (s.defyGravity === true && s.to === undefined) errs.push("defyGravity is for an aimed carve: give it a to");
       if (s.seconds !== undefined && !num(s.seconds, 0.5, 120)) errs.push("seconds is 0.5–120 (left out, it runs until it ends by itself)");
+      if (s.path !== undefined && !(Number.isInteger(s.path) && num(s.path, 0, 99))) errs.push("path is 0–99: 0 the first course, 1, 2, … the editor's Try another path");
       return [...errs, ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : []), ...(s.to !== undefined && !Array.isArray(s.to) ? checkPlace(s.to, "to", W, H) : [])];
     case "undoLast":
       return [];
@@ -593,6 +594,11 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
 
 /** Carve's Power words (D194): a creek to a catastrophe. */
 export const POWER_WORDS = { creek: 15, torrent: 40, river: 65, catastrophe: 95 } as const;
+/** A carve given a place tries at most this many starts there, this many tiles apart at least. */
+const CARVE_STARTS = 5;
+const CARVE_START_APART = 6;
+/** …and these paths from each (Try another path's seeds). */
+const CARVE_PATHS = [0, 1, 2];
 
 /** A carve (D194, D199), as the editor's Carve button makes it: Unleash from a spot (its start: the
  *  given tile, or the highest dry ground of the place, nearest its middle), or Aim to an end (a
@@ -602,6 +608,9 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   const b = s.built;
   const refs = refContext(conv);
   const resolved: Record<string, unknown> = {};
+  let moved: { first: [number, number]; why: string; start: boolean; path: number } | null = null;
+  let firstWhy: string | null = null;
+  let chosenPath: number | undefined;
   const map = forceMapOf(b);
   const keep = protectedGround(map);
   for (const i of s.columns.keys()) keep[i] = 1;
@@ -621,23 +630,41 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
         n++;
       }
     // (a river begun on the map's rim runs straight off it: the rim only when the place is all rim)
-    let best = -1;
+    let ranked: { i: number; v: number }[] = [];
     for (const rim of [8, 0]) {
-      let score = -Infinity;
       for (let i = 0; i < where.mask.length; i++) {
         const x = i % W;
         const y = Math.floor(i / W);
         if (!where.mask[i] || keep[i] || b.water[i] > 0.05 || x < rim || y < rim || x >= W - rim || y >= H - rim) continue;
-        const v = b.heights[i] * 100 - Math.hypot(x - sx / n, y - sy / n);
-        if (v > score) {
-          score = v;
-          best = i;
-        }
+        ranked.push({ i, v: b.heights[i] * 100 - Math.hypot(x - sx / n, y - sy / n) });
       }
-      if (best >= 0) break;
+      if (ranked.length) break;
     }
-    if (best < 0) return fail(step, ["there is no dry ground there to start a carve (the start's own ground stays as it is)"], undefined, resolved);
-    from = [best % W, Math.floor(best / W)];
+    if (!ranked.length) return fail(step, ["there is no dry ground there to start a carve (the start's own ground stays as it is)"], undefined, resolved);
+    ranked = ranked.sort((a, c) => c.v - a.v || a.i - c.i);
+    // the highest dry ground there, then the next highest a few tiles away from those before it
+    const starts: [number, number][] = [];
+    for (const { i } of ranked) {
+      const p: [number, number] = [i % W, Math.floor(i / W)];
+      if (starts.every((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) >= CARVE_START_APART)) starts.push(p);
+      if (starts.length >= CARVE_STARTS) break;
+    }
+    from = starts[0];
+    // a carve that breaks a check passing now is not built (guards are never traded away): as a
+    // player would, try another path from there (Try another path), then the next highest dry
+    // ground there, each checked with a real build; none holding, the first stands and says why
+    const paths = step.path !== undefined ? [step.path] : CARVE_PATHS;
+    search: for (let k = 0; k < starts.length; k++)
+      for (const path of paths) {
+        const res = verifyStep(s, { ...step, where: undefined, from: starts[k], path } as unknown as Record<string, unknown>);
+        if (!res.error && !res.broken.length) {
+          if (k > 0 || path !== paths[0]) moved = { first: starts[0], why: firstWhy ?? "", start: k > 0, path };
+          from = starts[k];
+          chosenPath = path;
+          break search;
+        }
+        firstWhy ??= res.error ?? `it would break ${res.broken.join(", ")}`;
+      }
   }
   // where it ends (Aim): a tile, or the place's middle
   let to: [number, number] | undefined;
@@ -668,8 +695,9 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
     if (best < 0) return fail(step, ["that end is all the start's own ground"], undefined, resolved);
     to = [best % W, Math.floor(best / W)];
   }
+  if (chosenPath !== undefined) step = { ...step, path: chosenPath };
   const power = typeof step.power === "string" ? POWER_WORDS[step.power] : step.power ?? 65;
-  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, seed: 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
+  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
   const at = (p: [number, number]) => p[1] * W + p[0];
   if (to && at(to) === at(from)) return fail(step, ["its end is where it starts: aim somewhere else"], undefined, { ...resolved, from });
   const id = newId(conv, "source");
@@ -705,6 +733,10 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   if (params.source) report.push(`keeps a water source of ${params.source.strength} blocks/s at (${params.source.x}, ${params.source.y}), its strength following the width: the river keeps flowing`);
   else report.push("a dry canyon: no source");
   if (params.removed.length) report.push(`${params.removed.length} object${params.removed.length > 1 ? "s" : ""} on the cut ground go with it`);
+  if (moved)
+    report.push(
+      `${moved.start ? "starts at the next highest dry ground there" : "takes another path"}${moved.path ? ` (path ${moved.path})` : ""}: the first course from (${moved.first[0]}, ${moved.first[1]}), the highest, ${moved.why}`,
+    );
   const made = params.source ? [{ handle: newHandle(conv, "source", step.handle), id: `${SOURCE_PREFIX}${params.source.id}`, kind: "source" }] : [];
   return {
     ok: true,
@@ -1363,7 +1395,7 @@ export function hintIds(conv: Conversation | null): void {
 }
 
 /** Build a site's step on the session, validate, and take it back: which guards it breaks. */
-setVerifier((s, raw) => {
+function verifyStep(s: MapSession, raw: Record<string, unknown>): { broken: string[]; error?: string } {
   const step = raw as unknown as Step;
   const key = viewOf(s).key;
   let before = guardCache.get(key);
@@ -1400,7 +1432,8 @@ setVerifier((s, raw) => {
   const after = guardsOf(s.validate().report);
   for (let k = 0; k < applied; k++) s.undo();
   return { broken: after.filter((g) => !g.ok && g.applicable && before!.get(g.id) !== false).map((g) => g.id) };
-});
+}
+setVerifier(verifyStep);
 
 export function isSetPiece(f: Feature): f is SetPieceFeature {
   return f.kind === "setPiece";

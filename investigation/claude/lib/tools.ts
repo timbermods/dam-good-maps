@@ -495,6 +495,7 @@ export class ClaudeTools {
         river: "keep (the default: a source at its start, its strength following the width, keeps the river flowing) or dry (a dry canyon, no source)",
         defyGravity: "aimed carves only: true cuts through to an end uphill of the start, on a floor that never rises",
         seconds: { min: 0.5, max: 120 },
+        path: { min: 0, max: 99, note: "0 the first course; 1, 2, … another path each (the editor's Try another path). Given a where, a course that would break a check passing now tries another path, then the next highest dry ground there" },
         maxTiles: Math.floor(0.3 * W * H),
         note: "the start's own ground and an imported map's caves stay as they are; objects on the cut ground go with it",
       };

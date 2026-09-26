@@ -727,7 +727,13 @@ into the same core later.
   (foam, crumbling blocks, dust, muddy water) and the follow camera (`render3d/effects.ts`) leave out
   with reduced motion; the kept water flows on into the settled water.
 - **Claude:** the `carve` step (unleash from a spot or a place's highest dry ground, or aim at an end,
-  with Defy gravity offered for an end uphill), requests B19–B21.
+  with Defy gravity offered for an end uphill), requests B19–B21. It takes a `path` (0 the first
+  course, 1, 2, … Try another path's). Given a place, a course that would break a check passing now
+  tries another path, then the next highest dry ground there (up to five starts, three paths each),
+  each checked with a real build, and the report says so: the varied bends took B19's first course
+  within two tiles of a geothermal field (`extras.placement`); its second path from the same hills
+  keeps it. Reference solutions: 128 of 141 (the 13 failing fail on dev too: S06, C01, W05–W07, J03,
+  M04, M06, I07, X01, X08, X09, Q01).
 - Tests: `tests/contract/carve.test.ts` (#47's checks of the force, and the carve in the document),
   with #47's tests for the touches: bends wider and deeper on the outside and narrower on the
   straights; a cut-off bend sealed by sediment at both ends into a lake, the shortcut carrying the
@@ -787,6 +793,11 @@ public site and as the preview); the browser tests also build the public configu
   - [the top bar and the shelf](live-editing/shelf.png) (the after is the preview's build, so Carve
     shows; the public site has no forces group).
 - `tools/retired-terms.json`: the top bar's "Source tool" and its "pick Source" wording are retired.
+- **Saving right after a map opens:** the export's check was dropped when the page's own background
+  check (debounced after the map opened) started meanwhile, and the save said "the map changed while
+  it was checked" though nothing had. The export now checks again while the map is unchanged. Found
+  on this machine as `places.spec`'s Refine-then-download failing (already at b4d7c27; CI's runner
+  missed the race).
 - Tests: `tests/unit/placeTools.test.ts` (the shelf's order, what the two sources place).
 - Tests changed (D148): `brushKit.spec` read the top bar's **Source (6)** and its row; it checks the
   top bar without Source, the shelf's order, and the Water source's row (and that R, like F, never
@@ -795,6 +806,13 @@ public site and as the preview); the browser tests also build the public configu
   the top bar's Source and its clean or bad list. `waterView.spec` checked that any tool picked
   clears all the water; it checks that T and the button clear all of it, a brush clears round itself
   over the river and not on dry land, and the shelf's ghost over water.
+
+### This build's runs (2026-09-26, the dedicated machine)
+
+`npm run typecheck` clean (the Claude harness's SDK errors aside); `npm run test:quick`: 596 passed,
+13 skipped; `npx playwright test` (installed Chrome, two workers): 47 passed, 1 skipped (the
+investigation maps, local only); the Claude reference suite: 128 of 141; `tools/carve-equiv.ts`: 16
+of 16.
 
 ## Try it
 
