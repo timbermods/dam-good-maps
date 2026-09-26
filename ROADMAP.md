@@ -894,7 +894,7 @@ Start (Water source, Badwater source); clear water only under or around the brus
 and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
 Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
 forces core (D216, D219), put on the preview, and released only after Kyler has tried them. Both
-changes are built, and Carve is on the preview (`docs/progress/live-editing.md`).
+changes are built, and Carve with them, for the preview (`docs/progress/live-editing.md`).
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):
