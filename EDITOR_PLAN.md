@@ -41,8 +41,8 @@ editor is desktop-first (D185).
   one shared forces core (D203, D206). The forces go to the preview first and reach the public site
   only once Kyler has tried them (D219): until then the public site shows no forces group at all.
 - **The left shelf:** a clean grid of placeable objects: the start, then the **Water source** and
-  the **Badwater source** (D212), then trees, bushes, ruins, the mine site, relics, slopes and the
-  rest, each a small render in the map's look. Picking one shows a live ghost that follows the
+  the **Badwater source** (two separate items, D212), then **Pine**, **Birch**, **Oak**, **Berry
+  bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
 - **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
@@ -96,18 +96,18 @@ editor is desktop-first (D185).
   **Steep** or **Terraced** walls; **Centre** (Auto, Bowl, Peak, Ring, Flat); **Debris** (Light or
   Heavy, with or without Rays); **Try another**; the impact moment with radial tree knockdown. Newer
   impacts overprint older ones; it refuses to strike where the start sits and never adds water; one
-  undo step, and Esc reverts. Prototyped on `investigation/craterize` (held until Kyler says it's ready).
+  undo step, and Esc reverts. Prototyped on `investigation/craterize` (#51, ready: D216).
 - **Quake, a force of nature** (D203): in the forces group with Carve and Craterize. It splits the land
   along a drawn fault line: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; **Try
   another** (including a natural tilt); objects ride with the land; it refuses a fault through the start
-  and never adds water; one undo step, and Esc reverts. Prototyped on `investigation/quake` (held until
-  Kyler says it's ready).
+  and never adds water; one undo step, and Esc reverts. Prototyped on `investigation/quake` (#52, ready with
+  both Lift and Slide: D219).
 - **Erupt, a force of nature** (D206): in the forces group. It raises a volcano: **Mode** (**Vent** or
   **Fissure**); **Power**; **Shape** (**Steep** or **Broad**); **Summit** (Auto, Peak, Crater, Caldera);
   **Flows** (Light or Heavy, with or without Ridges); **Try another**. Fresh volcanic rock is hard for
   Carve; flows can dam rivers; objects ride the rising ground; overlapping eruptions build volcanic
   fields; it refuses to erupt where the start sits and never adds water; one undo step, and Esc
-  reverts. Prototyped on `investigation/erupt` (held until Kyler says it's ready).
+  reverts. Prototyped on `investigation/erupt` (#50, ready: D216).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
@@ -157,7 +157,9 @@ Make a valley, drop a source, and there's a river.
     carves that climb uphill;
   - **Power** (creek to catastrophe), and **Width** (following Power by default, or set by hand for
     slot canyons or wide lazy rivers);
-  - **Wander** (straight to winding), natural variation within each carve, and **Try another path**;
+  - **Wander** (straight to winding), natural variation within each carve (at high Wander too: bends
+    wider and deeper on the outside, narrower on the straights, never a uniform tube), and **Try another
+    path**; a bend cut off becomes an oxbow lake, sealed by sediment at both ends;
   - **Steep** or **Wide** walls; **Keep river** (the default) or **Dry canyon**. Keep river leaves a
     source at the origin whose strength follows the river's Width, not its Power, so a slot canyon
     keeps a modest stream and a wide river a big one; Dry canyon leaves no source. The source is
@@ -167,11 +169,9 @@ Make a valley, drop a source, and there's a river.
   - Space pauses it; **Stop** keeps what's carved; Esc or Ctrl+Z (or undo) reverts the whole carve
     instantly.
 
-  The water cuts its own gorge or valley, with floodplains and a delta. Bends vary: wider and deeper
-  on the outside, narrower on the straights, never a uniform tube. At high Wander a bend can be cut
-  off: sediment seals both its mouths and it holds its water as an oxbow lake; with nothing feeding
-  it, it evaporates over time, as in the game. Built from `investigation/carve` (#47), on the
-  preview until Kyler has tried it (D219).
+  The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
+  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game.
+  Built from `investigation/carve` (#47, D216), on the preview until Kyler has tried it (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
@@ -205,6 +205,8 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 9. The future
 
+3D carving is smarter Lower and Raise, not new buttons: Lower aimed at a cliff face digs into it;
+Raise with a layer selected builds in the air (D217).
 A time-lapse of how a map was built, near M13 with the sharing features: the edit history replayed
 at speed from the generated map, a camera gliding to each edit, saved as a WebM video to share (D205).
 Every future editing tool is brush-first and follows these principles: symmetry mirrors strokes live

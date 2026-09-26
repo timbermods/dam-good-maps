@@ -889,6 +889,13 @@ D158, D179–D184). Built on branch `feature/live-editing`, tried by Kyler on th
 <https://timbermods.github.io/dam-good-maps/preview/> (noindex; refreshed after every push), and
 released as `live-editing-done` when Kyler says it feels right.
 
+**Before `live-editing-done`** (Kyler, 2026-09-26; D212): sources move to the left shelf as two items after
+Start (Water source, Badwater source); clear water only under or around the brush when it's over water,
+and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
+Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
+forces core (D216, D219), put on the preview, and released only after Kyler has tried them. Both
+changes are built, and Carve is on the preview (`docs/progress/live-editing.md`).
+
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):
 - **Principles:** the land is the interface (feedback from the land itself, not from panels,
@@ -902,7 +909,8 @@ they conflict):
    Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
    left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
    preview and are released only after Kyler has tried them (D219): until then the public site shows
-   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure, Power, Steep or Broad, a summit, flows, Try
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
+   Power, Steep or Broad, a summit, flows, Try
    another); built from `investigation/erupt` once Kyler says it's ready. Quake splits the land along a drawn fault (Lift
    or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` once Kyler
    says it's ready. All four forces share one forces core.
