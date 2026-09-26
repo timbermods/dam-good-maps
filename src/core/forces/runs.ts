@@ -62,6 +62,10 @@ export interface StagedRun {
   liveWater(): WarmState;
   /** An eruption's heat on the land (RGBA a tile: vents, flows, dust, arrival), once planned. */
   heat?(): Uint8Array | null;
+  /** Run to the end at once (a force kept part way keeps its whole result). */
+  finishAll(): void;
+  /** The build's last touches on the planned map. */
+  finalize: Finalize | null;
 }
 
 /** The water model of a force's map. */
@@ -111,6 +115,10 @@ function warm(sim: WaterSim, m: FullForceMap): WarmState {
   return { model: modelOf(m), water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
 
+/** Called on a force's final map once it is planned: the editor gives it the build's own last
+ *  touches (its integrity pass), so the last stage shows exactly what is kept. */
+export type Finalize = (m: FullForceMap) => void;
+
 abstract class Staged {
   map: FullForceMap;
   protected stage = 0;
@@ -118,6 +126,8 @@ abstract class Staged {
   protected sim: WaterSim | null = null;
   protected ended = false;
   steps = 0;
+  /** The build's last touches on the planned map (the editor's worker sets it). */
+  finalize: Finalize | null = null;
 
   constructor(
     readonly before: FullForceMap,
@@ -201,6 +211,7 @@ export class CraterRun extends Staged implements StagedRun {
     while (!this.plan0.advance(8)) if (performance.now() - t0 > budgetMs) return false;
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
+    this.finalize?.(this.plan0.map);
     return true;
   }
 
@@ -284,6 +295,7 @@ export class EruptRun extends Staged implements StagedRun {
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
+    this.finalize?.(this.plan0.map);
     return true;
   }
 
@@ -386,6 +398,7 @@ export class QuakeRun extends Staged implements StagedRun {
     transportRock(this.before, p.map, p.source, this.settings.mode === "lift");
     trimRock(p.map);
     respectKeep(this.before, p.map, this.keep);
+    this.finalize?.(p.map);
     return true;
   }
 

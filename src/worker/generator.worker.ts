@@ -26,7 +26,13 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 }
 
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
-  return viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  const out = viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  if (f.heat) out.push(f.heat.buffer as Transferable);
+  return out;
+}
+
+function sendFrame(f: ed.ForceFrame | null): ed.ForceFrame | null {
+  return f ? transfer(f, frameBuffers(f)) : null;
 }
 
 function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
@@ -112,14 +118,23 @@ const api = {
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   instantCheck: () => ed.instantCheck(),
-  // the forces (D194, D203): a carve at work, a frame at a time; Stop keeps it, Esc drops it
-  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
-  /** Try another path: the last kept carve again, with the next seed. */
-  carveAgain: () => sendStarted(ed.carveAgain()),
-  carveAdvance(steps: number) {
-    const f = ed.carveAdvance(steps);
-    return f ? transfer(f, frameBuffers(f)) : null;
+  // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
+  // Esc drops it
+  forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
+  /** Try another: the last kept force again, with the next seed. */
+  forceAgain: () => sendStarted(ed.forceAgain()),
+  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
+  /** A painted Lift's fault as it is painted now. */
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1) => sendFrame(ed.forcePaint(path, side)),
+  forceStop: () => sendUpdate(ed.forceStop()),
+  forceCancel() {
+    const v = ed.forceCancel();
+    return transfer(v, viewBuffers(v) as Transferable[]);
   },
+  // (the carve's own calls)
+  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
+  carveAgain: () => sendStarted(ed.carveAgain()),
+  carveAdvance: (steps: number) => sendFrame(ed.carveAdvance(steps)),
   carveStop: () => sendUpdate(ed.carveStop()),
   carveCancel() {
     const v = ed.carveCancel();

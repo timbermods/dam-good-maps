@@ -48,7 +48,9 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
   for (const f of after.fallen ?? []) {
     const e = now.get(f.id);
     if (!e || kept(e) || wasFallen.has(f.id)) continue;
-    felled.push({ id: f.id, dx: round4(f.dx), dy: round4(f.dy) });
+    // (which way it lies: a unit direction, whatever length the force gave it)
+    const l = Math.hypot(f.dx, f.dy) || 1;
+    felled.push({ id: f.id, dx: round4(f.dx / l), dy: round4(f.dy / l) });
   }
   return {
     tiles,

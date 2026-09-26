@@ -14,6 +14,12 @@ export const ORIENTATION_NAMES = ["Cw0", "Cw90", "Cw180", "Cw270"] as const;
 export const DEAD = 1;
 export const FLIPPED = 2;
 export const YOUNG = 4;
+/** A tree a force knocked down (D202): it lies along its `fall` heading. */
+export const FALLEN = 8;
+
+/** A fallen tree's heading as a byte (1–255; 0: standing), and back to radians (x east, y north). */
+export const fallByte = (dx: number, dy: number) => 1 + (Math.round(((Math.atan2(dy, dx) / (2 * Math.PI) + 1) % 1) * 254) % 254);
+export const fallAngle = (b: number) => ((b - 1) / 254) * 2 * Math.PI;
 
 /** A ruin's variant (its `RuinModels.VariantId`, "A" to "E") as an index, and the value for none:
  *  a file without one, or another object (the game picks one at random; the view picks one from
@@ -44,6 +50,8 @@ export interface EntityView {
   variant: Uint8Array;
   /** A water or badwater source's strength (blocks a second); 0 for anything else. */
   strength: Float32Array;
+  /** A knocked-down tree's heading (fallByte), 0 for anything standing; absent when none lies. */
+  fall?: Uint8Array;
 }
 
 /** Water columns (sparse): one entry per wet column. Under caves a tile may hold several; the
@@ -174,6 +182,8 @@ export interface EntityInput {
   variant?: string;
   /** A source's strength. */
   strength?: number;
+  /** A force knocked it down (a dead tree), and it lies along (dx, dy). */
+  fallen?: { dx: number; dy: number };
 }
 
 export function entityView(list: readonly EntityInput[]): EntityView {
@@ -195,6 +205,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     owner: new Uint16Array(n),
     variant: new Uint8Array(n),
     strength: new Float32Array(n),
+    ...(list.some((e) => e.fallen) ? { fall: new Uint8Array(n) } : {}),
   };
   list.forEach((e, k) => {
     let t = tIndex.get(e.template);
@@ -216,7 +227,8 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     v.z[k] = e.z;
     const oi = ORIENTATION_NAMES.indexOf(e.orientation as (typeof ORIENTATION_NAMES)[number]);
     v.orientation[k] = oi < 0 ? 0 : oi;
-    v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0);
+    v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0) | (e.fallen ? FALLEN : 0);
+    if (e.fallen) v.fall![k] = fallByte(e.fallen.dx, e.fallen.dy);
     v.variant[k] = variantIndex(e.variant);
     v.strength[k] = e.strength ?? 0;
   });
@@ -237,6 +249,6 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
   }
   if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination]) add(a);
   if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination]) add(a);
-  if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
+  if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength, v.entities.fall]) add(a);
   return out;
 }
