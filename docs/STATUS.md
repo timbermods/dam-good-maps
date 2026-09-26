@@ -22,11 +22,21 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
-- **Releasing:** `live-editing-done` (approved by you, D212), with the forces hidden on the public site (#69).
+- **Merged into `dev`:** [#53](https://github.com/timbermods/dam-good-maps/pull/53) waterfalls (D201, D215): the V-shaped gap is
+  gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
+  crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
+  looks broken; close up, the foam lace's dark bubble cells read a little like cracked tiles, which is a matter of taste
+  for you. **Releasing as `look-waterfalls-done`** (approved, D215).
+- **Released: `live-editing-done`** ([#61](https://github.com/timbermods/dam-good-maps/pull/61), a7e0a9b; tagged at 985e1cf).
+  The deploy and the live check passed. I opened the public site's editor in a browser: Water source and Badwater source
+  are on the shelf and there are no forces; the preview shows the same editor with Carve. It also carries everything
+  that was waiting on `dev` (resources #43, generator 0.6.2; #45; #38; #46; #32).
 
 ### 3. On the preview for you to try
 
-Unchanged: <https://timbermods.github.io/dam-good-maps/preview/> shows Live editing's push 4 (59f826c).
+<https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**: the released editor plus **Carve** (key 7),
+from `feature/live-editing`. The four forces with the new juice sounds replace it on the preview once `feature/forces` is
+ready.
 
 ### 4. Probe batches
 
@@ -45,6 +55,9 @@ frozen (D218 lets it run without asking on this machine).
 - **#71: small Live editing choices:** key 6 picks Water source; when a brush counts as over water; the clear water's tint,
   ripples and shoreline values; how far Claude's carve step searches.
 - **#72:** the quiet dot's "water still changing" for an evaporating oxbow lake stays as it is.
+- **#73: waterfalls' details:** corners are a mitre (a sharp fold like the cliff's own corner) rather than a rounded sweep,
+  which would overlap on staircase lips; the whitewater sizes and a crown in the Standard look (mist and spray stay for
+  the High look); one streak pace everywhere; a clean fall keeps 0.3 of its opacity under clear water.
 
 ### 6. What failed or got stuck, and what I did
 
