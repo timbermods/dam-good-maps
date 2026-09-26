@@ -1122,7 +1122,11 @@ function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
  *  was opened. */
 function importModel(s: MapSession, opened = false): WaterModel {
   const w = (opened ? s.openedFile() : s.exportFile(s.built, { thumbnail: false })).world;
-  return waterModel(w.sizeX, w.sizeY, surfaceOf(w), mapObjects(w));
+  const m = waterModel(w.sizeX, w.sizeY, surfaceOf(w), mapObjects(w));
+  // the oxbow lakes the map's carves sealed keep their water here too (as the build's model does)
+  const kept = opened ? undefined : s.built.waterModel.retained;
+  if (kept?.length) m.retained = kept;
+  return m;
 }
 
 function settleNow(model: WaterModel): { model: WaterModel; settled: CanonicalWater } {
