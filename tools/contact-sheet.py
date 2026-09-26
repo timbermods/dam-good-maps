@@ -51,8 +51,14 @@ def main():
             sheet.paste(im, (x, y + label))
             d.text((x + 1, y), f"{NAMES.get(theme, theme)} {m['seed']}", fill=(60, 60, 60), font=small)
     os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
-    sheet.quantize(colors=128, method=Image.Quantize.MEDIANCUT).save(dst, optimize=True)
-    print(f"{dst}: {os.path.getsize(dst)} bytes, {sheet.size[0]}x{sheet.size[1]}")
+    # under 1 MB (D144): fewer colours until it fits (no dithering: its noise costs more than the
+    # banding it hides at this size)
+    for colors in (128, 96, 64, 48, 32):
+        dither = Image.Dither.FLOYDSTEINBERG if colors == 128 else Image.Dither.NONE
+        sheet.quantize(colors=colors, method=Image.Quantize.MEDIANCUT, dither=dither).save(dst, optimize=True)
+        if os.path.getsize(dst) < 1_000_000:
+            break
+    print(f"{dst}: {os.path.getsize(dst)} bytes, {sheet.size[0]}x{sheet.size[1]}, {colors} colours")
 
 
 if __name__ == "__main__":

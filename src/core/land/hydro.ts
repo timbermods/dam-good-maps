@@ -497,7 +497,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
           q.push(j);
         }
       }
-      if (q.length < 100 || q.some((i) => owner[i] >= 0)) continue;
+      if (q.length < (g.lakeSpringMin ?? 100) || q.some((i) => owner[i] >= 0)) continue;
       // the head: the hollow's highest edge tile, then up to three tiles further uphill
       let head = -1;
       for (const i of q) {
@@ -530,7 +530,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       if (head >= 0) hollows.push({ low, size: q.length, head });
     }
     hollows.sort((a, b) => b.size - a.size || a.low - b.low);
-    for (const hl of hollows.slice(0, 4)) {
+    for (const hl of hollows.slice(0, g.lakeSpringMax ?? 4)) {
       if (rng.float() >= g.lakeSprings) continue;
       const x = hl.head % W;
       const y = (hl.head - x) / W;

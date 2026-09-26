@@ -16,8 +16,9 @@
 // Exits non-zero when any theme and size is below 98% final or a run failed.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { AVAILABLE_THEMES } from "../src/core/spec/mapspec";
 
 function arg(name: string, fallback: string): string {
@@ -25,6 +26,7 @@ function arg(name: string, fallback: string): string {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const themes = arg("themes", AVAILABLE_THEMES.join(",")).split(",");
 const sizes = arg("sizes", "96,128,192,256").split(",").map(Number);
 const seedArg = arg("seeds", "96=1-100,128=1-100,192=1-50,256=1-50");
@@ -51,16 +53,21 @@ interface Job {
 }
 
 async function run(j: Job): Promise<number> {
-  const argv = ["--import", "tsx", "tools/batch.ts", "--seeds", seedsFor(j.size), "--size", String(j.size), "--theme", j.theme, "--difficulty", difficulty, "--min-first", "0", "--report", reportOf(j.theme, j.size)];
+  // (absolute paths, so each child's command line names this checkout: on a shared machine a
+  // process is stopped only by the checkout it names)
+  const argv = ["--import", "tsx", resolve(ROOT, "tools", "batch.ts"), "--seeds", seedsFor(j.size), "--size", String(j.size), "--theme", j.theme, "--difficulty", difficulty, "--min-first", "0", "--report", resolve(reportOf(j.theme, j.size))];
   if (set) argv.push("--set", set);
   const t0 = performance.now();
-  return new Promise((resolve) => {
-    const p = spawn(process.execPath, argv, { stdio: ["ignore", "ignore", "pipe"] });
+  return new Promise((done) => {
+    // each seed's line as it comes, beside the report
+    const log = createWriteStream(resolve(reportOf(j.theme, j.size)).replace(/\.md$/, ".log"));
+    const p = spawn(process.execPath, argv, { stdio: ["ignore", "pipe", "pipe"], cwd: ROOT });
+    p.stdout.pipe(log);
     let err = "";
     p.stderr.on("data", (d) => (err += String(d)));
     p.on("close", (code) => {
       console.log(`${j.size}² ${j.theme}: exit ${code} in ${Math.round((performance.now() - t0) / 60000)} min${code && err ? `\n${err.trim().split("\n").slice(-5).join("\n")}` : ""}`);
-      resolve(code ?? 1);
+      done(code ?? 1);
     });
   });
 }

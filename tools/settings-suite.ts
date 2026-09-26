@@ -171,7 +171,9 @@ export const EXPERIMENTS: Experiment[] = [
     delta: 200,
   },
   {
-    minSeeds: 8,
+    // (M9a: every map's badwater hollows are basins too, D200, so None keeps 1–3; Many is about
+    // its target, twice the official median, and the land varies much from seed to seed)
+    minSeeds: 12,
     setting: "Lakes and basins",
     target: "natural basins of 20+ tiles: 0 / 0.5× / 1× / 2× the official median for the size",
     theme: "riverValley",
@@ -356,6 +358,8 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (M9a: a start that stands in the map's own woods has far more than any minimum asks)
+    minSeeds: 8,
     setting: "Minimum starting wood",
     target: "logs of the grown trees within 20 tiles' walk of the start (D164)",
     theme: "riverValley",

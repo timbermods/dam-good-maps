@@ -255,6 +255,16 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
     extend(false);
   }
   const n = q.length;
+  // a ramp climbs the cliff where two grounds meet: its route between them is no longer than the
+  // ramp needs, and every tile of its path stands between its ends' levels. A longer route is a road
+  // across the land, regraded straight with right-angle turns (Canyon 128² seed 12 got one 113 tiles
+  // long); one over higher ground cuts a ruler-straight slot through it (Highlands 128² seed 16: a
+  // 3-wide slot 25 tiles long and 9 deep, with water in it, D209); one over lower ground raises a
+  // causeway. Such an upland is left to stairs
+  if (path.length > need + 2) return false;
+  const top = Math.max(a, b);
+  const bottom = Math.min(a, b);
+  for (const i of q) if (h[i] > top || h[i] < bottom) return false;
   // a level must span two tiles at least; where it cannot (too short a path), no ramp. The levels
   // share the path evenly (the prototype rounded a straight line, which left one-tile levels on
   // paths long enough for two-tile ones, and gave the ramp up)

@@ -117,6 +117,10 @@ export interface Genome {
   knick: number;
   /** The chance that a big hollow no river crosses holds a spring (a spring lake). */
   lakeSprings: number;
+  /** The most spring lakes, and the least hollow that may hold one, in tiles (Lakes and basins
+   *  above the theme's own; 4 and 100 when absent). */
+  lakeSpringMax?: number;
+  lakeSpringMin?: number;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
@@ -668,7 +672,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // relief: the spread of the land's levels
   const dr = (s.terrain.relief - p.relief) / 100;
   if (dr < 0) {
-    g.top = Math.max(g.base + 5, g.top + 11 * dr);
+    // (no higher than the spread Relief asks for above the base, PLAN §5.2: 7 + 0.08·relief levels
+    // from p5 to p95, the top a level and a half above p95)
+    g.top = Math.max(g.base + 5, Math.min(g.top + 11 * dr, g.base + 7 + 0.08 * s.terrain.relief + 1.5));
     g.hyps.eq = clamp(g.hyps.eq + 0.5 * dr, 0, 0.9);
     g.noise.amp *= 1 + 0.6 * dr;
   } else if (dr > 0) {
@@ -757,10 +763,13 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.lakeSprings = 0;
     g.hydro.lakeBudget = 0.0005;
   } else if (dl > 0) {
-    for (let k = 0; k < 4 * dl; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
-    g.troughs += 1.2 * dl;
+    for (let k = 0; k < 6 * dl; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
+    g.troughs += 2 * dl;
     g.lakeSprings = Math.min(1, g.lakeSprings + 0.5 * dl);
-    g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (1 + 0.3 * dl), 0.01, 0.5);
+    // more of the land's hollows hold water, smaller ones too (dry ones are filled)
+    g.lakeSpringMax = 4 + 3 * dl;
+    g.lakeSpringMin = Math.max(50, 100 - 20 * dl);
+    g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (1 + 0.5 * dl), 0.01, 0.5);
   } else if (dl < 0) {
     for (let k = 0; k < -2 * dl; k++) {
       const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");

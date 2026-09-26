@@ -867,8 +867,15 @@ export function deleteEdit(s: MapSession, id: string): PlannedEdit {
     return fail(`${list} ${deps.length === 1 ? "builds" : "build"} on this ${plainName(f)}: delete ${deps.length === 1 ? "it" : "them"} first`);
   }
   ops.push({ op: "deleteFeature", params: { id } });
-  return { ok: true, ops, feature: f, report: [], label: `Delete ${kindName(f)}`, tiles: [] };
+  // the map's last badwater spring: removing it is never refused, the map becomes a No badwater
+  // map and says so (Kyler's D213; MapSession.badwaterRemoved)
+  const bad = s.built.entities.filter((e) => e.template === "BadwaterSource");
+  const report = bad.length && bad.every((e) => e.owner === id) && !s.badwaterRemoved() ? [LAST_BADWATER_NOTE] : [];
+  return { ok: true, ops, feature: f, report, label: `Delete ${kindName(f)}`, tiles: [] };
 }
+
+/** What removing the map's last badwater spring says (D213). */
+export const LAST_BADWATER_NOTE = "that was the map's last badwater spring: the map is now No badwater, a peaceful map (badtides still come)";
 
 // --------------------------------------------------------------------------------------- the start
 

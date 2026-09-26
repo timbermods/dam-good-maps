@@ -493,7 +493,7 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
       if (f.kind === "start") return fail(step, ["the start cannot be deleted: every map needs exactly one; move it instead"]);
       const r = deleteEdit(s, f.id);
       if (!r.ok) return fail(step, r.errors);
-      return { ok: true, step, ops: r.ops, made: [], report: [], resolved: { target: f.id, kind: f.kind === "setPiece" ? f.params.kind : f.kind }, errors: [], tiles: 0 };
+      return { ok: true, step, ops: r.ops, made: [], report: [...r.report], resolved: { target: f.id, kind: f.kind === "setPiece" ? f.params.kind : f.kind }, errors: [], tiles: 0 };
     }
     case "setRiverBadwater": {
       // the river feature stores the flag, but no build step reads it yet: the river would stay

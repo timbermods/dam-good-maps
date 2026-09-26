@@ -7,6 +7,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MapSession } from "../../src/core/doc/session";
+import { deleteEdit, LAST_BADWATER_NOTE } from "../../src/core/doc/tools";
 import { startingLocation, waterSource } from "../../src/core/format/entities";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { OFFICIAL_BADWATER } from "../../src/core/gen/calibrated";
@@ -138,6 +140,35 @@ describe("badwater on every map (D200)", () => {
       const off = validateMap(none, { profile, spec: withBadwater(r.spec, "off"), designedFor: "normal" });
       expect(off.report.checks.find((x) => x.id === "resources.badwater_source")!.ok, profile).toBe(true);
     }
+  });
+
+  it("D213: removing the map's last badwater spring switches it to No badwater, and undoing brings the spring back", () => {
+    const r = generate(makeSpec({ seed: 23, size: { x: 96, y: 96 } }));
+    const s = MapSession.fromGenerated(r);
+    const check = () => s.validate().report.checks.find((x) => x.id === "resources.badwater_source")!;
+    const springs = s.features.filter((f) => f.kind === "setPiece" && f.params.kind === "badwaterBasin");
+    expect(springs.length).toBeGreaterThan(0);
+    expect(s.badwaterRemoved()).toBe(false);
+    expect(s.effectiveSpec()!.settings.hazards.badwater).toBe(r.spec.settings.hazards.badwater);
+    // removing the last one says so (removing one of several does not)
+    const last = deleteEdit(s, springs[springs.length - 1].id);
+    expect(last.ok && last.report.includes(LAST_BADWATER_NOTE)).toBe(springs.length === 1);
+    // removing them is not refused: the map is now a peaceful one, and says so
+    const applied = s.applyAll(springs.map((f) => ({ op: "deleteFeature" as const, params: { id: f.id } })), "user", "Remove the badwater springs");
+    expect(applied.ok, applied.errors.join("; ")).toBe(true);
+    expect(s.built.entities.some((e) => e.template === "BadwaterSource")).toBe(false);
+    expect(s.badwaterRemoved()).toBe(true);
+    expect(s.effectiveSpec()!.settings.hazards.badwater).toBe("off");
+    expect(check().ok).toBe(true);
+    const out = readTimber(s.exportTimber().bytes);
+    expect(String(out.metadata?.MapDescription)).toContain(NO_BADWATER_NOTE);
+    // the file alone, without its settings, reads as No badwater in the validator
+    expect(validateMap(out, { profile: "import" }).report.checks.find((c) => c.id === "resources.badwater_source")!.ok).toBe(true);
+    // undo: the springs, and with them the badwater the map asked for
+    expect(s.undo()).toBe(true);
+    expect(s.badwaterRemoved()).toBe(false);
+    expect(String(readTimber(s.exportTimber().bytes).metadata?.MapDescription)).not.toContain(NO_BADWATER_NOTE);
+    expect(check().ok).toBe(true);
   });
 
   it.skipIf(!PY)("the Python validator agrees: a map without one fails, a No badwater map passes without its settings", () => {

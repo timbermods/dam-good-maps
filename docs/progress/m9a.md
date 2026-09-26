@@ -136,6 +136,29 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
   a lake, landform, set piece or move that would reshape the ground under another feature's water
   or badwater source is refused with the reason (Lake Basin seed 13's lake left a badwater spring
   floating).
+- **Natural ramps only climb cliffs** (D209; found on the contact sheet): a ramp's route between
+  the two grounds it joins is no longer than the ramp needs (2 tiles a level + 2, plus 2), and every
+  tile of its path stands between its two ends' levels. Before, the ramp planner could regrade a
+  route of up to 197 tiles across the map (Canyon 128² seed 12: 113 tiles from level 5 to 16) into a
+  3-wide road with right-angle turns, or cut a ruler-straight slot through a plateau between two
+  lower grounds (Highlands 128² seed 16: 25 tiles long, 9 deep, with shallow water in it, which the
+  straightness measure did not see: it reads water 0.1 deep or more). Such an upland is now left to
+  stairs, as #62 allows. Canyon and Highlands stay at 100% final on 20 seeds at 128².
+- **Badwater ditches wind** (D209: badwater streams never run ruler-straight): a ditch to the
+  nearest map edge was a straight line (a sideways step only added length; 20 tiles dead straight
+  on Canyon 128² seed 17). Its line is now moved sideways by a wave (up to 2.5 tiles, 9–15 long,
+  none at either end) and redrawn as side-to-side steps, where every tile is allowed. On seeds 1–6
+  of every theme at 128² the longest straight run of a ditch fell from a median of 10 tiles (p90
+  20) to 5 (p90 7); one ditch in 57, hemmed in by keep-off ground, keeps its straight route (30
+  tiles, within the D209 limit of 44).
+- **Relief below the theme's own** leans the land's top down to the spread PLAN §5.2 asks for (7 +
+  0.08·relief levels from p5 to p95): Relief 20 now gives 8–10 levels at 96² (11–12 before, the
+  target 8.6). The experiment moved 2.8, below its 3, once the ramps changed.
+- **The last badwater spring** (Kyler's D213): removing it is never refused; the map becomes a No
+  badwater map (`MapSession.badwaterRemoved`, `effectiveSpec`): its checks treat it so, its file
+  says so in its description ("No badwater: a peaceful map…"), and undoing the removal brings the
+  spring and the setting back. The delete's report says "that was the map's last badwater spring:
+  the map is now No badwater, a peaceful map (badtides still come)" (the editor's and Claude's P09).
 - **Tools:** `tools/settings-batch.ts --detail` (each seed's value), `tools/batches.ts` (every theme
   and size at once, reports in `investigation/m9a/local/batches/`, a summary table), and the batch
   report counts second-district sites and ruins on a rise (information).
@@ -170,7 +193,7 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     box's rim was 4–6 tiles), and must cross ground above the sill.
   - `objects.test.ts`: the editor's weir and plug take the first free place from 30 tiles down the
     main river (the tool refuses where another object stands, as it should); the second district's
-    site (Islands 2, 3, 5 and Any 7), ruins on a rise (Highlands 1, Islands 2, Lake Basin 2, Delta
+    site (Islands 2, 3, 5 and Canyon 10), ruins on a rise (Highlands 1, Islands 2, Lake Basin 2, Delta
     3) and the generated weir (Islands 3, Canyon 3, Lake Basin 4, Highlands 3, Islands 4) moved to
     maps that have them.
   - `setpieces.test.ts`: the on-river fall asked to drop 16 takes the first river and place (30–70

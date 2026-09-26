@@ -28,6 +28,7 @@ import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, sto
 import type { Feature } from "../features/schema";
 import { generate, type GenerateResult } from "../gen/generate";
 import { description, fileName as timberFileName, mapName, toTimberFile } from "../gen/pack";
+import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { tilesToRuns, runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
 import { GENERATOR_VERSION, type MapSpec, type Region } from "../spec/mapspec";
@@ -744,13 +745,33 @@ export class MapSession {
 
   // ------------------------------------------------------------------------------- exporting
 
+  /** Kyler's D213: a map whose player removed its last badwater spring is a No badwater map (a
+   *  peaceful one; badtides still come). Removing it is never refused: the map says so in its
+   *  description, its checks treat it as No badwater, and undoing the removal brings the spring and
+   *  the setting back. A generated map asks for badwater unless its player chose No badwater; an
+   *  imported one did when it was opened with a badwater source. */
+  badwaterRemoved(built: BuildResult = this.cur): boolean {
+    if (built.entities.some((e) => e.template === "BadwaterSource")) return false;
+    const spec = this.gen.spec;
+    if (spec) return spec.settings.hazards.badwater !== "off";
+    return this.baseStuff().file.world.entities.some((e) => e.Template === "BadwaterSource");
+  }
+
+  /** The spec the map is written and checked with: the generation's, set to No badwater once its
+   *  player removed the last badwater spring (D213, `badwaterRemoved`). */
+  effectiveSpec(built: BuildResult = this.cur): MapSpec | null {
+    const spec = this.gen.spec;
+    if (!spec || !this.badwaterRemoved(built)) return spec;
+    return { ...spec, settings: { ...spec.settings, hazards: { ...spec.settings.hazards, badwater: "off" } } };
+  }
+
   /** The map as a .timber file. A generated map is written the way the generator writes it; an
    *  imported one is its normalized file with the edits: unedited, it is the same file, byte for
    *  byte (PLAN §19.6). */
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
-    if (this.mode === "live") return toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
@@ -765,8 +786,14 @@ export class MapSession {
     const world: WorldModel = { ...w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), singletons, entities: built.entities.map(entityJson) };
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
+    let metadata = parse(this.gen.base.metadata) as JsonObject;
+    // its player removed its last badwater spring: it says it is a No badwater map (D213)
+    if (this.badwaterRemoved(built)) {
+      const text = typeof metadata.MapDescription === "string" ? metadata.MapDescription : "";
+      metadata = { ...metadata, MapDescription: text ? `${text}\n\n${NO_BADWATER_NOTE}` : NO_BADWATER_NOTE };
+    }
     return {
-      metadata: parse(this.gen.base.metadata) as JsonObject,
+      metadata,
       thumbnail: blank ?? (redraw ? thumbnailJpeg(built.heights, W, H, built.waterFromFile ? null : built.water) : b.file.thumbnail),
       versionTxt: this.gen.base.versionTxt,
       world,
@@ -823,7 +850,7 @@ export class MapSession {
     return validateMap(this.exportFile(), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
-      spec: this.gen.spec,
+      spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,
       water: opts.water ?? (live ? { model: this.cur.waterModel, settled: this.cur.settle } : undefined),
