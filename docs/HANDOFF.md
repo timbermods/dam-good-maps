@@ -195,7 +195,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **Releases** (CLAUDE.md, "Deploying"): tag a green `dev` commit (annotated tags; names in CLAUDE.md), push the tag and a
   `release/<name>` branch at it, open a PR into `main`, wait for its checks, merge **as a merge commit**, watch the push deploy
   (build, deploy, `live-check / live`), republish the preview, record it in `docs/STATUS.md` and the progress log.
-  `.scratch/release-badwater.sh` is a worked example. If the live check fails, revert the release merge on `main`.
+  `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` does all of it (without `--go` it only
+  checks and prints the steps). If the live check fails, revert the release merge on `main`.
 - **Investigation PRs** (Codex's and others): merge at the next boundary as a merge commit once green, adopt their
   INTEGRATION.md as proposals; anything that conflicts with a decision becomes a pending decision with a default. Hold any PR
   Kyler says Codex is still working on.

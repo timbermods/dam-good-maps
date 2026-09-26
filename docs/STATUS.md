@@ -31,7 +31,9 @@ frozen (D218 lets it run without asking on this machine).
 
 ### 5. Defaults I chose
 
-None yet.
+- **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
+  the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
+  forces' release ([decisions-pending.md](decisions-pending.md)).
 
 ### 6. What failed or got stuck, and what I did
 
@@ -47,8 +49,15 @@ None yet.
 
 ### 7. Still running
 
+- **M9a** in `DamGoodMaps-m9a` (an Opus 5.5 agent; first on the machine): the settings and test fixes, full batches, the
+  contact sheet, the Claude suite re-tune, docs, CI, then the frozen generator's probe maps. The `.claude/agents/`
+  definitions didn't load (this session started outside the repository folder), so it runs at this session's effort rather
+  than a set xhigh.
+- **Live editing** in `DamGoodMaps-live` (an Opus 5.5 agent): the Carve re-port to #47's final commit, the forces hidden on
+  the public site (#69), D212's two changes, docs, captures and CI. Then I release it as `live-editing-done`.
+- **Waiting their turn:** waterfalls (#53) after Live editing lands (both change the water renderer); Real places' D214
+  rebuild after that (heavy on the machine, and M9a comes first); the forces after the Live editing release.
 - Keeping the machine awake (`tools/keep-awake.ps1`, no settings changed).
-- M9a (next: the settings experiments and test fixes).
 
 ## The takeover, 2026-09-26
 
