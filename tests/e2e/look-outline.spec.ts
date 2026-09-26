@@ -54,8 +54,8 @@ test("the contamination outline shows only with Markers, and follows the soil", 
     r.setView({ mode: "orbit", yaw: 0, pitch: 1.45, distance: 14, target: [x + 0.5, r.heightAt(x, y), -(y + 0.5)] });
   }, at!);
 
-  // (the legend's own outline swatch stays out of the pictures)
-  await page.addStyleTag({ content: ".view3d-legend { display: none !important; }" });
+  // (the legend, with its own outline swatch and the Markers toggle, sits beside the map: out of
+  // the canvas's pictures)
 
   // Markers off: no outline
   const markers = page.getByRole("button", { name: "Markers", exact: true });

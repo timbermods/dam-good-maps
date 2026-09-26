@@ -1,0 +1,300 @@
+{
+  "cases": 45,
+  "comparison": "Full terrain, entities, fallen state, water and rock; Carve also every step/path/metric",
+  "results": [
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "sheer",
+      "seed": 0,
+      "sha256": "39ee3c24859afe6eec2bdcae7ac5e4050c3bfa7f390991706b83cf39649ab4f8"
+    },
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "stepped",
+      "seed": 0,
+      "sha256": "547c0e7a4227abf723ecf5e341d95f35b943c47e3df89e68e14f5684b12ef29b"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "sheer",
+      "seed": 0,
+      "sha256": "dff9e72d3d84137c5c9aa833b53ea3bd6f2a7ad6966aabb2e91d88fb65597882"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "stepped",
+      "seed": 0,
+      "sha256": "ca752ecdb647a44467c2da0d3d11912a35c1110a979540b9ca6c1185d8638c49"
+    },
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "sheer",
+      "seed": 1,
+      "sha256": "02d1e8ad26339667e4a8277d1fa018888546457012fccba01fc3230ea02a74fa"
+    },
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "stepped",
+      "seed": 1,
+      "sha256": "669db7163415236b66d94232a5749b7c94e19fe2af2192de1d2d7469f0254b39"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "sheer",
+      "seed": 1,
+      "sha256": "9ee3bbee7686d8fbc9df86de9c2561fe505f72f82df1cb05fbc68ad2e75cba55"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "stepped",
+      "seed": 1,
+      "sha256": "e300d6f52fb403d67b4a388078da5a80ee8edc229f023e6c8b43d3dc7e075be4"
+    },
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "sheer",
+      "seed": 42,
+      "sha256": "6cb9e7188d82973d93621c75f133981d9d497662b4ece73afafb857840ec94e6"
+    },
+    {
+      "verb": "quake",
+      "mode": "lift",
+      "scarp": "stepped",
+      "seed": 42,
+      "sha256": "f9d3080a2fb739a47dc68465b64fc1203d4a6b5450b9060b0592667c1074dab9"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "sheer",
+      "seed": 42,
+      "sha256": "bb5d74f188214ae7873d0d1a8bfe04a8672121ebbf6a5786ba62712c2b67f0c6"
+    },
+    {
+      "verb": "quake",
+      "mode": "slide",
+      "scarp": "stepped",
+      "seed": 42,
+      "sha256": "114d8d3101446543b88c927cf9df4b2ca0078120cb1dfe3f949a3bcea75471ea"
+    },
+    {
+      "verb": "craterize",
+      "centre": "bowl",
+      "seed": 0,
+      "sha256": "ba0f56f1c6081b83a79db4e681909d42964d5769df32f5d8d70799b778530696"
+    },
+    {
+      "verb": "craterize",
+      "centre": "peak",
+      "seed": 0,
+      "sha256": "507dfe4b918c93cc8131a008b586079d3a2420b449bf9b57d43df705249172a7"
+    },
+    {
+      "verb": "craterize",
+      "centre": "ring",
+      "seed": 0,
+      "sha256": "60fced21ae8fcb44d9323e2a17e24ab0913611b97ea2a639d0e2d90de2d53ced"
+    },
+    {
+      "verb": "craterize",
+      "centre": "flat",
+      "seed": 0,
+      "sha256": "f009bbb62ea78bb24f050817760f6ecc2ba49f0f2683c4c75fa23105fafbb945"
+    },
+    {
+      "verb": "craterize",
+      "centre": "bowl",
+      "seed": 1,
+      "sha256": "62bee30ad5a7ae161e7079509293015c1d121eba7b55e4ce4b88fd602557059b"
+    },
+    {
+      "verb": "craterize",
+      "centre": "peak",
+      "seed": 1,
+      "sha256": "0a4d3af7de69fa24c1577f3bafa8745a7ca02450618c062a9fef3bd05729f3c9"
+    },
+    {
+      "verb": "craterize",
+      "centre": "ring",
+      "seed": 1,
+      "sha256": "631fc43a5838af9300619ffcc3cb63b91616fbfde8d9b5db20cba67e6c90fc48"
+    },
+    {
+      "verb": "craterize",
+      "centre": "flat",
+      "seed": 1,
+      "sha256": "afc1848e08ec06ae1e059e9fba2a55fa551c2b5a44ebb35b7326f2b3ef97cc4b"
+    },
+    {
+      "verb": "craterize",
+      "centre": "bowl",
+      "seed": 42,
+      "sha256": "c761f85c915ebd4959fe26f467053d2015176dda00d59acf59f5227bf0c7f89e"
+    },
+    {
+      "verb": "craterize",
+      "centre": "peak",
+      "seed": 42,
+      "sha256": "043e54ec29660a55713f6ac40ab091945ef43712261ad92cc5793f8bcdab1aaa"
+    },
+    {
+      "verb": "craterize",
+      "centre": "ring",
+      "seed": 42,
+      "sha256": "34ce2424910d2f73d47600a21aa044d45b5085a570fc6ad120165f85b2ecff06"
+    },
+    {
+      "verb": "craterize",
+      "centre": "flat",
+      "seed": 42,
+      "sha256": "f00b8bb471fc91e7b458d9b57c18c5b050e2677a5c797ced4742a1c99634a831"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "steep",
+      "seed": 0,
+      "sha256": "4843da5a39f859a535498869e1391c4f133ccb8e6a5ad5afaf998eff813a15e5"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "broad",
+      "seed": 0,
+      "sha256": "39b41cbcfe58b97c852e3720101b3b081fac2c4e20e4fe3c7688b12e1584c607"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "steep",
+      "seed": 0,
+      "sha256": "4f2998aabdb91439fa92b2e68fd4a8fe1fdfa8c884ae4743394ec43af0f8bf83"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "broad",
+      "seed": 0,
+      "sha256": "cab51d4a9f07737408c395e6f250ecf4c3e35cf78cc22e57a7e952b9c8c2c429"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "steep",
+      "seed": 1,
+      "sha256": "86e8cc946e440911ae48ba4eb8a5e08a6d59a1fe372a8f26a9a717333f0b8cfa"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "broad",
+      "seed": 1,
+      "sha256": "8c701b22d4252fa2590dee5e1d5b99785d7534b2fdc9e04cb7fde25c3ef2460b"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "steep",
+      "seed": 1,
+      "sha256": "087f7ded6b027316e1dbf0d86499d183e5ccff9cd457f69ef6f3129ce2244170"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "broad",
+      "seed": 1,
+      "sha256": "1592d6473ee306b536493b9858e824705d65a7aa3af94708d36c6b2d67866c25"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "steep",
+      "seed": 42,
+      "sha256": "aedd3d859a6b4d381351122b3c074669062c95eed5135351c99a935683d66b50"
+    },
+    {
+      "verb": "erupt",
+      "mode": "vent",
+      "shape": "broad",
+      "seed": 42,
+      "sha256": "1f69774bf621f7a5abb88b3b2aca9971c8f0851257ee35b4406f2505736f2072"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "steep",
+      "seed": 42,
+      "sha256": "09577b558c95186b085bd5f3578e36653889fe51006a245ed76255557347db5e"
+    },
+    {
+      "verb": "erupt",
+      "mode": "fissure",
+      "shape": "broad",
+      "seed": 42,
+      "sha256": "ca48d1047f74f11c5a201d883c9477511c112a78cd9ec849ede10ad3974f8092"
+    },
+    {
+      "verb": "carve",
+      "wander": 0,
+      "seed": 0,
+      "sha256": "c121e4f571c7be06f2dd45708d7b1956e1b15e5d6f4dcca29301ea91165b9a1b"
+    },
+    {
+      "verb": "carve",
+      "wander": 35,
+      "seed": 0,
+      "sha256": "1b4f473f0abe19d064e734f5751f716d6ccf3841b13210c585df526467164d52"
+    },
+    {
+      "verb": "carve",
+      "wander": 100,
+      "seed": 0,
+      "sha256": "090dbce1eccefa97954afbf40aca3ef10eab116ecbc8151e70570fc2e6e0f0ce"
+    },
+    {
+      "verb": "carve",
+      "wander": 0,
+      "seed": 1,
+      "sha256": "905bb29e89d3295f19f841454370b1b778ad279a916c0f9436c588502771be0d"
+    },
+    {
+      "verb": "carve",
+      "wander": 35,
+      "seed": 1,
+      "sha256": "24efd85a1ae1544dc039a4b2f5f623e376851949cb2ddb5eed727cb900fc481e"
+    },
+    {
+      "verb": "carve",
+      "wander": 100,
+      "seed": 1,
+      "sha256": "4bd36c3b29ca4f2a5ca46ae241e9f4a3d6a9b02964db84461dafaface829c00a"
+    },
+    {
+      "verb": "carve",
+      "wander": 0,
+      "seed": 42,
+      "sha256": "b9058b10b17d9cda5d3feaafbdb41b6a4dcce2134b7dd1abf7b49188a30b1487"
+    },
+    {
+      "verb": "carve",
+      "wander": 35,
+      "seed": 42,
+      "sha256": "71bbf48b8401fc0a90dc13797759ece50c22e4e2f0f6ba8d1dd224f67113bbf1"
+    },
+    {
+      "verb": "carve",
+      "wander": 100,
+      "seed": 42,
+      "sha256": "9b7827299bb0a17669698599997560fbae35ff12c7f121cfac6fc60c48375002"
+    }
+  ]
+}

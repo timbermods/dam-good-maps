@@ -18,8 +18,10 @@
 //   ledge over a dark groove between levels, at least a pixel wide at any zoom, so levels can be
 //   counted; a lip of the top's ground.
 // - Water is light teal where shallow (see-through near the shore) and blue where deep, lighter
-//   than dry ground at any depth, with glints, pale ripples that move, foam along shores and
-//   where falls come down, and falls as a see-through veil of streaks (the cliff shows through).
+//   than dry ground at any depth, with glints, pale ripples that move, and foam along shores and
+//   along the brink where a fall pours over. Falls (D201, falls.ts) leave the lip and arc down as a
+//   translucent ribbon with thickness, streaks rushing down it, white at the lip, with whitewater
+//   where they land; the cliff shows through between the streaks.
 //   Badwater is darker than clean water of the same depth and duller, with the same ripples and
 //   slow glowing bubbles. Water partly bad turns from clean water to badwater with its badwater
 //   share, blended over a few tiles by the water mesh: it darkens in proportion, and its hue turns
@@ -55,11 +57,13 @@ import {
   UnsignedByteType,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderTarget,
   type Texture,
   type WebGLRenderer,
 } from "three";
 import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE } from "./light";
 
@@ -97,6 +101,20 @@ export interface SceneUniforms {
   patternTex: { value: Texture | null };
   /** The view's height in CSS pixels (objects' minimum sizes). */
   viewHeight: { value: number };
+  /** Clear water (D196, D212): 1 makes all the water see-through (T; the bed, ledges and sources
+   *  show), with badwater still plainly marked; 0 the normal look. */
+  clearWater: { value: number };
+  /** Clear water round the brush (D212): its middle (tiles), the radius it is clear to, and 1 while
+   *  it paints a submerged bed (0: nowhere). */
+  clearAround: { value: Vector4 };
+  /** The layer the world is sliced at (D196, the game's layers): everything above it is cut away;
+   *  99 shows it all. */
+  slice: { value: number };
+  /** Level lines (the brush kit's toggle): a thin line along every edge where the ground steps down. */
+  levelLines: { value: number };
+  /** Where the sources are (`sourceTiles`): R a clean source's middle tile, G a bad one's, B one the
+   *  pointer's water comes from (D196). */
+  sourceTex: { value: DataTexture };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -119,6 +137,11 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     mapSize: { value: new Vector2(W, H) },
     patternTex: { value: null },
     viewHeight: { value: 800 },
+    clearWater: { value: 0 },
+    clearAround: { value: new Vector4(0, 0, 0, 0) },
+    slice: { value: 99 },
+    levelLines: { value: 0 },
+    sourceTex: { value: overlayTexture(1, 1) },
   };
 }
 
@@ -320,6 +343,11 @@ const COMMON = /* glsl */ `
   uniform sampler2D siteEdges;
   uniform vec2 mapSize;
   uniform sampler2D patternTex;
+  uniform float clearWater;
+  uniform vec4 clearAround;
+  uniform float slice;
+  uniform float levelLines;
+  uniform sampler2D sourceTex;
 
   float bitOf(float v, float b) { return mod(floor(v / b + 0.001), 2.0); }
 
@@ -414,10 +442,14 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     defines: { LITE: lite ? 1 : 0 },
     uniforms: { ...scene, ...own } as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
+      uniform float slice;
       varying vec3 vWorld;
       varying vec3 vNormal;
       void main() {
         vec4 w = modelMatrix * vec4(position, 1.0);
+        // the game's layers: the ground above the slice is cut away (its walls fold down, its tops
+        // lie on the cut)
+        w.y = min(w.y, slice);
         vWorld = w.xyz;
         vNormal = normal;
         gl_Position = projectionMatrix * viewMatrix * w;
@@ -664,6 +696,25 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
             c = mix(c, ${glColor(MINE.outline)}, smoothstep(0.7, 1.2, s) * (1.0 - smoothstep(2.5, 3.0, s)));
           }
         }
+        if (n.y > 0.5) {
+          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch
+          if (slice < 90.0 && h0 > slice + 0.5) {
+            float hs = step(0.5, fract((g.x + g.y) * 3.0));
+            c = mix(c, vec3(0.5, 0.47, 0.43), 0.6) * (0.86 + 0.14 * hs);
+          }
+          // level lines: a thin dark line on each tile edge where the ground steps down
+          else if (levelLines > 0.5) {
+            vec2 fo = fract(g);
+            float e = 9.0;
+            if (heightOf(tileAt(tile + vec2(1.0, 0.0))) < h0) e = min(e, 1.0 - fo.x);
+            if (heightOf(tileAt(tile + vec2(-1.0, 0.0))) < h0) e = min(e, fo.x);
+            if (heightOf(tileAt(tile + vec2(0.0, 1.0))) < h0) e = min(e, 1.0 - fo.y);
+            if (heightOf(tileAt(tile + vec2(0.0, -1.0))) < h0) e = min(e, fo.y);
+            float px = max(fwidth(g.x), 0.002);
+            float lw = max(0.04, 1.2 * px);
+            c = mix(c, ${glColor(WALL.groove)}, (1.0 - smoothstep(lw, lw + px, e)) * 0.8);
+          }
+        }
         if (hover.z > 0.5 && tile == hover.xy) {
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
@@ -762,22 +813,23 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
           #endif
           // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
           alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), waterMurk(cont));
-          // foam where the water meets the shore, and below falls
-          float fall = 1.0;
-          if (bitOf(vFlags, 16.0) > 0.5) fall = min(fall, 1.0 - fr.x);
-          if (bitOf(vFlags, 32.0) > 0.5) fall = min(fall, fr.x);
-          if (bitOf(vFlags, 64.0) > 0.5) fall = min(fall, 1.0 - fr.y);
-          if (bitOf(vFlags, 128.0) > 0.5) fall = min(fall, fr.y);
+          // foam where the water meets the shore, and along the brink where a fall pours over (the
+          // whitewater where a fall lands is the fall's own splash: fallMaterial)
+          float lip = 1.0;
+          if (bitOf(vFlags, 256.0) > 0.5) lip = min(lip, 1.0 - fr.x);
+          if (bitOf(vFlags, 512.0) > 0.5) lip = min(lip, fr.x);
+          if (bitOf(vFlags, 1024.0) > 0.5) lip = min(lip, 1.0 - fr.y);
+          if (bitOf(vFlags, 2048.0) > 0.5) lip = min(lip, fr.y);
           // a thin line along the shore, and (clean water only) broken foam just off it
           foam += (1.0 - smoothstep(0.03, 0.08, shore)) * mix(${f(WS.shoreFoam)}, 0.45, bad);
           #if LITE
-            foam += (1.0 - smoothstep(0.0, 0.5, fall)) * 0.45 * (1.0 - bad * 0.35);
+            foam += (1.0 - smoothstep(0.02, 0.1, lip)) * 0.5 * (1.0 - bad * 0.35);
           #else
             float fn = vnoise(g * 4.0 + vec2(t * 0.3, -t * 0.2));
             foam += (1.0 - smoothstep(0.06, 0.24 + 0.1 * fn, shore)) * smoothstep(0.4, 0.72, fn + 0.12) * ${f(WS.brokenFoam)} * (1.0 - bad);
-            // broken white water just where a fall comes down
-            float churn = vnoise(g * 3.2 + vec2(0.0, t * 1.4)) * 0.6 + vnoise(g * 7.0 - vec2(t * 0.9, 0.0)) * 0.4;
-            foam += (1.0 - smoothstep(0.0, 0.5, fall)) * (0.15 + 0.65 * smoothstep(0.35, 0.65, churn)) * (1.0 - bad * 0.35);
+            // the water breaks white over the brink, in a ragged line that runs with it
+            float brink = vnoise(vec2((g.x + g.y) * 5.0, t * 1.6)) * 0.6 + vnoise(vec2((g.x - g.y) * 11.0, t * 2.3)) * 0.4;
+            foam += (1.0 - smoothstep(0.02, 0.08 + 0.1 * brink, lip)) * (0.4 + 0.45 * brink) * (1.0 - bad * 0.35);
             // glints of light, and pale ripples drifting where it flows
             // (small and sparse, and gone where a pixel covers more than a few of them)
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
@@ -787,8 +839,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
             if (bad > 0.01) bubbles = fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(g * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(g * 1.3 - vec2(0.0, t * 0.04)));
           #endif
         } else {
-          // a fall: white water streaming down, more the taller it is (none at the map's edge);
-          // see-through between the streaks, so the cliff behind it shows
+          // the water's side: a small step down to lower water streams a little (a fall pours from
+          // its lip instead: fallMaterial); against lower ground or at the map's edge, the water's
+          // side; see-through between the streaks, so the cliff behind it shows
           float along = abs(n.x) > 0.5 ? g.y : g.x;
           #if LITE
             float s = 0.6;
@@ -822,6 +875,32 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
+        // right round the brush while it paints a submerged bed, fading back over a tile or two.
+        // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
+        // its shore; badwater keeps its colour, half see-through, with dark diagonal stripes
+        float clr = clearWater;
+        if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        if (clr > 0.001) {
+          float badish = max(bad, smoothstep(0.05, 0.5, cont));
+          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
+          vec3 bc = mix(murky, murky * CLEAR_STRIPE, stripe);
+          vec3 cc = c;
+          float ca = alpha * mix(0.35, 0.7, badish);
+          if (n.y > 0.5) {
+            float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
+            cc = WATER_CLEAR_TINT * light;
+            cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
+            cc = mix(cc, WATER_SKY, fres * WATER_REFLECT);
+            cc += sunColor * (spec * WATER_SPEC + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
+            cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
+            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = mix(ca, CLEAR_BAD_OPACITY, badish);
+          }
+          c = mix(c, mix(cc, bc, badish), clr);
+          alpha = mix(alpha, ca, clr);
+        }
         if (n.y > 0.5) {
           vec4 o = texture2D(overlay, (floor(g) + 0.5) / mapSize);
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
@@ -831,6 +910,348 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);
         }
+        // the game's layers: water above the slice is cut away
+        if (vWorld.y > slice + 0.05) discard;
+        // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
+        // it, so it is found even deep under water; brighter while the pointer's water comes from it
+        #if !LITE
+        if (n.y > 0.5) {
+          vec2 st = floor(g);
+          float up = 0.0;
+          float hl = 0.0;
+          float badSrc = 0.0;
+          for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++) {
+              vec2 sq = st + vec2(float(dx), float(dy));
+              vec4 sv = texture2D(sourceTex, (sq + 0.5) / mapSize);
+              if (sv.r + sv.g < 0.5) continue;
+              float d = length(g - sq - 0.5);
+              float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
+              float ph2 = fract(ph + 0.5);
+              float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
+              float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
+              float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
+              up = max(up, here);
+              badSrc = max(badSrc, sv.g * here);
+              hl = max(hl, sv.b * (1.0 - smoothstep(0.25, 1.2, d)) * (0.55 + 0.45 * sin(time * 3.0)));
+            }
+          vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
+          c = mix(c, uc, up * 0.55);
+          alpha = mix(alpha, 0.85, up * 0.5);
+          c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
+          alpha = mix(alpha, 0.9, hl * 0.4);
+        }
+        #endif
+        gl_FragColor = vec4(finish(c, vWorld), alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+  });
+}
+
+/** Waterfalls (D201, D215; falls.ts): each fall an instance of the shared template (`fallTemplate`),
+ *  bent here into its arc. Close up, a ribbon with thickness: its outer face a parabola from the
+ *  lip to the pool, its inner face inside it, closed at a free end; from afar (a tile under
+ *  FALL_NEAR_PX pixels; always in the light look) a single sheet. Where the lip turns a corner, the
+ *  ribbon runs on round an outer corner and stops short at an inner one, meeting the next side's on
+ *  the corner's diagonal (falls.ts `END`), so the sheet is one. Streaks rush down it, stretching as
+ *  the water speeds up (at one pace everywhere, so lips side by side never slide apart); it breaks
+ *  white at the lip, whitens as it falls, churns white at its foot, and frays at a free end. Clean
+ *  water is see-through between the streaks (the cliff shows), badwater murky; every colour and
+ *  opacity comes from waterPalette.ts (`WATER_GLSL`, `WATER_FALL`, `CLEAR_WATER`). Where it lands,
+ *  whitewater: a splash on the pool churning from the foot of the cliff out past the impact line,
+ *  and a crown billowing up along the impact line (close up), more for stronger and taller falls, in
+ *  the landing zone only. Clear water (D196, D212) turns a fall to a faint veil; the game's layers
+ *  cut it at the slice. */
+export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial {
+  const inset = FALL_SHAPE.inset;
+  const S = FALL_SPLASH;
+  return new ShaderMaterial({
+    defines: { LITE: lite ? 1 : 0 },
+    uniforms: scene as unknown as Record<string, { value: unknown }>,
+    vertexShader: /* glsl */ `
+      attribute vec4 rib;
+      attribute vec4 fA;
+      attribute vec4 fTop;
+      attribute vec4 fShape;
+      attribute vec4 fMore;
+      uniform float viewHeight;
+      varying vec4 vRib;
+      varying vec4 vFall;
+      varying vec4 vEdge;
+      varying vec2 vEnds;
+      varying vec3 vNormal;
+      varying vec3 vWorld;
+      /** How far an end runs on past its corner when the water has come o out from the lip
+       *  (falls.ts endAlong): on round an outer corner (turn 1), back short of an inner one (turn
+       *  -1, by at most "most"), not at all straight on or at a free end. */
+      float endRun(float turn, float o, float most) {
+        return turn > 0.5 ? o : turn < -0.5 ? -min(o, most) : 0.0;
+      }
+      void main() {
+        // the side (east, west, north, south) and how each end goes on (falls.ts END)
+        float k = mod(fA.z, 4.0);
+        float endA = mod(floor(fA.z / 4.0 + 0.01), 4.0);
+        float endB = floor(fA.z / 16.0 + 0.01);
+        float freeA = abs(endA - ${f(END.free)}) < 0.5 ? 1.0 : 0.0;
+        float freeB = abs(endB - ${f(END.free)}) < 0.5 ? 1.0 : 0.0;
+        float turnA = abs(endA - ${f(END.outward)}) < 0.5 ? 1.0 : abs(endA - ${f(END.inward)}) < 0.5 ? -1.0 : 0.0;
+        float turnB = abs(endB - ${f(END.outward)}) < 0.5 ? 1.0 : abs(endB - ${f(END.inward)}) < 0.5 ? -1.0 : 0.0;
+        float most = turnA < -0.5 && turnB < -0.5 ? ${f(END.bothInward)} : ${f(END.inwardMost)};
+        vec3 O = k < 0.5 ? vec3(1.0, 0.0, 0.0) : k < 1.5 ? vec3(-1.0, 0.0, 0.0) : k < 2.5 ? vec3(0.0, 0.0, -1.0) : vec3(0.0, 0.0, 1.0);
+        vec3 Y = vec3(0.0, 1.0, 0.0);
+        vec3 T = cross(Y, O);
+        vec3 corner = vec3(fA.x, 0.0, fA.y);
+        float u = rib.x;
+        float w = rib.y;
+        float inner = rib.z;
+        float kind = rib.w;
+        // close up or from afar: the pixels a tile takes on screen at the lip
+        vec4 at = projectionMatrix * viewMatrix * modelMatrix * vec4(corner + T * 0.5 + Y * fTop.x, 1.0);
+        float perUnit = 0.5 * viewHeight * projectionMatrix[1][1] / max(at.w, 0.001);
+        #if LITE
+          bool near = false;
+        #else
+          bool near = perUnit >= ${f(FALL_NEAR_PX)};
+        #endif
+        // the parts of the other view, and the ends where the sheet runs on: out of the clip volume
+        bool off = kind < 2.5 ? (!near || (kind > 0.5 && kind < 1.5 && freeA < 0.5) || (kind > 1.5 && freeB < 0.5)) : kind < 3.5 ? near : kind > 4.5 ? !near : false;
+        if (off) {
+          vRib = vec4(0.0);
+          vFall = vec4(0.0);
+          vEdge = vec4(0.0);
+          vEnds = vec2(0.0);
+          vNormal = Y;
+          vWorld = vec3(0.0);
+          gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+          return;
+        }
+        float top = mix(fTop.x, fTop.y, u);
+        float land = mix(fTop.z, fTop.w, u);
+        float X = max(mix(fShape.x, fShape.y, u), 0.0001);
+        float th = mix(fShape.z, fShape.w, u);
+        float h = max(top - land, 0.01);
+        float flow = mix(fA.w, fMore.w, u);
+        float bad = mix(fMore.x, fMore.y, u);
+        float roomB = floor(fMore.z / 4.0 + 0.01);
+        float room = mix(fMore.z - 4.0 * roomB, roomB, u);
+        float strength = clamp(sqrt(flow), 0.25, 1.6);
+        // along the lip, in tiles, continuous from one fall to the next along a side
+        float base = dot(corner, T);
+        // a free end stands a little in from the tile's corner, and a thin trickle well in: it
+        // narrows
+        float narrow = ${f(inset)} + ${f(FALL_SHAPE.narrow)} * (1.0 - smoothstep(0.05, 0.5, flow));
+        float ea = freeA * narrow;
+        float eb = freeB * narrow;
+        vec3 p;
+        vec3 n;
+        if (kind > 4.5) {
+          // the crown: an arch of whitewater over the impact line, from its foot toward the cliff
+          // (never behind it) over its top to its foot out on the pool (never past the pool)
+          float r = min(${f(S.crown[3])}, ${f(S.crown[0])} + ${f(S.crown[1])} * strength + ${f(S.crown[2])} * min(h, 8.0));
+          r *= mix(${f(S.crownTrickle)}, 1.0, smoothstep(0.05, 0.45, flow));
+          float rb = max(0.0, min(r, X - ${f(S.back)}));
+          float rf = max(0.0, min(r, room - ${f(S.edge)} - X));
+          float ch = min(${f(S.crownTall)} * r, ${f(S.crownOfDrop)} * h);
+          float ang = w * 3.14159265;
+          float cs = cos(ang);
+          float sn = sin(ang);
+          float o = X - (cs > 0.0 ? rb : rf) * cs;
+          float ue = u < 0.5 ? ea - endRun(turnA, o, most) : 1.0 - eb + endRun(turnB, o, most);
+          p = corner + T * ue + O * o + Y * (land + 0.012 + ch * sn);
+          n = normalize(O * (-cs / max(r, 0.01)) + Y * (sn / max(ch, 0.01)));
+          vRib = vec4(base + ue, w, sn, kind);
+          vFall = vec4(flow, h, r, bad);
+          vEdge = vec4(0.0, freeA, freeB, 0.0);
+          vEnds = vec2(ue - ea, 1.0 - eb - ue);
+        } else if (kind > 3.5) {
+          // the splash on the pool: from the foot of the cliff out past the impact line, and past a
+          // free end, never past the pool
+          float spread = ${f(S.base)} + ${f(S.reach)} * X + ${f(S.drop)} * min(h, 6.0);
+          float o0 = ${f(S.back)};
+          float o1 = max(o0 + 0.05, min(room - ${f(S.edge)}, X + spread));
+          float o = mix(o0, o1, w);
+          float sa = ea - freeA * ${f(S.side)} - endRun(turnA, o, most);
+          float sb = 1.0 - eb + freeB * ${f(S.side)} + endRun(turnB, o, most);
+          float us = u < 0.5 ? sa : sb;
+          p = corner + T * us + O * o + Y * (land + 0.012);
+          n = Y;
+          vRib = vec4(base + us, o - X, w, kind);
+          vFall = vec4(flow, h, spread, bad);
+          vEdge = vec4(o1 - o, freeA, freeB, X);
+          vEnds = vec2(us - sa, sb - us);
+        } else {
+          // the arc (falls.ts arcPoint): the outer face a parabola from the lip, level there, to the
+          // landing; the inner a thickness inside it, thinning as it falls, never behind the cliff
+          // or below the pool
+          vec2 tang = normalize(vec2(X, -2.0 * h * w));
+          vec2 nout = vec2(-tang.y, tang.x);
+          vec2 q = vec2(X * w, top - h * w * w);
+          q -= nout * th * (1.0 - ${f(FALL_SHAPE.thinning)} * w) * inner;
+          q.x = max(q.x, 0.0);
+          q.y = max(q.y, land);
+          float o = q.x + ${f(FALL_SHAPE.off)};
+          // its ends: at a free end (and its closing face) inset; round a corner, on to the
+          // corner's diagonal (falls.ts endAlong)
+          float ue = kind > 0.5 && kind < 2.5 ? (u < 0.5 ? ea : 1.0 - eb) : (u < 0.5 ? ea - endRun(turnA, o, most) : 1.0 - eb + endRun(turnB, o, most));
+          p = corner + T * ue + O * o + Y * q.y;
+          vec3 no = O * nout.x + Y * nout.y;
+          n = kind < 0.5 ? (inner > 0.5 ? -no : no) : kind < 1.5 ? -T : kind < 2.5 ? T : no;
+          // how far down the arc: its length from the lip (falls.ts arcLength)
+          float r = sqrt(X * X + 4.0 * h * h * w * w);
+          float arc = 0.5 * (w * r + X * X / (2.0 * h) * asinh(2.0 * h * w / X));
+          vRib = vec4(base + ue, arc, q.y - land, kind);
+          vFall = vec4(flow, h, X, bad);
+          vEdge = vec4(inner, freeA, freeB, 0.0);
+          vEnds = vec2(ue - ea, 1.0 - eb - ue);
+        }
+        vNormal = n;
+        vec4 wp = modelMatrix * vec4(p, 1.0);
+        vWorld = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec4 vRib;
+      varying vec4 vFall;
+      varying vec4 vEdge;
+      varying vec2 vEnds;
+      varying vec3 vNormal;
+      varying vec3 vWorld;
+      ${COMMON}
+      ${WATER_GLSL}
+      void main() {
+        // the game's layers: a fall above the slice is cut away
+        if (vWorld.y > slice + 0.05) discard;
+        float kind = vRib.w;
+        float along = vRib.x;
+        float flow = vFall.x;
+        float h = vFall.y;
+        float cont = clamp(vFall.w, 0.0, 1.0);
+        float bad = waterDull(cont);
+        float t = time;
+        vec2 g = vec2(vWorld.x, -vWorld.z);
+        vec3 N = normalize(vNormal);
+        vec3 V = normalize(cameraPosition - vWorld);
+        if (dot(N, V) < 0.0) N = -N;
+        float lit = sunLit(g, vWorld.y);
+        vec3 light = skyColor * 1.15 + sunColor * 0.4 * max(dot(N, sunDir), 0.0) * lit;
+        float strength = clamp(sqrt(flow), 0.25, 1.6);
+        float weak = smoothstep(0.05, 0.45, flow);
+        // the patterns fade to their mean where a pixel spans several (no shimmer from afar)
+        float fine = 1.0 - smoothstep(0.06, 0.25, fwidth(along));
+        // how far in from a free end
+        float end = min(mix(9.0, vEnds.x, vEdge.y), mix(9.0, vEnds.y, vEdge.z));
+        // (white water stays bright in the cliff's shadow: it catches the sky)
+        vec3 foamColour = mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.92 + 0.08 * lit);
+        // whitewater where it lands: more for stronger and taller falls
+        float amount = clamp(0.78 + 0.2 * strength + 0.04 * min(h, 6.0), 0.75, 1.0) * (1.0 - 0.3 * bad);
+        vec3 c;
+        float alpha;
+        if (kind > 4.5) {
+          // the crown: whitewater thrown up and out along the impact line, billowing, with spray
+          // rising from it, ragged at its top
+          float swirl = vRib.y;
+          float up = vRib.z;
+          #if LITE
+            float bil = 0.6;
+            float spray = 0.5;
+          #else
+            float b1 = vnoise(vec2(along * 5.0, swirl * 5.0 - t * 1.4 - up * 1.5));
+            float b2 = vnoise(vec2(along * 12.0 + 3.7, swirl * 11.0 - t * 2.6 + up * 3.0));
+            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fine);
+            float spray = mix(0.5, vnoise(vec2(along * 15.0 + 1.3, up * 2.2 - t * 2.4)), fine);
+          #endif
+          float foam = smoothstep(0.1 + 0.4 * up, 0.24 + 0.42 * up, bil);
+          foam = max(foam, (1.0 - smoothstep(0.0, 0.4, up)) * (0.55 + 0.45 * bil));
+          foam = max(foam, smoothstep(0.52, 0.78, spray) * (1.0 - smoothstep(0.35, 1.0, up)) * 0.85) * amount;
+          // (ragged at a free end)
+          foam *= smoothstep(0.0, 0.25, end + 0.15 * (bil - 0.6)) * mix(0.7, 1.0, weak);
+          c = foamColour;
+          alpha = foam * FALL_FOAM;
+        } else if (kind > 3.5) {
+          // the splash: white along the impact line (its edge ragged), churning back to the foot of
+          // the cliff, and broken foam drifting out past it in patches, fading at its edges
+          float d = vRib.y;
+          float X = vEdge.w;
+          float spread = vFall.z;
+          #if LITE
+            float churn = 0.6;
+            float blot = 0.6;
+            float ragged = 0.5;
+          #else
+            float churn = vnoise(vec2(along * 4.0, d * 4.0 - t * 1.3)) * 0.6 + vnoise(vec2(along * 9.0 + 5.0, d * 9.0 - t * 2.1)) * 0.4;
+            churn = mix(0.6, churn, fine);
+            float blot = mix(0.6, vnoise(vec2(along * 1.7 + 4.0, d * 1.9 - t * 0.45)), fine);
+            float ragged = mix(0.5, vnoise(vec2(along * 2.3, 3.7 + t * 0.25)), fine);
+            // a lace of foam between the bubbles, drifting out
+            float lace = cracks(vec2(along * 3.2 + 1.7, d * 3.2 - t * 0.55)).x * fine;
+          #endif
+          #if LITE
+            float lace = 0.0;
+          #endif
+          float cw = (0.4 + 0.35 * strength) * (0.7 + 0.6 * ragged);
+          float core = 1.0 - smoothstep(0.4 * cw, cw, abs(d));
+          float tail = d > 0.0 ? 1.0 - smoothstep(0.1 * spread, spread, d) : 1.0 - 0.35 * smoothstep(0.0, X + 0.05, -d);
+          float blobs = smoothstep(0.4, 0.52, 0.55 * blot + 0.45 * churn) * (0.75 + 0.25 * churn);
+          float broken = pow(tail, 0.7) * max(blobs, lace * 0.85);
+          float foam = (core * (0.8 + 0.2 * churn) + (1.0 - core) * broken) * amount;
+          // (fading at its edges: raggedly past a free end, toward the cliff, and at its outer edge)
+          foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);
+          c = foamColour;
+          alpha = foam * FALL_FOAM;
+        } else {
+          float arc = vRib.y;
+          float above = vRib.z;
+          // the water speeds up as it falls: the streaks stretch and rush down it
+          float phi = 2.0 * (sqrt(arc + 0.3) - ${f(Math.round(Math.sqrt(0.3) * 1e6) / 1e6)});
+          #if LITE
+            float streak = 0.55;
+            float rag = 0.5;
+          #else
+            // long strands, fine across the fall
+            float s1 = vnoise(vec2(along * 9.0, phi * 1.4 - t * 3.4));
+            float s2 = vnoise(vec2(along * 23.0 + 3.1, phi * 2.6 - t * 4.8));
+            float streak = mix(0.55, smoothstep(0.32, 0.7, 0.55 * s1 + 0.45 * s2), fine);
+            float rag = mix(0.5, vnoise(vec2(along * 6.0 + 11.0, t * 0.7)), fine);
+          #endif
+          // white where it breaks over the brink (a ragged band), whiter as it falls, and churning
+          // white at its foot; a thin trickle less so
+          float lip = 1.0 - smoothstep(0.08 + 0.1 * rag, 0.3 + 0.2 * rag + 0.1 * strength, arc);
+          float aerate = smoothstep(0.2, 2.0, arc);
+          float foot = 1.0 - smoothstep(0.05, 0.55 + 0.35 * strength, above);
+          float foam = clamp(streak * (0.35 + 0.5 * aerate) + lip * 0.85 + foot * (0.7 + 0.3 * streak), 0.0, 1.0);
+          foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak);
+          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
+          // thicker where seen edge-on (where it curves over the brink, and at its ends)
+          vec3 body = waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont);
+          vec3 streaks = mix(WATER_FOAM, badwaterShade(BADWATER_STREAK, 0.25), bad);
+          c = mix(body, streaks, streak * 0.35) * light;
+          c = mix(c, foamColour, foam);
+          float edgeOn = 1.0 - max(dot(N, V), 0.0);
+          alpha = mix(FALL_CLEAR, FALL_STREAK, streak);
+          alpha = mix(alpha, BADWATER_FALL, waterMurk(cont));
+          alpha = mix(alpha, FALL_FOAM, foam);
+          alpha = mix(alpha, 1.0, edgeOn * edgeOn * 0.5) * mix(0.6, 1.0, weak);
+          // the inner face, behind the outer; a free end frays
+          alpha *= mix(1.0, FALL_INNER, vEdge.x);
+          alpha *= kind > 0.5 && kind < 2.5 ? 0.8 : mix(0.6, 1.0, smoothstep(0.0, 0.15, end));
+        }
+        // clear water (D196, D212; waterPalette.ts CLEAR_WATER), as the water has it: all of it with
+        // T, else round the brush while it paints a submerged bed. A clean fall turns to a faint
+        // veil (the cliff and the bed show); a badwater fall keeps its colour, half see-through,
+        // with dark diagonal stripes
+        float clr = clearWater;
+        if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        if (clr > 0.001) {
+          float badish = max(bad, smoothstep(0.05, 0.5, cont));
+          float stripe = step(0.55, fract((g.x - g.y + vWorld.y) * 2.5));
+          c = mix(c, mix(c, c * CLEAR_STRIPE, stripe), badish * clr);
+          alpha = mix(alpha, mix(alpha * CLEAR_FALL, min(alpha, CLEAR_BAD_OPACITY), badish), clr);
+        }
+        if (alpha < 0.01) discard;
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }
     `,
@@ -941,6 +1362,8 @@ export function objectMaterial(scene: SceneUniforms, lite = false): ShaderMateri
       varying float vFoot;
       ${COMMON}
       void main() {
+        // the game's layers: what stands above the slice is cut away
+        if (vWorld.y > slice + 0.02) discard;
         vec3 n = normalize(vNormal);
         float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);

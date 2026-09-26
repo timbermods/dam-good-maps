@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quake · Dam Good Maps</title></head>
+<body>
+<header><div><b>Dam Good Maps</b><span>Forces of nature / Quake</span></div><select id="map" aria-label="Map"></select><button id="reset">Reload</button><button id="undo" disabled title="Ctrl+Z">Undo</button><button id="redo" disabled title="Ctrl+Y">Redo</button><a href="/ATTRIBUTION.md" target="_blank" rel="noopener">Credits</a></header>
+<main><canvas id="view" tabindex="0" aria-label="3D map. Press and drag to paint a fault. Left side moves; X flips it. Release to finish. Right drag orbits; middle drag pans; scroll zooms. Escape reverts."></canvas>
+<aside id="tools"><div class="settings"><div class="row"><button id="lift" aria-pressed="true">Lift</button><button id="slide" aria-pressed="false">Slide</button></div>
+<label class="power">Power <output id="power-label">60</output><input id="power" type="range" min="0" max="100" value="60"></label><div class="ends"><span>Gentle</span><span>Great</span></div>
+<label>Scarp <select id="scarp"><option value="sheer">Sheer</option><option value="stepped">Stepped</option></select></label>
+<label>Side <select id="side" aria-label="Moving side"><option value="1">Left of stroke</option><option value="-1">Right of stroke</option></select><small>X</small></label>
+<button id="reroll" disabled>Try another</button><small id="seed-label">A new personality each time</small>
+<details><summary>View &amp; saved quakes</summary><label><input id="follow" type="checkbox"> Follow the rupture</label><label><input id="shake" type="checkbox"> Camera shake</label><label><input id="motion" type="checkbox" checked> Motion effects</label><label><input id="reach" type="checkbox"> Start reach</label><button id="capture-view">Capture view</button><button id="save-run" disabled>Save quake</button><label>Replay <input id="replay-file" type="file" accept=".json"></label></details>
+</div><small>Paint a fault. Release to finish.<br>X flips the side. Esc brings it back.</small></aside>
+<div id="notice" role="status" aria-live="polite">Loading land…</div><div id="checks" role="status"></div>
+<div id="bottom"><span>Drag to tear · X flips the side · right drag to orbit · scroll to zoom</span><button id="top">Top-down</button><button id="home">Reset view</button><output id="fps">— fps</output></div><div id="metrics"></div>
+</main><script type="module" src="/app.ts"></script></body></html>

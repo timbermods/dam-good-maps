@@ -14,6 +14,8 @@
 
 import { buildMap, START_CLEAR_RADIUS, type BuildResult } from "../features/build";
 import { bedAt, pathField, pointAtArc, polygonMask } from "../features/geometry";
+import { edgeStep, landformLevel } from "../features/raster/terrain";
+import { distanceFrom } from "../math/grid";
 import { channelWidth, routeChannel } from "../features/route";
 import { BUILDERS, planSetPiece, type PlanContext, type PlanRecord } from "../features/setpieces";
 import { FLOW_PRESETS, type Facing } from "../features/setpieces/common";
@@ -203,6 +205,21 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
   const lakeMask = exitLake?.kind === "lake" ? polygonMask(exitLake.params.outline, W, H) : null;
   const exitRiver = "river" in exit ? exit.river : null;
   let bedDepth = Math.min(4, Math.max(1, Math.round(req.bedDepth ?? 1)));
+  // the bed of the river it joins, where it joins: its own bed ends there, never below it (its
+  // water flows in, and the other river's never flows back up it)
+  let joinBed = -1;
+  if (exitRiver) {
+    const target = ctx.features.find((f): f is RiverFeature => f.kind === "river" && f.id === exitRiver);
+    const [ex, ey] = pts[pts.length - 1];
+    const rr = (target?.params.width ?? 3) / 2 + 3;
+    let tb = Infinity;
+    for (let y = Math.max(0, Math.floor(ey - rr)); y <= Math.min(H - 1, Math.ceil(ey + rr)); y++)
+      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) {
+        const i = y * W + x;
+        if (target && ctx.channel?.[i] && nearPath(target.params.path, x, y) < target.params.width / 2 + 0.5) tb = Math.min(tb, ctx.heights[i]);
+      }
+    if (tb !== Infinity) joinBed = tb;
+  }
   // the bed: the lowest ground along the channel (its banks included), never rising downstream.
   // The rivers it crosses on the way pour into it where its bed is lower than theirs.
   const profile = (width: number) => {
@@ -231,7 +248,9 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
           if (lakeMask?.[i]) continue;
           if (ctx.heights[i] < g) g = ctx.heights[i];
         }
-      const want = Math.max(0, Math.min(g === Infinity ? bed : g - bedDepth, under));
+      let want = Math.max(0, Math.min(g === Infinity ? bed : g - bedDepth, under));
+      // the last reach meets the river it joins at that river's bed
+      if (joinBed >= 0 && s > length - reach - 3) want = Math.max(want, joinBed);
       if (start < 0) {
         bed = Math.min(bed, want);
         start = bed;
@@ -280,7 +299,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
     const target = ctx.features.find((f): f is RiverFeature => f.kind === "river" && f.id === exitRiver)!;
     let tb = Infinity;
     for (const i of endTiles) if (ctx.channel?.[i] && nearPath(target.params.path, i % W, Math.floor(i / W)) < target.params.width / 2 + 0.5) tb = Math.min(tb, ctx.heights[i]);
-    if (tb !== Infinity && bed < tb) return fail("the river would reach the river it joins below that river's bed, so its water could not flow in: end it farther down that river, or at the map edge");
+    if (tb !== Infinity && bed < tb) return fail("this river would meet the other one below that river's water, so the water would run backwards up it: end it farther downstream, where the other river is lower, or at the map edge");
   }
   if (exitLake?.kind === "lake" && !exitLake.params.planned) {
     const sill = exitLake.params.outlet.sill;
@@ -510,16 +529,66 @@ export function planLandform(req: LandformRequest, ctx: PlanContext, id: string,
     kind: "landform",
     origin,
     locked: false,
-    params: { kind: req.kind, edgeStyle: req.edgeStyle, outline, height, ...(req.edgeStyle !== "cliff" ? { base } : {}), ...(bandDepth ? { bandDepth } : {}) },
+    params: { kind: req.kind, edgeStyle: req.edgeStyle, outline, height, ...(req.edgeStyle !== "cliff" ? { base } : {}), ...(bandDepth ? { bandDepth } : {}), onGround: true },
   };
+  // the level its steps reach inside this outline: a gentle edge climbs 1 level every 3 tiles in
+  // from the outline, so a small outline tops out lower than the height asked for (said, never a
+  // surprise)
+  const reach = landformTop(feature.params, mask, W, H);
+  const spacing = req.edgeStyle === "gentle" ? 3 : (bandDepth ?? 8);
+  // (the planner's own report, for the groundwork and old projects' landforms; the editor never
+  // reaches this planner, tests/unit/boundaries.test.ts)
+  // <!-- retired-terms:allow -->
   const report = [
     req.edgeStyle === "cliff"
       ? `level ${height}, with cliff edges (beavers need stairs to cross them)`
-      : `level ${height}, stepping 1 level every ${req.edgeStyle === "gentle" ? 3 : bandDepth} tiles from level ${base}, joined by slopes`,
+      : reach !== height
+        ? `reaches level ${reach} here, not ${height}: its edge ${lowering ? "sinks" : "climbs"} 1 level every ${spacing} tiles from level ${base}, so level ${height} needs it about ${2 * spacing * Math.abs(height - base) + 1} tiles across`
+        : `level ${height}, stepping 1 level every ${spacing} tiles from level ${base}, joined by slopes`,
   ];
+  // <!-- /retired-terms:allow -->
   const tiles: number[] = [];
   for (let i = 0; i < mask.length; i++) if (mask[i]) tiles.push(i);
   return { ok: true, ops: [{ op: "addFeature", params: { feature } }], feature, report, label: `Add ${req.kind}`, tiles };
+}
+
+/** The level a drawn landform's steps reach inside its outline: its height, unless the outline is
+ *  too small for the steps to climb (or sink) that far. A single tile above all its neighbours is
+ *  levelled by the build (a spike), so the top must hold two tiles or more. With `shown` (the
+ *  heights a build gives with it), what shows of its steps: where another feature keeps its own
+ *  ground (a river's bed) the steps stop there; ground already higher than a step is not the
+ *  landform's. */
+export function landformTop(p: LandformFeature["params"], mask: Uint8Array, W: number, H: number, shown?: Uint8Array): number {
+  const step = edgeStep(p);
+  const height = p.height ?? 0;
+  const lowers = p.base !== undefined ? height < p.base : p.kind === "canyon" || p.kind === "valley";
+  // a step at level v shows as far as the ground there lets it
+  const seen = (i: number, v: number) => (shown ? (lowers ? Math.max(v, shown[i]) : Math.min(v, shown[i])) : v);
+  if (!step || p.base === undefined) {
+    if (!shown) return height;
+    let top = lowers ? 16 : 0;
+    for (let i = 0; i < mask.length; i++) if (mask[i]) top = lowers ? Math.min(top, seen(i, height)) : Math.max(top, seen(i, height));
+    return top;
+  }
+  const outside = new Uint8Array(W * H);
+  for (let i = 0; i < mask.length; i++) outside[i] = mask[i] ? 0 : 1;
+  const inward = distanceFrom(outside, W, H);
+  const level = (i: number) => (mask[i] ? landformLevel(Math.min(16, height), Math.min(16, p.base!), step, inward[i]) : p.base!);
+  let top = lowers ? 16 : 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const v = seen(i, level(i));
+    // what the build keeps of it: not above (below) every neighbour
+    let near = lowers ? 16 : 0;
+    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+      const n = nx >= 0 && ny >= 0 && nx < W && ny < H ? level(ny * W + nx) : p.base!;
+      near = lowers ? Math.min(near, n) : Math.max(near, n);
+    }
+    top = lowers ? Math.min(top, Math.max(v, near)) : Math.max(top, Math.min(v, near));
+  }
+  return top;
 }
 
 // -------------------------------------------------------------------------------- set pieces

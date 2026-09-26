@@ -13,10 +13,11 @@
 // - Documents opened by a newer generator open from their stored base, exactly, until
 //   `rebuildWithCurrentGenerator` (PLAN §19.7).
 
-import { buildMap, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type LockedLayer } from "../features/build";
+import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type LockedLayer } from "../features/build";
+import type { TerrainState } from "../features/raster/strokePreview";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
-import type { WaterModel } from "../sim/water";
+import { sameRetained, type WaterModel } from "../sim/water";
 import { pathField, polygonMask } from "../features/geometry";
 import { entityJson, placementOf, rawEntity } from "../format/entities";
 import { fromBase64, toBase64 } from "../format/base64";
@@ -37,7 +38,7 @@ import type { PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type Profile, type ValidationReport } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
-import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument } from "./document";
+import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type SavedView } from "./document";
 import {
   applyOp,
   invertOp,
@@ -53,6 +54,7 @@ import {
 } from "./ops";
 
 export type SessionMode = "live" | "frozen" | "import";
+export type WaterMode = "canonical" | "preview" | "defer";
 
 interface Generation {
   spec: MapSpec | null;
@@ -115,7 +117,13 @@ export interface RegenerateResult {
   /** Kept features that no longer fit the new terrain (nothing of them could be placed). */
   unfit: { id: string; reason: string }[];
   orphans: DocOrphan[];
+  /** The checks the player's edits fail on the new map, when the generator's own map passes
+   *  them (retrying another layout cannot fix those: the edits are kept as they are). */
+  editProblems: { id: string; message: string }[];
 }
+
+/** More layouts tried after one whose own map passes but the player's edits fail on it. */
+const EDIT_RETRIES = 1;
 
 /** Built maps kept for undo and redo. */
 const SNAPSHOT_EVERY = 8;
@@ -136,8 +144,11 @@ export class MapSession {
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
-   *  canonical settle follows with `settleCanonical` or `canonicalWater` (EDITOR_PLAN §6). */
-  private waterMode: "canonical" | "preview" = "canonical";
+   *  canonical settle follows with `settleCanonical` or `canonicalWater` (EDITOR_PLAN §6).
+   *  "defer" (live editing): edits never wait on the water. The last settled water is carried
+   *  over to the new ground (`waterStale`), the editor settles it in the background from
+   *  `lastSettled` and puts it in place with `adoptWater`. */
+  private waterMode: WaterMode = "canonical";
 
   private constructor(doc: MapDocument, built?: BuildResult) {
     this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
@@ -175,9 +186,27 @@ export class MapSession {
     this.waterMode = on ? "preview" : "canonical";
   }
 
+  /** How edits treat the water (see `waterMode`). */
+  setWaterMode(mode: WaterMode): void {
+    this.waterMode = mode;
+  }
+
   /** Whether the map's water is the preview's, not yet the canonical settle. */
   get waterPending(): boolean {
     return this.cur.settle.preview === true;
+  }
+
+  /** Whether the map shows the last settled water carried over to changed ground: the water has
+   *  not settled on the map as it now stands (the "defer" mode). */
+  get waterStale(): boolean {
+    return this.cur.settle.stale === true;
+  }
+
+  /** The last water that settled, and the water model it settled on (a background settle warm
+   *  starts from it); null when the map has no water to settle. */
+  lastSettled(): { model: WaterModel; water: CanonicalWater } | null {
+    const e = this.cur.cache.settle;
+    return e ? { model: e.model, water: e.water } : null;
   }
 
   /** The canonical settle of the current map's water, in slices (`advance`), for `adoptWater`. */
@@ -207,6 +236,42 @@ export class MapSession {
     let w = run.advance(Infinity);
     while (!w) w = run.advance(Infinity);
     this.adoptWater(run.model, w);
+  }
+
+  /** The editor's camera bookmarks (D205): kept with the document, never an edit (no undo step, no
+   *  rebuild). */
+  get views(): SavedView[] {
+    return this.gen.meta.views ?? [];
+  }
+
+  setViews(views: SavedView[]): void {
+    this.gen = { ...this.gen, meta: { ...this.gen.meta, views: views.length ? views.map((v) => ({ ...v, target: [...v.target] as [number, number, number] })) : undefined } };
+    if (!views.length) delete (this.gen.meta as { views?: SavedView[] }).views;
+  }
+
+  /** The generation the map is built on: the same object until a regeneration, an undo or redo
+   *  across one, or a rebuild with the current generator replaces it. */
+  get generationKey(): object {
+    return this.gen;
+  }
+
+  /** The log of applied operations (read only). */
+  get logOps(): readonly AppliedOp[] {
+    return this.log;
+  }
+
+  /** Follow another session of the same generation (a replica: the editor's checks run on one in
+   *  a worker of their own): its log becomes this one's, and the map is rebuilt incrementally from
+   *  where it stood. The history is not kept; the replica never undoes. */
+  followLog(log: readonly AppliedOp[], nextSeq: number): void {
+    const r = replay(this.gen.baseFeatures, log);
+    this.log = r.log;
+    this.st = r.state;
+    this.seqNext = nextSeq;
+    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    this.redoStack = [];
+    this.snaps.clear();
+    this.cur = this.rebuilt();
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). */
@@ -278,6 +343,23 @@ export class MapSession {
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
     return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
+  }
+
+  /** What the build's last terrain steps start from (the page's copy, for strokes painted there
+   *  to match the build exactly): copies, safe to hand on. */
+  terrainState(): TerrainState {
+    const t = this.cur.cache.terrain;
+    const live = this.mode === "live";
+    const base = live ? null : this.baseStuff().terrain;
+    const locked = live ? (this.keptLayer()?.mask ?? null) : null;
+    return {
+      pre: t.pre7.slice(),
+      protect: t.protect.slice(),
+      channel: t.channel.slice(),
+      base: base ? base.heights.slice() : null,
+      locked: locked ? locked.slice() : null,
+      columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+    };
   }
 
   /** The water the base file stores (every level), for the 3D view. */
@@ -479,6 +561,12 @@ export class MapSession {
     return true;
   }
 
+  /** Forget the steps Redo would bring back (a step taken back that must not return). */
+  forgetRedo(): void {
+    this.redoStack = [];
+    for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
+  }
+
   private pushHistory(e: HistoryEntry): void {
     this.undoStack.push(e);
     this.redoStack = [];
@@ -513,6 +601,7 @@ export class MapSession {
       kept: [],
       unfit: [],
       orphans: this.orphans(),
+      editProblems: [],
     });
     const old = this.gen.spec;
     if (!old) return fail(["an imported map has no settings to change"]);
@@ -534,7 +623,10 @@ export class MapSession {
     const protect = protectMask(W, H, kept, this.st.locks, spec.constraints.keepOut);
     const fits = (op: AppliedOp) => opFitsMap(op, W, H);
     const failures: RegenerateResult["failures"] = [];
-    let best: { spec: MapSpec; planned: Feature[]; state: DocState; log: AppliedOp[]; built: BuildResult; report: ValidationReport; analysis: PlayabilityAnalysis | null; cache: SettleCache } | null = null;
+    type Attempt = { spec: MapSpec; planned: Feature[]; state: DocState; log: AppliedOp[]; built: BuildResult; report: ValidationReport; analysis: PlayabilityAnalysis | null; cache: SettleCache; base?: BuildResult };
+    let best: Attempt | null = null;
+    let editProblems: RegenerateResult["editProblems"] = [];
+    let fallback: (Attempt & { base: BuildResult; attempt: number; problems: RegenerateResult["editProblems"] }) | null = null as (Attempt & { base: BuildResult; attempt: number; problems: RegenerateResult["editProblems"] }) | null;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const specA: MapSpec = { ...spec, accepted: { attempt, candidate: 0 } };
       const cache = new SettleCache();
@@ -554,12 +646,33 @@ export class MapSession {
       const v = validateMap(toTimberFile(specA, built), { profile: "generate", spec: specA, features: r.state.features, water: { model: built.waterModel, settled: built.settle } });
       const report = v.report;
       best = { spec: specA, planned, state: r.state, log: r.log, built, report, analysis: v.analysis, cache };
-      if (report.passed) break;
+      if (report.passed) {
+        editProblems = [];
+        break;
+      }
+      // when the generator's own map passes, the player's edits are what fails (a start moved
+      // off its water, say): a couple more layouts may suit the edits, then that map is kept with
+      // the edits' problems named (retrying every layout took a minute at 256² and never helped)
+      if (this.log.length && !fallback) {
+        const base = buildMap({ W, H, seed: spec.seed, features: planned, locked: keptLayer }, { settleCache: cache });
+        const bv = validateMap(toTimberFile(specA, base), { profile: "generate", spec: specA, features: planned, water: { model: base.waterModel, settled: base.settle } });
+        if (bv.report.passed) fallback = { ...best, base, attempt, problems: report.checks.filter((c) => blocks("generate", c)).map((c) => ({ id: c.id, message: c.message })) };
+      }
       failures.push({ attempt, reason: report.checks.filter((c) => blocks("generate", c)).map((c) => c.id).join(", ") });
+      if (fallback && attempt >= fallback.attempt + EDIT_RETRIES) {
+        best = fallback;
+        editProblems = fallback.problems;
+        failures.length = fallback.attempt;
+        break;
+      }
+    }
+    if (best && !best.report.passed && fallback && best !== fallback) {
+      best = fallback;
+      editProblems = fallback.problems;
     }
     if (!best) return fail(failures.length ? [`no layout fits: ${failures[failures.length - 1].reason}`] : ["no layout fits"], failures);
     // the new generation: the generated features alone, built and stored as the base
-    const baseBuilt = buildMap({ W, H, seed: spec.seed, features: best.planned, locked: keptLayer }, { settleCache: best.cache });
+    const baseBuilt = best.base ?? buildMap({ W, H, seed: spec.seed, features: best.planned, locked: keptLayer }, { settleCache: best.cache });
     const gen: Generation = {
       spec: best.spec,
       generatorVersion: GENERATOR_VERSION,
@@ -592,6 +705,7 @@ export class MapSession {
       kept: kept.map((f) => f.id).filter((id) => this.st.features.some((f) => f.id === id)),
       unfit,
       orphans: this.orphans(),
+      editProblems,
     };
   }
 
@@ -666,6 +780,7 @@ export class MapSession {
       columns: terrain.columns,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
       frozen: frozen ? new Set(this.gen.baseFeatures.map((f) => f.id)) : undefined,
+      water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
     };
     this.baseCache = { key: this.gen.base, frozen, layer, terrain, file };
     return this.baseCache;
@@ -692,6 +807,18 @@ export class MapSession {
 
   private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null): BuildInput {
     return { W, H, seed, features: st.features, base, sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  }
+
+  /** The terrain the map would have with these features instead of its own (a shape tool's live
+   *  result): the heights, and the tiles that can differ from the map's. */
+  previewFeatures(features: readonly Feature[]): { heights: Uint8Array; rect: { x0: number; y0: number; x1: number; y1: number } | null } {
+    return previewTerrain(this.cur, { ...this.input(), features });
+  }
+
+  /** The whole map with these features instead of its own (a water tool's draft): its terrain,
+   *  objects and water model; the document and its caches stay as they are. */
+  previewBuild(features: readonly Feature[]): BuildResult {
+    return previewBuild(this.cur, { ...this.input(), features });
   }
 
   /** A full build of the document, from scratch (the reference for the incremental one). */
@@ -817,6 +944,23 @@ function blankThumbnail(): Uint8Array {
   return blank;
 }
 
+/** The water a file stores on each tile's top (the water standing on the surface, not under a
+ *  roof), as a settle to warm-start from; marked `preview`: it is not a canonical settle. */
+function topWater(singletons: JsonObject, W: number, H: number, heights: Uint8Array): CanonicalWater {
+  const N = W * H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  const w = storedWater(singletons, W, H);
+  for (let k = 0; k < w.tile.length; k++) {
+    const i = w.tile[k];
+    const f = w.floor[k];
+    if (f >= 0 && Math.abs(f - heights[i]) > 0.01) continue;
+    depth[i] = w.depth[k];
+    contamination[i] = w.contamination[k];
+  }
+  return { settled: true, ticks: 0, depth, contamination, sat: new Uint8Array(N), preview: true };
+}
+
 /** Whether two water models are the same map for the water (floors, obstacles and emitters). */
 function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   if (a === b) return true;
@@ -824,7 +968,7 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   for (let i = 0; i < a.floor.length; i++) if (a.floor[i] !== b.floor[i]) return false;
   if (!!a.dam !== !!b.dam) return false;
   if (a.dam && b.dam) for (let i = 0; i < a.dam.length; i++) if (a.dam[i] !== b.dam[i]) return false;
-  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters);
+  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameRetained(a.retained, b.retained);
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -893,6 +1037,9 @@ export function protectMask(W: number, H: number, kept: readonly Feature[], lock
   return m;
 }
 
+/** A stroke's history label, when the page gave none ("Raise, 38 tiles" when it did). */
+const BRUSH_NAMES: Record<string, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
+
 const KIND_NAMES: Record<string, string> = {
   river: "river",
   lake: "lake",
@@ -919,6 +1066,10 @@ export function labelOf(op: AppliedOp): string {
       return "Reorder a feature";
     case "sculpt":
       return op.params.mode === "raise" ? "Raise terrain" : op.params.mode === "lower" ? "Lower terrain" : op.params.mode === "flatten" ? "Flatten terrain" : op.params.mode === "terrace" ? "Terrace terrain" : "Smooth terrain";
+    case "brush":
+      return BRUSH_NAMES[op.params.tool] ?? "Brush";
+    case "carve":
+      return op.params.replaces !== undefined ? "Try another path" : op.params.dry ? "Carve a dry canyon" : "Carve a river";
     case "placeEntity":
       return `Place ${op.params.template}`;
     case "moveEntity":

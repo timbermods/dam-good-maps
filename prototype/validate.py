@@ -1,7 +1,7 @@
 """Validate a .timber map: everything the game needs to load it without dropping objects, plus
 playability rules calibrated on the official maps. A map passes only if every check passes.
 
-    python prototype/validate.py out/*.timber [--difficulty normal] [--json] [--load-only] [--quiet]
+    python prototype/validate.py out/*.timber [--difficulty normal] [--profile export] [--json] [--load-only] [--quiet]
 
 --load-only runs the load and design checks only (file, terrain, placement, slopes, start), as the
 TypeScript generator's M1 acceptance asks (ROADMAP M1); --quiet prints one line per file. The design
@@ -11,6 +11,8 @@ needs the settled water, so it runs with the playability checks.
 A map "<stem>.timber" with a project file "<stem>.damgoodmaps.json" beside it (the website's
 download, gzip JSON) is checked with its spec's thresholds and its planned lakes, as the website's
 `generate` profile does; any other map with the defaults for --difficulty, as an import.
+--profile export checks a map as the editor's export does: sources go anywhere (D184), so
+water.source_in_flow does not apply.
 A check that does not apply to the map is reported as passing with "na"; the one advisory check
 (plants.drought) never fails the map.
 
@@ -399,7 +401,7 @@ def load_project(path):
     return doc.get("spec"), doc.get("features")
 
 
-def validate(path, difficulty="normal", water=None, load_only=False) -> Report:
+def validate(path, difficulty="normal", water=None, load_only=False, profile=None) -> Report:
     import zipfile
     rep = Report(path)
     with zipfile.ZipFile(path) as z:
@@ -419,7 +421,7 @@ def validate(path, difficulty="normal", water=None, load_only=False) -> Report:
     if load_only:
         return rep
     from playability import check_playability
-    check_playability(m, rep, fps, difficulty, spec, features, water)
+    check_playability(m, rep, fps, difficulty, spec, features, water, profile)
     return rep
 
 
@@ -443,10 +445,14 @@ def main():
     if "--difficulty" in sys.argv:
         difficulty = sys.argv[sys.argv.index("--difficulty") + 1]
         args = [a for a in args if a != difficulty]
+    profile = None
+    if "--profile" in sys.argv:
+        profile = sys.argv[sys.argv.index("--profile") + 1]
+        args = [a for a in args if a != profile]
     all_ok = True
     load_only = "--load-only" in sys.argv
     for path in args:
-        rep = validate(path, difficulty, load_only=load_only)
+        rep = validate(path, difficulty, load_only=load_only, profile=profile)
         all_ok &= rep.passed
         if "--quiet" in sys.argv:
             bad = [c.id for c in rep.failures()]

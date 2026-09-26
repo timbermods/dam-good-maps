@@ -15,6 +15,8 @@ pull request.
 | [ROADMAP.md](../ROADMAP.md) | The steps, in order, with what each delivers and what blocks it. |
 | [CLAUDE.md](../CLAUDE.md) | The standing rules for working in this repository. |
 | [STATUS.md](STATUS.md) | Where things stand now: what's done, running, and waiting on Kyler. |
+| [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: work in flight, the order of work, how things are run here. Read it first when starting a new session. |
+| [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. |
 
 ## History
 

@@ -1,0 +1,201 @@
+[
+ {
+  "n": 1,
+  "name": "Mesa Field",
+  "file": "Mesa Field (River Valley 36).timber",
+  "theme": "riverValley",
+  "seed": 36,
+  "vt": 17,
+  "vtSetting": null,
+  "sha256": "03a214b29ea058bf55de79756c31aaa2cbac36d5e92c3391b5b813dbda7c0ba1",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 3,
+  "intentions": [
+   {
+    "id": "under-cliff",
+    "ok": true
+   }
+  ],
+  "maxHeight": 15
+ },
+ {
+  "n": 2,
+  "name": "Berry Bend",
+  "file": "Berry Bend (Delta 39).timber",
+  "theme": "delta",
+  "seed": 39,
+  "vt": 10,
+  "vtSetting": null,
+  "sha256": "919b0c4f70783c19e3a3da5e30a485946a0964bf3bb27df56349c8b050f79e69",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 2,
+  "intentions": [
+   {
+    "id": "snaking-river",
+    "ok": true
+   }
+  ],
+  "maxHeight": 12
+ },
+ {
+  "n": 3,
+  "name": "Moat Isle",
+  "file": "Moat Isle (Lake Basin 44).timber",
+  "theme": "lakeBasin",
+  "seed": 44,
+  "vt": 13,
+  "vtSetting": null,
+  "sha256": "22d5fc6646a3a38edafa8e4c63f0a756ae655b3bd613afdd276b58cf59c41074",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 1,
+  "intentions": [
+   {
+    "id": "crater-rivers",
+    "ok": true
+   }
+  ],
+  "maxHeight": 14
+ },
+ {
+  "n": 4,
+  "name": "Badwater Cone",
+  "file": "Badwater Cone (Canyon 38).timber",
+  "theme": "canyon",
+  "seed": 38,
+  "vt": 41,
+  "vtSetting": null,
+  "sha256": "208c15c98ccd0585a8d1e77a73877376dd4a29f80f478c00d30083a5863e0d6e",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 1,
+  "intentions": [
+   {
+    "id": "cliff-falls-lake",
+    "ok": true
+   }
+  ],
+  "maxHeight": 16
+ },
+ {
+  "n": 5,
+  "name": "Mesa Crown",
+  "file": "Mesa Crown (Highlands 37).timber",
+  "theme": "highlands",
+  "seed": 37,
+  "vt": 44,
+  "vtSetting": null,
+  "sha256": "d00c87a9cb3e816601840de5599c029f4ecdf668bc7ee206110767ff3ed547f5",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 1,
+  "intentions": [
+   {
+    "id": "landmark",
+    "ok": true
+   },
+   {
+    "id": "long-view",
+    "ok": true
+   }
+  ],
+  "maxHeight": 15
+ },
+ {
+  "n": 6,
+  "name": "Paired Falls",
+  "file": "Paired Falls (Islands 8).timber",
+  "theme": "islands",
+  "seed": 8,
+  "vt": 17,
+  "vtSetting": null,
+  "sha256": "df9e99f810ae646096dbe934a59ec78f7e03a55d19a18504a44286e40f2da792",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 4,
+  "intentions": [
+   {
+    "id": "high-lake",
+    "ok": true
+   }
+  ],
+  "maxHeight": 15
+ },
+ {
+  "n": 7,
+  "name": "Lake Steps",
+  "file": "Lake Steps (River Valley 15, Verticality 85).timber",
+  "theme": "riverValley",
+  "seed": 15,
+  "vt": 83,
+  "vtSetting": 85,
+  "sha256": "48af24f61bbd592be06e1495bec5c242b461dc393219a6be1b6a6b2fe4f50550",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 2,
+  "intentions": [
+   {
+    "id": "hidden-valley",
+    "ok": true
+   }
+  ],
+  "maxHeight": 15
+ },
+ {
+  "n": 8,
+  "name": "Highland Stair",
+  "file": "Highland Stair (Lake Basin 39, Verticality 85).timber",
+  "theme": "lakeBasin",
+  "seed": 39,
+  "vt": 85,
+  "vtSetting": 85,
+  "sha256": "930d3f083f3e96a1a949347fbbe8c9b55e23ddd79ffe4ad4686d38df3dc032b9",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 1,
+  "intentions": [
+   {
+    "id": "falls-shield",
+    "ok": true
+   }
+  ],
+  "maxHeight": 15
+ },
+ {
+  "n": 9,
+  "name": "Beaver Cascade",
+  "file": "Beaver Cascade (Highlands 9, Verticality 85).timber",
+  "theme": "highlands",
+  "seed": 9,
+  "vt": 85,
+  "vtSetting": 85,
+  "sha256": "28013bf945c98abd24fb5ca3f631204b0e246a28894cf9461c532b80b189fb6b",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 2,
+  "intentions": [
+   {
+    "id": "meeting-waters",
+    "ok": true
+   }
+  ],
+  "maxHeight": 16
+ },
+ {
+  "n": 10,
+  "name": "Boughs Cascade",
+  "file": "Boughs Cascade (Lake Basin 51).timber",
+  "theme": "lakeBasin",
+  "seed": 51,
+  "vt": 9,
+  "vtSetting": null,
+  "sha256": "d71e96854cdd7e8e27ba41763b58b16d5e9d128312ac2e0036a4c823eb431fd5",
+  "sameAsBatch": true,
+  "passed": true,
+  "attempts": 1,
+  "intentions": [],
+  "maxHeight": 15
+ }
+]

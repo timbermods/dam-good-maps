@@ -27,6 +27,9 @@ export interface Part {
   extra: number;
   /** Softness of its edge in tiles (cliffs are sharp). */
   soft: number;
+  /** Basins only (design version 2): a round bowl (a pond, a crater-like lake), a valley-shaped
+   *  lake (the default for large basins), or an island sea. */
+  shape?: "round" | "valley" | "sea";
 }
 
 export interface Genome {

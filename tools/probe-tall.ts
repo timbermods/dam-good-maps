@@ -375,7 +375,7 @@ function canyonSummit(): TallMap {
 
 /** Near Yosemite Valley (the Real places data), its relief stretched from 16 to 22 levels. */
 function yosemiteStretched(): TallMap {
-  const path = join("public", "real-places", "data", "near-yosemite-valley.json.gz");
+  const path = join("public", "real-places", "data", "yosemite-valley.json.gz");
   const p = decodePlaceFile(new Uint8Array(readFileSync(path)));
   const h = decodeHeights(p.heights);
   let max = 0;

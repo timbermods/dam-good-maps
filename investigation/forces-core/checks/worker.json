@@ -1,0 +1,22 @@
+{
+  "passed": [
+    "Single real worker: progressive meshes, exact settled water and one result operation",
+    "Esc during preparation/chunks and idle-active undo preserve the preceding history entry",
+    "Cancellation interrupts canonical water without committing or losing earlier forces",
+    "Cancelled Try another consumes its seed, and alternatives remain exactly undoable",
+    "Coalesced painted Slide + X + release emits full 20-tile glides and one exact undo",
+    "Saved mixed state opens across map sizes; malformed replay is atomic",
+    "Esc crossing the completion message reverts only its matching event",
+    "256² worker shows progressive chunks and cancels back to every original byte"
+  ],
+  "timings": [
+    {
+      "case": "256² first acknowledged frame",
+      "ms": 385.77710000000116
+    },
+    {
+      "case": "256² cancellation including restored meshes",
+      "ms": 283.2561000000005
+    }
+  ]
+}

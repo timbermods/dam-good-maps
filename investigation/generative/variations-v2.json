@@ -1,0 +1,222 @@
+{
+ "families": 30,
+ "siblingsEach": 4,
+ "pairs": 300,
+ "clonePairs": 0,
+ "minPair": 0.273,
+ "medianPair": 0.568,
+ "medianToOriginal": 0.58,
+ "sameIntentions": "120/120",
+ "rows": [
+  {
+   "theme": "riverValley",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.413,
+   "medianPair": 0.614
+  },
+  {
+   "theme": "riverValley",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.458,
+   "medianPair": 0.6
+  },
+  {
+   "theme": "riverValley",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.502,
+   "medianPair": 0.648
+  },
+  {
+   "theme": "riverValley",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.45,
+   "medianPair": 0.55
+  },
+  {
+   "theme": "riverValley",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.397,
+   "medianPair": 0.507
+  },
+  {
+   "theme": "canyon",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.432,
+   "medianPair": 0.553
+  },
+  {
+   "theme": "canyon",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.409,
+   "medianPair": 0.518
+  },
+  {
+   "theme": "canyon",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.398,
+   "medianPair": 0.523
+  },
+  {
+   "theme": "canyon",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.445,
+   "medianPair": 0.538
+  },
+  {
+   "theme": "canyon",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.49,
+   "medianPair": 0.606
+  },
+  {
+   "theme": "highlands",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.42,
+   "medianPair": 0.684
+  },
+  {
+   "theme": "highlands",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.484,
+   "medianPair": 0.611
+  },
+  {
+   "theme": "highlands",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.412,
+   "medianPair": 0.555
+  },
+  {
+   "theme": "highlands",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.335,
+   "medianPair": 0.554
+  },
+  {
+   "theme": "highlands",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.335,
+   "medianPair": 0.545
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.482,
+   "medianPair": 0.554
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.462,
+   "medianPair": 0.548
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.555,
+   "medianPair": 0.663
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.519,
+   "medianPair": 0.759
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.488,
+   "medianPair": 0.517
+  },
+  {
+   "theme": "delta",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.446,
+   "medianPair": 0.575
+  },
+  {
+   "theme": "delta",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.459,
+   "medianPair": 0.646
+  },
+  {
+   "theme": "delta",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.476,
+   "medianPair": 0.536
+  },
+  {
+   "theme": "delta",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.559,
+   "medianPair": 0.691
+  },
+  {
+   "theme": "delta",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.495,
+   "medianPair": 0.665
+  },
+  {
+   "theme": "islands",
+   "seed": 1,
+   "maps": 5,
+   "minPair": 0.292,
+   "medianPair": 0.504
+  },
+  {
+   "theme": "islands",
+   "seed": 2,
+   "maps": 5,
+   "minPair": 0.306,
+   "medianPair": 0.57
+  },
+  {
+   "theme": "islands",
+   "seed": 3,
+   "maps": 5,
+   "minPair": 0.319,
+   "medianPair": 0.583
+  },
+  {
+   "theme": "islands",
+   "seed": 4,
+   "maps": 5,
+   "minPair": 0.372,
+   "medianPair": 0.613
+  },
+  {
+   "theme": "islands",
+   "seed": 5,
+   "maps": 5,
+   "minPair": 0.273,
+   "medianPair": 0.465
+  }
+ ]
+}

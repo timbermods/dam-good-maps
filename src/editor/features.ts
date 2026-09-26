@@ -236,9 +236,15 @@ export class FeatureIndex {
     return out;
   }
 
-  /** The features under a tile, most specific first: the start, set pieces, resource areas,
-   *  rivers, lakes and landforms. */
+  /** The features under a tile a click picks, most specific first: the start, map objects, set
+   *  pieces and resource areas (never water or the generator's ground, D196). */
   candidatesAt(x: number, y: number): Feature[] {
+    return this.allAt(x, y).filter(selectable);
+  }
+
+  /** Every feature under a tile, most specific first: the start, set pieces, resource areas,
+   *  rivers, lakes and landforms. */
+  allAt(x: number, y: number): Feature[] {
     const { W, H } = this;
     if (x < 0 || y < 0 || x >= W || y >= H) return [];
     const i = y * W + x;
@@ -274,6 +280,18 @@ export interface TileContext {
   index: FeatureIndex | null;
   /** The soil the 3D view colours the ground by: the hover says which it is (Map look, D86). */
   soil?: SoilView;
+  /** The editor: water and the generator's ground are never objects (D196), so the readout never
+   *  names a river, a lake or a landform, and over water says its depth, its bed and its badwater. */
+  editor?: boolean;
+}
+
+/** Whether a feature is something the player picks on the map. Water is never an object (D196),
+ *  and what the generator made is its plan, never an editing object (D182, D184): it is shaped
+ *  through sources and land, and never selected, moved or resized. The start is the one exception:
+ *  every map has one, and the player moves it. */
+export function selectable(f: Feature): boolean {
+  if (f.kind === "river" || f.kind === "lake" || f.kind === "landform") return false;
+  return f.kind === "start" || f.origin !== "generated";
 }
 
 export function entitiesByTile(v: EntityView, W: number): Map<number, number[]> {
@@ -328,13 +346,26 @@ export function describeTile(c: TileContext, x: number, y: number): string {
   const area = idx && idx.area[i] >= 0 ? idx.features[idx.area[i]] : null;
   const start = idx?.features.find((f) => f.kind === "start" && idx.tilesOf(f).includes(i));
   if (start) parts.push("Start");
-  if (river) parts.push(featureName(river));
-  else if (terrain) parts.push(featureName(terrain));
-  parts.push(`height ${c.heights[i]}`);
   const d = c.water.depth[i];
   const wet = c.water.surface[i] === c.water.surface[i] && d > 0.001;
-  if (wet) parts.push(`${c.water.contamination[i] >= 0.05 ? "badwater" : "water"} ${d < 0.1 ? d.toFixed(2) : d.toFixed(1)} deep`);
-  else if (c.soil) parts.push(c.soil.contamination[i] > 0 ? "contaminated soil" : c.soil.moisture[i] > 0 ? "moist soil" : "dry soil");
+  const deep = d < 0.1 ? d.toFixed(2) : d.toFixed(1);
+  if (c.editor) {
+    // the editor: water, not a river; its depth, its bed, and how much of it is bad
+    if (wet) {
+      const cont = c.water.contamination[i];
+      parts.push(`${cont >= 0.95 ? "badwater" : "water"} ${deep} deep`, `bed level ${c.heights[i]}`);
+      if (cont > 0.05 && cont < 0.95) parts.push(`${Math.round(cont * 100)}% badwater`);
+    } else {
+      parts.push(`height ${c.heights[i]}`);
+      if (c.soil) parts.push(c.soil.contamination[i] > 0 ? "contaminated soil" : c.soil.moisture[i] > 0 ? "moist soil" : "dry soil");
+    }
+  } else {
+    if (river) parts.push(featureName(river));
+    else if (terrain) parts.push(featureName(terrain));
+    parts.push(`height ${c.heights[i]}`);
+    if (wet) parts.push(`${c.water.contamination[i] >= 0.05 ? "badwater" : "water"} ${deep} deep`);
+    else if (c.soil) parts.push(c.soil.contamination[i] > 0 ? "contaminated soil" : c.soil.moisture[i] > 0 ? "moist soil" : "dry soil");
+  }
   if (area) parts.push(featureName(area).toLowerCase());
   const here = c.entitiesAt.get(i);
   if (here?.length) {
@@ -358,7 +389,7 @@ export function moveBlocked(f: Feature): string | null {
     case "mapObject":
       return null;
     case "landform":
-      return f.params.outline ? null : "This follows its river: move the river instead.";
+      return "The generator's ground: shape it with the brushes.";
     case "lake":
       return f.params.river ? "This belongs to its river's dam site: it moves with the river." : null;
     default:
@@ -576,6 +607,26 @@ function startLinks(c: TileContext, h: Uint8Array, x: number, y: number, door: [
   return links;
 }
 
+/** Why the district center cannot stand at (x, y) with its door at `door` (null: it can): the quick
+ *  part of `checkStartAt`, without the walks. */
+export function startProblemAt(c: TileContext, x: number, y: number, door: [number, number], bench: { level: number } | null, self: string | null): string | null {
+  const { W, H } = c;
+  const tiles: number[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
+  const z = bench ? bench.level : c.heights[y * W + x];
+  for (const i of [...tiles, door[1] * W + door[0]]) {
+    const tx = i % W;
+    const ty = Math.floor(i / W);
+    if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2 || i < 0) return "too close to the map edge";
+    if (c.index && c.index.river[i] >= 0) return "in a river";
+    if (c.water.depth[i] > 0.05) return "under water";
+    if (!bench && c.heights[i] !== z) return "not on level ground";
+    const here = c.entitiesAt.get(i);
+    if (here?.some((k) => c.entities.owners[c.entities.owner[k]] !== self && !PLACED_AFTER_SLOPES.test(c.entities.templates[c.entities.template[k]]))) return "on an object";
+  }
+  return null;
+}
+
 /** The start's footprint and the three start requirements at (x, y), from what the page shows
  *  (EDITOR_PLAN §4: the footprint preview, green or red, and simple indicators). `bench` is the
  *  bench a start that levels its ground (a generated map) would make there, or null for an
@@ -597,33 +648,7 @@ export function checkStartAt(
   const tiles: number[] = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
   const doorI = door[1] * W + door[0];
-  let problem: string | null = null;
-  const z = bench ? bench.level : c.heights[y * W + x];
-  for (const i of [...tiles, doorI]) {
-    const tx = i % W;
-    const ty = Math.floor(i / W);
-    if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2 || i < 0) {
-      problem = "too close to the map edge";
-      break;
-    }
-    if (c.index && c.index.river[i] >= 0) {
-      problem = "in a river";
-      break;
-    }
-    if (c.water.depth[i] > 0.05) {
-      problem = "under water";
-      break;
-    }
-    if (!bench && c.heights[i] !== z) {
-      problem = "not on level ground";
-      break;
-    }
-    const here = c.entitiesAt.get(i);
-    if (here?.some((k) => c.entities.owners[c.entities.owner[k]] !== self && !PLACED_AFTER_SLOPES.test(c.entities.templates[c.entities.template[k]]))) {
-      problem = "on an object";
-      break;
-    }
-  }
+  const problem = startProblemAt(c, x, y, door, bench, self);
   const N = W * H;
   // the ground as it would be: a generated start's bench levels its disc (and, in a project saved
   // before the water rule changed, its strip to the bank)
@@ -712,4 +737,114 @@ export function riverAt(index: FeatureIndex, x: number, y: number): { id: string
   if (f.kind !== "river") return null;
   const field = index.riverField(f);
   return { id: f.id, at: Math.round(field.s[y * W + x] * 100) / 100 };
+}
+
+// ------------------------------------------------------------------------------------ sources
+
+/** Sources side by side (a river's mouth on the map's edge, a cluster at its head) are one marker. */
+export interface SourceGroup {
+  /** Entity indices in the view. */
+  members: number[];
+  /** The middle tile of each source. */
+  tiles: number[];
+  /** Where the marker stands: the group's middle, and the ground's level there. */
+  x: number;
+  y: number;
+  z: number;
+  strength: number;
+  bad: boolean;
+}
+
+/** A source's middle tile (a badwater source is 3 × 3, turned with it). */
+export function sourceMiddle(v: EntityView, k: number, W: number): number {
+  let x = v.x[k];
+  let y = v.y[k];
+  if (v.templates[v.template[k]] === "BadwaterSource") {
+    const o = v.orientation[k];
+    x += o === 0 || o === 1 ? 1 : -1;
+    y += o === 0 || o === 3 ? 1 : -1;
+  }
+  return y * W + x;
+}
+
+/** The map's sources, as markers: those within two tiles of each other in one group. */
+export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): SourceGroup[] {
+  const list: number[] = [];
+  for (let k = 0; k < v.count; k++) {
+    const t = v.templates[v.template[k]];
+    if (t === "WaterSource" || t === "BadwaterSource") list.push(k);
+  }
+  const mid = list.map((k) => sourceMiddle(v, k, W));
+  const group = new Int32Array(list.length).fill(-1);
+  const out: SourceGroup[] = [];
+  for (let a = 0; a < list.length; a++) {
+    if (group[a] >= 0) continue;
+    const g = out.length;
+    const members: number[] = [];
+    const stack = [a];
+    group[a] = g;
+    while (stack.length) {
+      const b = stack.pop()!;
+      members.push(b);
+      const bx = mid[b] % W;
+      const by = Math.floor(mid[b] / W);
+      for (let c = 0; c < list.length; c++) {
+        if (group[c] >= 0) continue;
+        if (Math.abs((mid[c] % W) - bx) <= 2 && Math.abs(Math.floor(mid[c] / W) - by) <= 2) {
+          group[c] = g;
+          stack.push(c);
+        }
+      }
+    }
+    let sx = 0;
+    let sy = 0;
+    let strength = 0;
+    let bad = false;
+    for (const m of members) {
+      sx += mid[m] % W;
+      sy += Math.floor(mid[m] / W);
+      strength += v.strength[list[m]];
+      if (v.templates[v.template[list[m]]] === "BadwaterSource") bad = true;
+    }
+    const x = sx / members.length;
+    const y = sy / members.length;
+    const i = Math.round(y) * W + Math.round(x);
+    out.push({ members: members.map((m) => list[m]), tiles: members.map((m) => mid[m]), x, y, z: heights[i] ?? 0, strength: Math.round(strength * 100) / 100, bad });
+  }
+  return out;
+}
+
+/** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over
+ *  tiles whose surface is no lower than the one before (a river's upper reach, a whole pool, never
+ *  a tributary that joins below). Null when the tile is dry. */
+export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[], W: number, H: number, x: number, y: number, limit = 40000): number[] | null {
+  const start = y * W + x;
+  const wet = (i: number) => water.depth[i] > 0.02 && water.surface[i] === water.surface[i];
+  if (!wet(start)) return null;
+  const byTile = new Map<number, number>();
+  groups.forEach((g, k) => g.tiles.forEach((t) => byTile.set(t, k)));
+  const seen = new Uint8Array(W * H);
+  const found = new Set<number>();
+  const queue = [start];
+  seen[start] = 1;
+  for (let q = 0; q < queue.length && q < limit; q++) {
+    const i = queue[q];
+    const g = byTile.get(i);
+    if (g !== undefined) found.add(g);
+    const cx = i % W;
+    const s0 = water.surface[i];
+    for (const j of [i - 1, i + 1, i - W, i + W]) {
+      if (j < 0 || j >= W * H || seen[j] || (j === i - 1 && cx === 0) || (j === i + 1 && cx === W - 1)) continue;
+      // a source on dry ground beside the water (its own water gone in a moment) still counts
+      const gj = byTile.get(j);
+      if (gj !== undefined && !wet(j)) {
+        found.add(gj);
+        continue;
+      }
+      if (!wet(j) || water.surface[j] < s0 - 0.02) continue;
+      seen[j] = 1;
+      queue.push(j);
+    }
+  }
+  return [...found].sort((a, b) => a - b);
 }

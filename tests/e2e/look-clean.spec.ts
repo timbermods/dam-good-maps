@@ -1,7 +1,7 @@
 // Kyler's clean look in the page: the 3D view opens clean, with **Markers** off; the button turns
 // on the information layer (slope arrows, dam sites, level lines, far-off objects drawn larger)
-// and the choice lasts; in the editor, the Dam site tool shows the dam sites with the markers
-// while it is out, and puts them away after.
+// and the choice lasts; in the editor, the Dam sites view button shows the dam sites with the
+// markers, and the shelf's Slope shows them while it is out; each puts them away after.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -47,25 +47,30 @@ test("the 3D view is clean until Markers turns the information layer on", async 
   await page.getByRole("button", { name: "Markers", exact: true }).click();
   expect((await state(page)).markers).toBe(false);
 
-  // the Dam site tool shows the dam sites, with the markers, while it is out
-  await page.getByRole("tab", { name: "Water" }).click();
-  const damTool = page.locator(".tools").getByRole("button", { name: "Dam site", exact: true });
-  await damTool.click();
-  await expect(page.getByLabel("Show dam sites")).toBeChecked();
-  await expect(page.getByRole("button", { name: "Markers", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // the Dam sites view button shows the dam sites, with the markers; off again, the clean view
+  const markers = page.getByRole("button", { name: "Markers", exact: true });
+  const dams = page.getByRole("group", { name: "View" }).getByRole("button", { name: "Dam sites", exact: true });
+  await dams.click();
+  await expect(dams).toHaveAttribute("aria-pressed", "true");
+  await expect(markers).toHaveAttribute("aria-pressed", "true");
   expect((await state(page)).markers).toBe(true);
-  // put away: back to the clean view
-  await damTool.click();
-  await expect(page.getByLabel("Show dam sites")).not.toBeChecked();
-  await expect(page.getByRole("button", { name: "Markers", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await dams.click();
+  await expect(dams).toHaveAttribute("aria-pressed", "false");
+  await expect(markers).toHaveAttribute("aria-pressed", "false");
   expect((await state(page)).markers).toBe(false);
+  // the shelf's Slope shows the markers (the slopes' arrows) while it is out
+  const slope = page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Slope", exact: true });
+  await slope.click();
+  await expect(markers).toHaveAttribute("aria-pressed", "true");
+  await slope.click();
+  await expect(markers).toHaveAttribute("aria-pressed", "false");
 
-  // the player's own dam-site layer turns the markers on too, and keeps them on with the tool
-  await page.getByLabel("Show dam sites").check();
-  await expect(page.getByRole("button", { name: "Markers", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await damTool.click();
-  await damTool.click();
-  await expect(page.getByLabel("Show dam sites")).toBeChecked();
+  // the dam sites on, the markers stay on when Slope is put away
+  await dams.click();
+  await expect(markers).toHaveAttribute("aria-pressed", "true");
+  await slope.click();
+  await slope.click();
+  await expect(dams).toHaveAttribute("aria-pressed", "true");
   expect((await state(page)).markers).toBe(true);
   expect(errors).toEqual([]);
 });

@@ -45,13 +45,16 @@ test("the map card lists the start requirements, and the editor's start follows 
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("tab", { name: "Start" }).click();
-  await page.locator(".feature-list").getByRole("button", { name: "Start", exact: true }).click();
-  const handle = page.getByRole("button", { name: /^Move Start/ });
-  await handle.focus();
-  // a nudge there and back: the indicators read the start's own place, which the validator passed
-  await page.keyboard.press("ArrowLeft");
-  await page.keyboard.press("ArrowRight");
+  // the start dragged on the map, a tile over and back: the indicators read the start's own place,
+  // which the validator passed
+  const start = (await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
+  const at = (x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
+  const s0 = await at(start.position[0], start.position[1]);
+  const s1 = await at(start.position[0] - 1, start.position[1]);
+  await page.mouse.move(s0.x, s0.y);
+  await page.mouse.down();
+  await page.mouse.move(s1.x, s1.y, { steps: 3 });
+  await page.mouse.move(s0.x, s0.y, { steps: 3 });
   const box = page.locator(".start-indicators");
   await expect(box).toContainText(/Water without stairs: [\d.]+ tiles' walk \(at most 20\)/);
   await expect(box).toContainText(new RegExp(`Starting wood: \\d+ logs${WOOD_WORDS} \\(at least 75\\)`));
@@ -69,17 +72,21 @@ test("the map card lists the start requirements, and the editor's start follows 
 
   // walked away from the river, the water is too far, or the wood and bushes fall short: the
   // footprint turns red and says which requirement it misses
-  const start = (await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
   const water = c["start.water"].where!.tiles![0];
-  const away = water[1] > start.position[1] ? "ArrowDown" : "ArrowUp";
+  const away = water[1] > start.position[1] ? -1 : 1;
   let far = near;
-  for (let k = 0; k < 40 && far!.meets; k++) {
-    await page.keyboard.press(away);
+  for (let k = 1; k <= 40 && far!.meets; k++) {
+    const p = await at(start.position[0], start.position[1] + away * k);
+    await page.mouse.move(p.x, p.y);
     far = await page.evaluate(() => window.dgmEditor!.startCheck());
   }
   expect(far!.meets).toBe(false);
   await expect(box.getByRole("paragraph").first()).toHaveText(/Fits, but misses a start requirement|Does not fit/);
   await expect(box.locator("li.low").first()).toBeVisible();
+  // Esc puts it back where it stood
   await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(box).toHaveCount(0);
+  expect(((await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(start.position);
   expect(errors).toEqual([]);
 });

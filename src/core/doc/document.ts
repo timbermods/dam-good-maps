@@ -39,6 +39,18 @@ export interface DocMeta {
   /** Set by the app when it saves (ISO 8601); never part of a build. */
   created?: string;
   modified?: string;
+  /** The editor's camera bookmarks (D205): a view per slot 1–9; never part of a build. */
+  views?: SavedView[];
+}
+
+/** A camera bookmark: where the editor's view was, in the renderer's terms. */
+export interface SavedView {
+  slot: number;
+  mode: "orbit" | "top";
+  yaw: number;
+  pitch: number;
+  distance: number;
+  target: [number, number, number];
 }
 
 /** What a regeneration kept of the previous generation under locks (EDITOR_PLAN §3). */

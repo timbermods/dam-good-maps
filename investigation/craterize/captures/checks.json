@@ -1,0 +1,83 @@
+{
+  "passed": [
+    "Same seed is byte identical; input stays untouched",
+    "Row slicing does not change the result",
+    "Every setting combination remains whole levels 0–22",
+    "Auto centre follows diameter; manual size decouples depth",
+    "Start rejects the strike and protects footprint plus entrance from nearby impacts",
+    "Map edges clip a partial crater without wrapping",
+    "Changing personality changes the rim while geology stays fixed",
+    "Bowl, peak, ring and flat have distinct interiors",
+    "Heavy ejecta raises a broader area several levels high",
+    "Aim elongates the crater and biases ejecta downrange",
+    "Steep walls form cliffs; Terraced walls have broad benches",
+    "Rays leave broken, broad, curved streaks and scattered secondary pits",
+    "Ordinary rays fade before map edges; huge impacts may reach them",
+    "Heavy rays make a raised starburst and pit chains; Light rays stay subtle",
+    "Blast erases central trees and flattens dead trees radially",
+    "Newer impacts overprint old rims; they are not constrained to a minimum height",
+    "Exact JSON result replays, undoes and redoes terrain, trees and water",
+    "No source and no water are introduced on dry land",
+    "Heavy debris dams an existing river; upstream water rises from unchanged sources",
+    "Existing isolated water is conserved apart from simulation drainage/evaporation"
+  ],
+  "river": {
+    "sillBefore": 5,
+    "sillAfter": 9,
+    "upstreamBefore": 0.25547056675052177,
+    "upstreamAfter": 2.4776115779145904,
+    "newlyFloodedUpstream": 777,
+    "settled": true,
+    "ticks": 2176
+  },
+  "rays": {
+    "heavy": {
+      "raised": 3173,
+      "volume": 4650,
+      "multiLevel": 1434,
+      "pits": 595,
+      "outerRaised": 1357,
+      "sectors": [
+        259,
+        365,
+        287,
+        286,
+        420,
+        239,
+        428,
+        256,
+        270,
+        363
+      ]
+    },
+    "light": {
+      "raised": 475,
+      "volume": 475,
+      "multiLevel": 0,
+      "pits": 137,
+      "outerRaised": 60,
+      "sectors": [
+        38,
+        58,
+        40,
+        39,
+        68,
+        23,
+        69,
+        35,
+        41,
+        64
+      ]
+    }
+  },
+  "model256Ms": [
+    51.39960000000019,
+    47.14429999999993,
+    42.59180000000015,
+    35.50469999999996,
+    35.716499999999996,
+    37.645100000000184,
+    35.84130000000005,
+    37.885099999999966
+  ]
+}

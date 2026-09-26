@@ -1,0 +1,11 @@
+{
+  "passed": [
+    "Actual worker sends transferable morph meshes during rise",
+    "Final water exactly equals canonical repository settle",
+    "One undo/redo restores terrain, water, entities, fallen trees and lava",
+    "Try another replaces from the original base and is exactly undoable",
+    "Cancel works during planning, mesh construction and canonical water",
+    "Portable JSON replay preserves exact history across map sizes"
+  ],
+  "operationBytes": 777419
+}

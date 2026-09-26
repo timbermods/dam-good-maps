@@ -1,0 +1,51 @@
+{
+  "passed": [
+    "Power 100: held terrain glide and ruin travel of at least 20 tiles",
+    "Slide is one exact undo and redo, without residual glide",
+    "Power 0 still shifts the ridge and ruins by three tiles",
+    "256² short Slide responds while held; X then Esc restores the whole map",
+    "effects off keeps the full Slide result"
+  ],
+  "metrics": {
+    "high": {
+      "engine": "three.js r186",
+      "glideTiles": "20",
+      "glideUploads": "48891",
+      "penPoints": "434",
+      "side": "left",
+      "refused": "false",
+      "strokeId": "1",
+      "firstChangeMs": "49.60000002384186",
+      "paintedRevision": "31",
+      "paintedWhileHeld": "true",
+      "ruptureMs": "2272.5",
+      "eventP95Ms": "6.199999999999818",
+      "eventMaxMs": "12.100000000000364",
+      "firstGlideMs": 66.89999997615814,
+      "intermediateSamples": 98,
+      "ruinOffset": [
+        20,
+        0
+      ]
+    },
+    "low": {
+      "engine": "three.js r186",
+      "glideTiles": "3",
+      "glideUploads": "13224",
+      "penPoints": "358",
+      "side": "left",
+      "refused": "false",
+      "strokeId": "2",
+      "paintedRevision": "12",
+      "ruptureMs": "888.8000000119209",
+      "eventP95Ms": "6.199999999998909",
+      "eventMaxMs": "6.699999999998909",
+      "firstChangeMs": "18.5",
+      "paintedWhileHeld": "true",
+      "ruinOffset": [
+        3,
+        0
+      ]
+    }
+  }
+}
