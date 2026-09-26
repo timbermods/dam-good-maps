@@ -4,10 +4,10 @@ This is a proposal for the milestone session, not an editor change. Port the
 modules into the editor's own source tree when adopted; `src/` must not import
 an investigation. Keep the garden and its demo server here.
 
-The baseline is `dev` at `4f1b8c6`. The paused Live editing checkout also informed
+The baseline is `dev` at `4f1b8c6`. The paused Live editing checkout (`b4d7c27`) also informed
 these notes: it already has `src/editor/juice.ts`, `brushes.ts`, `carveDriver.ts`,
 and `src/core/forces/force.ts`. These interfaces are WIP and should be checked
-again when the milestone resumes. No other investigation or PR was reviewed.
+again when the milestone resumes.
 
 ## Where to connect it
 

@@ -100,3 +100,11 @@ test('live distance and activity changes smoothly silence an ongoing texture', (
   s.update('water', { activity: 0 }); render(s, 0.5);
   assert.ok(render(s, 0.4).peak < 1e-7);
 });
+test('a texture restarts while its previous release is still fading', () => {
+  const s = new JuiceSynth(); s.start('stream', {}, 'water'); render(s, 0.2);
+  s.stop('water'); render(s, 0.02); s.start('stream', {}, 'water');
+  render(s, 0.3);
+  assert.equal(s.activeCount, 1);
+  assert.ok(render(s, 0.5).rms > 0.0001);
+  s.stopAll(); render(s, 0.2); assert.equal(s.activeCount, 0);
+});

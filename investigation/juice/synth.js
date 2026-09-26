@@ -146,9 +146,11 @@ export class JuiceSynth {
   start(name, input = {}, id = 'stroke') {
     if (!this.enabled || this.targetVolume === 0 || !sustained.has(name)) return false;
     // Repeated begin is an update, never a new thud or another looping texture.
-    if (this.voices.some(v => v.active && v.id === id && v.held)) { this.update(id, input); return true; }
-    if (this.voices.filter(v => v.active && v.held && v.type === 'noise').length >= 4) { this.dropped++; return false; }
+    if (this.voices.some(v => v.active && v.id === id && v.held && v.release < 0)) { this.update(id, input); return true; }
     const p = parameters(input), [hz, amp, fundamental] = textures[name];
+    const heldGroups = this.voices.filter(v => v.active && v.held && v.type === 'noise' && v.release < 0).length;
+    const free = this.voices.reduce((n, v) => n + Number(!v.active), 0);
+    if (heldGroups >= 4 || free < (fundamental ? 2 : 1)) { this.dropped++; return false; }
     this.add(noise(0, 1, amp, hz, hz, 0.09), p, id, true, name);
     if (fundamental) this.add(tone(0, 1, 0.055, fundamental, fundamental, 0.13), p, id, true, name);
     return true;

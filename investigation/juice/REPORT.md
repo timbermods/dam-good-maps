@@ -14,6 +14,8 @@ Started from `dev` at `4f1b8c6`. All changes belong to this folder.
 - Keep this a standalone proposal. The milestone session owns editor integration.
 - Use a separate local checkout because the original workspace has unrelated
   untracked investigations that overlap current dev. Those files stay untouched.
+  A copy of this folder in the original workspace makes the demo command work
+  there too; branch commits are in the isolated checkout.
 
 ## Steps
 
@@ -25,6 +27,8 @@ Started from `dev` at `4f1b8c6`. All changes belong to this folder.
 3. Build the sound garden, replay/size/strength/distance controls, hold-to-paint,
    keyboard access and three context sequences. The package needs no install.
    Stop, Esc, losing focus and leaving the page release sounds and cancel cues.
+4. Check synthesis and the real browser worklet. Fix restarting a texture during
+   its release, and cap both message traffic and audio voices. Commit the checks.
 
 ## Try it
 
@@ -43,15 +47,18 @@ can be auditioned individually without enabling ongoing ambience.
 
 `npm --prefix investigation/juice test` checks variation, audibility, quieter and
 softer distance, size/power, sustained strokes, event storms, cancellation,
-force phases, malformed values, mute and cleanup at 44.1/48 kHz. All nine pass.
+force phases, malformed values, mute and cleanup at 44.1/48 kHz. Transport tests
+cover input coalescing, bounded messages and lifecycle disposal. All 14 pass.
 `npm --prefix investigation/juice run bench` renders ten seconds of dense audio
 without creating an audio file. Initial Node 24 / 48 kHz run: 52 layers, 1.72 s
 CPU wall time, 0.92 ms p99 per 128-frame block (2.67 ms available).
 
 The demo's **Under the hood → Run browser checks** uses the real AudioWorklet.
-Initial Chromium 153 / Windows / 48 kHz run passed all lifecycle/output checks:
-13.5 ms first unlock, 0.515 maximum sample at full volume, RAF p99 8.7 ms,
-maximum 9.7 ms. These are measured audio-demo results, not a guarantee for every
+Chromium 153 / Windows / 48 kHz passed all lifecycle/output checks. A measured
+run had 12.5 ms first unlock, 0.567 maximum sample at full volume, RAF p99 8.8 ms,
+maximum 10.2 ms. All 21 palette buttons, all three context sequences, a continuous
+canvas drag, the sliders, ambience, master switch and Stop were exercised.
+These are measured audio-demo results, not a guarantee for every
 device or proof of the future 256² editor's frame budget. Integration should
 profile real painting and forces beside water/render work. Speaker/headphone
 listening and subjective tuning remain the milestone audition.

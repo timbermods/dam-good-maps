@@ -8,6 +8,7 @@ export class JuiceEngine {
     this.nextId = 0; this.pending = new Map(); this.frame = 0;
     this.distance = 0;
     this.accentTokens = 8; this.tokenTime = performance.now();
+    this.sustained = new Set();
     this.suspended = false;
     this.visibility = () => { if (document.hidden) this.pause(); };
     document.addEventListener('visibilitychange', this.visibility);
@@ -67,6 +68,9 @@ export class JuiceEngine {
   }
   start(name, params = {}, id = `stroke-${++this.nextId}`) {
     if (!this.ready || !this.settings.enabled) return null;
+    if (this.sustained.has(id)) { this.update(id, params); return id; }
+    if (this.sustained.size >= 4) return null;
+    this.sustained.add(id);
     this.send({ type: 'start', name, params, id }); return id;
   }
   update(id, params) {
@@ -79,9 +83,10 @@ export class JuiceEngine {
       this.pending.clear(); this.frame = 0;
     });
   }
-  stop(id) { this.pending.delete(id); this.send({ type: 'stop', id }); }
+  stop(id) { this.pending.delete(id); this.sustained.delete(id); this.send({ type: 'stop', id }); }
   stopAll() {
     this.pending.clear(); cancelAnimationFrame(this.frame); this.frame = 0;
+    this.sustained.clear();
     this.send({ type: 'stopAll' });
   }
   setSettings(settings) {
