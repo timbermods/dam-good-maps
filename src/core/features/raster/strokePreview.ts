@@ -22,6 +22,11 @@ export interface TerrainState {
   locked: Uint8Array | null;
   /** Tiles with caves or overhangs (an imported map's): every tool leaves them as they are. */
   columns: Int32Array;
+  /** A generated map's stored field (M9a): as on an imported map, the integrity pass only touches
+   *  the tiles an edit changed from it (null for other maps). */
+  field?: Uint8Array | null;
+  /** The highest the terrain may stand: 16, or a tall map's top (D172). */
+  top?: number;
 }
 
 export class StrokePreview {
@@ -62,7 +67,9 @@ export class StrokePreview {
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;
-    this.candidate = base ? (i) => pre[i] !== base[i] : locked ? (i) => !locked[i] : () => true;
+    const field = state.field ?? null;
+    // (as the build's step 7 chooses them)
+    this.candidate = base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
   }
 
   /** Apply more dabs (with a pen's pressures, and precise's levels). Returns the rectangle of
@@ -83,7 +90,7 @@ export class StrokePreview {
     const y0 = Math.max(0, r.y0 - 1);
     const x1 = Math.min(W - 1, r.x1 + 1);
     const y1 = Math.min(H - 1, r.y1 + 1);
-    integrityAt(this.pre, heights, W, H, this.protect, this.state.channel, this.candidate, x0, y0, x1, y1);
+    integrityAt(this.pre, heights, W, H, this.protect, this.state.channel, this.candidate, x0, y0, x1, y1, this.state.top);
     // what actually changed since the last call: the page redraws only that
     let cx0 = W;
     let cy0 = H;

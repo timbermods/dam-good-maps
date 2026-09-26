@@ -159,6 +159,19 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
   says so in its description ("No badwater: a peaceful map…"), and undoing the removal brings the
   spring and the setting back. The delete's report says "that was the map's last badwater spring:
   the map is now No badwater, a peaceful map (badtides still come)" (the editor's and Claude's P09).
+- **After the merge of `dev` (Live editing)**, on M9a's maps:
+  - the page's stroke preview knows the generated field: the build's integrity pass (pits and
+    spikes) only touches the tiles an edit changed from the stored field, as on an imported map,
+    and caps at a tall map's top; the page ran it over every tile, so what it painted could differ
+    from what the build (and the file) held by a tile (`brush.test`'s exactness on River Valley 3 and
+    Islands 5 found it);
+  - a brush's walkable ground (D204's ramped rim, a walkable smooth) gets slopes on its steps
+    wherever it is: the slope rule only grew them from ground already joined to the start's, and
+    M9a's terraced land leaves a stroke 40 tiles out off that network (a ramped flatten got no rim
+    slopes on 11 of 12 maps; now 2–3 on most);
+  - D213's quiet line: the editor's notices say "No badwater: you removed the map's last badwater
+    spring, so this is a peaceful map now. Badtides still come." once it is gone, whichever way it
+    went (Remove, a source's delete).
 - **Tools:** `tools/settings-batch.ts --detail` (each seed's value), `tools/batches.ts` (every theme
   and size at once, reports in `investigation/m9a/local/batches/`, a summary table), and the batch
   report counts second-district sites and ruins on a rise (information).
@@ -254,6 +267,8 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     falls take their stretch).
   - `reshape.test.ts`: the lake over a relic uses River Valley seed 1 (seed 13's relic now stands by
     the map edge, where no lake may go).
+  - `shelf.test.ts` (from Live editing): the painted grove goes on River Valley 96² seed 4 (seed
+    4242 has no open level ground 9 wide clear of other pines at 0.7.0).
 
 ## API changes (for the Live editing merge)
 

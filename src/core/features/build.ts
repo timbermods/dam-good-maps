@@ -646,6 +646,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const targets = landformTargets(features.filter(live), target);
     // the ground a walkable smooth stroke went over, and a ramped flatten's with the ground round
     // it (its rim steps down to that ground, D204): the natural slopes join their steps too
+    // (and joined wherever they are, off the start's network too: walkTargets)
+    let walkTargets: Uint8Array | null = null;
     for (const sc of input.sculpts ?? []) {
       const p = sc.params as BrushParams;
       if (!("dabs" in p)) continue;
@@ -653,21 +655,28 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       const ramp = p.tool === "flatten" && p.edges === "ramped";
       if (!walk && !ramp) continue;
       targets.mask ??= new Uint8Array(N);
-      if (walk) markBrushTiles(p, W, H, targets.mask);
-      else {
-        const own = new Uint8Array(N);
-        markBrushTiles(p, W, H, own);
-        for (let i = 0; i < N; i++) {
-          if (!own[i]) continue;
-          const x = i % W;
-          const y = (i - x) / W;
-          for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) targets.mask[yy * W + xx] = 1;
+      walkTargets ??= new Uint8Array(N);
+      const own = new Uint8Array(N);
+      markBrushTiles(p, W, H, own);
+      for (let i = 0; i < N; i++) {
+        if (!own[i]) continue;
+        if (walk) {
+          targets.mask[i] = 1;
+          walkTargets[i] = 1;
+          continue;
         }
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++)
+          for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) {
+            targets.mask[yy * W + xx] = 1;
+            walkTargets[yy * W + xx] = 1;
+          }
       }
       targets.key += `|${walk ? "walk" : "ramp"}:${paramsKey(p)}`;
     }
     const ramps = input.field?.ramps ?? null;
-    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}) };
+    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}) };
     slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
   } else if (slopeStart && base) {
     // an edited import: join the changed ground to the start's network (the file's own slopes and

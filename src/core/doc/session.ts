@@ -15,6 +15,7 @@
 
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
+import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
@@ -360,7 +361,11 @@ export class MapSession {
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().terrain;
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
+    // a generated map's field: the build's integrity pass compares with it (M9a)
+    const field = live ? (this.input().field ?? null) : null;
     return {
+      field: field ? field.heights.slice() : null,
+      top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
       pre: t.pre7.slice(),
       protect: t.protect.slice(),
       channel: t.channel.slice(),

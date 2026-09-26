@@ -45,6 +45,9 @@ export interface SlopeRules {
   water?: Uint8Array | null;
   /** Natural ramps' steps as (low tile, high tile) pairs: a slope on each one that still stands. */
   ramps?: readonly (readonly [number, number])[] | null;
+  /** A brush's walkable ground (D204's ramped rim, a walkable smooth): its steps are joined by
+   *  slopes wherever it is, not only where the start's ground reaches it. */
+  walkTargets?: Uint8Array | null;
 }
 
 /** Nothing stands within this Chebyshev distance of the start's centre, slopes included (PLAN §7.7);
@@ -220,6 +223,25 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
           union(root, n);
           queue.push(n);
         }
+      }
+    }
+  }
+  //    a brush's walkable ground: its steps joined to the ground beside them wherever it is (on
+  //    M9a's terraced land a stroke beyond the core often stands off the start's network; its steps
+  //    are still the player's way up, D204)
+  if (rules.walkTargets) {
+    const wt = new Uint8Array(R);
+    for (let i = 0; i < labels.length; i++) if (rules.walkTargets[i]) wt[labels[i]] = 1;
+    for (let r = 0; r < R; r++) {
+      if (!wt[r]) continue;
+      for (const n of adj[r]) {
+        if (find(r) === find(n)) continue;
+        if (linked[r].includes(n)) {
+          union(r, n);
+          continue;
+        }
+        const cand = between(r, n);
+        if (cand.length && tryPlace(cand, false)) union(r, n);
       }
     }
   }
