@@ -29,8 +29,8 @@
   "rv128b": {
    "theme": "riverValley",
    "size": 128,
-   "seed": 2,
-   "note": "a second 128² River Valley: no dam site within 20 tiles of the start, three lakes near it"
+   "seed": 17,
+   "note": "a second 128² River Valley: no dam site built near the start, room for one"
   },
   "rv128c": {
    "theme": "riverValley",
@@ -54,6 +54,17 @@
     }
    },
    "note": "tributaries: one flows north to south from the north edge, one south to north from the south edge"
+  },
+  "rv128-tribs-south": {
+   "theme": "riverValley",
+   "size": 128,
+   "seed": 23,
+   "settings": {
+    "water": {
+     "rivers": 3
+    }
+   },
+   "note": "a tributary from the south edge joining the main river, which flows from the west"
   },
   "rv128-tribs8": {
    "theme": "riverValley",
@@ -218,6 +229,7 @@
       {
        "op": "addLake",
        "where": "near the start",
+       "level": 3,
        "handle": "lake"
       }
      ]
@@ -2779,7 +2791,7 @@
    "id": "W04",
    "kind": "flow-relative",
    "text": "add a lake near the source of the south tributary",
-   "setup": "rv128-tribs",
+   "setup": "rv128-tribs-south",
    "feasible": "yes",
    "expressible": true,
    "goals": [
@@ -3243,7 +3255,7 @@
    "id": "W13",
    "kind": "flow-relative",
    "text": "put a dam site on the main river just below where the south tributary joins",
-   "setup": "rv128-tribs",
+   "setup": "rv128-tribs-south",
    "feasible": "yes",
    "expressible": true,
    "goals": [

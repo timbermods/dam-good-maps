@@ -165,7 +165,60 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
 
 ## Results
 
-(Filled in as the batches run; see the sections below.)
+### The settings experiments (ROADMAP M6), CI's seeds 1–4 at 96²
+
+Every experiment moves its target on the final generator (`tools/settings-batch.ts --seeds 1-4`):
+Relief 4.5 (at least 3), Verticality 0.036 (0.03, 8 seeds), Buildable land and its reach, Rivers
+(exact), River style 0.096 (0.08), Braided 1.0 (1, 8 seeds), River flow 5.8, Drought reserve 668
+(200), Lakes and basins 3.3 (3, 12 seeds), Waterfalls, Badwater 0.80 (0.6), Badwater distance 22.4
+(15), the objects, the resources, Berries near start 43 (30), Water without stairs, starting wood
+103 (60, 8 seeds), starting bushes, both start rules, Designed for 19.7 (10). Start area and Theme
+are information (D211): −23 and 0.066. Verticality and Braided pass at their thresholds; M9b's
+changes will need them looked at again.
+
+### The Claude suite (D134)
+
+`npx tsx investigation/claude/bin/reference.ts`: 81 of 120 on 0.7.0 before the re-tune (the
+handoff's 81), 100 after it (the full run gave 99; F05's re-tune came after it). Re-tuned, each to
+the map as it now is, the pass criteria unchanged (`bin/retune.ts` runs a setup's cases against
+candidates):
+- `rv128-fall` (S05, F01–F04, F09, I03, Q06): the 20-wide fall's lip from (78, 108) to (88, 116),
+  still in the north part, facing south: the old lip broke `extras.placement`.
+- `rv96-creeks` (W06, W07), `rv128-east` (W05) and P08's creek: each creek drawn from its edge into
+  the main river the map now has (their old ends were on no river; P08's runs north to south).
+- `rv96-lake` (F05): the lake near the start stands at level 3 (the site search's lake stood at
+  level 1, which no lake can be made deeper than).
+- `rv128b` (S06, S07, W01, W08): seed 17 (seed 2's start had no room for a dam site near it; 17
+  passes S06, S07 and W01).
+- `rv128-tribs-south` (W04, W13), a new setup at seed 23: a River Valley whose tributary enters from
+  the south edge (`rv128-tribs`, seed 7, keeps the north one for W03 and Q05).
+- Stale expectations (D148): J03 and M06 check Normal's badwater rule, 15 tiles since D85 and #34
+  (they checked 30, the rule before); Q04 the water rule, 20 (it checked 16); Q02 counts the map's
+  rivers (it counted 3 set pieces and a dam site: D209 stamps none); Q01 names the checks `rv48`
+  fails now (`start.reach`, `water.storage_possible`); I05 the direction `rv96`'s river flows now
+  (southwest to northeast).
+- Not re-tuned, and why: the tributary cases (W03, W04, W13, M09, W11) name a tributary from the
+  north and one from the south edge, and on 0.7.0's River Valley maps with three rivers the inflows
+  enter on the main river's own edge or one beside it (none of seeds 1–200 has both; the flow
+  directions are M9b's, D209); the dam-site cases (S07, W08, M01, M04, X08, and F07–F08's setup)
+  ask the old dam-site builder for reservoirs the land here does not hold (#63: the natural narrows
+  replaces it for M12's Claude); W02, W15 and M05 place falls where the land's own falls or a bed at
+  level 0 leave no room; J05's map is already at the 16 cap below high Verticality; J11's south
+  third holds a river everywhere; X01's start stands at the head of its river (nothing is upstream);
+  P04's new patch lands outside the start's 20-tile walk; I07's premise (badwater cannot fit on a
+  48² map) held under the old 30-tile rule only.
+
+### Found and parked
+
+- **Edge inflows that run backwards** (information, for M9b's hydrology): on 3 of 36 edge inflows
+  (seeds 1–6 of every theme at 128²) the settled water rises along the first 40 tiles of the
+  planned course by more than 0.3 (Any 3's and Lake Basin 4's main rivers, Delta 6's inflow): the
+  mouth sits in the lowest ground (a flat the outlets or the edge relaxation left at level 0, or a
+  course along the border row), so water from downstream drains back out by the edge tiles beside the
+  sealed mouth. Every check passes; a player sees water leave by the edge beside the river's mouth.
+- **Second districts are rare** (D77: only where one fits): 6 of 70 maps at 128² (seeds 1–10 of
+  every theme; Islands 5, Canyon 1), where M7's planner found one on most Delta and Lake Basin maps.
+  The batch report now counts them.
 
 ## Tests updated because a decision changed what they tested
 

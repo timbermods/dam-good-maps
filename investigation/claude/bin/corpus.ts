@@ -31,10 +31,14 @@ const setups: Record<string, Setup> = {
   rv96: { theme: "riverValley", size: 96, seed: 3, note: "main river west to east; start at (34, 47); one badwater basin in the southwest draining to the map edge" },
   rv128: { theme: "riverValley", size: 128, seed: 1, note: "main river west to east; start at (50, 98); dam site 49% down; falls at 28% and 66%" },
   rv256: { theme: "riverValley", size: 256, seed: 5 },
-  rv128b: { theme: "riverValley", size: 128, seed: 2, note: "a second 128² River Valley: no dam site within 20 tiles of the start, three lakes near it" },
+  // (M9a: seed 17 holds a site for a dam near its start, as seed 2 did on the planned maps: D134)
+  rv128b: { theme: "riverValley", size: 128, seed: 17, note: "a second 128² River Valley: no dam site built near the start, room for one" },
   rv128c: { theme: "riverValley", size: 128, seed: 3, note: "a third 128² River Valley: its own badwater drains to the map edge, so the lower river runs clean" },
   "rv96-hard": { theme: "riverValley", size: 96, seed: 3, designedFor: "hard" },
   "rv128-tribs": { theme: "riverValley", size: 128, seed: 7, settings: { water: { rivers: 3 } }, note: "tributaries: one flows north to south from the north edge, one south to north from the south edge" },
+  // (M9a: on 0.7.0's maps a River Valley's inflows enter on the main river's edge or one beside it,
+  // and no seed has tributaries from both the north and south edges: the south one has its own map)
+  "rv128-tribs-south": { theme: "riverValley", size: 128, seed: 23, settings: { water: { rivers: 3 } }, note: "a tributary from the south edge joining the main river, which flows from the west" },
   "rv128-tribs8": { theme: "riverValley", size: 128, seed: 8, settings: { water: { rivers: 3 } }, note: "tributaries from the north and south edges, both clear of the start's berries" },
   canyon128: { theme: "canyon", size: 128, seed: 2 },
   lake128: { theme: "lakeBasin", size: 128, seed: 3, note: "inflows from the south edge (flowing north) and the west edge; the outlet river runs east" },
@@ -63,7 +67,9 @@ const setups: Record<string, Setup> = {
   },
   "rv96-lake": {
     base: "rv96",
-    edits: [{ request: "add a lake near the start", steps: [{ op: "addLake", where: "near the start", handle: "lake" }] }],
+    // (M9a: the lake the site search finds near the start stands at level 1, too low to be made
+    // deeper; this one stands at level 3, near the start as before: D134)
+    edits: [{ request: "add a lake near the start", steps: [{ op: "addLake", where: "near the start", level: 3, handle: "lake" }] }],
     select: "lake",
   },
   "rv96-dam": {
@@ -421,7 +427,7 @@ R("W03", "flow-relative", "put a dam site halfway down the north tributary", "rv
   pass: [VALID, "the dam site sits on the north tributary, 40–60% of the way from its source"],
   reference: { calls: [call("resolve_region", { where: { course: [0.4, 0.6], river: "north tributary" } })], proposal: { steps: [{ op: "addSetPiece", kind: "damSite", where: { course: [0.4, 0.6], river: "north tributary" } }] } },
 });
-R("W04", "flow-relative", "add a lake near the source of the south tributary", "rv128-tribs", {
+R("W04", "flow-relative", "add a lake near the source of the south tributary", "rv128-tribs-south", {
   goals: [G("g1", "a lake near where the south tributary rises", m("new:lake", "course.river", { equals: "the south tributary" }), m("new:lake", "course.frac", { max: 0.35 }))],
   report: { mustSay: ["the south tributary flows north from the south edge: its source is at the south edge"] },
   pass: [VALID, "the lake lies by the upper quarter of the south tributary"],
@@ -478,7 +484,7 @@ R("W12", "flow-relative", "add a gorge near the mouth of the river", "canyon128"
   pass: [VALID, "the gorge lies on the last quarter of the river"],
   reference: { calls: [], proposal: { steps: [{ op: "addSetPiece", kind: "gorge", where: "near the mouth" }] } },
 });
-R("W13", "flow-relative", "put a dam site on the main river just below where the south tributary joins", "rv128-tribs", {
+R("W13", "flow-relative", "put a dam site on the main river just below where the south tributary joins", "rv128-tribs-south", {
   goals: [G("g1", "a dam site just below the south tributary's junction", m("new:damSite", "course.river", { equals: "the main river" }), m("new:damSite", "course.frac", { min: { of: "south tributary", metric: "joins.frac" } }))],
   report: { mustSay: ["where the tributary joins, and how far below it the dam site sits", "the reservoir it holds"] },
   pass: [VALID, "the dam site is on the main river, below the junction"],
