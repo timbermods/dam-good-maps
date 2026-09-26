@@ -12,11 +12,11 @@
   "timings": [
     {
       "case": "256² first acknowledged frame",
-      "ms": 362.5149999999994
+      "ms": 385.77710000000116
     },
     {
       "case": "256² cancellation including restored meshes",
-      "ms": 282.3894999999993
+      "ms": 283.2561000000005
     }
   ]
 }

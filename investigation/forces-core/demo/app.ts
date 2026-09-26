@@ -104,9 +104,12 @@ worker.onmessage=({data:m})=>{
 };
 worker.onerror=e=>{errors.push(e.message);notice(e.message);busy=active=false;controls();};
 function point(e:PointerEvent){const hit=view.hit(e.clientX,e.clientY);return hit?{x:Math.max(0,Math.min(view.W-1,hit.x)),y:Math.max(0,Math.min(view.H-1,hit.y))}:null;}
-function reason(r:ForceRequest){const path=r.verb==='quake'?r.intent.path:r.verb==='erupt'&&r.intent.path?r.intent.path:
- [r.intent as any].flatMap(i=>[i.origin,...(i.end===undefined?[]:[i.end])].map((k:number)=>({x:k%view.W,y:Math.floor(k/view.W)})));
- return strokeReason(path,view.keep,view.W,r.verb==='quake'?3.5:.75);}
+function reason(r:ForceRequest){
+ if(r.verb==='quake')return strokeReason(r.intent.path,view.keep,view.W,3.5);
+ if(r.verb==='erupt'&&r.settings.mode==='fissure'&&r.intent.path)return strokeReason(r.intent.path,view.keep,view.W,2);
+ const i=r.intent as {origin:number;end?:number},points=[i.origin,...(r.verb==='carve'&&i.end!==undefined?[i.end]:[])];
+ return points.some(k=>view.keep[k])?'Start here':null;
+}
 function show(p:{x:number;y:number},r?:ForceRequest){
  const why=r?reason(r):strokeReason([p],view.keep,view.W);ring.visible=true;ring.position.set(p.x+.5,view.surfaceAt(p.x,p.y)+.25,-p.y-.5);
  ring.material.color.set(why?0xd8443f:0xffefbe);if(why)notice(why);

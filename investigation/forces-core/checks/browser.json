@@ -13,39 +13,39 @@
   "measurements": [
     {
       "case": "256² active Carve",
-      "p95FrameMs": 8.300000000000182,
-      "maxFrameMs": 8.5
+      "p95FrameMs": 8.100000000000364,
+      "maxFrameMs": 8.199999999999818
     },
     {
       "case": "256² immediate visual Esc",
-      "ms": 0.3999999761581421
+      "ms": 0.40000003576278687
     },
     {
       "case": "Escape through browser and worker",
-      "ms": 2.7726000000002387
+      "ms": 3.694899999998597
     },
     {
       "case": "256² craterize/strike",
-      "p95FrameMs": 8.100000000000364,
-      "maxFrameMs": 8.599999999998545,
+      "p95FrameMs": 8.200000000000728,
+      "maxFrameMs": 15.399999999999636,
       "longTasks": []
     },
     {
       "case": "256² erupt/vent",
-      "p95FrameMs": 8.299999999999272,
-      "maxFrameMs": 10.399999999999636,
+      "p95FrameMs": 8.399999999999636,
+      "maxFrameMs": 8.900000000001455,
       "longTasks": []
     },
     {
       "case": "256² quake/lift",
       "p95FrameMs": 8.5,
-      "maxFrameMs": 9,
+      "maxFrameMs": 10.799999999999272,
       "longTasks": []
     },
     {
       "case": "256² quake/slide",
-      "p95FrameMs": 8.200000000000728,
-      "maxFrameMs": 77.09999999999854,
+      "p95FrameMs": 8.5,
+      "maxFrameMs": 10.399999999999636,
       "longTasks": []
     }
   ],
