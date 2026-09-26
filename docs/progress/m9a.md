@@ -123,16 +123,16 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
 - **The badwater budget's total** (D200 (3)): where fewer hollows fit than the budget asks (a
   small map), the ones placed share its total strength, each up to the builder's 3. Badwater Off →
   High now moves the badwater-to-clean ratio 0.86 (0.55 before).
-- **Drought reserve** (decisions-pending #71, a default): a reserve larger than the theme's own adds
+- **Drought reserve** (decisions-pending #74, a default): a reserve larger than the theme's own adds
   valley lakes along the rivers and keeps a passing map without storage near the start while up to
   three more attempts look for one; a smaller reserve takes valley lakes away. The storage
   preference in `generate` never ran before (a passing map was never planned again). Scarce →
   Plenty moves the stored water 410 on seeds 1–4 and 810 on 1–12 (the wrong way before).
-- **Start area** (D211; decisions-pending #70): its choices read Prefer tight, Normal and Prefer
+- **Start area** (D211; decisions-pending #73): its choices read Prefer tight, Normal and Prefer
   roomy, its note says it is a preference, and the map card shows the **Start bench** (level tiles
   round the district center, within 8). Its experiment and Theme's are information
   (`tools/settings-suite.ts` `info`).
-- **The editor keeps other features' sources on their ground** (decisions-pending #72, a default):
+- **The editor keeps other features' sources on their ground** (decisions-pending #75, a default):
   a lake, landform, set piece or move that would reshape the ground under another feature's water
   or badwater source is refused with the reason (Lake Basin seed 13's lake left a badwater spring
   floating).
@@ -273,7 +273,37 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
 
 (See the final section of the PR.)
 
-## Next session (paused 2026-09-26, work in progress)
+## Next session
+
+The session that resumed on the dedicated machine (2026-09-26) did steps 1 and 2 of the list the
+paused session left (its list is kept below, marked done), and is on the rest:
+
+1. ~~Settings experiments green, the reshape tests~~ done (see Results).
+2. ~~Quick tests re-seeded~~ done (see Tests updated).
+3. Full batches: `npx tsx tools/batches.ts --seeds 1-100 --jobs 7` (all seven options at 96², 128²,
+   192² and 256², 100 seeds each; reports and logs in `investigation/m9a/local/batches/`, the table
+   in `summary.md`). Running on 0422c71's generator.
+4. ~~The contact sheet~~ done: `docs/sheets/m9a.png`. The Any measures: the maps are made with
+   `investigation/generative/v2/batch.ts --gen current` (the command is in
+   `investigation/m9a/any-measures.ts`), 60 seeds of every option at 128² (resume with `--resume`),
+   then `investigation/m9a/any-measures.ts`.
+5. The Claude suite: 100 of 120 before the merge of `dev` (see Results); re-run after the merge
+   (Live editing re-expressed many requests under D184; P08 takes its new form and needs its
+   coordinates on 0.7.0's `rv96`).
+6. Merge `origin/dev` (Live editing, the forces, the juice): 13 conflicts, resolved as follows —
+   `calibrated.ts` both sides; `build.ts` dev's stroke targets then M9a's ramps; `session.ts` the
+   imports of both, M9a's PLANNING_FAILURES, `regenerate` M9a's one `generate` with dev's
+   `editProblems` (named when the generator's map passes and the edits fail on it); `App.tsx` dev's
+   caption, then M9a's first look; the Claude harness both sides' steps; `objects.spec.ts` and
+   `tools.spec.ts` deleted as on dev; decisions-pending dev's #69–#72, then M9a's #73–#75; the
+   reference outputs regenerated. Then the seed-4242 sha and the generator's bytes checked against
+   the batches' (re-run them if the merge changed the maps), the docs (EDITOR_PLAN for D213 and #75,
+   ROADMAP's M9a status), the browser tests (the determinism test's timeout, the Islands 256² preview
+   timeout; each run on its own port 4801–4810), and CI green on #56.
+7. The probe maps: `npm --prefix investigation/probe run batch -- --job-only --group M9a` on the
+   final generator (it prepares the 15 maps and prints the plan); the orchestrator runs the batch.
+
+### The paused session's list (2026-09-26, kept as written)
 
 ### Kyler's answers (PLAN §20 D211), to build next
 
