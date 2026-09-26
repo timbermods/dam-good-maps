@@ -13,8 +13,11 @@
 
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
+import { JsonFloat } from "../format/json";
 import { objectTile } from "../sim/model";
 import type { WaterState } from "../sim/water";
+import type { Fallen } from "./objects";
+import { geology } from "./random";
 
 /** Steps of a force in one second of it (the player's pace changes only how fast they are shown). */
 export const STEPS_PER_SECOND = 10;
@@ -30,6 +33,39 @@ export interface ForceMap {
   maxHeight: number;
   /** Hardness (0–1) of each whole level, when the map has its rock layers (absent: derived). */
   rockLayers?: number[];
+  /** Fresh volcanic rock, a bit per level of each tile (rock.ts); absent: none. */
+  lava?: Uint32Array;
+  /** Trees knocked down by earlier forces, as they lie (objects.ts). */
+  fallen?: Fallen[];
+}
+
+/** A force's map with everything the verbs read filled in. */
+export interface FullForceMap extends ForceMap {
+  rockLayers: number[];
+  lava: Uint32Array;
+  fallen: Fallen[];
+}
+
+/** Objects as plain JSON (a force works on copies; the exact numbers of a file stay in the map's). */
+export const plainEntities = (e: readonly EntitySpec[]): EntitySpec[] => JSON.parse(JSON.stringify(e, (_k, v) => (v instanceof JsonFloat ? v.value : v)));
+
+/** A copy of a force's map that shares nothing with it. */
+export function snapshotMap<T extends ForceMap>(m: T): T {
+  return {
+    ...m,
+    heights: m.heights.slice(),
+    entities: plainEntities(m.entities),
+    ...(m.rockLayers ? { rockLayers: m.rockLayers.slice() } : {}),
+    ...(m.fallen ? { fallen: structuredClone(m.fallen) } : {}),
+    ...(m.lava ? { lava: m.lava.slice() } : {}),
+    water: { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() },
+  };
+}
+
+/** A copy with its rock beds (derived from its ground when it has none), fresh rock and fallen trees. */
+export function fullMap(m: ForceMap): FullForceMap {
+  const r = snapshotMap(m);
+  return { ...r, rockLayers: r.rockLayers ?? geology(r.heights), fallen: r.fallen ?? [], lava: r.lava ?? new Uint32Array(r.W * r.H) };
 }
 
 /** One stream of a force's head (a carve splits into two round a hard rock core). */

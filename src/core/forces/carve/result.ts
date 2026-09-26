@@ -3,9 +3,10 @@
 // both make their carves here, so a carve made either way is the same operation.
 
 import type { BuildResult } from "../../features/build";
-import { DERIVED_SLOPES } from "../../features/ids";
-import { placementOf, type EntitySpec } from "../../format/entities";
+import { placementOf } from "../../format/entities";
 import { forceResult, type ForceMap } from "../force";
+import { forceOfCarve, type ForceResultParams } from "../op";
+import { keptObject, literalOf } from "../result";
 import type { CarveParams } from "./op";
 import { sourceStrength, type CarveRun, type CarveSettings } from "./run";
 import { oxbowLake } from "./water";
@@ -25,8 +26,7 @@ export function forceMapOf(b: BuildResult, water?: { depth: ArrayLike<number>; c
   };
 }
 
-/** Objects a force never lists as removed: the start, and the slopes the build derives again. */
-export const keptObject = (e: EntitySpec) => e.template === "StartingLocation" || e.owner === DERIVED_SLOPES || e.owner.startsWith("pinned:");
+export { keptObject };
 
 /** What the player asked of a carve (a record: replay never runs the carve). */
 export interface CarveRecord {
@@ -67,4 +67,14 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     ...(lake ? { lake } : {}),
     ...(rec.replaces !== undefined ? { replaces: rec.replaces } : {}),
   };
+}
+
+/** A carve as the shared force operation (`forceResult`, op.ts): its result, and the volcanic rock
+ *  it cut through (the levels it took away are no longer rock). */
+export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveRecord): ForceResultParams | null {
+  const p = carveParams(before, run, rec);
+  if (!p) return null;
+  const out = forceOfCarve(p);
+  const { rock } = literalOf(before, run.map);
+  return rock ? { ...out, rock } : out;
 }

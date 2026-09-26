@@ -33,6 +33,7 @@ import { entityTiles, protectedGround, type ForceHead, type ForceMap, type Force
 import { RiverCharacter } from "./character";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
+import { hardAt } from "../rock";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -203,7 +204,7 @@ export class CarveRun implements ForceRun {
     this.keep = protectedGround(input, options.keep ?? null);
     this.course = new Course(input, settings, intent, this.character);
     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!])) throw new Error("Choose a point outside the start’s protected ground");
-    this.map = { ...input, heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
+    this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
     this.sim = new WaterSim((this.model = modelFor(input)), input.water);
     this.target = input.heights.slice();
     this.sign = new Int8Array(N);
@@ -263,7 +264,10 @@ export class CarveRun implements ForceRun {
     return this.map.entities.find((e) => e.id === this.sourceId) ?? null;
   }
 
-  private hard(level: number): number {
+  /** A level's hardness: a hard bed of the map's rock, or fresh volcanic rock on `tile` (Erupt's,
+   *  rock.ts: hard for Carve, D206). */
+  private hard(level: number, tile?: number): number {
+    if (this.settings.layers && tile !== undefined && hardAt(this.map, tile, level)) return 1;
     return this.settings.layers ? (this.map.rockLayers?.[level] ?? hardness(level, true, this.seed)) : 0;
   }
 
@@ -328,7 +332,7 @@ export class CarveRun implements ForceRun {
           const innerShelf = Math.abs(bend) > 0.3 && outside < -reachWidth * 0.2 ? Math.min(2, Math.ceil((-outside / reachWidth - 0.2) * Math.abs(bend) * 2)) : 0;
           const scour = Math.min(2, Math.floor(Math.max(0, outside / reachWidth - 0.15) * Math.abs(bend) * 3));
           let t = Math.max(0, this.bed - scour) + innerShelf + Math.max(0, Math.ceil((d - lane.width) * slope));
-          if (d > lane.width && this.hard(t) > 0.5) t++;
+          if (d > lane.width && this.hard(t, i) > 0.5) t++;
           const work = p * this.character.intensity;
           if (work < 0.45) t = Math.max(t, this.original[i] - Math.max(1, Math.round(1 + 6 * work)));
           if (t < this.target[i]) {
@@ -448,7 +452,8 @@ export class CarveRun implements ForceRun {
       if (this.crossesCourse({ x, y }, { x: nx, y: ny })) continue;
       const far = this.original[this.at(nx + dx * 5, ny + dy * 5)];
       const here = this.original[this.at(x, y)];
-      const resistance = Math.max(0, far - here) * (1 + this.hard(far) * 2) * (1 - p);
+      const farTile = this.at(nx + dx * 5, ny + dy * 5);
+      const resistance = Math.max(0, far - here) * (1 + this.hard(far, farTile) * 2) * (1 - p) + (this.settings.layers && hardAt(this.map, farTile, far) ? 12 * (1 - p) : 0);
       const score = 12 * Math.cos(angleDelta(a, nav.preferred)) + 3 * Math.cos(angleDelta(a, this.heading)) + (here - far) * 0.35 * (1 - p) - resistance - this.visited[i] * 2;
       if (score > best) {
         best = score;
@@ -468,7 +473,7 @@ export class CarveRun implements ForceRun {
       this.end("power spent");
       return;
     }
-    if (p < 0.28 && this.original[ahead] - this.bed > 4 && this.hard(this.original[ahead]) > 0.5) {
+    if (p < 0.28 && this.original[ahead] - this.bed > 4 && this.hard(this.original[ahead], ahead) > 0.5) {
       this.end("power spent");
       return;
     }
@@ -528,7 +533,7 @@ export class CarveRun implements ForceRun {
       const bank = !this.channel[i];
       // Wide terraces retreat after the head, not simultaneously across the map.
       if (bank && age < 4) continue;
-      const hard = this.hard(h);
+      const hard = this.hard(h, i);
       const coefficient = bank ? 1 - 0.8 * hard : 1 - 0.85 * hard;
       this.wear[i] += (0.75 + 2.4 * p) * Math.min(2, this.character.intensity) * coefficient * (bank ? 0.65 : 1);
       if (this.wear[i] >= 1) {
@@ -554,6 +559,7 @@ export class CarveRun implements ForceRun {
       if (delta[i]) {
         const d = delta[i];
         this.map.heights[i] += d;
+        if (this.map.lava) this.map.lava[i] &= (1 << this.map.heights[i]) - 1;
         this.sign[i] = d;
         changed.push(i);
         if (d < 0) {
