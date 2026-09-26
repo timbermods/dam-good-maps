@@ -213,7 +213,8 @@ export class JuiceSynth {
         if (v.release > 0) env *= v.release-- / v.releaseLength;
         if (v.held) env *= 0.76 + 0.14 * Math.sin(t * v.modulation + v.breath) + 0.1 * Math.sin(t * 4.3 + v.breath * 2);
         v.gain += (v.targetGain - v.gain) * this.slew;
-        v.a += (v.targetA - v.a) * this.slew;
+        const sweep = v.type === 'noise' && !v.held ? Math.pow(v.f1 / v.f0, progress) : 1;
+        v.a += (Math.min(0.95, v.targetA * sweep) - v.a) * this.slew;
         v.panL += (panL - v.panL) * this.slew; v.panR += (panR - v.panR) * this.slew;
         let sample;
         if (v.type === 'noise') {

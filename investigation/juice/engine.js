@@ -7,6 +7,7 @@ export class JuiceEngine {
     this.context = null; this.node = null; this.loading = null; this.disposed = false;
     this.nextId = 0; this.pending = new Map(); this.frame = 0;
     this.distance = 0;
+    this.accentTokens = 8; this.tokenTime = performance.now();
     this.suspended = false;
     this.visibility = () => { if (document.hidden) this.pause(); };
     document.addEventListener('visibilitychange', this.visibility);
@@ -46,12 +47,22 @@ export class JuiceEngine {
           return false;
         }).finally(() => { this.loading = null; });
       return this.loading;
-    } catch { this.onState('Audio could not start.'); return Promise.resolve(false); }
+    } catch {
+      this.context?.close().catch(() => {}); this.context = null;
+      this.onState('Audio could not start.'); return Promise.resolve(false);
+    }
   }
   get ready() { return !!this.node && this.context?.state === 'running' && !this.suspended && !this.disposed; }
   send(message) { this.node?.port.postMessage(message); }
   play(name, params = {}, { id = ++this.nextId, phase } = {}) {
     if (!this.ready || !this.settings.enabled) return null;
+    // Bound message traffic too, not just DSP voices. Drop excess accents now;
+    // never replay a late burst after a busy main-thread frame.
+    const now = performance.now();
+    this.accentTokens = Math.min(8, this.accentTokens + (now - this.tokenTime) * 0.012);
+    this.tokenTime = now;
+    if (this.accentTokens < 1) return null;
+    this.accentTokens--;
     this.send({ type: 'play', name, params, id, phase }); return id;
   }
   start(name, params = {}, id = `stroke-${++this.nextId}`) {
@@ -87,8 +98,9 @@ export class JuiceEngine {
     this.onState('Paused');
   }
   async dispose() {
+    if (this.disposed) return;
     this.disposed = true; this.stopAll(); clearTimeout(this.pauseTimer);
     document.removeEventListener('visibilitychange', this.visibility);
-    this.node?.disconnect(); await this.context?.close(); this.node = null;
+    this.node?.disconnect(); await this.context?.close().catch(() => {}); this.node = null;
   }
 }
