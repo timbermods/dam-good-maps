@@ -40,7 +40,7 @@ import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
-import { FORCES, REMOVE_KINDS, TopBar, type TopTool } from "./TopBar";
+import { FORCES, forceShown, REMOVE_KINDS, TopBar, type TopTool } from "./TopBar";
 import { SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
 import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
@@ -552,6 +552,8 @@ export default function Editor(props: EditorProps) {
   /** The top bar: a brush, Source, Carve, Remove, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (carver.current?.running) return;
+    // a force this build doesn't show can't be picked (release.ts, D219)
+    if (t === "carve" && !forceShown("carve")) return;
     setAimFrom(null);
     if (t === "source" || t === "remove" || t === "carve") {
       pickBrush(null);
@@ -2188,7 +2190,7 @@ export default function Editor(props: EditorProps) {
         pickTop(toolRef.current === "source" ? null : "source");
         return;
       }
-      if (!mod && !ev.altKey && ev.key === "7" && painter.current) {
+      if (!mod && !ev.altKey && ev.key === "7" && painter.current && forceShown("carve")) {
         pickTop(toolRef.current === "carve" ? null : "carve");
         return;
       }

@@ -11,6 +11,7 @@
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
 import type { RemoveKind } from "../core/features/objects";
+import { forcesShownIn } from "./release";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -101,6 +102,13 @@ export const FORCES: readonly Force[] = [
   { id: "quake", name: "Quake", ready: false, modes: ["Lift", "Slide"] },
   { id: "erupt", name: "Erupt", ready: false, modes: ["Vent", "Fissure"] },
 ];
+
+/** The forces this build shows: the ready ones, and none on the public site until their release
+ *  (release.ts, D219). */
+export const SHOWN_FORCES: readonly Force[] = forcesShownIn({ mode: import.meta.env.MODE, base: import.meta.env.BASE_URL }) ? FORCES.filter((f) => f.ready) : [];
+
+/** This build shows the force `id`. */
+export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
 /** A force's options row: its mode switch first, then the force's own options. */
 export function ForceOptions(p: { force: Force; mode: string; onMode(mode: string): void; children?: ComponentChildren }) {
@@ -195,11 +203,11 @@ export function TopBar(p: TopBarProps) {
           <Icon tool="source" />
           <span class="icon-word">Source</span>
         </button>
-        {FORCES.some((f) => f.ready) ? (
+        {SHOWN_FORCES.length ? (
           <>
             <span class="bar-divider" aria-hidden="true" />
             <span class="bar-group" role="group" aria-label="Forces">
-              {FORCES.filter((f) => f.ready).map((f) => (
+              {SHOWN_FORCES.map((f) => (
                 <button
                   type="button"
                   key={f.id}
