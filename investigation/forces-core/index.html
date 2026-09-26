@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="icon" href="data:,"><title>Dam Good Maps · Forces</title></head>
+<body><header><strong>Dam Good Maps <span> / Forces study</span></strong><div class="history"><button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Y">Redo</button><button id="save">Save study</button><label class="button">Open study<input id="open" type="file" accept=".json" hidden></label></div></header>
+<div class="toolbar"><div role="group" aria-label="Forces" id="forces"><span>Forces</span><button data-verb="carve">Carve</button><button data-verb="craterize">Craterize</button><button data-verb="quake">Quake</button><button data-verb="erupt">Erupt</button></div><select id="map" aria-label="Map"></select><button id="reset">Reset map</button></div>
+<div id="options" aria-label="Force options"></div>
+<main><canvas id="view" tabindex="0" aria-label="Map. Click or paint to use the selected force."></canvas>
+<div class="view-tools"><button id="top">Top-down</button><button id="reset-view">Reset view</button><label><input id="follow" type="checkbox">Follow</label><label><input id="motion" type="checkbox" checked>Motion</label><label><input id="shake" type="checkbox" checked>Shake</label></div>
+<div class="event-tools"><button id="pause">Pause</button><button id="stop">Stop</button><button id="cancel">Revert</button></div>
+<div class="status"><span id="notice" role="status" aria-live="polite">Loading land…</span><span id="hint"></span></div></main>
+<script type="module" src="/demo/app.ts"></script></body></html>
