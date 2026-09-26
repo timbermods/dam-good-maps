@@ -1230,6 +1230,50 @@ R("B21", "simple", "carve a river from the bend at 60, 40 up into the hills at 8
     checks: [chk("call:0", "steps.0.errors.0", "matches", "uphill"), chk("propose", "steps.0.resolved.reason", "equals", "destination"), chk("propose", "steps.0.report.0", "matches", "^carves a river")],
   },
 });
+R("B22", "simple", "put a crater about 24 tiles across near (80, 62)", "rv96", {
+  note: "Craterize (D202): a giant impact where asked, as the editor's button makes it; its size set by hand, light debris",
+  goals: [G("g1", "a crater about 24 tiles across near (80, 62)")],
+  report: { mustSay: ["where it struck and how wide the crater is", "how deep its floor goes and how high its rim and debris reach", "the trees it knocked down and the objects it took"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "craterize" })],
+    proposal: { steps: [{ op: "craterize", at: [80, 62], size: 24, debris: "light" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^strikes a crater 24 tiles across [(]asteroid, power 55[)] at [(]80, 62[)]"), chk("propose", "steps.0.resolved.mode", "equals", "strike")],
+  },
+});
+R("B23", "simple", "raise a small volcano near (75, 25)", "rv96", {
+  note: "Erupt (D206): a vent, its power a cone, light flows so it keeps to its own ground",
+  goals: [G("g1", "a small volcano near (75, 25)")],
+  report: { mustSay: ["where it rose and how high", "that its fresh lava is hard rock"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "erupt" })],
+    proposal: { steps: [{ op: "erupt", at: [75, 25], power: "cone", flows: "light" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^raises a volcano [(]cone, power 40[)] at [(]75, 25[)]"), chk("propose", "steps.0.resolved.mode", "equals", "vent")],
+  },
+});
+R("B24", "simple", "lift the land north of a short fault from (55, 80) to (80, 80)", "rv96", {
+  note: "Quake (D203, D219): Lift along a drawn fault, the left of an eastward line (north) rising, a tremor's power",
+  goals: [G("g1", "the land north of the line from (55, 80) to (80, 80) lifted")],
+  report: { mustSay: ["which side lifted and by how much", "how much the other side dropped"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "quake" })],
+    proposal: { steps: [{ op: "quake", line: [[55, 80], [80, 80]], side: "left", power: "tremor" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^lifts the land on the left of the fault by up to [0-9]+ levels"), chk("propose", "steps.0.resolved.mode", "equals", "lift")],
+  },
+});
+R("B25", "conflicting", "drop a meteor right on the start", "rv96", {
+  feasible: "no",
+  note: "every force refuses where the start sits (D202): the quiet word is the editor's, Start here",
+  goals: [G("g1", "a crater where the start is")],
+  report: { mustSay: ["conflict: the start's ground stays as it is, so the impact can't land there", "offer: a crater beside the start instead"] },
+  pass: ["the step is refused with the start's reason", "the conflict is reported with an offer"],
+  reference: {
+    calls: [call("dry_run", { steps: [{ op: "craterize", at: [34, 47], power: "meteor" }] })],
+    checks: [chk("call:0", "steps.0.errors.0", "matches", "^Start here")],
+  },
+});
 R("B11", "simple", "draw a straight canal from the river south to the map edge at x 72", "rv96", {
   note: "a Lower stroke from the river (smart Lower, D184): the river's own water follows its bed, which never rises",
   goals: [G("g1", "a straight channel from the main river to the south edge")],

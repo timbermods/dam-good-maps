@@ -43,6 +43,8 @@ import { newConversation } from "./conversation";
 import { comparative, findWord, JUDGEMENT, leverPatch, sizeWordOf, type SizeWord } from "./words";
 import { viewOf } from "./view";
 import { carveParams, forceMapOf } from "../../../src/core/forces/carve/result";
+import { forceOfCarve } from "../../../src/core/forces/op";
+import { checkForceStep, expandForceStep, type ForceStep } from "./forceSteps";
 import { CarveRun, type CarveSettings } from "../../../src/core/forces/carve/run";
 import { protectedGround, STEPS_PER_SECOND } from "../../../src/core/forces/force";
 
@@ -99,9 +101,13 @@ export type Step =
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
   | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  /** Craterize, Erupt and Quake (D202, D203, D206): an impact at a tile or the middle of a place (a
+   *  glancing blow toward a tile), a volcano there or a fissure along a line, a fault along a line
+   *  lifting or sliding one side (forceSteps.ts). */
+  | ForceStep
   | { op: "undoLast" };
 
-export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "undoLast"] as const;
+export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "craterize", "erupt", "quake", "undoLast"] as const;
 
 /** The shelf's objects, as a step names them, and the object each places (D184). */
 export const SHELF_OBJECTS = { pine: "Pine", birch: "Birch", oak: "Oak", berryBush: "BlueberryBush", ruin: "RuinColumnH", mineSite: "UndergroundRuins", relic: "Relic", slope: "Slope", thorns: "Thorns", naturalDam: "NaturalDam", blockage: "Blockage", geothermal: "GeothermalField" } as const;
@@ -332,6 +338,10 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.seconds !== undefined && !num(s.seconds, 0.5, 120)) errs.push("seconds is 0.5–120 (left out, it runs until it ends by itself)");
       if (s.path !== undefined && !(Number.isInteger(s.path) && num(s.path, 0, 99))) errs.push("path is 0–99: 0 the first course, 1, 2, … the editor's Try another path");
       return [...errs, ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : []), ...(s.to !== undefined && !Array.isArray(s.to) ? checkPlace(s.to, "to", W, H) : [])];
+    case "craterize":
+    case "erupt":
+    case "quake":
+      return [...checkForceStep(s, W, H), ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : [])];
     case "undoLast":
       return [];
   }
@@ -576,6 +586,10 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
       return expandBrush(s, conv, step);
     case "carve":
       return expandCarve(s, conv, step);
+    case "craterize":
+    case "erupt":
+    case "quake":
+      return expandForce(s, conv, step);
     case "sculpt": {
       const where = resolve(v, step.where, refs);
       if (!where.ok) return fail(step, where.errors);
@@ -741,13 +755,55 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   return {
     ok: true,
     step,
-    ops: [{ op: "carve", params }],
+    // (the four forces' one operation, as the editor's Carve keeps it)
+    ops: [{ op: "forceResult", params: forceOfCarve(params) }],
     made,
     report,
     resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },
     errors: [],
     tiles: params.tiles.length,
   };
+}
+
+/** Craterize, Erupt and Quake (D202, D203, D206): the force whole on the map as it stands, as the
+ *  editor's button makes it; a place gives its middle (away from the start's own ground). */
+function expandForce(s: MapSession, conv: Conversation, step: ForceStep): Expanded {
+  const { x: W } = s.size;
+  const resolved: Record<string, unknown> = {};
+  let at: [number, number] | null = null;
+  if (step.op !== "quake") {
+    if (step.at) at = [Math.round(step.at[0]), Math.round(step.at[1])];
+    else if (step.where !== undefined && !(step.op === "erupt" && step.line)) {
+      const where = resolve(viewOf(s), step.where as Where, refContext(conv));
+      Object.assign(resolved, { place: where.place, assumptions: where.assumptions });
+      if (!where.ok) return fail(step, where.errors, undefined, resolved);
+      const keep = protectedGround(forceMapOf(s.built));
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      for (let i = 0; i < where.mask.length; i++)
+        if (where.mask[i]) {
+          sx += i % W;
+          sy += Math.floor(i / W);
+          n++;
+        }
+      let best = -1;
+      let bd = Infinity;
+      for (let i = 0; i < where.mask.length; i++) {
+        if (!where.mask[i] || keep[i]) continue;
+        const d = Math.hypot((i % W) - sx / n, Math.floor(i / W) - sy / n);
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      }
+      if (best < 0) return fail(step, ["that place is all the start's own ground"], undefined, resolved);
+      at = [best % W, Math.floor(best / W)];
+    }
+  }
+  const r = expandForceStep(s, step, at);
+  if (!r.ok) return fail(step, r.errors, undefined, { ...resolved, ...r.resolved });
+  return { ok: true, step, ops: r.ops, made: [], report: r.report, resolved: { ...resolved, ...r.resolved }, errors: [], tiles: r.tiles };
 }
 
 // ---------------------------------------------------------------------------------- sources

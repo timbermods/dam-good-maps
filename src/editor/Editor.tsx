@@ -1825,7 +1825,13 @@ export default function Editor(props: EditorProps) {
           anchorRef.current = intent.path.at(-1) ?? null;
           showMarks(null);
           if (verb === "quake" && quakeUiRef.current.mode === "lift") {
-            if (painting) void forcer.current?.stop();
+            // a fault that runs through the start is refused whole, however it began
+            const refusedWhy = strokeRefusal("quake", intent.path, intent.side);
+            if (painting && refusedWhy) {
+              forcer.current?.cancel();
+              setShapeNote(null);
+              setMessage({ kind: "info", text: refusedWhy });
+            } else if (painting) void forcer.current?.stop();
             painting = false;
             return;
           }

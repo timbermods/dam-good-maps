@@ -8269,6 +8269,255 @@
    }
   },
   {
+   "id": "B22",
+   "kind": "simple",
+   "text": "put a crater about 24 tiles across near (80, 62)",
+   "setup": "rv96",
+   "feasible": "yes",
+   "expressible": true,
+   "note": "Craterize (D202): a giant impact where asked, as the editor's button makes it; its size set by hand, light debris",
+   "goals": [
+    {
+     "id": "g1",
+     "text": "a crater about 24 tiles across near (80, 62)",
+     "expect": []
+    }
+   ],
+   "report": {
+    "mustSay": [
+     "where it struck and how wide the crater is",
+     "how deep its floor goes and how high its rim and debris reach",
+     "the trees it knocked down and the objects it took"
+    ]
+   },
+   "pass": [
+    "the result validates: no guard that passed before the request fails after it",
+    "every start requirement the validator checks still holds (guards never traded away)"
+   ],
+   "reference": {
+    "calls": [
+     {
+      "tool": "limits",
+      "args": {
+       "kind": "craterize"
+      }
+     }
+    ],
+    "proposal": {
+     "steps": [
+      {
+       "op": "craterize",
+       "at": [
+        80,
+        62
+       ],
+       "size": 24,
+       "debris": "light"
+      }
+     ]
+    },
+    "checks": [
+     {
+      "on": "propose",
+      "path": "steps.0.report.0",
+      "op": "matches",
+      "value": "^strikes a crater 24 tiles across [(]asteroid, power 55[)] at [(]80, 62[)]"
+     },
+     {
+      "on": "propose",
+      "path": "steps.0.resolved.mode",
+      "op": "equals",
+      "value": "strike"
+     }
+    ]
+   }
+  },
+  {
+   "id": "B23",
+   "kind": "simple",
+   "text": "raise a small volcano near (75, 25)",
+   "setup": "rv96",
+   "feasible": "yes",
+   "expressible": true,
+   "note": "Erupt (D206): a vent, its power a cone, light flows so it keeps to its own ground",
+   "goals": [
+    {
+     "id": "g1",
+     "text": "a small volcano near (75, 25)",
+     "expect": []
+    }
+   ],
+   "report": {
+    "mustSay": [
+     "where it rose and how high",
+     "that its fresh lava is hard rock"
+    ]
+   },
+   "pass": [
+    "the result validates: no guard that passed before the request fails after it",
+    "every start requirement the validator checks still holds (guards never traded away)"
+   ],
+   "reference": {
+    "calls": [
+     {
+      "tool": "limits",
+      "args": {
+       "kind": "erupt"
+      }
+     }
+    ],
+    "proposal": {
+     "steps": [
+      {
+       "op": "erupt",
+       "at": [
+        75,
+        25
+       ],
+       "power": "cone",
+       "flows": "light"
+      }
+     ]
+    },
+    "checks": [
+     {
+      "on": "propose",
+      "path": "steps.0.report.0",
+      "op": "matches",
+      "value": "^raises a volcano [(]cone, power 40[)] at [(]75, 25[)]"
+     },
+     {
+      "on": "propose",
+      "path": "steps.0.resolved.mode",
+      "op": "equals",
+      "value": "vent"
+     }
+    ]
+   }
+  },
+  {
+   "id": "B24",
+   "kind": "simple",
+   "text": "lift the land north of a short fault from (55, 80) to (80, 80)",
+   "setup": "rv96",
+   "feasible": "yes",
+   "expressible": true,
+   "note": "Quake (D203, D219): Lift along a drawn fault, the left of an eastward line (north) rising, a tremor's power",
+   "goals": [
+    {
+     "id": "g1",
+     "text": "the land north of the line from (55, 80) to (80, 80) lifted",
+     "expect": []
+    }
+   ],
+   "report": {
+    "mustSay": [
+     "which side lifted and by how much",
+     "how much the other side dropped"
+    ]
+   },
+   "pass": [
+    "the result validates: no guard that passed before the request fails after it",
+    "every start requirement the validator checks still holds (guards never traded away)"
+   ],
+   "reference": {
+    "calls": [
+     {
+      "tool": "limits",
+      "args": {
+       "kind": "quake"
+      }
+     }
+    ],
+    "proposal": {
+     "steps": [
+      {
+       "op": "quake",
+       "line": [
+        [
+         55,
+         80
+        ],
+        [
+         80,
+         80
+        ]
+       ],
+       "side": "left",
+       "power": "tremor"
+      }
+     ]
+    },
+    "checks": [
+     {
+      "on": "propose",
+      "path": "steps.0.report.0",
+      "op": "matches",
+      "value": "^lifts the land on the left of the fault by up to [0-9]+ levels"
+     },
+     {
+      "on": "propose",
+      "path": "steps.0.resolved.mode",
+      "op": "equals",
+      "value": "lift"
+     }
+    ]
+   }
+  },
+  {
+   "id": "B25",
+   "kind": "conflicting",
+   "text": "drop a meteor right on the start",
+   "setup": "rv96",
+   "feasible": "no",
+   "expressible": true,
+   "note": "every force refuses where the start sits (D202): the quiet word is the editor's, Start here",
+   "goals": [
+    {
+     "id": "g1",
+     "text": "a crater where the start is",
+     "expect": []
+    }
+   ],
+   "report": {
+    "mustSay": [
+     "conflict: the start's ground stays as it is, so the impact can't land there",
+     "offer: a crater beside the start instead"
+    ]
+   },
+   "pass": [
+    "the step is refused with the start's reason",
+    "the conflict is reported with an offer"
+   ],
+   "reference": {
+    "calls": [
+     {
+      "tool": "dry_run",
+      "args": {
+       "steps": [
+        {
+         "op": "craterize",
+         "at": [
+          34,
+          47
+         ],
+         "power": "meteor"
+        }
+       ]
+      }
+     }
+    ],
+    "checks": [
+     {
+      "on": "call:0",
+      "path": "steps.0.errors.0",
+      "op": "matches",
+      "value": "^Start here"
+     }
+    ]
+   }
+  },
+  {
    "id": "B11",
    "kind": "simple",
    "text": "draw a straight canal from the river south to the map edge at x 72",

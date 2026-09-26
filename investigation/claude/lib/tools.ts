@@ -24,6 +24,7 @@ import { MAP_METRICS, mapMetric, measureFeature, measureSession, startRequiremen
 import { compassWords, extent, resolve, resolveRef, type Place } from "./places";
 import { findSites, SITE_KINDS, type SiteKind } from "./sites";
 import { hintIds, POWER_WORDS, STEP_OPS } from "./steps";
+import { ERUPT_WORDS, IMPACT_WORDS, QUAKE_WORDS } from "./forceSteps";
 import { mapSummary, SUMMARY_LIMIT } from "./summary";
 import { JUDGEMENT, sizeTarget, type SizeWord } from "./words";
 import { round1, viewOf } from "./view";
@@ -100,7 +101,7 @@ export const TOOL_DEFS: ToolDef[] = [
     input_schema: {
       type: "object",
       properties: {
-        kind: { type: "string", description: "waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, ruinField, river, brush, carve, start, words" },
+        kind: { type: "string", description: "waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, ruinField, river, brush, carve, craterize, erupt, quake, start, words" },
         facing: { type: "string", enum: ["north", "east", "south", "west"] },
       },
       required: ["kind"],
@@ -499,10 +500,46 @@ export class ClaudeTools {
         maxTiles: Math.floor(0.3 * W * H),
         note: "the start's own ground and an imported map's caves stay as they are; objects on the cut ground go with it",
       };
+    if (kind === "craterize")
+      return {
+        how: "the editor's Craterize: a giant impact at a tile (at) or the middle of a place (where); toward [x, y] makes it a glancing blow, an oval crater thrown that way",
+        power: { min: 0, max: 100, words: IMPACT_WORDS, note: "how hard it hits: deeper, wider, more debris" },
+        size: { min: 4, max: 180, note: "the crater's width in tiles; left out, it follows power (6 + 112 × (power/100)^1.4)" },
+        walls: "steep (one cliff all round) or terraced (broad benches stepping down)",
+        centre: "auto (by size: bowl, peak, ring), bowl, peak, ring or flat",
+        debris: "light (a thin skirt) or heavy (a thick apron thrown far: it can dam a river)",
+        rays: "true: streaks of debris in a starburst",
+        path: { min: 0, max: 99, note: "0 the first personality; 1, 2, … another (the editor's Try another)" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "it refuses to strike on the start's ground; it never adds water; trees inside the bowl go, those round it are knocked down (dead), other objects whose ground changes go",
+      };
+    if (kind === "erupt")
+      return {
+        how: "the editor's Erupt: a volcano at a tile (at) or the middle of a place (where), or a fissure along a line of 2–24 points",
+        power: { min: 0, max: 100, words: ERUPT_WORDS, note: "a small cinder cone to a towering volcano" },
+        shape: "steep (a tall cone) or broad (a wide shield)",
+        summit: "auto (by power: peak, crater, caldera), peak, crater or caldera",
+        flows: "light (short lava flows) or heavy (long ones that can dam rivers)",
+        ridges: "true: the flows set into ridges down its sides",
+        path: { min: 0, max: 99, note: "0 the first personality; 1, 2, … another (the editor's Try another)" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "its fresh lava is hard rock (Carve cuts it slowly); objects ride the rising ground, trees near the vent fall and what stands in it goes; it refuses to erupt on the start's ground and never adds water",
+      };
+    if (kind === "quake")
+      return {
+        how: "the editor's Quake: a fault along a line of 2–24 points; the side that moves (left or right of the line as drawn, north up) lifts (the other drops a little) or slides along it",
+        mode: "lift (the default) or slide",
+        power: { min: 0, max: 100, words: QUAKE_WORDS, note: "a lift of 1 + power × 0.075 levels (with a tilt), or a slide of 3 + power × 0.17 tiles; how far the shaking reaches" },
+        scarp: "sheer (one cliff) or stepped (benches)",
+        side: "left or right: the side that moves",
+        path: { min: 0, max: 99, note: "0 the first personality (its tilt, its crack); 1, 2, … another" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "a fault within a few tiles of the start is refused, and so is a slide that would carry the start; objects ride with the land, trees on the fault fall; the water there moves with the land (it never adds any), and a river crossing a slide is joined again along it",
+      };
     if (kind === "badwaterBasin") return { strength: { min: 1, max: 3 }, keepsFromStart: rulesFor(s.spec, designedFor).badwaterWithin, sizeWords: sizes("badwaterBasin"), note: "a 7×7 basin with one outlet; its channel runs to a river or the map edge" };
     const b = BUILDERS[kind as SetPieceKind];
     if (b) return { ranges: b.limits(planContextOf(s)) };
-    throw new ArgError("kind is waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, berryPatch, ruinField, river, brush, carve, start or words");
+    throw new ArgError("kind is waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, berryPatch, ruinField, river, brush, carve, craterize, erupt, quake, start or words");
   }
 }
 
