@@ -1,9 +1,10 @@
-// Water is never an object, and the ways to see it (PLAN §20 D196, D197): clicking water picks
-// nothing; the hover readout gives its depth, bed and badwater; any tool, T or Clear water make it
-// see-through; Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets strength; a
-// source is always findable (its marker with Source picked, and the sources feeding the water under
-// the pointer); a selected source's Delete makes its water recede; clean or bad belongs to the
-// source; the water flows on a stroke while it is painted, and its speed is the player's.
+// Water is never an object, and the ways to see it (PLAN §20 D196, D197, D212): clicking water
+// picks nothing; the hover readout gives its depth, bed and badwater; T or Clear water make all of
+// it see-through, and a brush over water clears the water round it (on dry land it stays as it
+// is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets strength; a source is
+// always findable (its marker with a source picked on the shelf, and the sources feeding the water
+// under the pointer); a selected source's Delete makes its water recede; clean or bad belongs to
+// the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -11,6 +12,7 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
 const clear = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.clearWater);
+const clearNear = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.clearNear);
 const depthAt = (page: Page, tiles: number[]) => page.evaluate((ts) => ts.map((t) => window.dgm3d!.renderer.mapState()!.surface.depth[t] || 0), tiles);
 
 test("water is never an object; clear water, layers, strength, sources findable and removable, water on a stroke", async ({ page }) => {
@@ -42,7 +44,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await expect(page.locator(".source-marker.feeding")).toHaveCount(1);
   await expect(page.locator(".source-marker.feeding")).toHaveText(/water\/s/);
 
-  // clear water: T, the view button, and any tool picked
+  // clear water (D212): T and the view button clear all of it; a brush clears only the water under
+  // and right round it, and only while it is over water; on dry land the water stays as it is
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("t");
   await expect.poll(() => clear(page)).toBe(true);
@@ -50,9 +53,24 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.getByRole("button", { name: "Clear water" }).click();
   await expect.poll(() => clear(page)).toBe(false);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
-  await expect.poll(() => clear(page)).toBe(true);
+  await page.mouse.move(mp.x + 2, mp.y);
+  await page.mouse.move(mp.x, mp.y);
+  await expect.poll(() => clearNear(page)).not.toBeNull();
+  const near = (await clearNear(page))!;
+  expect(Math.hypot(near.x - (m[0] + 0.5), near.y - (m[1] + 0.5))).toBeLessThan(1.5);
+  expect(await clear(page)).toBe(false);
+  const dry = await client(page, start[0], start[1]);
+  await page.mouse.move(dry.x, dry.y, { steps: 4 });
+  await expect.poll(() => clearNear(page)).toBeNull();
+  expect(await clear(page)).toBe(false);
   await page.keyboard.press("Escape");
-  await expect.poll(() => clear(page)).toBe(false);
+  // the shelf's ghost over water clears the water under it too (placing on a bed)
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.mouse.move(mp.x + 2, mp.y);
+  await page.mouse.move(mp.x, mp.y);
+  await expect.poll(() => clearNear(page)).not.toBeNull();
+  await page.keyboard.press("Escape");
+  await expect.poll(() => clearNear(page)).toBeNull();
 
   // the game's layers (D196, D207): Alt+scroll cuts the world down, the first step to the highest
   // layer that hides anything; Alt+middle-click (the game's) or Alt+click picks a tile's layer,

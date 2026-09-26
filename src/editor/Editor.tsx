@@ -1981,9 +1981,10 @@ export default function Editor(props: EditorProps) {
   useEffect(() => painter.current?.showCursor(), [brush]);
   // level lines while the toggle is on (the brush kit)
   useEffect(() => renderer.current?.setLevelLines(brush.levelLines), [brush.levelLines, ready]);
-  // any tool picked makes the water see-through, so the bed and the sources show (D196)
-  //   (Carve: the river forming is the show, so its water stays as it is)
-  useEffect(() => renderer.current?.setClearWater(clearWater || !!brushTool || !!selecting || !!shelf || removing), [clearWater, brushTool, selecting, shelf, removing, ready]);
+  // clear water (D212): T or Clear water makes all of it see-through; otherwise only the water under
+  // and right round the brush (or the shelf's ghost) clears, while it is over water (the view
+  // decides, renderer.ts clearNear), and on dry land the water stays as it is
+  useEffect(() => renderer.current?.setClearWater(clearWater), [clearWater, ready]);
 
   const toolRef = useRef(tool);
   toolRef.current = tool;
@@ -2408,7 +2409,7 @@ export default function Editor(props: EditorProps) {
             showLegend={layer !== "none" || damSites !== null}
             viewButtons={
               <>
-                <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through the water to the bed and the sources (T). Any tool picked does it too.">
+                <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
                   Clear water
                 </button>
                 {(["moisture", "badwater", "drought", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (

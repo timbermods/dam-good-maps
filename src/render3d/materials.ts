@@ -55,6 +55,7 @@ import {
   UnsignedByteType,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderTarget,
   type Texture,
   type WebGLRenderer,
@@ -97,9 +98,12 @@ export interface SceneUniforms {
   patternTex: { value: Texture | null };
   /** The view's height in CSS pixels (objects' minimum sizes). */
   viewHeight: { value: number };
-  /** Clear water (D196): 1 makes the water see-through (the bed, ledges and sources show), with
-   *  badwater still plainly marked; 0 the normal look. */
+  /** Clear water (D196, D212): 1 makes all the water see-through (T; the bed, ledges and sources
+   *  show), with badwater still plainly marked; 0 the normal look. */
   clearWater: { value: number };
+  /** Clear water round the brush (D212): its middle (tiles), the radius it is clear to, and 1 while
+   *  it paints a submerged bed (0: nowhere). */
+  clearAround: { value: Vector4 };
   /** The layer the world is sliced at (D196, the game's layers): everything above it is cut away;
    *  99 shows it all. */
   slice: { value: number };
@@ -131,6 +135,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     patternTex: { value: null },
     viewHeight: { value: 800 },
     clearWater: { value: 0 },
+    clearAround: { value: new Vector4(0, 0, 0, 0) },
     slice: { value: 99 },
     levelLines: { value: 0 },
     sourceTex: { value: overlayTexture(1, 1) },
@@ -336,6 +341,7 @@ const COMMON = /* glsl */ `
   uniform vec2 mapSize;
   uniform sampler2D patternTex;
   uniform float clearWater;
+  uniform vec4 clearAround;
   uniform float slice;
   uniform float levelLines;
   uniform sampler2D sourceTex;
@@ -864,6 +870,32 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
+        // right round the brush while it paints a submerged bed, fading back over a tile or two.
+        // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
+        // its shore; badwater keeps its colour, half see-through, with dark diagonal stripes
+        float clr = clearWater;
+        if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        if (clr > 0.001) {
+          float badish = max(bad, smoothstep(0.05, 0.5, cont));
+          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
+          vec3 bc = mix(murky, murky * CLEAR_STRIPE, stripe);
+          vec3 cc = c;
+          float ca = alpha * mix(0.35, 0.7, badish);
+          if (n.y > 0.5) {
+            float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
+            cc = WATER_CLEAR_TINT * light;
+            cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
+            cc = mix(cc, WATER_SKY, fres * WATER_REFLECT);
+            cc += sunColor * (spec * WATER_SPEC + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
+            cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
+            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = mix(ca, CLEAR_BAD_OPACITY, badish);
+          }
+          c = mix(c, mix(cc, bc, badish), clr);
+          alpha = mix(alpha, ca, clr);
+        }
         if (n.y > 0.5) {
           vec4 o = texture2D(overlay, (floor(g) + 0.5) / mapSize);
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
@@ -905,15 +937,6 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
           alpha = mix(alpha, 0.9, hl * 0.4);
         }
         #endif
-        // clear water (D196): clean water all but vanishes, so the bed, ledges and sources show;
-        // badwater keeps its colour, half see-through, and diagonal stripes (plain without colour)
-        if (clearWater > 0.5) {
-          float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
-          vec3 bc = mix(murky, murky * 0.45, stripe);
-          c = mix(c, bc, badish);
-          alpha = n.y > 0.5 ? mix(0.1 + 0.25 * foam, 0.62, badish) : alpha * mix(0.35, 0.7, badish);
-        }
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }
     `,

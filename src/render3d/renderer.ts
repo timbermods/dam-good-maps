@@ -327,8 +327,9 @@ export class MapRenderer {
     return this.markersOn;
   }
 
-  /** Clear water (D196): the water see-through, so the bed, ledges and sources show; badwater
-   *  still plainly marked. */
+  /** Clear water (D196, D212): all the water see-through (T, or Clear water), so the bed, ledges
+   *  and sources show; badwater still plainly marked. Round the brush it is clear on its own while
+   *  the brush paints a submerged bed (`clearNear`). */
   setClearWater(on: boolean): void {
     if ((this.uniforms.clearWater.value > 0.5) === on) return;
     this.uniforms.clearWater.value = on ? 1 : 0;
@@ -753,6 +754,8 @@ export class MapRenderer {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
     }
+    // (the water round the brush may have come or gone)
+    this.updateClearAround();
     this.bakeTiles();
     this.requestRender();
     this.onMapChange?.();
@@ -827,6 +830,7 @@ export class MapRenderer {
         this.scene.remove(this.ghost.group);
         disposeGroup(this.ghost.group);
         this.ghost = null;
+        this.updateClearAround();
         this.requestRender();
       }
       return;
@@ -852,6 +856,7 @@ export class MapRenderer {
       this.ghost = { group, key };
     }
     this.ghost.group.position.set(g.x, g.z, -g.y);
+    this.updateClearAround();
     this.requestRender();
   }
 
@@ -1090,11 +1095,47 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     this.brushCursorState = s;
+    this.updateClearAround();
     if (!this.cursor) {
       if (!s) return;
       this.cursor = new BrushCursor(this.scene);
     }
     this.cursor.set(s, m.heights, m.W, m.H);
+    this.requestRender();
+  }
+
+  /** Where the water is clear round the pointer (D212): the middle and radius, or null (tests). */
+  clearNear: { x: number; y: number; radius: number } | null = null;
+
+  /** Clear water round the brush (D212): the water under and right round the brush turns
+   *  see-through while the brush is over water already there (painting a submerged bed: at least
+   *  half the tiles at its middle are wet); working on dry land leaves the water as it is. The
+   *  shelf's ghost does the same over the tile under the pointer (placing on a bed). */
+  private updateClearAround(): void {
+    const m = this.map;
+    const b = this.brushCursorState;
+    const h = this.hoverHit;
+    const at = b ? { x: b.x, y: b.y, r: b.radius } : this.ghost && h ? { x: h.x + 0.5, y: h.y + 0.5, r: 1.5 } : null;
+    let on = false;
+    if (m && at) {
+      const core = Math.max(0.75, at.r * 0.4);
+      let n = 0;
+      let wet = 0;
+      for (let y = Math.max(0, Math.floor(at.y - core)); y <= Math.min(m.H - 1, Math.floor(at.y + core)); y++)
+        for (let x = Math.max(0, Math.floor(at.x - core)); x <= Math.min(m.W - 1, Math.floor(at.x + core)); x++) {
+          if ((x + 0.5 - at.x) ** 2 + (y + 0.5 - at.y) ** 2 > core * core) continue;
+          n++;
+          if (m.surface.depth[y * m.W + x] > 0.05) wet++;
+        }
+      on = n > 0 && wet * 2 >= n;
+    }
+    const u = this.uniforms.clearAround.value;
+    const next = on && at ? { x: at.x, y: at.y, radius: at.r + 0.5 } : null;
+    const was = this.clearNear;
+    if (was === next || (was && next && was.x === next.x && was.y === next.y && was.radius === next.radius)) return;
+    this.clearNear = next;
+    if (next) u.set(next.x, next.y, next.radius, 1);
+    else u.w = 0;
     this.requestRender();
   }
 
