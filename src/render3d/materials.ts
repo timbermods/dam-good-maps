@@ -730,8 +730,11 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         }
         // an eruption's heat (D206): the vents and the flows glow, cool to a dark crust, and the
         // crust fades back into the ground; ash dusts the slopes round it
-        if (eruptionAge >= 0.0) {
-          vec4 e = texture2D(eruptionMask, vec2(vWorld.x, -vWorld.z) / mapSize);
+        // (not on the map's outer walls: the mask's edge would stretch down them)
+        vec2 eAt = vec2(vWorld.x, -vWorld.z);
+        bool eWall = abs(n.y) < 0.5 && (eAt.x < 0.01 || eAt.y < 0.01 || eAt.x > mapSize.x - 0.01 || eAt.y > mapSize.y - 0.01);
+        if (eruptionAge >= 0.0 && !eWall) {
+          vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
           float cooling = smoothstep(0.0, 3.6, coolingAge);
           float crust = smoothstep(2.0, 5.8, coolingAge);

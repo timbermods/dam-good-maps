@@ -118,6 +118,25 @@ editor's own `forceResult` operation, with `limits` for each and the harness pro
 keeps the shared operation too. Requests B22 (a crater about 24 tiles across), B23 (a small volcano),
 B24 (a lifted fault) and B25 (a meteor on the start: refused, "Start here").
 
+## Captures for Kyler
+
+`tools/capture-forces.ts` (this branch as the preview builds it, our own Highlands 4242 at 128², on the
+GPU, the water speed at its slowest; about 2.9 MB in all, D195):
+
+- [the top bar with the forces group and Erupt's options row](forces/forces-bar.png);
+- [Carve](forces/carve.gif): a river unleashed (power 75, wander 60);
+- [Craterize](forces/craterize.gif): a strike with rays (power 45): the streak, the flash, the shock
+  ring and the dust, the bowl, a peak in the middle, the river running into its rings;
+- [Erupt](forces/erupt.gif) at full power: a caldera swelling, the plume billowing dark (D216), the
+  lava glowing along its flows and cooling;
+- [Quake, Lift](forces/quake-lift.gif): a fault painted across the map, the far side rising behind
+  the pointer, the river dammed into lakes;
+- [Quake, Slide](forces/quake-slide.gif): the fault drawn, then the block sliding along it (power 70:
+  15 tiles), a badwater channel carried with it.
+
+`npx tsx tools/capture-forces.ts [--only erupt] [--strip]` makes them again (`tools/gif.ts` writes the
+GIFs: one palette, each frame only where it changed).
+
 ## Tests
 
 - `tests/contract/forces.test.ts`: #59's 45 pinned parity cases (Quake Lift and Slide, Sheer and
