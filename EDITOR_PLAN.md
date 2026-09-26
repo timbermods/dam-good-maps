@@ -36,10 +36,12 @@ editor is desktop-first (D185).
 ## 3. The screen
 
 - **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-  Craterize, Quake, Erupt, a visually distinct group) | Remove, with a small options row for the
-  picked tool; every force's options row starts with its mode switch. The four forces are built on
-  one shared forces core (D203, D206). The forces go to the preview first and reach the public site
-  only once Kyler has tried them (D219): until then the public site shows no forces group at all.
+  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group) | Remove, with a small options
+  row for the picked tool; every force's options row starts with its mode switch. The four forces
+  are built on one shared forces core (D203, D206, D220). While a force works its row is its status
+  (Carve's with Pause and Stop) and Revert; the other tools wait. The forces go to the preview first
+  and reach the public site only once Kyler has tried them (D219): until then the public site shows
+  no forces group at all.
 - **The left shelf:** a clean grid of placeable objects: the start, then the **Water source** and
   the **Badwater source** (two separate items, D212), then **Pine**, **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
@@ -50,11 +52,14 @@ editor is desktop-first (D185).
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
-- **Juice** (D205): small satisfying feedback on every action (a soft thud as land rises, a puff of
-  dust when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts,
-  fitting touches for the forces). Sounds are on by default but quiet, with a volume and an off switch
-  (D212); micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in
-  use.
+- **Juice** (D205, D220): small satisfying feedback on every action (a soft thud as land rises, a
+  puff of dust when it's lowered, a pop and a wiggle when something is placed, a splash when a
+  source starts, each force's own moment). The sounds are synthesised as they play (Codex's engine,
+  #58): a brush's texture for as long as its stroke lasts, a pop for a tree, a gurgle for a source,
+  a soft rewind for undo, and each force's (a torrent, a whistle and an impact, a rumble and a crack,
+  grinding earth, a rising plume and a cooling hiss). They are on by default but quiet, with a
+  volume and an off switch the player keeps (D212); water ambience is off unless turned on.
+  Micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in use.
 - **Visible layers, identical to Timberborn** (D207): a compact layer widget with the view buttons,
   showing the visible level (∞ when everything shows) with up and down arrows, quiet at ∞ until used.
   Everything above the chosen level is hidden (terrain, water, objects) and the cut surfaces show as
@@ -91,28 +96,46 @@ editor is desktop-first (D185).
   quiet "the start fits here" hint when the area is big and flat enough for the district center, and a
   stronger one when the start requirements would also hold there; trees and objects ride the ground.
 - **Hills, plateaus, ridges and valleys come from the brushes,** not buttons.
-- **Craterize, a force of nature** (D202): its own top-bar button next to Carve, simulating a giant
-  impact. **Strike** or **Aim** (a glancing drag for oval craters); **Power**; **Size** (auto or set);
-  **Steep** or **Terraced** walls; **Centre** (Auto, Bowl, Peak, Ring, Flat); **Debris** (Light or
-  Heavy, with or without Rays); **Try another**; the impact moment with radial tree knockdown. Newer
-  impacts overprint older ones; it refuses to strike where the start sits and never adds water; one
-  undo step, and Esc reverts. Prototyped on `investigation/craterize` (#51, ready: D216).
-- **Quake, a force of nature** (D203): in the forces group with Carve and Craterize. It splits the land
-  along a drawn fault line: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; **Try
-  another** (including a natural tilt); objects ride with the land; it refuses a fault through the start
-  and never adds water; one undo step, and Esc reverts. Prototyped on `investigation/quake` (#52, ready with
-  both Lift and Slide: D219).
-- **Erupt, a force of nature** (D206): in the forces group. It raises a volcano: **Mode** (**Vent** or
-  **Fissure**); **Power**; **Shape** (**Steep** or **Broad**); **Summit** (Auto, Peak, Crater, Caldera);
-  **Flows** (Light or Heavy, with or without Ridges); **Try another**. Fresh volcanic rock is hard for
-  Carve; flows can dam rivers; objects ride the rising ground; overlapping eruptions build volcanic
-  fields; it refuses to erupt where the start sits and never adds water; one undo step, and Esc
-  reverts. Prototyped on `investigation/erupt` (#50, ready: D216).
+- **Craterize, a force of nature** (D202): its own top-bar button next to Carve (key 8), simulating a
+  giant impact. **Strike** (a click) or **Aim** (press on the impact and drag the way the impactor
+  travels: a glancing blow, an oval crater thrown forward); **Power** (a pebble to a cataclysm);
+  **Size** (following Power, or set); **Steep** or **Terraced** walls; **Centre** (Auto, Bowl, Peak,
+  Ring, Flat); **Light** or **Heavy debris**, with or without **Rays**; **Try another**. Its
+  footprint shows on the land under the pointer. The impact moment: a streak falls, a flash, a shock
+  ring, dust and thrown blocks, a short shake, the bowl opening at once and the debris landing ring
+  by ring; trees inside the bowl are gone, those round it are knocked down (dead, lying away from the
+  blow). Newer impacts overprint older ones; heavy debris can dam a river; it refuses to strike where
+  the start sits (red, "Start here") and never adds water; one undo step, and Esc reverts. Built from
+  `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
+  (D219).
+- **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
+  painted fault: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; the side that moves
+  (**Left** or **Right** of the stroke; **X** flips it, even while painting); **Try another** (another
+  tilt and crack). The fault and the side that moves show on the land as it is painted. Lift shows its
+  whole result as it is painted (the ground reacts behind the pointer) and is kept when let go; Slide
+  shows the fault while it is painted, then its block slides along it tile by tile, 3 to 20 tiles,
+  and a river that crossed the fault is joined again along it. A crack runs along the fault, dust
+  rises at its head and the view shakes a little. Objects ride with the land (a rigid one on flat
+  ground of its own; the start with its ground), trees on the fault fall; it refuses a fault through
+  the start, and a slide that would carry the start (X flips the side), and keeps the start flat and
+  dry (a painted Lift that would flood it says so, and is taken back if let go); it never adds water;
+  one undo step, and Esc reverts. Built from `investigation/quake` (#52, with both Lift and Slide) on
+  the forces core (#59), on the preview until Kyler has tried it (D219).
+- **Erupt, a force of nature** (D206, D216): in the forces group (key 0). It raises a volcano: its mode
+  (**Vent**, a click, or **Fissure**, painted); **Power**; **Steep** or **Broad**; **Summit** (Auto,
+  Peak, Crater, Caldera); **Light** or **Heavy flows**, with or without **Ridges**; **Try another**.
+  The ground stirs, then the volcano swells level by level; its plume billows bigger and darker the
+  more powerful the eruption (D216), the lava glows along its flows, then cools to a dark crust and
+  fades into the ground. Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride
+  the rising ground (a rigid one on a terrace of its own), trees near a vent fall and what stands in
+  it goes; overlapping eruptions build volcanic fields; it refuses to erupt where the start sits and
+  never adds water; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the
+  forces core (#59), on the preview until Kyler has tried it (D219).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
 
-(D180, D182, D183, D184, D193, D202, D203, D206.)
+(D180, D182, D183, D184, D193, D202, D203, D206, D216, D219, D220.)
 
 ## 5. Water
 
@@ -170,8 +193,10 @@ Make a valley, drop a source, and there's a river.
     instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
-  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game.
-  Built from `investigation/carve` (#47, D216), on the preview until Kyler has tried it (D219).
+  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Fresh
+  volcanic rock (Erupt's) is hard for it: it bends round a lava field. Built from
+  `investigation/carve` (#47, D216) on the forces core (#59), on the preview until Kyler has tried it
+  (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
@@ -188,11 +213,12 @@ mode with the water shader and soft shadows (Map look 2, D147).
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms,
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
-toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, X Remove and M Select.
+toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
+Erupt, X Remove (with Quake picked, X flips the side of the fault that moves) and M Select.
 Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
-keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
+keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
 
 ## 8. The generator, Claude and the first run
 
@@ -288,10 +314,14 @@ steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `pl
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
 build places, and never touches the ground or the start. A force's run becomes one operation whose
-result is stored literally, so a replay assigns it and never runs the force again (`carve`: the
-changed tiles and their levels, the objects that lost their ground, the source it keeps, and a
-sealed oxbow lake's water; Try another path replaces the last carve, and undoing it brings that one
-back). Operations validate their inputs against the
+result is stored literally, so a replay assigns it and never runs the force again: `forceResult`,
+shared by the four forces (D220): the force, its settings and where it acted (a record), then the
+changed tiles and their levels, the fresh volcanic rock where it changed (a bit per level), the
+objects that lost their ground, the ones it carried (a Slide), the trees it knocked down (dead,
+with the way each lies: the editor's view of them, never the game's), a carve's source and a
+sealed oxbow lake's water. Try another replaces the force before it, and undoing it brings that
+one back. Projects saved with the `carve` operation of before still open and replay exactly.
+Operations validate their inputs against the
 schemas and reject invalid ones instead of clamping silently.
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the
@@ -547,14 +577,29 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - each source's upwelling (D196): a texture of the sources' middle tiles, read by the water shader
     for its rings and bubbles, and brighter for the sources the water under the pointer comes from;
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for
-    under a second; a placed object's pop and wiggle scales its own instance. None of them play with
-    reduced motion or in software rendering. The sounds are synthesized on the page (Web Audio), with
-    a volume and an off switch the player keeps.
-- The forces (D203, D206): one shared core in `src/core/forces/` (`force.ts`): a run on its own copy of
-  the map, a step at a time (ten steps a second of the force, whatever the frame rate), its result
-  stored literally; Carve's run in `carve/`, ported step for step from #47 and checked against it by
-  `tools/carve-equiv.ts`. The worker runs a force a few steps a frame; the page shows its frames
-  (`carveDriver.ts`, paced by the water speed). Which builds show the forces: `src/editor/release.ts`
+    under a second; a placed object's pop and wiggle scales its own instance; a force's moment
+    (`forces.ts`: an impact's streak, flash, ring, dust and blocks; a fault's crack and dust; an
+    eruption's plume and its heat on the terrain shader; a render-only shake, added before a frame and
+    taken off after) plays on its own clock from fixed pools. None of them play with reduced motion or
+    in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
+    are synthesised in an AudioWorklet (`src/editor/juice/`, Codex's engine from #58): one engine for
+    the editor's lifetime, made at the first click or key, never waited on, bounded (64 voices, four
+    textures, excess accents dropped), paused when the page is hidden; the player's volume and off
+    switch are kept (`dgm.sound`).
+- The forces (D203, D206, D220): one shared core in `src/core/forces/`, from Codex's forces core (#59):
+  `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve,
+  whatever the frame rate), the shared numbers, rock and object rules (`random.ts`, `rock.ts`,
+  `objects.ts`), the verbs (`carve/`, ported step for step from #47 and checked by
+  `tools/carve-equiv.ts`; `craterize.ts`, `erupt.ts`, `quake.ts`, ported from #59 and pinned to its
+  45 parity cases), the staged runs that show Craterize, Erupt and Quake a stage at a time
+  (`runs.ts`: planned a few rows a step, then the bowl and its debris, the swell, the fault's front or
+  the slide), the operation (`op.ts`) and its literal result (`result.ts`). The map's hidden rock is
+  derived once from the map as opened (never rerolled); fresh volcanic rock comes from the forces'
+  operations. What is kept is always the plan's final map, touched by the build's own integrity pass
+  in the worker, so the last stage is exactly what the build keeps. The editor's worker runs a force
+  a few steps a frame (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`,
+  `forceAgain`; no second history or water owner); the page shows its frames and moments
+  (`forceDriver.ts`, paced by the water speed). Which builds show the forces: `src/editor/release.ts`
   (D219).
 - "The start fits here" (D204): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,
