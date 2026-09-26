@@ -1,16 +1,12 @@
 # Live editing
 
-> **WIP, paused 2026-09-26 (Kyler's usage; a new session continues after 2026-09-29).** The Carve
-> button (D194, D199, D203, D206) is part-built on this branch, merged from `investigation/carve`
-> (#47, e5435b0). Built and tested: the shared forces core and Carve's run ported into
-> `src/core/forces/` (step for step the prototype's land), the `carve` operation (stored literally,
-> one undo step, Try another path replaces a carve), the worker's run (`carveStart`, `carveAdvance`,
-> `carveStop`, `carveCancel`, `carveAgain`), the Carve button and its options row, the surge
-> effects and the follow camera, and Claude's `carve` step (B19–B21 pass). Left: EDITOR_PLAN §5
-> and this log's Carve section, the full Claude reference re-run, a full `test:quick` and e2e run,
-> and later the two touches Codex adds on #47 (curvature variation at high Wander, oxbow lakes):
-> merge `origin/investigation/carve` again and port its updated core (`character.ts`, `course.ts`,
-> `oxbow.ts`, `run.ts`). CI on the WIP commit was not seen green before the pause.
+> **State (2026-09-26, the milestone session's Live editing build).** Ready for Kyler's look and
+> the release (D212): the Carve port is finished against #47's final commit (6b9d4e6), the forces
+> stay off the public site until Kyler has tried them (D219), D212's two changes are in and its
+> confirmed defaults checked, and the docs are current. Next: CI on the last push, the preview
+> (the milestone session runs the deploy with `preview_ref=feature/live-editing`), Kyler's look,
+> then `live-editing-done`. The WIP note of the pause (the Carve port mid-way at b4d7c27) is done:
+> see "The forces: Carve" below.
 
 **Built** on branch `feature/live-editing` (from `dev` at 761a1d2). Kyler's spec is in the brief;
 Kyler judges it by trying it. No generated map changes: the generator stays 0.6.0, and every
@@ -680,9 +676,130 @@ enables it at once), and the brushes could be picked before the map could be pai
     water source beside the edge and reads its water now.
   - `tests/e2e/waterFlow.spec.ts` picked **Water source**; the tool is **Source** now.
 
+## The forces: Carve (D194, D199, D203, D206, D216)
+
+The first force, built on the shared forces core; the other three (Craterize, Erupt, Quake) plug
+into the same core later.
+
+- **The forces core** (`src/core/forces/force.ts`, `drainage.ts`): a force is a run on its own copy
+  of the map, a step at a time (ten steps are a second of the force on every machine, whatever the
+  frame rate or the effects), until it ends by itself or the player stops it. What it leaves is
+  literal: the tiles it changed and their levels, the objects that lost their ground, what it added.
+  It never touches the start's footprint and a tile round it, the land above the layer showing
+  (D207) or an imported map's caves.
+- **Carve's run** (`src/core/forces/carve/`: `character.ts`, `course.ts`, `oxbow.ts`, `run.ts`,
+  `water.ts`), ported from #47 and kept to its structure. First ported from #47 as merged at e5435b0;
+  then #47's final round (6b9d4e6, merged here) added its two touches, re-ported on top
+  (`character.ts` and `course.ts` did not change in that round):
+  - **Varied bends** (D199): curvature measured over six stations widens and deepens the outer bank
+    (up to two levels of extra scour, the cut bank shifted out), keeps shallow shelves on the inner
+    bank, and narrows the straights, so even at the highest Wander it is never a uniform tube.
+  - **Oxbow lakes** (D199, D216): at high Wander and Power one narrow neck can be cut through. A
+    route-only look-ahead (the same guidance, moving only the head) finds the cut-off before any work
+    starts and reserves two sediment bars across the old bend's mouths; the crescent between them
+    scours while the bars hold (scour and sediment infill in the same step, so no tile ever reverses
+    direction), and the sealed bend becomes a lake.
+  - **The lake's water.** A basin no source feeds would start the canonical settle dry (the
+    prototype's report says so too), so the carve keeps the water the game settles on the map just
+    before its mouths closed (#47's pre-closure solve, with the carve's real source), on the basin's
+    tiles (`carve` params `lake`, `RetainedWater` in the water model). Every settle of the map, the
+    export and the checks start the lake from it, then run the game's rules: with nothing feeding it,
+    it evaporates over time, as an unfed oxbow does in the game (D216). The same document still
+    always settles to the same bytes. On a small map an evaporating lake can keep the water from
+    passing the settle test within four game days (the dot's "water is still changing" note), as the
+    prototype also reports; on bigger maps it settles. The pre-closure settle runs once, when the
+    carve is kept (about a map's canonical settle: a second or two at 256², in the worker).
+  - **Step for step:** `tools/carve-equiv.ts` runs #47's prototype and the port side by side on #47's
+    scenarios (the mountain, ridge and uphill studies, straight and winding, slot and lazy, another
+    personality, the split, the oxbow lake, the oxbow as a dry canyon and stopped early), a generated
+    map (Highlands 18, 128²) and a real place (Near Grand Canyon): every step's ground, preview water,
+    sediment, head, course and metrics match, and the water each keeps matches #47's two-stage solve
+    exactly. 16 of 16 pass. `npx tsx tools/carve-equiv.ts [name]`.
+- **The operation** (`carve`): one undo step, its result stored literally (a replay assigns it and
+  never runs the carve); Try another path replaces the last carve (its operation's `replaces`), and
+  undoing it brings that carve back.
+- **The worker** (`carveStart`, `carveAdvance`, `carveStop`, `carveCancel`, `carveAgain`): the carve
+  runs a few steps a frame at the water's pace; Stop keeps it exactly as shown.
+- **The page:** **Carve (7)**, the forces group's first button. Its options row starts with the mode
+  switch (**Unleash**, **Aim**), then Power, Width (following Power, or set), Wander, Walls, Keep
+  river or Dry canyon, Defy gravity and Follow, and **Try another path** once a carve is kept.
+  **Space** pauses it; **Stop** keeps it; **Esc** or **Ctrl+Z** takes all of it back. The surge
+  (foam, crumbling blocks, dust, muddy water) and the follow camera (`render3d/effects.ts`) leave out
+  with reduced motion; the kept water flows on into the settled water.
+- **Claude:** the `carve` step (unleash from a spot or a place's highest dry ground, or aim at an end,
+  with Defy gravity offered for an end uphill), requests B19–B21.
+- Tests: `tests/contract/carve.test.ts` (#47's checks of the force, and the carve in the document),
+  with #47's tests for the touches: bends wider and deeper on the outside and narrower on the
+  straights; a cut-off bend sealed by sediment at both ends into a lake, the shortcut carrying the
+  river, the settle exact however it is sliced, a dry canyon keeping no water; the unfed lake
+  evaporating, nothing refilling it; and the lake in the document (Canyon 1, 96²: the map settles
+  with it, the project file and the `.timber` keep it, undo takes it away). `tests/unit/carveDriver.test.ts`,
+  `tests/e2e/carve.spec.ts`.
+- Tests changed (D148): `brushKit.spec` checked that the forces keep their slots hidden; Carve is
+  ready (D216), so it checks **Carve (7)** is there and the other three still hidden (b4d7c27).
+  `carve.test`'s replay case compared the reopened project's objects before the water settled; the
+  resources follow the settled water, so it compares them once both have settled (the export's
+  bytes were already compared after the settle).
+
+## The forces on the preview only (D219)
+
+The forces go to the preview; they are released only once Kyler has tried them, while Live editing
+itself is released now. One switch, `src/editor/release.ts`: `FORCES_RELEASED` (false). Until it is
+set, a production build that isn't the preview (the public site) shows no forces: no **Forces**
+group, no button, no key 7, no options row. The preview (built under `/dam-good-maps/preview/`),
+the dev server, vitest, the browser tests' build (vite's "e2e" mode) and `npm run try` show them
+(`npm run try -- --public` builds as the public site does). At the forces' release, set it to true.
+Tests: `tests/unit/release.test.ts` (the rule in every kind of build, and the top bar built as the
+public site and as the preview); the browser tests also build the public configuration, served under
+`public-build/`, where `tests/e2e/publicSite.spec.ts` finds no forces; `brushKit.spec` and
+`carve.spec` use Carve in the tests' build.
+
+## D212: two changes before the release, and the defaults confirmed
+
+- **The sources on the shelf:** **Water source** and **Badwater source**, right after **Start**; the
+  shelf reads Start, Water source, Badwater source, Pine, Birch, Oak, Berry bush and so on. The top
+  bar keeps the shaping tools, the forces and Remove. Each source has its ghost (green where it can
+  go, red with the reason where it can't: the same rules the worker applies on placement); a click
+  places it and its water spreads at once; its row sets the next one's strength. **6** picks the
+  Water source. With a source out, a press on a placed one still grabs it (a drag moves it) and a
+  click selects it, putting the shelf's source back; a selected source keeps its row (strength, clean
+  or bad, Remove), and Shift+scroll over a source still sets its strength. The first run's water hint
+  names the shelf's Water source.
+- **Clear water:** only the water under and right round the brush turns clear, and only while the
+  brush is over water already there (at least half the tiles at its middle wet: painting a
+  submerged bed), fading back to normal water over a tile or two; on dry land the water stays as it
+  is. The shelf's ghost does the same over the tile under the pointer. T and **Clear water** still
+  clear all of it. The view decides, from its own water (`renderer.ts` `clearNear`), so it follows
+  a stroke too. Clear clean water keeps a faint blue tint over the bed, its ripples and glints, and
+  a soft bright line along its shore (the shared water palette's `CLEAR_WATER`), instead of pale grey
+  glass; badwater keeps its colour, half see-through, with dark diagonal stripes, apart from clean
+  water in greyscale and the three colour-blindness simulations.
+- **The defaults, checked:** the camera's R and F zoom are gone (the camera keys are WASD, the
+  arrows, Q and E, + and −; F sizes the brush, R turns the shelf's object); the sounds are on by
+  default and quiet (volume 0.5 of a quiet ceiling), with **Sound** and its volume among the view
+  buttons; the layer pick is Alt+middle-click (the game's) and Alt+click.
+- **Captures for Kyler** (`tools/capture-live-editing.ts`: before is the preview's push 4, 59f826c;
+  after is this branch as the preview builds it; River Valley 5, 128², on the GPU):
+  - [a brush over the river and on dry land](live-editing/clear-water-brush.png);
+  - [all the water clear (T)](live-editing/clear-water-all.png), and
+    [its greyscale and colour-blindness sheet](live-editing/clear-water-colour-blind.png), where
+    badwater meets clean water;
+  - [the top bar and the shelf](live-editing/shelf.png) (the after is the preview's build, so Carve
+    shows; the public site has no forces group).
+- `tools/retired-terms.json`: the top bar's "Source tool" and its "pick Source" wording are retired.
+- Tests: `tests/unit/placeTools.test.ts` (the shelf's order, what the two sources place).
+- Tests changed (D148): `brushKit.spec` read the top bar's **Source (6)** and its row; it checks the
+  top bar without Source, the shelf's order, and the Water source's row (and that R, like F, never
+  zooms, and the volume is there). `editor.spec`, `waterFlow.spec`, `waterTools.spec` and
+  `waterView.spec` pick the shelf's Water source (and `waterTools` its Badwater source) instead of
+  the top bar's Source and its clean or bad list. `waterView.spec` checked that any tool picked
+  clears all the water; it checks that T and the button clear all of it, a brush clears round itself
+  over the river and not on dry land, and the shelf's ghost over water.
+
 ## Try it
 
-- `npm run try` builds this branch and serves it at a local address (it prints it).
+- `npm run try` builds this branch and serves it at a local address (it prints it), with the forces
+  as the preview shows them; `npm run try -- --public` builds it as the public site is built.
 - The preview address: `.github/workflows/deploy.yml` builds a branch under `/preview/` when run
   with `preview_ref` (or the variable `DGM_PREVIEW_REF`); once that change is on `main`, running the
   deploy with `preview_ref=feature/live-editing` publishes it at
@@ -690,5 +807,7 @@ enables it at once), and the brushes could be picked before the map could be pai
 
 ## Next
 
-D184's four pushes are in. The forces wait for Kyler (their slots are hidden). The README's
-editor section comes with the release PR.
+D184's four pushes, Carve and D212's changes are in. Kyler's look on the preview, then
+`live-editing-done` (the README's editor section is rewritten for it, on this branch). Then the
+other forces (Craterize, Erupt, Quake) on the same core, on the preview until Kyler has tried them
+(D219).

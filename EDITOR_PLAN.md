@@ -25,25 +25,26 @@ editor is desktop-first (D185).
 - **Forgiveness.** Every stroke or placement is one instant undo step, and Esc always backs out.
 - **One grammar:** pick, paint or place, see.
 - **Tools read intent.** Small quality-of-life tricks remove decisions the player would otherwise
-  make: smart Lower, flatten from the stroke's start, clear water when a tool is picked, a stop level
-  for holding, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
+  make: smart Lower, flatten from the stroke's start, clear water round a brush over water, a stop
+  level for holding, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
 
-(D158, D179, D184, D204.)
+(D158, D179, D184, D204, D212.)
 
 ## 3. The screen
 
-- **The top bar:** Raise, Lower, Flatten, Smooth, Naturalize | Source | the forces (Carve,
-  Craterize, Quake, Erupt, a visually distinct group) | Remove, with a small options row for the picked
-  tool; every force's options row starts with its mode switch. The four forces are built on one shared
-  forces core (D203, D206).
-- **The left shelf:** a clean grid of placeable objects (the start, trees, bushes, ruins, the mine
-  site, relics, slopes and the rest), each a small render in the map's look. Picking one shows a live
-  ghost that follows the cursor, green where it fits and red where it doesn't, with the reason in a
-  quiet word. Click to place, R to rotate, Esc to put it back; drag trees and bushes to paint them in
-  natural clusters.
+- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
+  Craterize, Quake, Erupt, a visually distinct group) | Remove, with a small options row for the
+  picked tool; every force's options row starts with its mode switch. The four forces are built on
+  one shared forces core (D203, D206). The forces go to the preview first and reach the public site
+  only once Kyler has tried them (D219): until then the public site shows no forces group at all.
+- **The left shelf:** a clean grid of placeable objects: the start, then the **Water source** and
+  the **Badwater source** (D212), then trees, bushes, ruins, the mine site, relics, slopes and the
+  rest, each a small render in the map's look. Picking one shows a live ghost that follows the
+  cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
+  place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
 - **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
@@ -51,8 +52,9 @@ editor is desktop-first (D185).
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
 - **Juice** (D205): small satisfying feedback on every action (a soft thud as land rises, a puff of
   dust when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts,
-  fitting touches for the forces). Sounds are quiet and optional, with a volume and an off switch;
-  micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in use.
+  fitting touches for the forces). Sounds are on by default but quiet, with a volume and an off switch
+  (D212); micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in
+  use.
 - **Visible layers, identical to Timberborn** (D207): a compact layer widget with the view buttons,
   showing the visible level (∞ when everything shows) with up and down arrows, quiet at ∞ until used.
   Everything above the chosen level is hidden (terrain, water, objects) and the cut surfaces show as
@@ -68,7 +70,7 @@ editor is desktop-first (D185).
   map. Never a pop-up.
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
-(D184.)
+(D184, D212, D219.)
 
 ## 4. Shaping the land
 
@@ -120,20 +122,26 @@ Make a valley, drop a source, and there's a river.
   The brush ring itself turns a clear water-blue and slightly thicker, with a faint fill as a second
   cue; ordinary Lower keeps the white ring. Readable over water, badwater, every ground and in
   colour-blind views (D198).
-- **Source:** click to place; Shift+scroll sets strength (strong waterfalls allowed, with a friendly
-  note past the official range); drag to move; clean or bad; select it and press Delete (or use
-  Remove) and its water recedes live. A source is always findable, even underwater: a subtle
-  upwelling (bubbles, a gentle ring) shows through the water; with Source picked or when hovering near
-  one, a clear marker with its strength; Markers shows every source (D196).
+- **Water source and Badwater source** (D212): on the left shelf, right after the start. Click to
+  place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
+  Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
+  past the official range); drag to move. A click on a placed source selects it and shows its
+  strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
+  source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
+  through the water; with a source picked on the shelf or when hovering near one, a clear marker
+  with its strength; Markers shows every source (D196).
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
   land reshaped). Generated maps' rivers are just their sources (edge inflows included) and their
   land. Hovering water quietly highlights the sources feeding it (D196).
-- **Seeing underwater:** with any tool picked, water turns transparent, so the bed, ledges and sources
-  show; with no tool picked it looks normal, and T (the game's key) or **Clear water** toggles it.
-  Badwater stays clearly distinct in transparent mode, for colour-blind players too (D196). Sources can go anywhere in the editor;
-  the "only where water begins" rule (D171) is for generated maps.
+- **Seeing underwater** (D196, D212): while a brush is over water already there (painting a
+  submerged bed), the water under and right round it turns clear, so the bed, ledges and sources
+  show; working on dry land leaves the water as it is, so it can be seen. T (the game's key) or
+  **Clear water** makes all of it clear. Clear water still reads as water: a faint blue tint, its
+  ripples and a soft bright shoreline. Badwater stays clearly distinct when clear (its own colour and
+  dark stripes), for colour-blind players too. Sources can go anywhere in the editor; the "only
+  where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit
   starts moving within a frame or two, the rest of the map follows. A speed control (slower, normal,
@@ -143,7 +151,8 @@ Make a valley, drop a source, and there's a river.
 - **Drought and Badtide:** the Drought button shows what a drought looks like on this map, the
   Badtide button what a badtide looks like. The Weather view is separate: a fuller timeline of the
   whole cycle, opened when wanted (D186).
-- **Carve, a force of nature** (D194, D199): its own top-bar button next to Source, with its full set:
+- **Carve, a force of nature** (D194, D199, D216): the first button of the forces group (key 7),
+  with its full set:
   - **Unleash** (click a spot) and **Aim** (origin to end point), with **Defy gravity** for aimed
     carves that climb uphill;
   - **Power** (creek to catastrophe), and **Width** (following Power by default, or set by hand for
@@ -155,14 +164,18 @@ Make a valley, drop a source, and there's a river.
     editable afterwards like any other;
   - an optional camera that follows the river's head, with the visible carving effects (a surging
     head, crumbling blocks, dust, muddy water);
-  - **Stop** keeps what's carved; Esc or undo reverts the whole carve instantly.
+  - Space pauses it; **Stop** keeps what's carved; Esc or Ctrl+Z (or undo) reverts the whole carve
+    instantly.
 
-  The water cuts its own gorge or valley, with floodplains and a delta. It's being prototyped on
-  `investigation/carve` (PR #47, held until Kyler says it's ready).
+  The water cuts its own gorge or valley, with floodplains and a delta. Bends vary: wider and deeper
+  on the outside, narrower on the straights, never a uniform tube. At high Wander a bend can be cut
+  off: sediment seals both its mouths and it holds its water as an oxbow lake; with nothing feeding
+  it, it evaporates over time, as in the game. Built from `investigation/carve` (#47), on the
+  preview until Kyler has tried it (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
-(D180, D181, D184, D186, D194, D196.)
+(D180, D181, D184, D186, D194, D196, D212, D216.)
 
 ## 6. The look
 
@@ -175,11 +188,11 @@ mode with the water shader and soft shadows (Map look 2, D147).
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms,
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
-toggles clear water. Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc
-backs out. Hold F and move the mouse to resize the brush live, then click to set. Ctrl+Shift+1 to 9
+toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, X Remove and M Select.
+Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
-keyboard, with labels for screen readers. (D180, D184, D196, D205.)
+keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 8. The generator, Claude and the first run
 
@@ -272,7 +285,11 @@ edges, Smooth's make walkable, and a pen's pressure per dab. A source's strength
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
-build places, and never touches the ground or the start. Operations validate their inputs against the
+build places, and never touches the ground or the start. A force's run becomes one operation whose
+result is stored literally, so a replay assigns it and never runs the force again (`carve`: the
+changed tiles and their levels, the objects that lost their ground, the source it keeps, and a
+sealed oxbow lake's water; Try another path replaces the last carve, and undoing it brings that one
+back). Operations validate their inputs against the
 schemas and reject invalid ones instead of clamping silently.
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the
@@ -318,6 +335,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
   - **Approximate under roofs** (imported caves, tunnels, overhang bridges, badtide drains). There the editor keeps the water the file stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. As built (M8, D100): the tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and **Show → Water under roofs** marks them; the roofed columns are never edited (D40), so they are not simulated again.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
+  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes.
   - **Speed:** after an edit the preview re-settles from its previous state. The target is ≤ 2 s for a local edit on 256². A full re-settle runs in the background with progress. As built (M8, D99): 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node; the background check is debounced by 0.7 s and dropped when a newer edit arrives.
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes, and the worker runs the water on it at once (the simulation steps only wet tiles and their neighbours, about 0.7–1.6 ms a tick on 256², so the water nearest the edit is what moves first) and sends each frame as soon as the water has answered. On release, the stroke's operation carries that water on into the journey; Esc drops it. On 256² River Valley, the water in a new channel moves 25–36 ms after its ground changes (it moved 80–95 ms after the release before, and not at all while painting).
   - **The journey's speed** (D197): slower, normal (the default, three times the slowest: a small edit settles nearby in a second or two), faster, or instant (the latest water there is).
@@ -520,14 +538,22 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     and otherwise shows everything. Under a cut the brushes leave the ground above it as it is
     (its tiles are the stroke's kept tiles) and never raise past it; the Select tool's actions
     likewise;
-  - clear water (D196): one uniform makes clean water nearly transparent, and badwater half so, in its
-    own colour with diagonal stripes;
+  - clear water (D196, D212): one uniform clears all the water (T), another the water round the brush
+    or the shelf's ghost while it is over water (the view decides from its own water, `clearNear`);
+    clean water keeps a faint blue tint, its ripples and a bright shoreline, badwater its own colour,
+    half see-through, with dark diagonal stripes (the shared water palette's `CLEAR_WATER`);
   - each source's upwelling (D196): a texture of the sources' middle tiles, read by the water shader
     for its rings and bubbles, and brighter for the sources the water under the pointer comes from;
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for
     under a second; a placed object's pop and wiggle scales its own instance. None of them play with
     reduced motion or in software rendering. The sounds are synthesized on the page (Web Audio), with
     a volume and an off switch the player keeps.
+- The forces (D203, D206): one shared core in `src/core/forces/` (`force.ts`): a run on its own copy of
+  the map, a step at a time (ten steps a second of the force, whatever the frame rate), its result
+  stored literally; Carve's run in `carve/`, ported step for step from #47 and checked against it by
+  `tools/carve-equiv.ts`. The worker runs a force a few steps a frame; the page shows its frames
+  (`carveDriver.ts`, paced by the water speed). Which builds show the forces: `src/editor/release.ts`
+  (D219).
 - "The start fits here" (D204): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a
