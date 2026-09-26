@@ -122,11 +122,13 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
 
   it("a weir and a plug close a river's channel wall to wall and hold its water", () => {
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
-    // the first free place from 30 tiles down the river (M9a: the generator's own weir or another
-    // object may stand at any one place, and the tool refuses there, as it should)
+    // the first free place from 30 tiles down the river where its channel is 3 or more wide (M9a:
+    // the generator's own weir or another object may stand at any one place, and the tool refuses
+    // there, as it should)
     const free = (kind: "weir" | "plug", from: number, k: number) => {
       let last = "";
       for (let at = from; at < from + 60; at += 3) {
+        if (acrossRiver(s, river.id, at).length < 3) continue;
         const p = planObject(s, { kind, river: { id: river.id, at } }, uuid(k));
         if (p.ok) return { at, p };
         last = p.errors.join("; ");

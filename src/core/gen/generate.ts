@@ -203,13 +203,17 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   let replans = 0;
   let settles = 0;
   // storage near the start is preferred, never required (#67). When the player asked for more drought
-  // reserve than the theme's own, a passing map without it is kept while a few more attempts look
-  // for one (the same field first, then new land); otherwise the first passing map stands
+  // reserve than the theme's own, a passing map without it (a dam site or natural water that holds
+  // the need) is kept while up to four more attempts look for one (the same field once, then new
+  // land); otherwise the first passing map stands
   const reserveAsked = RESERVE[specIn.settings.water.droughtReserve] / RESERVE[THEME_PRESETS[specIn.theme].droughtReserve];
-  const storageTries = reserveAsked > 1 ? 3 : 0;
+  const storageTries = reserveAsked > 1 ? 4 : 0;
   let tried = 0;
+  // a field that passed twice without storage near the start has none to offer: new land
+  let fresh = false;
   for (let attempt = 0; attempt < max; attempt++) {
-    if (!land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
+    if (fresh || !land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
+      fresh = false;
       opts.onProgress?.({ attempt, stage: "land" });
       const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: opts.intentions, ...(opts.variety !== undefined ? { variety: opts.variety } : {}) });
       leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
@@ -228,7 +232,12 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     last = a;
     if (a.passed && !a.noStorage) return a.result;
     if (a.passed && !fallback) fallback = a;
-    if (fallback && tried++ >= storageTries) return fallback.result;
+    if (fallback && tried++ >= storageTries) {
+      // (the attempts the map took, the later ones included)
+      fallback.result.attempts = attempt + 1;
+      return fallback.result;
+    }
+    if (a.passed && replans > 0) fresh = true;
     failures.push({ attempt, failed: a.passed ? ["water.storage_possible (preferred)"] : failedIds(a.result) });
   }
   const out = (fallback ?? last!).result;
@@ -911,8 +920,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   return {
     passed,
     // (a map that passed without storage near the start may be planned again on its field, for one)
-    replannable: same && (!passed || info.storage === false),
-    noStorage: passed && info.storage === false,
+    replannable: same && (!passed || info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
+    // (what Drought reserve asks for, PLAN §5.3: a dam site or natural water near the start that
+    // holds the need, not a line of levees)
+    noStorage: passed && (info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
     result: {
       spec: shown,
       features,
