@@ -2,7 +2,8 @@
 // the map's look. Picking one shows its ghost under the pointer, green where it fits and red where
 // it doesn't, with the reason in a quiet word; a click places it, R turns it, Esc puts it back.
 // Trees and bushes: a click places one, a drag paints many, clustered as the generator's groves
-// and patches are.
+// and patches are. The two sources come right after the start (D212): a click places one, and its
+// water spreads at once.
 
 import { hash32 } from "../core/math/hash";
 
@@ -17,10 +18,16 @@ export interface ShelfItem {
   turns: boolean;
   /** Words for its button's tooltip. */
   hint: string;
+  /** A water source: clean or bad (its strength in the options). */
+  source?: "clean" | "bad";
+  /** Its key, when it has one. */
+  key?: string;
 }
 
 export const SHELF: readonly ShelfItem[] = [
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "the district center: click where the colony starts; R turns its door" },
+  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "click where the water starts; its strength in the options. Over a source, Shift+scroll sets its strength; drag it to move it" },
+  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "click where badwater starts; its strength in the options. Over a source, Shift+scroll sets its strength; drag it to move it" },
   { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
   { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
   { id: "Oak", name: "Oak", template: "Oak", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },

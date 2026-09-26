@@ -66,11 +66,11 @@ test("generate → refine → back to settings → regenerate → refine keeps t
     [start0[0], start0[1]] as const,
   );
   expect(spring).not.toBeNull();
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   const sp = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spring!);
   await page.mouse.click(sp.x, sp.y);
   await page.evaluate(() => window.dgmEditor!.idle());
-  // (Esc puts Source away)
+  // (Esc puts the water source back on the shelf)
   await page.keyboard.press("Escape");
   i = await info(page);
   expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source"]);

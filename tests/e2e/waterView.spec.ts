@@ -86,8 +86,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await widget.getByRole("button", { name: "Show every layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 
-  // Source picked: every source shows its marker with its strength
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Source (6)" }).click();
+  // a source picked on the shelf: every source shows its marker with its strength
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   await expect.poll(async () => page.locator(".source-marker").count()).toBeGreaterThan(0);
   // a new source on dry, empty ground
   const spot = await page.evaluate(

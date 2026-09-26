@@ -1,7 +1,8 @@
-// The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205): Raise … Naturalize |
-// Source, and a row with only the picked tool's options; square, precise with a hold that digs a
-// level more at a steady pace down to its stop level, straight lines with their length, level
-// lines, Flatten in steps and with ramped edges, "the start fits here" after a Flatten stroke,
+// The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205, D212): Raise … Naturalize |
+// the forces | Remove, and a row with only the picked tool's options (the sources are on the
+// shelf); square, precise with a hold that digs a level more at a steady pace down to its stop
+// level, straight lines with their length, level lines, Flatten in steps and with ramped edges,
+// "the start fits here" after a Flatten stroke,
 // Smooth make walkable; hold F to size the brush; the sounds' switch; the Select tool (M, or
 // Ctrl+drag) with its size and its actions.
 
@@ -49,11 +50,15 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
-  // the top bar: five brushes and Source; a row with only the picked tool's options
+  // the top bar: the five brushes, the forces and Remove, and a row with only the picked tool's
+  // options; the sources are on the shelf, right after the start (D212)
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Source (6)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Remove (X)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
+  const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
-  // the forces: Carve is ready, next to Source (D194, D199); the others keep their slots hidden
+  // the forces: Carve is ready, in their group (D194, D199); the others keep their slots hidden
   // until they are (D202, D203, D206)
   await expect(bar.getByRole("button", { name: "Carve (7)" })).toBeVisible();
   for (const name of ["Craterize", "Quake", "Erupt"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
@@ -69,9 +74,11 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await soundButton.click();
   await expect(soundButton).toHaveAttribute("aria-pressed", "false");
   await soundButton.click();
-  await bar.getByRole("button", { name: "Source (6)" }).click();
-  const sourceRow = page.getByRole("group", { name: "Source options" });
-  await expect(sourceRow.getByRole("combobox", { name: "Water" })).toBeVisible();
+  // the shelf's Water source (6): its strength in the row; a brush puts it back
+  await page.keyboard.press("6");
+  await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" })).toHaveAttribute("aria-pressed", "true");
+  const sourceRow = page.getByRole("group", { name: "Water source options" });
+  await expect(sourceRow.getByRole("slider")).toBeVisible();
   await page.keyboard.press("2");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });

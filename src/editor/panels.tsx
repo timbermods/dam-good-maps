@@ -5,7 +5,6 @@
 import { proxy, type Remote } from "comlink";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
-import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, type ToolOptions } from "./tools";
 import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo, WaterLayers } from "../worker/session";
@@ -46,27 +45,8 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
   );
 }
 
-// ----------------------------------------------------------------------------------- Source
+// ---------------------------------------------------------------------------- a source's strength
 
-function Pick<T extends string>(p: { label: string; value: T; choices: [T, string][]; onChange(v: T): void }) {
-  return (
-    <label>
-      {p.label}
-      <select value={p.value} onChange={(e) => p.onChange((e.target as HTMLSelectElement).value as T)}>
-        {p.choices.map(([v, name]) => (
-          <option value={v} key={v}>
-            {name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-const SOURCE_KINDS: ["clean" | "bad", string][] = [
-  ["clean", "Clean"],
-  ["bad", "Badwater"],
-];
 /** Water's strength, blocks per second, with the brushes' slider: a few steps from a trickle to
  *  the most the game handles; past the official maps' range it says so, never a block. */
 export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
@@ -79,20 +59,6 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
         <output>{p.value} water/s</output>
       </label>
       {p.value > OFFICIAL_FLOW ? <p class="note">Stronger than any official map.</p> : null}
-    </>
-  );
-}
-/** Source's options (the top bar's row): clean or bad, and its strength. */
-export function SourceOptions({ options: o, onOptions }: { options: ToolOptions; onOptions(o: ToolOptions): void }) {
-  const set = (patch: Partial<ToolOptions>) => onOptions({ ...o, ...patch });
-  return (
-    <>
-      <Pick label="Water" value={o.sourceBad ? "bad" : "clean"} choices={SOURCE_KINDS} onChange={(v) => set({ sourceBad: v === "bad" })} />
-      {o.sourceBad ? (
-        <StrengthSlider value={o.badwaterStrength} steps={BADWATER_STRENGTHS} onChange={(badwaterStrength) => set({ badwaterStrength })} />
-      ) : (
-        <StrengthSlider value={o.sourceStrength} steps={SOURCE_STRENGTHS} onChange={(sourceStrength) => set({ sourceStrength })} />
-      )}
     </>
   );
 }

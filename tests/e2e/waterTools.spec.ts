@@ -105,7 +105,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   const spot = await flatDry(page, start, 3, [from]);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   const sp = await client(page, sx, sy);
   const wet1 = await wet(page);
   await page.mouse.move(sp.x + 3, sp.y);
@@ -151,7 +151,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // a bad source: its 3 × 3 round the click
   const bad = await flatDry(page, start, 3, [from, [sx, sy], [sx + 3, sy]]);
   expect(bad).not.toBeNull();
-  await page.getByRole("combobox", { name: "Water", exact: true }).selectOption("bad");
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Badwater source" }).click();
   const bp = await client(page, ...bad!);
   await page.mouse.move(bp.x + 3, bp.y);
   await page.mouse.click(bp.x, bp.y);

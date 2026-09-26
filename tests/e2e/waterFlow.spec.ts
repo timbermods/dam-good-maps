@@ -57,7 +57,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
   // a strong water source on high ground away from the start: its water spreads over seconds
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   const at: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), at);
   const w0 = await wet(page);

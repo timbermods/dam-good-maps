@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 import { removeTool, shelfTool } from "../../src/editor/placeTools";
-import { quietWord } from "../../src/editor/shelfItems";
+import { quietWord, SHELF } from "../../src/editor/shelfItems";
+import { DEFAULT_OPTIONS, sourceRequest } from "../../src/editor/tools";
 import type { TileHit } from "../../src/render3d";
 
 const hit = (x: number, y: number) => ({ x, y }) as TileHit;
@@ -43,6 +44,17 @@ describe("the shelf's pointer tool", () => {
     expect(log).toEqual(["place 8,8"]);
     // the right button is the camera's
     expect(drag.down(hit(1, 1), ev(2))).toBe(false);
+  });
+});
+
+describe("the shelf's objects (D212)", () => {
+  it("read Start, Water source, Badwater source, Pine, Birch, Oak, Berry bush and so on; the sources place clean and bad", () => {
+    expect(SHELF.slice(0, 7).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Pine", "Birch", "Oak", "Berry bush"]);
+    const [clean, bad] = [SHELF[1], SHELF[2]];
+    expect([clean.source, clean.template, clean.key, bad.source, bad.template]).toEqual(["clean", "WaterSource", "6", "bad", "BadwaterSource"]);
+    // what they place: a clean source on the tile, a bad one's 3 x 3 round it, at the row's strength
+    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: false, sourceStrength: 4 }, 10, 12)).toMatchObject({ template: "WaterSource", x: 10, y: 12, components: { WaterSource: { SpecifiedStrength: 4 } } });
+    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true, badwaterStrength: 2 }, 10, 12)).toMatchObject({ template: "BadwaterSource", x: 9, y: 11, components: { WaterSource: { SpecifiedStrength: 2 } } });
   });
 });
 

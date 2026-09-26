@@ -8,7 +8,7 @@ export type FirstStep = "paint" | "place" | "water";
 const LINES: [FirstStep, string][] = [
   ["paint", "Paint the land: pick a brush above, then drag on the map."],
   ["place", "Place things: pick one on the left, then click the map."],
-  ["water", "Add water: pick Source, then click where the water starts."],
+  ["water", "Add water: pick Water source on the left, then click where the water starts."],
 ];
 
 /** The steps done so far (all three when the hints are over). */

@@ -1,5 +1,6 @@
-// The left shelf (PLAN §20 D184): a clean grid of the game's placeable objects, each a small render
-// of itself in the map's look, and nothing else. Built from the shared bar and button styles (D176).
+// The left shelf (PLAN §20 D184, D212): a clean grid of the game's placeable objects (the start, the
+// water and badwater sources, the trees and the rest), each a small render of itself in the map's
+// look, and nothing else. Built from the shared bar and button styles (D176).
 
 import { SHELF, type ShelfItem } from "./shelfItems";
 
@@ -25,8 +26,8 @@ export function Shelf(p: ShelfProps) {
               key={it.id}
               class="shelf-item"
               aria-pressed={p.picked === it.id}
-              aria-label={it.name}
-              title={p.loading ? "The map is still loading" : `${it.name}: ${it.hint}${it.turns ? " (R turns it)" : ""}. Esc puts it back.`}
+              aria-label={it.key ? `${it.name} (${it.key})` : it.name}
+              title={p.loading ? "The map is still loading" : `${it.name}${it.key ? ` (${it.key})` : ""}: ${it.hint}${it.turns ? " (R turns it)" : ""}. Esc puts it back.`}
               disabled={p.loading}
               onClick={() => p.onPick(p.picked === it.id ? null : it)}
             >

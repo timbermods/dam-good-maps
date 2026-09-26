@@ -1,12 +1,13 @@
-// The top bar (PLAN §20 D184): Raise, Lower, Flatten, Smooth, Naturalize | Source | Remove, and a small row
-// beneath with only the picked tool's options. The brush's size is its ring on the land ([ and ]),
-// its strength shows only while it changes (Shift+scroll, { and }). The brush kit's toggles are off
-// by default: square, precise (with "stop at" for a hold, D193), straight lines, level lines;
-// Flatten has "in steps" and its edges, Smooth "make walkable". After Source come the forces (D194,
-// D202, D203, D206: Carve, Craterize, Quake, Erupt), a group of their own on one shared core, each
-// options row starting with its mode switch; each slot stays empty until Kyler says its prototype
-// is ready (Carve is). While a force is at work the other tools wait. Built from the shared bar and
-// button styles (D176).
+// The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
+// the forces | Remove, and a small row beneath with only the picked tool's options (the sources are
+// on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
+// while it changes (Shift+scroll, { and }). The brush kit's toggles are off by default: square,
+// precise (with "stop at" for a hold, D193), straight lines, level lines; Flatten has "in steps"
+// and its edges, Smooth "make walkable". The forces (D194, D202, D203, D206: Carve, Craterize,
+// Quake, Erupt) are a group of their own on one shared core, each options row starting with its
+// mode switch; each slot stays empty until Kyler says its prototype is ready (Carve is), and the
+// public site shows none until their release (release.ts, D219). While a force is at work the
+// other tools wait. Built from the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
@@ -15,9 +16,9 @@ import { forcesShownIn } from "./release";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
-/** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a drop; a
- *  river cut through a gorge; a cross. */
-function Icon({ tool }: { tool: BrushTool | "source" | "remove" | "carve" }) {
+/** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
+ *  cut through a gorge; a cross. */
+function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
   switch (tool) {
     case "raise":
       return (
@@ -49,12 +50,6 @@ function Icon({ tool }: { tool: BrushTool | "source" | "remove" | "carve" }) {
           <path d="M2 16l4-6 2 2 3-6 3 4 2-2 2 8" />
         </svg>
       );
-    case "source":
-      return (
-        <svg {...ICON}>
-          <path d="M10 3c3 4 5 6.5 5 9a5 5 0 0 1-10 0c0-2.5 2-5 5-9z" />
-        </svg>
-      );
     case "carve":
       return (
         <svg {...ICON}>
@@ -71,7 +66,7 @@ function Icon({ tool }: { tool: BrushTool | "source" | "remove" | "carve" }) {
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | "source" | "remove" | "carve";
+export type TopTool = BrushTool | "remove" | "carve";
 
 /** What Remove takes (its filters), and their words. */
 export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
@@ -129,8 +124,6 @@ export function ForceOptions(p: { force: Force; mode: string; onMode(mode: strin
 export interface TopBarProps {
   /** The brush out, or null. */
   active: BrushTool | null;
-  /** Source is picked. */
-  source: boolean;
   /** Remove is picked, and what it takes. */
   remove: boolean;
   removeKinds: readonly RemoveKind[];
@@ -144,11 +137,10 @@ export interface TopBarProps {
   onSettings(s: BrushSettings): void;
   /** The map is still loading: the tools wait until they can work. */
   loading?: boolean;
-  /** Source's options (clean or bad, its strength), from the editor's shared fields. */
-  sourceOptions?: ComponentChildren;
   /** A selection's own row (its size, its actions), when there is one. */
   selectRow?: ComponentChildren;
-  /** Another row beneath the bar: the shelf's object's options, a selected source's. */
+  /** Another row beneath the bar: the shelf's object's options (a source's strength), a selected
+   *  source's. */
   row?: { label: string; content: ComponentChildren } | null;
   /** The first run's hints, under the rows. */
   hints?: ComponentChildren;
@@ -190,19 +182,6 @@ export function TopBar(p: TopBarProps) {
             <span class="icon-word">{b.name}</span>
           </button>
         ))}
-        <span class="bar-divider" aria-hidden="true" />
-        <button
-          type="button"
-          class="icon-button"
-          aria-pressed={p.source}
-          aria-label="Source (6)"
-          title={off ? why : "Source (6): click where water starts. Over a source, Shift+scroll sets its strength; drag it to move it."}
-          disabled={off}
-          onClick={() => p.onPick(p.source ? null : "source")}
-        >
-          <Icon tool="source" />
-          <span class="icon-word">Source</span>
-        </button>
         {SHOWN_FORCES.length ? (
           <>
             <span class="bar-divider" aria-hidden="true" />
@@ -324,11 +303,6 @@ export function TopBar(p: TopBarProps) {
       {p.row ? (
         <div class="map-bar options-row" role="group" aria-label={p.row.label}>
           <div class="bar-group">{p.row.content}</div>
-        </div>
-      ) : null}
-      {p.source && p.sourceOptions ? (
-        <div class="map-bar options-row" role="group" aria-label="Source options">
-          <div class="bar-group">{p.sourceOptions}</div>
         </div>
       ) : null}
       {p.selectRow ? (

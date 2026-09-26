@@ -26,7 +26,7 @@ import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
-import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, SourceOptions, StartIndicators, whereOf, type ItemActions, type LayerKind } from "./panels";
+import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { removeKindOf, type RemoveKind } from "../core/features/objects";
 import { Shelf } from "./Shelf";
@@ -129,8 +129,8 @@ export default function Editor(props: EditorProps) {
   const mirror = useRef<Mirror>(mirrorOf(view));
   const renderer = useRef<MapRenderer | null>(null);
   const [ready, setReady] = useState<MapRenderer | null>(null);
-  /** Source or Carve, picked in the top bar (the brushes have their own state). */
-  const [tool, setTool] = useState<"source" | "carve" | null>(null);
+  /** Carve, picked in the top bar (the brushes have their own state; the sources are on the shelf). */
+  const [tool, setTool] = useState<"carve" | null>(null);
   /** Carve's Aim: its start once picked, and the tile the pointer is on (D199). */
   const [aimFrom, setAimFrom] = useState<[number, number] | null>(null);
   const aimRef = useRef(aimFrom);
@@ -549,13 +549,13 @@ export default function Editor(props: EditorProps) {
     sendTerrain(() => api.redo());
   };
 
-  /** The top bar: a brush, Source, Carve, Remove, or nothing; the shelf's object goes back. */
+  /** The top bar: a brush, Carve, Remove, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (carver.current?.running) return;
     // a force this build doesn't show can't be picked (release.ts, D219)
     if (t === "carve" && !forceShown("carve")) return;
     setAimFrom(null);
-    if (t === "source" || t === "remove" || t === "carve") {
+    if (t === "remove" || t === "carve") {
       pickBrush(null);
       pickShelf(null);
       setTool(t === "remove" ? null : t);
@@ -777,10 +777,13 @@ export default function Editor(props: EditorProps) {
 
   // ---------------------------------------------------------------------------- water sources
 
-  /** A water or badwater source placed with a click: its water spreads at once (live editing),
-   *  one undo step. Sources go anywhere in the editor (D184). */
-  function placeSource(x: number, y: number) {
-    const req = sourceRequest(optionsRef.current, x, y);
+  /** The source the shelf's Water source or Badwater source places at tile (x, y), at the strength
+   *  its options row sets. */
+  const sourceAtTile = (bad: boolean, x: number, y: number) => sourceRequest({ ...optionsRef.current, sourceBad: bad }, x, y);
+  /** A water or badwater source placed with a click from the shelf (D212): its water spreads at once
+   *  (live editing), one undo step. Sources go anywhere in the editor (D184). */
+  function placeSource(bad: boolean, x: number, y: number) {
+    const req = sourceAtTile(bad, x, y);
     void run(
       () => api.applyTool(req, newId()),
       (u) => {
@@ -797,10 +800,11 @@ export default function Editor(props: EditorProps) {
   }
 
   /** A source dragged somewhere else (D184): its footprint follows the pointer, and the drop is one
-   *  undo step; a click without a drag selects it; Esc puts it back. Brushes paint over sources. */
+   *  undo step; a click without a drag selects it; Esc puts it back. Brushes paint over sources;
+   *  with a source picked on the shelf, a press on a placed one still grabs it. */
   const sourceGrab = useRef<{ cancel(): void } | null>(null);
   function grabSource(hit: TileHit | null): PointerTool | null {
-    if (!hit || brushToolRef.current || shelfRef.current || removingRef.current) return null;
+    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || removingRef.current) return null;
     const src = sourceAt(hit.x, hit.y);
     if (!src) return null;
     const W = infoRef.current.W;
@@ -832,7 +836,11 @@ export default function Editor(props: EditorProps) {
         end();
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
-        if (!dx && !dy) return pickTile(from[0], from[1]);
+        if (!dx && !dy) {
+          // a click selects it (its strength in the row); the shelf's source goes back
+          if (shelfRef.current?.source) pickShelf(null);
+          return pickTile(from[0], from[1]);
+        }
         void record.then((e) => {
           if (!e) return;
           const name = e.template === "BadwaterSource" ? "badwater source" : "water source";
@@ -925,9 +933,9 @@ export default function Editor(props: EditorProps) {
     setFeeding(feed);
     r?.setSourceGlow(feed.flatMap((k) => gs[k].tiles));
   }
-  /** Which markers show: every one with Source picked or **Markers** on; else those near the
-   *  pointer and those its water comes from. */
-  const shownGroups = tool === "source" || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding])];
+  /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
+   *  near the pointer and those its water comes from. */
+  const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding])];
   const markerRef = useRef(false);
   markerRef.current = shownGroups.length > 0;
 
@@ -1140,12 +1148,13 @@ export default function Editor(props: EditorProps) {
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
-    const z = cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
+    // a source stands on the ground in its middle (a badwater source is 3 × 3)
+    const z = item.source ? h[y * W + x] : cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
     ghostAt.current = g;
     if (!same) r.setGhost({ ...g, ok: null });
-    checkFit({ tool: "entity", template, x: cx, y: cy, orientation: o }, (f) => {
+    checkFit(item.source ? sourceAtTile(item.source === "bad", x, y) : { tool: "entity", template, x: cx, y: cy, orientation: o }, (f) => {
       setFit(f);
       shelfWord(f.problem);
       const now = ghostAt.current;
@@ -1182,6 +1191,7 @@ export default function Editor(props: EditorProps) {
       );
       return;
     }
+    if (item.source) return placeSource(item.source === "bad", x, y);
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
@@ -1355,26 +1365,6 @@ export default function Editor(props: EditorProps) {
       setRemoveRect(null);
     };
   }, [removing, ready, info.W, info.H]);
-
-  // ------------------------------------------------------------------------------ Source
-
-  // Source takes the map's clicks while it is picked: each places a source (D184)
-  useEffect(() => {
-    const r = renderer.current;
-    if (!r || tool !== "source") return;
-    const t: PointerTool = {
-      down: (hit, ev) => ev.button === 0 && !!hit,
-      move: () => undefined,
-      up: (hit) => {
-        if (hit) placeSource(hit.x, hit.y);
-      },
-      hover: (_hit, ev) => notePointer(ev),
-    };
-    r.tool = t;
-    return () => {
-      if (r.tool === t) r.tool = null;
-    };
-  }, [tool, ready]);
 
   // ------------------------------------------------------------------------------ Carve
 
@@ -1651,6 +1641,16 @@ export default function Editor(props: EditorProps) {
   /** The row beneath the top bar for the shelf's object: its own options, if it has any. */
   function shelfRow(): { label: string; content: ComponentChildren } | null {
     if (!shelf) return null;
+    if (shelf.source) {
+      const bad = shelf.source === "bad";
+      const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
+      const value = bad ? options.badwaterStrength : options.sourceStrength;
+      // the strength of the next one (over a placed source, Shift+scroll sets its own)
+      return {
+        label: `${shelf.name} options`,
+        content: <StrengthSlider value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
+      };
+    }
     if (shelf.id === "ruin")
       return {
         label: "Ruin options",
@@ -1983,7 +1983,7 @@ export default function Editor(props: EditorProps) {
   useEffect(() => renderer.current?.setLevelLines(brush.levelLines), [brush.levelLines, ready]);
   // any tool picked makes the water see-through, so the bed and the sources show (D196)
   //   (Carve: the river forming is the show, so its water stays as it is)
-  useEffect(() => renderer.current?.setClearWater(clearWater || !!brushTool || tool === "source" || !!selecting || !!shelf || removing), [clearWater, brushTool, tool, selecting, shelf, removing, ready]);
+  useEffect(() => renderer.current?.setClearWater(clearWater || !!brushTool || !!selecting || !!shelf || removing), [clearWater, brushTool, selecting, shelf, removing, ready]);
 
   const toolRef = useRef(tool);
   toolRef.current = tool;
@@ -2185,9 +2185,9 @@ export default function Editor(props: EditorProps) {
         if (painter.current && brushToolRef.current !== b) pickBrush(b);
         return;
       }
-      // 6: Source; 7: Carve; M: the Select tool
+      // 6: the shelf's Water source (D212); 7: Carve; M: the Select tool
       if (!mod && !ev.altKey && ev.key === "6" && painter.current) {
-        pickTop(toolRef.current === "source" ? null : "source");
+        pickShelf(shelfRef.current?.id === "water-source" ? null : SHELF.find((it) => it.id === "water-source")!);
         return;
       }
       if (!mod && !ev.altKey && ev.key === "7" && painter.current && forceShown("carve")) {
@@ -2453,7 +2453,6 @@ export default function Editor(props: EditorProps) {
           >
             <TopBar
               active={brushTool}
-              source={tool === "source"}
               force={tool === "carve" ? "carve" : null}
               forceAtWork={!!carver.current?.running}
               forceRow={
@@ -2492,7 +2491,6 @@ export default function Editor(props: EditorProps) {
               onPick={pickTop}
               onSettings={setBrush}
               loading={!ready}
-              sourceOptions={<SourceOptions options={options} onOptions={setOptions} />}
               selectRow={selectRow()}
             />
             {player.current ? <WaterBar player={player.current} follow={follow} onFollow={setFollow} weather={weather} onWeather={toggleWeather} /> : null}
