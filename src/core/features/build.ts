@@ -24,7 +24,7 @@ import { moisture } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
-import { isCarve } from "../forces/carve/op";
+import { isForce } from "../forces/op";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
@@ -771,7 +771,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const model = waterModel(W, H, heights, objects);
   // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater)
   const retained: RetainedWater[] = [];
-  for (const s of input.sculpts ?? []) if (isCarve(s.params) && s.params.lake) retained.push(s.params.lake);
+  for (const s of input.sculpts ?? []) if (isForce(s.params) && s.params.lake) retained.push(s.params.lake);
   if (retained.length) model.retained = retained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);

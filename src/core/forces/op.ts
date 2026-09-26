@@ -71,7 +71,7 @@ export type ForceLiteral = Pick<ForceResultParams, "tiles" | "heights" | "remove
 
 /** A force's result, `forceResult` or the older `carve` (their params carry tiles, heights and the
  *  objects they took). */
-export function isForce(p: object): p is ForceLiteral {
+export function isForce(p: object): p is CarveParams | ForceResultParams {
   return "tiles" in p && "heights" in p && "removed" in p;
 }
 

@@ -38,6 +38,7 @@ import type { PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type Profile, type ValidationReport } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
+import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type SavedView } from "./document";
 import {
   applyOp,
@@ -325,6 +326,12 @@ export class MapSession {
    *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
     return this.mode === "live" ? new Map() : this.baseStuff().terrain.columns;
+  }
+
+  /** The ground of the map as it was opened (its stored base, before the edits): the forces derive
+   *  the map's hidden rock from it once, so every force on the map meets the same rock (D220). */
+  get openedHeights(): Uint8Array {
+    return this.baseStuff().terrain.heights;
   }
 
   /** Operations in the log (the player's edits on this generation). */
@@ -1070,6 +1077,8 @@ export function labelOf(op: AppliedOp): string {
       return BRUSH_NAMES[op.params.tool] ?? "Brush";
     case "carve":
       return op.params.replaces !== undefined ? "Try another path" : op.params.dry ? "Carve a dry canyon" : "Carve a river";
+    case "forceResult":
+      return forceLabel(op.params);
     case "placeEntity":
       return `Place ${op.params.template}`;
     case "moveEntity":

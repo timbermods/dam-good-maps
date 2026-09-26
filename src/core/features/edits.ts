@@ -32,9 +32,9 @@ export type SlopeEdit =
 
 export type EntityEdit =
   | { seq: number; op: "placeEntity"; params: PlaceEntityParams }
-  | { seq: number; op: "moveEntity"; params: { id: string; x: number; y: number; orientation?: Orientation } }
+  | { seq: number; op: "moveEntity"; params: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean } }
   | { seq: number; op: "deleteEntities"; params: { entities: string[]; quiet?: boolean } }
-  | { seq: number; op: "setEntityProps"; params: { id: string; components: Record<string, unknown> } };
+  | { seq: number; op: "setEntityProps"; params: { id: string; components: Record<string, unknown>; quiet?: boolean } };
 
 export interface Orphan {
   seq: number;
@@ -225,6 +225,13 @@ export function applyEntityEdits(
     const k = at.get(id);
     return k === undefined || removed.has(k) ? -1 : k;
   };
+  // (a force's quiet edit finds what is still there in the last pass, and is fine without it)
+  const missing = (ed: EntityEdit) => {
+    if (!(ed.op === "moveEntity" || ed.op === "setEntityProps") || !ed.params.quiet || allowPlace) rest.push(ed);
+  };
+  // the tiles taken, for the objects a force carried (built at the first such move)
+  let occ: Map<number, number> | null = null;
+  const tilesOf = (e: EntitySpec) => entityTiles(e).map(([x, y]) => y * g.W + x);
   for (const ed of edits) {
     switch (ed.op) {
       case "placeEntity": {
@@ -235,22 +242,39 @@ export function applyEntityEdits(
         const p = ed.params;
         at.set(p.id, list.length);
         list.push(placedEntity(p, g.heights[p.y * g.W + p.x]));
+        if (occ) for (const i of tilesOf(list[list.length - 1])) occ.set(i, list.length - 1);
         break;
       }
       case "moveEntity": {
         const k = find(ed.params.id);
         if (k < 0) {
-          rest.push(ed);
+          missing(ed);
           break;
         }
         const { x, y } = ed.params;
-        list[k] = movedEntity(list[k], x, y, g.heights[y * g.W + x], ed.params.orientation ?? list[k].orientation);
+        const moved = movedEntity(list[k], x, y, g.heights[y * g.W + x], ed.params.orientation ?? list[k].orientation);
+        if (ed.params.quiet) {
+          // an object a force carried onto ground something else now holds is left out (the build's
+          // own resources may have grown there again)
+          if (!occ) {
+            occ = new Map();
+            for (let j = 0; j < list.length; j++) if (!removed.has(j)) for (const i of tilesOf(list[j])) occ.set(i, j);
+          }
+          const to = tilesOf(moved);
+          for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
+          if (to.some((i) => occ!.has(i) && occ!.get(i) !== k) || to.some((i) => i < 0 || i >= g.W * g.H)) {
+            removed.add(k);
+            break;
+          }
+          for (const i of to) occ.set(i, k);
+        }
+        list[k] = moved;
         break;
       }
       case "setEntityProps": {
         const k = find(ed.params.id);
         if (k < 0) {
-          rest.push(ed);
+          missing(ed);
           break;
         }
         list[k] = patchedEntity(list[k], ed.params.components);

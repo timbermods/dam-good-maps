@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "setLock", "regenerateRegion", "specPatch"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "setLock", "regenerateRegion", "specPatch"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -21,6 +21,7 @@
     { "if": { "properties": { "op": { "const": "sculpt" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/sculpt" } } } },
     { "if": { "properties": { "op": { "const": "brush" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/brush" } } } },
     { "if": { "properties": { "op": { "const": "carve" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/carve" } } } },
+    { "if": { "properties": { "op": { "const": "forceResult" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/forceResult" } } } },
     { "if": { "properties": { "op": { "const": "placeEntity" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/placeEntity" } } } },
     { "if": { "properties": { "op": { "const": "moveEntity" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/moveEntity" } } } },
     { "if": { "properties": { "op": { "const": "deleteEntities" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/deleteEntities" } } } },
@@ -148,6 +149,92 @@
         },
         "lake": {
           "description": "The water its sealed oxbow lake keeps (D216): the basin's tiles (ascending), each tile's floor, and the depth and contamination of the water that stood there before its mouths closed. The map's water settles from it.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "floor", "depth", "contamination"],
+          "properties": {
+            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+          }
+        },
+        "replaces": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "forceResult": {
+      "description": "A force of nature (Carve, Craterize, Erupt or Quake: D194, D202, D203, D206, D220): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake). Replay assigns the result and never runs the force; the engine checks it fits the map. `carve` is the same for projects saved before the forces shared this operation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
+      "properties": {
+        "version": { "const": 1 },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake"] },
+        "settings": {
+          "type": "object",
+          "required": ["mode", "power", "seed"],
+          "properties": {
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide"] },
+            "power": { "type": "number", "minimum": 0, "maximum": 100 },
+            "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+            "wander": { "type": "number", "minimum": 0, "maximum": 100 },
+            "width": { "type": ["number", "null"], "minimum": 2, "maximum": 24 },
+            "walls": { "enum": ["steep", "wide", "terraced"] },
+            "defyGravity": { "type": "boolean" },
+            "dry": { "type": "boolean" },
+            "size": { "type": ["number", "null"], "minimum": 4, "maximum": 180 },
+            "centre": { "enum": ["auto", "bowl", "peak", "ring", "flat"] },
+            "debris": { "enum": ["light", "heavy"] },
+            "rays": { "type": "boolean" },
+            "shape": { "enum": ["steep", "broad"] },
+            "summit": { "enum": ["auto", "peak", "crater", "caldera"] },
+            "flows": { "enum": ["light", "heavy"] },
+            "ridges": { "type": "boolean" },
+            "scarp": { "enum": ["sheer", "stepped"] }
+          }
+        },
+        "where": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+            "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
+            "side": { "enum": [1, -1] }
+          }
+        },
+        "cut": { "type": "integer", "minimum": 0, "maximum": 40 },
+        "steps": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" },
+        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "rock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "bits"],
+          "properties": {
+            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+            "bits": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+          }
+        },
+        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
+        "moved": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "x", "y"], "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } } }
+        },
+        "felled": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "x", "y", "strength"],
+          "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
+        },
+        "lake": {
           "type": "object",
           "additionalProperties": false,
           "required": ["tiles", "floor", "depth", "contamination"],
