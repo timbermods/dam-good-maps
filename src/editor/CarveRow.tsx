@@ -9,7 +9,7 @@
 import type { CarveSettings } from "../core/forces/carve/run";
 import { naturalWidth } from "../core/forces/carve/character";
 import { STEPS_PER_SECOND } from "../core/forces/force";
-import { powerWord, wanderWord, type CarveStatus } from "./carveDriver";
+import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
 import { ForceOptions, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next carve (the page keeps it for the visit). */
@@ -38,7 +38,7 @@ export interface CarveRowProps {
   ui: CarveUi;
   onUi(u: CarveUi): void;
   /** The carve at work, or null. */
-  status: CarveStatus | null;
+  status: ForceStatus | null;
   /** Try another path is there. */
   canAgain: boolean;
   onAgain(): void;

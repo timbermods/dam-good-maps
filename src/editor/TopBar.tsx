@@ -4,21 +4,23 @@
 // while it changes (Shift+scroll, { and }). The brush kit's toggles are off by default: square,
 // precise (with "stop at" for a hold, D193), straight lines, level lines; Flatten has "in steps"
 // and its edges, Smooth "make walkable". The forces (D194, D202, D203, D206: Carve, Craterize,
-// Quake, Erupt) are a group of their own on one shared core, each options row starting with its
-// mode switch; each slot stays empty until Kyler says its prototype is ready (Carve is), and the
-// public site shows none until their release (release.ts, D219). While a force is at work the
-// other tools wait. Built from the shared bar and button styles (D176).
+// Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each options row
+// starting with its mode switch; all four are ready (D216, D219), and the public site shows none
+// until their release (release.ts, D219). While a force is at work the other tools wait. Built from
+// the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
 import type { RemoveKind } from "../core/features/objects";
 import { forcesShownIn } from "./release";
+import type { Verb } from "../core/forces/op";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
- *  cut through a gorge; a cross. */
-function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
+ *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano; a
+ *  cross. */
+function Icon({ tool }: { tool: BrushTool | "remove" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -56,6 +58,24 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
           <path d="M2 4l4 12M18 4l-4 12M11 3c-3 3 2 5-1 8s1 4 0 6" />
         </svg>
       );
+    case "craterize":
+      return (
+        <svg {...ICON}>
+          <path d="M2 14c2 0 3-3 8-3s6 3 8 3M5 14c1 2 3 3 5 3s4-1 5-3M13 2l-3 5M15 5l-2 1" />
+        </svg>
+      );
+    case "quake":
+      return (
+        <svg {...ICON}>
+          <path d="M2 11h5l2-3 2 5 2-3h5M3 15h4M13 15h4M3 7h3M14 7h3" />
+        </svg>
+      );
+    case "erupt":
+      return (
+        <svg {...ICON}>
+          <path d="M2 17l5-8h6l5 8M8 9l1-2h2l1 2M9 5c0-2 2-2 2-4M12 5c1-1 3-1 3-3" />
+        </svg>
+      );
     case "remove":
       return (
         <svg {...ICON}>
@@ -66,7 +86,7 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | "remove" | "carve";
+export type TopTool = BrushTool | "remove" | Verb;
 
 /** What Remove takes (its filters), and their words. */
 export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
@@ -82,7 +102,7 @@ export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
  *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its modes:
  *  every force's options row starts with its mode switch. */
 export interface Force {
-  id: string;
+  id: Verb;
   name: string;
   ready: boolean;
   /** The mode switch that starts its options row (the first mode is the default). */
@@ -93,9 +113,9 @@ export interface Force {
 }
 export const FORCES: readonly Force[] = [
   { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or aim it from one spot to another. Stop keeps it, Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: false, modes: ["Strike", "Aim"] },
-  { id: "quake", name: "Quake", ready: false, modes: ["Lift", "Slide"] },
-  { id: "erupt", name: "Erupt", ready: false, modes: ["Vent", "Fissure"] },
+  { id: "craterize", name: "Craterize", ready: true, modes: ["Strike", "Aim"], key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, modes: ["Vent", "Fissure"], key: "0", hint: "a volcano where you click, or paint a fissure. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -197,7 +217,7 @@ export function TopBar(p: TopBarProps) {
                   disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
                   onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
                 >
-                  {f.id === "carve" ? <Icon tool="carve" /> : null}
+                  <Icon tool={f.id} />
                   <span class="icon-word">{f.name}</span>
                 </button>
               ))}

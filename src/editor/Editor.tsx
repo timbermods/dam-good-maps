@@ -24,7 +24,7 @@ import { damLegendSwatch } from "../render3d/palette";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
-import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
+import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
@@ -32,9 +32,16 @@ import { removeKindOf, type RemoveKind } from "../core/features/objects";
 import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { removeTool, shelfTool } from "./placeTools";
-import { carveTouch, Juice, loadSound, type SoundSettings } from "./juice";
-import { CarveDriver, type CarveStatus } from "./carveDriver";
+import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
+import { ForceDriver, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
+import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
+import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
+import { ventRadius } from "../core/forces/erupt";
+import { START_REASON, strokeReason } from "../core/forces/objects";
+import type { Verb } from "../core/forces/op";
+import { Fault, faultStrokeReason, FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
+import type { ForceCue } from "../core/forces/runs";
 import type { StartCheckApi } from "./startCheck.worker";
 import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
@@ -100,7 +107,9 @@ declare global {
       /** Strokes, undos and redos on their way to the worker. */
       pendingTerrain(): number;
       /** The carve at work (D199), or null. */
-      carve(): CarveStatus | null;
+      carve(): ForceStatus | null;
+      /** Any force at work (D202, D203, D206), or null. */
+      force(): ForceStatus | null;
       /** The last stroke painted (its operation's params), or null. */
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
@@ -129,8 +138,17 @@ export default function Editor(props: EditorProps) {
   const mirror = useRef<Mirror>(mirrorOf(view));
   const renderer = useRef<MapRenderer | null>(null);
   const [ready, setReady] = useState<MapRenderer | null>(null);
-  /** Carve, picked in the top bar (the brushes have their own state; the sources are on the shelf). */
-  const [tool, setTool] = useState<"carve" | null>(null);
+  /** The force picked in the top bar (the brushes have their own state; the sources are on the
+   *  shelf). */
+  const [tool, setTool] = useState<Verb | null>(null);
+  /** Where the last painted stroke ended (Shift+press paints a straight line on from it), X's flip of
+   *  a quake's side while it is picked, and Esc for a stroke still being drawn. */
+  const anchorRef = useRef<QuakePoint | null>(null);
+  const flipRef = useRef<(() => void) | null>(null);
+  const forceEscRef = useRef<(() => boolean) | null>(null);
+  /** What the force picked draws on the land under the pointer: its footprint, its painted line, the
+   *  side that moves; red where it would refuse. */
+  const [forceMarks, setForceMarks] = useState<{ tiles: number[]; side: number[]; bad: boolean } | null>(null);
   /** Carve's Aim: its start once picked, and the tile the pointer is on (D199). */
   const [aimFrom, setAimFrom] = useState<[number, number] | null>(null);
   const aimRef = useRef(aimFrom);
@@ -201,7 +219,7 @@ export default function Editor(props: EditorProps) {
     juice.current?.setSound(s);
   };
   /** Feedback for an action at tile (x, y). */
-  const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false) => juice.current?.play(kind, x, y, size, soft);
+  const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false, what?: string) => juice.current?.play(kind, x, y, size, soft, what);
   const [, setPlayerTick] = useState(0);
   const [follow, setFollow] = useState(false);
   const followRef = useRef(follow);
@@ -285,11 +303,11 @@ export default function Editor(props: EditorProps) {
     return next;
   }
 
-  /** Run worker calls one after another; apply what changed to the view. (While a carve is at work
-   *  the other edits wait: Stop keeps it, Esc takes it back.) */
+  /** Run worker calls one after another; apply what changed to the view. (While a force is at work
+   *  the other edits wait: it is kept when it ends, Esc takes it back.) */
   function run(fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void): Promise<void> {
-    if (carver.current?.running) {
-      setMessage({ kind: "info", text: "A carve is at work: Stop keeps it, Esc takes it back." });
+    if (forcer.current?.running) {
+      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends, Esc takes it back." });
       return Promise.resolve();
     }
     const next = queue.current.then(async () => {
@@ -532,16 +550,17 @@ export default function Editor(props: EditorProps) {
   }
 
   const undo = () => {
-    if (carver.current?.running) return carver.current.cancel();
+    if (forcer.current?.running) return forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
-    if (!s) return run(() => api.undo());
+    if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    juice.current?.undo();
     showStroke(s, "before");
     localRedo.current.push(s);
     sendTerrain(() => api.undo());
   };
   const redo = () => {
-    if (painter.current?.painting || carver.current?.running) return;
+    if (painter.current?.painting || forcer.current?.running) return;
     const s = localRedo.current.pop();
     if (!s) return run(() => api.redo());
     showStroke(s, "after");
@@ -549,16 +568,17 @@ export default function Editor(props: EditorProps) {
     sendTerrain(() => api.redo());
   };
 
-  /** The top bar: a brush, Carve, Remove, or nothing; the shelf's object goes back. */
+  /** The top bar: a brush, a force, Remove, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
-    if (carver.current?.running) return;
+    if (forcer.current?.running) return;
     // a force this build doesn't show can't be picked (release.ts, D219)
-    if (t === "carve" && !forceShown("carve")) return;
+    const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
+    if (force && !forceShown(force)) return;
     setAimFrom(null);
-    if (t === "remove" || t === "carve") {
+    if (t === "remove" || force) {
       pickBrush(null);
       pickShelf(null);
-      setTool(t === "remove" ? null : t);
+      setTool(t === "remove" ? null : force);
       setRemoving(t === "remove");
       setPicked(null);
       return;
@@ -567,7 +587,7 @@ export default function Editor(props: EditorProps) {
       setTool(null);
       setRemoving(false);
     }
-    pickBrush(t);
+    pickBrush(t as BrushTool | null);
   }
 
   function pickBrush(t: BrushTool | null) {
@@ -612,8 +632,8 @@ export default function Editor(props: EditorProps) {
         .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
         .then((r) => {
           if (!r || !mounted.current) return;
-          // (a carve at work shows its own water: the map's comes after it)
-          if (carver.current?.running) {
+          // (a force at work shows its own water: the map's comes after it)
+          if (forcer.current?.running) {
             deferred.current.push(r.view);
             return;
           }
@@ -662,8 +682,8 @@ export default function Editor(props: EditorProps) {
     void api.listen(
       proxy((e: EditorEvent) => {
         if (e.version !== infoRef.current.version) return;
-        // a carve at work shows its own water; the map's settled view comes after it
-        if (carver.current?.running) {
+        // a force at work shows its own water; the map's settled view comes after it
+        if (forcer.current?.running) {
           if (e.kind === "settled") deferred.current.push(e.view);
           return;
         }
@@ -724,6 +744,7 @@ export default function Editor(props: EditorProps) {
   const ctx = (): TileContext => ({ W: info.W, H: info.H, heights: mirror.current.heights, water: mirror.current.water, entities: mirror.current.entities, entitiesAt: entitiesAt(), index: indexed, soil: mirror.current.soil, editor: true });
 
   // where the start is: its feature, or an imported map's own StartingLocation
+  const startHereRef = useRef<StartHere | null>(null);
   const startHere = useMemo((): StartHere | null => {
     const f = info.features.find((g) => g.kind === "start");
     if (f && f.kind === "start") return { x: f.params.position[0], y: f.params.position[1], orientation: f.params.orientation, feature: f.id, owner: f.id };
@@ -736,6 +757,7 @@ export default function Editor(props: EditorProps) {
     }
     return null;
   }, [info.features, info.version]);
+  startHereRef.current = startHere;
 
   // overlay: the water layer, dam sites, the footprint of the object under the pointer (green where
   // it fits, red where it doesn't), trees being painted, Remove's rectangle, the source picked, the
@@ -759,10 +781,16 @@ export default function Editor(props: EditorProps) {
       layers.push({ tiles: aimTo ? lineTiles(aimFrom, aimTo, info.W) : [], color: DRAWING });
       layers.push({ tiles: [aimFrom[1] * info.W + aimFrom[0]], color: SELECTED });
     }
+    // a force's footprint or painted line under the pointer (red where it would refuse), and the side
+    // of a fault that moves
+    if (forceMarks) {
+      if (forceMarks.side.length) layers.push({ tiles: forceMarks.side, color: MOVING });
+      layers.push({ tiles: forceMarks.tiles, color: forceMarks.bad ? BAD : DRAWING });
+    }
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, aimFrom, aimTo]);
+  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, aimFrom, aimTo, forceMarks]);
 
   // ------------------------------------------------------------------------------ the pointer
 
@@ -788,7 +816,7 @@ export default function Editor(props: EditorProps) {
       () => api.applyTool(req, newId()),
       (u) => {
         if (!u.ok) return;
-        feel("source", x, y);
+        feel("source", x, y, 1, false, bad ? "badwater" : undefined);
         firstDone("water");
       },
     );
@@ -1184,7 +1212,7 @@ export default function Editor(props: EditorProps) {
         () => api.moveStartTo(x, y, o),
         (u) => {
           if (!u.ok) return;
-          feel("place", cx, cy);
+          feel("place", cx, cy, 1, false, "StartingLocation");
           // there is one start: it goes back on the shelf
           pickShelf(null);
         },
@@ -1199,7 +1227,7 @@ export default function Editor(props: EditorProps) {
       () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o }, newId()),
       (u) => {
         if (!u.ok) return;
-        feel("place", cx, cy);
+        feel("place", cx, cy, 1, false, template);
         firstDone("place");
       },
     );
@@ -1215,7 +1243,7 @@ export default function Editor(props: EditorProps) {
         const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
         if (!u.ok || !planted.length) return;
         const W = infoRef.current.W;
-        feel("place", planted[0] % W, Math.floor(planted[0] / W));
+        feel("place", planted[0] % W, Math.floor(planted[0] / W), 1, false, template);
         renderer.current?.wiggle(planted);
         firstDone("place");
       },
@@ -1366,21 +1394,37 @@ export default function Editor(props: EditorProps) {
     };
   }, [removing, ready, info.W, info.H]);
 
-  // ------------------------------------------------------------------------------ Carve
+  // ------------------------------------------------------------------------------ the forces
 
-  /** Carve's options for the next carve (D199; kept for the visit), Aim's start, and the tile the
-   *  pointer is on while aiming. */
+  /** Each force's options for the next one (D199, D202, D203, D206; kept for the visit), Aim's start,
+   *  and the tile the pointer is on while aiming. */
   const [carveUi, setCarveUi] = useState<CarveUi>(DEFAULT_CARVE);
   const carveUiRef = useRef(carveUi);
   carveUiRef.current = carveUi;
-  const [, setCarveTick] = useState(0);
-  /** The map's own views that came while a carve was at work (the settled water, a check's): they
-   *  go on the map just before the carve's own answer. */
+  const [craterUi, setCraterUi] = useState<CraterUi>(DEFAULT_CRATER);
+  const craterUiRef = useRef(craterUi);
+  craterUiRef.current = craterUi;
+  const [eruptUi, setEruptUi] = useState<EruptUi>(DEFAULT_ERUPT);
+  const eruptUiRef = useRef(eruptUi);
+  eruptUiRef.current = eruptUi;
+  const [quakeUi, setQuakeUiState] = useState<QuakeUi>(DEFAULT_QUAKE);
+  const quakeUiRef = useRef(quakeUi);
+  quakeUiRef.current = quakeUi;
+  const setQuakeUi = (u: QuakeUi) => {
+    quakeUiRef.current = u;
+    setQuakeUiState(u);
+  };
+  const [, setForceTick] = useState(0);
+  /** The map's own views that came while a force was at work (the settled water, a check's): they
+   *  go on the map just before the force's own answer. */
   const deferred = useRef<ViewUpdate[]>([]);
-  /** The carve to start next: where, and the layer showing (D207: only the land showing is carved). */
-  const carveReq = useRef<{ origin: [number, number]; end?: [number, number]; cut: number | null } | null>(null);
+  /** The force to start next: which, how and where, and the layer showing (D207: only the land
+   *  showing changes). */
+  const forceReq = useRef<ForceRequest | null>(null);
+  /** The last moment shown (an eruption's cooling hiss starts from it). */
+  const lastCue = useRef<ForceCue | null>(null);
 
-  /** A frame of the carve at work: the ground near its head, its water, the objects it took. */
+  /** A frame of a force at work: the ground it changed, its water, its objects. */
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
@@ -1399,6 +1443,9 @@ export default function Editor(props: EditorProps) {
       m.coverAt = null;
       r?.updateEntities(f.entities);
     }
+    if (f.heat) r?.setHeat(f.heat);
+    // a painted Lift that would flood the start (or tip it) says so while it is painted
+    if (f.verb === "quake" && forcer.current?.status?.painting) setShapeNote(f.problem ? { text: `${f.problem}: let go and it is taken back`, ok: false, warn: false, ...pointerAt.current } : null);
   }
 
   function flushDeferred() {
@@ -1408,13 +1455,13 @@ export default function Editor(props: EditorProps) {
   }
 
   // (the driver lives as long as the editor; it calls the latest of these)
-  const carveCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; click(x: number, y: number): void; hover(hit: TileHit | null, ev: PointerEvent): void } | null>(null);
-  carveCalls.current = {
+  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; click(x: number, y: number): void; hover(hit: TileHit | null, ev: PointerEvent): void } | null>(null);
+  forceCalls.current = {
     keep: () =>
       enqueue(async () => {
         setBusy((b) => b + 1);
         try {
-          const u = await api.carveStop();
+          const u = await api.forceStop();
           flushDeferred();
           localUndo.current = [];
           localRedo.current = [];
@@ -1428,7 +1475,7 @@ export default function Editor(props: EditorProps) {
       }),
     drop: () =>
       enqueue(async () => {
-        const v = await api.carveCancel();
+        const v = await api.forceCancel();
         if (!mounted.current) return;
         flushDeferred();
         applyView(v);
@@ -1438,30 +1485,41 @@ export default function Editor(props: EditorProps) {
     click: carveClick,
     hover: carveHover,
   };
-  const carver = useRef<CarveDriver | null>(null);
-  carver.current ??= new CarveDriver({
+  const forcer = useRef<ForceDriver | null>(null);
+  forcer.current ??= new ForceDriver({
     start: (again) =>
       enqueue(() => {
-        const q = carveReq.current;
-        if (again || !q) return api.carveAgain();
-        return api.carveStart({ settings: carveSettingsOf(carveUiRef.current), origin: q.origin, ...(q.end ? { end: q.end } : {}), cut: q.cut });
+        const q = forceReq.current;
+        if (again || !q) return api.forceAgain();
+        return api.forceStart(q);
       }),
-    advance: (steps) => enqueue(() => api.carveAdvance(steps)),
-    keep: () => carveCalls.current!.keep(),
-    drop: () => carveCalls.current!.drop(),
+    advance: (steps) => enqueue(() => api.forceAdvance(steps)),
+    paint: (path, side) => enqueue(() => api.forcePaint(path, side)),
+    keep: () => forceCalls.current!.keep(),
+    drop: () => forceCalls.current!.drop(),
     renderer: () => renderer.current,
     speed: () => player.current?.speedName ?? "normal",
     follow: () => carveUiRef.current.follow,
-    show: (f) => carveCalls.current!.show(f),
-    changed: () => setCarveTick((n) => n + 1),
+    show: (f) => forceCalls.current!.show(f),
+    changed: () => setForceTick((n) => n + 1),
     error: (text) => setMessage({ kind: "error", text: plain(text) }),
-    feel: (x, y, size) => juice.current?.play("carve", x, y, size),
+    moment: (f) => {
+      lastCue.current = f.cue;
+      renderer.current?.setForceMoment(f.cue);
+      juice.current?.forceMoment(f.cue, f.head);
+    },
+    ended: (kept) => {
+      if (kept) renderer.current?.forceDone();
+      else renderer.current?.clearForce();
+      juice.current?.forceEnded(kept, lastCue.current ?? undefined);
+      lastCue.current = null;
+    },
   });
-  // (a carve at work when the editor closes goes with it)
-  useEffect(() => () => carver.current?.cancel(), []);
+  // (a force at work when the editor closes goes with it)
+  useEffect(() => () => forcer.current?.cancel(), []);
 
-  /** The water's journey and a weather run give way to the carve's own water. */
-  function clearForCarve() {
+  /** The water's journey and a weather run give way to the force's own water. */
+  function clearForForce() {
     player.current?.clear();
     if (weatherRef.current) setWeather(null);
     setPicked(null);
@@ -1469,9 +1527,17 @@ export default function Editor(props: EditorProps) {
     setMessage(null);
   }
 
+  /** Start the force picked with `req`. */
+  function startForce(req: ForceRequest, painting = false) {
+    forceReq.current = req;
+    clearForForce();
+    setForceMarks(null);
+    void forcer.current?.start(false, painting);
+  }
+
   /** Unleash: a click starts it there. Aim: a click picks its start, the next its end. */
   function carveClick(x: number, y: number) {
-    const c = carver.current;
+    const c = forcer.current;
     if (!c || c.running) return;
     if (carveUiRef.current.mode === "aim") {
       const from = aimRef.current;
@@ -1490,16 +1556,14 @@ export default function Editor(props: EditorProps) {
   }
 
   function startCarve(origin: [number, number], end?: [number, number]) {
-    carveReq.current = { origin, ...(end ? { end } : {}), cut: renderer.current?.slice ?? null };
-    clearForCarve();
-    void carver.current?.start(false);
+    startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current), origin, ...(end ? { end } : {}), cut: renderer.current?.slice ?? null });
   }
 
-  /** Try another path: the last carve again, from the same land, another way. */
-  function carveAgain() {
-    if (!carver.current || carver.current.running) return;
-    clearForCarve();
-    void carver.current.start(true);
+  /** Try another: the last force again, from the same land, another way. */
+  function forceAgain() {
+    if (!forcer.current || forcer.current.running) return;
+    clearForForce();
+    void forcer.current.start(true);
   }
 
   /** Aim: the line to the pointer, and what it will do there (tools read intent, D204: an end
@@ -1507,7 +1571,7 @@ export default function Editor(props: EditorProps) {
   function carveHover(hit: TileHit | null, ev: PointerEvent) {
     notePointer(ev);
     const from = aimRef.current;
-    if (!hit || carver.current?.running || carveUiRef.current.mode !== "aim") {
+    if (!hit || forcer.current?.running || carveUiRef.current.mode !== "aim") {
       if (from) setAimTo(null);
       setShapeNote(null);
       return;
@@ -1533,16 +1597,16 @@ export default function Editor(props: EditorProps) {
     let down: TileHit | null = null;
     const t: PointerTool = {
       down: (hit, ev) => {
-        if (ev.button !== 0 || !hit || carver.current?.running) return false;
+        if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         down = hit;
         return true;
       },
       move: () => undefined,
       up: (hit) => {
-        if (hit && down && Math.max(Math.abs(hit.x - down.x), Math.abs(hit.y - down.y)) <= 1) carveCalls.current!.click(hit.x, hit.y);
+        if (hit && down && Math.max(Math.abs(hit.x - down.x), Math.abs(hit.y - down.y)) <= 1) forceCalls.current!.click(hit.x, hit.y);
         down = null;
       },
-      hover: (hit, ev) => carveCalls.current!.hover(hit, ev),
+      hover: (hit, ev) => forceCalls.current!.hover(hit, ev),
       cancel: () => {
         down = null;
       },
@@ -1552,6 +1616,283 @@ export default function Editor(props: EditorProps) {
       if (r.tool === t) r.tool = null;
       setAimFrom(null);
       setAimTo(null);
+      setShapeNote(null);
+    };
+  }, [tool, ready]);
+
+  /** The start's ground on the page's map: its footprint and a tile round it (the forces refuse it,
+   *  D202, D203, D206). */
+  function startKeep(): Uint8Array {
+    const { W, H } = infoRef.current;
+    const keep = new Uint8Array(W * H);
+    const s = startHereRef.current;
+    if (s) for (let y = s.y - 2; y <= s.y + 2; y++) for (let x = s.x - 2; x <= s.x + 2; x++) if (x >= 0 && y >= 0 && x < W && y < H) keep[y * W + x] = 1;
+    return keep;
+  }
+
+  /** The tiles of a line through the points (the painted fault or fissure, drawn on the land). */
+  function strokeTiles(points: readonly { x: number; y: number }[]): number[] {
+    const { W, H } = infoRef.current;
+    const out = new Set<number>();
+    for (let k = 0; k < points.length; k++) {
+      const a = points[Math.max(0, k - 1)];
+      const b = points[k];
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
+      for (let t = 0; t <= n; t++) {
+        const x = Math.round(a.x + ((b.x - a.x) * t) / n);
+        const y = Math.round(a.y + ((b.y - a.y) * t) / n);
+        if (x >= 0 && y >= 0 && x < W && y < H) out.add(y * W + x);
+      }
+    }
+    return [...out];
+  }
+
+  /** An ellipse's rim on the land: a crater's or a vent's footprint under the pointer. */
+  function rimTiles(cx: number, cy: number, a: number, b: number, angle: number): number[] {
+    const { W, H } = infoRef.current;
+    const out = new Set<number>();
+    const n = Math.max(24, Math.ceil((a + b) * 3));
+    for (let k = 0; k < n; k++) {
+      const t = (k / n) * Math.PI * 2;
+      const u = Math.cos(t) * a;
+      const v = Math.sin(t) * b;
+      const x = Math.round(cx + u * Math.cos(angle) - v * Math.sin(angle));
+      const y = Math.round(cy + u * Math.sin(angle) + v * Math.cos(angle));
+      if (x >= 0 && y >= 0 && x < W && y < H) out.add(y * W + x);
+    }
+    return [...out];
+  }
+
+  /** The side of a painted fault that moves: a band of tiles beside it (a faint tint). */
+  function sideTiles(points: readonly { x: number; y: number }[], side: 1 | -1): number[] {
+    const { W, H } = infoRef.current;
+    const out = new Set<number>();
+    for (let k = 1; k < points.length; k++) {
+      const a = points[k - 1];
+      const b = points[k];
+      const l = Math.hypot(b.x - a.x, b.y - a.y);
+      if (l < 0.01) continue;
+      // left of the stroke on the map (north up): (-dy, dx)
+      const nx = (-(b.y - a.y) / l) * side;
+      const ny = ((b.x - a.x) / l) * side;
+      for (let d = 0; d < l; d += 0.5)
+        for (let o = 1.5; o <= 4; o += 1) {
+          const x = Math.round(a.x + ((b.x - a.x) * d) / l + nx * o);
+          const y = Math.round(a.y + ((b.y - a.y) * d) / l + ny * o);
+          if (x >= 0 && y >= 0 && x < W && y < H) out.add(y * W + x);
+        }
+    }
+    return [...out];
+  }
+
+  /** Why the painted stroke of the force picked would be refused (the start's ground), or null. */
+  function strokeRefusal(verb: "erupt" | "quake", path: QuakePoint[], side: 1 | -1): string | null {
+    const keep = startKeep();
+    const W = infoRef.current.W;
+    if (verb === "erupt") return strokeReason(path, keep, W, 2);
+    const why = faultStrokeReason(path, keep, W);
+    if (why) return why;
+    const q = quakeUiRef.current;
+    const s = startHereRef.current;
+    if (q.mode === "slide" && s && path.length >= 2) {
+      const f = new Fault(quakeSettingsOf(q), { path, side });
+      const m = f.movement(s.x, s.y);
+      if (m.dx || m.dy) return "Start here: it would slide (X flips the side)";
+    }
+    return null;
+  }
+
+  // Craterize, Erupt and Quake take the map's clicks and drags while picked: a click strikes or
+  // erupts; Aim drags from the impact the way the impactor travels; a fissure or a fault is painted,
+  // and letting go starts it (a Lift shows its result as it is painted, and is kept when let go)
+  useEffect(() => {
+    const r = renderer.current;
+    if (!r || !tool || tool === "carve") return;
+    const verb = tool;
+    let down: TileHit | null = null;
+    let brush: FaultBrush | null = null;
+    let lastMove = 0;
+    let painting = false;
+    let marksFrame = 0;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const cut = () => renderer.current?.slice ?? null;
+    const point = (hit: TileHit) => ({ x: Math.max(0, Math.min(W - 1, hit.x)), y: Math.max(0, Math.min(H - 1, hit.y)) });
+    const painted = () => verb === "quake" || (verb === "erupt" && eruptUiRef.current.mode === "fissure");
+    const showMarks = (m: { tiles: number[]; side: number[]; bad: boolean } | null) => {
+      cancelAnimationFrame(marksFrame);
+      marksFrame = requestAnimationFrame(() => setForceMarks(m));
+    };
+    /** The footprint of a click here: a crater's rim, a vent's cone. */
+    const footprintAt = (x: number, y: number, end?: { x: number; y: number }) => {
+      if (verb === "craterize") {
+        const u = craterUiRef.current;
+        const d = u.size ?? craterNaturalSize(u.power);
+        const glance = end ? Math.min(1, Math.hypot(end.x - x, end.y - y) / Math.max(12, d)) : 0;
+        const angle = end ? Math.atan2(end.y - y, end.x - x) : 0;
+        return rimTiles(x, y, (d / 2) * (1 + 0.65 * glance), d / 2 / (1 + 0.18 * glance), angle);
+      }
+      const u = eruptUiRef.current;
+      const radius = ventRadius({ ...eruptSettingsOf(u), mode: "vent" });
+      return rimTiles(x, y, radius, radius, 0);
+    };
+    const onStart = (x: number, y: number) => startKeep()[y * W + x] === 1;
+    const sendPaint = () => {
+      if (!brush) return;
+      const intent = brush.intent();
+      const why = strokeRefusal("quake", intent.path, intent.side);
+      showMarks({ tiles: strokeTiles(intent.path), side: sideTiles(intent.path, intent.side), bad: !!why });
+      if (why) {
+        setShapeNote({ text: why, ok: false, warn: false, ...pointerAt.current });
+        return;
+      }
+      // (once it paints, its frames say whether it would flood the start)
+      if (!painting) setShapeNote(null);
+      if (!painting) {
+        if (intent.path.length < 2 || Math.hypot(intent.path.at(-1)!.x - intent.path[0].x, intent.path.at(-1)!.y - intent.path[0].y) < 1) return;
+        painting = true;
+        startForce({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current), path: intent.path, side: intent.side, cut: cut(), painting: true }, true);
+      } else forcer.current?.paint(intent.path, intent.side);
+    };
+    flipRef.current = () => {
+      const side = quakeUiRef.current.side === 1 ? -1 : 1;
+      setQuakeUi({ ...quakeUiRef.current, side });
+      if (brush) {
+        brush.side = side;
+        if (quakeUiRef.current.mode === "lift") sendPaint();
+        else {
+          const intent = brush.intent();
+          showMarks({ tiles: strokeTiles(intent.path), side: sideTiles(intent.path, side), bad: !!strokeRefusal("quake", intent.path, side) });
+        }
+      }
+    };
+    const t: PointerTool = {
+      down: (hit, ev) => {
+        if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        down = hit;
+        notePointer(ev);
+        if (painted()) {
+          const p = point(hit);
+          // Shift: a straight line on from where the last stroke ended
+          const from = ev.shiftKey && anchorRef.current ? anchorRef.current : p;
+          brush = new FaultBrush(from, W, H, quakeUiRef.current.side);
+          brush.aim(p);
+          if (ev.shiftKey && anchorRef.current) brush.advance(0, true);
+          lastMove = performance.now();
+          if (verb === "quake") {
+            const intent = brush.intent();
+            showMarks({ tiles: strokeTiles(intent.path), side: sideTiles(intent.path, intent.side), bad: !!strokeRefusal("quake", intent.path, intent.side) });
+          }
+        }
+        return true;
+      },
+      move: (hit, ev) => {
+        notePointer(ev);
+        if (!hit || !down) return;
+        const p = point(hit);
+        if (brush) {
+          const now = performance.now();
+          brush.aim(p);
+          brush.advance((now - lastMove) / 1000);
+          lastMove = now;
+          const intent = brush.intent();
+          if (verb === "quake" && quakeUiRef.current.mode === "lift") sendPaint();
+          else {
+            const why = strokeRefusal(verb === "erupt" ? "erupt" : "quake", intent.path, intent.side);
+            showMarks({ tiles: strokeTiles(intent.path), side: verb === "quake" ? sideTiles(intent.path, intent.side) : [], bad: !!why });
+            setShapeNote(why ? { text: why, ok: false, warn: false, ...pointerAt.current } : null);
+          }
+          return;
+        }
+        if (verb === "craterize" && craterUiRef.current.mode === "aim") {
+          const bad = onStart(down.x, down.y);
+          showMarks({ tiles: [...footprintAt(down.x, down.y, p), ...strokeTiles([{ x: down.x, y: down.y }, p])], side: [], bad });
+          const n = Math.round(Math.hypot(p.x - down.x, p.y - down.y));
+          setShapeNote(bad ? { text: START_REASON, ok: false, warn: false, ...pointerAt.current } : { text: n > 1 ? `A glancing blow, ${n} tiles: let go to strike` : "Drag the way it travels", ok: true, warn: false, ...pointerAt.current });
+        }
+      },
+      up: (hit) => {
+        const d = down;
+        down = null;
+        if (!d) return;
+        const p = hit ? point(hit) : null;
+        if (brush) {
+          const b = brush;
+          brush = null;
+          if (p) b.aim(p);
+          b.advance(0, true);
+          const intent = b.intent();
+          anchorRef.current = intent.path.at(-1) ?? null;
+          showMarks(null);
+          if (verb === "quake" && quakeUiRef.current.mode === "lift") {
+            if (painting) void forcer.current?.stop();
+            painting = false;
+            return;
+          }
+          const why = strokeRefusal(verb === "erupt" ? "erupt" : "quake", intent.path, intent.side);
+          if (why) {
+            setShapeNote(null);
+            setMessage({ kind: "info", text: why });
+            return;
+          }
+          let length = 0;
+          for (let k = 1; k < intent.path.length; k++) length += Math.hypot(intent.path[k].x - intent.path[k - 1].x, intent.path[k].y - intent.path[k - 1].y);
+          if (verb === "erupt") {
+            if (length < 3) return setMessage({ kind: "info", text: "Draw a longer fissure" });
+            const o = intent.path[0];
+            startForce({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current), origin: [Math.round(o.x), Math.round(o.y)], path: intent.path, cut: cut() });
+          } else startForce({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current), path: intent.path, side: intent.side, cut: cut() });
+          return;
+        }
+        if (!p) return;
+        if (verb === "craterize" && craterUiRef.current.mode === "aim") {
+          showMarks(null);
+          const aimed = Math.hypot(p.x - d.x, p.y - d.y) > 1;
+          startForce({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current), origin: [d.x, d.y], ...(aimed ? { end: [p.x, p.y] as [number, number] } : {}), cut: cut() });
+          return;
+        }
+        // a click: strike, or a vent erupts
+        if (Math.max(Math.abs(p.x - d.x), Math.abs(p.y - d.y)) > 1) return;
+        showMarks(null);
+        if (verb === "craterize") startForce({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current), origin: [d.x, d.y], cut: cut() });
+        else startForce({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current), origin: [d.x, d.y], cut: cut() });
+      },
+      hover: (hit, ev) => {
+        notePointer(ev);
+        if (!hit || forcer.current?.running || down) return;
+        if (painted()) {
+          setShapeNote({ text: verb === "quake" ? "Paint a fault · X flips the side that moves" : "Paint the fissure", ok: true, warn: false, ...pointerAt.current });
+          showMarks(null);
+          return;
+        }
+        const bad = onStart(hit.x, hit.y);
+        showMarks({ tiles: footprintAt(hit.x, hit.y), side: [], bad });
+        setShapeNote(bad ? { text: START_REASON, ok: false, warn: false, ...pointerAt.current } : null);
+      },
+      cancel: () => {
+        down = null;
+        brush = null;
+        if (painting) forcer.current?.cancel();
+        painting = false;
+        showMarks(null);
+      },
+    };
+    r.tool = t;
+    forceEscRef.current = () => {
+      if (!down && !brush) return false;
+      down = null;
+      brush = null;
+      showMarks(null);
+      setShapeNote(null);
+      return true;
+    };
+    return () => {
+      if (r.tool === t) r.tool = null;
+      cancelAnimationFrame(marksFrame);
+      flipRef.current = null;
+      forceEscRef.current = null;
+      if (painting) forcer.current?.cancel();
+      setForceMarks(null);
       setShapeNote(null);
     };
   }, [tool, ready]);
@@ -1684,11 +2025,40 @@ export default function Editor(props: EditorProps) {
     return null;
   }
 
+  /** The options row of the force picked (its mode switch first), or its status while it works. */
+  function forceRow(): ComponentChildren {
+    if (!tool) return null;
+    const force = FORCES.find((f) => f.id === tool)!;
+    const st = forcer.current?.status ?? null;
+    const canAgain = info.forceAgain === tool;
+    if (tool === "carve")
+      return (
+        <CarveRow
+          force={force}
+          ui={carveUi}
+          onUi={(u) => {
+            setCarveUi(u);
+            if (u.mode !== carveUi.mode) setAimFrom(null);
+          }}
+          status={st}
+          canAgain={canAgain}
+          onAgain={() => void forceAgain()}
+          onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
+          onStop={() => void forcer.current?.stop()}
+          onRevert={() => forcer.current?.cancel()}
+        />
+      );
+    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
+    const again = () => void forceAgain();
+    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} />;
+    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} />;
+    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} />;
+  }
+
   function onReady(r: MapRenderer) {
     renderer.current = r;
     setReady(r);
     juice.current ??= new Juice(() => renderer.current, sound);
-    juice.current.register("carve", carveTouch, 380);
     painter.current = new BrushPainter({
       renderer: r,
       W: infoRef.current.W,
@@ -1721,7 +2091,13 @@ export default function Editor(props: EditorProps) {
         setBrush({ ...brushRef.current, strength: value });
         if (ev) flashNote(`strength ${value}`, ev);
       },
-      feel: (kind, x, y, size, soft) => feel(kind, x, y, size, soft),
+      feel: (kind, x, y, size, soft) => {
+        feel(kind, x, y, size, soft);
+        // the stroke's own texture while it paints (Flatten, Smooth and Naturalize each have theirs)
+        const b = brushToolRef.current;
+        const sound: StrokeSound = kind === "raise" || kind === "lower" ? kind : b === "smooth" ? "smooth" : b === "naturalize" ? "naturalize" : "flatten";
+        juice.current?.strokeSound(sound, x, y, size, Math.min(1, brushRef.current.strength / 10));
+      },
       // F held: the size follows the pointer, saved once it is set (D205)
       resize: (size, ev, done) => {
         setBrush({ ...brushRef.current, size }, done);
@@ -1729,7 +2105,10 @@ export default function Editor(props: EditorProps) {
       },
       // a new stroke puts away the last one's start hint (its water flows while it is painted, D197)
       painting: (on) => {
-        if (!on) return;
+        if (!on) {
+          juice.current?.strokeEnd();
+          return;
+        }
         hintJob.current++;
         setStartHint(null);
       },
@@ -2135,8 +2514,9 @@ export default function Editor(props: EditorProps) {
       const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
-      // a carve at work (D199): Esc or Ctrl+Z takes it back, Space holds it; the other tools wait
-      const c = carver.current;
+      // a force at work (D199, D202, D203, D206): Esc or Ctrl+Z takes it back, Space holds a carve,
+      // X flips a painted Lift's side as it goes; the other tools wait
+      const c = forcer.current;
       if (c?.running) {
         if (ev.key === "Escape" || (mod && ev.key.toLowerCase() === "z")) {
           ev.preventDefault();
@@ -2148,8 +2528,14 @@ export default function Editor(props: EditorProps) {
           c.pause(!c.status!.paused);
           return;
         }
-        if (mod || /^[1-9]$/.test(ev.key) || ["m", "x", "r", "f", "delete", "backspace"].includes(ev.key.toLowerCase())) return;
+        if (!mod && ev.key.toLowerCase() === "x" && toolRef.current === "quake") {
+          flipRef.current?.();
+          return;
+        }
+        if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "r", "f", "delete", "backspace"].includes(ev.key.toLowerCase())) return;
       }
+      // a fault or a fissure still being drawn: Esc lets it go
+      if (ev.key === "Escape" && forceEscRef.current?.()) return;
       // Aim's start picked: Esc lets it go
       if (ev.key === "Escape" && aimRef.current) {
         setAimFrom(null);
@@ -2191,8 +2577,10 @@ export default function Editor(props: EditorProps) {
         pickShelf(shelfRef.current?.id === "water-source" ? null : SHELF.find((it) => it.id === "water-source")!);
         return;
       }
-      if (!mod && !ev.altKey && ev.key === "7" && painter.current && forceShown("carve")) {
-        pickTop(toolRef.current === "carve" ? null : "carve");
+      // 7, 8, 9, 0: Carve, Craterize, Quake, Erupt (again: put it away)
+      const forceKey = FORCES.find((f) => f.key === ev.key);
+      if (!mod && !ev.altKey && forceKey && painter.current && forceShown(forceKey.id)) {
+        pickTop(toolRef.current === forceKey.id ? null : forceKey.id);
         return;
       }
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "m") {
@@ -2250,6 +2638,12 @@ export default function Editor(props: EditorProps) {
           const at = shelfTile.current;
           if (at) shelfHover(at[0], at[1]);
         }
+        return;
+      }
+      // (with Quake picked, X flips the side of the fault that moves)
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && toolRef.current === "quake") {
+        if (flipRef.current) flipRef.current();
+        else setQuakeUi({ ...quakeUiRef.current, side: quakeUiRef.current.side === 1 ? -1 : 1 });
         return;
       }
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "x") {
@@ -2316,7 +2710,8 @@ export default function Editor(props: EditorProps) {
       strokeMismatches: () => strokeMismatches.current,
       lastStroke: () => localUndo.current.at(-1)?.params ?? null,
       pendingTerrain: () => pendingTerrain.current,
-      carve: () => (carver.current?.status ? { ...carver.current.status } : null),
+      carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
+      force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
     };
     return () => {
@@ -2396,7 +2791,7 @@ export default function Editor(props: EditorProps) {
         onBack={() => props.onBack(info)}
       />
       <div class="editor-main">
-        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!carver.current?.running} />
+        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
         <section class="editor-map" aria-label="Map">
           <View3D
             view={view}
@@ -2454,26 +2849,9 @@ export default function Editor(props: EditorProps) {
           >
             <TopBar
               active={brushTool}
-              force={tool === "carve" ? "carve" : null}
-              forceAtWork={!!carver.current?.running}
-              forceRow={
-                tool === "carve" ? (
-                  <CarveRow
-                    force={FORCES.find((f) => f.id === "carve")!}
-                    ui={carveUi}
-                    onUi={(u) => {
-                      setCarveUi(u);
-                      if (u.mode !== carveUi.mode) setAimFrom(null);
-                    }}
-                    status={carver.current?.status ?? null}
-                    canAgain={info.carveAgain}
-                    onAgain={() => void carveAgain()}
-                    onPause={() => carver.current?.pause(!carver.current.status?.paused)}
-                    onStop={() => void carver.current?.stop()}
-                    onRevert={() => carver.current?.cancel()}
-                  />
-                ) : null
-              }
+              force={tool}
+              forceAtWork={!!forcer.current?.running}
+              forceRow={forceRow()}
               remove={removing}
               removeKinds={removeKinds}
               onRemoveKinds={setRemoveKinds}

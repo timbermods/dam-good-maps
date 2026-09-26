@@ -72,6 +72,13 @@ export const JUICE = {
   foam: [0.92, 0.96, 0.87] as Rgb,
   debris: [0.59, 0.51, 0.41] as Rgb,
   mud: [0.57, 0.5, 0.34] as Rgb,
+  /** The other forces (D202, D203, D206): an impact's dust, flash and falling streak and the
+   *  blocks it throws; a fault's crack. */
+  impactDust: [0.78, 0.7, 0.58] as Rgb,
+  impactFlash: [1.0, 0.96, 0.84] as Rgb,
+  streak: [1.0, 0.86, 0.53] as Rgb,
+  rock: [0.45, 0.39, 0.3] as Rgb,
+  crack: [0.2, 0.18, 0.16] as Rgb,
 } as const;
 
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */

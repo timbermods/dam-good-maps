@@ -68,8 +68,8 @@ test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try 
   await expect(first).toHaveText("Unleash");
   await expect(first).toHaveAttribute("aria-pressed", "true");
   await expect(row.getByRole("button", { name: "Keep river" })).toHaveAttribute("aria-pressed", "true");
-  // Craterize, Quake and Erupt stay hidden until they are ready
-  await expect(page.getByRole("button", { name: /Craterize|Quake|Erupt/ })).toHaveCount(0);
+  // the other forces beside it, in the forces group (D216, D219)
+  for (const name of ["Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(page.getByRole("button", { name })).toBeVisible();
 
   const before = await heights(page);
   const n0 = (await labels(page)).length;

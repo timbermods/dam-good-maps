@@ -45,7 +45,7 @@
 
 import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { DEAD, FALLEN, fallAngle, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS } from "./palette";
 
 type Rgb = readonly [number, number, number];
@@ -1058,7 +1058,20 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1);
       continue;
     }
-    if (PLANTS.has(template)) {
+    if (PLANTS.has(template) && flags & FALLEN && v.fall?.[k]) {
+      // a tree a force knocked down (D202): its bare trunk lies along its heading, from its tile
+      const a = fallAngle(v.fall[k]);
+      const s = 0.85 + 0.3 * jitter(x, y, 1);
+      const c = Math.cos(a) * s;
+      const n = Math.sin(a) * s;
+      b.follows.push(follow);
+      b.objects.push(object);
+      // the trunk's up (+Y) turned to lie along (cos a, 0, -sin a): world z is -y
+      b.matrices.push(0, -s, 0, 0, c, 0, -n, 0, n, 0, c, 0, x + 0.5, z + 0.12, -(y + 0.5), 1);
+      const tint = 0.9 + 0.08 * jitter(x, y, 5);
+      b.tints.push(tint, tint, tint);
+      b.grows.push(NO_GROW[0], NO_GROW[1], NO_GROW[2]);
+    } else if (PLANTS.has(template)) {
       const dead = !!(flags & DEAD);
       const s = (flags & YOUNG ? 0.5 : 0.85 + 0.3 * jitter(x, y, 1)) * (dead ? 0.95 : 1);
       const tint = dead ? 0.94 + 0.08 * jitter(x, y, 5) : 0.9 + 0.2 * jitter(x, y, 5);

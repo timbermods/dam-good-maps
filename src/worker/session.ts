@@ -1711,6 +1711,8 @@ export interface ForceFrame {
   water?: WaterView;
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Why keeping it now would be refused (a painted Lift flooding the start). */
+  problem?: string;
 }
 
 export interface ForceStarted {
@@ -2030,6 +2032,11 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
       f.shownEntities = copyEntityView(v);
     }
   }
+  // a painted Lift that would flood the start, or tip it: said while it is painted
+  if (f.staged instanceof QuakeRun && f.staged.painting) {
+    const problem = quakeStartProblem(f, f.staged);
+    if (problem) out.problem = problem;
+  }
   if (!f.heatSent && f.staged?.heat) {
     const heat = f.staged.heat();
     if (heat) {
@@ -2038,6 +2045,14 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     }
   }
   return out;
+}
+
+/** What a quake would do to the start (null: nothing wrong): it rides the land, and must still stand
+ *  flat and dry, as it did before. */
+function quakeStartProblem(f: NonNullable<typeof force>, r: QuakeRun): string | null {
+  const after = r.final();
+  if (!after || startProblem(f.before)) return null;
+  return startProblem({ ...after, water: r.map.water });
 }
 
 /** Run the force `steps` steps more (ten are a second of a carve), and what changed. */
@@ -2140,8 +2155,8 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     const after = r.final();
     if (!after) return refused(["Nothing changed"]);
     if (r instanceof QuakeRun) {
-      // the start rides the land; it must still stand flat and dry
-      const problem = startProblem({ ...after, water: r.map.water });
+      // the start rides the land; it must still stand flat and dry (unless it didn't before)
+      const problem = quakeStartProblem(f, r);
       if (problem) return refused([`${problem}: the quake is taken back`]);
     }
     params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });

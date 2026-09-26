@@ -58,10 +58,9 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
   expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
-  // the forces: Carve is ready, in their group (D194, D199); the others keep their slots hidden
-  // until they are (D202, D203, D206)
-  await expect(bar.getByRole("button", { name: "Carve (7)" })).toBeVisible();
-  for (const name of ["Craterize", "Quake", "Erupt"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
+  // the forces, all four ready (D216, D219), in their own group between the brushes and Remove
+  const forces = bar.getByRole("group", { name: "Forces" });
+  for (const name of ["Carve (7)", "Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
   // F and R do nothing with no brush or object out: the old camera zoom on R and F is gone (D212;
   // F sizes the brush, R turns the shelf's object)
   const distance = () => page.evaluate(() => window.dgm3d!.renderer.getView().distance);

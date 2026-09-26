@@ -37,10 +37,12 @@ import {
   WebGLRenderTarget,
   Box3,
   LinearSRGBColorSpace,
+  LinearFilter,
   ColorManagement,
 } from "three";
 import { BrushCursor, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
+import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { contaminationEdges, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -579,6 +581,8 @@ export class MapRenderer {
     this.lightTex?.dispose();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
+    this.forceFx?.clear();
+    this.setHeat(null);
   }
 
   private dropMesh(m: Mesh): void {
@@ -961,6 +965,57 @@ export class MapRenderer {
   }
 
   private surge: Surge | null = null;
+  private forceFx: ForceEffects | null = null;
+
+  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+   *  effects play on their own clocks. Not with reduced motion, not in software. */
+  setForceMoment(m: ForceMoment): void {
+    if (!this.juicy || m.verb === "carve") return;
+    this.forceFxOf().set(m);
+  }
+
+  /** The force was kept: its tails play out (dust settling, lava cooling). */
+  forceDone(): void {
+    this.forceFx?.finish();
+  }
+
+  /** Esc, undo: a force's effects and its heat go at once. */
+  clearForce(): void {
+    this.forceFx?.clear();
+    this.setHeat(null);
+  }
+
+  private forceFxOf(): ForceEffects {
+    return (this.forceFx ??= new ForceEffects(this.scene, () => this.requestRender(), (x, y) => {
+      const m = this.map;
+      if (!m) return 0;
+      const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+      return m.heights[i];
+    }));
+  }
+
+  /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null. */
+  setHeat(mask: Uint8Array | null): void {
+    const u = this.terrainMat?.uniforms;
+    if (!u?.eruptionMask) return;
+    const m = this.map;
+    const old = u.eruptionMask.value as DataTexture;
+    if (!mask || !m || mask.length !== m.W * m.H * 4 || this.software) {
+      u.eruptionAge.value = -1;
+      if (old.image.width !== 1) {
+        old.dispose();
+        u.eruptionMask.value = overlayTexture(1, 1);
+      }
+      return;
+    }
+    old.dispose();
+    const t = overlayTexture(m.W, m.H);
+    (t.image.data as Uint8Array).set(mask);
+    t.magFilter = t.minFilter = LinearFilter;
+    t.needsUpdate = true;
+    u.eruptionMask.value = t;
+    this.requestRender();
+  }
 
   /** A force's head at work (a carve's surge, D199), on the ground shown; null puts it away. Not
    *  with reduced motion, not in software. */
@@ -971,6 +1026,19 @@ export class MapRenderer {
       return;
     }
     (this.surge ??= new Surge(this.scene, () => this.requestRender())).set(head, trail, m.heights, m.W);
+  }
+
+  /** Where tile (x, y) is from the camera, for a sound (D220): its distance (0 near, 1 far) and its
+   *  pan (−1 left, 1 right). */
+  soundPlace(x: number, y: number): { distance: number; pan: number } {
+    const m = this.map;
+    if (!m) return { distance: 0, pan: 0 };
+    const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+    const p = new Vector3(x + 0.5, m.heights[i], -(y + 0.5));
+    const cam = this.camera();
+    const d = cam.position.distanceTo(p);
+    const ndc = p.clone().project(cam);
+    return { distance: Math.max(0, Math.min(1, (d - 12) / 180)), pan: Number.isFinite(ndc.x) ? Math.max(-1, Math.min(1, ndc.x)) : 0 };
   }
 
   /** A puff of dust where ground was lowered at tile (x, y), `size` tiles across. */
@@ -1318,9 +1386,22 @@ export class MapRenderer {
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
+    // a force's heat on the ground, and its render-only shake (added before the frame, taken off
+    // after, so the camera never drifts)
+    const fx = this.forceFx;
+    const heat = fx && !this.reducedMotion ? fx.heat(t0) : null;
+    const u = this.terrainMat.uniforms;
+    if (u.eruptionAge) {
+      u.eruptionAge.value = heat ? heat.age : -1;
+      u.coolingAge.value = heat ? heat.cooling : 0;
+    }
+    const cam = this.camera();
+    const shake = fx && this.motion ? fx.shakeOffset(t0) : null;
+    if (shake) cam.position.set(cam.position.x + shake[0], cam.position.y + shake[1], cam.position.z + shake[2]);
     const q = this.beginGpuTimer();
-    this.gl.render(this.scene, this.camera());
+    this.gl.render(this.scene, cam);
     this.endGpuTimer(q);
+    if (shake) cam.position.set(cam.position.x - shake[0], cam.position.y - shake[1], cam.position.z - shake[2]);
     if (this.recording) this.cpuTimes.push(performance.now() - t0);
     // tell the page only when the view moved (the water's frames do not)
     const v = this.view;
@@ -1738,6 +1819,7 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.effects?.dispose();
     this.surge?.dispose();
+    this.forceFx?.dispose();
     this.terrainMat.dispose();
     this.waterMat.dispose();
     this.objectMat.dispose();

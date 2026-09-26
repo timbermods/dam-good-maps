@@ -32,23 +32,28 @@ describe("the forces before their release", () => {
     expect(forcesShownIn(PUBLIC)).toBe(FORCES_RELEASED);
   });
 
-  it("the top bar built as the public site has no forces; built as the preview, Carve", async () => {
+  it("the top bar built as the public site has no forces; built as the preview, all four", async () => {
     vi.stubEnv("MODE", "production");
     vi.stubEnv("BASE_URL", "/dam-good-maps/");
     vi.resetModules();
     const pub = await import("../../src/editor/TopBar");
-    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve"] : []);
-    expect(pub.forceShown("carve")).toBe(FORCES_RELEASED);
+    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve", "craterize", "quake", "erupt"] : []);
+    for (const id of ["carve", "craterize", "quake", "erupt"] as const) expect(pub.forceShown(id)).toBe(FORCES_RELEASED);
     vi.stubEnv("BASE_URL", "/dam-good-maps/preview/");
     vi.resetModules();
     const pre = await import("../../src/editor/TopBar");
-    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve"]);
+    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "quake", "erupt"]);
     expect(pre.forceShown("carve")).toBe(true);
   });
 
-  it("under the tests, the top bar shows Carve", async () => {
+  it("under the tests, the top bar shows the four forces, each with its key and its modes", async () => {
     const t = await import("../../src/editor/TopBar");
-    expect(t.forceShown("carve")).toBe(true);
-    expect(t.forceShown("quake")).toBe(false);
+    for (const id of ["carve", "craterize", "quake", "erupt"] as const) expect(t.forceShown(id)).toBe(true);
+    expect(t.FORCES.map((f) => [f.name, f.key, ...f.modes])).toEqual([
+      ["Carve", "7", "Unleash", "Aim"],
+      ["Craterize", "8", "Strike", "Aim"],
+      ["Quake", "9", "Lift", "Slide"],
+      ["Erupt", "0", "Vent", "Fissure"],
+    ]);
   });
 });
