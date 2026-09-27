@@ -1004,7 +1004,7 @@ they conflict):
    refused live; instant on 256².
 9. **Select, and the working area** (D254, D259; on `feature/forces` with the forces round 2, for Kyler's
    forces sitting): Select gets a small button on the bar beside the brushes (M and Ctrl+drag still open
-   it), with Circle and Brush beside Rectangle, Freehand and Same level; Set level reaches the map's
+   it), with Circle and Brush beside Rectangle and Freehand, and Same level becomes Wand, which also selects a river's or lake's visible water (D261); Set level reaches the map's
    ceiling, and Ctrl+click takes a tile's level as the target. Its actions stay exact, with hard edges.
    The working area is Select's open selection, with no second way of marking an area: while it is
    open every tool (the brushes, the forces, Clear sources) works only inside it, and land

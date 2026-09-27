@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D260) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D261) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -43,7 +43,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    Erupt's fit words, which D258 removes); **D249** (Clear sources, sources ride the ground, easy removal; it starts at
    `keptTiles()` in `src/editor/Editor.tsx`); **D257, D258** (bound only by nature: the start carried, not refused; clean
    gestures: no drawn routes or previews, Aim an arrow); **D259** (Select findable; its selection is the working area,
-   D254); **D260** (unfed water recedes at once); then **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
+   D254; **D261** Wand selects water); **D260** (unfed water recedes at once); then **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
    brush level and stop, brushes.ts's layer-cut raise and precise hold, `forceCeiling`; merge `chore/ceiling-probe`'s tool;
    the tall note in plain words). Then deploy the preview from `feature/forces` and tell Kyler: his checklist for the
    sitting is in STATUS. Not released until he has tried it. The top note of `docs/progress/forces.md` has the detail.
@@ -268,7 +268,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D261), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D262), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.

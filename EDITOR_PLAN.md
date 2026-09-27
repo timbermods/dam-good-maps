@@ -150,7 +150,9 @@ editor is desktop-first (D185).
   description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
   is unchanged.
 - **Select** (D259; on `feature/forces`, for Kyler's forces sitting): a small button on the bar beside the brushes; M
-  and Ctrl+drag still open it. Shapes: Rectangle, Freehand, Same level, **Circle** (drag from the centre outward, the
+  and Ctrl+drag still open it. Shapes: Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that level; a click
+  on water selects that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at the
+  click that never follows the water as it moves), **Circle** (drag from the centre outward, the
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
