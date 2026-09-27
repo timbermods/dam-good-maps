@@ -1436,6 +1436,26 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[])
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
 }
 
+/** A brush stroke with **Clear sources** on (D249): the stroke and the removal of every water or
+ *  badwater source standing on `tiles` (the tiles it pressed), one undo step; the water recedes
+ *  live. Without a source there it is the stroke alone. */
+export function strokeClearing(op: EditOp, label: string, tiles: readonly number[]): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const { x: W, y: H } = s.size;
+  const want = new Set(tiles);
+  const ids: string[] = [];
+  for (const e of s.built.entities) {
+    if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+    if (e.raw && !placementOf(e.raw)) continue;
+    if (entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) ids.push(e.id);
+  }
+  const ops: EditOp[] = [op];
+  if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
+  const r = ids.length ? s.applyAll(ops, "user", `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared`) : s.apply(op, "user", label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 /** Move a feature by (dx, dy) tiles; rivers, lakes and set pieces are planned again there. */
 export function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
   const t0 = performance.now();

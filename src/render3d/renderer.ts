@@ -62,6 +62,10 @@ ColorManagement.enabled = false;
 
 export type ViewMode = "orbit" | "top";
 
+/** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
+ *  a clear red. */
+const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
+
 export interface ViewState {
   mode: ViewMode;
   /** Turn around the target: 0 looks north. */
@@ -1014,7 +1018,10 @@ export class MapRenderer {
           const k = own[i];
           if (k < 0 || !want.has(m.entities.y[k] * m.W + m.entities.x[k])) continue;
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * color[j]);
+          // (a source's blue would only darken: it turns a clear red, D249)
+          const t = m.entities.templates[m.entities.template[k]];
+          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
           mesh.instanceColor.needsUpdate = true;
         }
       }

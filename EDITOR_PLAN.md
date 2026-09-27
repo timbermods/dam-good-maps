@@ -421,13 +421,17 @@ replays exactly and survives regeneration and format 3. A Lower stroke that star
 water records `channel` (smart Lower): its bed starts at the lowest ground round its first dab and
 never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
-keeps (a precise hold's objects; the footprints a Flatten's rim would leave on a step, D204),
+keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
+leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's
+rectangle, which takes its middle tile's level once the stroke is applied, D249; strokes saved
+before keep their `keep` runs and replay exactly),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
 edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
-build places, and never touches the ground or the start. A force's run becomes one operation whose
+build places, and never touches the ground or the start. A stroke with **Clear sources** on is one
+step of the `brush` and a `deleteEntities` of the sources it pressed on (D249). A force's run becomes one operation whose
 result is stored literally, so a replay assigns it and never runs the force again: `forceResult`,
 shared by the four forces (D220): the force, its settings and where it acted (a record), then the
 changed tiles and their levels, the fresh volcanic rock where it changed (a bit per level), the

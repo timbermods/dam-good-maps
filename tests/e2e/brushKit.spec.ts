@@ -85,7 +85,7 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("2");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });
-  for (const t of ["Square", "Precise", "Straight lines"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
+  for (const t of ["Square", "Precise", "Straight lines", "Clear sources"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
   await expect(lowerRow.getByLabel("In steps")).toHaveCount(0);
   await expect(lowerRow.getByLabel("Level lines")).toHaveCount(0);
 
@@ -249,7 +249,9 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   // over the precise pit's walls carries none
   const smoothRow = page.getByRole("group", { name: "Smooth options" });
   await expect(smoothRow).toBeVisible();
-  await expect(smoothRow.getByRole("checkbox")).toHaveCount(3);
+  // (only the toggles all five brushes share: Square, Precise, Straight lines and Clear sources, D249)
+  await expect(smoothRow.getByRole("checkbox")).toHaveCount(4);
+  await expect(smoothRow.getByLabel("Clear sources")).toHaveCount(1);
   await expect(smoothRow.getByLabel(/walkable/i)).toHaveCount(0);
   await page.mouse.click(pp.x, pp.y);
   await settle(page);

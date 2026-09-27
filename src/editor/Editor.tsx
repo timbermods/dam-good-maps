@@ -56,6 +56,7 @@ import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
+import { isSource, sourceSpots, sourcesOn, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams } from "../core/features/raster/brush";
 import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
@@ -476,6 +477,7 @@ export default function Editor(props: EditorProps) {
       m.entitiesAt = null;
       m.coverAt = null;
       r?.updateEntities(v.entities);
+      reglow();
     }
     if (v.water || v.entities) setWaterTick((t) => t + 1);
   }
@@ -744,6 +746,24 @@ export default function Editor(props: EditorProps) {
       }
     return null;
   };
+  /** The map's sources (D249), made when first asked for after the objects change. */
+  const spotCache = useRef<{ of: EntityView | null; list: SourceSpot[] }>({ of: null, list: [] });
+  const spots = (): SourceSpot[] => {
+    const e = mirror.current.entities;
+    if (spotCache.current.of !== e) spotCache.current = { of: e, list: sourceSpots(e, infoRef.current.W, infoRef.current.H) };
+    return spotCache.current.list;
+  };
+  /** The source the pointer on tile (x, y) targets (D249): one standing there; else, over water or
+   *  bare ground, the nearest within about two tiles (another object standing there wins). */
+  const targetAt = (x: number, y: number): SourceSpot | null => {
+    const W = infoRef.current.W;
+    const e = mirror.current.entities;
+    const covered = (coverAt().get(y * W + x) ?? []).some((k) => !isSource(e.templates[e.template[k]]));
+    return targetSource(spots(), x, y, W, covered);
+  };
+  /** The source the pointer targets now (D249), for Delete and its marker. */
+  const targetSpot = useRef<SourceSpot | null>(null);
+  const [targeted, setTargeted] = useState<number | null>(null);
   const ctx = (): TileContext => ({ W: info.W, H: info.H, heights: mirror.current.heights, water: mirror.current.water, entities: mirror.current.entities, entitiesAt: entitiesAt(), index: indexed, soil: mirror.current.soil, editor: true });
 
   // where the start is: its feature, or an imported map's own StartingLocation
@@ -836,14 +856,18 @@ export default function Editor(props: EditorProps) {
   const sourceGrab = useRef<{ cancel(): void } | null>(null);
   function grabSource(hit: TileHit | null): PointerTool | null {
     if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || removingRef.current) return null;
-    const src = sourceAt(hit.x, hit.y);
-    if (!src) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
+    // with nothing picked, a source within about two tiles is the one pressed (D249); with the
+    // shelf's source, a press on a placed one (a new one can go right beside it)
+    const free = !shelfRef.current && !toolRef.current && !selectingRef.current;
+    const spot = free ? targetAt(hit.x, hit.y) : null;
+    const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceAt(hit.x, hit.y);
+    if (!src) return null;
     const from: [number, number] = [hit.x, hit.y];
     let to = from;
     let done = false;
-    const record = sourceInfo(hit.x, hit.y);
+    const record = sourceInfo(src.x, src.y);
     const canvas = renderer.current?.canvas;
     if (canvas) canvas.style.cursor = "grabbing";
     const end = () => {
@@ -870,7 +894,7 @@ export default function Editor(props: EditorProps) {
         if (!dx && !dy) {
           // a click selects it (its strength in the row); the shelf's source goes back
           if (shelfRef.current?.source) pickShelf(null);
-          return pickTile(from[0], from[1]);
+          return pickTile(src.x, src.y);
         }
         void record.then((e) => {
           if (!e) return;
@@ -966,7 +990,8 @@ export default function Editor(props: EditorProps) {
   }
   /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
    *  near the pointer and those its water comes from. */
-  const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding])];
+  const targetGroup = targeted === null ? -1 : groups.findIndex((g) => g.members.includes(targeted));
+  const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding, ...(targetGroup >= 0 ? [targetGroup] : [])])];
   const markerRef = useRef(false);
   markerRef.current = shownGroups.length > 0;
 
@@ -984,7 +1009,7 @@ export default function Editor(props: EditorProps) {
           const n = g.members.length;
           const words = `${n > 1 ? `${n} sources, ` : ""}${g.strength} ${g.bad ? "badwater" : "water"}/s`;
           return (
-            <span key={k} class={`map-note source-marker${g.bad ? " bad" : ""}${feeding.includes(k) ? " feeding" : ""}`} style={{ left: `${p.x}px`, top: `${p.y}px` }}>
+            <span key={k} class={`map-note source-marker${g.bad ? " bad" : ""}${feeding.includes(k) ? " feeding" : ""}${k === targetGroup ? " target" : ""}`} style={{ left: `${p.x}px`, top: `${p.y}px` }}>
               {words}
             </span>
           );
@@ -1352,7 +1377,18 @@ export default function Editor(props: EditorProps) {
   }
   /** Remove's click or drag: what the filters take there goes, one step, with its whuff; the start
    *  stays (a word beside the pointer says so). */
-  function removeOn(tiles: number[]) {
+  function removeOn(tiles: number[], sources = false) {
+    const W = info.W;
+    if (sources) {
+      // a drag that started on a source (D249): only the sources there, whatever the filters say
+      const on = sourcesOn(spots(), tiles);
+      if (!on.length) return;
+      void run(
+        () => api.removeAt(tiles, ["sources"]),
+        (u) => u.ok && feel("remove", on[0].x, on[0].y),
+      );
+      return;
+    }
     const corners = removableOn(tiles);
     if (!corners.length) {
       const e = mirror.current.entities;
@@ -1360,7 +1396,6 @@ export default function Editor(props: EditorProps) {
       if (start) flashNote("The start stays: pick it on the shelf to move it");
       return;
     }
-    const W = info.W;
     void run(
       () => api.removeAt(tiles, removeKindsRef.current),
       (u) => u.ok && feel("remove", corners[0] % W, Math.floor(corners[0] / W)),
@@ -1378,15 +1413,18 @@ export default function Editor(props: EditorProps) {
       W: info.W,
       H: info.H,
       objectsOn: (tiles) => removeCalls.current.removableOn(tiles),
+      target: (x, y) => targetAt(x, y),
+      sourcesOn: (tiles) => sourcesOn(spots(), tiles).map((c) => c.corner),
       highlight: (corners) => r.highlightObjects(corners),
-      drawing: (tiles, ev) => {
+      drawing: (tiles, ev, sources) => {
         setRemoveRect(tiles);
         if (ev) notePointer(ev);
         if (!tiles) return setShapeNote(null);
-        const n = removeCalls.current.removableOn(tiles).length;
-        setShapeNote({ text: n === 1 ? "1 object" : `${n} objects`, ok: true, warn: false, ...pointerAt.current });
+        const n = sources ? sourcesOn(spots(), sources).length : removeCalls.current.removableOn(tiles).length;
+        const what = sources ? ["source", "sources"] : ["object", "objects"];
+        setShapeNote({ text: `${n} ${n === 1 ? what[0] : what[1]}`, ok: true, warn: false, ...pointerAt.current });
       },
-      remove: (tiles) => removeCalls.current.removeOn(tiles),
+      remove: (tiles, sources) => removeCalls.current.removeOn(tiles, sources),
     });
     r.tool = t;
     if (r.hoverHit) r.highlightObjects(removeCalls.current.removableOn([r.hoverHit.y * info.W + r.hoverHit.x]));
@@ -1458,6 +1496,7 @@ export default function Editor(props: EditorProps) {
       m.entitiesAt = null;
       m.coverAt = null;
       r?.updateEntities(e);
+      reglow();
     }
     if (v.water || v.entities) v.frame = requestAnimationFrame(() => flushForceView());
   }
@@ -2250,6 +2289,51 @@ export default function Editor(props: EditorProps) {
     return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} />;
   }
 
+  /** Clear sources (D249): the sources under the ring glow red before the stroke reaches them, and
+   *  those it has passed over stay red until it is let go. */
+  const clearing = useRef<{ of: readonly number[]; dabs: number; taken: Set<number> } | null>(null);
+  const glowing = useRef(false);
+  const glowAt = useRef<[number, number] | null>(null);
+  function clearGlow(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null) {
+    const r = renderer.current;
+    if (!r) return;
+    glowAt.current = stroke ? null : at;
+    const b = brushRef.current;
+    if (!b.clearSources || !at || !brushToolRef.current) {
+      if (!stroke) clearing.current = null;
+      if (glowing.current) r.highlightObjects(null);
+      glowing.current = false;
+      return;
+    }
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const list = spots();
+    const glow = new Set<number>();
+    if (stroke) {
+      let c = clearing.current;
+      // (a straight line is painted again from its start each time)
+      if (!c || c.of !== stroke.dabs || c.dabs > stroke.dabs.length) c = clearing.current = { of: stroke.dabs, dabs: 0, taken: new Set() };
+      for (const sp of sourcesPressed(list, stroke.settings, stroke.dabs.slice(c.dabs), W)) c.taken.add(sp.corner);
+      c.dabs = stroke.dabs.length;
+      for (const k of c.taken) glow.add(k);
+    } else clearing.current = null;
+    const shape = stroke ? stroke.settings : { size: b.size, ...(b.square ? { shape: "square" as const } : {}), ...(b.precise ? { precise: true } : {}) };
+    const q = (v: number, n: number) => Math.max(0, Math.min(4 * n - 1, Math.round(v * 4)));
+    for (const sp of sourcesPressed(list, shape, [q(at[0], W), q(at[1], H)], W)) glow.add(sp.corner);
+    if (!glow.size && !glowing.current) return;
+    r.highlightObjects(glow.size ? [...glow] : null);
+    glowing.current = glow.size > 0;
+  }
+  function endClearGlow() {
+    clearing.current = null;
+    if (glowing.current) renderer.current?.highlightObjects(null);
+    glowing.current = false;
+  }
+  /** The objects were drawn again (their highlight went with them): the ring's glow again. */
+  function reglow() {
+    if (glowAt.current && !painter.current?.painting) clearGlow(glowAt.current, null);
+  }
+
   function onReady(r: MapRenderer) {
     renderer.current = r;
     setReady(r);
@@ -2268,13 +2352,22 @@ export default function Editor(props: EditorProps) {
         firstDoneRef.current("paint");
         hintJob.current++;
         setStartHint(null);
-        const done = sendTerrain(() => api.apply({ op: "brush", params: stroke.params }, "user", stroke.label));
+        // Clear sources (D249): the sources the brush pressed on go with the stroke, one step
+        const clear = brushRef.current.clearSources ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W) : [];
+        endClearGlow();
+        const op: EditOp = { op: "brush", params: stroke.params };
+        const done = sendTerrain(() => (clear.length ? api.strokeClearing(op, stroke.label, clear.flatMap((c) => c.tiles)) : api.apply(op, "user", stroke.label)));
+        if (clear.length) void done.then(() => feel("remove", clear[0].x, clear[0].y));
         // a Flatten stroke: where its level ground could take the start, once it is on the map
         if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
       },
       picked: (level, what) => setBrush(what === "stop" ? { ...brushRef.current, stop: level } : { ...brushRef.current, level }),
       keep: () => keptTiles(),
       footprints: () => objectFootprints(),
+      // sources ride a stroke's ground (D249): a 3 × 3 one whole and level (with Clear sources on,
+      // every one the stroke changes goes with it instead)
+      rides: () => (brushRef.current.clearSources ? [] : spots().filter((c) => c.tiles.length > 1).map((c) => c.rect)),
+      ring: (at, stroke) => clearGlow(at, stroke),
       select: (hit, ev) => {
         // Ctrl+drag: a rectangle (the Select tool opens with it)
         setSelecting((m) => m ?? "rect");
@@ -2325,7 +2418,8 @@ export default function Editor(props: EditorProps) {
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down
     r.onClick = (hit) => {
-      if (hit && sourceAt(hit.x, hit.y)) return pickTile(hit.x, hit.y);
+      const t = hit ? targetAt(hit.x, hit.y) : null;
+      if (t) return pickTile(t.x, t.y);
       setPicked(null);
     };
     const onView = r.onView;
@@ -2507,8 +2601,6 @@ export default function Editor(props: EditorProps) {
     );
   }
 
-  /** The tiles a precise hold never digs out from under (D193): the start's footprint and the
-   *  objects standing there (trees and bushes follow the ground), as runs. */
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */
   function objectFootprints(): number[][] {
     const e = mirror.current.entities;
@@ -2517,6 +2609,8 @@ export default function Editor(props: EditorProps) {
     const out: number[][] = [];
     for (let k = 0; k < e.count; k++) {
       const template = e.templates[e.template[k]];
+      // (a source rides a stroke whole instead: `rides`, D249)
+      if (isSource(template)) continue;
       const tl = footprintTiles(template, { template, x: e.x[k], y: e.y[k], z: 0, orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
       if (tl.length < 2) continue;
       const g = tl.filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
@@ -2524,6 +2618,8 @@ export default function Editor(props: EditorProps) {
     }
     return out;
   }
+  /** The tiles a precise hold never digs out from under (D193): the start and the objects standing
+   *  there, not the plants (they ride the ground) nor the sources (they ride it too, D249). */
   function keptTiles(): [number, number, number][] {
     const e = mirror.current.entities;
     const W = infoRef.current.W;
@@ -2531,7 +2627,7 @@ export default function Editor(props: EditorProps) {
     const tiles: number[] = [];
     for (let k = 0; k < e.count; k++) {
       const template = e.templates[e.template[k]];
-      if (/^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Coffee|BlueberryBush|Dandelion|Cattail|Spadderdock|Succulent)/.test(template)) continue;
+      if (/^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Coffee|BlueberryBush|Dandelion|Cattail|Spadderdock|Succulent)/.test(template) || isSource(template)) continue;
       const tl = footprintTiles(template, { template, x: e.x[k], y: e.y[k], z: 0, orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: false });
       for (const [x, y] of tl) if (x >= 0 && y >= 0 && x < W && y < H) tiles.push(y * W + x);
     }
@@ -2874,6 +2970,12 @@ export default function Editor(props: EditorProps) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();
         removeSources(pickedSources());
+      } else if ((ev.key === "Delete" || ev.key === "Backspace") && targetSpot.current && renderer.current?.hoverHit && !painter.current?.painting) {
+        // the source the pointer targets, whatever tool is picked (D249): one step, its water
+        // receding live
+        ev.preventDefault();
+        const t = targetSpot.current;
+        void sourceInfo(t.x, t.y).then((e) => e && removeSources([e]));
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "u" && pickedSources().length && !forcer.current?.running) {
         // U: a picked source carves its own course (D239)
         ev.preventDefault();
@@ -3044,11 +3146,15 @@ export default function Editor(props: EditorProps) {
             onHover={(hit: TileHit | null) => {
               setHover(hit ? describeTile(ctx(), hit.x, hit.y) : null);
               hoverSources(hit);
+              // the source the pointer targets, whatever tool is picked (D249)
+              const t = hit ? targetAt(hit.x, hit.y) : null;
+              targetSpot.current = t;
+              setTargeted(t ? t.k : null);
               // a source, and the start, can be picked up and moved
               const canvas = renderer.current?.canvas;
-              const free = hit && !brushToolRef.current && !shelfRef.current && !removingRef.current && !toolRef.current;
+              const free = hit && !brushToolRef.current && !shelfRef.current && !removingRef.current && !toolRef.current && !selectingRef.current;
               const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
-              if (canvas) canvas.style.cursor = free && (sourceAt(hit.x, hit.y) || onStart) ? "grab" : "";
+              if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
               hoverStart(!!free && onStart);
             }}
             hoverText={hover}
@@ -3167,6 +3273,7 @@ function loadBrush(): BrushSettings {
       ...DEFAULT_BRUSH,
       size: typeof s.size === "number" ? Math.min(24, Math.max(1, s.size)) : DEFAULT_BRUSH.size,
       strength: typeof s.strength === "number" ? Math.min(10, Math.max(1, Math.round(s.strength))) : DEFAULT_BRUSH.strength,
+      clearSources: s.clearSources === true,
     };
   } catch {
     return DEFAULT_BRUSH;
@@ -3175,7 +3282,7 @@ function loadBrush(): BrushSettings {
 
 function saveBrush(s: BrushSettings): void {
   try {
-    localStorage.setItem(BRUSH_KEY, JSON.stringify({ size: s.size, strength: s.strength }));
+    localStorage.setItem(BRUSH_KEY, JSON.stringify({ size: s.size, strength: s.strength, ...(s.clearSources ? { clearSources: true } : {}) }));
   } catch {
     // the brush lasts for this visit only
   }

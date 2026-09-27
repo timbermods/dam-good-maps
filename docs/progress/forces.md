@@ -1,53 +1,99 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **State (2026-09-26, paused for the session restart; where a fresh session resumes).** Branch
-> `feature/forces`, `dev` merged in last at 986e5fc (merge 0cfefd7: D249's plan, D250, #67). Round 2
-> (Kyler's review, D226) is done; round 1 is below the round-2 section (D219). The queue, in order:
+> **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
+> last at 986e5fc (merge 0cfefd7). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> The queue, in order (the coordinator's, 2026-09-27):
 >
-> 1. **Round 2b, Unleash on a source (D239): done**, pushed, in the section below.
-> 2. **D247, Smooth without its walkable option, and the Flatten ramped-edge check: done** (saved
->    strokes replay exactly; a retired term; the check's finding and recommendation are
->    decisions-pending #84, Flatten unchanged).
-> 3. **D248, Level lines in the view bar beside Height colours: done.** It made the view bar run
->    under the compass on a laptop's view (CI's brushKit hover failed on ad45798); the bar wraps
->    before the compass now and the brush bar sits under its rows (1a93e2b; its CI was running at
->    the pause: check it first).
-> 4. **D249, sources and the brushes: not started** (only `dev` merged and the code read). All of it
->    is left: (1) Clear sources in the five terrain brushes' row (off, remembered; the sources under
->    the ring glow red, a mark on the ring; removed in the stroke's undo step, water receding live);
->    (2) with it off, sources ride the ground (a 3×3 BadwaterSource as one level piece; no pit, no
->    pillar, no change to strength or footprint; old strokes replay exactly, D158); (3) any tool
->    targets a source within about two tiles over water or bare ground (a direct hit on another
->    object wins; the nearest source wins; its marker, Remove's red glow with Remove); (4) Delete or
->    Backspace removes the targeted source (one undo step, Remove's sound); (5) a Remove drag starting
->    on a source takes only sources; (6) the tests PLAN §20 D249 lists (D148, none weakened); (7) the
->    two captures (a group of sources raised over with Clear sources on, and off) here, linked below.
->    Where it starts: `keptTiles()` in `src/editor/Editor.tsx` (about line 2527) gives every non-plant
->    object's tiles, sources included, to the painter's `keep`, and each stroke stores them in its
->    own `keep` runs (`BrushParams.keep`, `src/core/features/raster/brush.ts`): the build replays the
->    runs a stroke saved, so leaving sources out of new strokes' `keep` should leave old strokes as
->    they were (check it with a saved stroke near a source). Still to find: how a source's height
->    follows its tile after a stroke (and how a 3×3 one stays level), and the hover targeting's home
->    (the Remove tool's hover and the source marker in `Editor.tsx`).
-> 5. **The `forceResult` draw in `randomOps` (the nightly's sweep): done** (the heavy project passes, 4
->    of 4).
-> 6. **D244 step 2 (one height ceiling everywhere): waits** for the in-game probe (step 1); spec comes
->    separately.
+> 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
+>    (5fbf586; run 36298701656 green). Its hover words go with D258 (below).
+> 2. **D249, brushes and sources: done** (the section below; captures linked there).
+> 3. **D257/D258** (next): the forces bound only by nature (no playability refusals or shaping; the
+>    start carried to the nearest valid level ground; the checks dot shows what broke, with its
+>    one-click fix) and clean gestures (no predicted route, footprint or fit preview; one click; Aim
+>    a drag with a thin arrow only; Quake's fault and Erupt's fissure still drawn; "No room to rise
+>    here" stays). Merge `origin/dev` first for the decisions' text. The Erupt test's hover words
+>    ("breaks out on the flank", "grows broader") are removed then: update it per D148, and add the
+>    words to `tools/retired-terms.json`.
+> 4. **D259 with the working area (D254)**: Select's own button; Circle and Brush shapes; Set level to
+>    the ceiling constant and Ctrl+click's level; Ctrl+drag with a brush out selects and the brush
+>    keeps painting inside; one row at a time (a chip); every tool works only inside the selection,
+>    feathered, locked land as unbreakable rock to the forces, water never locked.
+> 5. **D260**: water no source feeds recedes at once (stored lakes excepted), a removed source's
+>    marker goes at once; the before/after table here.
+> 6. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
-> Checked at round 2b's end: typecheck clean; `npm run test:quick` 671 passed, 13 skipped;
-> `npx playwright test` 55 passed, 1 skipped; the Claude reference suite 135 of 148. Since then, only
-> the view-bar fix (its four e2e specs and the unit tests pass locally) and the `dev` merge (docs and
-> an investigation; no `src` change). Caveats: `docs/STATUS.md` carries two inline retired-term allow
-> markers (D247); merging `dev`, EDITOR_PLAN keeps Unleash as built (dev's plan paragraph for it is
-> replaced) beside dev's new D249 text. Parked: decisions-pending #84 (Ramped laying its own slopes);
-> Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's listening check
-> of the sounds.
+> Checked at D249's end: see its section. Parked: decisions-pending #84 (Ramped laying its own
+> slopes); Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's
+> listening check of the sounds. Kyler's forces-sitting checklist is in `docs/STATUS.md`.
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
 Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high power), D205 and D212
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Brushes and water sources (D249)
+
+Built on this branch after round 2b. [Clear sources off: they ride the ground](forces/clear-sources-off.png);
+[Clear sources on: the ring's mark, the sources red, then gone with the stroke](forces/clear-sources-on.png).
+
+- **Clear sources**, a toggle in the five brushes' row after Straight lines (shared by all five, off by
+  default, remembered with the brush's size and strength). On, the ring carries a small red mark on its
+  north-east edge, the sources under the ring glow red before the stroke reaches them (and those it
+  has passed over stay red), and letting go sends the stroke and the removal of every source it
+  pressed on as one step (`strokeClearing` in the worker: the `brush` and a `deleteEntities`; its label
+  "Raise, 101 tiles, 5 sources cleared"), the water receding live, with Remove's sound. "Pressed on"
+  is exactly the stroke's own tiles (`dabPresses`, `markBrushTiles`), so what glowed is what goes.
+  The forces are unchanged.
+- **Sources ride the ground** with it off. The cause of the pits and pillars: a precise stroke's
+  `keep` held every non-plant object's tiles, the sources' included (`keptTiles`); a one-tile source
+  in a river channel or a cluster of them escaped the build's pit filling. `keptTiles` and Flatten's
+  footprints leave the sources out now; a water source's tile changes like any other and the source
+  stands on it (the build puts every placed object on its ground). A 3 × 3 badwater source rides as
+  one level piece: a stroke that changes one of its tiles records its rectangle in the new `rigid`
+  field (`BrushParams`, the schema), and once the stroke is applied its nine tiles take its middle
+  tile's level, on the page as it is let go and in the build alike (`levelRigid`; a stroke with
+  pieces is rebuilt whole when a rebuild touches it, as smooth's are). No strength or footprint
+  changes. Strokes saved before keep their `keep` runs and replay exactly (D158); no version needed.
+- **Easy to hit** (`src/editor/sourceSpots.ts`): with any tool picked, the pointer within two tiles
+  of a source (by the larger distance to its nearest tile) targets it, over water or bare ground; a
+  tile with another object on it is that object; the nearest wins. The targeted source's marker shows,
+  a little bolder. With nothing picked a press there grabs it (click selects, drag moves); with the
+  shelf's Water source a press still needs the source itself, so a new one can go right beside it;
+  Shift+scroll still needs the source itself (with a brush out it sets the brush's strength).
+- **Delete** (or Backspace) removes the targeted source with any tool picked: one step ("Remove a water
+  source"), its water receding live, Remove's sound; a selected source goes as before.
+- **Remove**: hovering near a source glows it red; a press there takes only sources (that one on a
+  click; on a drag, those in the rectangle and the one pressed, whatever the filters say; the word
+  beside the pointer counts sources); the start always stays. A highlighted source now turns a clear
+  red (its blue only darkened before), and the glow comes back when the objects are drawn again.
+- Found on the way: CI's red Erupt test (runs 36296986453, 36297079561) was the test's spot, not the
+  product: the view bar wrapping to a second row (1a93e2b) moved the rows down, and once an eruption
+  is kept Erupt's row gains a line (Try another), which then covered the summit the test hovers
+  (`elementFromPoint` gave the options row). The helper now asks for the map above and below the
+  spot too (5fbf586; CI green, run 36298701656).
+
+Tests: `tests/contract/brushSources.test.ts` (a water source on its raised tile; a badwater source
+level and standing on its ground, its strength and footprint as they were, against a control without
+the piece; the page's stroke equals the build's, a rebuild round it equals a full build, undo, redo
+and the project; a saved stroke with `keep` over sources replays as it did; the field checked by the
+engine and the schema; in the worker, Clear sources' one step, its label, the other source kept, undo
+bringing it back, and the stroke alone where no source is), `tests/unit/sourceSpots.test.ts`
+(targeting's reach, the nearest, a tree wins, a badwater source's whole footprint; the sources pressed
+equal the stroke's own tiles'), `tests/unit/placeTools.test.ts` (Remove's source press: a click, a
+drag, the glow, and a drag elsewhere with its filters), `tests/e2e/brushSources.spec.ts` (through the
+page: off by default, ride, the ring's mark and the glow, the stroke's one step and its undo, Delete
+two tiles away, a Remove drag from a source keeping a pine in its rectangle), and `brushKit.spec`
+checks Clear sources off by default with the other toggles. **Changed to the decision (D148), none
+weakened:** `brushKit.spec` counted three toggles in Smooth's row (no walkable one, D247); the row has
+four now, Clear sources the new one, and it still checks there is no walkable toggle. Checked:
+typecheck clean; `npm run test:quick` 680 passed, 13 skipped; the affected e2e specs pass.
+
+Defaults chosen (for `docs/decisions-pending.md`): the reach is two tiles by the larger distance to
+the source's nearest tile; a 3 × 3 source takes its middle tile's level; the mark sits on the ring's
+north-east; Clear sources is remembered across visits (as size and strength are); a Clear sources
+stroke's label adds ", N sources cleared". Not done: Claude's `brush` step (M12) doesn't level a
+3 × 3 source it passes over yet (its one-tile sources ride).
 
 ## Round 2b: Unleash on sources (D239), the brush row (D247, D248)
 

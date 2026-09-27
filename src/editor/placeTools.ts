@@ -87,47 +87,67 @@ export interface RemoveHost {
   H: number;
   /** The corner tiles of the objects Remove takes on these tiles (with the filters). */
   objectsOn(tiles: readonly number[]): number[];
+  /** The source the pointer on tile (x, y) targets (D249: within about two tiles), or null. */
+  target?(x: number, y: number): { corner: number; tiles: number[] } | null;
+  /** The corner tiles of the sources on these tiles (whatever the filters say). */
+  sourcesOn?(tiles: readonly number[]): number[];
   /** Show these objects in red, or none. */
   highlight(corners: number[] | null): void;
-  /** The rectangle being dragged, or null. */
-  drawing(tiles: number[] | null, ev: PointerEvent | null): void;
-  /** Remove what the filters take on these tiles. */
-  remove(tiles: number[]): void;
+  /** The rectangle being dragged, or null; `sources`: the tiles a drag that takes only sources
+   *  takes them from. */
+  drawing(tiles: number[] | null, ev: PointerEvent | null, sources?: number[]): void;
+  /** Remove what the filters take on these tiles, or with `sources` only the sources there. */
+  remove(tiles: number[], sources?: boolean): void;
 }
 
-/** Remove's pointer tool: hover glows red, a click removes, a drag removes a rectangle's. */
+/** Remove's pointer tool: hover glows red, a click removes, a drag removes a rectangle's. A press on
+ *  a source (within its targeting range, D249) takes only sources: that one on a click, those in
+ *  the rectangle on a drag, whatever the filters say; the red glow shows exactly what will go. */
 export function removeTool(host: RemoveHost): PointerTool {
   let from: [number, number] | null = null;
   let to: [number, number] | null = null;
+  let source: { corner: number; tiles: number[] } | null = null;
   const rect = () => (from && to ? rectTilesBetween(from, to, host.W, host.H) : []);
+  /** What a drag takes: the rectangle's tiles, and the pressed source's own. */
+  const taking = () => {
+    const tiles = rect();
+    return source ? [...new Set([...tiles, ...source.tiles])] : tiles;
+  };
+  const glowOf = (tiles: readonly number[]) => (source ? (host.sourcesOn?.(tiles) ?? [source.corner]) : host.objectsOn(tiles));
   return {
     down(hit, ev) {
       if (ev.button !== 0) return false;
       if (!hit) return true;
       from = to = [hit.x, hit.y];
+      source = host.target?.(hit.x, hit.y) ?? null;
       return true;
     },
     move(hit, ev) {
       if (!from || !hit) return;
       to = [hit.x, hit.y];
       const tiles = rect();
-      host.drawing(tiles.length > 1 ? tiles : null, ev);
-      host.highlight(host.objectsOn(tiles));
+      host.drawing(tiles.length > 1 ? tiles : null, ev, source ? taking() : undefined);
+      host.highlight(glowOf(taking()));
     },
     up() {
-      const tiles = rect();
+      const tiles = taking();
+      const sources = !!source;
       from = to = null;
+      source = null;
       host.drawing(null, null);
       host.highlight(null);
-      if (tiles.length) host.remove(tiles);
+      if (tiles.length) host.remove(tiles, sources);
     },
     cancel() {
       from = to = null;
+      source = null;
       host.drawing(null, null);
       host.highlight(null);
     },
     hover(hit) {
-      host.highlight(hit ? host.objectsOn([hit.y * host.W + hit.x]) : null);
+      if (!hit) return host.highlight(null);
+      const t = host.target?.(hit.x, hit.y);
+      host.highlight(t ? [t.corner] : host.objectsOn([hit.y * host.W + hit.x]));
     },
   };
 }

@@ -3,7 +3,8 @@
 // on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
 // while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
 // slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
-// hold, D193), straight lines; Flatten has "in steps" and its edges; Smooth has none (D247: the
+// hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
+// Flatten has "in steps" and its edges; Smooth has none (D247: the
 // shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
 // Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each options row
 // starting with its mode switch; all four are ready (D216, D219), and the public site shows none
@@ -288,6 +289,7 @@ export function TopBar(p: TopBarProps) {
             <Toggle label="Square" title="A square brush instead of a round one" on={s.square} onChange={(square) => set({ square })} />
             <Toggle label="Precise" title="Hard edges and straight walls, a level at a time: hold still to dig or build a level more" on={s.precise} onChange={(precise) => set({ precise })} />
             <Toggle label="Straight lines" title="The stroke runs straight from where you press to the pointer; its length shows beside it" on={s.straight} onChange={(straight) => set({ straight })} />
+            <Toggle label="Clear sources" title="The water sources the brush passes over go with the stroke (they glow red under the ring first)" on={s.clearSources} onChange={(clearSources) => set({ clearSources })} />
             {t === "flatten" ? (
               <>
                 <Toggle label="In steps" title="Terraces: benches every few levels from the flatten level" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />

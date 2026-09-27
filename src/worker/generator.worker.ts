@@ -117,6 +117,8 @@ const api = {
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  /** A brush stroke that clears the sources it passed over (D249): one undo step. */
+  strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
   instantCheck: () => ed.instantCheck(),
   // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
   // Esc drops it

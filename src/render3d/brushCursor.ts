@@ -22,6 +22,8 @@ export interface BrushCursorState {
   square?: boolean;
   /** The ring pulses (a precise hold reached its stop level, D193). */
   pulse?: boolean;
+  /** Clear sources is on (D249): a small red mark on the ring, so it's never on unnoticed. */
+  mark?: boolean;
 }
 
 const TINT: Record<BrushCursorState["tool"], [number, number, number]> = {
@@ -31,6 +33,9 @@ const TINT: Record<BrushCursorState["tool"], [number, number, number]> = {
   smooth: [0.5, 0.95, 0.55],
   naturalize: [0.85, 0.62, 0.38],
 };
+
+/** Clear sources' mark on the ring (D249): Remove's red. */
+const MARK: [number, number, number] = [0.86, 0.2, 0.16];
 
 /** Smart Lower, where the water will follow the brush: the faint fill, in the ring's water-blue. */
 const WATER_TINT: [number, number, number] = [...WATER_UI.ring];
@@ -127,6 +132,19 @@ export class BrushCursor {
         if (pass === 0) quad(px - o, py - o, px + o, py + o, h - 0.005, 0.85, edge);
         else quad(px - w, py - w, px + w, py + w, h, 0.97, ring);
       }
+    // Clear sources (D249): a small red mark on the ring's north-east, outlined like the ring
+    if (s.mark) {
+      const a = -Math.PI / 4;
+      const f = s.square ? Math.SQRT2 : 1;
+      const px = s.x + Math.cos(a) * r * f;
+      const py = s.y - Math.sin(a) * r * f;
+      const tx = Math.max(0, Math.min(W - 1, Math.floor(px)));
+      const ty = Math.max(0, Math.min(H - 1, Math.floor(py)));
+      const h = heights[ty * W + tx] + 0.07;
+      const m = 0.22 + r * 0.01;
+      quad(px - m - 0.05, py - m - 0.05, px + m + 0.05, py + m + 0.05, h - 0.005, 0.9, edge);
+      quad(px - m, py - m, px + m, py + m, h, 1, MARK);
+    }
     this.geo.setDrawRange(0, q * 6);
     (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
     (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;

@@ -48,9 +48,11 @@ export interface BrushSettings {
   ramped: boolean;
   /** Precise raise and lower: the level a hold stops at, or null (off). */
   stop: number | null;
+  /** Clear sources (D249): the sources a stroke passes over go with it. */
+  clearSources: boolean;
 }
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, level: null, square: false, precise: false, straight: false, levelLines: false, steps: null, ramped: false, stop: null };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, level: null, square: false, precise: false, straight: false, levelLines: false, steps: null, ramped: false, stop: null, clearSources: false };
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
   { tool: "raise", name: "Raise", key: "1", hint: "Raise the ground. Hold still to raise it more." },
@@ -128,6 +130,13 @@ export interface PainterHost {
   footprints?(): number[][];
   /** Ctrl+drag hands the pointer to the Select tool: the drag's pointer tool from here on. */
   select?(hit: TileHit, ev: PointerEvent): PointerTool | null;
+  /** The pieces that ride a stroke whole and level (D249: a 3 × 3 badwater source), as rectangles
+   *  [x0, y0, x1, y1]; a stroke that changes one of their tiles takes the piece to its middle's
+   *  level. */
+  rides?(): [number, number, number, number][];
+  /** Where the ring is (null: off the map), and the stroke being painted with its dabs so far
+   *  (Clear sources' red glow, D249). */
+  ring?(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null): void;
 }
 
 /** Quarter tiles, for a dab's centre on a map `size` tiles across. */
@@ -260,6 +269,7 @@ export class BrushPainter {
         if (!hit) {
           self.cursorAt = null;
           host.renderer.setBrushCursor(null);
+          host.ring?.(null, null);
           host.note?.(null, null);
           return;
         }
@@ -341,7 +351,8 @@ export class BrushPainter {
     else if (precise && (tool === "raise" || tool === "lower") && s.stop !== null) level = s.stop;
     // smart Lower: blue where a stroke would carve a bed the water follows
     const water = this.stroke ? !!this.stroke.settings.channel : tool === "lower" && !precise && this.byWater(at[0], at[1]);
-    this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: s.size, tool, level, water, square: this.stroke ? this.stroke.settings.shape === "square" : s.square, ...(pulse ? { pulse: true } : {}) });
+    this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: s.size, tool, level, water, square: this.stroke ? this.stroke.settings.shape === "square" : s.square, ...(pulse ? { pulse: true } : {}), ...(s.clearSources ? { mark: true } : {}) });
+    this.host.ring?.(at, this.stroke ? { settings: this.stroke.settings, dabs: this.stroke.dabs } : null);
   }
 
   /** Whether water stands on the tile at (x, y) or beside it. */
@@ -362,6 +373,7 @@ export class BrushPainter {
   hideCursor(): void {
     this.cursorAt = null;
     this.host.renderer.setBrushCursor(null);
+    this.host.ring?.(null, null);
   }
 
   private begin(x: number, y: number, ev: PointerEvent): void {
@@ -610,6 +622,25 @@ export class BrushPainter {
     if (changed) h.renderer.updateTerrainRect(h.heights(), changed);
   }
 
+  /** The pieces that ride the stroke whole (D249): each one it changed a tile of takes the level
+   *  of its middle tile, as the build does with the stroke's `rigid` rectangles. */
+  private rideWhole(st: StrokeState): void {
+    const h = this.host;
+    const b = st.preview.bounds;
+    if (!b || !h.rides) return;
+    const now = h.heights();
+    const was = st.preview.start;
+    const rigid = h.rides().filter(([x0, y0, x1, y1]) => {
+      if (x1 < b.x0 - 1 || x0 > b.x1 + 1 || y1 < b.y0 - 1 || y0 > b.y1 + 1) return false;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (now[y * h.W + x] !== was[y * h.W + x]) return true;
+      return false;
+    });
+    if (!rigid.length) return;
+    st.settings = { ...st.settings, rigid };
+    const r = st.preview.finish(rigid);
+    if (r) h.renderer.updateTerrainRect(now, r);
+  }
+
   /** The button came up: the stroke becomes one operation. */
   end(): void {
     const st = this.stroke;
@@ -618,13 +649,16 @@ export class BrushPainter {
     this.stroke = null;
     const h = this.host;
     this.rideObjects(st);
+    this.rideWhole(st);
     h.painting(false);
     if (st.anchor) h.note?.(null, null);
     h.renderer.refreshShadows();
     const tiles = st.preview.changed();
     if (!tiles) return;
     const b = st.preview.bounds!;
-    const rect = { x0: Math.max(0, b.x0 - 1), y0: Math.max(0, b.y0 - 1), x1: Math.min(h.W - 1, b.x1 + 1), y1: Math.min(h.H - 1, b.y1 + 1) };
+    // (and the pieces that rode it whole, with the tile round them the ground's check reads)
+    const f = st.preview.finished;
+    const rect = { x0: Math.max(0, Math.min(b.x0, f ? f.x0 : b.x0) - 1), y0: Math.max(0, Math.min(b.y0, f ? f.y0 : b.y0) - 1), x1: Math.min(h.W - 1, Math.max(b.x1, f ? f.x1 : b.x1) + 1), y1: Math.min(h.H - 1, Math.max(b.y1, f ? f.y1 : b.y1) + 1) };
     const before = h.terrain();
     const shown = h.heights();
     // (kept tiles out of the stroke's reach change nothing: the operation keeps only those in it)

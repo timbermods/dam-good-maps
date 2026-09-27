@@ -81,6 +81,43 @@ describe("Remove's pointer tool", () => {
     expect(removed.at(-1)!.length).toBe(6);
     expect(lit.at(-1)).toBeNull();
   });
+
+  it("a press on a source (within its reach, D249) takes only sources: that one on a click, those in the rectangle on a drag; the glow shows what goes", () => {
+    const removed: { tiles: number[]; sources: boolean }[] = [];
+    const lit: (number[] | null)[] = [];
+    // a source at (5, 5), targeted from two tiles round it; another at (9, 6); objects everywhere else
+    const sources = [5 * W + 5, 6 * W + 9];
+    const t = removeTool({
+      W,
+      H: W,
+      objectsOn: (tiles) => tiles.filter((i) => !sources.includes(i)),
+      target: (x, y) => (Math.max(Math.abs(x - 5), Math.abs(y - 5)) <= 2 ? { corner: 5 * W + 5, tiles: [5 * W + 5] } : null),
+      sourcesOn: (tiles) => sources.filter((i) => tiles.includes(i)),
+      highlight: (c) => lit.push(c),
+      drawing: () => undefined,
+      remove: (tiles, s) => removed.push({ tiles, sources: !!s }),
+    });
+    // hovered near it: the source glows, not the ground's objects
+    t.hover!(hit(6, 7), ev());
+    expect(lit.at(-1)).toEqual([5 * W + 5]);
+    // a click beside it: that source, only sources
+    t.down(hit(6, 6), ev());
+    t.up(hit(6, 6), ev());
+    expect(removed.at(-1)).toEqual({ tiles: [6 * W + 6, 5 * W + 5], sources: true });
+    // a drag from beside it over the other: both sources glow, only sources go
+    t.down(hit(6, 6), ev());
+    t.move(hit(10, 7), ev());
+    expect(lit.at(-1)).toEqual(sources);
+    t.up(hit(10, 7), ev());
+    expect(removed.at(-1)!.sources).toBe(true);
+    expect(removed.at(-1)!.tiles).toContain(6 * W + 9);
+    // a drag from elsewhere is Remove's own, with its filters
+    t.down(hit(15, 15), ev());
+    t.move(hit(16, 15), ev());
+    expect(lit.at(-1)).toEqual([15 * W + 15, 15 * W + 16]);
+    t.up(hit(16, 15), ev());
+    expect(removed.at(-1)!.sources).toBe(false);
+  });
 });
 
 describe("the shelf's quiet words (D184)", () => {

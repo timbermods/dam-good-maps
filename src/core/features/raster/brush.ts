@@ -38,6 +38,10 @@
 //   round the first dab (the water's bed) and never rises along the stroke: over lower ground it
 //   drops to a level below that ground, and higher ground is cut straight down to it under the
 //   brush's middle (a gorge with steep walls; the rest of the brush lowers as usual).
+// - Objects ride a stroke's ground (D249): a water source's tile changes like any other and the
+//   source stands on it; a piece on more than one tile that must stay level (a 3 × 3 badwater
+//   source) is one of the stroke's `rigid` rectangles, whose tiles take the level of its middle
+//   tile once the stroke is applied. A stroke saved with `keep` runs keeps them, as it always did.
 // - Levels stay within 0–16 (the in-game editor's range; a higher imported tile is never raised).
 // - Brushes shape each column's top (`layer: "top"`); the 3D stages extend them to the runs
 //   below (caves), with the same dabs.
@@ -68,6 +72,10 @@ export interface BrushParams {
   /** Tiles the stroke leaves as they are, as runs [y, x0, x1] (a hold never digs out from under the
    *  start or the objects standing there, D193). */
   keep?: [number, number, number][];
+  /** Pieces that ride the stroke's ground whole and level (D249: a 3 × 3 badwater source), as
+   *  rectangles [x0, y0, x1, y1]: once the stroke is applied, each one's tiles take the level of its
+   *  middle tile. */
+  rigid?: [number, number, number, number][];
   /** Flatten in steps: benches every `steps` levels (2–8) from the flatten level. */
   steps?: number;
   /** Smooth, walkable (a saved stroke's; the editor no longer offers it, D247): steps of 2 levels or more wear down to 1, and the game's natural slopes
@@ -134,7 +142,7 @@ function preciseReach(size: number): number {
 
 /** The tiles a stroke can change: its dabs' discs (plus the tiles next to them that smooth and
  *  naturalize read), on the map. Null for a stroke without dabs. */
-export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise">, W: number, H: number): Rect | null {
+export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise" | "rigid">, W: number, H: number): Rect | null {
   if (p.dabs.length < 2) return null;
   const r = Math.ceil((p.precise ? preciseReach(p.size) + 2 : radius4(p.size)) / 4) + (p.tool === "smooth" || p.tool === "naturalize" ? 1 : 0);
   let x0 = Infinity;
@@ -149,7 +157,18 @@ export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "pre
     if (y < y0) y0 = y;
     if (y > y1) y1 = y;
   }
-  const out = { x0: Math.max(0, x0 - r), y0: Math.max(0, y0 - r), x1: Math.min(W - 1, x1 + r), y1: Math.min(H - 1, y1 + r) };
+  x0 -= r;
+  y0 -= r;
+  x1 += r;
+  y1 += r;
+  // (the pieces that ride it whole, D249)
+  for (const [a, b, c, d] of p.rigid ?? []) {
+    if (a < x0) x0 = a;
+    if (b < y0) y0 = b;
+    if (c > x1) x1 = c;
+    if (d > y1) y1 = d;
+  }
+  const out = { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(W - 1, x1), y1: Math.min(H - 1, y1) };
   return out.x0 <= out.x1 && out.y0 <= out.y1 ? out : null;
 }
 
@@ -173,10 +192,43 @@ export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | 
   }
 }
 
-/** Whether a stroke reads its tiles' neighbours (smooth, naturalize): a rebuild that touches its
- *  tiles applies it over all of them. */
-export function brushReadsNeighbours(p: Pick<BrushParams, "tool">): boolean {
-  return p.tool === "smooth" || p.tool === "naturalize";
+/** Whether a dab at (cx, cy), in quarter tiles, presses on tile (x, y): the same tiles
+ *  `markBrushTiles` marks (the ring's reach, D249's Clear sources). */
+export function dabPresses(p: Pick<BrushParams, "size" | "shape" | "precise">, cx: number, cy: number, x: number, y: number): boolean {
+  const r4 = p.precise ? preciseReach(p.size) : radius4(p.size);
+  const R2 = p.precise ? r4 * r4 : r4 * r4 - 1;
+  const dx = 4 * x + 2 - cx;
+  const dy = 4 * y + 2 - cy;
+  return (p.shape === "square" ? Math.max(dx * dx, dy * dy) : dx * dx + dy * dy) <= R2;
+}
+
+/** Whether a stroke reads its tiles' neighbours (smooth, naturalize; a stroke with pieces that ride
+ *  it whole, which read their middle tile): a rebuild that touches its tiles applies it over all of
+ *  them. */
+export function brushReadsNeighbours(p: Pick<BrushParams, "tool" | "rigid">): boolean {
+  return p.tool === "smooth" || p.tool === "naturalize" || !!p.rigid?.length;
+}
+
+/** Each piece that rides a stroke whole (D249) takes the level of its middle tile, in `heights`
+ *  (the tiles `write` allows). Returns the rectangle of tiles it changed, or null. */
+export function levelRigid(rigid: readonly (readonly [number, number, number, number])[], heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true): Rect | null {
+  let out: Rect | null = null;
+  for (const [a, b, c, d] of rigid) {
+    const x0 = Math.max(0, a);
+    const y0 = Math.max(0, b);
+    const x1 = Math.min(W - 1, c);
+    const y1 = Math.min(H - 1, d);
+    if (x0 > x1 || y0 > y1) continue;
+    const level = heights[Math.min(y1, Math.max(y0, (b + d) >> 1)) * W + Math.min(x1, Math.max(x0, (a + c) >> 1))];
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (heights[i] === level || !write(i)) continue;
+        heights[i] = level;
+        out = grow(out, { x0: x, y0: y, x1: x, y1: y });
+      }
+  }
+  return out;
 }
 
 /** A stroke being applied to a heightfield, dab by dab. `heights` is changed in place; `write(i)`
@@ -317,6 +369,12 @@ export class BrushStroke {
     // raise, lower and flatten: the whole stroke's change again, with its edge rule
     this.applyPointwise();
     return this.box;
+  }
+
+  /** The pieces that ride the stroke whole take the level of their middle tile (D249), once its
+   *  dabs are all in. Returns the rectangle of tiles that changed, or null. */
+  level(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
+    return levelRigid(rigid, this.heights, this.W, this.H, this.write);
   }
 
   /** Smart Lower's bed at a dab on tile (tx, ty): the first dab, the lowest ground round it (the
@@ -477,7 +535,9 @@ function pad(r: Rect, n: number, W: number, H: number): Rect {
 /** Apply a whole stroke to `heights` (the build's step 6). */
 export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true): void {
   const { dabs, pressure, levels, ...settings } = p;
-  new BrushStroke(settings, heights, W, H, write).add(dabs, pressure, levels);
+  const s = new BrushStroke(settings, heights, W, H, write);
+  s.add(dabs, pressure, levels);
+  if (p.rigid?.length) s.level(p.rigid);
 }
 
 /** Why a stroke's parameters are not a stroke this map can take (empty when they are). */
@@ -496,6 +556,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.steps !== undefined && (p.tool !== "flatten" || !Number.isInteger(p.steps) || p.steps < 2 || p.steps > 8)) return ["flatten's steps are 2 to 8 levels apart"];
   if (p.walkable !== undefined && (p.tool !== "smooth" || typeof p.walkable !== "boolean")) return ["only smooth makes the ground walkable"];
   if (p.edges !== undefined && (p.tool !== "flatten" || p.edges !== "ramped")) return ["only flatten has ramped edges"];
+  if (p.rigid !== undefined && !(Array.isArray(p.rigid) && p.rigid.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[0] >= 0 && r[1] >= 0 && r[0] <= r[2] && r[1] <= r[3] && r[2] < W && r[3] < H && r[2] - r[0] < 8 && r[3] - r[1] < 8))) return ["a stroke's riding pieces are rectangles [x0, y0, x1, y1] on the map, up to 8 tiles across"];
   if (p.keep !== undefined && !(Array.isArray(p.keep) && p.keep.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's kept tiles are runs [y, x0, x1]"];
   for (let k = 0; k < p.dabs.length; k += 2) {
     const x = p.dabs[k];

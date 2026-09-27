@@ -642,3 +642,9 @@ button[aria-pressed="true"] {
   outline: 2px solid var(--accent);
   font-weight: 600;
 }
+
+/* the source the pointer targets (D249): Delete removes it */
+.source-marker.target {
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--accent);
+}
