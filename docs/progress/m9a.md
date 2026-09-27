@@ -1,26 +1,26 @@
 # M9a: terrain and water from processes
 
-> **In progress (2026-09-27): the batches on the re-frozen generator.** Kyler's D252 (1) unfroze
-> the generator: starts stop looking alike (37b2f50; see "Starts stop looking alike" under What was
-> built and under Results). **The generator is frozen again at 788c145** (its code as of 5e15143,
-> which keeps a walk short of moist land for the start's wood; d1fd46b merges `origin/dev` to
-> c678e5b, docs only; 788c145 re-seeds tests). An earlier freeze, ca63a56, made River Valley 96² seed
-> 1333 (an e2e determinism seed) mapless and was dropped; its batches and those at 0f70fcb and 37b2f50
-> were stopped (only this worktree's processes) and re-run. M9a's pending #77–#80 became #87–#90;
-> the start planting's default is #93; D270 answered them (#87, #88, #93 accepted; #89 for the
-> feature operations and Claude only; #90 held); D277 took the Claude suite off M9a's gates.
-> **Done on 788c145's generator:** every settings experiment moves its target (seeds 1–4, run on
-> 37b2f50: 5e15143 changes only tight walks); the quick suite (695); the Normal batches at 96² and
-> 128² (every option 100% final but 96² Lake Basin 99%: seed 99, mapless on the even planting too);
-> the probe group M9a's 15 maps rebuilt in `C:\dgm-probe\maps\20260927-0853-batch` (run id
-> `20260927-0853-batch`; `tools/check-maps.ts`: every check passes in TypeScript and the Python load
-> checks, the Hard map at Hard; 250–1,494 logs within the floor's walk), never launched by this
-> session. **Left, in order:** (1) the Normal batches at 192² and 256² and Hard at 128², running
-> (the commands are in "Next session"); (2) the batch tables under Results; (3) CI green on #56.
-> The review set (D252 (2)) and the probe batch are the orchestrator's. **Caveats** for Kyler (see
-> "Found and parked"): a river that stands in pools (River Valley 96² 4242), Designed for reshapes
-> the land, the Real places' wood as known faults for Real places 2, River style (braided) at its
-> threshold, and a start whose walk is mostly moist land still gets the start rules' trees on every
+> **Ready for the probe batch and the release (2026-09-27).** Kyler said yes to M9a on D252 (2)'s
+> review set (D294); its shortfalls go to M9b. Kyler's D252 (1) unfroze the generator: starts stop
+> looking alike (37b2f50; see "Starts stop looking alike" under What was built and under Results).
+> **The generator is frozen at 788c145** (its code as of 5e15143, which keeps a walk short of moist
+> land for the start's wood; every later commit is tests, docs or merges of `dev` without code). An
+> earlier freeze, ca63a56, made River Valley 96² seed 1333 (an e2e determinism seed) mapless and was
+> dropped; the batches at 0f70fcb, 37b2f50 and ca63a56 were stopped (only this worktree's processes)
+> and re-run. M9a's pending #77–#80 became #87–#90 and the start planting's default is #93; Kyler
+> answered them (D270, D294: #87, #88, #90 and #93 accepted; #89 for the feature operations and
+> Claude only). D277 took the Claude suite off M9a's gates. **Done on 788c145's generator:** every
+> settings experiment moves its target (seeds 1–4); the quick suite; every batch, 100 seeds of every
+> option at 96², 128², 192² and 256² at Normal and at 128² on Hard: every option and size at 98%
+> final or better (the tables under Results); the probe group M9a's 15 maps rebuilt in
+> `C:\dgm-probe\maps\20260927-0853-batch` (run id `20260927-0853-batch`; `tools/check-maps.ts`:
+> every check passes in TypeScript and the Python load checks, the Hard map at Hard; 250–1,494 logs
+> within the floor's walk), never launched by this session; CI green (the heavy rivers case at 256²
+> skipped under D277). **Left:** the orchestrator's DGM Probe batch on those maps, then the merge
+> into `dev`, `m9a-done` and the release. **Caveats** for Kyler (see "Found and parked"): a river
+> that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood
+> as known faults for Real places 2, River style (braided) and Berries near start at their
+> thresholds, and a start whose walk is mostly moist land still gets the start rules' trees on every
 > side.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
@@ -272,7 +272,17 @@ bushes (D85), planted first and evenly on the moist land nearest the start, and 
 
 ### The settings experiments (ROADMAP M6), CI's seeds 1–4 at 96²
 
-Every experiment moves its target on the final generator (`tools/settings-batch.ts --seeds 1-4`):
+**On the re-frozen generator (788c145's, after D252):** every experiment moves its target again
+(`tools/settings-batch.ts --seeds 1-4`): Relief 4.8 (at least 3), Verticality 0.032 (0.03), River
+style 0.096 (0.08), Braided 1.1 (1), River flow 5.81 (5), Drought reserve 367 (200), Lakes and
+basins 3.4 (3), Badwater 0.80 (0.6), Badwater distance 25.7 (15), Berries near start 31 (30), Mine
+sites 1.8 (1.5), Minimum starting wood 163 (60), Minimum starting bushes 76 (30), Designed for 21.8
+(10), the rest as before; Start area and Theme information (−46 and 0.078). Berries near start now
+sits at its threshold too (43 before D252): with the map's own patches first, a low setting still
+finds the map's berries near the start. M9b's changes will need Verticality, Braided and Berries
+near start looked at again.
+
+Before D252 (kept as written): every experiment moves its target on the final generator (`tools/settings-batch.ts --seeds 1-4`):
 Relief 4.5 (at least 3), Verticality 0.036 (0.03, 8 seeds), Buildable land and its reach, Rivers
 (exact), River style 0.096 (0.08), Braided 1.0 (1, 8 seeds), River flow 5.8, Drought reserve 668
 (200), Lakes and basins 3.3 (3, 12 seeds), Waterfalls, Badwater 0.80 (0.6), Badwater distance 22.4
@@ -281,7 +291,66 @@ Relief 4.5 (at least 3), Verticality 0.036 (0.03, 8 seeds), Buildable land and i
 are information (D211): −23 and 0.066. Verticality and Braided pass at their thresholds; M9b's
 changes will need them looked at again.
 
-### The full batches at Normal (ROADMAP M9a: ≥ 98% final per option and size, blocking)
+### The full batches on the re-frozen generator (788c145; ROADMAP M9a: ≥ 98% final per option and size, blocking)
+
+On 788c145's generator (its code as of 5e15143), 100 seeds of every option at every size
+(`tools/batches.ts`, reports in `investigation/m9a/local/batches-d252/` and
+`investigation/m9a/local/batches-d252-hard/`, out of git, D195; the commands are in "Next session").
+**Every option and size at 98% final or better.** Three seeds of 2,800 make no map, each after 12
+attempts: 192² Any 33 (one attempt short of wood on a tight walk, the others the water) and 78, and
+96² Lake Basin 99; 78 and 99 made no map on the even planting either. The straight channels stay
+within real terrain's and the official maps' limits everywhere (the longest bank 44 at 256² Canyon,
+the limit itself; the longest canal 34.0). Times are with eight to ten batches at once on the
+machine. Why attempts failed, over the Normal batches: the water not settling 616, a source in a
+flow 615 and 324, the start's water moved 347, Minimum starting wood 271, no start 246, the floor
+157, Minimum starting bushes 143.
+
+Normal:
+
+| Size | Option | Final | First attempt | Time median / p90 (ms) | Longest straight bank (limit 44) | Longest canal (limit 34.3) | Floor wood added |
+|---|---|---|---|---|---|---|---|
+| 96² | Any | 100/100 | 49% | 4,711 / 15,434 | median 19, max 35 | median 10.4, max 23.9 | 0 |
+| 96² | River Valley | 100/100 | 54% | 3,727 / 8,592 | median 19, max 29 | median 11, max 21.9 | 0 |
+| 96² | Canyon | 100/100 | 56% | 3,249 / 9,735 | median 20, max 32 | median 11.6, max 17.4 | 0 |
+| 96² | Highlands | 100/100 | 50% | 3,283 / 12,178 | median 19, max 35 | median 11.1, max 17.6 | 0 |
+| 96² | Lake Basin | 99/100 | 49% | 4,307 / 13,336 | median 18, max 29 | median 9.9, max 19.8 | 0 |
+| 96² | Delta | 100/100 | 47% | 5,372 / 15,499 | median 20, max 33 | median 11.5, max 19.1 | 1 |
+| 96² | Islands | 100/100 | 85% | 3,307 / 7,942 | median 22, max 30 | median 13, max 19 | 0 |
+| 128² | Any | 100/100 | 55% | 7,845 / 21,322 | median 21, max 33 | median 12.2, max 27.9 | 0 |
+| 128² | River Valley | 100/100 | 59% | 5,550 / 15,633 | median 20, max 35 | median 11.2, max 17.9 | 0 |
+| 128² | Canyon | 100/100 | 56% | 5,769 / 14,899 | median 21, max 34 | median 12.2, max 33 | 0 |
+| 128² | Highlands | 100/100 | 65% | 5,551 / 14,779 | median 20, max 33 | median 11.7, max 21 | 0 |
+| 128² | Lake Basin | 100/100 | 59% | 7,691 / 14,446 | median 19, max 34 | median 11.3, max 21.8 | 0 |
+| 128² | Delta | 100/100 | 68% | 5,673 / 16,158 | median 21, max 36 | median 12, max 19.9 | 0 |
+| 128² | Islands | 100/100 | 82% | 5,019 / 11,590 | median 23, max 36 | median 13.4, max 27.9 | 0 |
+| 192² | Any | 98/100 | 43% | 45,016 / 132,050 | median 23, max 37 | median 13.4, max 23.2 | 0 |
+| 192² | River Valley | 100/100 | 56% | 18,723 / 54,224 | median 22, max 39 | median 13.2, max 27.9 | 0 |
+| 192² | Canyon | 100/100 | 55% | 21,374 / 80,097 | median 22, max 37 | median 13.1, max 33 | 0 |
+| 192² | Highlands | 100/100 | 69% | 18,755 / 62,864 | median 23, max 37 | median 13, max 34 | 0 |
+| 192² | Lake Basin | 100/100 | 48% | 27,846 / 62,907 | median 22, max 36 | median 13, max 29 | 0 |
+| 192² | Delta | 100/100 | 62% | 19,079 / 40,226 | median 23, max 35 | median 13.4, max 21 | 0 |
+| 192² | Islands | 100/100 | 71% | 16,799 / 39,629 | median 23, max 36 | median 14.3, max 34 | 0 |
+| 256² | Any | 100/100 | 37% | 87,603 / 217,101 | median 24, max 39 | median 13.9, max 28 | 1 |
+| 256² | River Valley | 100/100 | 48% | 68,979 / 170,456 | median 23, max 38 | median 13.4, max 23.8 | 0 |
+| 256² | Canyon | 100/100 | 48% | 53,829 / 147,302 | median 23, max 44 | median 13.4, max 30 | 0 |
+| 256² | Highlands | 100/100 | 52% | 58,634 / 126,575 | median 23, max 40 | median 14.3, max 34 | 0 |
+| 256² | Lake Basin | 100/100 | 38% | 79,901 / 233,028 | median 23, max 34 | median 13.4, max 30 | 0 |
+| 256² | Delta | 100/100 | 50% | 65,635 / 184,433 | median 23, max 35 | median 13.5, max 29.1 | 0 |
+| 256² | Islands | 100/100 | 62% | 55,405 / 181,753 | median 21, max 38 | median 12.2, max 30 | 0 |
+
+Hard, 128² (the floor's wood added on the maps counted in the last column):
+
+| Size | Option | Final | First attempt | Time median / p90 (ms) | Longest straight bank (limit 44) | Longest canal (limit 34.3) | Floor wood added |
+|---|---|---|---|---|---|---|---|
+| 128² | Any | 100/100 | 44% | 19,265 / 46,612 | median 21, max 35 | median 11.9, max 21 | 59 |
+| 128² | River Valley | 100/100 | 60% | 9,798 / 37,235 | median 20, max 31 | median 11.7, max 27 | 49 |
+| 128² | Canyon | 100/100 | 43% | 16,908 / 43,986 | median 21, max 33 | median 12.4, max 31.9 | 47 |
+| 128² | Highlands | 100/100 | 64% | 9,221 / 25,642 | median 20, max 35 | median 12, max 17.7 | 46 |
+| 128² | Lake Basin | 100/100 | 61% | 12,221 / 38,199 | median 19, max 39 | median 10.5, max 20 | 60 |
+| 128² | Delta | 100/100 | 58% | 12,237 / 32,306 | median 21, max 31 | median 11.4, max 18 | 54 |
+| 128² | Islands | 100/100 | 81% | 8,952 / 25,436 | median 22, max 35 | median 13.4, max 22 | 40 |
+
+### The full batches at Normal before D252 (superseded: D252 changed every map; kept as written)
 
 On the frozen generator (`tools/batches.ts --seeds 1-100`, reports in
 `investigation/m9a/local/batches-final/`, out of git). Stopped part-way for the session restart; the
@@ -332,8 +401,13 @@ workshop maps, which live on Kyler's main PC.
 
 ### The starting-logs floor (D224, D227, D229)
 
+- **After D252 (788c145's generator; the tables under "The full batches"):** Hard at 128² stays
+  100% final on all seven; the floor's wood was added on 355 of the 700 maps (Any 59, Lake Basin 60,
+  Delta 54, River Valley 49, Canyon 47, Highlands 46, Islands 40): 1,227 groves, by kind across the
+  water 365, standing dead on dry ground 342, riverside 189, open moist ground 159, side valley 85,
+  dead on a plateau 68, oaks on a plateau 19. At Normal it was added on 2 of the 2,797 accepted maps.
 - **Hard, 128², seeds 1–100 of every option** (`tools/batches.ts --sizes 128 --difficulty hard`,
-  `investigation/m9a/local/batches-hard/`): 100% final on all seven (first attempts 44–83%). The
+  `investigation/m9a/local/batches-hard/`; before D252, kept as written): 100% final on all seven (first attempts 44–83%). The
   floor's wood was added on 326 of the 700 maps (Any 54, Lake Basin 51, Delta 49, Canyon 47, River Valley 47,
   Highlands 43, Islands 35): 1,108 groves, by kind across the water 367, standing dead on
   dry ground 293, riverside 150, open moist ground 140, side valley 83, dead on a plateau 55, oaks on
@@ -576,7 +650,7 @@ The D252 session's list (2026-09-27). D252 (1) changed generated maps, so every 
 maps are made again on the re-frozen generator (reports in `investigation/m9a/local/`, out of git,
 D195):
 
-1. **Every batch** (≥ 98% final per option and size, blocking; 96² and 128² done on 788c145's generator, `--sizes 96,128` then `--sizes 192,256`):
+1. ~~**Every batch**~~ done on 788c145's generator (≥ 98% final per option and size, blocking; the tables under Results; run as `--sizes 96,128` then `--sizes 192,256`). For a re-run:
    - Normal, all seven options at every size:
      `npx tsx tools/batches.ts --sizes 96,128,192,256 --seeds 1-100 --jobs 8 --out investigation/m9a/local/batches-d252`
    - Hard at 128²:
@@ -590,9 +664,11 @@ D195):
    checks them (every check in TypeScript and the Python load checks; `--difficulty hard` for the Hard
    map). The launch is the orchestrator's (`npm --prefix investigation/probe run batch -- --group M9a`);
    never launched by this session.
-3. ~~**Merge `origin/dev`**~~ done (to c678e5b: d1fd46b, pushed at 788c145); then CI green on #56
-   (`gh run list --branch feature/m9a`).
-4. The start planting's measures: `npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128 --jobs 7`.
+3. ~~**Merge `origin/dev`**~~ done (to c678e5b, d1fd46b; to 641e9c4, cc95a5b; then the last merge before the
+   release, with the seed-4242 sha unchanged); CI green on #56 (`gh run list --branch feature/m9a`).
+4. **Left for the orchestrator:** the DGM Probe batch on `C:\dgm-probe\maps\20260927-0853-batch`, then
+   the merge into `dev`, `m9a-done` and the release.
+5. The start planting's measures: `npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128 --jobs 7`.
 
 ### The restart's list (2026-09-27, kept as written; its step 1 is superseded by D252: every batch is re-run above)
 
