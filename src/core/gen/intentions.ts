@@ -5,18 +5,20 @@
 
 import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
-import { checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
+import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
 import type { Hydro } from "../land/hydro";
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
+import type { Rng } from "../math/rng";
 import { waterModel } from "../sim/model";
 
 export interface IntentionResult {
   id: IntentionId;
   ok: boolean;
   note: string;
-  /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped". */
-  outcome: "emerged" | "re-steered" | "dropped";
+  /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped"; "found" for one
+   *  the map was not steered toward but shows of its own accord (M9b). */
+  outcome: "emerged" | "re-steered" | "dropped" | "found";
 }
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -200,4 +202,22 @@ export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy:
     }
   }
   return res.map((r) => ({ id: r.id, ok: r.ok, note: r.note, outcome: r.ok ? "emerged" : "dropped" }));
+}
+
+/** M9b (D273 (3): a standout on every map; D138: failure allowed, many realizations): when none of
+ *  the intentions a map was steered toward emerged, one it shows of its own accord, checked the same
+ *  way: the set is tried in an order of the map's own (its random stream), so maps that find one do
+ *  not all find the same. */
+export function foundIntention(built: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }, drawn: readonly IntentionId[], rng: Rng): IntentionResult | null {
+  const ctx = finalCtx(built, hy);
+  const order = ACTIVE.filter((id) => !drawn.includes(id));
+  for (let k = order.length - 1; k > 0; k--) {
+    const j = rng.int(0, k + 1);
+    [order[k], order[j]] = [order[j], order[k]];
+  }
+  for (const id of order) {
+    const r = checkIntention(id, ctx);
+    if (r.ok) return { id, ok: true, note: r.note, outcome: "found" };
+  }
+  return null;
 }

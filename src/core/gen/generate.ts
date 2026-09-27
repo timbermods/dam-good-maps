@@ -40,7 +40,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { makeField } from "../land/field";
 import { drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
-import { blockedCourses } from "../land/courses";
+import { blockedCourses, closeBackEdges } from "../land/courses";
 import { orientationOf, orientDir, orientField } from "../land/orient";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, type IntentionId } from "../land/intentions";
@@ -64,7 +64,7 @@ import { lakeFeatures } from "./readback";
 import { planWeir } from "./weir";
 import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
-import { finalChecks, settlerView, type IntentionResult } from "./intentions";
+import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
 import { toTimberFile } from "./pack";
 import { outcomesOf, type Outcomes } from "./outcomes";
 import { mapWords, type PlayFacts } from "./names";
@@ -612,6 +612,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal, hy.lakes.map((l) => l.tiles));
   }
+  // the courses checked on the finished land (M9b, D273 (1)): an inflow's water running back out by
+  // its own edge is held by a lip on the edge row; anything else is planned again below
+  const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
+  let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
+  for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   const hLand = h.slice();
   const firstLook = Math.round(performance.now() - t0);
   opts.onLand?.({ attempt, heights: hLand, water: hy.water });
@@ -683,11 +688,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (!hy.rivers.length) return fail("no rivers", null, false);
   // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
   // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
-  // of its course stood dry) is planned again
-  {
-    const blocked = blockedCourses(h, W, H, hy.rivers, hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path));
-    if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
-  }
+  // of its course stood dry) is planned again (the course check runs before the first look)
+  if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
   // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
   // (not on the last attempt, whose map is kept when none passes)
   if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
@@ -1015,6 +1017,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         },
       };
     });
+  }
+  // (none emerged: one the map shows of its own accord stands for its character, M9b)
+  if (v.report.passed && !intentions.some((x) => x.ok)) {
+    const found = foundIntention(built, hy, g.intentions, stream(seed, "found-intention", attempt));
+    if (found) intentions = [...intentions, found];
   }
   info.start = pick;
   // ---- the drought-aware start on the real water (information: the settler chose by it)

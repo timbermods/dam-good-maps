@@ -829,6 +829,23 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const lakeAt = new Uint8Array(n + 1);
     let run = startBed;
     let inLake = -1;
+    /** Whether a lake's water, standing at its sill, would spill out of the river's channel
+     *  upstream of sample `j`: where the backwater reaches (the bed below the sill), the ground
+     *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
+     *  edge, or a lower hollow). The river's water could not rise to fill the lake; it is no lake of
+     *  this river's (M9b: its course stood dry through a hollow above its bed). */
+    const spillsUpstream = (lk: { tiles: number[]; sill: number }, j: number): boolean => {
+      if (!natural) return false;
+      const inIt = new Set(lk.tiles);
+      for (let q = j - 1; q >= 0 && prof[q] < lk.sill; q--) {
+        const t = ringAt[q];
+        if (t >= 0 && !inIt.has(t) && lakeOf[t] < 0 && h[t] < lk.sill && lv.filled[t] < lk.sill) return true;
+      }
+      return false;
+    };
+    // (M9b) the lowest ground round the channel at each sample upstream: a lake whose water would
+    // stand over any of it (outside the lake) would spill out of the channel there
+    const ringAt = new Int32Array(n + 1).fill(-1);
     for (let j = 0; j <= n; j++) {
       const {
         p: [px, py],
@@ -845,7 +862,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
           const dx = x - px;
           const dy = y - py;
           if (dx * dx + dy * dy > R * R) continue;
-          if (h[i] < ring) ring = h[i];
+          if (h[i] < ring) {
+            ring = h[i];
+            ringAt[j] = i;
+          }
         }
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
       if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
@@ -853,7 +873,11 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
         const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
         if (lk && again !== undefined) inLake = lakeOf[again];
-        else if (lk) {
+        // (M9b: a hollow whose water would spill over the channel's banks upstream is no lake of
+        // this river's: its water cannot rise to fill it; the channel runs on through it)
+        else if (lk && spillsUpstream(lk, j)) {
+          /* its channel runs on through it */
+        } else if (lk) {
           const id = lakes.length;
           for (const i of lk.tiles) {
             lakeOf[i] = id;

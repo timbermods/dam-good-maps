@@ -41,7 +41,15 @@ own way to its own edge. Now (`land/hydro.ts`):
   - **an inflow's banks lowered to its channel**: the carve and the edge relaxing now leave the
     outer two rows of an inflow's edge beyond its mouth's own width (the game drains every edge tile
     but a mouth's sources), and an inflow heads inland from its mouth, never along its edge;
-  - **a weir whose pool drained by an edge 40+ tiles upstream**: its pool is followed all the way.
+  - **a weir whose pool drained by an edge 40+ tiles upstream**: its pool is followed all the way;
+  - **an inflow's water running back out by its own edge** (a low plain along the edge beside the
+    mouth; a tie with the exit counted too, since the near edge takes it all): the edge row there
+    gets a lip a level over the water, at most two levels high and a quarter of the side long, else
+    the plan is made again; the mouth's own tiles never;
+  - **a hollow on the course above the river's reach** (a pit on a shoulder the course crosses, its
+    water standing over the channel's banks upstream, where they drain away lower): no lake of that
+    river's, so its channel runs on through it (it was left uncarved, then dropped as unreached,
+    and the course stood high and dry across it).
 - **The water story** (`analysis/story.ts`, information and the candidate choice): the main
   system's share of the water, other systems, heads, rivers that never join, how much of each
   river's course holds water, and how much of the dry land lies within 14% of the side of clean
@@ -57,14 +65,15 @@ the theme's maps part from the others (on seeds 1–10 of every theme at 128²):
 | River Valley | a main river through a broad valley | the main river's valley floor (within a level of its water), median across its course, ≥ 20% of the side |
 | Canyon | a river cut deep between cliffs for a real stretch | a river whose ground 2–6 tiles out rises 3+ levels over its water on both sides, for max(16, 16% of the side) tiles and 20% of its course |
 | Highlands | high, rugged ground with plateaus and valleys among it | 60%+ of the dry land 4+ levels over the rivers, 3+ plateaus (level ground of 120+ tiles at 128² whose rim mostly drops 2+ levels), cliffs on 10%+ |
-| Lake Basin | big lakes that dominate the water | 55%+ of the water in lakes (level bodies of 150+ tiles with open water), the largest 4%+ of the map |
+| Lake Basin | big lakes that dominate the water | 55%+ of the water in the natural lakes the generator found (its read-back lake features; level bodies counted wide rivers too), the largest 4%+ of the map |
 | Delta | a river splitting into several channels as it reaches low ground | the main system leaves by 3+ separate mouths |
-| Islands | land broken by water into islands | 3+ islands of 30+ tiles (at 128²), the largest body 18%+ of the map, water 25%+, 12%+ of the land apart from the largest mass |
+| Islands | land broken by water into islands | 3+ islands of 30+ tiles (at 128²) in a sea of 25%+ of the map, 5%+ of the land apart from the largest mass |
 
 The priors were steered toward them (they blurred, D294 (2)): River Valley's big river clears a
 floor of 7–13 tiles; Canyon's floor 0–2.5 and its cut 3–6 levels; Highlands leans up (lean
 0.55–0.9), with more and broader plateaus, benches 2–3, rivers set 1.5–3.5 into their valleys;
-Delta always fans into two or three more mouths.
+Delta always fans into two or three more mouths; Canyon has 2–5 springs, so side canyons carry
+water across its plateaus (its water sat in one corner, D294 (1, 4)).
 
 **Islands had no sea** (D294 (2)): the Lakes setting's None applied at Islands' own preset (None),
 cutting every sea's lake budget to nothing. A setting now leans the genome only where it moves from
@@ -72,7 +81,10 @@ the theme's preset. The sea lies in one of six layouts (`land/genome.ts` `addSea
 stream): off-centre, off one edge behind a strip of coast, an archipelago across most of the map,
 an island chain along an arc, atolls (rings of islets, lobed, with passes), or two seas with a
 ridge between. A sea is fed by springs on the heights round it (an inflow enters low on the bowl's
-rim, and no lake stands above where its water comes in).
+rim, and no lake stands above where its water comes in), and keeps a rim of land along the map's
+edges: a sea that ran to an edge spilled out there and stood low, its islands on the dry floor
+joined to the land (Islands met its promise on 3 of 10 maps; the archipelago's sea is broad again,
+its islands scattered where the water is deep).
 
 ### A character on every map (D273 (3), D274)
 

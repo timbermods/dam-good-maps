@@ -242,7 +242,7 @@ const P: Record<Leaning, Prior> = {
     partCount: { lo: 2, hi: 6 }, knollsPer128: { lo: 0, hi: 6 },
     erosion: { iterations: { lo: 14, hi: 30 }, k: { lo: 0.025, hi: 0.06 }, diffusion: { lo: 0, hi: 0.04 } },
     terrace: { step: [2, 2, 3, 3, 4], share: { lo: 0.35, hi: 0.9 } },
-    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 0, hi: 3 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
+    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 2, hi: 5 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
     split: 0.45, delta: 0.03, incise: { lo: 3, hi: 6 }, floor: { lo: 0, hi: 2.5 }, cap: { lo: 0.1, hi: 0.5 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.2,
     troughs: 0.5, sea: 0, woods: [0.35, 0.2],
@@ -655,12 +655,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       break;
     }
     case "archipelago": {
-      g.focus = [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()];
-      const R = side * (0.44 + 0.08 * rng.float());
-      const depth = 6.5 + 2 * rng.float();
-      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1 + 0.5 * rng.float());
-      scatter(g.focus[0], g.focus[1], R, n(22 + 12 * rng.float()), depth, 0.14);
-      tilt = 6 + 1.5 * rng.float();
+      // (its islands scattered where the water is deep: at its shores they stood on the dry floor,
+      // joined to the land)
+      g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+      const R = side * (0.42 + 0.08 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1 + 0.4 * rng.float());
+      scatter(g.focus[0], g.focus[1], 0.85 * R, n(18 + 10 * rng.float()), depth, 0.14);
+      tilt = 7.5 + 1.5 * rng.float();
       break;
     }
     case "chain": {

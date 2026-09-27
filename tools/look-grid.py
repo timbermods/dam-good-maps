@@ -2,8 +2,8 @@
 
     python tools/look-grid.py <look dir> [cols] [cell]
 
-Writes <look dir>/grid.png: each map with its theme and seed, whether its water reads, and its
-intentions (+ emerged, - dropped).
+Writes <look dir>/grid.png: each map with its theme and seed, its name, whether its water reads,
+its intentions (+ emerged, - dropped), its outcomes and its how-it-plays line.
 """
 import json
 import os
@@ -30,7 +30,7 @@ def main():
     cell = int(sys.argv[3]) if len(sys.argv) > 3 else 384
     with open(os.path.join(src, "index.json"), encoding="utf-8") as f:
         maps = [m for m in json.load(f)["maps"] if "file" in m]
-    label = 46
+    label = 60
     rows = (len(maps) + cols - 1) // cols
     sheet = Image.new("RGB", (cols * (cell + 6) + 6, rows * (cell + label + 6) + 6), (250, 248, 242))
     d = ImageDraw.Draw(sheet)
@@ -51,6 +51,8 @@ def main():
         o = m.get("outcomes")
         if o:
             d.text((x, y + 31), str(o.get("summary", ""))[:90], fill=(60, 60, 60), font=f2)
+        if m.get("description"):
+            d.text((x, y + 44), str(m["description"])[: int(cell / 5.6)], fill=(30, 60, 120), font=f2)
     out = os.path.join(src, "grid.png")
     sheet.save(out, optimize=True)
     print(out)

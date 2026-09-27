@@ -52,7 +52,8 @@ parentPort.on("message", (job) => {
     const spec = mapspec.makeSpec({ seed: job.seed, theme: job.theme, size: { x: job.size, y: job.size }, designedFor: job.designedFor });
     if (job.vt !== null) spec.settings.terrain.verticality = job.vt;
     if (job.variety !== null && "variety" in spec.settings.terrain) spec.settings.terrain.variety = job.variety;
-    const r = generate(spec, { ...(job.variety === null ? {} : { variety: job.variety }), ...(job.intention ? { intentions: [job.intention] } : {}) });
+    let first = -1;
+    const r = generate(spec, { ...(job.variety === null ? {} : { variety: job.variety }), ...(job.intention ? { intentions: [job.intention] } : {}), onCandidate: () => { if (first < 0) first = performance.now() - t0; } });
     const b = r.built, W = b.W, H = b.H, S = job.scale;
     const rgb = shadeTiles(b.heights, W, H, b.water);
     const sys = wetSystems(W, H, b.water);
@@ -96,7 +97,7 @@ parentPort.on("message", (job) => {
     parentPort.postMessage({
       theme: job.theme, seed: job.seed, size: job.size, variety: job.variety, vt: job.vt,
       png: Buffer.from(encodePng(img, W * S, H * S)).toString("base64"),
-      passed: r.report.passed, attempts: r.attempts, genomes: r.info.genomes, ms: Math.round(performance.now() - t0),
+      passed: r.report.passed, attempts: r.attempts, genomes: r.info.genomes, ms: Math.round(performance.now() - t0), first: Math.round(first),
       intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })),
       drawn: r.info.genome ? r.info.genome.intentions : [],
       recipe: r.info.genome?.seaLayout ? "sea " + r.info.genome.seaLayout : null,

@@ -11,10 +11,11 @@
 // water spills out at; a second, from the stretch of edge the river's system leaves by (35% of the
 // side either way of its exit, and a delta's mouths), the level it would spill out at there. Where
 // the first is lower, by a level or more, anywhere along a river's course, its water leaves by that
-// lower way. A tributary's water leaves with the river it joins.
+// lower way. A tributary's water leaves with the river it joins. An inflow's standing water that can
+// leave by its own edge as low as by the exit is a leak too: the near edge takes it all.
 
 import { drainage } from "./drainage";
-import type { Point, RiverFeature } from "../features/schema";
+import type { Edge, Point, RiverFeature } from "../features/schema";
 
 /** The course's tiles in order, inside the map. */
 export function courseCells(path: readonly (readonly [number, number])[], W: number, H: number): number[] {
@@ -49,6 +50,55 @@ export interface Blocked {
   /** The course tile whose water leaves elsewhere, and the edge tile it leaves by. */
   at: [number, number];
   leaves: [number, number];
+  /** Water running back out by the inflow's own edge, at this level (`backEdges` can close it). */
+  back?: { level: number; edge: Edge };
+}
+
+/** Closes an inflow's own edge where its standing water would run back out (`blocked`'s `back`):
+ *  the edge row's tiles at or below the water's level, joined along the edge to the tile it leaves
+ *  by, are raised a level over it (the game drains every edge tile; a lip on the edge row holds
+ *  the water as the land beyond the map would). A run longer than a quarter of the side is left:
+ *  that land is planned again. Returns whether it changed anything. */
+export function closeBackEdges(h: Uint8Array, W: number, H: number, blocked: readonly Blocked[], rivers: readonly RiverFeature[]): boolean {
+  const sealed = sealedMouths(rivers, W, H);
+  let changed = false;
+  for (const b of blocked) {
+    if (!b.back) continue;
+    const [lx, ly] = b.leaves;
+    if (lx < 0) continue;
+    const vertical = b.back.edge === "east" || b.back.edge === "west";
+    const len = vertical ? H : W;
+    const at = (k: number) => (vertical ? k * W + lx : ly * W + k);
+    const top = Math.floor(b.back.level);
+    let k0 = vertical ? ly : lx;
+    let k1 = k0;
+    // (never the mouth's own tiles, which hold its sources)
+    while (k0 > 0 && h[at(k0 - 1)] <= top && !sealed[at(k0 - 1)]) k0--;
+    while (k1 < len - 1 && h[at(k1 + 1)] <= top && !sealed[at(k1 + 1)]) k1++;
+    // (a lip, not a wall: a run that would rise more than two levels is planned again)
+    let low = Infinity;
+    for (let k = k0; k <= k1; k++) low = Math.min(low, h[at(k)]);
+    if (k1 - k0 + 1 > 0.25 * len || top + 1 - low > 2 || sealed[at(vertical ? ly : lx)]) continue;
+    for (let k = k0; k <= k1; k++) if (h[at(k)] <= top) h[at(k)] = top + 1;
+    changed = true;
+  }
+  return changed;
+}
+
+/** The edge tiles round each inflow's mouth, which hold its sources (not outlets). */
+function sealedMouths(rivers: readonly RiverFeature[], W: number, H: number): Uint8Array {
+  const sealed = new Uint8Array(W * H);
+  for (const r of rivers) {
+    if (!("edge" in r.params.entry)) continue;
+    const [px, py] = r.params.path[Math.min(1, r.params.path.length - 1)];
+    const reach = Math.ceil(r.params.width / 2) + 2;
+    for (let i = 0; i < W * H; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && Math.abs(x - px) <= reach && Math.abs(y - py) <= reach) sealed[i] = 1;
+    }
+  }
+  return sealed;
 }
 
 /** The rivers whose water leaves the map somewhere other than where their system does: some way
@@ -58,17 +108,7 @@ export interface Blocked {
  *  before it leaves). `mouths` are the main river's other ways out (a delta's arms). */
 export function blockedCourses(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = []): Blocked[] {
   const N = W * H;
-  const sealed = new Uint8Array(N);
-  for (const r of rivers) {
-    if (!("edge" in r.params.entry)) continue;
-    const [px, py] = r.params.path[Math.min(1, r.params.path.length - 1)];
-    const reach = Math.ceil(r.params.width / 2) + 2;
-    for (let i = 0; i < N; i++) {
-      const x = i % W;
-      const y = (i - x) / W;
-      if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && Math.abs(x - px) <= reach && Math.abs(y - py) <= reach) sealed[i] = 1;
-    }
-  }
+  const sealed = sealedMouths(rivers, W, H);
   const all = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
   const out = new Int32Array(N).fill(-1);
   for (let q = 0; q < all.order.length; q++) {
@@ -116,10 +156,32 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
       viaExit = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] && onStretch(i, exits) }).filled;
       byExits.set(key, viaExit);
     }
+    // an inflow's standing water that can leave by its own edge at the level it would leave by the
+    // exit runs back out beside its mouth: the near edge takes it all (a tie elsewhere is not a leak)
+    let back: ReturnType<typeof drainage> | null = null;
+    const side: Edge | null = "edge" in r.params.entry ? r.params.entry.edge : null;
+    // (the map's y runs north: the south edge is y = 0)
+    const onSide = (i: number) => {
+      const x = i % W;
+      const y = (i - x) / W;
+      return side === "east" ? x === W - 1 : side === "west" ? x === 0 : side === "north" ? y === H - 1 : side === "south" ? y === 0 : false;
+    };
+    if (side) back = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] && onSide(i) });
     for (const c of courseCells(r.params.path, W, H)) {
-      if (!(all.filled[c] < viaExit[c])) continue;
-      const e = out[c];
-      blocked.push({ id: r.id, at: [c % W, (c - (c % W)) / W], leaves: e >= 0 ? [e % W, (e - (e % W)) / W] : [-1, -1] });
+      const runsBack = back !== null && back.filled[c] <= viaExit[c] && back.filled[c] > h[c];
+      if (!(all.filled[c] < viaExit[c]) && !runsBack) continue;
+      // the edge tile the water leaves by: back out by the inflow's own edge (the lowest way, or as
+      // low as the exit's with standing water), or elsewhere
+      let e = out[c];
+      if (back && runsBack && !(all.filled[c] < back.filled[c])) {
+        e = c;
+        while (back.rcv[e] >= 0) e = back.rcv[e];
+      }
+      const at: [number, number] = [c % W, (c - (c % W)) / W];
+      const leaves: [number, number] = e >= 0 ? [e % W, (e - (e % W)) / W] : [-1, -1];
+      // (by its own edge, the water there can be held at the level it would leave by the exit)
+      if (side && e >= 0 && onSide(e)) blocked.push({ id: r.id, at, leaves, back: { level: viaExit[c], edge: side } });
+      else blocked.push({ id: r.id, at, leaves });
       break;
     }
   }

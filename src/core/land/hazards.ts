@@ -248,16 +248,34 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // (M9b, D294: a ditch into a stream that feeds a lake or a sea turned the whole of it to
     // badwater: it joins only a channel whose water leaves the map without passing a lake, else it
     // runs to the map edge by itself)
+    // (and near where that water leaves: joined higher up, it turned the rest of the river purple,
+    // the main river's whole lower course with it)
     const lakeFree = new Uint8Array(N);
+    const toEdge = new Int32Array(N);
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
       lakeFree[j] = hy.water[j] !== 2 && (r < 0 || lakeFree[r]) ? 1 : 0;
+      toEdge[j] = r < 0 ? 0 : toEdge[r] + 1;
     }
+    const lastStretch = Math.max(10, Math.round(0.12 * Math.min(W, H)));
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if (hy.water[j] === 1 && lakeFree[j] && !startWater[j] && sd[j] > D + 6) goal[j] = 1;
+    for (let j = 0; j < N; j++) if (hy.water[j] === 1 && lakeFree[j] && toEdge[j] <= lastStretch && !startWater[j] && sd[j] > D + 6) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j]) keepOff[j] = 1;
+    // (on its way it never crosses nor runs beside other water: a ditch through a river higher up or
+    // a lake turned them purple)
+    for (let j = 0; j < N; j++) {
+      if (!(hy.water[j] === 1 || hy.water[j] === 2) || goal[j]) continue;
+      const x = j % W;
+      const y = (j - x) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H && !goal[yy * W + xx]) keepOff[yy * W + xx] = 1;
+        }
+    }
     let clear = true;
     for (let j = 0; j < N && clear; j++) if (pit[j] && ask.keepOff?.[j]) clear = false;
     if (!clear) continue;

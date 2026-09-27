@@ -19,7 +19,7 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; holds: (s
   highlands: { text: "high, rugged ground with plateaus and valleys among it", holds: (s) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 },
   lakeBasin: { text: "big lakes that dominate the water", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.04 },
   delta: { text: "a river splitting into several channels as it reaches low ground", holds: (s) => s.mouths >= 3 },
-  islands: { text: "land broken by water into islands", holds: (s) => s.islands >= 3 && s.mainBody >= 0.18 && s.water >= 0.25 && s.apart >= 0.12 },
+  islands: { text: "land broken by water into islands", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
 };
 
 export interface OutcomeInput {
