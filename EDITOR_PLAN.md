@@ -185,8 +185,8 @@ The clean game-like view (D135), contaminated ground as a layer over the ground 
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
 Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
-cascade (D201, D215).
+foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 
 ## 7. Controls
 

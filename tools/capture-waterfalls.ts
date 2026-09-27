@@ -9,6 +9,7 @@
 //   npx tsx tools/capture-waterfalls.ts [--before .scratch/before] [--first .scratch/first] [--port 4195] [--out docs/look/waterfalls] [--quality 80] [--only gallery,maps]
 //   npx tsx tools/capture-waterfalls.ts --bench [--before .scratch/before] [--seconds 6]
 //   npx tsx tools/capture-waterfalls.ts --draft [maps] [--clear] [--slice N]
+//   npx tsx tools/capture-waterfalls.ts --d222 --before .scratch/before --first .scratch/first [--port 4195]
 //
 // Two kinds of scene, our own renders only:
 // - the fall gallery: a small map made here, its water settled by the game's water rules (the
@@ -23,7 +24,9 @@
 // from the same cameras at the same moment of the water's movement. With --first (a copy of the
 // first round's sources, before D215), the views D215 is about (the corner lips, the landing, and
 // the fall of Kyler's review, Highlands 4's) are also drawn by it, beside the after site's:
-// d215-*.jpg.
+// d215-*.jpg. With --d222 (the landing's foam softened, D222), only the landing's views are remade:
+// the D215 pairs of the L-shaped lip and the strong fall's landing, and d222-foam-*.jpg, dev's foam
+// beside now, up close (a clean fall from above and from low down, and the badwater fall).
 
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -348,7 +351,7 @@ async function main() {
     const afterShots: { short: string; png: Buffer; angled: boolean }[] = [];
     const notes: string[] = [];
     const pair = async (id: string, name: string, key: string, label: string, b: Buffer, a: Buffer, d215 = false, sheets = true) => {
-      if (d215) await compose(tool, [b, a], [`Before D215 (first round): ${name}, ${label}`, `After D215: ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `d215-${id.replace(/^gallery-/, "")}-${key}.jpg`));
+      if (d215) await compose(tool, [b, a], [`Before D215 (first round): ${name}, ${label}`, `Now (D215 and D222): ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `d215-${id.replace(/^gallery-/, "")}-${key}.jpg`));
       else await compose(tool, [b, a], [`Before (dev): ${name}, ${label}`, `After: ${name}, ${label}`], 2, 0.75, [null, null], join(OUT, `${id}-${key}.jpg`));
       // (the sheets are labelled by the pair's file name: the full labels do not fit)
       if (sheets) afterShots.push({ short: `${d215 ? "d215-" : ""}${id.replace(/^gallery-/, d215 ? "" : "gallery-")}-${key}`, png: a, angled: key === "default" });
@@ -574,6 +577,56 @@ async function draft(): Promise<void> {
   }
 }
 
+/** The landing's foam up close (D222): the strong fall's landing from above and from low down, and
+ *  the badwater fall's. */
+const FOAM_VIEWS: { key: string; label: string; view: View }[] = [
+  { key: "default", label: "where the strong fall lands, up close, default angle", view: { mode: "orbit", yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: 6, target: [25, 2.6, -13.4] } },
+  { key: "low", label: "where the strong fall lands, up close, low angle", view: { mode: "orbit", yaw: -0.45, pitch: 0.4, distance: 6.5, target: [25, 2.6, -13.4] } },
+  { key: "badwater", label: "where the badwater fall lands, up close, default angle", view: { mode: "orbit", yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: 6, target: [41.5, 2.6, -13.8] } },
+];
+
+/** --d222: the landing's foam softened (D222). Remakes the D215 pairs of the landing (the L-shaped
+ *  lip and the strong fall's landing: the first round beside now) and makes d222-foam-*.jpg (dev
+ *  beside now, up close); nothing else in the folder changes. */
+async function d222(): Promise<void> {
+  const firstDir = arg("first");
+  if (!firstDir) throw new Error("--d222 needs --first: the first round's sources (#53 at b00b2fc)");
+  mkdirSync(OUT, { recursive: true });
+  const before = await site(BEFORE, "before", BEFORE_PORT);
+  const after = await site(resolve("."), "after", AFTER_PORT);
+  const first = await site(resolve(firstDir), "first", FIRST_PORT);
+  let browser: Browser | null = null;
+  try {
+    browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
+    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    const tool = await browser.newPage();
+    await tool.goto(`http://localhost:${AFTER_PORT}/`);
+    const g = gallery();
+    const cases = galleryCases().filter((c) => c.id === "gallery-l-lip" || c.id === "gallery-splash");
+    const shots: Record<string, Buffer> = {};
+    for (const [label, port] of [["after", AFTER_PORT], ["before", BEFORE_PORT], ["first", FIRST_PORT]] as const) {
+      await open(page, port, "#s=1&z=96&d=n&t=riverValley");
+      checkGpu((await page.evaluate("window.dgm3d.renderer.gpu().renderer")) as string);
+      await page.evaluate(`(${GALLERY_JS})(${JSON.stringify(g)})`);
+      if (label !== "before") for (const c of cases) for (const v of c.views) shots[`${label} ${c.id} ${v.key}`] = await shot(page, v.view);
+      if (label !== "first") for (const v of FOAM_VIEWS) shots[`${label} foam ${v.key}`] = await shot(page, v.view);
+    }
+    for (const c of cases)
+      for (const v of c.views)
+        await compose(tool, [shots[`first ${c.id} ${v.key}`], shots[`after ${c.id} ${v.key}`]], [`Before D215 (first round): Gallery, ${c.name}, ${v.label}`, `Now (D215 and D222): Gallery, ${c.name}, ${v.label}`], 2, 0.75, [null, null], join(OUT, `d215-${c.id.replace(/^gallery-/, "")}-${v.key}.jpg`));
+    for (const v of FOAM_VIEWS) await compose(tool, [shots[`before foam ${v.key}`], shots[`after foam ${v.key}`]], [`Before D222 (dev): ${v.label}`, `After D222: ${v.label}`], 2, 0.75, [null, null], join(OUT, `d222-foam-${v.key}.jpg`));
+    if (errors.length) console.log(`page errors: ${errors.join("; ")}`);
+  } finally {
+    await browser?.close();
+    await before.close();
+    await after.close();
+    await first.close();
+  }
+}
+
 if (process.argv.includes("--bench")) await bench();
 else if (process.argv.includes("--draft")) await draft();
+else if (process.argv.includes("--d222")) await d222();
 else await main();

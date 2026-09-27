@@ -6,8 +6,9 @@
 // - the arc reaches further out for stronger flow and taller falls (`fallReach`);
 // - whitewater where it lands (D215: more of it): a splash churning on the pool from the foot of
 //   the cliff out past the impact line, and a crown of whitewater billowing up along the impact
-//   line, bigger for stronger and taller falls, in the landing zone only; the water shader draws a
-//   line of foam along the lip's brink (waterMesh.ts `LIP_BITS`);
+//   line, bigger for stronger and taller falls, in the landing zone only; soft white water (D222),
+//   never cells of dark water that read as cracked tiles; the water shader draws a line of foam
+//   along the lip's brink (waterMesh.ts `LIP_BITS`);
 // - a stepped cascade is a fall at every step, each with its own lip and splash;
 // - one continuous sheet (D215): lips side by side pouring into the same water share their corners,
 //   so a wide fall is one ribbon; where the lip turns a corner (an L-shaped lip, or a staircase of
@@ -67,7 +68,10 @@ export const FALL_SHAPE = {
  *  counted to 8 levels) tiles either side of it (at most `crown[3]`; `crownTrickle` of that for a
  *  trickle; never behind the cliff or past the pool) and `crownTall` times that high, never more
  *  than `crownOfDrop` of the drop. (The strength is the square root of the flow, within 0.25 to
- *  1.6, as the shader has it.) */
+ *  1.6, as the shader has it.) Soft white water (D222): past the white core the splash is a froth
+ *  whose density eases from `frothFloor` to full over the noise's `froth` range, so it is denser
+ *  and thinner in soft patches and never opens into cells of dark water (they read as cracked
+ *  tiles); it thins only as it drifts out. */
 export const FALL_SPLASH = {
   base: 0.7,
   reach: 0.6,
@@ -79,6 +83,8 @@ export const FALL_SPLASH = {
   crownTrickle: 0.55,
   crownTall: 1.25,
   crownOfDrop: 0.6,
+  froth: [0.15, 0.85] as readonly number[],
+  frothFloor: 0.6,
 } as const;
 
 /** Below this many pixels a tile, a fall is drawn as a single sheet (and its splash). */
@@ -366,10 +372,15 @@ export function fallPoint(f: ArrayLike<number>, u: 0 | 1, w: number, inner = fal
  *  only), 3 the single sheet from afar, 4 the splash on the pool (both), 5 the crown of whitewater
  *  along the impact line (close up). Triangles back to front as seen from outside the fall: the
  *  splash, the crown's back half, the inner face, the ends, the outer face, the crown's front half,
- *  then the far sheet; each face wound to face out of the ribbon. */
-export function fallTemplate(): { rib: Float32Array; index: Uint16Array } {
+ *  then the far sheet; each face wound to face out of the ribbon. `layers` are those parts as runs
+ *  of the index (start, count): the splash, the crown's back half, the ribbon, then the crown's
+ *  front half with the far sheet. The renderer draws each layer for every fall of a chunk before
+ *  the next (D222), so one tile's crown is never blended over its neighbour's ribbon, which showed
+ *  as glassy panes along the foot of a fall. */
+export function fallTemplate(): { rib: Float32Array; index: Uint16Array; layers: [number, number][] } {
   const rib: number[] = [];
   const index: number[] = [];
+  const cuts: number[] = [0];
   let n = 0;
   const vert = (u: number, w: number, inner: number, kind: number) => {
     rib.push(u, w, inner, kind);
@@ -390,12 +401,14 @@ export function fallTemplate(): { rib: Float32Array; index: Uint16Array } {
   const s01 = vert(0, 1, 0, 4);
   const s11 = vert(1, 1, 0, 4);
   index.push(s00, s01, s10, s10, s01, s11);
+  cuts.push(index.length);
   // the crown: an arch over the impact line, w from its foot toward the cliff (0) over its top
   // (0.5) to its foot out on the pool (1), facing out of the arch; its back half first
   const cn = FALL_SEGMENTS.crown;
   const half = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, s) => (from + s) / cn);
   const crown = (w: number[]) => strip(w.map((c) => vert(0, c, 0, 5)), w.map((c) => vert(1, c, 0, 5)), true);
   crown(half(0, cn / 2));
+  cuts.push(index.length);
   const near = ws(FALL_SEGMENTS.near);
   // the inner face, facing the cliff
   strip(
@@ -420,6 +433,7 @@ export function fallTemplate(): { rib: Float32Array; index: Uint16Array } {
     near.map((w) => vert(1, w, 0, 0)),
     true,
   );
+  cuts.push(index.length);
   crown(half(cn / 2, cn));
   // the sheet from afar
   const far = ws(FALL_SEGMENTS.far);
@@ -428,5 +442,7 @@ export function fallTemplate(): { rib: Float32Array; index: Uint16Array } {
     far.map((w) => vert(1, w, 0, 3)),
     true,
   );
-  return { rib: new Float32Array(rib), index: new Uint16Array(index) };
+  cuts.push(index.length);
+  const layers = cuts.slice(1).map((end, k): [number, number] => [cuts[k], end - cuts[k]]);
+  return { rib: new Float32Array(rib), index: new Uint16Array(index), layers };
 }
