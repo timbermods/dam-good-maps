@@ -1300,7 +1300,12 @@ design version 1's.
     wind (D209); `dev` merged in (Live editing, the forces, the waterfalls). The generator is frozen
     again after D252 (1) (788c145); every batch on it is at 98% final or better, and the probe maps
     are rebuilt on it; the Claude suite is no longer an M9a gate (D277) (docs/progress/m9a.md). Kyler
-    said yes on D252 (2)'s review set (D294). Left: the DGM Probe batch, then the release.
+    said yes on D252 (2)'s review set (D294). The DGM Probe batch ran twice (the files now store the
+    settled water's outflows); on its findings (D302) the start's water must be fed by a source or
+    last the drought, never a sealed puddle (both validators; the batches run again on it), the
+    probe's wet-tile counts are judged as D297 judges water, and tall maps' project files reopen
+    (a river bed step up to 22 levels, M9b's finding). Left: the batches on D302's rule, then the
+    release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
