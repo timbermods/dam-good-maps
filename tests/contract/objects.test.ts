@@ -285,9 +285,10 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 1: a seed on which every theme places every kind of object (a thorn belt is left out
-    // where it would cut the colony's land in two; generator 0.7.0 grows the land from processes)
-    const spec = makeSpec({ seed: 1, size: { x: 96, y: 96 }, theme });
+    // seed 2: a seed on which every theme places every kind of object (a thorn belt is left out
+    // where it would cut the colony's land in two; seed 1 until 0.8.0, whose Delta has no room for
+    // one, D148)
+    const spec = makeSpec({ seed: 2, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -323,7 +324,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     let sites = 0;
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
     // maps, D148)
-    for (const [theme, seed] of [["islands", 2], ["islands", 10], ["canyon", 7], ["canyon", 12]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 2], ["islands", 10], ["highlands", 3], ["highlands", 6]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -357,7 +358,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, D148)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 7], ["islands", 6], ["lakeBasin", 2], ["islands", 7]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 7], ["islands", 6], ["islands", 8], ["islands", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

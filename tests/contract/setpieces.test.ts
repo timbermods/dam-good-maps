@@ -173,7 +173,8 @@ describe("the lip's width is measured as PLAN §9.2 defines it", () => {
 });
 
 describe("the other builders reduce to their ranges and report it", () => {
-  const s = session(128, 4);
+  // (seed 7 since 0.8.0, D148: on seed 4's map the gorge asked for below is refused)
+  const s = session(128, 7);
   const river = s.features.find((f): f is RiverFeature => f.kind === "river")!;
   it("dam site: a crest above 4 is reduced to 4", () => {
     const r = planPiece(s, "damSite", { river: river.id, at: 40, crest: 7 }, "11111111-2222-4333-8444-000000000001");
