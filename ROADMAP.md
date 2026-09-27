@@ -1024,6 +1024,23 @@ extend the same brushes to caves and tunnels.
 
 ---
 
+## The page is the editor (D232–D234)
+
+After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
+automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
+after Generate, the essentials around it (brushes, Water source and Badwater source, the forces), an expand button to the
+full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser window elsewhere), Generate and settings
+changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
+way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
+exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. Put on the preview; then Kyler runs
+his editor UI audit, and the design pass (its place in the order unchanged) judges the combined page and editor.
+
+**Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
+always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
+the page never freezes; the editor never slows for the history).
+
+---
+
 ## Save to Timberborn
 
 A small step, soon (Kyler, 2026-09-25; PLAN §20 D162), the first half of one-click play. A **Save

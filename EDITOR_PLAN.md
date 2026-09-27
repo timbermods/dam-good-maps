@@ -212,6 +212,26 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 8. The generator, Claude and the first run
 
+**Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
+- **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
+  fallback for computers that can't run 3D well.
+- **The page is the editor** (D233): after Generate, the map on the landing page is already editable, with no separate
+  step or screen. Around it, compact and unobtrusive, only the essentials: the brushes, Water source and Badwater source,
+  and the forces. An expand button in the map's bottom-right corner opens the full editor (the whole shelf, the view
+  buttons, layers and the rest) in true full screen, with the same map and edits and no reload; with Keyboard Lock in
+  Chrome and Edge, Esc still cancels and holding Esc exits; elsewhere it fills the window so Esc keeps working; a button
+  returns to the page. Generating over edits is simply undoable, with a quiet note ("New map. Undo to get <map name>
+  back."); changing a setting regenerates, also undoable. The legend is a small Legend button, collapsed by default (a
+  one-time hint for first visitors; it opens by itself when an overlay is on). Save to Timberborn works from the page and
+  full screen; Real places open the same way; on phones the map is view-only.
+- **Your maps** (D234): every edited map is kept in this browser (settings, seed, edits and a small top-down thumbnail),
+  saved quietly after edits settle; a row of thumbnails on the landing page and the same list in the "…" menu reopen
+  each exactly as left; rename, copy, delete (undoable), a mark for maps already saved to Timberborn; the last 30 kept,
+  stars kept forever; running out of storage is said plainly; it says it lives in this browser, and Download project
+  file and Save to Timberborn stay the permanent ways. No folders, tags or search.
+
+**As built today:**
+
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
   what the player has painted, showing it grow, never a frozen wait.
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players
