@@ -34,6 +34,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
+- **Merged into `dev`:** [#63](https://github.com/timbermods/dam-good-maps/pull/63), your D222 changes: a drying oxbow lake no
+  longer counts as "water still changing" (#72; every generated map and the live-check pin byte-identical, the oracle 0
+  disagreements), and the waterfalls' foam is soft white water (the crack-pattern lace gone; also the glassy panes at the
+  foot of wide falls). Captures: `docs/look/waterfalls/d222-foam-*.jpg`. Honest read: up close the froth is a little milky
+  rather than bubbly. They reach the public site with the next release you approve; the forces preview gets them first.
+  Defaults #77 and #78.
 - **Merged into `dev`:** [#53](https://github.com/timbermods/dam-good-maps/pull/53) waterfalls (D201, D215): the V-shaped gap is
   gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
   crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
@@ -62,7 +68,7 @@ frozen (D218 lets it run without asking on this machine).
 
 ### 5. Defaults I chose (your answers: D222)
 
-#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). #74, #75 and #76 are answered too (D226, D227).
+#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). #74, #75 and #76 are answered too (D226, D227). New: #77 and #78 (the #72 and foam details, #63).
 
 - **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
   the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
