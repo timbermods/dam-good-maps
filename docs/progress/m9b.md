@@ -1,16 +1,16 @@
 # M9b: composition and variety
 
-> **In progress (2026-09-27).** Branch `feature/m9b` (draft PR #70), from `feature/m9a`'s frozen
-> generator (merged in to 788c145) and `dev` (to 61bd0ff). Generator **0.8.0**. Built so far: one
-> readable water system, courses that never run dry, Islands' sea in six layouts, the themes steered
-> toward their promises and checked, the candidate choice by D273's outcomes, D274's intentions set,
-> the 8 orientations, names and a how-it-plays line, Another like this, Variety as a setting, and
-> D298's game soil (the build and both validators). **Left, in order:** the intentions' emergence
-> (four of the ten new ones rarely emerge yet), the Canyon and Islands promises, generation time
-> (median 8–25 s at 128² under load: too many attempts), chaos (Any at Variety 100, Verticality
-> 100), the tests for 0.8.0 (not yet run: M9a's probe batch holds the machine), the docs (ROADMAP,
-> PLAN, EDITOR_PLAN), the contact sheet, then the first review set. The defaults this session
-> chose are decisions-pending #100–#109.
+> **In progress (2026-09-27).** Branch `feature/m9b` (draft PR #70), from `feature/m9a` (merged in
+> to 83963672, M9a's merge of `dev`) and `dev` (to d02ac283). Generator **0.8.0**. Built: one
+> readable water system with courses held end to end, Islands' sea in six layouts kept off the
+> map's edges, the themes steered toward their promises and checked, the candidate choice by D273's
+> outcomes, D274's intentions (a map's own found one when none drawn emerged), the 8 orientations,
+> names and a how-it-plays line in the map's own numbers, Another like this, Variety as a setting,
+> D298's game soil. On seeds 1–10 of every theme at 128², 58 of 70 maps meet all three outcomes
+> (30 in the first round). **Left, in order:** re-seeding the quick suite's map-bound tests (18
+> failed on 0.8.0's maps; the decisions' ones are updated), the oracle, the batches (≥ 98% final
+> per theme and size), chaos at 256², the names hand-check, generation time (a broad sea's settle),
+> then the first review set. Defaults this session chose: decisions-pending #100–#110.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
