@@ -6,7 +6,7 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, Vector2, Vector3, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
@@ -17,22 +17,6 @@ import { Mist } from "./mist";
 import { paletteDefaults, slots } from "./models";
 import { fallHooks, landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
 import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
-
-/** #38's calibrated water palette (display RGB, investigation/maplook2 water.ts; Kyler approved its
- *  badwater at e63a3ff, D177). */
-const WATER_PALETTE: Record<string, readonly [number, number, number]> = {
-  mlShallow: [34, 71.5, 86],
-  mlBody: [33, 65, 77],
-  mlDeep: [28, 49, 62],
-  mlStreakAbove: [45, 83, 96],
-  mlStreakLow: [56, 86, 98],
-  mlGrazing: [51, 79, 91],
-  mlStreakGrazing: [82.5, 127.5, 137],
-  mlMix: [44, 66, 76],
-  mlBad: [107, 51, 49],
-  mlBadTrough: [-21, -8, -7],
-  mlBadStreak: [12, 15, 5],
-};
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
  *  soft shadows on, #38's balance. */
@@ -112,7 +96,6 @@ export class HighLook {
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
       hlRough: { value: null as unknown },
-      ...Object.fromEntries(Object.entries(WATER_PALETTE).map(([k, v]) => [k, { value: new Vector3(v[0], v[1], v[2]).divideScalar(255) }])),
     };
     const own = (m: ShaderMaterial, extra: Record<string, { value: unknown }> = {}) => {
       // the material's own uniforms (the terrain's height range, hover and ground mode) stay the
@@ -358,7 +341,9 @@ export class HighLook {
   /** Before each frame: the trees' models for this camera, the wind's clock, the sun's depth map. */
   beforeRender(camera: Camera, pixels: number, time: number): void {
     this.vegTime.value = time;
-    if (this.forest && this.effects.vegetation && this.forest.update(camera, pixels, !this.lower)) this.shadows.dirty = true;
+    // (a tree's close-up or far model casts nearly the same shadow: the depth map keeps the one it
+    // was drawn with, and isn't drawn again for the camera's moves)
+    if (this.forest && this.effects.vegetation) this.forest.update(camera, pixels, !this.lower);
     if (this.forest) this.stats.forest = { ...this.forest.stats };
     if (this.shadows.dirty && this.effects.shadows) {
       const now = performance.now();

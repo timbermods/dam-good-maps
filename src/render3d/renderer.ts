@@ -727,7 +727,7 @@ export class MapRenderer {
 
   private probeTimer = 0;
   /** A quick first reading of the automatic look (once a session, a second after the first map):
-   *  the view drawn five times as it is, each timed to the GPU's end. Frames far too slow for High
+   *  the view drawn five times as it is (the same picture), each timed to the GPU's end. Frames far too slow for High
    *  step down at once, without the governor's wait; the governor watches every frame after it. */
   private scheduleProbe(): void {
     if (!this.governor || this.probed || this.lookNow === "standard" || this.lookNow === "light") return;
@@ -736,11 +736,13 @@ export class MapRenderer {
       if (this.disposed || !this.governor || !this.map || this.lookNow === "standard") return;
       this.probed = true;
       const ctx = this.gl.getContext();
+      const one = new Uint8Array(4);
       const times: number[] = [];
       for (let k = 0; k < 5; k++) {
         const t0 = performance.now();
         this.renderNow();
-        ctx.finish();
+        // (reading a pixel waits for the frame to be drawn: finish() may not, in some browsers)
+        ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, one);
         times.push(this.simulatedCost ?? performance.now() - t0);
       }
       const tier = this.governor.probe(times);
@@ -787,8 +789,8 @@ export class MapRenderer {
       ctx.endQuery(t.ext.TIME_ELAPSED_EXT);
       t.pending.push(q);
     } else if (!t.ext && t.frame % 4 === 0) {
-      // no timer queries: every fourth frame, timed to the GPU's end of it
-      ctx.finish();
+      // no timer queries: every fourth frame, timed to the GPU's end of it (a pixel read waits for it)
+      ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
       this.sampleCost(performance.now() - cpuStart);
     }
     if (!t.ext) return;

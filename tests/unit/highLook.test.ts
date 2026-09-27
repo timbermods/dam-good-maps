@@ -190,6 +190,15 @@ describe("the water's flow (estimated from its surface)", () => {
     expect(at(5, 3)).toEqual([0, 0]);
   });
 
+  it("holds a lake still though its surface falls a hair, as a settled lake's does (under 2.5 × 10⁻⁴ a tile)", () => {
+    const W = 10;
+    const H = 3;
+    const heights = new Uint8Array(W * H).fill(2);
+    const depth = Float32Array.from({ length: W * H }, (_, i) => 2 - (i % W) * 1e-4);
+    const sw = surfaceWater(W, H, waterFromDepth(heights, depth, new Float32Array(W * H)));
+    expect(surfaceFlow(W, H, sw).every((v) => v === 0)).toBe(true);
+  });
+
   it("smooths contamination into a soft front, through water on the same surface only", () => {
     const { W, H, sw } = scene();
     const c = surfaceContamination(W, H, sw);

@@ -2,8 +2,10 @@
 // flow.ts; #67 river.ts), from the water the view shows:
 // - the flow: #38 carried the settle's own outflows into the view. The view here holds only the
 //   water's depths, the same for generated maps, places, imports and every live edit, so the flow is
-//   estimated from the water's surface instead: downhill along the surface, as fast as a channel of
-//   that depth and slope runs (Manning's form, v ∝ h^⅔ √S), still where the surface is level. It
+//   estimated from the water's surface instead: downhill along the surface, still where it is level
+//   (a lake's surface falls under 2.5 × 10⁻⁴ a tile) and as fast as the settle's own rivers where it
+//   falls as they do (about 1.5 × 10⁻³ a tile, 6–8 tiles a second: measured against the settle's
+//   outflows on generated maps). It
 //   only moves the water's detail and places its rough water; nothing plays by it, and no water is
 //   simulated for it (a default the session chose: docs/decisions-pending.md #111);
 // - the contamination, smoothed through neighbouring water on the same surface only (never across
@@ -15,12 +17,20 @@
 import type { SurfaceWater } from "../model";
 
 const WET = 0.001;
-/** Tiles a second for a channel a level deep on a slope of one level a tile (the estimate's scale:
- *  a river running a twentieth of a level a tile, a level deep, flows about 1.3 tiles a second). */
-const FLOW_SCALE = 6;
-const MAX_SPEED = 6;
+/** The surface's fall a tile under which water is still, and over which it runs at full speed
+ *  (tiles a second), as the settle's own flow does on generated maps (River Valley 4242, Lake Basin 3,
+ *  Highlands 2 and Delta 5 at 128²: lakes 3 × 10⁻⁵ to 2 × 10⁻⁴ and under 0.15 tiles a second; rivers
+ *  1.1 to 2.5 × 10⁻³ and 6 to 8 tiles a second). */
+const STILL = 2.5e-4;
+const RUNNING = 1.6e-3;
+const FULL_SPEED = 7.5;
 /** Neighbours on the same surface: a step larger than this is a fall. */
 const SAME = 0.35;
+
+function ramp(a: number, b: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
 
 /** The flow at each tile's middle (tiles a second, x east, y toward increasing rows), estimated from
  *  the water's surface. */
@@ -41,7 +51,8 @@ export function surfaceFlow(W: number, H: number, sw: SurfaceWater): Float32Arra
       const gy = n === n && so === so ? (n - so) / 2 : n === n ? n - s : so === so ? s - so : 0;
       const slope = Math.hypot(gx, gy);
       if (slope < 1e-5) continue;
-      const speed = Math.min(MAX_SPEED, FLOW_SCALE * Math.cbrt(depth[i] * depth[i]) * Math.sqrt(slope));
+      const speed = FULL_SPEED * ramp(STILL, RUNNING, slope);
+      if (!speed) continue;
       v[i * 2] = (-gx / slope) * speed;
       v[i * 2 + 1] = (-gy / slope) * speed;
     }
@@ -101,10 +112,6 @@ export function surfaceContamination(W: number, H: number, sw: SurfaceWater): Fl
   return out;
 }
 
-const ramp = (a: number, b: number, x: number) => {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
 
 export interface RoughCounts {
   falls: number;

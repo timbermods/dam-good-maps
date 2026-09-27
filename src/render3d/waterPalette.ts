@@ -3,8 +3,8 @@
 // blend), and how the colours are calibrated on screen. The Standard look's water shader and its
 // falls' shader (D201) read it through `WATER_GLSL` (generated from these values; the Light look
 // runs the same shader code), the legend and the tests read the values, and Map look 2's High
-// shader is to read it when it adopts #38, so the looks never drift apart. No other module defines a water colour
-// (tests/unit/water-palette.test.ts). The 2D preview and the map file's thumbnail keep their own
+// shader reads it too (`HIGH_WATER`, `HIGH_WATER_GLSL`: #38's own inputs, beside Standard's), so the looks never
+// drift apart. No other module defines a water colour (tests/unit/water-palette.test.ts). The 2D preview and the map file's thumbnail keep their own
 // schematic colours; they are not the 3D view.
 //
 // Badwater is #38's, as Kyler approved it (the High prototype at e63a3ff): a crimson, matte,
@@ -98,6 +98,45 @@ export const WATER_SURFACE = {
   reflect: 0.35,
   pale: 0.22,
   spec: 0.5,
+} as const;
+
+/** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
+ *  e63a3ff, D177): #38's own inputs, display values before the light, which its colour check
+ *  calibrated through High's light to the targets in `WATER_CALIBRATION` (the same targets as the
+ *  Standard look's badwater). The High look's tone curve and grade then brighten them a little,
+ *  as #65 intends (its final colours are judged from captures). Clean water by depth (shallow, a
+ *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; water partly
+ *  bad through the warm mixing colour to crimson; badwater's troughs and streaks as offsets on its
+ *  body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
+ *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
+export const HIGH_WATER = {
+  shallow: [34 / 255, 71.5 / 255, 86 / 255] as Rgb,
+  body: [33 / 255, 65 / 255, 77 / 255] as Rgb,
+  deep: [28 / 255, 49 / 255, 62 / 255] as Rgb,
+  streakAbove: [45 / 255, 83 / 255, 96 / 255] as Rgb,
+  streakLow: [56 / 255, 86 / 255, 98 / 255] as Rgb,
+  grazing: [51 / 255, 79 / 255, 91 / 255] as Rgb,
+  streakGrazing: [82.5 / 255, 127.5 / 255, 137 / 255] as Rgb,
+  mix: [44 / 255, 66 / 255, 76 / 255] as Rgb,
+  bad: [107 / 255, 51 / 255, 49 / 255] as Rgb,
+  badTrough: [-21 / 255, -8 / 255, -7 / 255] as Rgb,
+  badStreak: [12 / 255, 15 / 255, 5 / 255] as Rgb,
+  glint: [0.97, 0.985, 1.0] as Rgb,
+  badGlint: [0.78, 0.67, 0.56] as Rgb,
+  foam: [0.9, 0.96, 0.98] as Rgb,
+  badFoam: [0.31, 0.17, 0.085] as Rgb,
+  sideShallow: [0.13, 0.58, 0.6] as Rgb,
+  sideBody: [0.045, 0.36, 0.48] as Rgb,
+  sideDeep: [0.025, 0.16, 0.3] as Rgb,
+  sideBad: [0.19, 0.064, 0.034] as Rgb,
+  sideBadDeep: [0.06, 0.022, 0.018] as Rgb,
+  section: [0.18, 0.5, 0.55] as Rgb,
+  sectionDeep: [0.075, 0.23, 0.3] as Rgb,
+  sectionBad: [0.38, 0.14, 0.095] as Rgb,
+  mist: [0.85, 0.94, 0.95] as Rgb,
+  badMist: [0.67, 0.54, 0.36] as Rgb,
+  ring: [0.8, 0.94, 0.93] as Rgb,
+  badRing: [0.62, 0.45, 0.28] as Rgb,
 } as const;
 
 /** Clear water (D196, D212): the water see-through, so the bed, ledges and sources show; under and
@@ -320,6 +359,11 @@ export function waterOpacity(depth: number, fromBank = 1, share = 0, facing = 1)
 
 const f = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000)).join(", ")})`;
+
+/** The High look's water colours in GLSL (`HIGH_WATER`): HW_ and the key in capitals. */
+export const HIGH_WATER_GLSL = Object.entries(HIGH_WATER)
+  .map(([k, c]) => `  #define HW_${k.replace(/[A-Z]/g, (m) => "_" + m).toUpperCase()} vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`)
+  .join("\n");
 
 /** The same values and functions in GLSL, for every water shader: the colours as constants, and
  *  clean water's body and opacity, badwater's, and the blend between them. */

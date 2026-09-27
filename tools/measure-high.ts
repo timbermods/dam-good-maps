@@ -4,7 +4,8 @@
 // investigations' parts alone on top of the foundation (#38, #65 and #66), so each stage's cost
 // shows. Information (D115), and where the automatic fallback starts (high/fallback.ts LIMITS).
 //
-//   npx tsx tools/measure-high.ts [--port 4941] [--seconds 5] [--only generated,busy] [--headless]
+//   npx tsx tools/measure-high.ts [--port 4941] [--seconds 5] [--only generated,busy] [--configs 1,2,3]
+//     [--dpr 2] [--tag -dpr2] [--headless]
 //
 // It opens the installed Chrome headed (real vsync; nothing is played), builds the site from this
 // checkout, and writes .scratch/measure-high.json (gitignored) and a table on stdout. The camera
@@ -22,6 +23,11 @@ const PORT = Number(arg("port") ?? 4941);
 const SECONDS = Number(arg("seconds") ?? 5);
 const ONLY = arg("only")?.split(",");
 const HEADLESS = process.argv.includes("--headless");
+/** Device pixels per CSS pixel (2: a high-density screen, four times the pixels). */
+const DPR = Number(arg("dpr") ?? 1);
+/** Which configurations (their numbers in CONFIGS, from 1). */
+const PICK = arg("configs")?.split(",").map(Number);
+const TAG = arg("tag") ?? "";
 const OUT = ".scratch/measure-high-dist";
 
 /** Dense 256² maps: forests at twice the density in big woods, ruins ×3. */
@@ -94,7 +100,8 @@ async function orbit(page: Page, view: "whole" | "close"): Promise<Orbit> {
 }
 
 /** The whole cost of a frame, CPU and GPU: the view drawn 40 times back to back, each waited for
- *  to its end (the median; no vsync in it). The cleanest comparison between configurations. */
+ *  to its end by reading a pixel back (the median; no vsync in it). The cleanest comparison between
+ *  configurations. */
 async function drawn(page: Page, view: "whole" | "close"): Promise<{ p50: number; p95: number }> {
   return (await page.evaluate(`(() => {
     const r = window.dgm3d.renderer;
@@ -105,7 +112,7 @@ async function drawn(page: Page, view: "whole" | "close"): Promise<{ p50: number
     for (let k = 0; k < 45; k++) {
       const t0 = performance.now();
       r.renderNow();
-      g.finish();
+      g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, new Uint8Array(4));
       if (k >= 5) t.push(performance.now() - t0);
     }
     t.sort((a, b) => a - b);
@@ -155,8 +162,8 @@ async function main() {
   try {
     const keep = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--enable-gpu", "--ignore-gpu-blocklist"];
     const browser = await chromium.launch({ channel: "chrome", headless: HEADLESS, args: keep });
-    const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
-    await page.addInitScript("window.__name = (f) => f; localStorage.setItem('dgm.look', 'standard');");
+    const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: DPR });
+    await page.addInitScript("window.__name = (f) => f; try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     for (const m of MAPS) {
@@ -165,7 +172,8 @@ async function main() {
       await open(page, m.fragment);
       const info = (await page.evaluate(`(() => { const r = window.dgm3d.renderer; return { gpu: r.gpu().renderer, canvas: [r.canvas.width, r.canvas.height], objects: r.mapState().entities.count, falls: r.info().falls }; })()`)) as Record<string, unknown>;
       console.log(JSON.stringify(info));
-      for (const c of CONFIGS) {
+      for (const [n, c] of CONFIGS.entries()) {
+        if (PICK && !PICK.includes(n + 1)) continue;
         await setConfig(page, c);
         const drawWhole = await drawn(page, "whole");
         const drawClose = await drawn(page, "close");
@@ -173,7 +181,7 @@ async function main() {
         const close = await orbit(page, "close");
         const painting = await paint(page);
         const stats = await page.evaluate("window.dgm3d.renderer.highStats");
-        const row = { map: m.id, config: c.id, drawn: { whole: drawWhole, close: drawClose }, whole, close, painting, stats, ...info };
+        const row = { map: m.id, dpr: DPR, config: c.id, drawn: { whole: drawWhole, close: drawClose }, whole, close, painting, stats, ...info };
         results.push(row);
         console.log(`${c.id.padEnd(38)} drawn: whole ${drawWhole.p50} ms, close ${drawClose.p50} ms · whole: GPU p50 ${whole.gpuP50} p95 ${whole.gpuP95} ms, ${whole.fps} fps · close: GPU p50 ${close.gpuP50} p95 ${close.gpuP95} ms, ${close.fps} fps · painting: frames p50 ${painting.frameP50} p95 ${painting.frameP95} ms, long tasks ${(painting.longTasks as number[]).length}`);
       }
@@ -184,8 +192,8 @@ async function main() {
     await server.close();
   }
   mkdirSync(".scratch", { recursive: true });
-  writeFileSync(".scratch/measure-high.json", JSON.stringify({ date: new Date().toISOString(), seconds: SECONDS, results }, null, 2) + "\n");
-  console.log("\nwrote .scratch/measure-high.json");
+  writeFileSync(`.scratch/measure-high${TAG}.json`, JSON.stringify({ date: new Date().toISOString(), seconds: SECONDS, results }, null, 2) + "\n");
+  console.log(`\nwrote .scratch/measure-high${TAG}.json`);
 }
 
 await main();

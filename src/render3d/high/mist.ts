@@ -6,6 +6,9 @@
 
 import { BufferGeometry, DataTexture, Float32BufferAttribute, FloatType, Group, Mesh, NearestFilter, Points, RGBAFormat, ShaderMaterial, Vector2, type InstancedBufferGeometry } from "three";
 import type { SurfaceWater } from "../model";
+import { HIGH_WATER, type Rgb } from "../waterPalette";
+
+const gl = (c: Rgb) => `vec3(${c.join(", ")})`;
 
 export const MAX_MIST = 2048;
 export const MAX_RINGS = 768;
@@ -51,7 +54,7 @@ export class Mist {
           float d = length(gl_PointCoord - 0.5) * 2.0;
           float a = exp(-d * d * 4.0) * (1.0 - smoothstep(0.65, 1.0, d)) * vFade;
           if (a < 0.002) discard;
-          gl_FragColor = vec4(mix(vec3(0.85, 0.94, 0.95), vec3(0.67, 0.54, 0.36), vBad), a);
+          gl_FragColor = vec4(mix(${gl(HIGH_WATER.mist)}, ${gl(HIGH_WATER.badMist)}, vBad), a);
         }`,
     });
     this.ringMat = new ShaderMaterial({
@@ -94,7 +97,7 @@ export class Mist {
           float ring = 1.0 - smoothstep(0.014 + aa, 0.045 + aa, abs(d - 0.78));
           float broken = 0.70 + 0.30 * sin(atan(vUv.y, vUv.x) * 5.0 + vCycle * 2.0);
           float a = ring * sin(vCycle * 3.14159) * (1.0 - vCycle) * 0.22 * broken;
-          gl_FragColor = vec4(mix(vec3(0.80, 0.94, 0.93), vec3(0.62, 0.45, 0.28), vBad), a);
+          gl_FragColor = vec4(mix(${gl(HIGH_WATER.ring)}, ${gl(HIGH_WATER.badRing)}, vBad), a);
         }`,
     });
     this.group.name = "high.mist";

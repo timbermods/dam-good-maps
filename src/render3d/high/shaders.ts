@@ -18,6 +18,7 @@
 // chose: docs/decisions-pending.md #110).
 
 import { WATER } from "../palette";
+import { HIGH_WATER_GLSL } from "../waterPalette";
 import type { ShaderHooks } from "../materials";
 
 /** The switches' uniform names (render3d/high/effects.ts maps the effects onto them). */
@@ -248,15 +249,15 @@ export function terrainHooks(): ShaderHooks {
 
 // -------------------------------------------------------------------------------------- the water
 
-/** #38's water surface: the calibrated palette (display RGB, through the renderer's light), fine
+/** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the
+ *  renderer's light), fine
  *  irregular crests and tiny flecks in one detail field advected by the flow in two phases, the
  *  contamination front as a continuous gradient to crimson, matte badwater with its slow bubbles. */
 const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
   uniform sampler2D hlRough;
-  uniform vec3 mlShallow, mlBody, mlDeep, mlStreakAbove, mlStreakLow, mlGrazing, mlStreakGrazing;
-  uniform vec3 mlMix, mlBad, mlBadTrough, mlBadStreak;
+${HIGH_WATER_GLSL}
   vec3 hlRippleNormal(vec2 p, float t) {
     vec2 slope = vec2(0.0);
     slope += cos(dot(p, vec2(1.1, 0.4)) + t * 1.05) * vec2(1.1, 0.4) * 0.065;
@@ -292,15 +293,15 @@ const WATER_FUNCTIONS = /* glsl */ `
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.25, 4.25, depth);
-    vec3 body = mix(mix(mlShallow, mlBody, bodyDepth), mlDeep, deep);
+    vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
     float facing = clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0);
     float low = 1.0 - smoothstep(0.50, 0.82, facing);
     float grazing = 1.0 - smoothstep(0.18, 0.50, facing);
-    body = mix(body, mlGrazing, grazing);
-    vec3 streakColour = mix(mix(mlStreakAbove, mlStreakLow, low), mlStreakGrazing, grazing);
+    body = mix(body, HW_GRAZING, grazing);
+    vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 mixedBody = mlMix + (body - mlBody) * 0.25;
-    vec3 badBody = mlBad * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    vec3 mixedBody = HW_MIX + (body - HW_BODY) * 0.25;
+    vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
     body = contamination <= 0.25 ? mix(body, mixedBody, contamination / 0.25) : mix(mixedBody, badBody, (contamination - 0.25) / 0.75);
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
     streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
@@ -321,7 +322,7 @@ const WATER_FUNCTIONS = /* glsl */ `
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
       signalOpacity = max(signalOpacity, grazing * 0.62);
       signalOpacity = mix(signalOpacity, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, contamination));
-      colour += (mlBadTrough * trough + mlBadStreak * streak) * ((contamination - 0.25) / 0.75) / signalOpacity;
+      colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((contamination - 0.25) / 0.75) / signalOpacity;
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
     vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
@@ -330,7 +331,7 @@ const WATER_FUNCTIONS = /* glsl */ `
     glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
     glint *= mix(1.0, 0.35, contamination);
     glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, contamination));
-    colour = mix(colour, mix(vec3(0.97, 0.985, 1.0), vec3(0.78, 0.67, 0.56), contamination), glint);
+    colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, contamination), glint);
     if (contamination > 0.01) {
       float bt = t * mix(1.0, 0.55, contamination);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
@@ -377,16 +378,16 @@ export function waterHooks(): ShaderHooks {
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0);
-            c = mix(hlSurface.rgb, mix(vec3(0.90, 0.96, 0.98), vec3(0.31, 0.17, 0.085), hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            c = mix(hlSurface.rgb, mix(HW_FOAM, HW_BAD_FOAM, hlBad) * (0.85 + 0.15 * lit), hlFoam);
             alpha = mix(hlSurface.a, 0.97, hlFoam);
           } else {
             // the water's side: streaks where it steps down, the water's body at the map's edge
             float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));
             float hlBad = cont >= 0.95 ? 1.0 : (cont <= 0.05 ? cont : mix(cont * 0.55, 1.0, smoothstep(1.0 - cont - 0.20, 1.0 - cont + 0.20, stream)));
             float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
-            vec3 clean = mix(vec3(0.13, 0.58, 0.60), vec3(0.045, 0.36, 0.48), hlAbsorb);
-            clean = mix(clean, vec3(0.025, 0.16, 0.30), 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
-            vec3 murk = mix(vec3(0.19, 0.064, 0.034), vec3(0.060, 0.022, 0.018), hlAbsorb);
+            vec3 clean = mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb);
+            clean = mix(clean, HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
+            vec3 murk = mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb);
             c = mix(clean, murk, hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             bool edge = vFlags > 254.5;
             float drop = edge ? 0.0 : vFlags / 30.0;
@@ -396,8 +397,8 @@ export function waterHooks(): ShaderHooks {
             alpha = edge ? mix(0.78, 0.96, hlBad) : (0.32 + 0.53 * strands) * smoothstep(0.06, 0.25, drop);
             // the water's section at the map's edge (#67 stage 1)
             if (hlSection > 0.5 && edge) {
-              vec3 section = mix(vec3(0.18, 0.50, 0.55), vec3(0.075, 0.23, 0.30), 1.0 - exp(-max(depth, 0.0) * 0.65));
-              section = mix(section, vec3(0.38, 0.14, 0.095), cont);
+              vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
+              section = mix(section, HW_SECTION_BAD, cont);
               c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
               alpha = mix(0.91, 0.98, cont);
             }
@@ -409,7 +410,7 @@ export function waterHooks(): ShaderHooks {
               hlFoam = 0.0;
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0);
-            c = mix(c, mix(vec3(0.90, 0.96, 0.98), vec3(0.31, 0.17, 0.085), hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            c = mix(c, mix(HW_FOAM, HW_BAD_FOAM, hlBad) * (0.85 + 0.15 * lit), hlFoam);
             alpha = mix(alpha, 0.97, hlFoam);
             if (alpha < 0.01) discard;
           }

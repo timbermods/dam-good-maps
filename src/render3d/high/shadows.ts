@@ -1,8 +1,9 @@
 // Soft shadows from the real meshes for the High look (#38, investigation/maplook2 effects.ts; PLAN
 // §20 D147): the terrain, the trees and the ruins drawn from the sun into a 2048² depth map, which
 // the High shaders read with a 25-tap filter (shaders.ts). It is redrawn only when what casts
-// shadows changed (the terrain, the objects, a tree's close-up or far model), never for the water's
-// movement or the wind (the trees' shadows stay still: their sway is a few hundredths of a tile).
+// shadows changed (the terrain, the objects), never for the camera, the water's movement or the
+// wind (the trees' shadows stay still: their sway is a few hundredths of a tile, and a tree's
+// close-up and far models cast nearly the same shadow).
 // Water, falls and the effects cast none.
 
 import { Color, DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, UnsignedIntType, Vector3, WebGLRenderTarget, type Scene, type WebGLRenderer } from "three";
