@@ -1,4 +1,4 @@
-// The starting-logs floor (PLAN §20 D224): the pinned computation in src/core/data/log-floor.json is
+// The starting-logs floor (PLAN §20 D224, D227): the pinned computation in src/core/data/log-floor.json is
 // consistent, for the game version the writer stamps, and never below 120. `npx tsx tools/log-floor.ts
 // --check` compares it with the installed game's own blueprints (local only; CI has no game).
 import { describe, expect, it } from "vitest";
@@ -19,6 +19,7 @@ describe("the starting-logs floor (D224)", () => {
     expect(floor.floor).toBe(Math.max(floor.minimum, floor.computed));
     expect(floor.minimum).toBe(120);
     expect(floor.floor).toBeGreaterThanOrEqual(120);
+    expect(floor.withinWalk).toBe(40); // D227: "can I survive" within about 40 tiles; Minimum starting wood counts within 20
   });
 
   it("counts logs by species from the game's yields; saplings never count", () => {

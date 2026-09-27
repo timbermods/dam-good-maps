@@ -837,7 +837,7 @@ every place rebuilt without perimeter walls, water free to drain; and the galler
 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
-D151 (no edge walls), and the starting-logs floor (D224: at least 167 logs reachable on foot from the start).
+D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round
@@ -1202,9 +1202,9 @@ become recipes inside the system (design §3).
   - Acceptance (Kyler's one rule, D115):
     - Blocking: **zero built dam walls on every theme, size, difficulty and setting** (the
       dam-wall check on every batch map, and a contract test that no planned feature list holds a
-      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224: at least the
-      floor, 167 logs for 1.1.2.4, reachable on foot from the start, at every difficulty; Minimum starting
-      wood only goes up from it); batches ≥ 98% final per theme at 96², 128², 192² and
+      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224, D227: at least
+      the floor, 178 logs for 1.1.2.4, within 40 tiles' walk of the start, at every difficulty; Minimum
+      starting wood counts within 20 tiles: Easy 250, Normal 200, Hard none beyond the floor); batches ≥ 98% final per theme at 96², 128², 192² and
       256² (a seed that makes no map is breakage); the same bytes for the same seed in Node and
       Chrome, and share links that reproduce; 0 disagreements with the Python oracle, A1's file
       included, and A2's timestamp writing the same bytes in every time zone; every speedup
@@ -1885,7 +1885,7 @@ official-like trees, ruins, mines and clusters (D167–D170). When the quiet ret
 player's framing, size or scale, the page says so plainly.
 
 **Blocking:** breakage (the map passes the validators and exports; the share link rebuilds it
-exactly; attribution present; no edge walls; the starting-logs floor, D224) and what a player feels (the explore view and the
+exactly; attribution present; no edge walls; the starting-logs floor, D224, D227) and what a player feels (the explore view and the
 live preview stay smooth; progress while it builds; never a frozen page; never a failed attempt
 shown).
 
