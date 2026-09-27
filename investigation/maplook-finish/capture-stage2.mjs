@@ -13,4 +13,3 @@ try{
  writeFileSync('captures/stage2-check.json',JSON.stringify({errors},null,2));
  if(errors.length)throw Error(errors.join('\n'));
 }finally{await browser.close();}
-

@@ -37,4 +37,3 @@ export function snapshot(base:WeatherBase,sim:WaterSim,phase:Hazard,day:number,d
  const soil=soilView(moisture(heights,sim.D,sim.C,W,H,null),soilContamination(heights,sim.D,sim.C,W,H,null));
  return {water,soil,phase,day,days,velocity:surfaceVelocity(W,H,sim.D,sim.out)};
 }
-

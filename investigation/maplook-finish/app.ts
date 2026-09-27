@@ -120,6 +120,11 @@ function setPose(kind:string){
  let v:Partial<ViewState>={mode:'orbit',target:[W/2,6,-H/2],distance:Math.max(W,H)*1.4,pitch:0.85,yaw:-0.55};
  if(kind==='objects'||kind==='object'||kind==='top'){
    if(currentKind==='objects'){const x=4+objectIndex*6,name=objectTypes[objectIndex],center:Record<string,number[]>={UndergroundRuins:[2,2],StartingLocation:[1,1],BadwaterSource:[1,1],GeothermalField:[1,1],SmallRelic:[.5,0],MediumRelic:[1,.5],LargeRelic:[1,1]},c=center[name]??[0,0];v={mode:kind==='top'?'top':'orbit',target:kind==='objects'?[42,4.5,-13]:[x+c[0]+.5,name.startsWith('Ruin')?6:name==='StartingLocation'?5.5:4.7,-12-c[1]-.5],distance:kind==='objects'?62:name==='UndergroundRuins'?10:name.startsWith('Ruin')||name==='StartingLocation'?8:6.7,pitch:0.58,yaw:-0.5};}
+   if(currentKind==='objects'&&kind!=='objects'){
+     const name=objectTypes[objectIndex];
+     if(['Thorns','Slope','NaturalDam','Blockage','WaterSource'].includes(name))v.distance=3.8;
+     if(name==='Slope'){v.yaw=2.65;v.pitch=.72;}
+   }
    else if(kind==='top')v.mode='top';
  }else if(kind==='edge'||kind==='badedge'){
    let best=-Infinity,point=[0,0,0],yaw=0;
@@ -211,11 +216,29 @@ async function measureStages(){
  const previous=[...stages],results=[];input('adaptive').checked=false;
  try{setStages([false,false,false,false]);results.push({name:'foundation',...await measure('high')});for(let i=0;i<4;i++){setStages(stages.map((_,j)=>i===j));results.push({name:'stage '+(i+1),...await measure('high')});}setStages([true,true,true,true]);for(const m of ['standard','high','both'])results.push({name:'all',...await measure(m)});$('metrics').textContent=JSON.stringify(results,null,2);return results;}finally{setStages(previous);}
 }
+async function gpuBatch(batch=16){
+ const gl=b.gl.getContext() as WebGL2RenderingContext,ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ if(!ext)return null;
+ const oldLayout=select('layout').value;select('layout').value='high';measuring=true;
+ try{
+  freeze();const q=gl.createQuery()!;gl.beginQuery(ext.TIME_ELAPSED_EXT,q);
+  for(let i=0;i<batch;i++)renderNow(high);
+  gl.endQuery(ext.TIME_ELAPSED_EXT);
+  for(let i=0;i<100;i++){
+   await nextFrame();
+   if(gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE)){
+    const value=gl.getParameter(ext.GPU_DISJOINT_EXT)?null:gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6/batch;
+    gl.deleteQuery(q);return value;
+   }
+  }
+  gl.deleteQuery(q);return null;
+ }finally{measuring=false;select('layout').value=oldLayout;}
+}
 $('measure').onclick=()=>void measureStages().catch(e=>$('metrics').textContent=String(e));
 $('capture').onclick=()=>{freeze();const c=document.createElement('canvas');c.width=standard.canvas.width+high.canvas.width;c.height=high.canvas.height+36;const ctx=c.getContext('2d')!;ctx.fillStyle='#f4f5ec';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#29382e';ctx.font='16px Segoe UI';ctx.fillText('Standard',12,24);ctx.fillText('High · finish proposal',standard.canvas.width+12,24);ctx.drawImage(standard.canvas,0,36);ctx.drawImage(high.canvas,standard.canvas.width,36);const a=document.createElement('a');a.href=c.toDataURL('image/jpeg',.9);a.download='maplook-finish.jpg';a.click();};
 const source=document.createElement('a');source.href=ELEVATION_SOURCE_URL;source.textContent=ELEVATION_SOURCE;$('credits').append(source);
 for(const text of [CHANGES,NOT_ENDORSED,...PROVIDER_NOTICES]){const p=document.createElement('p');p.textContent=text;$('credits').append(p);}
 $('gpu').textContent=high.gpu().renderer+' · Three.js 0.186.0 · Standard renderer unchanged; full Standard forced on software WebGL';
-const api={get ready(){return ready;},get map(){return map;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,weather,showWeatherDay,get weatherReady(){return weatherComplete;},get weatherDays(){return [...weatherFrames.keys()];},get weatherState(){return activeWeather;},setPose,camera,setEffects,setStages,freeze,measure,measureStages,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats,water:waterFinish.stats,landmarks:landmarks.stats,seasons:seasons.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
+const api={get ready(){return ready;},get map(){return map;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,weather,showWeatherDay,get weatherReady(){return weatherComplete;},get weatherDays(){return [...weatherFrames.keys()];},get weatherState(){return activeWeather;},setPose,camera,setEffects,setStages,freeze,measure,measureStages,gpuBatch,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats,water:waterFinish.stats,landmarks:landmarks.stats,seasons:seasons.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
 (window as unknown as {finish:typeof api}).finish=api;
 requestAnimationFrame(frame);void load(2).catch(console.error);

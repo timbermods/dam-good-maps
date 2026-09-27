@@ -13,4 +13,3 @@ No Timberborn files, extracted assets, game textures, sounds or screenshots are 
 | Real-place elevation fixtures | Existing public/real-places/data fixtures; provider notices displayed in demo | See repository src/core/places/attribution.ts and fixture metadata; elevation data, not an art asset |
 
 No external art assets are needed. Three.js 0.186.0 is MIT. Large renders, dependencies and build output are ignored.
-

@@ -162,14 +162,17 @@ export class Landmarks {
        else if(name==='Blockage'||name==='NaturalDam')geometry=debris(name==='NaturalDam');
        else geometry=augment(old.name,old.geometry);
        const fresh=new InstancedMesh(geometry,this.material,indices.length),grow=old.geometry.getAttribute('grow'),mat=new Matrix4();
-       const grows:number[]=[],colors:number[]=[];
+       const grows:number[]=[],colors:number[]=[],baselineColors:number[]=[];
        for(const [j,i]of indices.entries()){
          old.getMatrixAt(i,mat);fresh.setMatrixAt(j,mat);
          grows.push(grow.getX(i),grow.getY(i),grow.getZ(i));
          const tint=old.instanceColor!;
+         baselineColors.push(tint.getX(i),tint.getY(i),tint.getZ(i));
          colors.push(...(name==='NaturalDam'||name==='Blockage'?[1,1,1]:[tint.getX(i),tint.getY(i),tint.getZ(i)]));
        }
        geometry.setAttribute('grow',new InstancedBufferAttribute(new Float32Array(grows),3));fresh.instanceColor=new InstancedBufferAttribute(new Float32Array(colors),3);
+       fresh.userData.proposalColors=fresh.instanceColor;
+       fresh.userData.baselineColors=new InstancedBufferAttribute(new Float32Array(baselineColors),3);
        fresh.instanceMatrix.needsUpdate=true;fresh.frustumCulled=false;fresh.name=name;fresh.userData.objects=Int32Array.from(indices,i=>objects[i]);
        this.group.add(fresh);this.pairs.push({old,fresh,category:category(name)!});
      }
@@ -185,6 +188,7 @@ export class Landmarks {
    const entries=this.pairs.filter(p=>p.old===old),any=entries.some(p=>enabled&&flags[p.category]);
    old.visible=!any;
    for(const p of entries){p.fresh.visible=any;const chosen=enabled&&flags[p.category];p.fresh.material=chosen?this.material:old.material;
+     p.fresh.instanceColor=chosen?p.fresh.userData.proposalColors:p.fresh.userData.baselineColors;
      // Category-off entries in a mixed batch use a baseline-geometry clone.
      if(!p.fresh.userData.proposal)p.fresh.userData.proposal=p.fresh.geometry;
      if(!chosen&&any){

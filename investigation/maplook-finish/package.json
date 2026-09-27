@@ -9,6 +9,8 @@
     "test": "tsx --tsconfig tsconfig.runtime.json --test checks.test.ts",
     "capture": "node capture.mjs",
     "bench": "node benchmark.mjs",
+    "verify": "node verify.mjs",
+    "profile": "node profile-gpu.mjs",
     "scope": "node scope-check.mjs"
   },
   "dependencies": {
