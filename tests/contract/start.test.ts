@@ -5,7 +5,8 @@
 //
 //   1. Water without stairs (amended by Kyler, 2026-09-25, D153): clean water touches a shore tile the
 //      start reaches on foot over the map's own ground and its slopes (never player stairs), within
-//      the rule's walk, and a pump on that shore reaches the water's surface.
+//      the rule's walk, and a pump on that shore reaches the water's surface; and (D302) a running
+//      source feeds that water, or it lasts the drought: never a sealed puddle.
 //   2. Starting wood (D164): the logs of the grown trees within 20 tiles' walk (slopes allowed),
 //      alive or dead, by species (oak 8, pine 2, birch 1) ≥ Minimum starting wood; a sapling's
 //      logs are still growing and do not count. The starting-logs floor (D224, D227) counts the
@@ -37,8 +38,8 @@ interface Scene {
 }
 
 /** Level 5 ground; the start's 3×3 at (11–13, 23–25); a river 3 wide at x = 34–36, its bed one
- *  level below the bank (4) and its water 0.6 deep, so a pump on the bank reaches it. The shore
- *  tile x = 33 is 20 tiles' walk from the start's 3×3. */
+ *  level below the bank (4) and its water 0.6 deep, so a pump on the bank reaches it, fed by a
+ *  source at its head (35, 0) (D302). The shore tile x = 33 is 20 tiles' walk from the start's 3×3. */
 function scene(): Scene {
   const heights = new Uint8Array(N).fill(5);
   const depth = new Float64Array(N);
@@ -48,7 +49,7 @@ function scene(): Scene {
       heights[y * W + x] = 4;
       depth[y * W + x] = 0.6;
     }
-  const objects: MapObject[] = [obj("StartingLocation", START.x - 1, START.y - 1, 5)];
+  const objects: MapObject[] = [obj("StartingLocation", START.x - 1, START.y - 1, 5), obj("WaterSource", 35, 0, 4, "Cw0", { WaterSource: { SpecifiedStrength: 1 } })];
   return { heights, depth, contamination, objects };
 }
 
@@ -139,6 +140,15 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(c["start.food"].value).toBe(35);
     for (const id of ["start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
     expect(c["start.reach_water"]).toBeUndefined();
+  });
+
+  it("the same river with no source feeding it is a sealed puddle a drought empties, and fails (D302)", () => {
+    const s = good();
+    s.objects = s.objects.filter((o) => o.template !== "WaterSource");
+    const c = check(s);
+    expect(c["start.water"].ok).toBe(false);
+    expect(c["start.water"].value).toBe("none");
+    expect(c["start.water"].message).toMatch(/^the water 20 tiles' walk away is a sealed puddle no source feeds, which a 9-day drought empties/);
   });
 
   it("water beyond the walking distance fails, and the water setting moves the result", () => {
