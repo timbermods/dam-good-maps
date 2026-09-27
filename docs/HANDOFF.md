@@ -193,8 +193,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   **held, not merged**, until Kyler has tried the demo and says it's ready (as Carve and Quake were, D194, D203); then
   adopt it onto the shared forces core with round 2's conventions, following its INTEGRATION.md, and add it to the
   investigation index. Not pushed yet.
-- **`investigation/maplook-finish`** (Codex, D243: phase 3, "finish the world"): merge it as proposals only when its PR is
-  open and green; adopt nothing until Kyler has reviewed its stages.
+- **`investigation/maplook-finish`** (#67, D243, D250): approved and merged (8ed950a); adopt it into High in the Map look
+  work with #38, #65 and #66, plus D250's two additions (badtide withering; the RTX 2070 SUPER measurement).
 - **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
   Balatro as the reference; D226): merge it as proposals when green, hook it into Live editing's juice, and show it on
   the preview.
@@ -240,7 +240,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D250), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D251), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
