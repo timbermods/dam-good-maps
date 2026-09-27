@@ -246,18 +246,35 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   }
   // the map's bushes (the baseline): a few large patches beside water
   const patchCentres: [number, number][] = [];
-  const basePatches = (want: number) => {
+  // where the colony's walk holds little moist land (a narrow floodplain), the map's own groves and
+  // patches keep out of it on their first pass, so the start's planting has all of it (D85, D252)
+  let walkKeepOut: Uint8Array | null = null;
+  if (g.start && nearWalk) {
+    let room = 0;
+    for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
+    if (room < 1.25 * (near.bushes + near.trees)) walkKeepOut = nearWalk;
+  }
+  // the baseline's planners take no tile of `keepOut`
+  const keepOutOf = (keepOut: Uint8Array | null) => {
+    if (keepOut) for (let i = 0; i < N; i++) if (keepOut[i]) taken[i] = 1;
+  };
+  const letIn = (keepOut: Uint8Array | null) => {
+    if (keepOut) for (let i = 0; i < N; i++) if (keepOut[i]) taken[i] = free[i] ? 0 : 1;
+  };
+  const basePatches = (want: number, keepOut: Uint8Array | null = null) => {
     syncTaken();
+    keepOutOf(keepOut);
     for (const p of planPatches(ground, want, { rng: vegRng, waterDist, centres: patchCentres })) {
       const role = anchorRole("berryPatch", p.tiles);
       out.push({ id: featureId(seed, "berryPatch", role), kind: "berryPatch", origin: "generated", role, locked: false, params: { area: tilesToRuns(p.tiles, W), density: 1, ripeShare: 0.55 } });
       bushCount += p.tiles.length;
     }
+    letIn(keepOut);
     takeFromBaseline();
   };
   // (the start's share is kept back for its own planting below, and what that does not use goes
   // to the rest of the map afterwards)
-  basePatches(budget.bushes - bushCount - (g.start ? near.bushes : 0));
+  basePatches(budget.bushes - bushCount - (g.start ? near.bushes : 0), walkKeepOut);
 
   // ---- groves: single-species, alive on moist soil and stored dead on dry soil (PLAN §7.7)
   const grove = FOREST.grove[spec.settings.resources.groveSize];
@@ -331,12 +348,13 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // the map's trees (the baseline): living groves on moist ground, at most on a quarter of it, and
   // the rest on dry ground, dead (or succulents); each grove one species. `keep` trees are kept
   // back for the start's own planting
-  const baseGroves = (keep: number) => {
+  const baseGroves = (keep: number, keepOut: Uint8Array | null = null) => {
     let moistRoom = 0;
     for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
     const livingWant = Math.max(0, Math.min(budget.living - succulentsOf(budget, spec.settings.resources) - treeCount - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
     const dryWant = Math.max(0, budget.trees - treeCount - livingWant - keep);
     syncTaken();
+    keepOutOf(keepOut);
     for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist })) {
       const role = anchorRole("forest/grove", gr.tiles);
       out.push({
@@ -350,9 +368,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       planted.push({ id: featureId(seed, "forest", role), tiles: gr.tiles, species: gr.species, living: gr.living });
       treeCount += gr.tiles.length;
     }
+    letIn(keepOut);
     takeFromBaseline();
   };
-  baseGroves(g.start ? near.trees : 0);
+  baseGroves(g.start ? near.trees : 0, walkKeepOut);
 
   // ---- the start's own planting (PLAN §5.6, D85, D164, D227; D252): the map's own groves and
   //      patches come first, and the start rules add only what they leave short of the targets
@@ -463,7 +482,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         const sp = FLOOR_KINDS[kind].species;
         let grew = false;
         for (const s of pickSeeds(lay.rng, seedW, W, 3, 4)) {
-          if (!growGrove(s, n, true, zone, dense ? 1 : nearFill.trees, tight, `forest/start/${kind}`, [sp.pine * lay.opening[0], sp.birch * lay.opening[1], sp.oak * lay.opening[2], 0])) continue;
+          if (!growGrove(s, n, true, zone, dense ? 1 : nearFill.trees, tight, `forest/start/${kind}`, tight ? undefined : [sp.pine * lay.opening[0], sp.birch * lay.opening[1], sp.oak * lay.opening[2], 0])) continue;
           got += groveLogs;
           grew = true;
           break;
@@ -485,7 +504,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (nearHere && free[i] && moist[i]) w[i] = within && lay ? lay.groves[i] : byWalk(i);
       }
       for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start", lay ? [...lay.opening, 0] : undefined)) got += groveLogs;
+        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start", lay && !tight ? [...lay.opening, 0] : undefined)) got += groveLogs;
         if (got >= nearWood) break;
       }
     }

@@ -246,6 +246,14 @@ bushes (D85), planted first and evenly on the moist land nearest the start, and 
 - **The start's yard** (6 tiles from its middle) stays clear of its own planting where the walk has
   room elsewhere; standing dead groves on the walk's dry ground only where its moist land runs out,
   as before.
+- **A walk short of moist land** (a narrow floodplain: less than 1.25 × the room the start's berries
+  and trees need): the map's own groves and patches keep out of it on their first pass, and the
+  start's groves draw their species by the wood they give (D164's tight rule), with no lean to the
+  place or the opening, so all of that land goes to the start's wood as before. Found by CI on
+  ca63a56: without it, River Valley 96² seed 1333 (one of the e2e determinism seeds) made no map (12
+  attempts; three short of Minimum starting wood, the map's own low-yield groves having taken the
+  scarce moist land, and the place's lean cutting the oaks). With it, the seed passes on its second
+  attempt (the even planting took five).
 - **Measured** by `src/core/analysis/startPlanting.ts` (the planting's share within 6 and 10 tiles,
   the directions it fills within 10, its lean to one side, its nearest tile, kinds and species) and
   `tools/start-spread.ts` (per theme and seed; see Results). Tested by
@@ -371,6 +379,13 @@ nearly every start; after, the planting on one side or farther out, and many sta
 map's own woods. A start whose walk is mostly moist land still gets trees on every side.
 
 ### The Claude suite (D134)
+
+> **No longer an M9a gate (PLAN §20 D277, 2026-09-27): all M12 work is deferred, preparation
+> included.** The suite is not re-run or re-tuned for D252's maps; its files and the Claude code stay
+> as they are, and a quick or CI test that depends on them and breaks is skipped with a note pointing
+> to D277. A run on 37b2f50's maps, stopped part-way when the generator changed again, had 16 of its
+> first 69 cases failing, 6 of them new since the floor's maps (S04, S06, S07, P01, P03, F09: sites
+> or ground near the start that the map's own woods now fill). What follows is as it stood before.
 
 `npx tsx investigation/claude/bin/reference.ts`: 81 of 120 on 0.7.0 before the re-tune (the
 handoff's 81), 100 after it (the full run gave 99; F05's re-tune came after it). After the merge of
