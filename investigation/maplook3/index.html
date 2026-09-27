@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Map look 3 · Dam Good Maps</title></head>
+<body>
+  <header><div><span class="eyebrow">DAM GOOD MAPS / LOOK STUDY 03</span><h1>A little closer to the world.</h1></div><span class="phase">High · phase one</span></header>
+  <section class="toolbar" aria-label="Map and camera">
+    <label>Landscape <select id="map"></select></label>
+    <label>Seed <input id="seed" type="number" value="4242" min="1"></label>
+    <label class="check"><input id="dense" type="checkbox" checked> Many trees & ruins</label>
+    <button id="load">Load map</button>
+    <label>Look at <select id="pose"><option value="overview">Overview</option><option value="cliff">Cliff close-up</option><option value="forest">Forest edge</option><option value="shore">Riverbank</option><option value="contaminated">Contaminated ground</option><option value="ruins">Ruins</option><option value="falls">Waterfall</option><option value="water-low">Water · low angle</option></select></label>
+    <button id="angle">Turn view</button>
+  </section>
+  <section class="switches" aria-label="High effects"><span>HIGH EFFECTS</span><div id="toggles"></div><button id="all">All off</button><label class="check"><input id="pause" type="checkbox"> Pause</label></section>
+  <main id="comparison">
+    <article><div class="pane-label"><b>Standard</b><span>Current renderer</span><output id="standard-fps">— fps</output></div><canvas id="standard" aria-label="Standard map; drag to orbit, scroll to zoom"></canvas></article>
+    <article><div class="pane-label"><b>High</b><span>Water, light & materials</span><output id="high-fps">— fps</output></div><canvas id="high" aria-label="High map; cameras synchronized"></canvas><aside id="specimens" hidden><div>Vegetation sketch <span>Pine · Birch · Oak</span></div><canvas id="trees" aria-label="Three original sample trees"></canvas></aside></article>
+  </main>
+  <footer><p id="status" role="status">Preparing the landscape…</p><p id="gpu"></p><div class="footer-row"><span>Drag either view to orbit · right-drag to pan · scroll to zoom</span><button id="bench">Measure this map</button><button id="download" disabled>Save measurements</button></div><p id="measure" aria-live="polite"></p></footer>
+  <details><summary>About this study & map credits</summary><p>New art is procedural. The three specimens are a direction sketch; map trees are unchanged. The switches affect High only. “Many trees & ruins” uses the generator’s highest density settings, and reloads the map. Performance depends on your GPU; the live FPS shares both views.</p><div id="credits"></div></details>
+  <script type="module" src="/app.ts"></script>
+</body></html>

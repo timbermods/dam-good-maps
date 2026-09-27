@@ -31,3 +31,5 @@ port and prints it. This is an isolated experiment from dev `7360e32`; nothing i
    Created the isolated runner and dependency manifest. Three.js stays at 0.186.0.
 
 2. Added cached horizon/canopy ambient occlusion, a low-strength neutral tone shoulder and linear-light grade, distance haze and a procedural sky. Reused calibrated maplook2 water; cached static shadows and excluded the current renderer's transparent falls from shadow casting.
+
+3. Added stratified rock, narrow level accents, smoother grass/earth/contamination transitions and low-frequency colour variation. Built the synchronized comparison UI, worker-backed generated/Real-place loading and on-device measurement. TypeScript and Vite compilation pass.

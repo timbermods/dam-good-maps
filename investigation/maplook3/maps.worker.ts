@@ -6,9 +6,9 @@ import { openTimber, closeSession } from '../../src/worker/session';
 import { surfaceWater } from '../../src/render3d/model';
 import { WaterSim } from '../../src/core/sim/water';
 import { waterModelFromWorld } from '../../src/core/sim/model';
-import { surfaceVelocity } from './flow';
+import { surfaceVelocity } from '../maplook2/flow';
 
-export type MapRequest = { id: number; kind: 'generated' | 'place' | 'prototype'; theme?: ThemeId; size?: number; seed?: number; name?: string };
+export type MapRequest = { id: number; kind: 'generated' | 'place'; theme?: ThemeId; size?: number; seed?: number; name?: string; dense?: boolean };
 self.onmessage = async ({ data: r }: MessageEvent<MapRequest>) => {
   try {
     let bytes: Uint8Array;
@@ -16,7 +16,9 @@ self.onmessage = async ({ data: r }: MessageEvent<MapRequest>) => {
     let settledFlow: { depth: Float64Array; out?: Float64Array } | undefined;
     if (r.kind === 'generated') {
       const size = r.size ?? 128;
-      const result = generate(makeSpec({ seed: r.seed ?? 4242, theme: r.theme, size: { x: size, y: size } }), {
+      const spec = makeSpec({ seed: r.seed ?? 4242, theme: r.theme, size: { x: size, y: size } });
+      if (r.dense) { spec.settings.resources.forestDensity = 200; spec.settings.resources.ruins = 300; }
+      const result = generate(spec, {
         onProgress: p => self.postMessage({ id: r.id, progress: `Generating: attempt ${p.attempt + 1}, ${p.stage}` }),
       });
       if (!result.report.passed) throw new Error('Generator rejected this seed after its normal retries. Choose another seed.');
