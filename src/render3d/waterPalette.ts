@@ -20,17 +20,24 @@ export type Rgb = readonly [number, number, number];
 const BAD_BODY: Rgb = [0.431, 0.204, 0.18];
 
 export const WATER = {
-  /** Clean water, as in the game (Kyler's clean look): clear in the shallows, where the bed shows
-   *  through a light teal tint, and a deep teal body darkening to navy with depth. The body may be
-   *  as dark as dry ground or darker; water reads as water by its shore foam, glints, ripples and
-   *  see-through shallows, and badwater stays darker. */
-  shallow: [0.36, 0.6, 0.64] as Rgb,
+  /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot): one
+   *  consistent teal-blue body, a slightly lighter teal in the shallows (never grey, still
+   *  see-through so the bed shows through) and a body only a little darker where deep, the hue
+   *  barely shifting with depth. Kept clearly lighter than badwater at every depth (a comfortable
+   *  margin, not a fragile one): the shallow end sits well above badwater's own shallow floor since
+   *  badwater's colours are unchanged by D304. Water reads as water by its shore foam, glints and
+   *  ripples too, not by a wide light-to-dark swing. */
+  shallow: [0.22, 0.562, 0.61] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
   crest: [0.26, 0.5, 0.62] as Rgb,
   /** The body of water a level or so deep. */
-  teal: [0.09, 0.23, 0.25] as Rgb,
-  /** The body of deep water. */
-  navy: [0.07, 0.15, 0.2] as Rgb,
+  teal: [0.213, 0.545, 0.593] as Rgb,
+  /** The body of deep water: only a little darker than `teal` (D304), not the old navy. Held
+   *  lighter than the game's own reading would give exactly, so badwater (unchanged) stays clearly
+   *  distinct in greyscale and every colour-blindness simulation by the tested margin
+   *  (look-waterfalls.test.ts, D201); the shape of the game's ramp (a small, near-constant-hue range)
+   *  is kept, anchored higher. */
+  navy: [0.189, 0.483, 0.525] as Rgb,
   foam: [0.9, 0.94, 0.95] as Rgb,
   /** The sky the water reflects (clean water's pale flow streaks are this, a little darker). */
   sky: [0.6, 0.72, 0.84] as Rgb,
@@ -110,9 +117,11 @@ export const WATER_SURFACE = {
  *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
  *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
 export const HIGH_WATER = {
-  shallow: [34 / 255, 71.5 / 255, 86 / 255] as Rgb,
-  body: [33 / 255, 65 / 255, 77 / 255] as Rgb,
-  deep: [28 / 255, 49 / 255, 62 / 255] as Rgb,
+  /** Clean water by depth, fitted the same way as Standard's (D304): shallow only a little lighter
+   *  than body, deep only a little darker, kept clearly above badwater's own floor. */
+  shallow: [46.5 / 255, 91.5 / 255, 108.5 / 255] as Rgb,
+  body: [44.5 / 255, 88 / 255, 104 / 255] as Rgb,
+  deep: [37 / 255, 73.5 / 255, 87 / 255] as Rgb,
   streakAbove: [45 / 255, 83 / 255, 96 / 255] as Rgb,
   streakLow: [56 / 255, 86 / 255, 98 / 255] as Rgb,
   grazing: [51 / 255, 79 / 255, 91 / 255] as Rgb,
@@ -244,13 +253,14 @@ export const WATER_CALIBRATION = {
   },
   /** On-screen targets (0–255): badwater's are #38's, as Kyler approved them (its check:colour
    *  at e63a3ff: the typical texture, the troughs and the streaks of pure badwater a quarter level
-   *  deep over a poisoned bed); clean water's are the Standard look as approved (they hold it
-   *  still). */
+   *  deep over a poisoned bed); clean water's are the Standard look as approved, re-measured after
+   *  D304 fitted clean water's shades closer to the game's own (they hold it still, until the next
+   *  approved change). */
   targets: [
     { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [110, 52, 49], trough: [94, 46, 43], streak: [124, 69, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [64, 98, 106] } },
-    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [33, 67, 79] } },
-    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [29, 53, 69] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [58, 100, 112] } },
+    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [48, 94, 108] } },
+    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [39, 81, 95] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
   /** The ground level under a bed of water this deep (so the camera sees the same scene as #38's). */
   floor(depth: number): number {

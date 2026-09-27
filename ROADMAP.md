@@ -1094,7 +1094,8 @@ the page never freezes; the editor never slows for the history).
 **Right after the forces' release, alongside "The page is the editor"** (Kyler, 2026-09-27; PLAN §20 D284; amends D147
 and Map look 2's earlier place after the Map quality checkpoint, both cut, D283). High becomes the default on computers
 that run it smoothly, with an automatic fallback to Standard (like the 3D view's fallback, D232); Standard stays exactly
-as it is, and every High effect stays switchable. Measured on this machine's RTX 2070 SUPER to set where the fallback
+as it is apart from clean water's shades (D304, fitted closer to the game's own in both looks), and every High effect
+stays switchable. Measured on this machine's RTX 2070 SUPER to set where the fallback
 starts. The frame's touch-up to the High look is done in the design pass, so the frame is styled once; this adoption
 changes no interface styling (D296, amending D283 (2)). The 3D view (3D terrain step 2, "The view") follows it.
 

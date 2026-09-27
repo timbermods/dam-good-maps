@@ -84,8 +84,11 @@ describe("badwater meeting clean water", () => {
       }
       // the gradient spans several tiles: between 5% and 95% bad over at least 4
       expect(row.filter((c) => c > 0.05 && c < 0.95).length).toBeGreaterThanOrEqual(4);
-      // the colour follows the same way, a level deep: no step above 6 L* between corners
-      for (let x = 1; x <= W; x++) expect(Math.abs(lightness(waterBody(1, row[x])) - lightness(waterBody(1, row[x - 1])))).toBeLessThan(6);
+      // the colour follows the same way, a level deep: no step above 12 L* between corners (D304
+      // raised clean water's own lightness well above badwater's, so the same gradual share change
+      // per tile now crosses a wider light-to-dark range; the spatial gradient itself is unchanged,
+      // checked above by the share step and the tile count)
+      for (let x = 1; x <= W; x++) expect(Math.abs(lightness(waterBody(1, row[x])) - lightness(waterBody(1, row[x - 1])))).toBeLessThan(12);
     }
     // the tiles' blended shares: the same (a front along a column blends along the rows)
     const b = blendedBadwater(W, H, sw);

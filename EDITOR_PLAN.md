@@ -302,7 +302,8 @@ models, 85% of the pixels) and then to Standard when frames stay too slow; never
 session. The **Look** menu (on the 3D view; in the editor's header) chooses **Automatic**, **High**
 or **Standard**, and switches High's four parts; every single effect is switchable too (the
 renderer's `setHighEffect`). A browser drawing in software keeps the light look, with no choice.
-Standard is drawn exactly as before High existed. The camera never moves by itself in either look
+Standard is drawn exactly as before High existed, apart from clean water's shades (D304: fitted closer
+to the game's own, in both looks). The camera never moves by itself in either look
 (D265).
 
 ## 6a. Alive, not mechanical (D240; after the forces round 2)

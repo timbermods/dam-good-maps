@@ -212,7 +212,7 @@ the other agents paused by hand.
 | Glaciate's adoption (D291, D292) | `feature/glaciate` (`-glaciate`, #76) | `build`, Opus 5.5 high | built; goes on the preview with the forces |
 | Real places (D271, D300) | `feature/real-places-2` (`-places`, #35) | `build`, Opus 5.5 high | the land fixes and the water floor; then badwater (after M9a) and the release on `build-light` |
 | Drought and Badtide, day by day | `feature/weather-days` (#73) | built (`build`) | held for its own sitting; fixes after it on `build-light` |
-| The High look (D284) | `feature/high-look` (#75) | built (`build`) | held for your eye; fixes on `build` |
+| The High look (D284) | `feature/high-look` (#75) | built (`build`); D304's water fix built (`build-light`) | held for your eye; other fixes on `build` |
 | The Erode investigation (D281) | `investigation/erode` (#74) | built (`build`) | held until you've tried it |
 | 3D foundations: new modules | `feature/terrain3d-a` (#71) | built and verified in the game (`build`) | the wiring waits for the forces and M9b to merge (`build`) |
 | Orchestrating, merging, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |

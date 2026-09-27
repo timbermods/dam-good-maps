@@ -22,12 +22,15 @@ describe("the meanings in lightness", () => {
     expect(lum(GROUND.moistHigh)).toBeGreaterThan(lum(GROUND.dry) + 0.2);
     // badwater is #38's approved crimson (D177), lighter than the red-black it was, and still below
     // dry ground and clean shallows. Kyler accepted these margins while the order holds. FRAGILE:
-    // dry ground clears its margin by only 0.0001 (0.1501 over 0.15); clean shallows by 0.301
+    // dry ground clears its margin by only 0.0001 (0.1501 over 0.15)
     expect(lum(GROUND.dry)).toBeGreaterThan(lum(WATER.bad) + 0.15);
     // clean water's body is lighter than badwater's at every depth (Kyler's rule: badwater stays
     // clearly darker than clean water; the body is the colour the shader draws before its light)
     for (const d of [0.05, 0.25, 0.5, 1, 2, 3, 5]) expect(lum(waterBody(d, false)) - lum(waterBody(d, true))).toBeGreaterThan(0.05);
-    expect(lum(WATER.shallow)).toBeGreaterThan(lum(WATER.bad) + 0.3);
+    // clean shallows over badwater (D304 fitted clean water's shades closer to the game's own,
+    // narrowing the old margin; look-waterfalls.test.ts keeps the stricter, perceptual CIE L* check
+    // with colour blindness, which is the one that bites)
+    expect(lum(WATER.shallow)).toBeGreaterThan(lum(WATER.bad) + 0.15);
     // living trees are dark, dead trees nearly white
     expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.55);
     // a dam site's stripes: light and dark
