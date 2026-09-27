@@ -15,10 +15,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
    the demo (a peak within its headroom, never a flat mesa; cones on the flanks; it always completes), a size control
    beside Power in every force (Carve's Width and new Depth, Craterize's Size, Erupt's Size), the brush size back in the
    options row, the shelf starting Water source, Badwater source, Start, Pine, and louder sounds. #74 is accepted.
-2. **Real places: the places to drop.** The numbered review sheet is being rendered as an image on
-   [PR #35](https://github.com/timbermods/dam-good-maps/pull/35) so you can pick from any device (D222); reply there with
-   the numbers. The D214 rebuild and the new titles are under way; the round's release waits for your drops and the
-   badwater stage (after M9a).
+2. **Real places: the places to drop.** The numbered review sheet is on PR #35:
+   [Review sheet: which places should go?](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5851924825)
+   (five pages of 30; changed cards marked). Reply there with the numbers to drop. Worth your eye: 21 places now show other
+   land of their region under their first-round titles (Yosemite Valley, Geirangerfjord, Iguazu Falls among them), since
+   their own land couldn't meet D214 or the floor. The round's release waits for your drops and the badwater stage (after
+   M9a). Its defaults: pending #80 (the strength cap per size), #81 (the titles), #82 (the floor's groves).
 3. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
 
 **The forces are built on the shared forces core** (checked 2026-09-26, as you asked): `feature/forces` was started from
@@ -34,6 +36,13 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
+- **Real places round 2 built** ([#35](https://github.com/timbermods/dam-good-maps/pull/35), 1101e31): D214's rivers, not floods
+  (the 4× and 8× strengths gone: 148 places at 2×, 2 at 3.75×, capped near the official maps' range; 11 starts moved to the
+  water; 54 places with fewer, larger rivers); none dropped (34 took another row of their region); the 12 "Centre" titles
+  renamed (Colca Canyon South Rim, Samosir (Lake Toba), Cuernos del Paine, Kate's Point (Western Ghats), …); the
+  starting-logs floor met on every place (69 got groves: river banks, across streams, side valleys, plateaus).
+- **Merged into `dev`:** #65 (Map look 3, phase 1) and #66 (vegetation) as investigations, both approved (D241, D242), to
+  be adopted into the High look in the Map look work; #64 (the second sound round, CC0 recordings) as proposals.
 - **Merged into `dev`:** [#63](https://github.com/timbermods/dam-good-maps/pull/63), your D222 changes: a drying oxbow lake no
   longer counts as "water still changing" (#72; every generated map and the live-check pin byte-identical, the oracle 0
   disagreements), and the waterfalls' foam is soft white water (the crack-pattern lace gone; also the glassy panes at the

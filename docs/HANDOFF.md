@@ -49,7 +49,7 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | released: `live-editing-done` (#61, a7e0a9b) |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
 | Waterfalls (D201, D215) | `look/waterfalls` | #53 (merged, 70ce2a8) | `DamGoodMaps-waterfalls` | 84917c1 | released: `look-waterfalls-done` (#62, a73b4b8) |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
+| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | 1101e31 | built (D214, titles, the floor, the review sheet on #35); waits for Kyler's drops and the badwater stage after M9a (steps in its progress log) |
 | The four forces and the juice sounds (D216, D219, D220) | `feature/forces` | none yet | `DamGoodMaps-forces` | a88d7d2 (CI green) | on the preview for Kyler to try; merged into `dev` and released only after he has (pending #74) |
 
 `main` is at 8995cee (`look-badwater-done`). The old machine's worktrees (`C:\Users\Kyler\code\…`) don't exist here.
