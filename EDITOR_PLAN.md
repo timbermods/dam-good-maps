@@ -129,7 +129,11 @@ editor is desktop-first (D185).
   Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
-- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
+- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
+  checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
+  Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
+  description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
+  is unchanged.
 
 (D180, D182, D183, D184, D193, D202, D203, D206.)
 
@@ -149,6 +153,13 @@ Make a valley, drop a source, and there's a river.
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196).
+- **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
+  small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
+  downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
+  the water would spill over (its rim's lowest point) and carves on. Drag from the source to a point to aim it. The source's
+  strength sets the width, a quick **Power** beside it sets how hard it cuts, the rest is Carve's defaults (one click);
+  **Try another** re-rolls the course. The source stays the river's origin; one undo step; Esc stops it. The Carve tool
+  stays as it is.
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
@@ -207,6 +218,29 @@ mode with the water shader and soft shadows (Map look 2, D147).
 Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
 foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
 as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+
+## 6a. Alive, not mechanical (D240; after the forces round 2)
+
+Visual only: the final map and water are exactly as they'd be without it. Every animation is short, never delays the next
+action, never makes the editor feel sluggish, switches off with reduced motion, and is synced with the sounds.
+
+- **Land:** raised blocks grow up from below with a tiny overshoot and settle; lowered blocks sink and crumble, with a puff
+  of dust and a few pebbles; a stroke's changes ripple outward from the brush's centre over a few milliseconds, so it feels
+  organic, not stamped; fresh ground starts as bare earth and grass creeps over it in about a second where it's moist;
+  cutting down reveals rock layers in the new walls.
+- **Water:** the surface glides between states instead of jumping tile by tile; advancing water has a thin line of foam
+  and shimmer at its front; basins fill with a smoothly rising surface and ripples; water tipping over a new edge bursts
+  into a waterfall with a splash; ground darkens with a wet sheen where water touches it, and draining water leaves damp
+  ground and fading puddles; sources pulse with a gentle upwelling, stronger for stronger sources.
+- **Moments:** Generate reveals the new map in about a second and a half (the land rises into its shape, water flows in,
+  trees pop up; a click skips to the finished map); placed trees and bushes pop in with a bounce and a rustle, removed ones
+  topple or shrink away with a poof, ruins crumble, and painting a forest is a cascade of tiny pops; undo plays the change
+  quickly in reverse; the brush ring breathes while hovering, squashes slightly on press and eases as it moves; Save to
+  Timberborn ends with a small send-off (a flourish, a sound, "Ready to play in Timberborn"); optional ambience: soft
+  cloud shadows drifting across the land.
+- **Performance:** GPU and shader effects where possible, never per-tile work on the main thread; particles and
+  simultaneous pops capped, so a huge stroke over a dense forest stays smooth; the frame rate measured before and after on
+  dense 256² maps; effects scale down automatically on weaker hardware rather than stutter.
 
 ## 7. Controls
 

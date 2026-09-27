@@ -862,6 +862,9 @@ every map (D200) follows once M9a is on `dev`.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
 D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
+Only those, and the file playing exactly as the editor shows it, gate a place (D245): a place is never dropped or moved to
+other land for a playability check; its card notes, in a few plain words, only what would sink a player (no water a
+pump can reach, too little wood near the start, water that keeps moving).
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
 the rebuild, D214 and the starting-logs floor done (150 places, none dropped by either). Waiting on
@@ -970,6 +973,12 @@ they conflict):
      Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
+   - **One height ceiling** (D244): after an in-game probe check of editor-made tall maps, every tool can raise land to
+     D172's tall maximum on any map; a map above 16 becomes tall, and standard again at 16 or below; built with Unleash,
+     on the preview, not released until Kyler has tried it.
+   - **Unleash, on a source** (D239, with or right after the forces round 2): a selected source's small Unleash action
+     (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; drag to aim;
+     strength sets width, a quick Power sets how hard it cuts; Try another; one undo step; Esc stops it.
    - **Water is never an object** (D196): no river selection, panel or deletion; flow and clean or
      bad belong to sources; generated rivers are their sources and land. Hovering water shows its
      depth, bed level and contamination, and highlights the sources feeding it.
@@ -1042,6 +1051,13 @@ actions), never landform objects (D187). Until the Frame pass, new interface use
 shared styles and components (D176).
 
 Built in pushes, water first, each put on the preview for Kyler.
+
+**Alive, not mechanical** (D240, after the forces round 2, alongside the other editor work): short, visual-only animations
+for the land (grow, sink and crumble, a ripple from the brush's centre, grass creeping over fresh earth, rock layers in
+new walls), the water (gliding surfaces, a foaming front, rising basins, bursting falls, wet sheen and damp ground,
+pulsing sources) and the moments (Generate's reveal, pops and topples, undo in reverse, a breathing brush ring, Save to
+Timberborn's send-off, optional cloud shadows); synced with the sounds; off with reduced motion; GPU effects with capped
+particles, measured on dense 256² maps and scaled down on weaker hardware. The final map and water never change.
 
 **Blocking:** responsiveness (visible within one or two frames of the input; the display's frame
 rate while painting on 256²; no main-thread stalls; cancel, undo and tool switches at once), and
@@ -1483,10 +1499,12 @@ D146).
 After the Map quality checkpoint and just before the Frame pass (Kyler, 2026-09-25; PLAN §20 D147,
 made smaller by Kyler the same day).
 
-**Map look 3's investigation** (D228): Codex's phase 1 of a higher-fidelity High look (`investigation/maplook3`:
-lighting and post-processing, terrain materials, a small vegetation sketch) is merged as proposals only, and so is its
-phase 2, `investigation/vegetation` (D230). The effects Kyler keeps after reviewing both demos join High mode here;
-nothing is adopted before his review.
+**Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
+`investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
+into High here, with #38's water and soft shadows. Phase 3, "finish the world" (`investigation/maplook-finish`: the
+diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
+visible seasons for drought and badtide), is merged as proposals only; nothing from it is adopted until Kyler has
+reviewed its stages (D243).
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
@@ -1495,26 +1513,33 @@ than bubbly.
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).
-- High adds only the two biggest effects:
-  - a proper water shader: colour by depth, clear shallows, gentle ripples catching the light,
+- High, each effect switchable (D242):
+  - a proper water shader (#38): colour by depth, clear shallows, gentle ripples catching the light,
     shore and fall foam, badwater distinct; Kyler's direction: fewer, subtler sparkle flecks
     than the clean look, and more depth and transparency;
-  - soft real-time shadows from a warm sun.
+  - soft real-time shadows from a warm sun (#38);
+  - Map look 3's lighting and materials (#65): warm sunlight, ambient occlusion, the colour-preserving tone mapping and
+    colour grade, the subtle distance haze, the sky, rock strata, soil edges and colour variation;
+  - the new vegetation (#66): distinct pine, birch and oak, blue-berried bushes, white birch trunks, bare dead branches,
+    with its sway, its colours tuned to this lighting; the shelf icons and placement ghosts use the same models (D241).
+- **Standard stays exactly as it is** (D242). Its trees switch to #66's models, without the sway, only if they cost little
+  on real hardware (D241; the threshold is pending #83).
 - High's water reads the shared water palette (`src/render3d/waterPalette.ts`, D177): the same
   colours, opacity, badwater blend and calibration as Standard, so the two never drift apart.
 - Today's grass and dirt textures stay exactly as they are (Kyler likes them).
 
-**Later, optional** (not part of this step): ambient occlusion, colour grading, richer or
-higher-resolution textures, softened block edges and grass lips, full-resolution rendering and
-anti-aliasing, more detailed tree, bush and ruin models, and dry contaminated ground's cracks a
-little more visible from far away.
+**Later, optional** (not part of this step): richer or higher-resolution textures, softened block edges and grass lips,
+full-resolution rendering and anti-aliasing, more detailed bush and ruin models, and dry contaminated ground's cracks a
+little more visible from far away. (Ambient occlusion, colour grading and the new trees came into this step with D241 and
+D242.)
 
 **Rules:** still our own art only, generated or modelled by us; never game assets. No map file
 changes.
 
 **Acceptance:** judged by eye against Kyler's reference screenshots: captures are shown to Kyler
 and he decides. Speed numbers are information only, but no mode may feel sluggish on the machines
-it's chosen for (blocking: what a player feels).
+it's chosen for (blocking: what a player feels). **High's frame rate is measured on dense 256² maps before release**
+(D242), on this machine's GPU and with the automatic fallback checked.
 
 **Release:** tag `map-look-2-done` and release it like a milestone.
 ---

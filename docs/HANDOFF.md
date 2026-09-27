@@ -24,7 +24,11 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 5. **Real places, second round (#35):** D214 (strengths near the official range, the start moved closer to water, places that
    still can't work dropped) and the renamed "Centre" titles, then badwater (after M9a lands). Kyler's list of places to drop
    waits for him; no release until then.
-6. **Placing objects by brush** (D235): right after the forces round 2, on the preview. Build it on a branch from
+6. **One height ceiling** (D244): step 1, the probe check (DGM Probe, D218; after M9a's batch or when the machine allows);
+   step 2, built on `feature/forces` with Unleash; step 3, on the preview on Kyler's checklist. Stop if the probe finds
+   anything that breaks play. **Unleash on sources** (D239) with or right after the forces round 2; then, alongside each other, **placing objects by
+   brush** (D235) and **the editor feels alive** (D240: visual only, measured on dense 256² maps), on branches from
+   `feature/forces`, combined for the preview. Build it on a branch from
    `feature/forces` (so the preview keeps the forces), e.g. `feature/object-brush`.
 7. **The page is the editor** (D232–D234: 3D everywhere, the landing page's map editable with a full-screen editor, Your
    maps; and D237: "Without pre-filled water" off the page, kept internal), after the forces round 2 and M9a's release; on the preview, then tell Kyler: his editor UI audit follows, and
@@ -47,7 +51,7 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | released: `live-editing-done` (#61, a7e0a9b) |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
 | Waterfalls (D201, D215) | `look/waterfalls` | #53 (merged, 70ce2a8) | `DamGoodMaps-waterfalls` | 84917c1 | released: `look-waterfalls-done` (#62, a73b4b8) |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
+| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | 1101e31 | being rebuilt to D245 (places kept on their own land; notes); then Kyler's drops from the new sheet, and the badwater stage after M9a |
 | The four forces and the juice sounds (D216, D219, D220) | `feature/forces` | none yet | `DamGoodMaps-forces` | a88d7d2 (CI green) | on the preview for Kyler to try; merged into `dev` and released only after he has (pending #74) |
 
 `main` is at 8995cee (`look-badwater-done`). The old machine's worktrees (`C:\Users\Kyler\code\…`) don't exist here.
@@ -179,8 +183,10 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **`investigation/maplook3`** (Codex, D228: phase 1 of a higher-fidelity High look): when its PR is open and green,
   merge it at a boundary as an investigation, proposals only, like #38; adopt nothing until Kyler has reviewed its demo
   and said which effects to keep (then they join Map look 2's High mode). Not pushed yet (2026-09-26).
-- **`investigation/vegetation`** (Codex, D230: phase 2 of the higher-fidelity look): the same as maplook3: merge it as
-  proposals only when its PR is open and green; adopt nothing until Kyler has reviewed both demos. Not pushed yet.
+- **`investigation/vegetation`** (#66) and **`investigation/maplook3`** (#65): approved by Kyler (D241, D242); merge them as
+  investigations and adopt them into the High look in the Map look work (Map look 2).
+- **`investigation/maplook-finish`** (Codex, D243: phase 3, "finish the world"): merge it as proposals only when its PR is
+  open and green; adopt nothing until Kyler has reviewed its stages.
 - **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
   Balatro as the reference; D226): merge it as proposals when green, hook it into Live editing's juice, and show it on
   the preview.
@@ -210,6 +216,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   (build, deploy, `live-check / live`), republish the preview, record it in `docs/STATUS.md` and the progress log.
   `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` does all of it (without `--go` it only
   checks and prints the steps). If the live check fails, revert the release merge on `main`.
+- **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch (Kyler, 2026-09-26): the
+  drowned-relic fix for issue #55 sat on the Real places branch for a day while dev's nightly failed.
 - **Investigation PRs** (Codex's and others): merge at the next boundary as a merge commit once green, adopt their
   INTEGRATION.md as proposals; anything that conflicts with a decision becomes a pending decision with a default. Hold any PR
   Kyler says Codex is still working on.
@@ -224,8 +232,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D239), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #80. **Every review is measured against
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D246), and into the living docs in the same change
+  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Agent definitions** for D210 are in `.claude/agents/`: `m9a-build` (Opus 5.5, xhigh), `m9-build` (Opus 5.5, high),

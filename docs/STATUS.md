@@ -15,10 +15,14 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
    the demo (a peak within its headroom, never a flat mesa; cones on the flanks; it always completes), a size control
    beside Power in every force (Carve's Width and new Depth, Craterize's Size, Erupt's Size), the brush size back in the
    options row, the shelf starting Water source, Badwater source, Start, Pine, and louder sounds. #74 is accepted.
-2. **Real places: the places to drop.** The numbered review sheet is being rendered as an image on
-   [PR #35](https://github.com/timbermods/dam-good-maps/pull/35) so you can pick from any device (D222); reply there with
-   the numbers. The D214 rebuild and the new titles are under way; the round's release waits for your drops and the
-   badwater stage (after M9a).
+2. **Real places: being rebuilt to your D245** (places kept on their own land; only the correctness checks and the floor
+   gate a place; a few plain words on the card for what would sink a player). A new review sheet will replace the one
+   below, which is out of date: pick drops from the new one only. The old sheet was on PR #35:
+   [Review sheet: which places should go?](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5851924825)
+   (five pages of 30; changed cards marked). Reply there with the numbers to drop. Worth your eye: 21 places now show other
+   land of their region under their first-round titles (Yosemite Valley, Geirangerfjord, Iguazu Falls among them), since
+   their own land couldn't meet D214 or the floor. The round's release waits for your drops and the badwater stage (after
+   M9a). Its defaults: pending #80 (the strength cap per size), #81 (the titles), #82 (the floor's groves).
 3. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
 
 **The forces are built on the shared forces core** (checked 2026-09-26, as you asked): `feature/forces` was started from
@@ -34,6 +38,13 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
+- **Real places round 2 built** ([#35](https://github.com/timbermods/dam-good-maps/pull/35), 1101e31): D214's rivers, not floods
+  (the 4× and 8× strengths gone: 148 places at 2×, 2 at 3.75×, capped near the official maps' range; 11 starts moved to the
+  water; 54 places with fewer, larger rivers); none dropped (34 took another row of their region); the 12 "Centre" titles
+  renamed (Colca Canyon South Rim, Samosir (Lake Toba), Cuernos del Paine, Kate's Point (Western Ghats), …); the
+  starting-logs floor met on every place (69 got groves: river banks, across streams, side valleys, plateaus).
+- **Merged into `dev`:** #65 (Map look 3, phase 1) and #66 (vegetation) as investigations, both approved (D241, D242), to
+  be adopted into the High look in the Map look work; #64 (the second sound round, CC0 recordings) as proposals.
 - **Merged into `dev`:** [#63](https://github.com/timbermods/dam-good-maps/pull/63), your D222 changes: a drying oxbow lake no
   longer counts as "water still changing" (#72; every generated map and the live-check pin byte-identical, the oracle 0
   disagreements), and the waterfalls' foam is soft white water (the crack-pattern lace gone; also the glassy panes at the
@@ -270,6 +281,12 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
+- D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.
+- D243: Codex's Map look phase 3, "finish the world" (`investigation/maplook-finish`), is merged as proposals only when green; nothing adopted until Kyler reviews its stages.
+- D241, D242: #66's vegetation and #65's Map look 3 (phase 1) approved; both adopted into the High look in the Map look work with #38's water and soft shadows (warm sunlight, ambient occlusion, colour-preserving tone mapping and grade, distance haze, sky, rock strata, soil edges, colour variation; the new trees tuned to this lighting); each effect switchable; Standard unchanged; High measured on dense 256² maps before release. The new trees in Standard only if cheap on a real GPU (#83).
+- D240: the editor feels alive: short, visual-only animations for land, water and moments (Generate's reveal, pops, undo in reverse, Save to Timberborn's send-off), synced sounds, off with reduced motion, GPU effects scaled down on weaker hardware; the final map and water unchanged. After the forces round 2, alongside D235.
+- D239: Unleash on water sources: a selected source's small Unleash action (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; strength sets width, a quick Power; one undo step. On the preview with or right after the forces round 2.
 - D237: "Without pre-filled water" leaves the player's page (folded into D233); the capability stays internal for the probe and tests.
 - D236: the design pass comes straight after your editor UI audit of the combined page; M9b and M9c run in parallel with "The page is the editor" and take the machine first. #79's defaults accepted (D238): the Frame pass is a light update after Map look 2 from the design pass's records; the refinement phase gets its own `refinement-done` tag.
 - D235: scatter-type shelf items (trees, bushes, ruins, thorns) place like a brush, as in Cities: Skylines: size and density, natural scatter, gap filling, an amber warning on dry ground, an Age option for trees, a click still places one; unique landmarks stay single. Scheduled after the forces round 2, on the preview.
