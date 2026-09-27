@@ -93,7 +93,8 @@ editor is desktop-first (D185).
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
   slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
-  preview, released with the forces). Pen pressure on drawing tablets. **Clear sources** (D249): one toggle in the options
+  preview, released with the forces). **Naturalize** leaves protected tiles as they are (set pieces', the start's bench,
+  rivers', precise strokes' and forces'), and its wear never leaves a slope joining nothing (D253). Pen pressure on drawing tablets. **Clear sources** (D249): one toggle in the options
   row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
   in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
   the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.

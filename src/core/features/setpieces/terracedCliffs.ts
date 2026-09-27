@@ -167,21 +167,27 @@ export const terracedCliffs: SetPieceBuilder = {
     const out: SetPieceSlope[] = [];
     // on the last row of each band, at the chain's end, the high side toward the next band (a
     // stair's chain starts on the ground in front of it)
+    let below: SetPieceSlope | null = null;
     for (let j = p.stair ? 0 : 1; j < p.bands; j++) {
       // the slope stands on the band's last row, and the row behind its low side is the same band;
       // in front of a stair, the first spot across its width where the ground is flat two deep
       const vs = j === 0 ? acrossFrom(p) : [p.chainV];
+      let placed: SetPieceSlope | null = null;
       for (const v of vs) {
         const [x, y] = local(p.at[0], p.at[1], p.facing, -(j * p.depth - 1), v);
         const [hx, hy] = [x + high[0], y + high[1]];
         const [lx, ly] = [x - high[0], y - high[1]];
         if (!inMap(W, H, x, y) || !inMap(W, H, hx, hy) || !inMap(W, H, lx, ly)) continue;
-        // a slope's low side is ground at its level, or the slope below it in a chain (steps 1 deep)
-        const chained = p.depth === 1 && j > 0 && heights[ly * W + lx] === heights[y * W + x] - 1;
+        // a slope's low side is ground at its level, or the slope below it in a chain (steps 1
+        // deep), one this chain placed: when a brush has changed the ground at the chain's foot so
+        // its first slope no longer fits, the slopes above it would join nothing (slopes.connect)
+        const chained = p.depth === 1 && below !== null && below.x === lx && below.y === ly && heights[ly * W + lx] === heights[y * W + x] - 1;
         if (heights[hy * W + hx] !== heights[y * W + x] + 1 || (heights[ly * W + lx] !== heights[y * W + x] && !chained)) continue;
-        out.push({ x, y, high });
+        placed = { x, y, high };
         break;
       }
+      if (placed) out.push(placed);
+      below = placed;
     }
     return out;
   },
