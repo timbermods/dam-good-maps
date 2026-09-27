@@ -2279,6 +2279,7 @@ export default function Editor(props: EditorProps) {
         setShapeNote({ text, ok: true, warn: false, ...pointerAt.current });
       },
       wet: (x, y) => (mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0) > 0.05,
+      depth: (x, y) => mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0,
       // the water flows on the stroke while it is painted (D197)
       draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
       cancelDraft: () => void api.cancelDraft(),

@@ -12,8 +12,8 @@
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
 > 7. **The lean editor, D287-D289, with D290: done** (the section below).
-> 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
-> 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
+> 8. **D263: done** (the section below): smart Lower's depth from strokes.
+> 9. **D270** (Kyler's answer to #84, next): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
@@ -29,6 +29,43 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Smart Lower's depth from strokes (D263)
+
+- **A new channel** (a smart Lower stroke that leaves the water it starts in or beside) records its
+  `bed`: one level below that water's surface round the first dab (the page reads it: the highest
+  surface there, rounded, less one), never below the water's own bed; and `dry`, the first dab on
+  land. While its dabs are still in the water, the bed holds (no pit where it leaves; the water's own
+  tiles keep their ground); from `dry` on it steps down to a level below lower land and never rises,
+  as before; the brush's middle cuts to it (through a rise too), and **no tile the brush reaches is
+  cut below the bed**, however long it's held (`floorBed`: the lowest bed that reached each tile). A
+  one-deep river's branch is one level below the land; a three-deep river's branch has water about a
+  tile deep, its bed two above the river's.
+- **A deepening pass** (a stroke that never leaves the water it began in) records `deepen`: what the
+  brush's middle passes over goes down exactly one level, once, with the brush's soft edge; holding
+  adds nothing. A two-deep river is two passes.
+- **The page** starts a stroke from inside the water as a deepening pass and, the moment a dab's tile
+  was dry when the stroke began, paints the whole stroke again as a new channel (its `bed` and
+  `dry`), as `rideObjects` repaints a Flatten; a straight line starts again from its own start. A
+  stroke from beside the water is a new channel from its first dab.
+- **Plain Lower** is unchanged, and a stroke saved before D263 (`channel` alone) replays exactly as
+  before (its bytes pinned in the test, taken from the code before D263). `ops.schema.json` has
+  `bed`, `dry` and `deepen`; `brushProblems` checks them.
+- EDITOR_PLAN's map-document paragraph says how the stroke records it (the Smart Lower line was
+  already D263's, from `dev`).
+
+Tests: `smartLowerDepth.test` (new: from a one-deep river a stroke held 700 dabs leaves the channel
+exactly one below the land, nothing lower anywhere, the river untouched; from a three-deep river the
+channel is at land less one, the river keeps its bed (the old rule dug three deep); a deepening pass
+held 500 dabs makes it exactly two deep; across a rise the bed never rises and the rise is cut to it;
+plain Lower still digs deeper while held; the old rule's bytes pinned; the page's preview equals the
+build for both kinds, and the project replays). Changed (D148): `waterTools.spec`'s smart Lower
+check (the bed is now a level below the river's surface, not the river's bed: the stroke records that
+bed, nothing along it sits above it or below what the rule allows, and the river keeps its ground).
+
+For Kyler's forces sitting: draw a river out of a deep river with smart Lower, holding the mouse:
+about a tile of water all the way, and no deeper where you paused; draw along it again: one level
+deeper each pass.
 
 ## The lean editor (D287-D289, D290)
 

@@ -502,8 +502,13 @@ before D182 open with their land exactly as it was, as plain terrain.
 brush strokes, placements and moves, source changes, removals, the Select tool's actions, and
 `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke replays exactly and survives
 regeneration and format 3. A Lower stroke that starts in or beside
-water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
-strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
+water records `channel` (smart Lower) and, since D263, how deep it may cut: a new channel records its `bed` (one level
+below the surface of the water round its first dab, never below that water's own bed, as the page read it) and `dry`
+(its first dabs still in that water, where the bed holds, so no pit), and a stroke that never leaves the water it began
+in is a deepening pass (`deepen`: a level off what the brush's middle passes over, once). The page starts a stroke from
+inside the water as a deepening pass and repaints it as a new channel the moment a dab leaves that water. Strokes saved
+before D263 (`channel` alone) keep their old start, the lowest ground there, and replay exactly. The bed never rises
+along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
 leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's

@@ -34,10 +34,17 @@
 //   a rim that steps down a level a tile to the ground round it (precise too), which the derived
 //   slopes join as a walkable Smooth stroke's do.
 // - Smart Lower (D184): a Lower stroke that starts in or beside water (`channel`) carves a bed that
-//   keeps flowing downhill, so the water follows the brush. Its bed starts at the lowest ground
-//   round the first dab (the water's bed) and never rises along the stroke: over lower ground it
-//   drops to a level below that ground, and higher ground is cut straight down to it under the
-//   brush's middle (a gorge with steep walls; the rest of the brush lowers as usual).
+//   keeps flowing downhill, so the water follows the brush. Its bed never rises along the stroke:
+//   over lower ground it drops to a level below that ground, and higher ground is cut straight down
+//   to it under the brush's middle (a gorge with steep walls). Since D263 its depth comes from
+//   strokes, not from holding: a new channel (`bed`: the stroke leaves the water it starts from)
+//   starts its bed at `bed`, one level below the water's surface (never below the water's own bed),
+//   keeps it while its dabs are still in that water (the first `dry` dabs: no pit where it leaves),
+//   and no tile is cut below the bed however long the brush is held (the rest of the brush lowers as
+//   usual, down to the bed at most); a deepening pass (`deepen`: drawn along a channel, never
+//   leaving its water) lowers what the brush's middle passes over by exactly one level. A stroke
+//   saved before D263 (`channel` alone) keeps its old rule: its bed starts at the lowest ground round
+//   the first dab, and holding deepens it.
 // - Objects ride a stroke's ground (D249): a water source's tile changes like any other and the
 //   source stands on it; a piece on more than one tile that must stay level (a 3 × 3 badwater
 //   source) is one of the stroke's `rigid` rectangles, whose tiles take the level of its middle
@@ -96,6 +103,15 @@ export interface BrushParams {
   pressure?: number[];
   /** Lower: a stroke that starts in or beside water carves a bed that keeps flowing downhill. */
   channel?: boolean;
+  /** Smart Lower, a new channel (D263): the level its bed starts at (one below the surface of the
+   *  water it starts from); no tile is cut below the bed, however long it's held. */
+  bed?: number;
+  /** Smart Lower, a new channel (D263): its first dabs still in the water it starts from (the bed
+   *  holds there, so it joins that water without a pit). 0 when absent. */
+  dry?: number;
+  /** Smart Lower, a deepening pass (D263): drawn along a channel, it lowers what the brush's middle
+   *  passes over by exactly one level. */
+  deepen?: boolean;
   /** The run of each column it shapes: the top (the surface). Runs below come with the 3D
    *  stages (caves and overhangs). */
   layer?: "top";
@@ -258,6 +274,10 @@ export class BrushStroke {
   /** Smart Lower: the bed so far along the stroke, and each tile's deepest cut (255: none). */
   private bed = -1;
   private readonly cap: Uint8Array | null;
+  /** Smart Lower since D263: the lowest bed that reached each tile (no tile is cut below it), and a
+   *  deepening pass's tiles (the brush's middle passed over them: a level down). */
+  private readonly floorBed: Uint8Array | null;
+  private readonly deep: Uint8Array | null;
   /** Precise raise, lower and flatten: each tile's depth in levels (the deepest dab over it). */
   private readonly depth: Uint8Array | null;
   /** Tiles the middle of the brush has passed over (the first pass moves them a whole level). */
@@ -285,7 +305,10 @@ export class BrushStroke {
     const pointwise = settings.tool === "raise" || settings.tool === "lower" || settings.tool === "flatten";
     this.before = pointwise ? heights.slice() : null;
     this.steps = settings.tool === "naturalize" ? new Uint16Array(W * H) : null;
-    this.cap = settings.channel && settings.tool === "lower" ? new Uint8Array(W * H).fill(255) : null;
+    const smart = settings.channel === true && settings.tool === "lower";
+    this.deep = smart && settings.deepen ? new Uint8Array(W * H) : null;
+    this.cap = smart && !this.deep ? new Uint8Array(W * H).fill(255) : null;
+    this.floorBed = this.cap && settings.bed !== undefined ? new Uint8Array(W * H).fill(255) : null;
     this.depth = settings.precise && pointwise ? new Uint8Array(W * H) : null;
     // the tiles the stroke leaves alone
     if (settings.keep?.length) {
@@ -332,9 +355,9 @@ export class BrushStroke {
       const tx = Math.floor(cx / 4);
       const ty = Math.floor(cy / 4);
       const rate = pressure ? Math.floor((this.rate * Math.max(1, Math.min(255, pressure[k >> 1]))) / 255) : this.rate;
-      this.dabCount++;
       // smart Lower: the bed at this dab, never above the one before it
-      if (this.cap) this.bed = this.bedAt(tx, ty);
+      if (this.cap) this.bed = this.bedAt(tx, ty, this.dabCount);
+      this.dabCount++;
       const x0 = Math.max(0, tx - r);
       const x1 = Math.min(W - 1, tx + r);
       const y0 = Math.max(0, ty - r);
@@ -366,6 +389,13 @@ export class BrushStroke {
           if (d2 >= R2) continue;
           const w = table[d2];
           if (!w) continue;
+          // a deepening pass (D263): the brush's middle takes a level off, once
+          if (this.deep) {
+            if (w >= 128) this.deep[i] = 1;
+            continue;
+          }
+          // (a new channel: no tile the brush reaches is cut below the bed, D263)
+          if (this.floorBed && this.bed < this.floorBed[i]) this.floorBed[i] = this.bed;
           // the middle of the brush moves a tile a level the first time it passes over it: a
           // click, or a quick sweep, always shows
           let add: number;
@@ -396,14 +426,21 @@ export class BrushStroke {
     return levelRigid(rigid, this.heights, this.W, this.H, this.write);
   }
 
-  /** Smart Lower's bed at a dab on tile (tx, ty): the first dab, the lowest ground round it (the
-   *  water's bed beside it); after that, a level below the ground where that is lower, never above
-   *  the bed before. From the ground before the stroke, so the same dabs give the same bed. */
-  private bedAt(tx: number, ty: number): number {
+  /** Smart Lower's bed at dab `k` on tile (tx, ty): the first dab, the stroke's `bed` (D263), or
+   *  before it the lowest ground round the dab (the water's bed beside it); after that, a level below
+   *  the ground where that is lower, never above the bed before (a new channel holds its bed while
+   *  its dabs are still in the water it starts from). From the ground before the stroke, so the
+   *  same dabs give the same bed. */
+  private bedAt(tx: number, ty: number, k: number): number {
     const { W, H } = this;
     const before = this.before!;
     const x = Math.max(0, Math.min(W - 1, tx));
     const y = Math.max(0, Math.min(H - 1, ty));
+    const start = this.settings.bed;
+    if (start !== undefined) {
+      const bed = this.bed < 0 ? Math.max(0, Math.min(BRUSH_MAX_LEVEL, start)) : this.bed;
+      return k < (this.settings.dry ?? 0) ? bed : Math.min(bed, Math.max(0, before[y * W + x] - 1));
+    }
     if (this.bed < 0) {
       let lo = before[y * W + x];
       for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) lo = Math.min(lo, before[yy * W + xx]);
@@ -491,9 +528,10 @@ export class BrushStroke {
     if (!this.moved || this.moved.length < n) this.moved = new Int16Array(Math.max(n, 256));
     const m = this.moved;
     const depth = this.depth;
+    const deep = this.deep;
     for (let y = 0; y < bh; y++) {
       const row = (b.y0 + y) * W + b.x0;
-      for (let x = 0; x < bw; x++) m[y * bw + x] = depth ? depth[row + x] : Math.min(BRUSH_MAX_LEVEL, Math.floor(acc[row + x] / LEVEL));
+      for (let x = 0; x < bw; x++) m[y * bw + x] = depth ? depth[row + x] : deep ? deep[row + x] : Math.min(BRUSH_MAX_LEVEL, Math.floor(acc[row + x] / LEVEL));
     }
     // the edge rule: a 4-neighbour distance transform from the ground round the stroke (0 outside);
     // precise strokes have vertical walls, unless a ramped flatten steps its rim down
@@ -518,7 +556,13 @@ export class BrushStroke {
         const d = m[y * bw + x];
         let h = h0;
         if (tool === "raise") h = h0 >= ceil ? h0 : Math.min(ceil, h0 + d);
-        else if (tool === "lower") h = h0 <= floor ? h0 : Math.max(floor, Math.min(h0 - d, this.cap ? this.cap[i] : 255));
+        else if (tool === "lower") {
+          h = h0 <= floor ? h0 : Math.max(floor, Math.min(h0 - d, this.cap ? this.cap[i] : 255));
+          // a new channel (D263): never below the bed that reached the tile, and a tile already at
+          // or below it (the water it starts from) keeps its ground: no pit
+          const fb = this.floorBed ? this.floorBed[i] : 255;
+          if (fb !== 255) h = h0 <= fb ? h0 : Math.max(h, fb);
+        }
         else {
           // flatten, in steps: toward the nearest bench
           const T = steps ? Math.max(0, Math.min(BRUSH_MAX_LEVEL, L + steps * Math.round((h0 - L) / steps))) : L;
@@ -617,6 +661,10 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.steps !== undefined && (p.tool !== "flatten" || !Number.isInteger(p.steps) || p.steps < 2 || p.steps > 8)) return ["flatten's steps are 2 to 8 levels apart"];
   if (p.walkable !== undefined && (p.tool !== "smooth" || typeof p.walkable !== "boolean")) return ["only smooth makes the ground walkable"];
   if (p.edges !== undefined && (p.tool !== "flatten" || p.edges !== "ramped")) return ["only flatten has ramped edges"];
+  if ((p.bed !== undefined || p.dry !== undefined || p.deepen !== undefined) && !(p.tool === "lower" && p.channel === true)) return ["only a smart Lower stroke has a bed, dry dabs or a deepening pass"];
+  if (p.bed !== undefined && (!Number.isInteger(p.bed) || p.bed < 0 || p.bed > BRUSH_MAX_LEVEL)) return [`a smart Lower stroke's bed is a level from 0 to ${BRUSH_MAX_LEVEL}`];
+  if (p.dry !== undefined && (!Number.isInteger(p.dry) || p.dry < 0 || p.bed === undefined)) return ["a new channel's dry dabs are counted from 0, with its bed"];
+  if (p.deepen !== undefined && (p.deepen !== true || p.bed !== undefined)) return ["a deepening pass has no bed of its own"];
   if (p.rigid !== undefined && !(Array.isArray(p.rigid) && p.rigid.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[0] >= 0 && r[1] >= 0 && r[0] <= r[2] && r[1] <= r[3] && r[2] < W && r[3] < H && r[2] - r[0] < 8 && r[3] - r[1] < 8))) return ["a stroke's riding pieces are rectangles [x0, y0, x1, y1] on the map, up to 8 tiles across"];
   if (p.area !== undefined && !(Array.isArray(p.area) && p.area.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's working area is runs [y, x0, x1]"];
   if (p.keep !== undefined && !(Array.isArray(p.keep) && p.keep.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's kept tiles are runs [y, x0, x1]"];
