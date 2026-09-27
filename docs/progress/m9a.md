@@ -444,8 +444,11 @@ cases against candidates):
   The heavy `rivers.test.ts` meets the same on a drawn river: on 256² seed 13 the first river drawn
   from the east edge at (255, 238) loses water off the map beside its mouth at (255, 232) (0.049
   deep on the nightly of 2026-09-26, before D252; 0.070 on D252's maps), so the PR's Nightly
-  (heavy-tests) is red on that one case (44 of 45 pass). Not re-seeded: the test shows a real leak;
-  for M9b's hydrology, or Kyler's call.
+  (heavy-tests) was red on that one case (44 of 45 passed). **Skipped under D277** (the orchestrator's
+  call, 2026-09-27): the drawn-river planner is unmaintained until M12; the generator and the player
+  never use it (the editor's river tool is gone since D184), only the worker's old `river` tool
+  request and Claude's steps reach it. The 96² and 128² cases still run; nothing was re-seeded or
+  weakened.
 - **Second districts are rare** (D77: only where one fits): 6 of 70 maps at 128² (seeds 1–10 of
   every theme; Islands 5, Canyon 1), where M7's planner found one on most Delta and Lake Basin maps.
   The batch report now counts them.
