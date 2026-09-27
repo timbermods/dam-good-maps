@@ -28,6 +28,9 @@ once, and only for the plan it was printed for.
 - The tall maps (terrain up to 22, PLAN §20 D172): make them with `npx tsx tools/probe-tall.ts` (it writes
   `C:\dgm-probe\tall\` and checks each map with both validators), then play them as the group
   `Tall maps`, with `--keep-mods`.
+- The terrain-3D test maps T1–T6 (caves, overhangs and the support rule, PLAN §20 D127, D279): make them with
+  `npx tsx tools/probe-3d.ts` (it writes `C:\dgm-probe\terrain3d\`), then play them as the group `Terrain 3D`
+  (DGM Probe 0.3.0 or later). First run: `terrain3d-20260927`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run.
 - `--restore-only`: put the game's settings, logs and saves back after an interrupted run.

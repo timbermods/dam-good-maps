@@ -29,6 +29,7 @@ const catalogM = require('./catalog') as typeof import('./catalog');
 const jobs = require('./jobs') as typeof import('./jobs');
 const compare = require('./compare') as typeof import('./compare');
 const mapfile = require('./mapfile') as typeof import('./mapfile');
+const t3d = require('./terrain3d') as typeof import('./terrain3d');
 
 let failures = 0;
 const check = (name: string, ok: boolean, detail = '') => {
@@ -130,6 +131,95 @@ async function main(): Promise<void> {
     const tv2 = compare.evaluate({ L: new compare.Loaded(tdir, tp, tres), others: new Map(), model: null, modelError: null }, [catalogM.TALL.terrain])[0];
     check('tall checks: a lost voxel at 22 fails the terrain check', tv2.verdict === 'failed', tv2.detail);
   } else console.log('skip tall maps: run npx tsx tools/probe-tall.ts first');
+  const t3dGames = prepared.filter((p) => p.game.group === 'Terrain 3D');
+  if (t3d.terrain3dMaps().length) {
+    check('terrain 3D: the maps T1–T6, each with its checks and focus poses', t3dGames.length === t3d.terrain3dMaps().length && ['t1-support', 't2-walking', 't3-cave-water', 't4-soil', 't5-plants', 't6-heights'].every((id) => t3dGames.some((p) => p.game.id === id)) && t3dGames.every((p) => p.checks.some((c) => c.id === 't3d-support') && p.map.poses.some((x) => x.id.startsWith('t3d-'))), t3dGames.map((p) => p.game.id).join(', '));
+    // a result made from our own models passes every check; a lost voxel, and water where the engine
+    // has none, fail theirs
+    const tz = require('node:zlib') as typeof import('node:zlib');
+    const { terrainColumns } = require('../../../src/core/sim/columns') as typeof import('../../../src/core/sim/columns');
+    const { soil3d } = require('../../../src/core/sim/soil3d') as typeof import('../../../src/core/sim/soil3d');
+    const fake = (p: (typeof t3dGames)[number], dir: string, tamper?: (s: import('./job').MapSnapshot) => void, tamperStart?: (s: import('./job').MapSnapshot) => void) => {
+      mkdirSync(dir, { recursive: true });
+      const m = t3d.modelOf(p.info);
+      const { N, W, L } = m.cols;
+      const runs = terrainColumns(m.kept);
+      const snaps: string[] = [];
+      for (const mo of p.map.moments.filter((x) => x.snapshot)) {
+        const e = t3d.engineAt(p.info, mo.day - catalogM.D0);
+        const soil = soil3d(m.kept, m.cols, e, m.objects, 'game');
+        const s: import('./job').MapSnapshot = { momentId: mo.id, day: mo.day, tick: 0, weather: 'temperate', width: W, height: N / W, depth: [], contamination: [], floor: [], moisture: [], soilContamination: [], terrain: [], terrainColumns: [], layered: [], terrainLayered: [], plants: [], sources: [] };
+        for (let i = 0; i < N; i++) {
+          let top = -1;
+          for (let k = m.cols.count[i] - 1; k >= 0 && top < 0; k--) if (e.depth[k * N + i] > 0) top = k * N + i;
+          s.depth.push(top >= 0 ? e.depth[top] : 0);
+          s.contamination.push(top >= 0 ? e.contamination[top] : 0);
+          s.floor.push(top >= 0 ? m.cols.floor[top] : -1);
+          if (m.cols.count[i] > 1) s.layered.push({ x: i % W, y: (i / W) | 0, columns: Array.from({ length: m.cols.count[i] }, (_, k) => [m.cols.floor[k * N + i], e.depth[k * N + i], e.contamination[k * N + i], e.overflow[k * N + i]] as [number, number, number, number]) });
+          const n = runs.count[i];
+          s.terrainColumns.push(n);
+          s.terrain.push(runs.ceil[(n - 1) * N + i]);
+          s.moisture.push(soil.moisture[(n - 1) * N + i]);
+          s.soilContamination.push(soil.contamination[(n - 1) * N + i]);
+          if (n > 1) s.terrainLayered!.push({ x: i % W, y: (i / W) | 0, runs: Array.from({ length: n }, (_, k) => [runs.floor[k * N + i], runs.ceil[k * N + i], soil.moisture[k * N + i], soil.contamination[k * N + i]] as [number, number, number, number]) });
+        }
+        if (mo.id === 'end') tamper?.(s);
+        if (mo.id === 'start') tamperStart?.(s);
+        const f = `${p.game.id}-${mo.id.replace(/[^A-Za-z0-9_-]/g, '_')}.snapshot.json.gz`;
+        writeFileSync(join(dir, f), tz.gzipSync(JSON.stringify(s)));
+        snaps.push(f);
+      }
+      void L;
+      const t = p.game.terrain3d!;
+      const removed = new Set(t.predicted.plantsRemoved.map((x) => x.id));
+      const ents = p.info.entities.filter((e) => e.template !== 'StartingLocation' && !removed.has(e.id)).map((e) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
+      const st = p.info.start;
+      const res = { runId: 't', mapId: p.game.id, title: 't', mapFile: '', status: 'done', log: [], notes: [], samples: [], snapshots: snaps, shots: [{ momentId: 'start', pose: 't3d', file: 'x.jpg', day: catalogM.D0 }], entitiesAtStart: ents, entitiesAtEnd: ents, plantDeaths: [], loadingIssues: t.predicted.dropped || removed.size ? ['Terrain removed'] : [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: st ? { id: 'dc', template: 'DistrictCenter.Folktails', x: st.x, y: st.y, z: st.z, orientation: st.orientation } : null, adults: 9, children: 4, bots: 0 } } as unknown as import('./job').MapResult;
+      return compare.evaluate({ L: new compare.Loaded(dir, p, res), others: new Map(), model: null, modelError: null }, p.checks);
+    };
+    for (const id of ['t1-support', 't3-cave-water', 't5-plants']) {
+      const p = t3dGames.find((x) => x.game.id === id);
+      if (!p) continue;
+      const v = fake(p, join(sandbox, `compare-${id}`));
+      const bad = v.filter((x) => !(x.verdict === 'passed' || (x.id === 't3d-shots' && x.verdict === 'recorded') || (x.verdict === 'not measurable' && ['t3d-walk', 't3d-pumps'].includes(x.id))));
+      check(`terrain 3D: our own models pass every check (${id})`, bad.length === 0, bad.map((x) => `${x.id} ${x.verdict}: ${x.detail}`).join(' | ') || v.map((x) => x.id).join(', '));
+    }
+    const t1 = t3dGames.find((x) => x.game.id === 't1-support');
+    if (t1) {
+      const v = fake(t1, join(sandbox, 'compare-t1-lost'), (s) => {
+        const i = s.terrain.findIndex((h) => h === 20);
+        s.terrain[i] = 19;
+      }).find((x) => x.id === 't3d-support')!;
+      check('terrain 3D: a voxel the rule keeps but the game lost fails the support check', v.verdict === 'failed', v.detail);
+      // at the load the probe's view can still show the file's terrain (run terrain3d-20260927): that passes;
+      // a load record that is neither the file's terrain nor ours fails
+      const fileRuns = terrainColumns(t3d.modelOf(t1.info).file);
+      const asFile = (s: import('./job').MapSnapshot) => {
+        const { N, W } = fileRuns;
+        s.terrainLayered = [];
+        for (let i = 0; i < N; i++) {
+          const n = fileRuns.count[i];
+          s.terrainColumns[i] = n;
+          s.terrain[i] = fileRuns.ceil[(n - 1) * N + i];
+          if (n > 1) s.terrainLayered.push({ x: i % W, y: (i / W) | 0, runs: Array.from({ length: n }, (_, k) => [fileRuns.floor[k * N + i], fileRuns.ceil[k * N + i], 0, 0] as [number, number, number, number]) });
+        }
+      };
+      const v2 = fake(t1, join(sandbox, 'compare-t1-file-at-load'), undefined, asFile).find((x) => x.id === 't3d-support')!;
+      check("terrain 3D: the file's terrain at the load, ours after, passes the support check", v2.verdict === 'passed' && /still show the file's terrain/.test(v2.detail), v2.detail);
+      const v3 = fake(t1, join(sandbox, 'compare-t1-odd-at-load'), undefined, (s) => {
+        asFile(s);
+        s.terrain[s.terrain.findIndex((h) => h === 20)] = 18;
+      }).find((x) => x.id === 't3d-support')!;
+      check('terrain 3D: a load record that is neither the file nor ours fails the support check', v3.verdict === 'failed', v3.detail);
+    }
+    const t3 = t3dGames.find((x) => x.game.id === 't3-cave-water');
+    if (t3) {
+      const v = fake(t3, join(sandbox, 'compare-t3-wet'), (s) => {
+        for (const l of s.layered) for (const c of l.columns) c[1] = c[1] > 0 ? 0 : 0.5;
+      }).find((x) => x.id === 't3d-water')!;
+      check('terrain 3D: cave water where the engine has none fails the water check', v.verdict === 'failed', v.detail);
+    }
+  } else console.log('skip terrain 3D: run npx tsx tools/probe-3d.ts first');
   const look = prepared.filter((p) => p.game.group === 'Map look');
   check('Map look: poses from the captures', look.filter((p) => p.map.poses.some((x) => x.lookCapture && existsSync(join(paths.REPO, x.lookCapture)))).length >= 7, look.map((p) => `${p.game.id} ${p.map.poses.filter((x) => x.lookCapture).length}`).join(', '));
   const cal = prepared.find((p) => p.game.id === 'cal-rv2')!;
