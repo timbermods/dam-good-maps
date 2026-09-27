@@ -134,7 +134,13 @@ def check_file(m: TimberMap, rep: Report, raw_zip: dict):
     need = ("MapSize", "TerrainMap", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator",
             "WaterEvaporationMap")
     missing = [k for k in need if k not in s]
-    rep.add("file.singletons", not missing, "missing " + ", ".join(missing) if missing else "all present")
+    # a false or missing migration marker makes the game halve every source's strength (the audit's
+    # A1: the TypeScript validator's rule, src/core/validate/checks.ts)
+    mig = s.get("WaterSimulationMigrator")
+    mig_ok = isinstance(mig, dict) and mig.get("IsMigrated") is True
+    rep.add("file.singletons", not missing and mig_ok,
+            "missing " + ", ".join(missing) if missing else "all present, WaterSimulationMigrator.IsMigrated true"
+            if mig_ok else "WaterSimulationMigrator.IsMigrated missing or false: every source would run at half strength")
     if not missing:
         lv = s["WaterMapNew"]["Levels"]
         n = lv * X * Y

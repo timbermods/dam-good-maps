@@ -19,8 +19,8 @@
         "y": { "type": "integer", "minimum": 48, "maximum": 256 }
       }
     },
-    "theme": { "enum": ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
-    "archetype": { "enum": ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
+    "theme": { "enum": ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
+    "archetype": { "enum": ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
     "premise": { "type": "string" },
     "designedFor": { "enum": ["easy", "normal", "hard"] },
     "settings": {
@@ -31,12 +31,13 @@
         "terrain": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["relief", "highestTerrain", "terracing", "buildableLand"],
+          "required": ["relief", "highestTerrain", "terracing", "buildableLand", "verticality"],
           "properties": {
             "relief": { "type": "integer", "minimum": 0, "maximum": 100 },
             "highestTerrain": { "type": "integer", "minimum": 10, "maximum": 16 },
             "terracing": { "type": "integer", "minimum": 0, "maximum": 100 },
-            "buildableLand": { "enum": ["tight", "normal", "generous"] }
+            "buildableLand": { "enum": ["tight", "normal", "generous"] },
+            "verticality": { "type": "integer", "minimum": 0, "maximum": 100 }
           }
         },
         "water": {

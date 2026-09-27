@@ -56,7 +56,7 @@
           "additionalProperties": false,
           "required": ["start", "steps"],
           "properties": {
-            "start": { "type": "integer", "minimum": 0, "maximum": 16 },
+            "start": { "type": "integer", "minimum": 0, "maximum": 22 },
             "steps": {
               "type": "array",
               "items": {
@@ -94,16 +94,17 @@
           "required": ["at", "sill", "to"],
           "properties": {
             "at": { "$ref": "#/$defs/point" },
-            "sill": { "type": "integer", "minimum": 0, "maximum": 16 },
+            "sill": { "type": "integer", "minimum": 0, "maximum": 22 },
             "to": { "enum": ["edge", "river", "lake", "none"] },
             "target": { "type": "string" },
             "path": { "type": "array", "maxItems": 131072, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
-            "levels": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 16 } },
+            "levels": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
             "width": { "enum": [1, 3, 5] }
           }
         },
         "inflow": { "type": "object" },
         "planned": { "type": "boolean" },
+        "natural": { "type": "boolean" },
         "river": { "type": "string" },
         "islands": {
           "type": "array",
@@ -172,7 +173,7 @@
       "additionalProperties": false,
       "required": ["kind", "request", "plan", "report"],
       "properties": {
-        "kind": { "enum": ["waterfall", "damSite", "gorge", "terracedCliffs", "badwaterBasin", "plugSpillway", "obstaclePayoff", "secondDistrict"] },
+        "kind": { "enum": ["waterfall", "damSite", "gorge", "terracedCliffs", "badwaterBasin", "plugSpillway", "obstaclePayoff", "secondDistrict", "naturalNarrows"] },
         "request": { "type": "object" },
         "plan": { "type": "object" },
         "report": { "type": "array", "items": { "type": "string" } }
@@ -263,7 +264,7 @@
         "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
         "orientation": { "$ref": "#/$defs/orientation" },
         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
-        "benchLevel": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "benchLevel": { "type": "integer", "minimum": 1, "maximum": 22 },
         "bank": { "$ref": "#/$defs/point" },
         "player": { "type": "integer", "minimum": 0, "maximum": 3 }
       }

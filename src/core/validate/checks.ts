@@ -2,8 +2,8 @@
 // class and a severity; profiles decide what a class does (report.ts). This file holds the load
 // class (§11.1–11.2: what the game would crash on, silently drop, or break at start), the design
 // class (terrain.max_height, terrain.single_floor; water.source_in_flow is in playability.ts), the
-// principle terrain.edge_wall, and `validateFile`, which adds the playability class
-// (playability.ts) on the map's canonically settled water.
+// principles terrain.edge_wall and terrain.dam_wall, and `validateFile`, which adds the playability
+// class (playability.ts) on the map's canonically settled water.
 
 import { FOOTPRINTS, OCC, ORIENTATIONS, slopeHighSide, startEntranceTile, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import { isObject, num, type JsonObject } from "../format/json";
@@ -12,6 +12,7 @@ import { EDITOR_MAX_HEIGHT, floorsOf, GAME_MAX_HEIGHT, GAME_VERSION, MAX_OBJECT_
 import type { TimberFile } from "../format/timber";
 import type { Feature } from "../features/schema";
 import { EDGE_BAND, EDGE_INSIDE, EDGE_RISE, EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
+import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
@@ -179,6 +180,25 @@ function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector):
       ? `a wall runs along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")}: its outer two tiles stand ${EDGE_RISE}+ levels above the land inside, holding water in`
       : `no wall along the map's edges (at most ${pct(most.share)} of an edge stands ${EDGE_RISE}+ levels above the land inside; a wall is ${pct(EDGE_SHARE)})`,
     ...(walled.length ? { where: { tiles: walled.map((e) => e.at) } } : {}),
+  });
+}
+
+/** `terrain.dam_wall` (D111: no built dam walls, a principle that always blocks, D115): no straight
+ *  band of rock across a valley with a gap for the river, a wall only a stamp makes (analysis/ridge.ts).
+ *  It reads the surface and the settled water: it must pass in `generate` and `export`, and is
+ *  information on an import. */
+function checkDamWall(W: number, H: number, surface: Uint8Array, depth: ArrayLike<number>, c: Collector): void {
+  const walls = damWalls(surface, W, H, depth);
+  c.add({
+    id: "terrain.dam_wall",
+    class: "principle",
+    ok: walls.length === 0,
+    value: walls.length,
+    limit: 0,
+    message: walls.length
+      ? `${walls.length} dam wall${walls.length > 1 ? "s" : ""}: a straight band of rock ${walls[0].crest - walls[0].floor} levels high across a valley, with a gap for the river`
+      : "no dam wall across any valley: dam sites are the land's own",
+    ...(walls.length ? { where: { tiles: walls.map((w) => [w.x, w.y] as [number, number]) } } : {}),
   });
 }
 
@@ -463,12 +483,13 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
         objects,
         model,
         water,
-        rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal"),
+        rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal", String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "")),
         features: opts.features ?? null,
         ids: w.entities.filter((e) => placementOf(e)).map((e) => String(e.Id)),
       },
       c,
     );
+    checkDamWall(w.sizeX, w.sizeY, surface, water.depth, c);
     // water a steady state cannot show: the water and start checks are approximate
     mechanics = mechanicsOf(objects, floorsOf(w), surface, w.sizeX, w.sizeY);
     if (mechanics.reasons.length) {

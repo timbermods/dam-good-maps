@@ -1,0 +1,488 @@
+{
+ "measured": "analysis/straight.ts: on water 0.1 deep or more in channels under 9 tiles wide, 3 tiles or more from the map's border: the longest straight bank (unit edges within 0.75 tiles of one line, any angle) and the longest canal (two straight banks facing each other across the water, parallel, overlapping)",
+ "limitRule": "the largest value of real terrain and the official maps, leaving out the maps Kyler called exceptional (Nomads, Oasis; D168) and values beyond Q3 + 3 × IQR of their own source",
+ "real": {
+  "maps": 88,
+  "run": {
+   "median": 19,
+   "p90": 29,
+   "max": 67,
+   "limit": 34,
+   "outliers": 2
+  },
+  "canal": {
+   "median": 8.49,
+   "p90": 14.76,
+   "max": 36.09,
+   "limit": 21.17,
+   "outliers": 1
+  },
+  "rows": [
+   {
+    "id": "n003-256-60-normalised-16",
+    "run": 29,
+    "canal": 15.13
+   },
+   {
+    "id": "n007-128-30-normalised-16",
+    "run": 18,
+    "canal": 6.43
+   },
+   {
+    "id": "n009-128-60-normalised-16",
+    "run": 17,
+    "canal": 6.08
+   },
+   {
+    "id": "n014-96-30-normalised-16",
+    "run": 15,
+    "canal": 8.6
+   },
+   {
+    "id": "n018-96-120-normalised-16",
+    "run": 15,
+    "canal": 11.05
+   },
+   {
+    "id": "n022-96-60-normalised-16",
+    "run": 23,
+    "canal": 14.35
+   },
+   {
+    "id": "n026-96-60-normalised-16",
+    "run": 17,
+    "canal": 8.25
+   },
+   {
+    "id": "n031-128-30-normalised-16",
+    "run": 19,
+    "canal": 0
+   },
+   {
+    "id": "n033-256-120-normalised-16",
+    "run": 22,
+    "canal": 13.91
+   },
+   {
+    "id": "n038-128-30-normalised-16",
+    "run": 23,
+    "canal": 9.43
+   },
+   {
+    "id": "n044-96-120-normalised-16",
+    "run": 13,
+    "canal": 6.07
+   },
+   {
+    "id": "n055-128-60-normalised-16",
+    "run": 51,
+    "canal": 18.92
+   },
+   {
+    "id": "n056-128-30-normalised-16",
+    "run": 16,
+    "canal": 9.06
+   },
+   {
+    "id": "n060-256-30-normalised-16",
+    "run": 25,
+    "canal": 0
+   },
+   {
+    "id": "n066-96-60-normalised-16",
+    "run": 17,
+    "canal": 6
+   },
+   {
+    "id": "n071-128-60-normalised-16",
+    "run": 20,
+    "canal": 11.04
+   },
+   {
+    "id": "n073-128-30-compressed-16",
+    "run": 15,
+    "canal": 6.32
+   },
+   {
+    "id": "n076-128-120-normalised-16",
+    "run": 19,
+    "canal": 8.81
+   },
+   {
+    "id": "n081-128-60-normalised-16",
+    "run": 27,
+    "canal": 17.35
+   },
+   {
+    "id": "n086-96-30-normalised-16",
+    "run": 30,
+    "canal": 12.7
+   },
+   {
+    "id": "n091-128-60-normalised-16",
+    "run": 21,
+    "canal": 11.18
+   },
+   {
+    "id": "n095-96-30-normalised-16",
+    "run": 13,
+    "canal": 0
+   },
+   {
+    "id": "n098-256-60-normalised-16",
+    "run": 67,
+    "canal": 36.09
+   },
+   {
+    "id": "n101-128-120-normalised-16",
+    "run": 11,
+    "canal": 0
+   },
+   {
+    "id": "n105-256-60-normalised-16",
+    "run": 13,
+    "canal": 7.07
+   },
+   {
+    "id": "n111-128-30-normalised-16",
+    "run": 17,
+    "canal": 8.05
+   },
+   {
+    "id": "n119-96-30-normalised-16",
+    "run": 21,
+    "canal": 5.63
+   },
+   {
+    "id": "n123-128-30-normalised-16",
+    "run": 26,
+    "canal": 10.64
+   },
+   {
+    "id": "n127-256-30-normalised-16",
+    "run": 11,
+    "canal": 0
+   },
+   {
+    "id": "n128-96-60-normalised-16",
+    "run": 19,
+    "canal": 5.47
+   },
+   {
+    "id": "n135-256-30-normalised-16",
+    "run": 23,
+    "canal": 9.14
+   },
+   {
+    "id": "n139-96-30-normalised-16",
+    "run": 13,
+    "canal": 0
+   },
+   {
+    "id": "n141-128-120-normalised-16",
+    "run": 6,
+    "canal": 0
+   },
+   {
+    "id": "n144-256-30-normalised-16",
+    "run": 26,
+    "canal": 5.49
+   },
+   {
+    "id": "n150-96-60-normalised-16",
+    "run": 13,
+    "canal": 3
+   },
+   {
+    "id": "n154-256-30-normalised-16",
+    "run": 23,
+    "canal": 0
+   },
+   {
+    "id": "n159-128-60-normalised-16",
+    "run": 8,
+    "canal": 0
+   },
+   {
+    "id": "n163-128-120-normalised-16",
+    "run": 20,
+    "canal": 5.83
+   },
+   {
+    "id": "n164-96-30-normalised-16",
+    "run": 22,
+    "canal": 11.16
+   },
+   {
+    "id": "n171-256-30-normalised-16",
+    "run": 13,
+    "canal": 0
+   },
+   {
+    "id": "n175-128-30-normalised-16",
+    "run": 16,
+    "canal": 1.97
+   },
+   {
+    "id": "n178-96-60-normalised-16",
+    "run": 18,
+    "canal": 7.28
+   },
+   {
+    "id": "n181-128-30-normalised-16",
+    "run": 20,
+    "canal": 7.21
+   },
+   {
+    "id": "n186-256-60-normalised-16",
+    "run": 17,
+    "canal": 6.65
+   },
+   {
+    "id": "n189-96-30-normalised-16",
+    "run": 18,
+    "canal": 12.02
+   },
+   {
+    "id": "n193-128-60-normalised-16",
+    "run": 22,
+    "canal": 9.21
+   },
+   {
+    "id": "n201-128-60-normalised-16",
+    "run": 15,
+    "canal": 6
+   },
+   {
+    "id": "n205-128-120-normalised-16",
+    "run": 23,
+    "canal": 9.43
+   },
+   {
+    "id": "n209-96-120-normalised-16",
+    "run": 16,
+    "canal": 1
+   },
+   {
+    "id": "n214-256-30-normalised-16",
+    "run": 26,
+    "canal": 14.6
+   },
+   {
+    "id": "n216-96-30-normalised-16",
+    "run": 22,
+    "canal": 13.75
+   },
+   {
+    "id": "n223-128-30-normalised-16",
+    "run": 21,
+    "canal": 10
+   },
+   {
+    "id": "n224-256-60-normalised-16",
+    "run": 22,
+    "canal": 8.68
+   },
+   {
+    "id": "n231-128-120-normalised-16",
+    "run": 23,
+    "canal": 9.06
+   },
+   {
+    "id": "n232-96-60-normalised-16",
+    "run": 15,
+    "canal": 10.05
+   },
+   {
+    "id": "n239-96-120-normalised-16",
+    "run": 9,
+    "canal": 0
+   },
+   {
+    "id": "n241-96-60-normalised-16",
+    "run": 18,
+    "canal": 8.51
+   },
+   {
+    "id": "n246-256-120-normalised-16",
+    "run": 30,
+    "canal": 15.22
+   },
+   {
+    "id": "n248-96-30-normalised-16",
+    "run": 8,
+    "canal": 0
+   },
+   {
+    "id": "n253-128-60-normalised-16",
+    "run": 17,
+    "canal": 5.38
+   },
+   {
+    "id": "n259-128-120-normalised-16",
+    "run": 19,
+    "canal": 8.47
+   },
+   {
+    "id": "n262-128-120-normalised-16",
+    "run": 17,
+    "canal": 6.25
+   },
+   {
+    "id": "n264-96-30-normalised-16",
+    "run": 19,
+    "canal": 5.47
+   },
+   {
+    "id": "n268-128-30-normalised-16",
+    "run": 16,
+    "canal": 8.89
+   },
+   {
+    "id": "n272-256-60-normalised-16",
+    "run": 22,
+    "canal": 11.18
+   },
+   {
+    "id": "n279-96-120-normalised-16",
+    "run": 15,
+    "canal": 6.27
+   },
+   {
+    "id": "n280-128-30-normalised-16",
+    "run": 20,
+    "canal": 12.64
+   },
+   {
+    "id": "n287-256-120-normalised-16",
+    "run": 15,
+    "canal": 8.21
+   },
+   {
+    "id": "n290-96-120-normalised-16",
+    "run": 19,
+    "canal": 14.17
+   },
+   {
+    "id": "n293-128-120-normalised-16",
+    "run": 22,
+    "canal": 11
+   },
+   {
+    "id": "n297-96-30-normalised-16",
+    "run": 14,
+    "canal": 5.46
+   },
+   {
+    "id": "n300-128-60-normalised-16",
+    "run": 26,
+    "canal": 12.26
+   },
+   {
+    "id": "n306-96-30-normalised-16",
+    "run": 29,
+    "canal": 12.04
+   },
+   {
+    "id": "n328-128-60-normalised-16",
+    "run": 29,
+    "canal": 21.17
+   },
+   {
+    "id": "n332-128-60-compressed-16",
+    "run": 27,
+    "canal": 15.13
+   },
+   {
+    "id": "n340-128-60-linear-16",
+    "run": 25,
+    "canal": 13.04
+   },
+   {
+    "id": "n344-128-60-linear-16",
+    "run": 31,
+    "canal": 13.04
+   },
+   {
+    "id": "n348-128-60-compressed-16",
+    "run": 34,
+    "canal": 19.65
+   },
+   {
+    "id": "n352-128-60-compressed-16",
+    "run": 30,
+    "canal": 17.69
+   },
+   {
+    "id": "n356-128-60-normalised-16",
+    "run": 23,
+    "canal": 12.97
+   },
+   {
+    "id": "n360-128-60-linear-16",
+    "run": 12,
+    "canal": 0
+   },
+   {
+    "id": "n364-128-60-compressed-16",
+    "run": 23,
+    "canal": 8.25
+   },
+   {
+    "id": "n368-128-60-compressed-16",
+    "run": 19,
+    "canal": 6.38
+   },
+   {
+    "id": "n384-128-60-normalised-16",
+    "run": 28,
+    "canal": 10.75
+   },
+   {
+    "id": "n388-128-60-compressed-16",
+    "run": 12,
+    "canal": 0
+   },
+   {
+    "id": "u036-128-60-normalised-16",
+    "run": 19,
+    "canal": 7.79
+   },
+   {
+    "id": "u040-128-60-normalised-16",
+    "run": 19,
+    "canal": 8.06
+   },
+   {
+    "id": "u048-128-60-normalised-16",
+    "run": 17,
+    "canal": 9
+   }
+  ]
+ },
+ "official": {
+  "maps": 17,
+  "run": {
+   "median": 37,
+   "p90": 42.2,
+   "max": 96,
+   "limit": 44,
+   "outliers": 1
+  },
+  "canal": {
+   "median": 25.26,
+   "p90": 33.51,
+   "max": 74.33,
+   "limit": 34.28,
+   "outliers": 1
+  },
+  "leftOut": [
+   "Nomads",
+   "Oasis"
+  ]
+ },
+ "limits": {
+  "run": 44,
+  "canal": 34.28
+ }
+}

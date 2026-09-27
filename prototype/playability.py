@@ -11,6 +11,7 @@ multi-tile objects block walking on every tile."""
 from __future__ import annotations
 
 import math
+import re
 
 import numpy as np
 
@@ -19,6 +20,7 @@ from analysis import (components, dam_sites, distance_from, is_dead, placement, 
                       reach_at, walk_distance, walk_regions)
 from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
+from storage import SECONDS_PER_DAY, dam_walls, levee_storage, pump_shore_tile, running_flow
 
 WET = 0.05                   # water deeper than this is a water tile
 BAD = 0.05                   # water this contaminated is badwater to a beaver
@@ -33,15 +35,16 @@ START_AREA = {"small": 0.6, "normal": 1.0, "large": 1.8}      # PLAN §5.6 start
 DROUGHT_DAYS = {"easy": 4, "normal": 9, "hard": 30}
 COLONY = {"easy": 40, "normal": 50, "hard": 50}
 START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "start.food",
-                "start.wood", "start.ruins_clear", "plants.survive", "plants.drought", "water.reservoir",
+                "start.wood", "start.wood_floor", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
                 "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access",
                 "extras.placement")
 # advisory from M8 (D85): generation targets with a warning, never a reason to reject a map; the
-# resource amounts are information (Kyler, 2026-09-25: resources like the official maps)
-ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought",
+# resource amounts are information (Kyler, 2026-09-25: resources like the official maps); water
+# storage near the start is information the generator prefers (D209, decisions-pending #67)
+ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible", "plants.drought",
                   "resources.scrap", "resources.trees", "resources.bushes")
 
-TREE_LOGS = {"Pine": 2, "Birch": 1, "Oak": 8}      # logs a grown tree gives (the game's specs)
+TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's blueprints, src/core/data/log-floor.json)
 
 
 def _number(v):
@@ -67,11 +70,15 @@ def is_sapling(comps):
 
 
 def tree_logs(template, comps):
-    """The logs a lumberjack cuts from a Pine, Birch or Oak once it has grown (D164;
+    """The logs a lumberjack cuts from a tree that gives logs once it has grown (D164, D224;
     src/core/analysis/wood.ts treeLogs): what its Yielder:Cuttable holds when that is logs, else its
-    species' yield; anything else gives none."""
+    species' yield; anything else gives none, and so does a dead tree of a species that loses its
+    yield when it dies."""
     spec = TREE_LOGS.get(template)
     if spec is None:
+        return 0
+    lnr = comps.get("LivingNaturalResource")
+    if cal.DEAD_TREES_KEEP_LOGS.get(template) is False and isinstance(lnr, dict) and lnr.get("IsDead") is True:
         return 0
     y = comps.get("Yielder:Cuttable")
     if isinstance(y, dict) and isinstance(y.get("Yield"), dict) and y["Yield"].get("Good") == "Log":
@@ -178,7 +185,16 @@ def polygon_mask(poly, W, H):
     return mask
 
 
-def rules_for(spec, difficulty):
+def asks_for_badwater(setting, description=""):
+    """Whether a map should have a badwater source (D200; resources/badwater.ts asksForBadwater): its
+    Badwater setting is anything but No badwater (off), or, without settings, its description does not
+    say No badwater."""
+    if setting:
+        return setting != "off"
+    return re.search(r"\bNo badwater\b", description or "", re.IGNORECASE) is None
+
+
+def rules_for(spec, difficulty, description=""):
     """Thresholds (validate/playability.ts rulesFor): the spec's settings, or the defaults."""
     d = spec["designedFor"] if spec else difficulty
     base = cal.DIFFICULTY[d]
@@ -197,9 +213,10 @@ def rules_for(spec, difficulty):
         "drought_days": DROUGHT_DAYS[d],
         "reservoir_need": cal.reservoir_needed(d) * RESERVE[s["water"]["droughtReserve"] if s else "normal"],
         "reservoir_depth": 3 if d == "hard" else 0,
-        "max_share": 0.55 if spec and spec["theme"] in ("lakeBasin", "islands") else cal.WATER["max_water_share"],
+        "max_share": 0.55 if spec and spec["theme"] in ("lakeBasin", "islands", "any") else cal.WATER["max_water_share"],
         "mult": ({"scrap": s["resources"]["ruins"] / 100, "trees": s["resources"]["forestDensity"] / 100,
                   "bushes": s["resources"]["berryBushes"] / 100} if s else {"scrap": 1, "trees": 1, "bushes": 1}),
+        "badwater_source": asks_for_badwater(s["hazards"]["badwater"] if s else None, description),
     }
 
 
@@ -335,7 +352,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     h = m.surface()
     X, Y = m.size_x, m.size_y
     N = X * Y
-    rules = rules_for(spec, difficulty)
+    rules = rules_for(spec, difficulty, str((m.metadata or {}).get("MapDescription", "")))
 
     # ---- blockers by footprint: walking, and moisture/contamination (Thorns)
     blocked = np.zeros((Y, X), bool)
@@ -379,6 +396,9 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     largest = max(sizes, default=0)
     rep.add("water.clean_reach", largest >= 40, f"largest clean water body {largest} tiles", largest, 40, advisory=True)
     _contained(rep, h, features, X, Y)
+    # a principle (D111): no built dam wall across a valley (src/core/analysis/ridge.ts)
+    walls = dam_walls(h, D)
+    rep.add("terrain.dam_wall", not walls, f"{len(walls)} dam walls" if walls else "no dam wall", len(walls), 0)
     M = moisture(h, D, C, sim.sat(), barrier)
     SC = contamination(h, D, C, barrier)
     water.update({"D": D, "C": C, "M": M, "SC": SC, "ticks": sim.ticks, "settled": settled})
@@ -386,6 +406,13 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # ---- a mine site on every map (Kyler, 2026-09-25)
     mines = sum(1 for e in m.entities if e["Template"] == "UndergroundRuins" and "BlockObject" in e.get("Components", {}))
     rep.add("resources.mine_site", mines >= 1, f"{mines} mine sites (at least one)", mines, 1)
+
+    # ---- a badwater source on every map (Kyler, 2026-09-26, D200); a badwater seep counts; a map set
+    #      to No badwater needs none
+    bad = sum(1 for e in m.entities if e["Template"] in ("BadwaterSource", "BadwaterSeep") and "BlockObject" in e.get("Components", {})
+              and float(e["Components"].get("WaterSource", {}).get("SpecifiedStrength", 0.0)) > 0)
+    want = rules["badwater_source"]
+    rep.add("resources.badwater_source", bad >= 1 or not want, f"{bad} badwater sources ({'at least one' if want else 'No badwater'})", bad, 1 if want else 0)
 
     # ---- the start (vanilla: exactly one; start.count reports anything else)
     starts = [e for e in m.entities if e["Template"] == "StartingLocation" and "BlockObject" in e.get("Components", {})]
@@ -433,20 +460,28 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # requirement 3 (D85): living berry bushes within 20 tiles' walk (slopes allowed); living: alive
     # and on soil where it survives at steady state. Requirement 2, starting wood (D164): the logs
     # of every grown tree within that walk, alive or dead, by its species' yield (tree_logs); a
-    # sapling's logs are still growing and do not count
-    bushes = wood = 0
+    # sapling's logs are still growing and do not count. The starting-logs floor (D224, D227) counts
+    # the same grown logs within a longer walk, 40 tiles, at every difficulty
+    bushes = wood = floor_wood = 0
     for e in m.entities:
         if "BlockObject" not in e.get("Components", {}):
             continue
         q = placement(e)
-        tree = q.template in TREES
+        tree = q.template in TREES or q.template in TREE_LOGS
         if not tree and q.template != "BlueberryBush":
             continue
-        if not (0 <= q.x < X and 0 <= q.y < Y) or reach_at(walk, q.y, q.x) > NEAR:
+        if not (0 <= q.x < X and 0 <= q.y < Y):
             continue
-        if tree:
-            if not is_sapling(e["Components"]):
-                wood += tree_logs(q.template, e["Components"])
+        d = reach_at(walk, q.y, q.x)
+        if d > max(NEAR, cal.LOG_FLOOR_WALK):
+            continue
+        if tree and not is_sapling(e["Components"]):
+            logs = tree_logs(q.template, e["Components"])
+            if d <= cal.LOG_FLOOR_WALK:
+                floor_wood += logs
+            if d <= NEAR:
+                wood += logs
+        if tree or d > NEAR:
             continue
         if is_dead(e) or not (M[q.y, q.x] > 0 and not D[q.y, q.x] > 0 and not SC[q.y, q.x] > 0):
             continue
@@ -455,6 +490,11 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             bushes, rules["bushes_within"])
     rep.add("start.wood", wood >= rules["wood_within"], f"{wood} logs within 20 tiles' walk", wood,
             rules["wood_within"])
+    # the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to build a
+    # Forester; exact, never approximate
+    rep.add("start.wood_floor", floor_wood >= cal.LOG_FLOOR,
+            f"{floor_wood} logs within {cal.LOG_FLOOR_WALK} tiles' walk (the floor is {cal.LOG_FLOOR})",
+            floor_wood, cal.LOG_FLOOR)
     ruins = [e for e in m.entities if e["Template"].startswith("RuinColumnH") and "BlockObject" in e.get("Components", {})]
     near_ruins = sum(1 for e in ruins if 0 <= placement(e).x < X and 0 <= placement(e).y < Y
                      and sd[placement(e).y, placement(e).x] < rules["ruins_within"])
@@ -492,7 +532,9 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
         rep.add("plants.drought", thirsty == 0, f"{thirsty} berry bushes near the start dry out in the drought",
                 thirsty, 0, advisory=True)
 
-    # ---- drought: a reservoir site near the start that holds a colony through the worst drought
+    # ---- drought: water storage near the start (src/core/analysis/storage.ts; D111, replacing
+    # water.reservoir): running clean water at the start's pump shore, and a dam, natural pools or
+    # levees within 40 tiles that could hold the colony through the worst drought (advisory, #67)
     kept = drought_storage(floor, D, rules["drought_days"], sources, dam)
     natural = seq_sum(kept[sd <= RESERVOIR_RADIUS])
     deep = rules["reservoir_depth"]
@@ -501,9 +543,15 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     near_sites = [s for s in sites if sd[s["y"], s["x"]] <= RESERVOIR_RADIUS]
     best = max([s["volume"] for s in near_sites], default=0.0)
     need = rules["reservoir_need"]
-    rep.add("water.reservoir", max(natural, best) >= need,
-            f"best dam site within 40 tiles holds {best:.0f}, natural pools {natural:.0f}; need {need:.0f} "
-            f"for {COLONY[rules['difficulty']]} beavers", round(max(natural, best)), round(need), advisory=True)
+    held = max(natural, best)
+    _, shore_tile = pump_shore_tile(walk, h, D, C)
+    running = running_flow(D, sources, shore_tile) if shore_tile is not None else 0.0
+    levee = levee_storage(h, D, C, sx, sy, int(h[sy, sx]), need) if shore_tile is not None and held < need else 0.0
+    stored = max(held, levee)
+    rep.add("water.storage_possible", shore_tile is not None and running >= need / (2 * SECONDS_PER_DAY) and stored >= need,
+            f"running {running:.2f} water/s; best dam within 40 tiles {best:.0f}, natural pools {natural:.0f}, "
+            f"levees {levee:.0f}; need {need:.0f} for {COLONY[rules['difficulty']]} beavers", round(stored), round(need),
+            advisory=True)
     water.update({"reach": reach, "sites": sites})
 
     # ---- resource totals: at least half the official median for this map size (about the official p10)

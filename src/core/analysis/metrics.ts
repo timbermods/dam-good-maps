@@ -70,7 +70,8 @@ export interface MapMetrics {
   /** Tiles of the start's bench: at the start's level within 8 tiles (Start area). */
   benchTiles: number;
   /** The map objects (Thorn belts, Unstable cores, Relics, Geothermal fields, Mine sites) and the
-   *  rivers leaving by the map edge (River style: a braided river's delta has 2–4). */
+   *  water leaving by the map edge, as separate wet stretches of the border (River style: a braided
+   *  river's delta has 2–4). */
   thorns: number;
   cores: number;
   relics: number;
@@ -87,7 +88,8 @@ export interface Measurable {
     heights: Uint8Array;
     water: Float64Array;
     entities: readonly EntitySpec[];
-    sources: readonly { strength: number; template: string }[];
+    /** (with their tiles where known: a source's tile is not water leaving the map) */
+    sources: readonly { strength: number; template: string; x?: number; y?: number }[];
     start?: { x: number; y: number; z: number };
   };
   report: ValidationReport;
@@ -239,15 +241,40 @@ export function measure(m: Measurable): MapMetrics {
   const groveMedian = groves.length ? groves[groves.length >> 1] : 0;
 
   // ---- the start's bench
-  let benchTiles = 0;
-  const st = m.built.start;
-  if (st) {
-    for (let y = st.y - 8; y <= st.y + 8; y++)
-      for (let x = st.x - 8; x <= st.x + 8; x++) {
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        if ((x - st.x) * (x - st.x) + (y - st.y) * (y - st.y) <= 64 && h[y * W + x] === st.z) benchTiles++;
+  const benchTiles = m.built.start ? startBench(h, W, H, m.built.start) : 0;
+
+  // ---- the water leaving by the map edge: separate wet stretches of the border, apart from the
+  //      sources' own tiles (a river's mouth, each channel of a delta; from M9a a delta's channels
+  //      are the land's, not features of their own)
+  const source = new Uint8Array(N);
+  for (const s of m.built.sources) if (s.x !== undefined && s.y !== undefined && s.x >= 0 && s.y >= 0 && s.x < W && s.y < H) source[s.y * W + s.x] = 1;
+  const ring: number[] = [];
+  for (let x = 0; x < W; x++) ring.push(x);
+  for (let y = 1; y < H; y++) ring.push(y * W + W - 1);
+  for (let x = W - 2; x >= 0; x--) ring.push((H - 1) * W + x);
+  for (let y = H - 2; y >= 1; y--) ring.push(y * W);
+  // (a stretch of two tiles or more: a single wet tile beside a river's mouth is its spill; the
+  // water leaving is thin, since an edge tile passes all its water on each substep, so any depth
+  // of 0.02 or more counts)
+  const out = ring.map((i) => (water[i] >= 0.02 && !source[i] ? 1 : 0));
+  let edgeExits = 0;
+  const L = out.length;
+  const k0 = out.findIndex((v) => v === 0);
+  if (k0 < 0) edgeExits = 1;
+  else
+    for (let n = 0; n < L; ) {
+      const k = (k0 + n) % L;
+      if (!out[k]) {
+        n++;
+        continue;
       }
-  }
+      let run = 0;
+      while (n < L && out[(k0 + n) % L]) {
+        run++;
+        n++;
+      }
+      if (run >= 2) edgeExits++;
+    }
 
   // ---- the 1.0 map objects (PLAN §5.4–5.5)
   const count = (re: RegExp) => m.built.entities.filter((e) => re.test(e.template)).length;
@@ -258,7 +285,7 @@ export function measure(m: Measurable): MapMetrics {
     relics: count(/^(Small|Medium|Large)Relic$/),
     geothermal: count(/^GeothermalField$/),
     mines: count(/^UndergroundRuins$/),
-    edgeExits: rivers.filter((r) => "edge" in r.params.exit).length,
+    edgeExits,
     heightRange,
     cliffShare: cliff / N,
     step1Share: steps ? steps1 / steps : 0,
@@ -297,4 +324,16 @@ export function measure(m: Measurable): MapMetrics {
     ruinsNearest,
     benchTiles,
   };
+}
+
+/** The start's bench (Start area, a preference since D211; the map card shows it): tiles at the
+ *  district center's level within 8 tiles of its middle. */
+export function startBench(h: ArrayLike<number>, W: number, H: number, st: { x: number; y: number; z: number }): number {
+  let n = 0;
+  for (let y = st.y - 8; y <= st.y + 8; y++)
+    for (let x = st.x - 8; x <= st.x + 8; x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      if ((x - st.x) * (x - st.x) + (y - st.y) * (y - st.y) <= 64 && h[y * W + x] === st.z) n++;
+    }
+  return n;
 }

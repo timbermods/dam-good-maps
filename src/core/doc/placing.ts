@@ -9,6 +9,7 @@ import { BUILDERS } from "../features/setpieces";
 import { badwaterMouth } from "../features/build";
 import { mouthTiles } from "../features/raster/terrain";
 import { entityTiles } from "../features/edits";
+import { DERIVED_SLOPES } from "../features/ids";
 import { pathField, polygonMask } from "../features/geometry";
 import { footprintAt, fitProblems, isLine, OBJECT_NAMES, objectTiles, type FitGround } from "../features/objects";
 import { lakeWater } from "../features/setpieces/plugSpillway";
@@ -228,6 +229,10 @@ export function planArea(s: MapSession, req: AreaRequest, id: string, origin: Fe
     if (k === "berryPatch" || (k === "forest" && req.kind !== "berryPatch") || (k === "ruinField" && req.kind === "ruinField"))
       for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) occupied[y * W + x] = 1;
   }
+  // the derived slopes keep off the player's own resource areas (build step 8): one standing inside
+  // the area moves out of it once the area is placed
+  if (origin !== "generated")
+    for (const e of b.entities) if (e.owner === DERIVED_SLOPES && e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && mask[e.y * W + e.x]) occupied[e.y * W + e.x] = 0;
   g.occupied = occupied;
   const dens = Math.min(1, Math.max(0.1, Math.round(req.density * 100) / 100));
   const base = { id, origin, locked: false };

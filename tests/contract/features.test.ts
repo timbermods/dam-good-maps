@@ -1,12 +1,15 @@
-// Contract (PLAN §15, ROADMAP M1 acceptance): features survive a JSON round trip; build(features)
-// equals the generated map byte for byte; rebuilding from the project file reproduces the .timber;
-// removing one ruin field leaves every other feature and entity id unchanged; the same spec gives
-// the same bytes; generated maps pass the generate profile.
+// Contract (PLAN §15, ROADMAP M1 acceptance): features survive a JSON round trip; build(field and
+// features) equals the generated map byte for byte; rebuilding from the project file reproduces the
+// .timber; removing one ruin field leaves every other feature and entity id unchanged; the same spec
+// gives the same bytes; generated maps pass the generate profile. Since M9a the land is the field
+// the processes made (format 3), and its features are what was read back from it: no planned
+// feature list holds a dam-site ridge, a landform or a stamped set piece (D111, ROADMAP M9a).
 
-import { layoutTargets } from "../../src/core/gen/layout";
 import { createHash } from "node:crypto";
+import { badwaterBudget } from "../../src/core/resources/badwater";
+import { generatedField } from "../../src/core/doc/session";
 import { describe, expect, it } from "vitest";
-import { decodeProject, encodeProject, toDocument } from "../../src/core/doc/document";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { generate, rebuild } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { validateFeatures, validateSpec } from "../../src/core/spec/schema";
@@ -30,7 +33,7 @@ describe.each([
     // water (D152), how much clean water the map keeps; and the resource amounts, which are
     // information (Kyler, 2026-09-25: resources like the official maps; D148)
     expect(r.report.checks.filter((c) => !c.ok && !c.advisory)).toEqual([]);
-    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.badwater", "start.reach", "start.ruins_clear", "plants.drought", "water.reservoir", "resources.scrap", "resources.trees", "resources.bushes"]);
+    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.badwater", "start.reach", "start.ruins_clear", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes"]);
     expect(r.report.passed).toBe(true);
   });
 
@@ -38,16 +41,23 @@ describe.each([
     expect(validateFeatures(r.features)).toEqual([]);
     expect(validateSpec(r.spec)).toEqual([]);
     const kinds = new Set(r.features.map((f) => f.kind));
-    for (const k of ["river", "lake", "landform", "setPiece", "forest", "berryPatch", "ruinField", "mapObject", "start"]) expect(kinds.has(k as Feature["kind"])).toBe(true);
+    for (const k of ["river", "setPiece", "forest", "berryPatch", "ruinField", "mapObject", "start"]) expect(kinds.has(k as Feature["kind"])).toBe(true);
+    // the land is the field's: no landform is planned (D108, design version 2)
+    expect(kinds.has("landform")).toBe(false);
     const ids = r.features.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
-    const setPieces = r.features.filter((f) => f.kind === "setPiece").map((f) => (f.params as { kind: string }).kind).sort();
-    // the badwater setting's strength in basins of 1–3 each (0.65 × 7.2 at 256² makes two); since
-    // M7 also ruins on a plateau (where it fits) and, from 128², a second district's site
-    const basins = Math.ceil(layoutTargets(r.spec).badwater / 3);
-    const layoutPieces = setPieces.filter((k) => k !== "obstaclePayoff" && k !== "secondDistrict");
-    expect(layoutPieces).toEqual([...Array(basins).fill("badwaterBasin"), "damSite", "waterfall", "waterfall"]);
-    expect(setPieces.filter((k) => k === "obstaclePayoff" || k === "secondDistrict").length).toBeLessThanOrEqual(2);
+    // the set pieces are what the land held: the badwater hollows (D200: at least one), a rise with
+    // ruins, a second district's site; no dam-site ridge, no stamped waterfall (D111: falls emerge)
+    const setPieces = r.features.filter((f) => f.kind === "setPiece").map((f) => (f.params as { kind: string }).kind);
+    // the badwater setting's sources, up to as many as the official maps' for the size (D200)
+    const basins = setPieces.filter((k) => k === "badwaterBasin").length;
+    expect(basins).toBeGreaterThanOrEqual(1);
+    expect(basins).toBeLessThanOrEqual(badwaterBudget(r.spec.size.x, r.spec.size.y, r.spec.settings.hazards.badwater, r.spec.seed).sources);
+    for (const k of setPieces) expect(["badwaterBasin", "obstaclePayoff", "secondDistrict"]).toContain(k);
+    // the rivers, natural lakes, hollows and rises read back from the field are its own (the second
+    // district's site changes no terrain)
+    const readBack = (f: Feature) => f.kind === "river" || (f.kind === "lake" && f.params.natural === true) || (f.kind === "setPiece" && f.params.kind !== "secondDistrict");
+    expect(r.field!.contains).toEqual(r.features.filter(readBack).map((f) => f.id).sort());
   });
 
   it("every entity records its owning feature", () => {
@@ -58,14 +68,14 @@ describe.each([
   it("features survive a JSON round trip and rebuild to the same bytes", () => {
     const features = JSON.parse(JSON.stringify(r.features)) as Feature[];
     expect(features).toEqual(r.features);
-    expect(sha(rebuild(r.spec, features).bytes)).toBe(sha(r.bytes));
+    expect(sha(rebuild(r.spec, features, generatedField(r.field!, size, size)).bytes)).toBe(sha(r.bytes));
   });
 
   it("the project file rebuilds the .timber byte for byte", () => {
-    const doc = decodeProject(encodeProject(toDocument(r.spec, r.features, r.built)));
+    const doc = decodeProject(encodeProject(generatedDocument(r)));
     expect(doc.spec).toEqual(r.spec);
-    expect(sha(rebuild(doc.spec!, doc.features).bytes)).toBe(sha(r.bytes));
-    expect(sha(encodeProject(toDocument(r.spec, r.features, r.built)))).toBe(sha(encodeProject(toDocument(r.spec, r.features, r.built))));
+    expect(sha(rebuild(doc.spec!, doc.features, generatedField(doc.field!, size, size)).bytes)).toBe(sha(r.bytes));
+    expect(sha(encodeProject(generatedDocument(r)))).toBe(sha(encodeProject(generatedDocument(r))));
   });
 
   it("is deterministic: the same spec gives the same bytes", () => {
@@ -77,7 +87,7 @@ describe.each([
     expect(fields.length).toBeGreaterThan(0);
     const removed = fields[Math.floor(fields.length / 2)];
     const rest = r.features.filter((f) => f.id !== removed.id);
-    const again = rebuild(r.spec, rest);
+    const again = rebuild(r.spec, rest, generatedField(r.field!, size, size));
     const before = new Map(r.built.entities.filter((e) => e.owner !== removed.id).map((e) => [e.id, e]));
     const after = new Map(again.built.entities.map((e) => [e.id, e]));
     expect([...after.keys()].sort()).toEqual([...before.keys()].sort());

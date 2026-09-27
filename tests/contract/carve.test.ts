@@ -507,10 +507,12 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("an oxbow lake's water is kept with its carve: the map settles with it, the project and the file keep it, and undo takes it away", () => {
-    const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
+    // (a carve that cuts a bend off on 0.7.0's maps, M9a: Canyon 96² seed 5, from the southwest
+    // toward the northeast; seed 1's course leaves no oxbow now)
+    const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [30, 84], 1200, {}, [66, 12]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [20, 80], 1200, {}, [76, 16]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);

@@ -10,6 +10,7 @@
 // When a goal is not feasible, find_sites and the proposal's steps return the reason and the
 // nearest feasible alternative (a place or a size), which Claude offers and never builds silently.
 
+import { isLandmarkKind, LANDMARK_KINDS, landmarks, reach, type LandmarkKind } from "./landmarks";
 import type { MapSession } from "../../../src/core/doc/session";
 import { BUILDERS, flowBudget, type PlanRecord } from "../../../src/core/features/setpieces";
 import { standaloneLimits } from "../../../src/core/features/setpieces/waterfall";
@@ -105,6 +106,17 @@ export const TOOL_DEFS: ToolDef[] = [
       },
       required: ["kind"],
     },
+  },
+  {
+    name: "landmarks",
+    description:
+      "What the map's land holds, read back from how it was made: the rivers in flow order (where each comes from and goes, its length, flow and falls), the lakes, the falls, the standing forms (spires, stacks, small mesas), the natural ramps, and the stairs-only uplands. kind: one of those, or all. Changes nothing.",
+    input_schema: { type: "object", properties: { kind: { type: "string", enum: ["rivers", "lakes", "falls", "standing forms", "ramps", "stairs-only uplands"] } } },
+  },
+  {
+    name: "reach",
+    description: "Where the colony walks without stairs: the dry land on foot from the start (over the map's own ground and slopes), the stairs-only land, and the levels reached without stairs. No input. Changes nothing.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "dry_run",
@@ -225,6 +237,12 @@ export class ClaudeTools {
         return this.listFeatures(a);
       case "limits":
         return this.limits(a);
+      case "landmarks": {
+        if (a.kind !== undefined && !isLandmarkKind(a.kind)) throw new ArgError(`kind is one of ${LANDMARK_KINDS.join(", ")}, or none for all`);
+        return landmarks(this.session, a.kind as LandmarkKind | undefined);
+      }
+      case "reach":
+        return reach(this.session);
       case "dry_run":
         return compact(runProposal(this.session, this.conv, proposalOf(a), "dry_run"));
       case "propose": {
@@ -235,7 +253,7 @@ export class ClaudeTools {
         return compact(r);
       }
       default:
-        throw new ArgError(`there is no tool ${name.slice(0, 40)}: use resolve_region, find_sites, measure, list_features, limits, dry_run or propose`);
+        throw new ArgError(`there is no tool ${name.slice(0, 40)}: use resolve_region, find_sites, measure, list_features, limits, landmarks, reach, dry_run or propose`);
     }
   }
 

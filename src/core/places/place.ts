@@ -299,10 +299,10 @@ export function placeGround(p: PlaceData): { heights: Uint8Array; entities: Enti
 export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
   const { W, H } = p;
   const { heights, entities, objects, model } = placeGround(p);
-  const settle = settled ?? canonicalSettle(model);
+  let settle = settled ?? canonicalSettle(model);
   const barrier = moistureBarrier(W, H, objects);
-  const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
-  const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
+  let moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
+  let soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
   // the resource baseline, as the generator would give a map of this size designed for Normal
   // (resources/plan.ts): starting wood and berries near the start with the generator's margins;
   // the starting-logs floor (D224, D227) counts farther out, and the planner plants toward it too
@@ -321,8 +321,20 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
     seed: hash32("real-place", p.survey),
     nearStart: { wood: Math.ceil(1.35 * rules.woodWithin20), bushes: Math.max(rules.berriesTarget, Math.ceil(1.15 * rules.bushesWithin20)) },
     ruinsClear: rules.ruinsWithin + 7,
+    // badwater on every map (D200, D213): a spring where the land allows, at Normal's distance from
+    // the start, as the generator places it
+    badwater: { setting: "normal", within: rules.badwaterWithin },
     owner: `real-place:${p.id}`,
   });
+  // the water settled again with the badwater, and the soil it leaves: what the file holds, and
+  // what the floor's groves read
+  let waterModelOut = model;
+  if (resources.water) {
+    settle = resources.water.settle;
+    moist = resources.water.moisture;
+    soil = resources.water.soilContamination;
+    waterModelOut = waterModel(W, H, heights, [...objects, ...resources.entities.filter((e) => e.template === "BadwaterSource").map(mapObject)]);
+  }
   // the starting-logs floor (D224, D227): a place short of it grows groves that read its own land
   // within the floor's walk (D229, wood.ts), for the logs it lacks and a tenth more
   let logs = startLogs(heights, W, H, [...objects, ...resources.entities.map(mapObject)]);
@@ -355,12 +367,12 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
       sizeY: H,
       layers: LAYERS,
       voxels: voxelsFromHeights(heights, W, H),
-      singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat }),
+      singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out }),
       entities: [...entities, ...resources.entities, ...(floorWood?.entities ?? [])].map(entityJson),
     },
     extraFiles: [],
   };
-  return { file, heights, model, settle, resources, logs, ...(floorWood ? { floorWood } : {}) };
+  return { file, heights, model: waterModelOut, settle, resources, logs, ...(floorWood ? { floorWood } : {}) };
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its

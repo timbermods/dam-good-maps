@@ -3,12 +3,14 @@
 // The model is not on dev: its four source files are taken from git at a fixed commit into the ignored
 // .cache/cycles/, with their imports of src/ pointed back at this checkout (the same approach the cycles
 // study uses for its first model). src/core/sim, gen and features are unchanged between that branch's base
-// and dev, so its predictions hold for this checkout's maps.
+// and dev, so its predictions hold for this checkout's maps. The model starts from what the game loads:
+// the file's water and the outflows the file stores (its momentum; M9a's probe re-run
+// 20260927-1443-batch: started at rest instead, the model missed the game on files that store them).
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Cycle } from './job';
-import { readMapBytes } from './mapfile';
+import { readMapBytes, storedOutflows } from './mapfile';
 import { CACHE, REPO } from './paths';
 
 export const MODEL_COMMIT = 'a9cdb86';
@@ -45,6 +47,8 @@ export interface ModelRun {
   W: number;
   H: number;
   cpuSeconds: number;
+  /** How the water's momentum started: the file's stored outflows, or at rest. */
+  momentum: string;
 }
 
 /**
@@ -70,6 +74,10 @@ export function runModel(bytes: Uint8Array, name: string, cycles: Cycle[], endDa
     const c = byId.get(e.id);
     return c ? { ...e, before: {}, components: c } : e;
   });
+  // The water's momentum as the game loads it: the outflows the file stores (FORMAT.md §4.3; generator
+  // 0.7.0 writes the settled water's own). A file that stores none (all "0", as official maps and
+  // earlier generators ship) starts every river from rest, in the game and here alike.
+  const flows = storedOutflows(file.file);
   const built = {
     ...imported,
     entities,
@@ -77,7 +85,7 @@ export function runModel(bytes: Uint8Array, name: string, cycles: Cycle[], endDa
     contamination: Float64Array.from(file.contamination),
     moisture: Float64Array.from(file.moisture),
     soilContamination: Float64Array.from(file.soilContamination),
-    settle: { ...imported.settle, sat: imported.settle?.sat?.length === N ? imported.settle.sat : undefined },
+    settle: { ...imported.settle, sat: imported.settle?.sat?.length === N ? imported.settle.sat : undefined, out: flows?.out },
   };
   const plans = [...cycles, ...Array.from({ length: 4 }, () => ({ temperateDays: 60, hazard: 'drought', hazardDays: 0 }))].map((c, i) => ({
     cycle: i + 1,
@@ -87,12 +95,18 @@ export function runModel(bytes: Uint8Array, name: string, cycles: Cycle[], endDa
     occurrence: 1,
     badtideChance: null,
   }));
-  const model = new CycleModel(built, newGame(plans));
+  // settleMomentum: the model's own option to start from `settle.out` instead of zeros
+  const model = new CycleModel(built, newGame(plans), flows ? { settleMomentum: true } : {});
   const W: number = built.W, H: number = built.H;
   const day = () => model.clock.dayNumber + model.clock.ticksToday / TICKS_PER_DAY;
   const sDays = [...sampleDays].sort((a, b) => a - b);
   const mDays = [...mapDays].sort((a, b) => a - b);
-  const out: ModelRun = { samples: [], maps: [], plants: [], W, H, cpuSeconds: 0 };
+  const momentum = !flows
+    ? 'at rest (the file stores no outflows the model can play: more than one water level, or none)'
+    : flows.flowing
+      ? `the file's outflows (${flows.flowing} flowing${flows.skipped ? `, ${flows.skipped} with an unexpected target left at 0` : ''})`
+      : 'at rest (the file stores every outflow as 0)';
+  const out: ModelRun = { samples: [], maps: [], plants: [], W, H, cpuSeconds: 0, momentum };
   const dryFrom = new Map<number, number>();
   const tileOf = (x: number, y: number): ModelTile => {
     const i = y * W + x;

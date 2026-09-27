@@ -515,7 +515,8 @@ start rules as reasons to reject a map:
 2. **Starting wood** (D164): at least 120 / 80 / 40 logs of grown trees within 20 tiles' walk of
    the start (slopes allowed), each tree by its species' yield (oak 8, pine 2, birch 1), alive or
    dead. A sapling's logs are shown apart, as wood still growing. (As built in M8: 60 / 40 / 20
-   living trees.)
+   living trees. From M9a, D224 and D227: 250 / 200 / none within 20 tiles, and the starting-logs
+   floor, 178 logs within 40 tiles' walk at every difficulty, which rejects every map below it.)
 3. **Starting bushes:** at least 40 / 30 / 20 living berry bushes within 20 tiles' walk of the
    start (slopes allowed), counted across any number of patches.
 
@@ -925,6 +926,9 @@ A small step right after Resources like the official maps, and before the Real p
 **Blocking:** breakage (batches ≥ 98% final per theme and size, byte checks), and every map having its
 badwater source. Generated maps change (a generator version bump and a contact sheet, D144).
 
+**Status:** built on `feature/badwater-source` (docs/progress/badwater-source.md), a PR into `dev`;
+generator 0.6.3.
+
 ---
 
 ## Live editing
@@ -1323,11 +1327,20 @@ stage waits for Kyler's approval of design version 2; M9b's own list below is D2
 design version 1's.
 
 - **M9a: terrain and water from processes** (tag `m9a-done`).
+  - **Status (2026-09-27):** built on `feature/m9a` (PR #56), generator 0.7.0, with Kyler's answers
+    D211 (settings), D213 (the last badwater spring), D224, D227 and D229 (the starting-logs floor,
+    met the way the land offers it) and D252 (1) (starts stop looking alike: the map's own groves and
+    patches first, the start rules' planting spread over the walk the way the land offers it,
+    `tests/contract/startPlanting.test.ts`); natural ramps only climb cliffs and badwater ditches
+    wind (D209); `dev` merged in (Live editing, the forces, the waterfalls). The generator is frozen
+    again after D252 (1) (788c145); every batch on it is at 98% final or better, and the probe maps
+    are rebuilt on it; the Claude suite is no longer an M9a gate (D277) (docs/progress/m9a.md). Kyler
+    said yes on D252 (2)'s review set (D294). Left: the DGM Probe batch, then the release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
-    objects, resources); the settler; `water.storage_possible` in place of `water.reservoir` and the
-    dam-wall check, in both validators; the document model (a stored field, project format 3); the
+    objects, resources); the settler; `water.storage_possible` in place of `water.reservoir`
+    (information the generator prefers, not a guard, #67) and the dam-wall check, in both validators; the document model (a stored field, project format 3); the
     generator version 0.7.0; K = 1.
   - **Format 3's terrain holds runs** (I-1, D119; time-sensitive): the document's `field` and
     `base` store heights plus runs: the surface per tile, and the solid runs of every tile that is
@@ -1351,10 +1364,9 @@ design version 1's.
     cliff-bench terraces) emerge more as it rises; never stamped. Traversable at any value: the
     start and its first resources on reachable land, natural ramps where the land needs them;
     stairs-only heights allowed as rewards. Terrain above 16, up to 22 with layer 22 empty, only
-    at high Verticality (70+). It is built in M9a but stays locked until a DGM Probe batch
-    confirms such maps load and keep their terrain, water and objects (asked under D117; Kyler
-    confirmed this stage, D145). 3D-b extends Verticality to 3D forms. The vertical-reach measure
-    joins the batch tools.
+    at high Verticality (70+): unlocked, since the tall-maps probe batch confirmed such maps load and
+    keep their terrain, water and objects (run 20260925-tall, D172), and both validators allow up
+    to 22. 3D-b extends Verticality to 3D forms. The vertical-reach measure joins the batch tools.
   - **The techniques playbook as proposals** (D131; investigation/techniques/): independent
     spatial controls, protected contours and channels before snapping, starts chosen by
     guarantees and opportunity vectors, catchments and spill levels kept. Each is tried against
@@ -1625,8 +1637,8 @@ Once M9b has settled (D280 (4)).
 3. Verticality (`vt`, in the spec, share links and the panel from M9a, D132) extends to these forms
    (PLAN §5.9's table; D123). Themes carry their own defaults.
 4. Traversal: derived slopes on the floor graph, and rewards planned on stairs-only heights.
-5. Relief to 22 at Verticality 70 and above comes with M9a, locked until a probe batch confirms it
-   (D132, D145). If it is still locked, the Probe's T6 here unlocks it once it passes.
+5. Relief to 22 at Verticality 70 and above comes with M9a, unlocked: the tall-maps probe batch
+   passed (run 20260925-tall, D172).
 6. NaturalOverhang bridges and badtide drains in cliff notches (from Later).
 7. The 3D measures in the batch and the M9 measure suite.
 
@@ -1793,9 +1805,9 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   map and regrowing it region by region; their operations, fields and the stamp origin are removed,
   and an old project holding a lock still opens with its land as it was kept.
 
-Every check keeps passing (`water.storage_possible` included, D111); batches stay at 98% or better;
-the Python oracle changes with the TypeScript, with 0 disagreements, wherever an item touches
-generated maps.
+Every blocking check keeps passing (`water.storage_possible` is information the generator prefers,
+#67); batches stay at 98% or better; the Python oracle changes with the TypeScript, with 0
+disagreements, wherever an item touches generated maps.
 
 ---
 
