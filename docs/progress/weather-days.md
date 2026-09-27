@@ -1,8 +1,8 @@
 # Drought and Badtide, day by day
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/weather-days` (worktree
-> `DamGoodMaps-weather`), from `feature/forces` (D265/D266, then D260 and the Select work merged in
-> at d0b3e62) with `dev` merged in. Built: D267 as amended by D269, and D268. Held on the branch for
+> `DamGoodMaps-weather`), from `feature/forces` (D265/D266; D260 and the Select work merged in at
+> d0b3e62; D287, D288 and `dev`'s housekeeping at 3477cf8). Draft PR #73 into `dev`. Built: D267 as amended by D269, and D268. Held on the branch for
 > Kyler's review and a preview sitting of its own after the forces' sitting; nothing merges into `dev`
 > without his yes. Defaults the session chose: `docs/decisions-pending.md` #120–#123. Next: Kyler's
 > sitting (checklist below); merge `origin/feature/forces` as its commits land and `origin/dev` daily.
