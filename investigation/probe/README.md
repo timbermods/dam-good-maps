@@ -28,6 +28,10 @@ once, and only for the plan it was printed for.
 - The tall maps (terrain up to 22, PLAN §20 D172): make them with `npx tsx tools/probe-tall.ts` (it writes
   `C:\dgm-probe\tall\` and checks each map with both validators), then play them as the group
   `Tall maps`, with `--keep-mods`.
+- The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
+  `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
+  worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
+  group `Ceiling`, with `--keep-mods`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run.
 - `--restore-only`: put the game's settings, logs and saves back after an interrupted run.
@@ -45,8 +49,8 @@ another session, and a low processor load). `--no-wait` skips the wait.
 Everything the probe produces stays in `C:\dgm-probe\` (Kyler's decision, outside his Timberborn folders):
 the job, the heartbeat, `results\` (one JSON file per map, whole-map snapshots, the game's logs),
 `shots\` (the screenshots, never committed), `maps\` (the files played), `sheet\` (the HTML contact
-sheet), `tall\` (the tall maps) and `runner\` (the backups a run restores from). The game is told the
-folder with `-dgmprobeHome`; `DGM_PROBE_HOME` changes it.
+sheet), `tall\` (the tall maps), `ceiling\` (the ceiling maps) and `runner\` (the backups a run restores
+from). The game is told the folder with `-dgmprobeHome`; `DGM_PROBE_HOME` changes it.
 
 ## Safety
 
