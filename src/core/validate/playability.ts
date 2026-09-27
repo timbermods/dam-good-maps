@@ -28,7 +28,7 @@ import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import type { CanonicalWater } from "../sim/prefill";
-import { TICKS_PER_DAY, type WaterModel } from "../sim/water";
+import { TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
 import { DIFFICULTY_RULES, type Difficulty, type MapSpec } from "../spec/mapspec";
 import type { Collector, FixOp } from "./report";
@@ -173,15 +173,22 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
       }
     }
   }
+  // only real flow is the water still changing: a sealed lake that is only evaporating has settled
+  // (D222; sim/water.ts `steadyApartFromSealed`)
+  const steadyAt = water.settled ? water.ticks : water.steadyTicks;
+  const days = (t: number) => (t / TICKS_PER_DAY).toFixed(1);
   c.add({
     id: "water.settles",
     class: "playability",
-    ok: water.settled,
-    value: water.ticks,
+    ok: waterSteady(water),
+    value: steadyAt ?? water.ticks,
     limit: 4 * TICKS_PER_DAY,
-    message: water.settled
-      ? `the water is steady after ${water.ticks} ticks (${(water.ticks / TICKS_PER_DAY).toFixed(1)} days); water may keep flowing off the map`
-      : `the water is still changing after 4 game days`,
+    message:
+      steadyAt === undefined
+        ? `the water is still changing after 4 game days`
+        : water.settled
+          ? `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); water may keep flowing off the map`
+          : `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); a sealed lake keeps slowly evaporating, as an unfed lake does in the game`,
   });
   const share = wetCount / N;
   c.add({

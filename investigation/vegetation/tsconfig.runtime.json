@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": { "three": ["node_modules/three/build/three.module.js"], "fflate": ["node_modules/fflate"] }
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Juice / 02 · Dam Good Maps</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><a class="brand" href="/">DAM GOOD MAPS <span>FIELD NOTES / SOUND</span></a><span class="edition">EXPERIMENT 02</span></header>
+<main>
+  <section class="intro"><div><p class="eyebrow">WOOD. EARTH. WATER. A LITTLE MAGIC.</p><h1>Make the land<br><em>answer back.</em></h1><p class="lede">Real textures. Clean attacks. A rising little reward.<br>The second round of sounds for a world worth shaping.</p></div><div class="intro-note"><span class="stamp">02</span><p>Recorded foley<br>Musical response<br>Timberborn character</p><a href="SOUNDS.md">24 recordings. All CC0. ↗</a></div></section>
+  <section class="transport" aria-label="Sound settings">
+    <button id="enable" class="primary">Enable audio</button><span id="status" role="status">Silent until you interact</span>
+    <label class="volume">Master <input id="volume" type="range" min="0" max="100" value="72"><output id="volume-value">72%</output></label>
+    <label><input id="sound-on" type="checkbox" checked> Sound on</label>
+    <button id="stop" title="Escape also stops all sounds">Stop all <kbd>Esc</kbd></button>
+  </section>
+  <div class="desk">
+    <section class="audition panel">
+      <div class="panel-title"><span>01 / THE LISTENING PATCH</span><span id="selected-group">OBJECTS</span></div>
+      <div class="selected"><h2 id="selected-name">Tree</h2><p id="selected-detail">Hollow wood · leaves · a tiny resonant reward</p></div>
+      <canvas id="patch" width="1000" height="440" aria-label="Interactive landscape. Hold pointer to paint the selected brush; click to place an object." tabindex="0"></canvas>
+      <div class="patch-caption"><span id="scene-caption">Click to place · choose a brush to paint</span><span id="reward">ROOT · +0 st</span></div>
+      <div class="ab"><button id="play-a"><b>A</b><span>Round one<small>Original procedural mix</small></span><kbd>1</kbd></button><button id="play-b" class="active"><b>B</b><span>Round two<small>Recorded + layered</small></span><kbd>2</kbd></button></div>
+      <p class="compare-note">A uses round one's original 22% default. B uses the new 72% default.<br>Master scales both proportionally. Original defaults make the loudness change audible.</p>
+      <div class="sliders">
+        <label>Brush / object size <output id="size-value">45%</output><input id="size" type="range" min="0" max="100" value="45"></label>
+        <label>Strength <output id="strength-value">55%</output><input id="strength" type="range" min="0" max="100" value="55"></label>
+        <label>Camera distance <output id="distance-value">Close</output><input id="distance" type="range" min="0" max="100" value="0"></label>
+      </div>
+      <div class="practice"><button id="run">Play rising run ↗</button><button id="hold">Hold to paint</button><label><input id="ambience" type="checkbox"> Water ambience</label></div>
+      <p class="hint">Run: root → second → third → fifth. Resets after a pause.<br>Held strokes blend into friction; size, strength and distance remain live.</p>
+    </section>
+    <section class="library panel"><div class="panel-title"><span>02 / THE SOUND PALETTE</span><span>A / B</span></div><div id="sound-list"></div></section>
+  </div>
+  <section class="sequences"><div><p class="eyebrow">03 / HEAR THE WHOLE GESTURE</p><h2>Small actions.<br>Signature moments.</h2><p id="sequence-status" role="status">Choose a short scene. Every replay varies.</p><label>Sequence version <select id="version"><option value="b">B · Round two</option><option value="a">A · Round one</option></select></label></div><div class="sequence-grid">
+    <button data-sequence="hillside"><span>01</span><strong>Paint a hillside</strong><small>Thud → continuous earth → smoothing</small><i>06 SEC ↗</i></button>
+    <button data-sequence="forest"><span>02</span><strong>Place a forest</strong><small>Wood, leaves & a rising placement run</small><i>04 SEC ↗</i></button>
+    <button data-sequence="crater"><span>03</span><strong>A craterize strike</strong><small>Incoming → explosive impact → debris</small><i>05 SEC ↗</i></button>
+    <button data-sequence="eruption"><span>04</span><strong>A full eruption</strong><small>Deep pressure → roaring plume → cooling</small><i>07 SEC ↗</i></button>
+  </div></section>
+  <footer><span>An audition, not an editor integration.</span><nav><a href="REPORT.md">Decisions</a><a href="INTEGRATION.md">Integration proposal</a><a href="SOUNDS.md">Sources & licences</a><a href="checks.html">Audio checks</a></nav></footer>
+</main><script type="module" src="demo.js"></script>
+</body></html>

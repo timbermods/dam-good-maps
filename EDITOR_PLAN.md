@@ -52,7 +52,17 @@ editor is desktop-first (D185).
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
-- **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
+  **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
+  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
+  size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
+  naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
+  field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
+  trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
+  have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
+  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  relics and geothermal fields.
+- **The view buttons:** Orbit, Top-down, Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin
+  line wherever the ground steps down a level, off by default, whatever tool is picked), Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
@@ -81,9 +91,13 @@ editor is desktop-first (D185).
 
 ## 4. Shaping the land
 
-- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"); Ramp is a Smooth
-  option ("make walkable": the game's natural slopes). Pen pressure on drawing tablets.
-- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines, exact
+- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
+  slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
+  preview, released with the forces). Pen pressure on drawing tablets. **Clear sources** (D249): one toggle in the options
+  row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
+  in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
+  the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
+- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
   length, the level while flattening).
@@ -118,9 +132,22 @@ editor is desktop-first (D185).
   headroom it has: near the height ceiling it grows broader rather than taller, never flat-topped;
   overlapping eruptions build new cones on the flanks; an eruption always completes, as in the demo
   Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
+- **Glaciate, a force of nature** (D246; after the forces round 2, once Kyler has tried Codex's demo): it turns a valley
+  that's already there into a glacial valley: a broad, level floor between steep walls; basins that dip below their own
+  outlet, a chain of lakes; hanging side valleys with waterfalls; moraines and an outwash plain from the material it cut.
+  "Carve gives you water; Glaciate gives you land." **Flow** (click high ground, and it follows the valleys) or **Aim**
+  (drag, and it grinds through ridges into a pass); **Power**; **Size** (Auto, D226); **Meltwater** (on by default); **Try
+  another**; nothing more without Kyler's say. Two acts, about five seconds: the ice advances, then melts back and reveals
+  the valley as its lakes fill. It refuses to run over the start, respects the height ceiling (D244), and keeps and feeds
+  its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
-  changes terrain, and it refuses removals that would break a rule (such as deleting the start).
-- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
+  changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
+  source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
+- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
+  checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
+  Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
+  description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
+  is unchanged.
 
 (D180, D182, D183, D184, D193, D202, D203, D206.)
 
@@ -139,11 +166,21 @@ Make a valley, drop a source, and there's a river.
   strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
-  with its strength; Markers shows every source (D196). Removing the map's last badwater source is
-  never refused: the map becomes a **No badwater** map (a peaceful one; badtides still come), a
-  quiet line in the notices says so, the file's description and checks follow, and undo brings the
-  source and the setting back (D213). A tool that would reshape the ground under a source keeps off
-  it and says why (decisions-pending #79).
+  with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
+  pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
+  another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
+  receding live. Removing the map's last badwater source is never refused: the map becomes a **No badwater** map (a
+  peaceful one; badtides still come), a quiet line in the notices says so, the file's description and checks follow, and
+  undo brings the source and the setting back (D213). A planned edit (a lake, a landform, a set piece, a move) that would
+  reshape the ground under another feature's source keeps off it and says why (decisions-pending #89); the brushes treat
+  sources as D249 says.
+- **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
+  small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
+  downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
+  the water would spill over (its rim's lowest point) and carves on. Drag from the source to a point to aim it. The source's
+  strength sets the width, a quick **Power** beside it sets how hard it cuts, the rest is Carve's defaults (one click);
+  **Try another** re-rolls the course. The source stays the river's origin; one undo step; Esc stops it. The Carve tool
+  stays as it is.
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
@@ -185,12 +222,14 @@ Make a valley, drop a source, and there's a river.
     instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
-  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game.
+  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
+  slow drying is not the water still changing: the quiet dot settles once the rest of the water
+  has (D222).
   Built from `investigation/carve` (#47, D216), on the preview until Kyler has tried it (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
-(D180, D181, D184, D186, D194, D196, D212, D216.)
+(D180, D181, D184, D186, D194, D196, D212, D216, D222.)
 
 ## 6. The look
 
@@ -198,8 +237,31 @@ The clean game-like view (D135), contaminated ground as a layer over the ground 
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
 Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
-cascade (D201, D215).
+foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+
+## 6a. Alive, not mechanical (D240; after the forces round 2)
+
+Visual only: the final map and water are exactly as they'd be without it. Every animation is short, never delays the next
+action, never makes the editor feel sluggish, switches off with reduced motion, and is synced with the sounds.
+
+- **Land:** raised blocks grow up from below with a tiny overshoot and settle; lowered blocks sink and crumble, with a puff
+  of dust and a few pebbles; a stroke's changes ripple outward from the brush's centre over a few milliseconds, so it feels
+  organic, not stamped; fresh ground starts as bare earth and grass creeps over it in about a second where it's moist;
+  cutting down reveals rock layers in the new walls.
+- **Water:** the surface glides between states instead of jumping tile by tile; advancing water has a thin line of foam
+  and shimmer at its front; basins fill with a smoothly rising surface and ripples; water tipping over a new edge bursts
+  into a waterfall with a splash; ground darkens with a wet sheen where water touches it, and draining water leaves damp
+  ground and fading puddles; sources pulse with a gentle upwelling, stronger for stronger sources.
+- **Moments:** Generate reveals the new map in about a second and a half (the land rises into its shape, water flows in,
+  trees pop up; a click skips to the finished map); placed trees and bushes pop in with a bounce and a rustle, removed ones
+  topple or shrink away with a poof, ruins crumble, and painting a forest is a cascade of tiny pops; undo plays the change
+  quickly in reverse; the brush ring breathes while hovering, squashes slightly on press and eases as it moves; Save to
+  Timberborn ends with a small send-off (a flourish, a sound, "Ready to play in Timberborn"); optional ambience: soft
+  cloud shadows drifting across the land.
+- **Performance:** GPU and shader effects where possible, never per-tile work on the main thread; particles and
+  simultaneous pops capped, so a huge stroke over a dense forest stays smooth; the frame rate measured before and after on
+  dense 256² maps; effects scale down automatically on weaker hardware rather than stutter.
 
 ## 7. Controls
 
@@ -213,6 +275,26 @@ alone stay the brush shortcuts; bookmarks are saved with the project. Every tool
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 8. The generator, Claude and the first run
+
+**Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
+- **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
+  fallback for computers that can't run 3D well.
+- **The page is the editor** (D233): after Generate, the map on the landing page is already editable, with no separate
+  step or screen. Around it, compact and unobtrusive, only the essentials: the brushes, Water source and Badwater source,
+  and the forces. An expand button in the map's bottom-right corner opens the full editor (the whole shelf, the view
+  buttons, layers and the rest) in true full screen, with the same map and edits and no reload; with Keyboard Lock in
+  Chrome and Edge, Esc still cancels and holding Esc exits; elsewhere it fills the window so Esc keeps working; a button
+  returns to the page. Generating over edits is simply undoable, with a quiet note ("New map. Undo to get <map name>
+  back."); changing a setting regenerates, also undoable. The legend is a small Legend button, collapsed by default (a
+  one-time hint for first visitors; it opens by itself when an overlay is on). Save to Timberborn works from the page and
+  full screen; Real places open the same way; on phones the map is view-only.
+- **Your maps** (D234): every edited map is kept in this browser (settings, seed, edits and a small top-down thumbnail),
+  saved quietly after edits settle; a row of thumbnails on the landing page and the same list in the "…" menu reopen
+  each exactly as left; rename, copy, delete (undoable), a mark for maps already saved to Timberborn; the last 30 kept,
+  stars kept forever; running out of storage is said plainly; it says it lives in this browser, and Download project
+  file and Save to Timberborn stay the permanent ways. No folders, tags or search.
+
+**As built today:**
 
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
   what the player has painted, showing it grow, never a frozen wait.
@@ -302,7 +384,7 @@ never rises along the stroke, so the replay carves the same bed. A stroke also r
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects; the footprints a Flatten's rim would leave on a step, D204),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges, Smooth's make walkable, and a pen's pressure per dab. A source's strength changed in
+edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
@@ -356,7 +438,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
   - **Approximate under roofs** (imported caves, tunnels, overhang bridges, badtide drains). There the editor keeps the water the file stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. As built (M8, D100): the tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and **Show → Water under roofs** marks them; the roofed columns are never edited (D40), so they are not simulated again.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
-  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes.
+  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes. Its evaporation is not the water still changing (D222): while the lake is sealed (no running source and no map edge in its water), the tiles of it that only lost water are left out of the settle's test, so `water.settles` passes and the quiet dot settles once the rest of the water has; the preview's water stops then too. The canonical settle still runs on to its own test, so the water written is unchanged (`PLAN.md` §10, §11.3).
   - **Speed:** after an edit the preview re-settles from its previous state. The target is ≤ 2 s for a local edit on 256². A full re-settle runs in the background with progress. As built (M8, D99): 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node; the background check is debounced by 0.7 s and dropped when a newer edit arrives.
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes, and the worker runs the water on it at once (the simulation steps only wet tiles and their neighbours, about 0.7–1.6 ms a tick on 256², so the water nearest the edit is what moves first) and sends each frame as soon as the water has answered. On release, the stroke's operation carries that water on into the journey; Esc drops it. On 256² River Valley, the water in a new channel moves 25–36 ms after its ground changes (it moved 80–95 ms after the release before, and not at all while painting).
   - **The journey's speed** (D197): slower, normal (the default, three times the slowest: a small edit settles nearby in a second or two), faster, or instant (the latest water there is).
@@ -665,7 +747,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
-| Terrace and Ramp as separate brushes | D184: Flatten "in steps", Smooth "make walkable" |
+| Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |
 | The legend always beside the map | D184: only while an overlay is on |
