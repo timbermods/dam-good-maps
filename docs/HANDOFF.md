@@ -24,7 +24,11 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 5. **Real places, second round (#35):** D214 (strengths near the official range, the start moved closer to water, places that
    still can't work dropped) and the renamed "Centre" titles, then badwater (after M9a lands). Kyler's list of places to drop
    waits for him; no release until then.
-6. **One height ceiling** (D244): step 1, the probe check (DGM Probe, D218; after M9a's batch or when the machine allows);
+6. **One height ceiling** (D244): step 1, the probe check: prepared on `chore/ceiling-probe` (a0be2aa; maps in
+   `C:\dgm-probe\ceiling\`; `npm --prefix investigation/probe run batch -- --group Ceiling --keep-mods --run-id
+   <id> --reference <settings .reg>`, about 24 minutes), run right after M9a's batch. Step 2 must lift all six caps at 16
+   (`MAX_TERRAIN` in the integrity pass, `BRUSH_MAX_LEVEL`, ops.schema.json's brush level and stop, brushes.ts's layer-cut
+   raise and precise hold, `forceCeiling`), and merge `chore/ceiling-probe`'s tool;
    step 2, built on `feature/forces` with Unleash; step 3, on the preview on Kyler's checklist. Stop if the probe finds
    anything that breaks play. **Unleash on sources** (D239) with or right after the forces round 2; then, alongside each other, **placing objects by
    brush** (D235) and **the editor feels alive** (D240: visual only, measured on dense 256² maps), on branches from
