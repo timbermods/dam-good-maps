@@ -1044,8 +1044,8 @@ out, clear trees and objects); Ctrl-click samples a level (on water, its bed); h
 ("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
 an operation that replays exactly and survives regeneration and format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
-landforms already in a project open as plain terrain). Until the Frame pass, new interface uses the existing
-shared styles and components (D176). **Kept from M10** (D253): Naturalize never breaks
+landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
+shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks
 `slopes.connect` or a set piece's protected tiles, as tests on the brush as it is now; the
 naturalness measurement against the official maps stays as information.
 
@@ -1633,7 +1633,7 @@ branch (`feature/weather-days`) and merged separately (D267 (9)). This step adds
 below on top of those buttons.
 
 **Delivers**
-1. **The drought line** (D269's proposal, now built rather than only proposed): every lake and
+1. **The drought line** (D269's proposal): every lake and
    river shows a faint line on its shore where its water will stand on the last day of a drought
    (the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed;
    the start's water is marked a little more strongly. It updates in the background after each
@@ -1787,7 +1787,7 @@ and descriptions (D84, D88), left in `investigation/claude/` as they are until M
 - the judgement-word table (EDITOR_PLAN.md, Claude integration, "Judgement words"): each word's
   levers, measured targets, direction, size and guards.
 
-**Design** (D176): M12's new interface is built to the Frame pass's records (DESIGN.md and the
+**Design** (D176, amended by D236): M12's new interface is built to the design pass's records (DESIGN.md and the
 tokens), with the impeccable-app-flow's finish review on the new screens; no second full design
 pass.
 

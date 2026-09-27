@@ -32,6 +32,14 @@ Your forty-two decisions since the restart are recorded (D252–D293, below) and
    Drought and Badtide day by day, a sitting of its own; M9a's review set, then its release. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
+### For Kyler: plan conflicts
+
+1. **The Frame pass's touch-up now runs before the design pass creates its records.** D284 moves Map look 2 (which folds
+   in the Frame pass's touch-up, D283 (2)) to right after the forces' release, alongside "The page is the editor"
+   (ROADMAP.md, "Map look 2: the High look" and "The page is the editor"). But Kyler's editor UI audit and the design
+   pass that creates the design records (D176, amended by D236) only follow "The page is the editor". So the touch-up
+   would run before the records it was meant to work from exist. Not changed either way; flagging rather than picking.
+
 ### Your checklist for the forces sitting (on the preview once D249, D257–D260 and the ceiling are built)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:

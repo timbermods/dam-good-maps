@@ -83,7 +83,8 @@ M9b or the High look pauses first. Nothing is released or merged into `dev` with
    rest of `ROADMAP.md`, including the four terrain-above-terrain steps (D279–D281) and housekeeping (D283 (3)) — no
    longer a Frame pass, Map quality checkpoint or refinement-phase milestone (D283).
 
-**Held:** Glaciate (#69, D246: Kyler and Codex are in another round; merge only when he says it's ready); #54 (inside M9a).
+**Held:** #54 (inside M9a). Glaciate (#69) is merged (D292) and being adopted on `feature/glaciate` for Kyler's forces
+sitting.
 
 **Pending numbers across branches** (renumber at merge): `dev` has #69–#83; #80–#82, #84 and #85 belong to Real places (#35);
 the forces branch's #84 (Flatten's ramped edges) becomes **#86** when it merges; M9a's #77–#80 become **#87–#90** when it
@@ -95,18 +96,18 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 
 | Work | Branch | PR | Worktree | Last commit | State |
 |---|---|---|---|---|---|
-| M9a, the new generator | `feature/m9a` | #56 | `DamGoodMaps-m9a` | 0f70fcb | frozen generator with the floor; batches part-done; then its probe batch (§1) |
-| The forces, Unleash, D247, D248 | `feature/forces` | none | `DamGoodMaps-forces` | c1438df | D249, then the ceiling, then the preview (§1) |
+| M9a, the new generator | `feature/m9a` | #56 | `DamGoodMaps-m9a` | 7d47546 | frozen generator with the floor; batches part-done; then its probe batch (§1) |
+| The forces, Unleash, D247, D248 | `feature/forces` | none | `DamGoodMaps-forces` | f4609f6 | D249, then the ceiling, then the preview (§1) |
 | The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aa | maps and the Ceiling group ready; run after M9a's batch |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | 33f7050 | D245 rebuild done, new review sheet posted; waits for Kyler |
-| Glaciate (Codex) | `investigation/glaciate` | #69 | none | f63e4ae | held (D246) |
+| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a4f9df3 | D245 rebuild done, new review sheet posted; waits for Kyler |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | held, inside M9a (D213) |
-| M9b, composition and variety | `feature/m9b` | none | `DamGoodMaps-m9b` | — | starting from `feature/m9a`'s frozen generator, D273–D278 (D286 (2)) |
-| The High look adoption | `feature/high-look` | none | `DamGoodMaps-high` | — | Map look 2, moved up right after the forces' release (D284); starting now (D286 (4)) |
-| Housekeeping | `chore/housekeeping` | none | `DamGoodMaps-house` | — | #91 and D283 (3)'s small items; merges early so other branches pick it up (D286 (5)) |
-| Terrain above terrain, step 1 (Foundations) | `feature/terrain3d-a` | none | `DamGoodMaps-3d` | — | new modules only for now: the stacked-column water engine and the support-rule check (D286 (3)) |
-| Erode (built by the session, not Codex) | `investigation/erode` | none | `DamGoodMaps-erode` | — | held, like the other forces' investigations, until Kyler has tried it (D281) |
-| Drought and Badtide day by day | `feature/weather-days` | none | `DamGoodMaps-weather` | — | based on `feature/forces`; owns the water bar's day strip (D267) |
+| M9b, composition and variety | `feature/m9b` | none | `DamGoodMaps-m9b` | c765699 | starting from `feature/m9a`'s frozen generator, D273–D278 (D286 (2)) |
+| The High look adoption | `feature/high-look` | none | `DamGoodMaps-high` | not pushed | Map look 2, moved up right after the forces' release (D284); starting now (D286 (4)) |
+| Housekeeping | `chore/housekeeping` | none | `DamGoodMaps-house` | f6702f2 | #91 and D283 (3)'s small items; merges early so other branches pick it up (D286 (5)) |
+| Terrain above terrain, step 1 (Foundations) | `feature/terrain3d-a` | none | `DamGoodMaps-3d` | 35911f1 | new modules only for now: the stacked-column water engine and the support-rule check (D286 (3)) |
+| Erode (built by the session, not Codex) | `investigation/erode` | none | `DamGoodMaps-erode` | not pushed | held, like the other forces' investigations, until Kyler has tried it (D281) |
+| Drought and Badtide day by day | `feature/weather-days` | none | `DamGoodMaps-weather` | not pushed | based on `feature/forces`; owns the water bar's day strip (D267) |
+| Glaciate's adoption | `feature/glaciate` | none | `DamGoodMaps-glaciate` | not pushed | merged as an investigation (D292); adopted from `feature/forces` for Kyler's forces sitting |
 | Kyler's review worktree | (not a work branch) | — | `DamGoodMaps-review` | — | where Kyler tries a branch before saying yes; not written to by any agent |
 
 Finished, removable when convenient: `DamGoodMaps-live`, `DamGoodMaps-waterfalls`, `DamGoodMaps-fixes`,
@@ -246,11 +247,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   and said which effects to keep (then they join Map look 2's High mode). Not pushed yet (2026-09-26).
 - **`investigation/vegetation`** (#66) and **`investigation/maplook3`** (#65): approved by Kyler (D241, D242); merge them as
   investigations and adopt them into the High look in the Map look work (Map look 2).
-- **`investigation/glaciate`** (Codex, D246: Glaciate, a new force; a PR into `dev`): when its PR is open and green it is
-  **held, not merged**, until Kyler has tried the demo and says it's ready (as Carve and Quake were, D194, D203); then
-  adopt it onto the shared forces core with round 2's conventions, following its INTEGRATION.md, and add it to the
-  investigation index. **#69 is open and green; Kyler has sent it back for another round of feedback and changes
-  (2026-09-26): keep holding it until he says it's ready.**
+- **`investigation/glaciate`** (Codex, D246: Glaciate, a new force): **#69 is merged** (round 4, D291, D292; 8ef9842)
+  although its report missed the one-river condition; adopted on `feature/glaciate` from `feature/forces` (D292), with
+  the floor's extra wet passages led into the main river during adoption, judged by Kyler's eye at the forces sitting.
 - **`investigation/maplook-finish`** (#67, D243, D250): approved and merged (8ed950a); adopt it into High in the Map look
   work with #38, #65 and #66, plus D250's two additions (badtide withering; the RTX 2070 SUPER measurement).
 - **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
