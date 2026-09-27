@@ -62,7 +62,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
 
 **Pending numbers across branches** (renumber at merge): `dev` has #69–#83; #80–#82, #84 and #85 belong to Real places (#35);
 the forces branch's #84 (Flatten's ramped edges) becomes **#86** when it merges; M9a's #77–#80 become **#87–#90** when it
-merges. The next free number is **#92**.
+merges. The next free number is **#93**.
 
 ## 2. Work in flight (at the restart)
 
