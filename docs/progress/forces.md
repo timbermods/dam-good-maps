@@ -57,9 +57,46 @@ badtide's first instant (0.5 against the game's 0), not the ceiling. So:
 - `chore/ceiling-probe` (a0be2aa: the ceiling maps and the Ceiling group, `tools/probe-ceiling.ts`) is
   merged into this branch.
 - EDITOR_PLAN's Heights line says what is built.
-- Not done here: the frame times at 256² with land near the ceiling and captures (D244's step 2
-  list); the 3D view already draws tall imports up to 22. Claude's step limits read
-  `BRUSH_MAX_LEVEL`, so they rise with it, untested (D277).
+- Claude's step limits read `BRUSH_MAX_LEVEL`, so they rise with it, untested (D277).
+
+### Land near the ceiling at 256²: frame times and captures
+
+`npx tsx tools/measure-ceiling.ts`, the High look's method (`tools/measure-high.ts` on
+`feature/high-look`) on this machine's RTX 2070 SUPER (ANGLE, Direct3D 11), the installed Chrome
+headed at 1600×900 (the view 1425×833), the display's refresh about 170 Hz (5.9 ms a frame), the site
+built as the preview is (under `/preview/`, forces shown), Standard look. The map: the High look's
+first, River Valley 4242 at 256² with forests at twice the density and ruins ×3 (8,939 objects).
+**Drawn**: the view drawn 40 times back to back, each read back to its end (median / 95th); **GPU**:
+timer queries while orbiting 5 s, the whole map and close in; **painting**: frame intervals during a
+three-second Raise stroke (then undone). Then a 24 × 24 plateau set to 22 with Select (next to the
+river, on ground at 9) and a volcano erupted at full Power on ground at 7, twice on its summit, to 22
+(19 after the first). Three runs; the table is the last, the others agree within the noise below.
+
+| | Top | Drawn, whole / close (ms) | GPU whole p50 / p95 (ms) | GPU close p50 / p95 (ms) | Orbit | Painting frames p50 / p95 / max (ms) |
+|---|---|---|---|---|---|---|
+| Before | 16 | 1.8 / 1.7 | 0.97 / 4.2 | 1.05 / 1.2 | 170 fps | 5.9 / 6.0 / 35 |
+| After (plateau and volcano at 22) | 22 | 1.9 / 2.0 | 0.93 / 2.0 | 1.2 / 3.8 | 162–170 fps | 6.0 / 88 / 129 |
+
+- **Drawing land at the ceiling costs nothing measurable:** drawn, GPU and orbit are the same before
+  and after (the runs' spread is about 2 ms drawn and 1–3 ms at the GPU's 95th: 4.8 / 2.4 / 1.8 ms
+  drawn before in three runs).
+- **The eruptions at full Power:** about 5.1–5.4 s each, frames p50 5.9 ms, p95 about 23.5 ms, max
+  41–59 ms, one long task of 51 ms in one run of three.
+- **Painting after the edits has slow frames:** p95 71–106 ms and max about 124 ms in all three runs,
+  with no long task, wherever it paints: the same spot as before (low ground away from the new
+  land), across the volcano's flank, and on the plateau's top. Before the edits the same stroke paints
+  at the display's rate. So it isn't the height at the brush: something the edits left behind costs
+  each painted frame (candidates: the flooded water round the plateau's foot re-flowing with each
+  draft, the eruptions' cooling lava, the shadows' range over taller land). **Not investigated yet:**
+  the machine went back to M9a's probe re-run before a split could be measured. Worth a look before
+  the release, and on Kyler's checklist below.
+
+Captures (the editor's default view and a low view, before and after; this run):
+[before, default](forces/ceiling-before-default.png) · [after, default](forces/ceiling-after-default.png) ·
+[the plateau, before](forces/ceiling-plateau-before-low.png) · [the plateau at 22](forces/ceiling-plateau-after-low.png) ·
+[the volcano's ground, before](forces/ceiling-volcano-before-low.png) · [the volcano at 22](forces/ceiling-volcano-after-low.png).
+The plateau is Select's hard-edged block (a precision tool); set next to the river, its foot floods a
+little. The volcano stands in stepped rings with its cooling crust round it.
 
 Tests: `ceiling.test` (new: the one ceiling everywhere; every brush (raise, precise raise, flatten,
 ramped precise flatten) reaches 22 and never passes it; Set level to 22 makes the map tall, its export
@@ -71,7 +108,8 @@ at 22.
 
 For Kyler's forces sitting: Erupt on low ground at full Power: it can rise past 16 now; Set level to
 22; export such a map and open it in the game (and in Timberborn's own editor, which keeps it but
-can't raise land past 16); undo back under 16 and the note goes.
+can't raise land past 16); undo back under 16 and the note goes. After a tall volcano and plateau on
+a 256² map, paint with a brush: say if it stutters (the measurement found slow frames there).
 
 ## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
 
