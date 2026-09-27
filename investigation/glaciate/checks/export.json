@@ -223,6 +223,29 @@
       "failures": []
     },
     {
+      "id": "kyler-aim",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                26,
+                48
+              ]
+            ]
+          },
+          "message": "entrance tile (26,48) must be free ground at level 7, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
+    },
+    {
       "id": "through-start",
       "thumbnail": "960x540 JPEG",
       "checks": 22,

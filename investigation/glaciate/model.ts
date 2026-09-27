@@ -58,6 +58,7 @@ export interface Plan {
  arrival:Float32Array; mask:Uint8Array; retained:RetainedWater; basins:Basin[];
  notice:string; hanging:Hanging[]; floor:Uint8Array; nearest:Int32Array; streamPath:Point[];
  falls?:{lip:number;landing:number;drop:number}[];
+ hydrology?:{mainWidthMin:number;mainWidthMax:number;mainPassages:number;offChannelWet:number;offChannelDepthMax:number};
  fan:Uint8Array; stream:Uint8Array;
  metrics:{cut:number;deposited:number;carriedAway:number;ratio:number;floorWidth:number;widthMin:number;widthMax:number;requestedWidth:number;crossRange:number;flatShare:number;centreline:number;valley:number;outwash:number;treesMoved:number;treesUnmoved:number;treesRemoved:number;objectsRemoved:number;cleanAbsorbed:number;badSwept:number;riverWidthMin:number;riverWidthMax:number;channels:number;maxPoolJoin:number;startMoved:boolean;dryFloor:number;newFloor:number;newFloorShare:number;wallMedian:number;wallMax:number;hangingValleys:number;waterfalls:number;troughTiles:number;wetShare:number;length:number;valleyLength:number;longestWall:number;buildableBefore:number;buildableAfter:number;buildableGain:number;directGain:number;outwashDry:number};
 }

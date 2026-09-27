@@ -16,7 +16,7 @@ const valleyButton=document.createElement('button');valleyButton.id='valley';val
 const clearArrow=()=>{arrow.style.display='none';};clearArrow();
 let started=0,phaseTime=0,frames:number[]=[],longTasks:number[]=[],previousFrame=0,measure=false;
 const evidence:any={errors:[],frames:[],longTasks:[],ready:false,finished:0,signature:'',planningMs:0,stage:0};
-let gestureSeed=DEFAULTS.seed,followValley=false;
+let gestureSeed=DEFAULTS.seed;
 new PerformanceObserver(list=>{if(measure)for(const e of list.getEntries())longTasks.push(e.duration);}).observe({entryTypes:['longtask']});
 const send=(a:any)=>worker.postMessage(a);
 function status(s:string){$('status').textContent=s;}
@@ -29,11 +29,11 @@ function start(req?:Request,reroll=false){if(!ready||running)return;baseline=vie
  send({type:reroll?'reroll':'start',request:req});}
 function cancel(){if(!map)return;sound.stop();ice.clear();measure=false;minEpoch=epoch+1;ready=false;evidence.ready=false;
  if(running&&baseline)view.restore(baseline);else if(past.length){future.push(view.capture());view.restore(past.pop()!);}baseline=null;running=false;send({type:'undo'});$('phase').textContent='Back to the land before';}
-function load(id:string){ready=false;evidence.ready=false;evidence.plan=null;evidence.refusal=null;followValley=false;running=false;sound.stop();ice.clear();clearArrow();past.length=0;future.length=0;$<HTMLSelectElement>('maps').value=id;$('loading').style.display='block';send({type:'load',id});}
+function load(id:string){ready=false;evidence.ready=false;evidence.plan=null;evidence.refusal=null;running=false;sound.stop();ice.clear();clearArrow();past.length=0;future.length=0;$<HTMLSelectElement>('maps').value=id;$('loading').style.display='block';send({type:'load',id});}
 worker.onmessage=({data:a})=>{
  if(a.epoch<minEpoch)return;epoch=a.epoch;
  if(a.type==='begin'){ready=false;evidence.ready=false;}
- if(a.type==='reset'){map=a.map;view.reset(a.map.W,a.map.H,a.map.rockLayers);view.camera.position.sub(view.controls.target).multiplyScalar(1.2).add(view.controls.target);past.length=0;future.length=0;}
+ if(a.type==='reset'){map=a.map;view.reset(a.map.W,a.map.H,a.map.rockLayers);past.length=0;future.length=0;}
  if(a.type==='batch')view.begin(false); // Explicitly disable the study renderer's unused morph machinery.
  if(a.type==='chunk')view.upload(a.chunk);
  if(a.type==='lighting')light=a.lighting;
@@ -70,9 +70,9 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(running)cancel();e
 document.addEventListener('visibilitychange',()=>{if(document.hidden)sound.stop();});
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',e=>{motion=!e.matches;});
 function animate(now:number){if(measure&&previousFrame){const dt=now-previousFrame;frames.push(dt);if(phaseTime<3)evidence.advanceFrames.push(dt);else if(phaseTime<5)evidence.retreatFrames.push(dt);}previousFrame=now;
- if(running)ice.update(motion?(now-started)/1000:5);if(followValley&&evidence.plan?.path)valleyView(view,evidence.plan.path,true);view.render(now/1000,motion);requestAnimationFrame(animate);}
+ if(running)ice.update(motion?(now-started)/1000:5);view.render(now/1000,motion);requestAnimationFrame(animate);}
 requestAnimationFrame(animate);sync();setTimeout(()=>sound.init(),500);
 // Local browser test seam: uses the same command path, geometry, shaders and controls as the demo.
-(window as any).glaciate={evidence,view,load,start,cancel,send,valley:(path:any,follow=false)=>{followValley=follow;valleyView(view,path,follow);},settings:(s:Partial<Settings>)=>{settings={...settings,...s};sync();},snapshot:()=>send({type:'snapshot'}),
- show:(m:ForceMap)=>{ready=false;evidence.ready=false;evidence.plan=null;evidence.refusal=null;followValley=false;send({type:'show',map:m});},project:(x:number,y:number)=>{view.camera.updateMatrixWorld(true);const p=new (view.camera.position.constructor as any)(x+.5,view.surfaceAt(x,y),-y-.5).project(view.camera),r=canvas.getBoundingClientRect();return{x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};}};
+(window as any).glaciate={evidence,view,load,start,cancel,send,valley:(path:any)=>valleyView(view,path),settings:(s:Partial<Settings>)=>{settings={...settings,...s};sync();},snapshot:()=>send({type:'snapshot'}),
+ show:(m:ForceMap)=>{ready=false;evidence.ready=false;evidence.plan=null;evidence.refusal=null;send({type:'show',map:m});},project:(x:number,y:number)=>{view.camera.updateMatrixWorld(true);const p=new (view.camera.position.constructor as any)(x+.5,view.surfaceAt(x,y),-y-.5).project(view.camera),r=canvas.getBoundingClientRect();return{x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};}};
 load('canyon-128');

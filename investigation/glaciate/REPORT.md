@@ -1,224 +1,232 @@
-# Round 3: a mountain carver
+# Round 4: polish
 
-![Default Canyon mountains before and after](captures/default-before-after.png)
+Round 3's mountain carving, cirque, walls, click/drag gestures, arrow, object sweep, clean-source absorption and never-refuse behavior remain. This round changes the river's terrain and inlets, gives every eligible hanging mouth a spring, and removes automatic camera movement. **Net buildable land is information only; the 70% newly-buildable guardrail is retired.**
 
-![Low valley view beside unchanged Lauterbrunnen](captures/valley-reference.png)
+Flooding is substantially reduced, but **the one-river requirement is not yet met across the sample**. The heroes are **11.8%, 10.3%, 9.2% wet**, with **7, 7, 3 hanging falls** (Round 3: 2, 1, 0). Kyler's cross-valley Aim is **13.9% wet with 8 falls**. Random-3 remains **16.4% wet**. Long side joins, one-tile narrowings and multiple wet spans remain visible failures; no water is masked and no failing case is omitted.
 
-**This includes Kyler's addition after trying the early Round 3 demo.** Every tested click now carves, including all six random high-ground clicks, three modest-ground clicks and River Valley's flat floor. Click selects Flow; drag selects Aim. The Mode control and relief refusals are gone. Trees and objects are swept away, surviving objects stay put, and swept clean sources become flow at the cirque. Badwater strength is discarded. The former deep river slot and long collector ditches are removed.
+![Default Canyon click 22,22: before and after](captures/default-before-after.png)
 
-**It remains an incomplete visual result.** The default Canyon 10, 128², click **22,22**, Power **60**, Auto Size **30**, Meltwater on, seed **891**, gives **2863 dry level floor tiles**, but only **221 (7.7%)** were not already buildable at those coordinates. Net affected building land is **-560**. There are **2** actual hanging falls, median/max walls **7/10**, and **19.3%** wet trough. The actual river widens to **19 tiles** in places and the conservative cross-section count reaches **4 wet passages**. These failures are not hidden by the passing lifecycle tests.
+![Default valley view beside unchanged Lauterbrunnen](captures/valley-reference.png)
 
-Lauterbrunnen is the repository's unchanged gallery heightfield, using the same materials and unscaled block heights. It is not a photograph or a modified success fixture. The before/after use the same overview camera; the low views look uphill from the actual new floor. The maps have different physical scales. The reference still has the more convincing composition.
+| Case | Trough wet | River width range | Separate wet passages, goal 1 | Falls | Longest straight wall |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| hero-canyon | 11.8% | 1–15 | 6 | 7 | 16 |
+| hero-highlands | 10.3% | 2–10 | 4 | 7 | 10 |
+| hero-tall | 9.2% | 2–13 | 4 | 3 | 8 |
+| kyler-aim | 13.9% | 2–7 | 3 | 8 | 12 |
 
-## What changed
+These are the unchanged, conservative Round 3 wet-cross-section counters, including pools and side feeds. They are not corridor design widths. The complete measurements and visual audit follow below.
 
-Glaciate cuts a broad floor far below the old mountain rim, with irregular single-level bars, rock-dependent cliffs/benches, a cirque/tarn, hanging mouths, scree and low terminal rubble. Power controls depth and reach; Auto Size follows Power. A modest mountain targets at least three levels of lowering where ground allows it. An existing lower river can force the whole terrace sequence deeper so the glacier does not dam it behind a raised floor. That means some walls exceed the half-relief target.
+## What changed in the land
 
-Flow follows original drainage, with eased bends. A flat neighbourhood with no useful descent chooses lower ground or an edge; Try another can select another direction there. Mountain variations preserve the underlying route. Aim follows the drag through intervening ridges. Pointer-down immediately gathers ice; movement beyond six pixels turns the pending gesture into the thin straight Aim arrow. Release starts the cut. There is no hover route, outline or wireframe.
+The spreading had several causes. The river used an unshifted station floor while bars used an irregular shifted floor; river bends could meet a hidden uphill sill. A bank based only on its own local floor opened lateral spillways beside a higher bar. Corner-connected raster cells could strand a pool because the water solver flows through shared edges. Concave rims could interrupt a straight pool join. Outside wet terraces could enter at several places, and the old outgoing route could re-enter an Aim trough as a second river.
 
-Trees and objects in changed ground/river paths are removed, including sources. No trees are relocated to the edges. Surviving entities keep their full original data and coordinates. The start is the exception: it moves to the nearest unoccupied, level 3×3 ground outside the trough. Terrain and route are identical when the start is removed from the input. No paths, slopes, resources or start-quality repairs are added. Unsupported old slopes are removed.
+The main river now reads the actual bar field, keeps a non-increasing bed across its full width and protects that profile from joining cuts. Diagonal joins have explicit shared-edge connections. Small pools join through the floor to a draining reach at or below their level; nearby feeds can share a receiver. Connectivity is recomputed when a pool changes an earlier reach. Banks account for the higher side of a bar and the receiving outlet. Surviving outside inflows receive compact notches, and potential flow identifies outside terraces that may become wet. The outgoing river steps down at the moraine and stays outside the carved floor when the old route would re-enter it. Its destination remains the original receiving edge.
 
-The river's terrain is now a **shallow, one-voxel banked floor**, replacing the previous three-level slot. It winds toward selected waterfall pools, with no long excavated cross-floor collectors and no parallel fan braids. This still leaves its bed one level below the broad dry banks; it is **not literally flush with every dry floor tile**, and some low views still read as a channel. The requested natural river appearance is therefore not declared solved. Pools can be too wide, and surviving outside inflows can create extra wet reaches. There is no render-only water masking to conceal them.
+These are literal integer terrain edits, using the existing water solver, meshes and materials. There is no renderer water mask, depth threshold change, decorative water or modified simulation schedule. The river keeps the lowest floor datum, but some banks are now two levels above the bed and some joining reaches still look excavated. **That visual limitation is not dismissed by a passing wet-share number.** Pools generally occupy a few tiles; their joins are not consistently the requested few tiles long.
 
-The small tarn, source entities and waterfalls use the repository water solver and renderer. The local viewer now uploads the editor's existing waterfall geometry/material, which the shared study viewer omitted. No decorative waterfall is counted. Cut material supplies low moraine/scree/outwash; the rest is carried away. Conservation is not forced.
+With Meltwater on, each selected hanging mouth with adjacent high ground behind it gets a real clean source at its lip. Catchment and variation seed set different strengths. Their combined strength is capped at `max(0.25, riverRadius × 0.7)`; absorbed clean river strength is preserved in full. Actual falls are counted after simulation, so planned springs can merge at a lip or produce a fall below the counting threshold. Try another changes the springs as well as the existing morphology.
 
-## Valley views first
+The camera has no advance follow, automatic recenter or map-load reposition. Clicked view buttons, orbit, pan and zoom are player actions. A camera inside the old mountain stays there until the player moves it.
+
+## Valley views
 
 ### canyon-128 · click 22,22
 
-![hero-canyon: valley view first](captures/hero-canyon-valley.png)
+![hero-canyon: valley view](captures/hero-canyon-valley.png)
 
-![hero-canyon: original mountain and result](captures/hero-canyon.png)
+![hero-canyon: same-camera before and after](captures/hero-canyon.png)
 
-[Full before](captures/hero-canyon-before.png) · [Full after](captures/hero-canyon-after.png). **2863** dry floor tiles, **7.7%** newly buildable, net **-560**; **2** actual hanging falls. River width **1–19**, peak separate wet reaches **4**. Missed guardrails: **new land, wet share, river width, one river**.
+[Full before](captures/hero-canyon-before.png) · [Full after](captures/hero-canyon-after.png). **11.8% wet**, **7 falls**, river span **1–15**, maximum **6 wet passages**. Net buildable land **-432**, informational only. Missed guardrails: **river width, one river**.
 
 ### highlands-256 · click 150,20
 
-![hero-highlands: valley view first](captures/hero-highlands-valley.png)
+![hero-highlands: valley view](captures/hero-highlands-valley.png)
 
-![hero-highlands: original mountain and result](captures/hero-highlands.png)
+![hero-highlands: same-camera before and after](captures/hero-highlands.png)
 
-[Full before](captures/hero-highlands-before.png) · [Full after](captures/hero-highlands-after.png). **3955** dry floor tiles, **1.5%** newly buildable, net **-1150**; **1** actual hanging falls. River width **4–11**, peak separate wet reaches **2**. Missed guardrails: **new land, falls, river width, one river**.
+[Full before](captures/hero-highlands-before.png) · [Full after](captures/hero-highlands-after.png). **10.3% wet**, **7 falls**, river span **2–10**, maximum **4 wet passages**. Net buildable land **-827**, informational only. Missed guardrails: **river width, one river**.
 
 ### tall-128 · click 36,92
 
-![hero-tall: valley view first](captures/hero-tall-valley.png)
+![hero-tall: valley view](captures/hero-tall-valley.png)
 
-![hero-tall: original mountain and result](captures/hero-tall.png)
+![hero-tall: same-camera before and after](captures/hero-tall.png)
 
-[Full before](captures/hero-tall-before.png) · [Full after](captures/hero-tall-after.png). **3415** dry floor tiles, **11.2%** newly buildable, net **-474**; **0** actual hanging falls. River width **2–14**, peak separate wet reaches **2**. Missed guardrails: **new land, falls, river width, one river**.
+[Full before](captures/hero-tall-before.png) · [Full after](captures/hero-tall-after.png). **9.2% wet**, **3 falls**, river span **2–13**, maximum **4 wet passages**. Net buildable land **-448**, informational only. Missed guardrails: **river width, one river**.
 
-The Canyon view shows a stronger mountain cut and real falls, but broad pools and tiered cuts weaken the river picture. Highlands has the most legible long shallow river; some sections still look engineered. The tall study has the strongest wall enclosure but lacks sustained hanging waterfalls. The three heroes all miss the 70% new-land guardrail. These mountain generators contain broad level terraces: lowering an already buildable terrace does not create a newly buildable coordinate. The report keeps the original definition.
+Lauterbrunnen above is the repository's unchanged gallery heightfield, with the same materials and unscaled heights. It is not a photograph, an edited hero or game-extracted artwork. The before/after panels share a camera. The low views are explicitly placed by the capture operator, looking uphill from the new floor. Maps retain their different physical scales.
 
-## Advance and retreat
+## Kyler's cases and the two acts
 
-![Normal-speed browser event from the valley view](captures/two-acts.gif)
+The default Canyon 10 click **22,22**, Power **60**, Auto Size **30**, Meltwater on, seed **891**, is the first hero above. It is the unchanged default demo gesture.
 
-![Actual advance and retreat frames](captures/two-acts.png)
+![Canyon cross-valley Aim](captures/kyler-aim.png)
 
-This recording starts with a real default-settings click. The tongue travels downhill, then melts back uphill as the river and cliff water emerge. The camera follows the newly exposed ground vertically during advance so it does not stay inside the old mountain. The final view and water are actual stored terrain/simulation, not a staged illustration. Encoding can lower the recording frame rate; timings are separate runs without screenshots.
+For the unspecified cross-valley endpoints I chose **24,80 → 96,36**, before inspecting its result, across Canyon 10's existing valley. It uses Power **60**, Auto Size and Meltwater on. This is an additional case, not a replacement for the original ridge-crossing Aim. Both are also verified through real browser pointer drags.
 
-Across all **23** cases, every displayed height equals the literal final terrain at **2866.1–3156.6 ms** after input, before retreat ends. Canyon is exact at **2989.9 ms**; 256² Highlands at **3156.6 ms**. Water can continue settling afterwards; tick-cap cases remain labelled.
+![Two acts with a fixed camera](captures/two-acts.gif)
 
-## Random high ground and modest ground
+![Frames from the same fixed-camera event](captures/two-acts.png)
 
-Sampling seed **3032026**. The six high-ground clicks are independent LCG draws over the original map's top height quartile, with a 12-tile inset, in the fixed map order Highlands128, Highlands256, Canyon128, tall128, Highlands128, Highlands256. No planner filtering or replacement is used. All now produce changed terrain.
+The camera is positioned once before the event and never follows the ice or exposed ground. It can start inside the old mountain, as requested. The animation still advances for three seconds and retreats for two; water may settle afterwards. GIF frame delays preserve the actual capture intervals, and encoding happens after capture. Performance runs are separate and do not encode screenshots. The GIF and every timed force have frame-by-frame camera pose assertions.
 
-![random-1, highlands-128, click 16,73](captures/random-1.png)
+Across **24** cases, every displayed height equals the literal endpoint at **2868.0–3189.8 ms** after input, before retreat ends. Canyon is exact at **3012.7 ms**; 256² Highlands at **3189.8 ms**.
 
-![random-2, highlands-256, click 20,140](captures/random-2.png)
+## Random and modest ground
 
-![random-3, canyon-128, click 45,14](captures/random-3.png)
+The six random high-ground heads are the same independent LCG draws as Round 3, seed **3032026**, over original top-quartile heights with a 12-tile inset. No planner filtering, reroll or replacement. The fixed map order is Highlands128, Highlands256, Canyon128, tall128, Highlands128, Highlands256.
 
-![random-4, tall-128, click 24,71](captures/random-4.png)
+![random-1, highlands-128, head 16,73](captures/random-1.png)
 
-![random-5, highlands-128, click 19,84](captures/random-5.png)
+![random-2, highlands-256, head 20,140](captures/random-2.png)
 
-![random-6, highlands-256, click 46,120](captures/random-6.png)
+![random-3, canyon-128, head 45,14](captures/random-3.png)
 
-The additional three modest-ground clicks use the continued random sequence, over original 17×17 neighbourhoods whose max-minus-min relief is **two to four levels**, on Highlands128, Canyon128 and tall128. They are sampled before planning, not selected by their result. Their exact coordinates and relief are in [checks/core.json](checks/core.json). Local modest relief can lead into a much taller range farther down the route.
+![random-4, tall-128, head 24,71](captures/random-4.png)
 
-![modest-1, highlands-128, click 84,87](captures/modest-1.png)
+![random-5, highlands-128, head 19,84](captures/random-5.png)
 
-![modest-2, canyon-128, click 31,34](captures/modest-2.png)
+![random-6, highlands-256, head 46,120](captures/random-6.png)
 
-![modest-3, tall-128, click 91,12](captures/modest-3.png)
+Random-6, previously about 55% wet, is now **9.5% wet** with **1 measured passage**. Random-3 remains the flooding exception at **16.4%**, including **68 unmarked floor tiles** with water deeper than 0.05. The other cases are not substituted for it.
 
-The random set still contains flooded, short and weak-wall results. In particular random-6 is mostly wet and lacks the required wall height. Never refusing has improved the interaction; it has not made every click a successful landscape. Each valley view should be judged for a thin channel or ditch network even when a numerical width happens to pass.
+The three modest-ground clicks continue that random sequence over original 17×17 neighbourhoods with **two to four levels of relief**, before planning. Their coordinates and original relief remain in [core.json](checks/core.json).
 
-## Flat ground and absorbed springs
+![modest-1, highlands-128, head 84,87](captures/modest-1.png)
 
-![River Valley flat-ground glacier](captures/flat.png)
+![modest-2, canyon-128, head 31,34](captures/modest-2.png)
 
-The former refusal case, River Valley 18 at **32,32**, now makes **2262** dry floor tiles and **+608** net building land. Power 0, 60 and 100 all change terrain. A separate uniform-plateau test verifies that Try another changes direction where there is no downhill route. Only true physical inability can show pointer text; there is no relief message or flat lobe substitute.
+![modest-3, tall-128, head 91,12](captures/modest-3.png)
 
-**The flat case exposes a source-transfer failure:** absorbed strength is conserved, but the new head drains toward a nearer outlet and much of the original downstream river dries. **572 previously clean wet tiles on unchanged ground become dry.** Thus the general promise that every swept river keeps its original downstream flow is not achieved. Some of its net building-land gain comes from that drying; it must not be presented as a pure success. The spring case below demonstrates one successful downstream connection, not a universal guarantee.
+## Flat ground, the spring and Meltwater off
 
-![Glacier starts on the existing mountain spring](captures/spring.png)
+![River Valley flat-ground click](captures/flat.png)
 
-The real Highlands 256² spring at **61,222, level 15** is swept away. Its **1.80** clean strength is added to the cirque's normal 0.65 feed, with any eligible hanging springs separate. The river still has **1035 wet tiles beyond the trough/moraine** along its outgoing course. This is a changed head for the same downstream water, not a deleted river. Its final solve reaches the tick cap, so downstream flow is demonstrated in the saved endpoint rather than claimed permanently settled.
+River Valley 18, click **32,32**, still carves immediately: **2294 dry floor tiles**, **7.9% wet trough**. Power 0, 60 and 100 all change terrain, and a uniform-plateau check still verifies that Try another can choose a different direction. There is no relief refusal.
 
-![Same spring gesture with Meltwater off](captures/spring-dry.png)
+The prior downstream-course limitation remains: **622 old clean wet tiles on unchanged ground are dry afterwards**. Conserving source strength does not guarantee preservation of every old river segment. Do not treat land recovered by drying the old course as newly carved valley value.
 
-With Meltwater off the swept spring gets **no replacement source and no retained depth**. Untouched sources elsewhere in this real map still feed part of the affected river, so the result is **9.0% wet**, not wholly dry. The implementation preserves outside sources instead of secretly deleting them or suppressing their water. This is a remaining mismatch with a literal “dry valley” expectation on a map with surviving incoming rivers. Tests verify the absence of replacement sources and retained depth.
+![Glacier at a real mountain spring](captures/spring.png)
 
-The ledger sums effective clean source strength under the repository's active-state and per-source cap rules. Swept badwater strength is never included. A head above the game's eight-per-source cap is represented by adjacent ordinary sources in one cirque head so no clean strength silently disappears. Surviving outside sources keep their original positions and strengths.
+The real Highlands 256² spring at **61,222**, level 15, is swept into the cirque head with **1.80 clean strength** preserved. The outgoing course has **695 wet tiles beyond the trough/moraine**. This endpoint settles under the canonical test.
+
+![Same spring gesture, Meltwater off](captures/spring-dry.png)
+
+Meltwater off adds no head or hanging sources and no retained water. This saved endpoint is **0.0% wet**. Untouched outside sources remain in the map; off mode does not secretly delete them or suppress any water they send into another result.
 
 ## Power, variation, Aim and the start
 
-![Power 50, 60 and 95, same Canyon head](captures/power.png)
+![Power 50, 60 and 95](captures/power.png)
 
-Low/default/high are **50/60/95**, with Auto Size **26/30/42**. The existing-river constraint can saturate the depth response at low/default Power; higher Power reaches farther and cuts more. Wider/deeper is not always a better valley.
+![Three successive Try another seeds](captures/alternatives.png)
 
-![Three successive Try another results](captures/alternatives.png)
+Low/default/high Power are **50/60/95**, Auto Size **26/30/42**. Variants reuse the original map and gesture without stacking glaciers; the mountain route remains unchanged.
 
-All three use the original map and gesture, changing the saved seed without stacking glaciers. The mountain drainage route is unchanged. Rims, bars, bends toward pools and deposits vary. Actual widths and channel counts are reported below, including failed alternatives.
+![Only the straight Aim arrow during dragging](captures/aim-drag.png)
 
-![The only Aim preview is a straight arrow](captures/aim-drag.png)
+![Original Aim through a ridge](captures/aim.png)
 
-![Aim through the ridge, after and low view](captures/aim.png)
+The original Aim remains **22,22 → 98,96**. Release removes the arrow and starts the force. There is no Mode dropdown or predicted terrain footprint.
 
-Drag **22,22 → 98,96** selects Aim without a dropdown. Release hides the arrow; the actual pointer gesture produces the independently checked result.
+![Start swept outside the trough](captures/through-start.png)
 
-![Glacier through the original start](captures/through-start.png)
+Exactly one start moves from **(24,70,8) to (23,71,8)** on level ground outside the trough. It has no effect on the carve. Surviving trees and objects keep their full original data and coordinates; swept sources and unsupported old slopes are removed. The editor's start findings remain information, not a force veto.
 
-The real original start moves from **(24,70,8) to (23,71,8)**. Exactly one start remains on supported ground outside the trough. The editor may still report an unusable entrance; that is recorded below and does not veto the force.
+## Measurements for every case
 
-## Measurements
+Trough wet share is the fraction of `mask === 1` floor cells with actual simulated depth **>0.05**. River widths are contiguous wet runs touching the marked river along sampled normal cross-sections. Separate wet passages is the maximum number of disjoint wet runs across a whole floor section. This conservative measurement includes side feeds, plunge pools and another crossing of a meander; it also exposes unintended parallel water. It is unchanged from Round 3 and is not trimmed to make the goal pass. A one-tile width remains a narrowing warning, including the short random-1 sample.
 
-Buildable means dry (**water depth ≤0.05**) and part of a level **2×2 pad**, excluding non-plant footprints; trees are assumed clearable. New floor counts only same-coordinate positions that failed that test before. Affected net includes all height, wet/dry and non-plant-footprint changes plus a one-tile pad collar; tests require equality with the whole-map net, including downstream losses.
+Falls are actual wet outside-to-inside edges with a drop of at least three levels and a wet landing; edge pixels within five tiles count as one. Main-river cascades are excluded. Straight wall is the longest exact cardinal run of the rasterized outline, including caps. Off-channel wet counts actual wet floor cells outside the planned river/pool/feed footprint; zero does not mean that long planned joins look natural.
 
-Wall heights compare the old rim with the broad new dry-bank datum. Width samples include the wider cirque and boundary taper; these can exceed the body's requested ±30%. Straight wall means the longest exact cardinal run of the rasterized outline, including caps. Hanging falls are actual wet outside-to-inside cliff edges ≥3 levels high, with a wet landing; adjacent pixels within five tiles count as one. Main-river cascades and the outgoing river are excluded. The hanging-mouth count includes planned gullies and cannot be smaller than the observed falls.
+| Case | Head / Aim end | Wet share | River width | Wet passages | Falls / mouths | Straight wall | Off-channel wet tiles | Missed guardrails |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| hero-canyon | 22,22 | 11.8% | 1–15 | 6 | 7 / 8 | 16 | 0 | river width, one river |
+| hero-highlands | 150,20 | 10.3% | 2–10 | 4 | 7 / 7 | 10 | 0 | river width, one river |
+| hero-tall | 36,92 | 9.2% | 2–13 | 4 | 3 / 3 | 8 | 0 | river width, one river |
+| random-1 | 16,73 | 13.0% | 1–1 | 2 | 2 / 2 | 9 | 0 | river width, one river |
+| random-2 | 20,140 | 11.2% | 3–4 | 1 | 1 / 1 | 12 | 0 | none |
+| random-3 | 45,14 | 16.4% | 1–12 | 5 | 10 / 10 | 14 | 68 | wet share, river width, one river |
+| random-4 | 24,71 | 6.6% | 2–3 | 1 | 0 / 0 | 8 | 0 | none |
+| random-5 | 19,84 | 14.1% | 2–3 | 2 | 2 / 2 | 7 | 0 | one river |
+| random-6 | 46,120 | 9.5% | 3–4 | 1 | 2 / 2 | 11 | 0 | walls |
+| modest-1 | 84,87 | 9.5% | 2–8 | 2 | 5 / 5 | 12 | 0 | river width, one river |
+| modest-2 | 31,34 | 11.9% | 2–12 | 3 | 10 / 11 | 15 | 0 | river width, one river |
+| modest-3 | 91,12 | 13.0% | 3–3 | 1 | 0 / 0 | 12 | 0 | walls |
+| power-low | 22,22 | 11.5% | 1–6 | 5 | 6 / 6 | 21 | 1 | river width, one river |
+| power-high | 22,22 | 12.5% | 1–13 | 4 | 10 / 17 | 15 | 0 | river width, one river |
+| another-1 | 22,22 | 13.0% | 2–16 | 4 | 9 / 10 | 12 | 0 | river width, one river |
+| another-2 | 22,22 | 12.3% | 1–4 | 3 | 8 / 9 | 13 | 0 | river width, one river |
+| another-3 | 22,22 | 12.6% | 1–5 | 5 | 8 / 9 | 10 | 0 | river width, one river |
+| aim | 22,22 → 98,96 | 10.7% | 1–7 | 3 | 9 / 10 | 11 | 0 | river width, one river |
+| kyler-aim | 24,80 → 96,36 | 13.9% | 2–7 | 3 | 8 / 8 | 12 | 0 | river width, one river |
+| through-start | 22,22 | 11.8% | 1–15 | 6 | 7 / 8 | 16 | 0 | river width, one river |
+| performance-256 | 150,20 | 10.3% | 2–10 | 4 | 7 / 7 | 10 | 0 | river width, one river |
+| flat | 32,32 | 7.9% | 3–10 | 3 | 2 / 2 | 10 | 0 | walls, river width, one river |
+| spring | 61,222 | 7.3% | 3–4 | 2 | 2 / 2 | 8 | 0 | one river |
+| spring-dry | 61,222 | 0.0% | 0–0 | 0 | 0 / 2 | 8 | 0 | falls |
 
-| Case | Head | Dry floor | Newly buildable | Net affected | Wall med/max | Hanging/falls | Trough wet | Floor width / straight wall | Terrain final ms |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| hero-canyon | 22,22 | 2863 | 221 (7.7%) | -560 | 7/10 | 8/2 | 19.3% | 28–44/16 | 2989.9 |
-| hero-highlands | 150,20 | 3955 | 61 (1.5%) | -1150 | 4/11 | 7/1 | 13.9% | 27–47/10 | 3156.6 |
-| hero-tall | 36,92 | 3415 | 383 (11.2%) | -474 | 7/14 | 3/0 | 11.2% | 30–54/8 | 2931.6 |
-| random-1 | 16,73 | 527 | 93 (17.6%) | +259 | 5/6 | 1/1 | 12.7% | 16–26/9 | 2940.9 |
-| random-2 | 20,140 | 868 | 244 (28.1%) | +1228 | 5/6 | 1/1 | 12.2% | 13–33/12 | 3062.3 |
-| random-3 | 45,14 | 2611 | 215 (8.2%) | -756 | 8/10 | 10/3 | 24.0% | 27–43/14 | 2929.7 |
-| random-4 | 24,71 | 2180 | 275 (12.6%) | -313 | 4/9 | 0/0 | 9.5% | 29–49/8 | 2906.0 |
-| random-5 | 19,84 | 733 | 50 (6.8%) | +370 | 6/6 | 1/1 | 18.3% | 16–27/7 | 2944.1 |
-| random-6 | 46,120 | 1210 | 153 (12.6%) | -124 | 1/6 | 3/3 | 55.0% | 25–47/11 | 3075.1 |
-| modest-1 | 84,87 | 2665 | 471 (17.7%) | -65 | 5/8 | 5/5 | 14.7% | 32–56/12 | 2923.7 |
-| modest-2 | 31,34 | 3347 | 262 (7.8%) | -751 | 10/12 | 11/2 | 22.8% | 27–54/15 | 2952.2 |
-| modest-3 | 91,12 | 544 | 14 (2.6%) | -127 | 2/5 | 0/0 | 18.9% | 14–23/12 | 2866.1 |
-| power-low | 22,22 | 2125 | 139 (6.5%) | -923 | 7/9 | 6/4 | 30.1% | 24–42/21 | 2926.3 |
-| power-high | 22,22 | 4533 | 376 (8.3%) | -1138 | 11/13 | 17/5 | 24.2% | 32–52/15 | 2994.9 |
-| another-1 | 22,22 | 2909 | 266 (9.1%) | -744 | 8/10 | 10/7 | 22.7% | 26–45/12 | 2974.3 |
-| another-2 | 22,22 | 2890 | 208 (7.2%) | -575 | 8/11 | 9/4 | 19.2% | 27–45/13 | 2966.8 |
-| another-3 | 22,22 | 2479 | 132 (5.3%) | -1235 | 9/12 | 9/6 | 33.6% | 26–41/10 | 2981.0 |
-| aim | 22,22 | 3444 | 188 (5.5%) | -1306 | 9/13 | 10/6 | 26.9% | 25–49/11 | 2975.8 |
-| through-start | 22,22 | 2863 | 221 (7.7%) | -560 | 7/10 | 8/2 | 19.3% | 28–44/16 | 2946.8 |
-| performance-256 | 150,20 | 3955 | 61 (1.5%) | -1150 | 4/11 | 7/1 | 13.9% | 27–47/10 | 3119.5 |
-| flat | 32,32 | 2262 | 378 (16.7%) | +608 | 3/4 | 2/1 | 12.7% | 21–52/10 | 2929.5 |
-| spring | 61,222 | 2359 | 86 (3.6%) | -525 | 5/5 | 2/1 | 8.9% | 32–52/8 | 3076.1 |
-| spring-dry | 61,222 | 2357 | 86 (3.6%) | -500 | 5/5 | 2/0 | 9.0% | 32–52/8 | 3076.4 |
+Wet share, river width, one river, falls and wall measurements remain visible. The ordinary width target is about 2–5 tiles; a large absorbed or incoming river may need more, but pool/confluence widening is not automatically excused as carrying a big river. The legacy width flag conservatively keeps the 2–5 check. The falls flag asks for at least two where at least two mouths exist; the median-wall flag remains four levels. No numeric straight-run limit was supplied, so every run is reported directly. The **70% new-land pass/fail is removed**.
 
-Actual river width is measured across wet sections (depth >0.05), rather than copied from the requested corridor. **Wet reaches** is the maximum separate wet spans across a floor section; it is conservative and can count a plunge pool or a meander crossing as another reach. It also exposes accidental parallel water. Width ranges include pool enlargements and bar spreads: they are not trimmed to make the 2–5 target pass. A one-tile value flags a visible narrowing even if most of the river is wider. Pool joining distance is planned open-ground gap, with no long joining cut when it exceeds five.
+Buildable means dry (depth ≤0.05) and part of a level **2×2 pad**, excluding non-plant footprints; trees are clearable. Affected net includes every height, wet/dry and non-plant footprint change plus a one-tile pad collar, and tests require equality with the whole-map net. Dry floor, net land, old/new land counts and wall/floor dimensions are informational. Pool join length below is the actual planned path length, replacing Round 3's straight-line gap estimate.
 
-Every published low view and overview was visually inspected for thin channels and ditch networks. The [case-by-case visual audit](checks/visual.json) records all 23, including identical start/performance duplicates. Random-4 has the clearest single small river; random-6 fails as a flooded floor; several Canyon variants retain multiple pool passages. A **0–0** width in the short random-1 case means no qualifying marked-river section was sampled, not that its pictured outlet is dry.
+| Case | Dry floor | Net buildable, info | Wall med/max | Floor width range | Longest pool join | Terrain final ms | Water solve |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| hero-canyon | 2939 | -432 | 7/10 | 28–44 | 18.4 | 3012.7 | settled · 1024 |
+| hero-highlands | 4100 | -827 | 4/11 | 27–47 | 23.2 | 3189.8 | settled · 2944 |
+| hero-tall | 3467 | -448 | 7/14 | 30–54 | 18.4 | 2942.9 | tick cap · 3072 |
+| random-1 | 457 | +169 | 5/6 | 16–26 | 5.7 | 2949.0 | settled · 640 |
+| random-2 | 824 | +1186 | 5/6 | 13–33 | 0.0 | 3077.7 | settled · 2560 |
+| random-3 | 2622 | -701 | 8/10 | 27–43 | 18.0 | 2957.1 | tick cap · 3072 |
+| random-4 | 2258 | -172 | 4/9 | 29–49 | 0.0 | 2886.7 | settled · 768 |
+| random-5 | 696 | +152 | 6/6 | 16–27 | 2.4 | 2934.5 | settled · 640 |
+| random-6 | 2184 | +743 | 1/6 | 25–47 | 0.0 | 3116.2 | settled · 2816 |
+| modest-1 | 2686 | -74 | 5/8 | 32–56 | 8.4 | 2947.7 | settled · 1024 |
+| modest-2 | 3541 | -587 | 10/12 | 27–54 | 23.0 | 2938.6 | settled · 2560 |
+| modest-3 | 583 | -88 | 2/5 | 14–23 | 0.0 | 2868.0 | settled · 256 |
+| power-low | 2473 | -478 | 7/9 | 24–42 | 14.0 | 2955.5 | settled · 1280 |
+| power-high | 4909 | -758 | 11/13 | 32–52 | 29.8 | 3027.9 | settled · 1152 |
+| another-1 | 3016 | -529 | 8/10 | 26–45 | 17.6 | 2988.0 | settled · 1152 |
+| another-2 | 2960 | -401 | 8/11 | 27–45 | 19.4 | 2978.5 | settled · 1280 |
+| another-3 | 3075 | -557 | 9/12 | 26–41 | 24.2 | 3000.1 | settled · 768 |
+| aim | 3966 | -771 | 9/13 | 25–49 | 17.9 | 3010.9 | tick cap · 3072 |
+| kyler-aim | 3138 | -395 | 8/13 | 27–51 | 28.6 | 3002.3 | settled · 2432 |
+| through-start | 2939 | -432 | 7/10 | 28–44 | 18.4 | 3007.6 | settled · 1024 |
+| performance-256 | 4100 | -827 | 4/11 | 27–47 | 23.2 | 3183.1 | settled · 2944 |
+| flat | 2294 | +639 | 3/4 | 21–52 | 7.0 | 2965.0 | settled · 384 |
+| spring | 2323 | +226 | 5/5 | 32–52 | 19.4 | 3164.4 | settled · 2688 |
+| spring-dry | 2526 | +980 | 5/5 | 32–52 | 0.0 | 3129.7 | settled · 2944 |
 
-| Case | Actual river width | Separate wet reaches (goal 1) | Max pool gap | Clean absorbed / bad swept | Missed guardrails |
-| --- | ---: | ---: | ---: | ---: | --- |
-| hero-canyon | 1–19 | 4 | 3.0 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| hero-highlands | 4–11 | 2 | 3.9 | 0.00 / 0.00 | new land, falls, river width, one river |
-| hero-tall | 2–14 | 2 | 0.0 | 0.00 / 0.00 | new land, falls, river width, one river |
-| random-1 | 0–0 | 1 | 2.5 | 2.16 / 0.00 | new land, river width |
-| random-2 | 5–5 | 2 | 0.0 | 2.16 / 0.00 | new land, one river |
-| random-3 | 2–14 | 3 | 4.0 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| random-4 | 2–5 | 1 | 0.0 | 0.00 / 0.00 | new land |
-| random-5 | 5–5 | 2 | 0.0 | 2.16 / 0.00 | new land, wet share, one river |
-| random-6 | 5–9 | 4 | 0.0 | 0.00 / 0.00 | new land, walls, wet share, river width, one river |
-| modest-1 | 4–9 | 2 | 4.8 | 0.00 / 0.00 | new land, river width, one river |
-| modest-2 | 1–27 | 2 | 3.0 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| modest-3 | 3–5 | 1 | 0.0 | 0.00 / 0.00 | new land, walls, wet share |
-| power-low | 1–11 | 5 | 3.8 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| power-high | 2–22 | 6 | 5.2 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| another-1 | 1–9 | 4 | 4.5 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| another-2 | 1–14 | 3 | 4.8 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| another-3 | 4–27 | 4 | 4.2 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| aim | 3–18 | 4 | 1.6 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| through-start | 1–19 | 4 | 3.0 | 0.00 / 0.00 | new land, wet share, river width, one river |
-| performance-256 | 4–11 | 2 | 3.9 | 0.00 / 0.00 | new land, falls, river width, one river |
-| flat | 5–14 | 2 | 4.3 | 2.70 / 0.00 | new land, walls, falls, river width, one river |
-| spring | 5–8 | 1 | 2.2 | 1.80 / 0.00 | new land, falls, river width |
-| spring-dry | 5–8 | 1 | 0.0 | 1.80 / 0.00 | new land, falls |
+| Case | Cut / deposit / carried away | Trees / other objects swept | Clean absorbed / bad swept |
+| --- | ---: | ---: | ---: |
+| hero-canyon | 21982/108/21874 | 586/59 | 0.00/0.00 |
+| hero-highlands | 22951/0/22951 | 182/51 | 0.00/0.00 |
+| hero-tall | 28720/350/28370 | 0/0 | 0.00/0.00 |
+| random-1 | 4018/14/4004 | 35/3 | 1.44/0.00 |
+| random-2 | 5263/13/5250 | 18/4 | 1.44/0.00 |
+| random-3 | 22045/98/21947 | 691/61 | 0.00/0.00 |
+| random-4 | 14906/3549/11357 | 0/0 | 0.00/0.00 |
+| random-5 | 5610/21/5589 | 131/6 | 1.44/0.00 |
+| random-6 | 10614/276/10338 | 120/2 | 0.00/0.00 |
+| modest-1 | 13582/144/13438 | 590/52 | 0.00/0.00 |
+| modest-2 | 30455/59/30396 | 854/60 | 0.00/0.00 |
+| modest-3 | 2324/1/2323 | 0/0 | 0.00/0.00 |
+| power-low | 18464/122/18342 | 441/61 | 0.00/0.00 |
+| power-high | 48221/142/48079 | 981/74 | 0.00/0.00 |
+| another-1 | 24309/59/24250 | 598/66 | 0.00/0.00 |
+| another-2 | 24591/49/24542 | 604/62 | 0.00/0.00 |
+| another-3 | 27665/32/27633 | 572/66 | 0.00/0.00 |
+| aim | 42328/39/42289 | 650/58 | 0.00/0.00 |
+| kyler-aim | 26736/196/26540 | 637/70 | 0.00/2.34 |
+| through-start | 21982/108/21874 | 586/59 | 0.00/0.00 |
+| performance-256 | 22951/0/22951 | 182/51 | 0.00/0.00 |
+| flat | 9710/12/9698 | 430/113 | 1.80/0.00 |
+| spring | 20368/8/20360 | 90/28 | 1.80/0.00 |
+| spring-dry | 20524/8/20516 | 90/28 | 1.80/0.00 |
 
-Guardrails: ≥70% new floor, median wall ≥4, ≥2 falls where at least two hanging mouths exist, ≤15% wet trough, river 2–5 tiles and one wet reach. They are reported on every case; passing a conditional falls test with fewer than two mouths is not a claim that a fall exists. Meltwater-off river width/channel flags are not scored, but measured water is still shown.
+## Verification and limits
 
-| Case | Cut/deposit/carried away | New dry outwash | Trees/other objects swept | Median cross-floor range | Water |
-| --- | ---: | ---: | ---: | ---: | --- |
-| hero-canyon | 22593/55/22538 | 0 | 591/59 | 1 | settled · 640 |
-| hero-highlands | 22936/0/22936 | 0 | 205/52 | 0 | settled · 2944 |
-| hero-tall | 28870/268/28602 | 0 | 0/0 | 1 | tick cap · 3072 |
-| random-1 | 4331/10/4321 | 0 | 35/4 | 1 | settled · 640 |
-| random-2 | 5517/0/5517 | 0 | 18/5 | 0 | settled · 2560 |
-| random-3 | 22956/31/22925 | 4 | 691/64 | 1 | settled · 512 |
-| random-4 | 15219/3365/11854 | 780 | 0/0 | 0 | settled · 768 |
-| random-5 | 5799/23/5776 | 0 | 131/6 | 0 | settled · 768 |
-| random-6 | 10760/2/10758 | 0 | 147/6 | 1 | settled · 1280 |
-| modest-1 | 15230/0/15230 | 0 | 593/52 | 1 | settled · 640 |
-| modest-2 | 31567/9/31558 | 0 | 846/61 | 1 | settled · 512 |
-| modest-3 | 2363/1/2362 | 0 | 0/0 | 0 | settled · 256 |
-| power-low | 19448/46/19402 | 1 | 454/61 | 1 | settled · 896 |
-| power-high | 49790/61/49729 | 0 | 973/75 | 0 | settled · 768 |
-| another-1 | 25840/20/25820 | 9 | 602/73 | 0 | settled · 640 |
-| another-2 | 25680/8/25672 | 6 | 615/60 | 0 | settled · 640 |
-| another-3 | 28840/0/28840 | 0 | 579/68 | 1 | settled · 896 |
-| aim | 44171/0/44171 | 0 | 666/59 | 0 | settled · 512 |
-| through-start | 22593/55/22538 | 0 | 591/59 | 1 | settled · 640 |
-| performance-256 | 22936/0/22936 | 0 | 205/52 | 0 | settled · 2944 |
-| flat | 10183/0/10183 | 0 | 430/114 | 1 | settled · 384 |
-| spring | 19071/6/19065 | 0 | 122/29 | 0 | tick cap · 3072 |
-| spring-dry | 19043/6/19037 | 0 | 122/29 | 0 | settled · 2560 |
-
-Cross-floor range excludes marked river cells but includes bars/scree reached by a section. A value above one is a failure of a strictly level section. The cirque can be clipped by a nearby map edge. Outwash zero means no qualifying lower receiving ground. Large pools, one-block banks, overshoot at bars and overlong straight runs remain visible limitations, not reasons to alter the counters.
-
-## Verification and remaining limits
-
-The suite passes **587 model assertions**, **12 schema/malformed-operation checks**, and structural export checks on all **23** endpoints with 960×540 thumbnails. It covers literal replay, water scheduling determinism, unchanged surviving objects, swept source strength, badwater exclusion, start-independent terrain, flat directions, one-step undo/redo, invalid import atomicity, physical bounds and actual exported water. Start-specific findings remain:
+**640 model assertions**, **12 schema/malformed-operation checks**, structural exports of all **24** endpoints, typecheck and Vite build pass. The build retains its bundle-size advisory. Tests cover deterministic planning and water scheduling, literal replay, exact undo/redo and Esc, atomic imports, source strength, swept objects, supported unique starts, physical bounds and exported displayed water. Structural exports have 960×540 thumbnails. Start-specific editor findings remain:
 
 - **hero-canyon:** start.entrance: entrance tile (24,70) must be free ground at level 8, or no beavers spawn
 - **hero-tall:** start.entrance: entrance tile (72,63) must be free ground at level 8, or no beavers spawn
@@ -226,16 +234,17 @@ The suite passes **587 model assertions**, **12 schema/malformed-operation check
 - **modest-3:** start.entrance: entrance tile (72,63) must be free ground at level 8, or no beavers spawn
 - **power-high:** start.entrance: entrance tile (22,76) must be free ground at level 9, or no beavers spawn
 - **another-1:** start.entrance: entrance tile (23,76) must be free ground at level 13, or no beavers spawn
+- **kyler-aim:** start.entrance: entrance tile (26,48) must be free ground at level 7, or no beavers spawn
 - **through-start:** start.entrance: entrance tile (24,70) must be free ground at level 8, or no beavers spawn
 
-The tall input is the unchanged Round 1 VT85 heightfield, with one loader-only ordinary start at **71,64,8** on already level ground. No resources or terrain repairs were added. The dev editor still has no Verticality control. This is an explicitly labelled generator study, not a hand-sculpted hero.
+Chrome **153.0.8010.48**, **ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)**, 1200×820. All browser endpoints match Node. Real default click, both Aim drags, the flat click, the single arrow, no Mode control, undo including fall meshes, Esc during both acts and final settling, and rejection of late completion pass. Camera position, target, orientation, FOV and zoom stay fixed throughout all timed frames and the GIF, and through undo, Esc and map loading. No browser exceptions.
 
-Chrome **153.0.8010.48**, **ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)**, 1200×820. All accepted browser fingerprints match Node. Actual click/drag, no Mode control, flat click, undo including waterfall meshes, Esc during both acts and final settling, and rejection of late completion are checked. No browser exceptions. [Core evidence](checks/core.json), [browser evidence](checks/browser.json), [export findings](checks/export.json), [schema](checks/schema.json).
+256² frame intervals: advance median **6.1 ms**, p95 **6.2 ms**, worst **10.9 ms**; retreat median **6.0 ms**, p95 **6.3 ms**, worst **7.0 ms**. Planning **198.3 ms**. These are local browser timings, not Timberborn FPS. No game launch or in-game parity claim is made.
 
-256² frame intervals: advance median **6.1 ms**, p95 **6.2 ms**, worst **9.1 ms**; retreat median **6.1 ms**, p95 **6.2 ms**, worst **6.3 ms**. Planning **154.3 ms**, full endpoint including water **8.8 s**. These are local browser timings, not in-game FPS. Typecheck and Vite build pass, with the existing bundle-size advisory. No Timberborn launch was performed.
+Every published valley view and overview was inspected for thin channels, long joins and ditch networks; see the [case-by-case audit](checks/visual.json). **The unresolved limits are the random-3 floor film, extra wet cross-sections, long/narrow side joins, some deep-looking banks, and old downstream-course drying.** The pictures take precedence over numeric passes. Round 4 substantially improves the original flooding and fall scarcity, and completes the fixed-camera and guardrail changes, but does not claim that every requested hydraulic or visual constraint is solved.
 
-The five CC0 clips and recipe are unchanged. The retained Round 2 offline measurement is **-17.1 dBFS** for the strongest 100 ms window, **-6.1 dBFS** peak; no new listening verdict is claimed. No game assets were extracted. [Attribution](ATTRIBUTION.md), [sound manifest](bank.json).
+The tall input is Round 1's unchanged VT85 heightfield with the same loader-only start at **71,64,8**; no new terrain or resource repair. The five CC0 sound clips and recipe are unchanged. Retained Round 2 audio evidence is **-17.1 dBFS** strongest 100 ms and **-6.1 dBFS** peak; no new listening verdict. No game assets were extracted. [Attribution](ATTRIBUTION.md).
 
-**The central failures remain:** all heroes miss newly buildable share and lose net land; hanging falls are unreliable; river widths and wet-reach counts often miss the new targets; some cuts flood or look engineered; absorbed flow can abandon the old downstream course; off mode cannot make untouched incoming rivers disappear. The pictures take precedence over numeric passes. This iteration implements the interaction and sweep/source changes and makes the shallow-river experiment inspectable, but does not claim the complete requested landscape has been achieved.
+Captures total **21.84 MiB**, largest **1.30 MiB**. Large endpoints and experiments remain ignored. All changes are inside `investigation/glaciate/`. Only branch `investigation/glaciate` and existing PR #69 are updated, without merges, approvals, auto-merge, tags or releases.
 
-All changes stay inside investigation/glaciate/. Captures total **22.38 MiB**, largest **1.79 MiB**; large results remain ignored. [README](README.md) runs the demo; [INTEGRATION](INTEGRATION.md) describes a potential port. [Round 2](https://github.com/timbermods/dam-good-maps/blob/5d4154047edcc216c6df099a676969c908a00a03/investigation/glaciate/REPORT.md) and [Round 1](https://github.com/timbermods/dam-good-maps/blob/f63e4aea0d24b63088e1fe4556b95ee8f0cbf8d1/investigation/glaciate/REPORT.md) remain in history. Only the existing investigation/glaciate branch and PR #69 are updated; no merge, approval, auto-merge, tag or release.
+[Core evidence](checks/core.json) · [Browser evidence](checks/browser.json) · [Export findings](checks/export.json) · [Schema](checks/schema.json) · [Run the demo](README.md) · [Integration notes](INTEGRATION.md) · [Round 3 in history](https://github.com/timbermods/dam-good-maps/blob/405e7e4307b045698eda1765a431609259297bd8/investigation/glaciate/REPORT.md).

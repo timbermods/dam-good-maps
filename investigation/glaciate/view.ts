@@ -9,7 +9,9 @@ export type {ViewState,Lighting} from '../forces-core/demo/view';
  * Falls live inside the chunk group, so snapshots, undo and disposal include them. */
 export class View extends CoreView {
  private fallShape=fallTemplate();private fallMat=fallMaterial(this.uniforms);
- override resetView(){this.camera.fov=42;this.camera.updateProjectionMatrix();this.controls.maxPolarAngle=Math.PI*.49;this.controls.enableDamping=false;super.resetView();}
+ private preserveCamera=false;
+ override reset(W:number,H:number,layers:number[]){this.preserveCamera=this.W>0;super.reset(W,H,layers);this.preserveCamera=false;}
+ override resetView(){if(this.preserveCamera)return;this.camera.fov=42;this.camera.updateProjectionMatrix();this.controls.maxPolarAngle=Math.PI*.49;this.controls.enableDamping=false;super.resetView();this.camera.position.sub(this.controls.target).multiplyScalar(1.2).add(this.controls.target);this.controls.update();}
  override hit(clientX:number,clientY:number){this.camera.updateMatrixWorld(true);return super.hit(clientX,clientY);}
  override upload(c:Chunk){
   super.upload(c);const water=c.water as Chunk['water']&{falls:Float32Array;fallCount:number};if(!water.fallCount)return;
