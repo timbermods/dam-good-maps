@@ -156,7 +156,14 @@ editor is desktop-first (D185).
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out, Clear objects) are exact, with hard edges: precision tools. The selection stays open after an action until
+  Dig out, Clear objects) are exact, with hard edges: precision tools. **Select all** (D264): Ctrl+A selects the whole
+  map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
+  down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
+  the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
+  water re-settles: a lake keeps its surface and becomes that deep; a river ends about that deep, and the report says so
+  if any water ended deeper. Objects and sources ride changed ground; the start moves to the nearest valid ground only if
+  its own ground can no longer hold it; each action is one undo step with a clear label ("Cut 4,210 tiles down to level
+  16"). The selection stays open after an action until
   Esc or the × closes it.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and Clear sources work only inside it; everything outside is locked, exactly
