@@ -32,6 +32,12 @@
    "seed": 17,
    "note": "a second 128² River Valley: no dam site built near the start, room for one"
   },
+  "rv128-lake-start": {
+   "theme": "riverValley",
+   "size": 128,
+   "seed": 2,
+   "note": "a 128² River Valley with a lake and room for the start nearer it"
+  },
   "rv128c": {
    "theme": "riverValley",
    "size": 128,
@@ -47,7 +53,7 @@
   "rv96-lakes": {
    "theme": "riverValley",
    "size": 96,
-   "seed": 14,
+   "seed": 9,
    "note": "a 96² River Valley with room for a lake near its start"
   },
   "rv128-tribs": {
@@ -64,7 +70,7 @@
   "rv128-tribs-south": {
    "theme": "riverValley",
    "size": 128,
-   "seed": 23,
+   "seed": 44,
    "settings": {
     "water": {
      "rivers": 3
@@ -701,7 +707,7 @@
    "id": "S06",
    "kind": "suite",
    "text": "move the start closer to the lake",
-   "setup": "rv128b",
+   "setup": "rv128-lake-start",
    "feasible": "yes",
    "expressible": true,
    "goals": [

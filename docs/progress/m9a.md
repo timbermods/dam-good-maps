@@ -225,9 +225,20 @@ changes will need them looked at again.
 ### The Claude suite (D134)
 
 `npx tsx investigation/claude/bin/reference.ts`: 81 of 120 on 0.7.0 before the re-tune (the
-handoff's 81), 100 after it (the full run gave 99; F05's re-tune came after it). Re-tuned, each to
-the map as it now is, the pass criteria unchanged (`bin/retune.ts` runs a setup's cases against
-candidates):
+handoff's 81), 100 after it (the full run gave 99; F05's re-tune came after it). After the merge of
+`dev` (Live editing re-expressed lakes as a Lower stroke and a spring, D184): 96 of 120; with the
+starting-logs floor's maps (D227's 200 logs at Normal) and the re-tunes below: **103 of 120** (118 of 141 with the 21 cases added since, B01–B21, which pass 15).
+Re-tuned, each to the map as it now is, the pass criteria unchanged (`bin/retune.ts` runs a setup's
+cases against candidates):
+- After the Live editing merge and the floor: `rv96-lakes` (River Valley 96² seed 9) for P01, M02,
+  X03 and Z05 (seed 3's start sits on a low bench where every lake near it floods its berries and
+  wood; seed 14 held one until the floor's maps made its lake 23 tiles); `rv128-lakes` (seed 5) for
+  C01 and J11 (rv128's northeast corner has relics beside every hollow, and its south third a river
+  everywhere); `rv128-lake-start` (seed 2) for S06 (on seed 17 no spot nearer its lake meets Normal's
+  200 logs within 20 tiles' walk); `rv128-tribs-south` on seed 44 (W13's dam site below the junction
+  moved above it on seed 23); P08's creek from the north edge into rv96's river as it now flows,
+  (28, 95) to (52, 75). W04 stays: on every seed with a south tributary tried the lake is found but
+  its river is named "the inflow from the south edge", not "the south tributary", or no lake fits.
 - `rv128-fall` (S05, F01–F04, F09, I03, Q06): the 20-wide fall's lip from (78, 108) to (88, 116),
   still in the north part, facing south: the old lip broke `extras.placement`.
 - `rv96-creeks` (W06, W07), `rv128-east` (W05) and P08's creek: each creek drawn from its edge into

@@ -33,15 +33,20 @@ const setups: Record<string, Setup> = {
   rv256: { theme: "riverValley", size: 256, seed: 5 },
   // (M9a: seed 17 holds a site for a dam near its start, as seed 2 did on the planned maps: D134)
   rv128b: { theme: "riverValley", size: 128, seed: 17, note: "a second 128² River Valley: no dam site built near the start, room for one" },
+  // (M9a, with the starting-logs floor: on seed 17 no spot nearer its lake meets Normal's 200 logs
+  // within 20 tiles' walk, D227; seed 2 has one)
+  "rv128-lake-start": { theme: "riverValley", size: 128, seed: 2, note: "a 128² River Valley with a lake and room for the start nearer it" },
   rv128c: { theme: "riverValley", size: 128, seed: 3, note: "a third 128² River Valley: its own badwater drains to the map edge, so the lower river runs clean" },
   "rv96-hard": { theme: "riverValley", size: 96, seed: 3, designedFor: "hard" },
   // (M9a: a lake is dug and a spring fills it, D184; seed 3's start stands on a low bench by its
-  // river, where every lake near it floods the start's berries and wood: seed 14 has room for one)
-  "rv96-lakes": { theme: "riverValley", size: 96, seed: 14, note: "a 96² River Valley with room for a lake near its start" },
+  // river, where every lake near it floods the start's berries and wood: seed 9 has room for one,
+  // with the starting-logs floor's maps; seed 14 did before, its lake now 23 tiles)
+  "rv96-lakes": { theme: "riverValley", size: 96, seed: 9, note: "a 96² River Valley with room for a lake near its start" },
   "rv128-tribs": { theme: "riverValley", size: 128, seed: 7, settings: { water: { rivers: 3 } }, note: "tributaries: one flows north to south from the north edge, one south to north from the south edge" },
   // (M9a: on 0.7.0's maps a River Valley's inflows enter on the main river's edge or one beside it,
   // and no seed has tributaries from both the north and south edges: the south one has its own map)
-  "rv128-tribs-south": { theme: "riverValley", size: 128, seed: 23, settings: { water: { rivers: 3 } }, note: "a tributary from the south edge joining the main river, which flows from the west" },
+  // (seed 44 with the starting-logs floor's maps: on seed 23 the dam site below the junction moved above it)
+  "rv128-tribs-south": { theme: "riverValley", size: 128, seed: 44, settings: { water: { rivers: 3 } }, note: "a tributary from the south edge joining the main river, which flows from the west" },
   "rv128-tribs8": { theme: "riverValley", size: 128, seed: 8, settings: { water: { rivers: 3 } }, note: "tributaries from the north and south edges, both clear of the start's berries" },
   // (M9a: rv128's northeast corner holds relics beside every hollow a lake could fill, and its south
   // third a river everywhere; seed 5 has room for both lakes)
@@ -156,7 +161,7 @@ R("S05", "suite", "make it wider", "rv128-fall", {
   pass: [VALID, "the same feature changed (no new waterfall)", "its lip carries water on 22–28 tiles"],
   reference: { calls: [call("measure", { subject: "waterfall" })], proposal: { steps: [{ op: "changeSetPiece", target: "waterfall", change: "wider" }] }, checks: [chk("call:0", "lipWidth", "equals", 20)] },
 });
-R("S06", "suite", "move the start closer to the lake", "rv128b", {
+R("S06", "suite", "move the start closer to the lake", "rv128-lake-start", {
   goals: [G("g1", "the start closer to the lake", { subject: "start", metric: "distanceTo:lake", change: "down" })],
   report: { mustSay: ["which lake (the one nearest the start)", "the new distance to the lake", "anything planted to keep the start rules (berries, trees)", "every start rule still holds"] },
   pass: [VALID, START_RULES_HOLD, "the start is nearer the lake than before"],
