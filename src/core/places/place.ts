@@ -194,7 +194,7 @@ export function buildPlace(p: PlaceData): BuiltPlace {
       sizeY: H,
       layers: LAYERS,
       voxels: voxelsFromHeights(heights, W, H),
-      singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat }),
+      singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out }),
       entities: entities.map(entityJson),
     },
     extraFiles: [],

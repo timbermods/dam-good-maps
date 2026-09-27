@@ -507,6 +507,55 @@ cases against candidates):
   P04's new patch lands outside the start's 20-tile walk; I07's premise (badwater cannot fit on a
   48² map) held under the old 30-tile rule only.
 
+### The DGM Probe batch 20260927-0853-batch (the orchestrator's, on 788c145's maps)
+
+15 maps played through a drought and a badtide with Kyler's installed mods: 98 checks passed, 5
+failed (results in `C:\dgm-probe\results\20260927-0853-batch\`, out of git). Diagnosed with small
+checks against the generator's own water simulation (`src/core/sim/water.ts`, the game's rules):
+
+- **The cause of 1, and most of 3 and 4: the file wrote every outflow as 0.** Restarted from a
+  probe file's stored depths with its flows at rest, the simulation gives the game's day 1 exactly
+  (Delta 128² seed 1: volume 2,582 → 2,650 and 78.5% of wet tiles within 0.1, the worst tile
+  (53, 63) 1.015 → 0.759 against the game's 0.760; the weir map 1,728 and 1,806 wet tiles, the
+  game's; the Hard map 1,205 against the game's 1,207). Continued with the settle's own flows, the
+  same water holds a day (Delta 100% within 0.1, volume 2,582 → 2,584; the weir map 1,713 → 1,713;
+  the Hard map 1,125 → 1,126). The settle was right; the file threw its momentum away
+  (`world.ts`: "outflows 0, momentum rebuilds within a few ticks", as official maps ship), and the
+  game restarted every river from rest. Every map surges (3–8% more water in the first 128 ticks)
+  and most settle back within 0.1; a map whose flow can settle more than one way re-routes: seeds
+  1–30 of every option at 128², 4 of 210 (Canyon 1, Delta 2, Islands 1) below 95% within 0.1 a day
+  after a restart from rest.
+- **The fix (the orchestrator's go):** the settled outflows go into the file
+  (`WaterMapNew.ColumnOutflows`, the game's `Bottom:Left:Top:Right` of `targetIndex|flow`, targets in
+  its grid padded by one tile, `settledSimulationSingletons`; FORMAT.md §4.3). Depths, every check
+  and every generator decision are unchanged, so the batches stand; the bytes of every file change
+  (generated maps, the editor's exports of imports, and the Real places, which share the writer:
+  their gallery index re-pinned; Real places 2's branch picks it up at merge). Loaded with its
+  outflows, the stored water holds a day (`tests/contract/outflows.test.ts`: Delta 128² seed 1 over
+  99% within 0.1). The Python oracle: 0 round-trip failures, 0 disagreements. The probe maps are
+  rebuilt for the whole M9a group to be played again.
+- **Failure 2** (Delta, cal-timeline after the drought: wet tiles 2,120–2,220 in the game against
+  2,311–2,462 in the model, the volume within 0.8%): Delta's flats hold thin sheets near the probe's
+  0.05 wet threshold, and the refill's split between its channels depends on the path (the
+  simulation restarted from rest gives a third answer, 2,297–2,453). Partly the start from rest;
+  if it persists after the fix, it is the check's 5% on wet tiles for a braided delta: Kyler's call.
+- **Failure 3** (Hard 128² seed 5, cal-timeline: water 1,207 in the game against 1,160 in the model
+  on day 1): the game matches the restart from rest; the cycle model (`investigation/cycles` at
+  a9cdb86) does not reproduce the momentum reset. The fix should close it; otherwise it is the
+  model's fidelity, not the map.
+- **Failure 4** (the weir map, cal-timeline: 1,806 wet tiles in the game against 1,550 in the model
+  on days 1–2): the same; the 256 extra tiles are thin sheets (the water check passed at 100%).
+- **Failure 5** (Any 128² seed 1, m9a-badwater: 21 tiles 10–21% bad more than 3 tiles from the
+  file's badwater, just before the badtide): not the stored water (days 1 and 2.83 match the file,
+  in the game and the simulation). At the refill after the drought, badwater reaches a side pool at
+  (77–80, 92–93) beside its way down before the clean water flushes it; the simulation shows the
+  pool turn bad at the refill (day 6) and clear by day 7, the game keeps it 10–21% bad through day
+  8.83. The start's water stays clean (0%; the pool is about 42 tiles from the start). The rule
+  "only within 3 tiles of the file's" does not allow for that: Kyler's call on the tolerance, or
+  M9b (keep badwater's way down clear of stagnant pools). Not a contamination-timing artefact of the
+  model at a hazard's start: this check compares the game with the file, and the pool turned bad
+  before the badtide.
+
 ### Found and parked
 
 - **Edge inflows that run backwards** (information, for M9b's hydrology): on 3 of 36 edge inflows
@@ -625,6 +674,16 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     replaying the test's own search on the generated maps.
   - New: `tests/contract/startPlanting.test.ts` (D252) and `tests/contract/sourcesUnderEdits.test.ts`
     (D270's #89: a brush stroke and a Select action over a badwater spring are never refused).
+- With the settled outflows written into the file (after the probe batch, 2026-09-27):
+  - `look-mine-ruins.test.ts`: the live check's sha re-pinned again (`776a9a44…`; `ec1ff6d3…`
+    before the outflows), D148.
+  - `public/real-places/index.json`: every place's `.timber` sha256 and size re-pinned (the places
+    share the writer; their data files are unchanged).
+  - `properties.test.ts`: the large preset (192²) on seed 305: dev's housekeeping (no `setLock` in
+    `randomOps.ts`) shifted the random draws, and on seed 303's M9a map none of them applied a tool
+    edit, which the test requires (D148).
+  - New: `tests/contract/outflows.test.ts` (the file stores the settle's outflows in the game's
+    format; loaded with them, Delta 128² seed 1's water holds a day).
 
 ## API changes (for the Live editing merge)
 

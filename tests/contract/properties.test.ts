@@ -34,9 +34,14 @@ function expectSameBuild(a: BuildResult, b: BuildResult, what: string): void {
 
 const OPS: Record<number, number> = { 96: 40, 128: 32, 192: 20, 256: 16 };
 
+/** Seeds re-picked where a map change left a preset's random draws without a tool edit, which the
+ *  test needs (D148): the large preset on 305 since housekeeping's randomOps (no setLock) shifted
+ *  the draws on M9a's maps, and 303 then applied none. */
+const SEED_FOR: Record<number, number> = { 192: 305 };
+
 // (River Valley and Any in turn: every map since M9a is a generated field, whose read-back features
 // the random operations reshape too)
-describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side, 301 + k, k % 2 ? "any" : "riverValley"] as const))("the %s preset (%i²), seed %i, %s", (_name, side, seed, theme) => {
+describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side, SEED_FOR[side] ?? 301 + k, k % 2 ? "any" : "riverValley"] as const))("the %s preset (%i²), seed %i, %s", (_name, side, seed, theme) => {
   const r = generate(makeSpec({ seed, size: { x: side, y: side }, theme }));
 
   it("random operations: the incremental rebuild equals a full rebuild after every step, undo and redo included; export, re-import and compare; undo all", () => {

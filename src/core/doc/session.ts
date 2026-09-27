@@ -1001,7 +1001,7 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
  *  heightfield map (one slot per tile), every other singleton as it was. With `roofed`, the tiles
  *  under roofs keep the file's own water and soil (every slot; world.ts mixedSimulationSingletons). */
 function withSettledWater(singletons: JsonObject, W: number, H: number, b: BuildResult, roofed?: ReadonlySet<number>): JsonObject {
-  const st = { floor: b.heights, depth: b.water, contamination: b.contamination, moisture: b.moisture, soilContamination: b.soilContamination, sat: b.settle.sat };
+  const st = { floor: b.heights, depth: b.water, contamination: b.contamination, moisture: b.moisture, soilContamination: b.soilContamination, sat: b.settle.sat, out: b.settle.out };
   const s = roofed ? mixedSimulationSingletons(singletons, W, H, st, roofed) : settledSimulationSingletons(W, H, st);
   const keys = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
   const out: JsonObject = {};
