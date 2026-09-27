@@ -32,28 +32,29 @@ describe("the forces before their release", () => {
     expect(forcesShownIn(PUBLIC)).toBe(FORCES_RELEASED);
   });
 
-  it("the top bar built as the public site has no forces; built as the preview, all four", async () => {
+  it("the top bar built as the public site has no forces; built as the preview, all five", async () => {
     vi.stubEnv("MODE", "production");
     vi.stubEnv("BASE_URL", "/dam-good-maps/");
     vi.resetModules();
     const pub = await import("../../src/editor/TopBar");
-    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve", "craterize", "quake", "erupt"] : []);
-    for (const id of ["carve", "craterize", "quake", "erupt"] as const) expect(pub.forceShown(id)).toBe(FORCES_RELEASED);
+    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve", "craterize", "quake", "erupt", "glaciate"] : []);
+    for (const id of ["carve", "craterize", "quake", "erupt", "glaciate"] as const) expect(pub.forceShown(id)).toBe(FORCES_RELEASED);
     vi.stubEnv("BASE_URL", "/dam-good-maps/preview/");
     vi.resetModules();
     const pre = await import("../../src/editor/TopBar");
-    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "quake", "erupt"]);
+    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "quake", "erupt", "glaciate"]);
     expect(pre.forceShown("carve")).toBe(true);
   });
 
-  it("under the tests, the top bar shows the four forces, each with its key and its modes", async () => {
+  it("under the tests, the top bar shows the five forces, each with its key and its modes (Glaciate's gesture is its mode: none)", async () => {
     const t = await import("../../src/editor/TopBar");
-    for (const id of ["carve", "craterize", "quake", "erupt"] as const) expect(t.forceShown(id)).toBe(true);
+    for (const id of ["carve", "craterize", "quake", "erupt", "glaciate"] as const) expect(t.forceShown(id)).toBe(true);
     expect(t.FORCES.map((f) => [f.name, f.key, ...f.modes])).toEqual([
       ["Carve", "7", "Unleash", "Aim"],
       ["Craterize", "8", "Strike", "Aim"],
       ["Quake", "9", "Lift", "Slide"],
       ["Erupt", "0", "Vent", "Fissure"],
+      ["Glaciate", "-"],
     ]);
   });
 });
