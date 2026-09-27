@@ -14,7 +14,8 @@
 > 7. **The lean editor, D287-D289, with D290: done** (the section below).
 > 8. **D263: done** (the section below): smart Lower's depth from strokes.
 > 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
-> 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 10. **D244 step 2: done** (the section below), after the Ceiling batch ceiling-20260927 passed;
+>     `chore/ceiling-probe`'s tool merged.
 >
 > **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
 > each section).
@@ -32,6 +33,45 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## One ceiling in the editor (D244 step 2)
+
+The Ceiling probe batch (run ceiling-20260927, `C:\dgm-probe\results\ceiling-20260927\summary.md`)
+confirmed the game keeps editor-made land above 16 on all three maps (tall-load, tall-terrain,
+tall-water, ceiling-watch, tall-objects, tall-sources, ceiling-build). Its one failure,
+ceiling-hazards on the waterfall map, was the cycle model contaminating one watched tile at the
+badtide's first instant (0.5 against the game's 0), not the ceiling. So:
+
+- **One ceiling, 22** (`CEILING` in `src/core/format/world.ts`, D172's tall maximum): the six caps at
+  16 are lifted: `MAX_TERRAIN` (the build's sculpts and integrity pass), `BRUSH_MAX_LEVEL`,
+  `ops.schema.json`'s brush `level`, `stop`, `levels` and `bed` and the sculpt's `amount` and `level`,
+  `brushes.ts`'s raise under a cut, its precise hold and smart Lower's bed, and `forceCeiling` (now
+  22 on every map, not the map's own top). The carve's limit reads the same constant. The brush row's
+  Flatten level and Stop level lists and Select's Set level list follow it (D259).
+- **Tall and standard by the land:** a map whose land goes above 16 exports with the note "Timberborn's
+  map editor opens and saves this map as it is, but can't raise land above level 16." at the end of
+  its description (both the generated and the imported export path); back at 16 or below, by an
+  edit or an undo, the note goes. A description that needs no change is kept byte for byte (an
+  unedited map, an import). The validators already took up to 22 (D172 (1)).
+- **Generation is unchanged:** the quick suite's byte checks passed with the caps lifted.
+- `chore/ceiling-probe` (a0be2aa: the ceiling maps and the Ceiling group, `tools/probe-ceiling.ts`) is
+  merged into this branch.
+- EDITOR_PLAN's Heights line says what is built.
+- Not done here: the frame times at 256² with land near the ceiling and captures (D244's step 2
+  list); the 3D view already draws tall imports up to 22. Claude's step limits read
+  `BRUSH_MAX_LEVEL`, so they rise with it, untested (D277).
+
+Tests: `ceiling.test` (new: the one ceiling everywhere; every brush (raise, precise raise, flatten,
+ramped precise flatten) reaches 22 and never passes it; Set level to 22 makes the map tall, its export
+has the note after the old description and validates with no load problem, undo makes it standard and
+the description as it was; Erupt at full Power twice, a Lift and a crater on a highlands map pass 16
+and never 22; an unedited map's description byte for byte; the note added once and taken off).
+Changed (D148): the e2e Erupt ceiling test checks 22, not 16; `select.spec` checks the Level list ends
+at 22.
+
+For Kyler's forces sitting: Erupt on low ground at full Power: it can rise past 16 now; Set level to
+22; export such a map and open it in the game (and in Timberborn's own editor, which keeps it but
+can't raise land past 16); undo back under 16 and the note goes.
 
 ## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
 

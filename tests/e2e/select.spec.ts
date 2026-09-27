@@ -86,8 +86,10 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   await page.mouse.click(tp.x, tp.y);
   await page.keyboard.up("Control");
   await expect(row.getByRole("combobox", { name: "Level", exact: true })).toHaveValue(String(h0[t[1] * W + t[0]]));
+  // Set level's list reaches the editor's one ceiling, 22 on every map (D244, D259)
+  await expect(row.getByRole("combobox", { name: "Level", exact: true }).locator("option").last()).toHaveText("22");
   // Set level (one level above it): exactly the circle's tiles, one undo step
-  const L = Math.min(16, h0[t[1] * W + t[0]] + 1);
+  const L = Math.min(22, h0[t[1] * W + t[0]] + 1);
   await row.getByRole("combobox", { name: "Level", exact: true }).selectOption(String(L));
   const n0 = (await labels(page)).length;
   await row.getByRole("button", { name: "Set level" }).click();

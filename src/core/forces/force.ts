@@ -13,6 +13,7 @@
 
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
+import { CEILING } from "../format/world";
 import { JsonFloat } from "../format/json";
 import { objectTile } from "../sim/model";
 import type { WaterState } from "../sim/water";
@@ -29,7 +30,7 @@ export interface ForceMap {
   heights: Uint8Array;
   entities: EntitySpec[];
   water: WaterState;
-  /** The highest level a force may build to (16; 22 on tall maps). */
+  /** The highest level a force may build to: the editor's one ceiling (D244). */
   maxHeight: number;
   /** Hardness (0–1) of each whole level, when the map has its rock layers (absent: derived). */
   rockLayers?: number[];
@@ -39,12 +40,10 @@ export interface ForceMap {
   fallen?: Fallen[];
 }
 
-/** The highest level a force builds to on a map with these heights: 16, or the map's own top on a
- *  tall map (D172), 22 at most. */
-export function forceCeiling(heights: ArrayLike<number>): number {
-  let top = 16;
-  for (let i = 0; i < heights.length; i++) if (heights[i] > top) top = heights[i];
-  return Math.min(22, top);
+/** The highest level a force builds to: the editor's one ceiling on every map, D172's tall maximum
+ *  (D244; before it 16, or a tall map's own top). A map a force raises past 16 becomes tall. */
+export function forceCeiling(_heights?: ArrayLike<number>): number {
+  return CEILING;
 }
 
 /** A force's map with everything the verbs read filled in. */

@@ -14,6 +14,7 @@
 // under the log (session.ts). Locks and the retired regenerateRegion operation were removed (D253,
 // D270): an old project that held one still opens, with its land as it was kept (document.ts).
 
+import { CEILING } from "../format/world";
 import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
@@ -440,8 +441,8 @@ export const PLACEABLE = new Set([
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
 ]);
 
-/** The highest level a carve may leave (a carve's fan builds to the in-game editor's 16). */
-const CARVE_MAX_LEVEL = 22;
+/** The highest level a carve may leave: the editor's one ceiling (D244). */
+const CARVE_MAX_LEVEL = CEILING;
 
 /** Largest number of tiles one operation may touch. */
 export const MAX_OP_TILES = 256 * 256;

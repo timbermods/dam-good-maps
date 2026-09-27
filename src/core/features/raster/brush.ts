@@ -52,11 +52,13 @@
 // - The working area (D254, D259): a stroke with an `area` changes only the tiles inside it, and a
 //   tile at most as many levels as it is steps inside it (4-neighbour, from the nearest tile
 //   outside), so the edit meets the locked land at one level a tile: a feathered edge.
-// - Levels stay within 0–16 (the in-game editor's range; a higher imported tile is never raised).
+// - Levels stay within 0 and the editor's one ceiling, D172's tall maximum (D244; 16 before it).
+//   A map whose land goes above 16 is a tall map.
 // - Brushes shape each column's top (`layer: "top"`); the 3D stages extend them to the runs
 //   below (caves), with the same dabs.
 
 import { fmix32 } from "../../math/hash";
+import { CEILING } from "../../format/world";
 
 export type BrushTool = "raise" | "lower" | "flatten" | "smooth" | "naturalize";
 
@@ -125,7 +127,8 @@ export interface BrushParams {
 }
 
 export const BRUSH_TOOLS: readonly BrushTool[] = ["raise", "lower", "flatten", "smooth", "naturalize"];
-export const BRUSH_MAX_LEVEL = 16;
+/** The brushes' ceiling: the editor's one ceiling on every map (D244). */
+export const BRUSH_MAX_LEVEL = CEILING;
 export const BRUSH_SIZE_MIN = 0.5;
 export const BRUSH_SIZE_MAX = 24;
 /** Pressure for one level. */

@@ -213,11 +213,15 @@ editor is desktop-first (D185).
   removes everything standing inside it, objects and sources, as one undo step; the start always stays, and says so.
   With no selection, Delete removes what the pointer is on: a source within its targeting range (D249) first, else the
   object on the tile. It never changes terrain.
-- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
-  checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
-  Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
-  description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
-  is unchanged.
+- **Heights** (D244, built after the Ceiling probe batch ceiling-20260927 passed): one ceiling on every map, D172's
+  tall maximum (22, `CEILING` in `src/core/format/world.ts`), for the brushes (their levels, stops and holds), Select's
+  Set level list, the forces and the build's integrity pass, with nothing about it in the interface. A map whose land
+  goes above 16 is a tall map: its description ends with the plain note "Timberborn's map editor opens and saves this
+  map as it is, but can't raise land above level 16." (what the probe found), and it is exported and validated as tall
+  (up to 22 loads; the check says the in-game editor edits only up to 16). Back at 16 or below (an edit or an undo), it
+  is a standard map again and the note goes; a map that needs no change keeps its description byte for byte.
+  Generation is unchanged: the generator's Verticality and Real places' standard or tall option decide how tall a
+  generated map starts.
 - **Select** (D259; on `feature/forces`, for Kyler's forces sitting): a small button on the bar beside the brushes; M
   and Ctrl+drag still open it. Shapes: Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that level; a click
   on water selects that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at the

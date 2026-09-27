@@ -23,7 +23,7 @@
 
 import type { MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
-import type { BrushParams, BrushTool } from "../core/features/raster/brush";
+import { BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { tilesToRuns } from "../core/math/grid";
 
@@ -400,7 +400,7 @@ export class BrushPainter {
         if (wet[i]) surface = Math.max(surface, shown[i] + (h.depth?.(tx, ty) ?? 0));
       }
     const bed = surface < 0 ? low : Math.max(low, Math.round(surface) - 1);
-    return { wet, bed: Math.max(0, Math.min(16, bed)) };
+    return { wet, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };
   }
 
   hideCursor(): void {
@@ -423,7 +423,7 @@ export class BrushPainter {
     const heaps = tool === "raise" || tool === "lower";
     const keep = [...(precise && heaps ? (h.keep?.() ?? []) : []), ...(cut !== null ? above(h.heights(), cut, h.W) : [])];
     const area = h.area?.() ?? null;
-    const stop = tool === "raise" && cut !== null ? Math.min(16, cut, precise && s.stop !== null ? s.stop : cut) : precise && heaps && s.stop !== null ? s.stop : null;
+    const stop = tool === "raise" && cut !== null ? Math.min(BRUSH_MAX_LEVEL, cut, precise && s.stop !== null ? s.stop : cut) : precise && heaps && s.stop !== null ? s.stop : null;
     const settings: Omit<BrushParams, "dabs"> = {
       tool,
       size: s.size,
@@ -636,7 +636,7 @@ export class BrushPainter {
     st.raf = requestAnimationFrame(() => {
       if (this.stroke !== st) return;
       if (st.levels && !st.anchor) {
-        const depth = Math.min(16, 1 + Math.floor((performance.now() - st.pressAt) / holdPace(st.settings.strength)));
+        const depth = Math.min(BRUSH_MAX_LEVEL, 1 + Math.floor((performance.now() - st.pressAt) / holdPace(st.settings.strength)));
         if (depth > st.depth) {
           st.depth = depth;
           this.dab([st.last]);

@@ -3,6 +3,7 @@
 // rectangle it can touch (`footprint`) so an edit rebuilds only that area (PLAN §19.7).
 
 import { fbm } from "../../math/noise";
+import { CEILING } from "../../format/world";
 import { hash32 } from "../../math/hash";
 import type { Runs } from "../../math/grid";
 import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
@@ -13,7 +14,9 @@ import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushReadsNeighbours, type BrushParams } from "./brush";
 
-export const MAX_TERRAIN = 16; // PLAN §20, D4
+/** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
+ *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
+export const MAX_TERRAIN = CEILING;
 
 // ------------------------------------------------------------------------------------ landforms
 
