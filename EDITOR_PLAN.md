@@ -119,8 +119,10 @@ editor is desktop-first (D185).
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
   slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
-  preview, released with the forces). Pen pressure on drawing tablets. Every brush's options row starts with its
-  **Size**, a number and a slider, as well as hold F to drag the size on the map and [ and ] to step it (D226). **Clear sources** (D249): one toggle in the options
+  preview, released with the forces). **Naturalize** leaves protected tiles as they are (set pieces', the start's bench,
+  rivers', precise strokes' and forces'), and its wear never leaves a slope joining nothing (D253). Pen pressure on drawing
+  tablets. Every brush's options row starts with its **Size**, a number and a slider, as well as hold F to drag the size on
+  the map and [ and ] to step it (D226). **Clear sources** (D249): one toggle in the options
   row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
   in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
   the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
@@ -196,11 +198,20 @@ editor is desktop-first (D185).
   description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
   is unchanged.
 - **Select** (D259; on `feature/forces`, for Kyler's forces sitting): a small button on the bar beside the brushes; M
-  and Ctrl+drag still open it. Shapes: Rectangle, Freehand, Same level, **Circle** (drag from the centre outward, the
+  and Ctrl+drag still open it. Shapes: Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that level; a click
+  on water selects that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at the
+  click that never follows the water as it moves), **Circle** (drag from the centre outward, the
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out, Clear objects) are exact, with hard edges: precision tools. The selection stays open after an action until
+  Dig out, Clear objects) are exact, with hard edges: precision tools. **Select all** (D264): Ctrl+A selects the whole
+  map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
+  down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
+  the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
+  water re-settles: a lake keeps its surface and becomes that deep; a river ends about that deep, and the report says so
+  if any water ended deeper. Objects and sources ride changed ground; the start moves to the nearest valid ground only if
+  its own ground can no longer hold it; each action is one undo step with a clear label ("Cut 4,210 tiles down to level
+  16"). The selection stays open after an action until
   Esc or the × closes it.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and Clear sources work only inside it; everything outside is locked, exactly
@@ -218,7 +229,12 @@ editor is desktop-first (D185).
 
 Make a valley, drop a source, and there's a river.
 
-- **Smart Lower:** a stroke that starts in or near water carves a bed that keeps flowing downhill.
+- **Smart Lower:** a stroke that starts in or near water carves a bed that keeps flowing downhill. Its depth comes from
+  strokes, never from holding (D263): a new channel's bed starts one level below the surface of the water it leaves (the
+  water enters about one tile deep, with no pit where it leaves), never rises, and steps down to one level below the land
+  beside it; it cuts deeper only where it must to keep flowing downhill, and no deeper. A stroke drawn along an existing
+  channel deepens it by exactly one level. Holding only extends the river; plain Lower, away from water, still digs
+  deeper while held.
   The brush ring itself turns a clear water-blue and slightly thicker, with a faint fill as a second
   cue; ordinary Lower keeps the white ring. Readable over water, badwater, every ground and in
   colour-blind views (D198).
@@ -263,13 +279,23 @@ Make a valley, drop a source, and there's a river.
   where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit
-  starts moving within a frame or two, the rest of the map follows. A speed control (slower, normal,
-  faster, instant) is brisk by default: small edits settle nearby in a second or two, big changes (a
-  new river, a breach) still flow visibly, and instant skips to the settled result. Time controls:
-  pause, replay and follow (D197).
-- **Drought and Badtide:** the Drought button shows what a drought looks like on this map, the
-  Badtide button what a badtide looks like. The Weather view is separate: a fuller timeline of the
-  whole cycle, opened when wanted (D186).
+  starts moving within a frame or two, the rest of the map follows, always at one brisk pace: small
+  edits settle nearby in a second or two, big changes (a new river, a breach) still flow visibly. The
+  water bar: the status, Pause, Skip (straight to where it settles), Replay, Drought and Badtide; no
+  speed control there (D197, D268).
+- **The camera only moves when the player moves it** (D265, an accessibility rule): no feature moves,
+  tilts, zooms or shakes it on its own (no follow, for the water or any force); effects on the land
+  are unaffected.
+- **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once
+  (with progress while it's worked out); clicking again returns to the map's own water. While a hazard
+  is shown, a day strip on the water bar runs from Day 0 to the last day: previous and next, a click on
+  any day, play, and **Speed** (slower, normal, faster, instant; it appears only here). Stepping animates
+  that day's water at that speed; Instant jumps and stays; nothing reverts on its own. A length of 1 to
+  30 days per hazard (defaults drought 9, badtide 8), remembered. The start's water is highlighted, and
+  the strip marks the day it leaves a pump's reach (or, in a badtide, the day badwater reaches it or its
+  farmland); hovering any water says when it dries or turns bad. Every tool works while a hazard is
+  shown, and the shown day updates live after each edit. The game's weather rules, unchanged. The
+  Weather step's summary and map-card lines build on these buttons (D133).
 - **Carve, a force of nature** (D194, D199, D216): the first button of the forces group (key 7),
   with its full set:
   - **Unleash** (one click, where the small cursor is) and **Aim** (a drag in a direction, with only a thin
@@ -447,8 +473,8 @@ before D182 open with their land exactly as it was, as plain terrain.
 brush strokes, placements and moves, source changes, removals, the Select tool's actions,
 `regenerateRegion`, `setLock` and `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke
 replays exactly and survives regeneration and format 3. A Lower stroke that starts in or beside
-water records `channel` (smart Lower): its bed starts at the lowest ground round its first dab and
-never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
+water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
+strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
 leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's

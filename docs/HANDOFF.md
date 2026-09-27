@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D260) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D268) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -43,26 +43,32 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    Erupt's fit words, which D258 removes); **D249** (Clear sources, sources ride the ground, easy removal; it starts at
    `keptTiles()` in `src/editor/Editor.tsx`); **D257, D258** (bound only by nature: the start carried, not refused; clean
    gestures: no drawn routes or previews, Aim an arrow); **D259** (Select findable; its selection is the working area,
-   D254); **D260** (unfed water recedes at once); then **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
+   D254; **D261** Wand selects water; **D264** Select all, Set / Cut down / Fill up, Max water depth); **D260** (unfed
+   water recedes at once); **D263** (smart Lower: depth from strokes, new channels about one tile deep); **D265** (no camera moves by itself); **D266**
+   (the forces keep their own pace); then **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
    brush level and stop, brushes.ts's layer-cut raise and precise hold, `forceCeiling`; merge `chore/ceiling-probe`'s tool;
    the tall note in plain words). Then deploy the preview from `feature/forces` and tell Kyler: his checklist for the
    sitting is in STATUS. Not released until he has tried it. The top note of `docs/progress/forces.md` has the detail.
-4. **Then, on branches from `feature/forces`, combined for the preview** (`build`): placing objects by brush (D235) and
+4. **Drought and Badtide day by day** (D267, D268; `build`; its own branch, `feature/weather-days`): based on `feature/forces`
+   once the forces' water and camera work (D260, D265, D266) is pushed, so it doesn't conflict with them; it owns the water
+   bar (the Speed control moves to the day strip). Merged separately, after the forces; on the preview for a sitting of
+   its own, after Kyler's forces sitting (the preview shows one branch at a time).
+5. **Then, on branches from `feature/forces`, combined for the preview** (`build`): placing objects by brush (D235) and
    the editor feeling alive (D240).
-5. **Real places, round 2** (`build`, `feature/real-places-2` at 33f7050, #35, green): waits for Kyler's drops from the new
+6. **Real places, round 2** (`build`, `feature/real-places-2` at 33f7050, #35, green): waits for Kyler's drops from the new
    review sheet and his answers (#80–#82, #84, #85); then the badwater stage once M9a is on `dev`; then
    `real-places-2-done`. The commands are in the top note of `docs/progress/real-places.md`.
-6. **The page is the editor** (`build`; D232–D234, D237), after the forces round 2 and M9a's release, on the preview; then
+7. **The page is the editor** (`build`; D232–D234, D237), after the forces round 2 and M9a's release, on the preview; then
    Kyler's editor UI audit, then the design pass straight after it (D236, D238).
-7. **M9b and M9c** (`m9-build`) in parallel with 6, taking the machine first (D236); read `docs/PERFECT.md` first (D225).
-8. **The Map look work** (`build`) when ROADMAP's order reaches Map look 2: the High look from #38, #65, #66 and #67 (D241,
+8. **M9b and M9c** (M9b on `m9b-build`, xhigh, D262; M9c on `m9-build`) in parallel with 7, taking the machine first (D236); read `docs/PERFECT.md` first (D225).
+9. **The Map look work** (`build`) when ROADMAP's order reaches Map look 2: the High look from #38, #65, #66 and #67 (D241,
    D242, D250). Then the rest of `ROADMAP.md`.
 
 **Held:** Glaciate (#69, D246: Kyler and Codex are in another round; merge only when he says it's ready); #54 (inside M9a).
 
 **Pending numbers across branches** (renumber at merge): `dev` has #69–#83; #80–#82, #84 and #85 belong to Real places (#35);
 the forces branch's #84 (Flatten's ramped edges) becomes **#86** when it merges; M9a's #77–#80 become **#87–#90** when it
-merges. The next free number is **#92**.
+merges. The next free number is **#93**.
 
 ## 2. Work in flight (at the restart)
 
@@ -268,7 +274,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D261), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D269), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
@@ -278,7 +284,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   | Work | Definition | Model, effort |
   |---|---|---|
   | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
-  | M9b and M9c | `m9-build` | Opus 5.5, high |
+  | M9b, composition and variety (D262) | `m9b-build` | Opus 5.5, xhigh |
+  | M9c | `m9-build` | Opus 5.5, high |
   | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246) | `build` | Opus 5.5, high |
   | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps | `routine` | Sonnet 5, medium |
   | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |

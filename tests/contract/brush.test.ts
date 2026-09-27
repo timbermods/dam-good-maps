@@ -455,6 +455,120 @@ describe("undo and redo of strokes", () => {
   });
 });
 
+describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)", () => {
+  const THEMES: [ThemeId, number][] = [
+    ["riverValley", 1],
+    ["riverValley", 2],
+    ["canyon", 1],
+    ["canyon", 3],
+    ["highlands", 2],
+    ["lakeBasin", 4],
+    ["delta", 1],
+    ["islands", 5],
+  ];
+
+  /** A Naturalize stroke that wanders from `(x, y)`, so it presses right where a slope or a set
+   *  piece's protected tile is, not just somewhere on the map. */
+  function strokeAt(rand: () => number, W: number, H: number, x: number, y: number): BrushParams {
+    const size = [1, 2, 3.5, 6, 9][Math.floor(rand() * 5)];
+    let px = x;
+    let py = y;
+    const dabs: number[] = [];
+    const n = 10 + Math.floor(rand() * 40);
+    for (let k = 0; k < n; k++) {
+      px = Math.min(W - 1, Math.max(0, px + (rand() - 0.5) * 3));
+      py = Math.min(H - 1, Math.max(0, py + (rand() - 0.5) * 3));
+      dabs.push(Math.min(4 * W - 1, Math.round(px * 4)), Math.min(4 * H - 1, Math.round(py * 4)));
+    }
+    return { tool: "naturalize", size, strength: 1 + Math.floor(rand() * 10), seed: Math.floor(rand() * 1e6), dabs };
+  }
+
+  it("a Naturalize stroke over or beside a slope never breaks slopes.connect", () => {
+    for (const [theme, seed] of THEMES) {
+      const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
+      const s = MapSession.fromGenerated(r, r.file);
+      s.setWaterMode("defer");
+      const before = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
+      expect(before.ok, `${theme} ${seed}: the generated map's own slopes join a 1-level step`).toBe(true);
+      const slopes = s.built.entities.filter((e) => e.template === "Slope");
+      expect(slopes.length, `${theme} ${seed}: has slopes to paint over`).toBeGreaterThan(0);
+      const rand = mulberry(seed * 41);
+      // strokes centred on slopes (on the step itself), and just beside a few (the flat ground either
+      // side of it, where naturalize's wear can still reach the step)
+      const targets: { x: number; y: number }[] = [];
+      for (let k = 0; k < 6; k++) {
+        const e = slopes[Math.floor(rand() * slopes.length)];
+        const beside = k % 2 === 1;
+        targets.push({ x: Math.min(95, Math.max(0, e.x + (beside ? Math.floor((rand() - 0.5) * 6) : 0))), y: Math.min(95, Math.max(0, e.y + (beside ? Math.floor((rand() - 0.5) * 6) : 0))) });
+      }
+      for (const t of targets) {
+        const p = strokeAt(rand, 96, 96, t.x, t.y);
+        const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
+        expect(u.errors, `${theme} ${seed} at (${t.x}, ${t.y})`).toEqual([]);
+      }
+      const after = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
+      expect(after.ok, `${theme} ${seed}: ${after.message} (strokes at ${JSON.stringify(targets)})`).toBe(true);
+      expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    }
+  });
+
+  it("a Naturalize stroke over or beside a set piece never changes its protected tiles", () => {
+    for (const [theme, seed] of THEMES) {
+      const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
+      const s = MapSession.fromGenerated(r, r.file);
+      s.setWaterMode("defer");
+      const protect = s.terrainState().protect;
+      const protectedTiles: number[] = [];
+      for (let i = 0; i < protect.length; i++) if (protect[i]) protectedTiles.push(i);
+      expect(protectedTiles.length, `${theme} ${seed}: has a set piece's protected tiles`).toBeGreaterThan(0);
+      const before = s.built.heights.slice();
+      const rand = mulberry(seed * 53);
+      const targets: { x: number; y: number }[] = [];
+      for (let k = 0; k < 6; k++) {
+        const i = protectedTiles[Math.floor(rand() * protectedTiles.length)];
+        const bx = i % 96;
+        const by = Math.floor(i / 96);
+        const beside = k % 2 === 1;
+        targets.push({ x: Math.min(95, Math.max(0, bx + (beside ? Math.floor((rand() - 0.5) * 6) : 0))), y: Math.min(95, Math.max(0, by + (beside ? Math.floor((rand() - 0.5) * 6) : 0))) });
+      }
+      for (const t of targets) {
+        const p = strokeAt(rand, 96, 96, t.x, t.y);
+        const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
+        expect(u.errors, `${theme} ${seed} at (${t.x}, ${t.y})`).toEqual([]);
+      }
+      const after = s.built.heights;
+      for (const i of protectedTiles) {
+        expect(after[i], `${theme} ${seed}: protected tile (${i % 96}, ${Math.floor(i / 96)}) changed (strokes at ${JSON.stringify(targets)})`).toBe(before[i]);
+      }
+      expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    }
+  });
+
+  it("a stroke at the foot of a set piece's slope chain leaves no slope joining nothing (Canyon's stair)", () => {
+    // the chain's first slope stands on open ground in front of the stair: a stroke that changes
+    // that ground drops the slopes above it too, never leaving one chained onto nothing
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const r = generate(makeSpec({ seed, theme: "canyon", size: { x: 96, y: 96 } }));
+      const chain = MapSession.fromGenerated(r, r.file).built.entities.filter((e) => e.template === "Slope" && !e.owner.startsWith("derived") && !e.owner.startsWith("pinned"));
+      if (!chain.length) continue;
+      const foot = chain.reduce((a, b) => (b.z < a.z ? b : a));
+      const rand = mulberry(seed * 67);
+      for (const tool of TOOLS) {
+        for (let k = 0; k < 3; k++) {
+          const s = MapSession.fromGenerated(r, r.file);
+          s.setWaterMode("defer");
+          const p = strokeAt(rand, 96, 96, foot.x + Math.floor((rand() - 0.5) * 4), foot.y + Math.floor((rand() - 0.5) * 4));
+          const { seed: noise, ...rest } = p;
+          const params: BrushParams = { ...rest, tool, ...(tool === "flatten" ? { level: Math.floor(rand() * 17) } : {}), ...(tool === "naturalize" ? { seed: noise } : {}) };
+          expect(s.apply({ op: "brush", params }, "user", tool).errors, `canyon ${seed} ${tool}`).toEqual([]);
+          const c = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
+          expect(c.ok, `canyon ${seed} ${tool} at the stair's foot (${foot.x}, ${foot.y}): ${c.message}`).toBe(true);
+        }
+      }
+    }
+  });
+});
+
 describe("strokes survive regenerating and the project file", () => {
   it("Generate, keeping my edits: the stroke is applied to the new map", () => {
     const r = generate(makeSpec({ seed: 21, size: { x: 96, y: 96 } }));
