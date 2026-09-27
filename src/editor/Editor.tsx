@@ -1425,6 +1425,40 @@ export default function Editor(props: EditorProps) {
   const lastCue = useRef<ForceCue | null>(null);
 
   /** A frame of a force at work: the ground it changed, its water, its objects. */
+  /** A force's water and objects waiting for the next animation frames (the latest of each), so
+   *  the land's change, its water and its objects never all land in one frame (each is a whole
+   *  map's update). */
+  const forceView = useRef<{ water: WaterView | null; entities: EntityView | null; frame: number }>({ water: null, entities: null, frame: 0 });
+
+  function flushForceView(drop = false) {
+    const v = forceView.current;
+    if (v.frame) cancelAnimationFrame(v.frame);
+    v.frame = 0;
+    if (drop) {
+      v.water = null;
+      v.entities = null;
+      return;
+    }
+    const r = renderer.current;
+    const m = mirror.current;
+    // the water first, the objects a frame later
+    if (v.water) {
+      const w = v.water;
+      v.water = null;
+      r?.updateWater(w);
+      m.water = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, w);
+      m.waterView = w;
+    } else if (v.entities) {
+      const e = v.entities;
+      v.entities = null;
+      m.entities = e;
+      m.entitiesAt = null;
+      m.coverAt = null;
+      r?.updateEntities(e);
+    }
+    if (v.water || v.entities) v.frame = requestAnimationFrame(() => flushForceView());
+  }
+
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
@@ -1432,17 +1466,10 @@ export default function Editor(props: EditorProps) {
       m.heights = f.heights;
       r?.updateTerrainRect(f.heights, f.rect);
     }
-    if (f.water) {
-      r?.updateWater(f.water);
-      m.water = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, f.water);
-      m.waterView = f.water;
-    }
-    if (f.entities) {
-      m.entities = f.entities;
-      m.entitiesAt = null;
-      m.coverAt = null;
-      r?.updateEntities(f.entities);
-    }
+    const v = forceView.current;
+    if (f.water) v.water = f.water;
+    if (f.entities) v.entities = f.entities;
+    if ((f.water || f.entities) && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
     if (f.heat) r?.setHeat(f.heat);
     // a painted Lift that would flood the start (or tip it) says so while it is painted
     if (f.verb === "quake" && forcer.current?.status?.painting) setShapeNote(f.problem ? { text: `${f.problem}: let go and it is taken back`, ok: false, warn: false, ...pointerAt.current } : null);
@@ -1462,6 +1489,8 @@ export default function Editor(props: EditorProps) {
         setBusy((b) => b + 1);
         try {
           const u = await api.forceStop();
+          // (the kept map's own view replaces the force's last frames)
+          flushForceView(true);
           flushDeferred();
           localUndo.current = [];
           localRedo.current = [];
@@ -1477,6 +1506,7 @@ export default function Editor(props: EditorProps) {
       enqueue(async () => {
         const v = await api.forceCancel();
         if (!mounted.current) return;
+        flushForceView(true);
         flushDeferred();
         applyView(v);
         renderer.current?.refreshShadows();

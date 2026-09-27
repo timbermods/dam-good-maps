@@ -1741,7 +1741,14 @@ let force: {
   shownEntities: EntityView | null;
   lastEntities: EntitySpec[];
   heatSent: boolean;
+  /** When the page last got the force's water and objects (they go at most every FORCE_VIEW_MS). */
+  viewAt: number;
 } | null = null;
+
+/** A force's water and objects go to the page at most this often (and always with its last frame):
+ *  each is a whole map's update on the page (about 25 ms at 256²), so the land's own changes keep the
+ *  page's frames free. */
+const FORCE_VIEW_MS = 120;
 
 /** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
  *  again from its original land, with the next seed, while one of them is the latest step of the
@@ -1925,10 +1932,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         if (req.settings.mode === "slide") {
           // Slide carries the land; the start stays where it is: a block with the start on it is
           // refused (X flips which side moves)
-          run.planAll();
           const start = map.entities.find((e) => e.template === "StartingLocation");
-          const moved = start && run.final()!.entities.find((e) => e.id === start.id);
-          if (start && moved && (moved.x !== start.x || moved.y !== start.y)) throw new Error(START_REASON);
+          const move = start && run.plan0.fault.movement(start.x, start.y);
+          if (move && (move.dx || move.dy)) throw new Error(START_REASON);
         }
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;
@@ -1956,6 +1962,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     shownEntities: sentEntities,
     lastEntities: s.built.entities,
     heatSent: false,
+    viewAt: -Infinity,
   };
   return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb };
 }
@@ -2022,8 +2029,13 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     out.heights = map.heights.slice();
     out.rect = rect;
   }
-  out.water = waterFromDepth(map.heights, map.water.depth, map.water.contamination);
-  if (map.entities !== f.lastEntities) {
+  const now = performance.now();
+  const view = run.done || now - f.viewAt >= FORCE_VIEW_MS;
+  if (view) {
+    f.viewAt = now;
+    out.water = waterFromDepth(map.heights, map.water.depth, map.water.contamination);
+  }
+  if (view && map.entities !== f.lastEntities) {
     f.lastEntities = map.entities;
     const down = new Map((map.fallen ?? []).map((g) => [g.id, { dx: g.dx, dy: g.dy }]));
     const v = entityView(entityInputs(map.entities, down));

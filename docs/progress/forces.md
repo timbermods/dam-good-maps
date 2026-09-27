@@ -118,6 +118,26 @@ editor's own `forceResult` operation, with `limits` for each and the harness pro
 keeps the shared operation too. Requests B22 (a crater about 24 tiles across), B23 (a small volcano),
 B24 (a lifted fault) and B25 (a meteor on the start: refused, "Start here").
 
+## What a player feels at 256² (Highlands 7, 3,860 objects; the installed Chrome on this machine's GPU)
+
+Measured with the page's frames (requestAnimationFrame gaps) and long tasks while each force ran and
+was kept, after two changes: the worker sends a force's water and objects at most every 120 ms (and
+always with its last frame), and the page puts a frame's water and objects on the next animation
+frames rather than in one (each is a whole map's update, about 25 ms here: the water journey's own
+path). Before them a map-wide Lift had 14 long tasks of 57–125 ms and Craterize four of 51–83 ms.
+
+| Force | frame gap p50 / p95 / max (ms) | long tasks (ms) |
+|---|---|---|
+| Craterize (power 55) | 7.0 / 21.1 / 84 | 82, 56 (as it is kept) |
+| Erupt (power 62) | 7.0 / 27.4 / 40 | none |
+| Quake, a painted Lift across the whole map | 7.0 / 21.0 / 108 | 55, 71, 66, 55 |
+| Quake, Slide | 7.0 / 21.1 / 35 | none |
+| Carve (3 s, then Stop) | 7.0 / 20.9 / 83 | 76, 57 |
+
+The worker plans a force in 12 ms slices, so the page's calls never wait long on it. What remains is
+the kept edit's own view (as for any edit) and, for a map-wide Lift, the size of the ground it moves;
+remeshing that in slices is left for later.
+
 ## Captures for Kyler
 
 `tools/capture-forces.ts` (this branch as the preview builds it, our own Highlands 4242 at 128², on the
