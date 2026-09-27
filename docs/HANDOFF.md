@@ -40,9 +40,9 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | M9a, the new generator | `feature/m9a` | #56 (WIP) | `DamGoodMaps-m9a` | 12beeb3 (WIP) | building (§3) |
 | Live editing | `feature/live-editing` | #60 (merged, aad8401) | `DamGoodMaps-live` | faf440f | released: `live-editing-done` (#61, a7e0a9b) |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
-| Waterfalls (D201) | `look/waterfalls` | #53 | `DamGoodMaps-waterfalls` | b00b2fc | done; needs D215 fixes |
+| Waterfalls (D201, D215) | `look/waterfalls` | #53 (merged, 70ce2a8) | `DamGoodMaps-waterfalls` | 84917c1 | released: `look-waterfalls-done` (#62, a73b4b8) |
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
-| The four forces (Codex's #47, #51, #50, #52, #59; #58's sounds) | merged into `dev` 2026-09-26 | | | | built next on the forces core, for the preview (§4) |
+| The four forces and the juice sounds (D216, D219, D220) | `feature/forces` | none yet | `DamGoodMaps-forces` | a88d7d2 (CI green) | on the preview for Kyler to try; merged into `dev` and released only after he has (pending #74) |
 
 `main` is at 8995cee (`look-badwater-done`). The old machine's worktrees (`C:\Users\Kyler\code\…`) don't exist here.
 
@@ -210,8 +210,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D222), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #69. Defaults chosen while Kyler is away
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D226), and into the living docs in the same change
+  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #77. **Every review is measured against
+  [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Agent definitions** for D210 are in `.claude/agents/`: `m9a-build` (Opus 5.5, xhigh), `m9-build` (Opus 5.5, high),
   `routine` (Sonnet 5, medium). A session only loads them at its start, and only when it starts in the repository folder.
@@ -275,3 +276,5 @@ A computer kept for this work (Kyler, 2026-09-26): always on, nobody plays on it
   likely. Windows restarts itself after a system crash. After any restart: start a Claude Code session in the repository
   folder, read this page, start the keep-awake script, check `git worktree list` and §2, and if a probe batch was running,
   run `npm --prefix investigation/probe run restore` before anything else.
+- **When the game updates:** recompute the starting-logs floor (D224) with `npx tsx tools/log-floor.ts --check` (then
+  `--write`, and record the new floor in PLAN §20); regenerate `investigation/decompiled/`; note it in STATUS.

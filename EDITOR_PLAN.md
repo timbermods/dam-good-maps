@@ -1,5 +1,7 @@
 # Dam Good Maps: the map editor
 
+> **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
+
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision, taken from Kyler's
 decisions (`PLAN.md` §20: D158, D172, D179–D187). Part 2 is the technical reference that still holds.
 Part 3 lists what was superseded: it must not come back. Where anything here conflicts with Part 1
@@ -133,7 +135,7 @@ Make a valley, drop a source, and there's a river.
   never refused: the map becomes a **No badwater** map (a peaceful one; badtides still come), a
   quiet line in the notices says so, the file's description and checks follow, and undo brings the
   source and the setting back (D213). A tool that would reshape the ground under a source keeps off
-  it and says why (decisions-pending #75).
+  it and says why (decisions-pending #79).
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
@@ -186,6 +188,9 @@ Make a valley, drop a source, and there's a river.
 The clean game-like view (D135), contaminated ground as a layer over the ground (D154), the mine
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
+Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
+foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
+cascade (D201, D215).
 
 ## 7. Controls
 

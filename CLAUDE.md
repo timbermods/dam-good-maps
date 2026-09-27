@@ -3,6 +3,9 @@
 > **New milestone session? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says what's in flight, the order of
 > work, how things are run here, and the machine the session runs on (resumed 2026-09-26 on a dedicated computer).
 
+> **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, D225). Only "plays exactly
+> right", "what you see is what you get" and the starting-logs floor are absolute; the rest is judged by Kyler's eye.
+
 Dam Good Maps: a map generator for Timberborn. The README says what the repository holds.
 
 ## Standing rules

@@ -123,16 +123,16 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
 - **The badwater budget's total** (D200 (3)): where fewer hollows fit than the budget asks (a
   small map), the ones placed share its total strength, each up to the builder's 3. Badwater Off →
   High now moves the badwater-to-clean ratio 0.86 (0.55 before).
-- **Drought reserve** (decisions-pending #74, a default): a reserve larger than the theme's own adds
+- **Drought reserve** (decisions-pending #78, a default): a reserve larger than the theme's own adds
   valley lakes along the rivers and keeps a passing map without storage near the start while up to
   three more attempts look for one; a smaller reserve takes valley lakes away. The storage
   preference in `generate` never ran before (a passing map was never planned again). Scarce →
   Plenty moves the stored water 410 on seeds 1–4 and 810 on 1–12 (the wrong way before).
-- **Start area** (D211; decisions-pending #73): its choices read Prefer tight, Normal and Prefer
+- **Start area** (D211; decisions-pending #77): its choices read Prefer tight, Normal and Prefer
   roomy, its note says it is a preference, and the map card shows the **Start bench** (level tiles
   round the district center, within 8). Its experiment and Theme's are information
   (`tools/settings-suite.ts` `info`).
-- **The editor keeps other features' sources on their ground** (decisions-pending #75, a default):
+- **The editor keeps other features' sources on their ground** (decisions-pending #79, a default):
   a lake, landform, set piece or move that would reshape the ground under another feature's water
   or badwater source is refused with the reason (Lake Basin seed 13's lake left a badwater spring
   floating).
@@ -313,9 +313,9 @@ paused session left (its list is kept below, marked done), and is on the rest:
    imports of both, M9a's PLANNING_FAILURES, `regenerate` M9a's one `generate` with dev's
    `editProblems` (named when the generator's map passes and the edits fail on it); `App.tsx` dev's
    caption, then M9a's first look; the Claude harness both sides' steps; `objects.spec.ts` and
-   `tools.spec.ts` deleted as on dev; decisions-pending dev's #69–#72, then M9a's #73–#75; the
+   `tools.spec.ts` deleted as on dev; decisions-pending dev's #69–#72, then M9a's #73–#75 (renumbered #77–#79 when dev's #73–#76 came in); the
    reference outputs regenerated. Then the seed-4242 sha and the generator's bytes checked against
-   the batches' (re-run them if the merge changed the maps), the docs (EDITOR_PLAN for D213 and #75,
+   the batches' (re-run them if the merge changed the maps), the docs (EDITOR_PLAN for D213 and #79,
    ROADMAP's M9a status), the browser tests (the determinism test's timeout, the Islands 256² preview
    timeout; each run on its own port 4801–4810), and CI green on #56.
 7. The probe maps: `npm --prefix investigation/probe run batch -- --job-only --group M9a` on the

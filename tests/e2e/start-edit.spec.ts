@@ -65,6 +65,7 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
   await idle(page);
   i = await info(page);
   expect(i.history.at(-1)!.label).toBe("Move the start to the nearest good spot");
-  expect(await page.evaluate(() => window.dgmEditor!.instant().length)).toBe(0);
+  // (the instant checks come from the checks worker a moment after the edit, not with it)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.instant().length), { timeout: 15_000 }).toBe(0);
   expect(errors).toEqual([]);
 });
