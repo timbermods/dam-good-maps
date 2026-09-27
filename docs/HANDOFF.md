@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D268) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D269) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -49,7 +49,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    brush level and stop, brushes.ts's layer-cut raise and precise hold, `forceCeiling`; merge `chore/ceiling-probe`'s tool;
    the tall note in plain words). Then deploy the preview from `feature/forces` and tell Kyler: his checklist for the
    sitting is in STATUS. Not released until he has tried it. The top note of `docs/progress/forces.md` has the detail.
-4. **Drought and Badtide day by day** (D267, D268; `build`; its own branch, `feature/weather-days`): based on `feature/forces`
+4. **Drought and Badtide day by day** (D267, D268, D269: an edit ends the view; `build`; its own branch, `feature/weather-days`): based on `feature/forces`
    once the forces' water and camera work (D260, D265, D266) is pushed, so it doesn't conflict with them; it owns the water
    bar (the Speed control moves to the day strip). Merged separately, after the forces; on the preview for a sitting of
    its own, after Kyler's forces sitting (the preview shows one branch at a time).
@@ -274,7 +274,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D269), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D270), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.

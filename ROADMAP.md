@@ -966,7 +966,7 @@ they conflict):
      map, at one brisk pace (small edits settle nearby in a second or two; D197, D268); the journey
      with pause, skip and replay (no follow: the camera only moves when the player moves it, D265);
      the Drought and Badtide buttons, day by day since D267 (the worst day at once, a day strip with
-     play and Speed, the start's-water marker, editing while a hazard is shown; the game's rules,
+     play and Speed, the start's-water marker; an edit ends the hazard view, D269; the game's rules,
      from `investigation/cycles`); moisture spreading as the land greens; optional sounds of our own. The
      final water is always the game's settled result, at any speed.
    - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
@@ -1764,6 +1764,12 @@ into play consequences.
 hover notes, built before this step on a branch of its own. This step adds what D133 still plans on top
 of those buttons: the plain-language summary, the map card's lines and the strategy axes. Where a
 Delivers item below speaks of a separate view or timeline, it means the day strip.
+
+**Proposal (D269, to decide in this step; not built yet): a drought line in the normal view.** Every
+lake and river shows a faint line on its shore where its water will stand on the last day of a drought
+(of the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed; the
+start's water is marked a little more strongly. It updates in the background after each edit, like the
+checks, and never blocks: feedback from the land itself, not a readout (D184).
 
 **Delivers**
 1. A Weather view, opened when wanted from the generator's preview and from the editor: a
