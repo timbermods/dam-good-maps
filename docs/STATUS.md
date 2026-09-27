@@ -36,11 +36,21 @@ Your forty-seven decisions since the restart are recorded (D252–D298, below) a
      their lake through 9 days. That is the game's rule (sources stop), but it bears on PERFECT's "the start survives its first
      cycles" (Challenge) and may belong in M9b.
    Its defaults #120–#124 (the step pace, the start's water rule, per-tile hover notes, the highlight, days as they're worked out).
-5. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+5. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
+   Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
+   shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
+   switchable, in four groups on a Look menu. Standard is unchanged (its shader sources hash as `dev`'s; 12 views differ no more than
+   two loads of `dev`). High is the default with an automatic fallback to a lighter High, then Standard (22 ms, then 30 ms, at the
+   slowest 5% of frames); on the RTX 2070 SUPER it costs about 1–2 ms a frame at 256² and holds the display's 165 Hz. No interface
+   styling changed (D296). My read: warmer and richer, the dead trees far better (branched, not poles); the grass is quite saturated
+   and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
+   Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
+   seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
+6. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-6. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+7. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-7. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+8. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
