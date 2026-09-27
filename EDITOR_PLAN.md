@@ -174,7 +174,12 @@ editor is desktop-first (D185).
 
 Make a valley, drop a source, and there's a river.
 
-- **Smart Lower:** a stroke that starts in or near water carves a bed that keeps flowing downhill.
+- **Smart Lower:** a stroke that starts in or near water carves a bed that keeps flowing downhill. Its depth comes from
+  strokes, never from holding (D263): a new channel's bed starts one level below the surface of the water it leaves (the
+  water enters about one tile deep, with no pit where it leaves), never rises, and steps down to one level below the land
+  beside it; it cuts deeper only where it must to keep flowing downhill, and no deeper. A stroke drawn along an existing
+  channel deepens it by exactly one level. Holding only extends the river; plain Lower, away from water, still digs
+  deeper while held.
   The brush ring itself turns a clear water-blue and slightly thicker, with a faint fill as a second
   cue; ordinary Lower keeps the white ring. Readable over water, badwater, every ground and in
   colour-blind views (D198).
@@ -392,8 +397,8 @@ before D182 open with their land exactly as it was, as plain terrain.
 brush strokes, placements and moves, source changes, removals, the Select tool's actions,
 `regenerateRegion`, `setLock` and `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke
 replays exactly and survives regeneration and format 3. A Lower stroke that starts in or beside
-water records `channel` (smart Lower): its bed starts at the lowest ground round its first dab and
-never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
+water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
+strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects; the footprints a Flatten's rim would leave on a step, D204),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
