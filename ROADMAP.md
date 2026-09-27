@@ -1383,7 +1383,7 @@ design version 1's.
     orientations, names and the how-it-plays line, Another like this, Variety as a setting, and
     D298's game soil in the build and both validators (docs/progress/m9b.md). Left: the
     intentions' emergence, the Canyon and Islands promises, generation time, chaos, the tests for
-    0.8.0, the contact sheet and the first review set. Defaults: decisions-pending #100 to #109.
+    0.8.0, the contact sheet and the first review set. Defaults: decisions-pending #100 to #109 and #130 to #132.
   - **Delivers, judged as five outcomes** (D273; the measures below are information, not gates):
     1. **A readable water story:** a map's water can be followed at a glance, from where it starts,
        into a main river or lake system, to where it leaves; a few tributaries, never a tangle of
