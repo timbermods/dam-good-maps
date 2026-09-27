@@ -13,6 +13,7 @@ import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { forceCeiling } from "../../src/core/forces/force";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { CEILING, GAME_MAX_HEIGHT, isTall, TALL_NOTE, withTallNote } from "../../src/core/format/world";
 import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
@@ -112,6 +113,8 @@ describe("one ceiling in the editor (D244)", () => {
     expect(max(run({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 100, seed: 3 }, origin: at, cut: null }))).toBeLessThanOrEqual(CEILING);
     expect(max(run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 100 }, path: [{ x: at[0] - 12, y: at[1] }, { x: at[0] + 12, y: at[1] }], side: 1, cut: null }))).toBeLessThanOrEqual(CEILING);
     expect(max(run({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 100 }, origin: [at[0] + 6, at[1] + 6], cut: null }))).toBeLessThanOrEqual(CEILING);
+    // a glacier from the volcano's summit: its moraine and banks never past it either
+    expect(max(run({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power: 100 }, origin: at, cut: null }))).toBeLessThanOrEqual(CEILING);
   });
 
   it("an unedited map keeps its description byte for byte; the note is plain words, added once and taken off again", () => {

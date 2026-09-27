@@ -16,8 +16,9 @@ finish the floor's water during the adoption). The source: `investigation/glacia
   order. With the floor's water left as round 4 left it, it gives the investigation's land, water and objects byte for
   byte (tests/contract/glaciate.test.ts, on the hero click and Kyler's cross-valley Aim). Cut into slices (a generator
   that yields between its phases; the rim's textures worked out once a tile), so the worker answers the page between
-  them; slicing never changes the result. It builds to the forces core's ceiling (`maxHeight`: 16, or the map's own top
-  up to 22), not the investigation's fixed 22; D244 step 2 lifts it.
+  them; slicing never changes the result. It builds to the forces core's ceiling (`maxHeight`: since D244 step 2, D172's
+  tall maximum on every map, as the investigation had it; `tests/contract/ceiling.test.ts` runs a glacier from a
+  volcano's summit).
 - **The start is the editor's** (D257): the planner leaves it; the worker's `carryStart` carries it to level ground in
   the same undo step when its ground breaks.
 - **One operation** (`forceResult`, verb `glaciate`): settings Power, Size (null: Auto), Meltwater, the seed, and the

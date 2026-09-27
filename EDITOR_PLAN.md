@@ -214,8 +214,8 @@ editor is desktop-first (D185).
   level ground in the same step. Trees and objects in its path are swept; swept clean sources feed its cirque head,
   badwater is discarded. One `forceResult` operation, one undo step, stored literally: its changed levels and every level
   of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; Esc
-  reverts it at once, Try another replaces it, and it replays to the same bytes. It builds up to the forces core's
-  ceiling (16, or the map's own top up to 22; D244 step 2 lifts it). Sounds from the editor's CC0 bank (grinding stone, a
+  reverts it at once, Try another replaces it, and it replays to the same bytes. It builds up to the editor's one
+  ceiling (D172's tall maximum on every map, D244). Sounds from the editor's CC0 bank (grinding stone, a
   low wooden groan, slow cracks, meltwater: the investigation's recipe). No ice-sheet mode for now.
 - **Erode, a force of nature** (PLAN §20 D279–D281; terrain above terrain, step 3, after the view): wind and water wear
   rock into caves, alcoves, overhangs and arches; the land decides which; every shape obeys the support rule; a click or
