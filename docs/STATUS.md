@@ -25,6 +25,9 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
    there. M9b's maps have more flat, film-prone ground than M9a's (29 of 30 passed). **Default, being built:** accept the game's
    rules with this departure, and let the pooled probe batch at M9b's release candidate (D308) check the water against the game
    itself instead of against the old port. Say if you want something else (e.g. keep the band and investigate further).
+   - **Also on `feature/high-look`** (your answer on the suggested task): once clean water's shades are done, badwater's on-screen
+     calibration targets (6–11 codes off on "typical", "trough", "streak") are re-measured once; the drift is fixed, or, if an
+     approved look change moved them, the targets are updated and noted in PLAN and the progress log (`build-light`).
 5. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
