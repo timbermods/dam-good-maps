@@ -11,8 +11,7 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **The lean editor, D287-D289, with D290** (in progress): D287, D288 and D289 done (the
->    section below); D290 (a badwater source cuts its own spring pool) next.
+> 7. **The lean editor, D287-D289, with D290: done** (the section below).
 > 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
 > 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
@@ -132,6 +131,32 @@ For Kyler's forces sitting: each force's row (Power, Size, one choice at most, T
 or drag decides the mode (a Carve dragged uphill cuts through); Try another a few times on one spot:
 the walls, rays, summit or wander change with the land's lean; X flips Quake's side (say if you want
 the Left/Right control back).
+
+### D290: a badwater source cuts its own spring pool
+
+- Placed from the shelf, switched from clean (the row's Water: Badwater) or dragged, a badwater
+  source on uneven ground no longer refuses: `springPool` (`src/core/doc/placing.ts`) cuts its nine
+  tiles down to the lowest of them with an exact `sculpt` flatten (never filling) and removes what was
+  placed by hand on them (a generated tree makes room by itself, as before), before the source's own
+  operation, in the same undo step; the shelf's ghost is green there. The worker adds the pool to the
+  shelf's plan (`planEntity`) and to any group of edits that places or moves a badwater source
+  (`applyAll`: the switch and the drag). It still refuses at the map's edge ("it does not fit on the
+  map"), in a cave, and on the start ("the district center stands there").
+- One plain reason each: "it would stand inside the ground: the ground under it is not level" and
+  "it would float: …" are "the ground under it is not level"; the "it can't stand there: " prefix is
+  gone from placements and moves.
+- EDITOR_PLAN's sources paragraph says so.
+
+Tests: `springPool.test` (new: placed on uneven ground the nine tiles take the lowest level and
+nothing else changes, one step, undone in one, replayed from the project; switched from clean and
+dragged, the same, one step each; refused only at the edge and on the start, with one plain reason,
+and the hover agrees); `springPool.spec` (new: Kyler's case through the page: the shelf's ghost green
+on uneven ground, a clean source switched to Badwater cuts its pool, one step, one undo). Changed
+(D148): `objects.test` (a relic on uneven ground is refused with "the ground under it is not
+level" alone).
+
+For Kyler's forces sitting: switch a clean source in a riverbed to Badwater: it takes, with a small
+level pool under it; drag a badwater source up a slope: it cuts its pool there.
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 

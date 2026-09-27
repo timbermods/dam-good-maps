@@ -633,13 +633,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
       const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "deleteEntities": {
       if ("quiet" in op.params) return ["quiet is a carve's own"];

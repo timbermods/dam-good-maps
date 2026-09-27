@@ -272,7 +272,11 @@ Make a valley, drop a source, and there's a river.
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
   pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
-  receding live.
+  receding live. **A badwater source cuts its own spring pool** (D290): it is 3 × 3 in the game and needs level ground,
+  so where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest of
+  them (never filled, so its water isn't dammed) and what stood on them goes, a small level pool in the same undo step;
+  it refuses only at the map's edge, in a cave and on the start. Every placement refusal is one plain reason ("the
+  ground under it is not level", "the district center stands there").
 - **Unleash, on a source** (D239): select a placed water or badwater source and a small **Unleash** action sits beside it,
   next to its strength, with a quick **Power** (or press U). Clicked, the source's own water carves its course downhill
   with Carve's engine (momentum, wander, waterfalls, the carving moment and its effects; the camera stays where the player left it, D265); where it stands in

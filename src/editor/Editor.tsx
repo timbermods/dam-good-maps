@@ -872,7 +872,8 @@ export default function Editor(props: EditorProps) {
         void record.then((e) => {
           if (!e) return;
           const name = e.template === "BadwaterSource" ? "badwater source" : "water source";
-          void run(() => api.apply({ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy } }, "user", `Move a ${name}`));
+          // (a badwater source cuts its own spring pool where it lands on uneven ground, D290)
+          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy } }], `Move a ${name}`));
         });
       },
       cancel: end,
