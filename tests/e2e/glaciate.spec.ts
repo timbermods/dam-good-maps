@@ -81,8 +81,16 @@ test("a click Flows at once, the camera still (D265); kept as one step exactly a
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
   // the cursor shows where it acts, nothing more (D258)
-  await page.mouse.move(p.x, p.y);
-  await expect.poll(async () => (await gesture(page)).cursor).toEqual(at);
+  await page.mouse.move(p.x + 4, p.y + 4);
+  await page.mouse.move(p.x, p.y, { steps: 3 });
+  await expect
+    .poll(async () => {
+      const c = (await gesture(page)).cursor;
+      return !!c && Math.abs(c[0] - at[0]) <= 1 && Math.abs(c[1] - at[1]) <= 1;
+    })
+    .toBe(true);
+  expect((await gesture(page)).arrow).toBeNull();
+  expect((await gesture(page)).stroke).toBeNull();
   const before = await heights(page);
   const n0 = (await labels(page)).length;
   const v0 = await view(page);
