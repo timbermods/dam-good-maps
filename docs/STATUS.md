@@ -197,22 +197,20 @@ the other agents paused by hand.
   touched. HANDOFF now says to build with `--no-install`.
 - **Timberborn was open when I arrived;** you closed it (12:05).
 
-### 7. Running (2026-09-27, Sunday 02:00 PDT; more in parallel until Tuesday 8:00 PDT, D286)
+### 7. Running (2026-09-27, afternoon; models by D301, in force now)
 
 | Workstream | Branch (worktree) | Agent, model | State |
 |---|---|---|---|
-| M9a: batches, review set, probe batch | `feature/m9a` (`-m9a`) | `m9a-build`, Opus 5.5 xhigh | fixing a start-planting bug CI found (River Valley 96² seed 1333: no map); then re-freeze, every batch, the probe maps; has the machine first |
-| M9a's review set | detached (`-review`) | `routine`, Sonnet 5 medium | tooling ready (`investigation/m9a-review/make-all.ts`); waits for M9a's new frozen commit |
-| The forces, toward your sitting | `feature/forces` (`-forces`) | `build`, Opus 5.5 high | done: CI fix, D249, D257/D258, D265/D266; next D260, the Select work (D259, D261, D264), D263, #84 |
-| Drought and Badtide, day by day | `feature/weather-days` (`-weather`) | `build`, Opus 5.5 high | started from the forces' ddbef45; owns the water bar |
-| Real places, the water fix (D271) | `feature/real-places-2` (`-places`) | `build`, Opus 5.5 high | the drops, then water from the real place; a new sheet for you |
-| The Erode investigation (D281) | `investigation/erode` (`-erode`) | `build`, Opus 5.5 high | started; held until you've tried it |
-| M9b (D273–D278) | `feature/m9b` (`-m9b`) | `m9b-build`, Opus 5.5 xhigh | started from M9a's generator; pauses first if M9a is delayed |
-| The High look adoption (D284) | `feature/high-look` (`-high`) | `build`, Opus 5.5 high | started; visible seasons wait for the day-by-day branch |
-| 3D foundations: the stacked water engine, the support check | `feature/terrain3d-a` (`-3d`) | `build-xhigh`, Opus 5.5 xhigh until Tuesday, then `build` | being handed over to xhigh; new modules only (D286 (3)) |
-| Housekeeping (#91, A3, A4) | `chore/housekeeping` (`-house`) | `routine`, Sonnet 5 medium | started; merged early |
-| Docs for D279–D286, then the consistency sweep | `dev` (main clone) | `routine`, Sonnet 5 medium | the living docs, then a fresh agent's sweep |
-| Orchestrating, merging, probe batches | `dev` | the session, Opus 5.5 high | |
+| M9a: its release | `feature/m9a` (`-m9a`, #56) | `m9a-build`, Opus 5.5 xhigh | approved by you (D294); the probe batch's water fix (the settled flows written into the file, 0d9e473) is being re-checked in the game now; then the merge, `m9a-done` and the release |
+| M9b (D273–D278, D294, D298) | `feature/m9b` (`-m9b`) | `m9b-build`, Opus 5.5 xhigh | building; the game's soil rules in; its first review set comes to you when ready |
+| The forces, for your sitting | `feature/forces` (`-forces`) | `build`, Opus 5.5 high | the whole queue built, the ceiling at 22 (D244); fixing a painting stutter found after tall edits, then the preview |
+| Glaciate's adoption (D291, D292) | `feature/glaciate` (`-glaciate`, #76) | `build`, Opus 5.5 high | built; goes on the preview with the forces |
+| Real places (D271, D300) | `feature/real-places-2` (`-places`, #35) | `build`, Opus 5.5 high | the land fixes and the water floor; then badwater (after M9a) and the release on `build-light` |
+| Drought and Badtide, day by day | `feature/weather-days` (#73) | built (`build`) | held for its own sitting; fixes after it on `build-light` |
+| The High look (D284) | `feature/high-look` (#75) | built (`build`) | held for your eye; fixes on `build` |
+| The Erode investigation (D281) | `investigation/erode` (#74) | built (`build`) | held until you've tried it |
+| 3D foundations: new modules | `feature/terrain3d-a` (#71) | built and verified in the game (`build`) | the wiring waits for the forces and M9b to merge (`build`) |
+| Orchestrating, merging, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
 
 Nothing merges into `dev` or is released without your yes (D286 (9)); every new piece is held on its branch.
 
@@ -385,7 +383,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
-- D301: from Tuesday 8:00 PDT, Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed then.
+- D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
 - D300: Real places finished without another sheet: the bed lowered under real water, most of the tilt taken out, a water floor (a small natural spring near the start where a place has no water), #94 accepted; checked by the session; then badwater after M9a, and the release.
 - D299: the generator page's Moist soil switch stays until "The page is the editor"; Quake's Left/Right control stays gone (X flips the side).
 - D298: the game's own soil rules adopted in M9b (with the Python moisture check); M9b reports plants moved or changed and generation times.
@@ -400,7 +398,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D289: every force's row is Power, Size, at most one signature choice, Try another; Carve's Defy gravity and keep-carved button gone. On feature/forces.
 - D288: the Remove tool goes; Select and Delete remove a selection's objects and sources (never the start). On feature/forces.
 - D287: one Top-down toggle; no Dam sites, Moisture or Drought views. On feature/forces.
-- D286: until Tuesday 8:00 PDT, more in parallel: M9b starts (m9b-build, xhigh), the High look adoption starts (build), housekeeping (routine), the 3D foundations only as new modules (the stacked water engine at xhigh, the support check); the conversion to runs after the forces and M9b merge (that order stays). Nothing merges into dev without your yes.
+- D286 (ended early by D301): more in parallel: M9b starts (m9b-build, xhigh), the High look adoption starts (build), housekeeping (routine), the 3D foundations only as new modules (the stacked water engine at xhigh, the support check); the conversion to runs after the forces and M9b merge (that order stays). Nothing merges into dev without your yes.
 - D285: slimmed: M13 (a problem link, shortcuts and help, a performance pass; versioned deploys and mobile layouts to Later), the Weather step (the drought line and a map-card line), Pick a place (a 2D shaded-relief map, the preview on release, desktop only); the time-lapse to Later.
 - D284: the High look is adopted right after the forces' release, alongside "The page is the editor", and becomes the default where it runs smoothly (fallback to Standard, measured on the RTX 2070 SUPER).
 - D283: cut: the Map quality checkpoint, the Frame pass as a step, the refinement phase as a milestone (its small items become housekeeping), the agent guide (waits with M12).
