@@ -174,6 +174,16 @@ paced, water meshed on a budget), `tools/verify-hazard-probe.ts` gives exactly t
 the three maps; the step between days now meshes its moving water on the same budget
 (`updateWaterSoon`), each day whole.
 
+## Flooded floor (D307)
+
+Hovering flooded floor in the day-by-day view says "Floods when the river refills": ground dry on
+Day 0 that is wet on the day shown and joined, through that day's water, to water that was there on
+Day 0 (`floodedTiles`, `core/sim/hazard.ts`; a lone puddle is not flooded floor). It is worked out
+when first hovered on each day or step shown. Nothing else changes. Since the strip's hazards start
+from the settled map and show only the hazard's own days, the note shows where a badtide's (or a
+still-filling map's) water spreads over dry floor; the refill after a drought lies beyond the
+drought's last day. Test: `tests/unit/hazard.test.ts` (D148).
+
 ## For Kyler's sitting
 
 1. Refine a map (a 256² one too), press **Drought**: progress, then day 9 with the dried ground; the

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { startMarker, startNote, startWalk, startWater } from "../../src/core/analysis/startWater";
-import { ALREADY_BAD, framesPerDay, HazardRun, hazardNote, LASTS, NOT_WATER } from "../../src/core/sim/hazard";
+import { ALREADY_BAD, FLOODS_NOTE, floodedTiles, framesPerDay, HazardRun, hazardNote, LASTS, NOT_WATER } from "../../src/core/sim/hazard";
 import { droughtStrength, droughtTransitionDays } from "../../src/core/sim/weather";
 import { storedOutflows } from "../../src/core/format/world";
 import { waterModel } from "../../src/core/sim/model";
@@ -209,5 +209,27 @@ describe("a hazard, day by day", () => {
     // the game's: the water stands at the threshold all along the channel
     for (const d of row(true)) expect(d).toBeCloseTo(0.1, 3);
     expect(new HazardRun({ model, depth: new Float64Array(W2 * H2), contamination: new Float64Array(W2 * H2), hazard: "drought", days: 1, framesPerDay: 4 }).sim.edgeSpill).toBe(true);
+  });
+
+  it("flooded floor (D307): dry on Day 0, wet on the shown day and joined to the river's water; a puddle on its own is not", () => {
+    // a 6 × 3 map: a river along the top row on Day 0; on the shown day it spills onto the floor below
+    // it, and a lone puddle stands in the bottom right corner
+    const W6 = 6;
+    const change = new Uint8Array(18);
+    for (let x = 0; x < W6; x++) change[x] = LASTS;
+    const depth = new Float32Array(18);
+    for (let x = 0; x < W6; x++) depth[x] = 0.6;
+    depth[W6 + 1] = 0.2; // floor joined to the river
+    depth[W6 + 2] = 0.2;
+    depth[2 * W6 + 2] = 0.1; // joined through the floor above it
+    depth[2 * W6 + 5] = 0.3; // a puddle joined to nothing
+    depth[W6 + 4] = 0.03; // a film under the wet line
+    const f = floodedTiles(W6, 3, change, depth);
+    expect([...f.keys()].filter((i) => f[i])).toEqual([W6 + 1, W6 + 2, 2 * W6 + 2]);
+    // the river itself says when it dries, not that it floods
+    expect(f[0]).toBe(0);
+    expect(FLOODS_NOTE).toBe("Floods when the river refills");
+    // a river gone dry on the shown day floods nothing
+    expect(Array.from(floodedTiles(W6, 3, change, new Float32Array(18)))).toEqual(new Array(18).fill(0));
   });
 });

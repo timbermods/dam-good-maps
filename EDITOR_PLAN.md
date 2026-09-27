@@ -327,7 +327,8 @@ Make a valley, drop a source, and there's a river.
   that day's water at that speed; Instant jumps and stays; nothing reverts on its own. A length of 1 to
   30 days per hazard (defaults drought 9, badtide 8), remembered. The start's water is highlighted, and
   the strip marks the day it leaves a pump's reach (or, in a badtide, the day badwater reaches it or its
-  farmland); hovering any water says when it dries or turns bad. Any edit while a hazard is shown ends
+  farmland); hovering any water says when it dries or turns bad, and hovering flooded floor (dry on Day 0,
+  wet that day, joined to the river's water) says "Floods when the river refills" (D307). Any edit while a hazard is shown ends
   the view at once: the map's own water returns and the edit's water plays as usual; clicking the
   button again shows the new worst day (D269). The game's weather rules, unchanged. The
   Weather step's summary and map-card lines build on these buttons (D133).

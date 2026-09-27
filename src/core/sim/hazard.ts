@@ -186,3 +186,34 @@ export function hazardNote(hazard: Hazard, change: number): string | null {
   if (change === ALREADY_BAD) return "Badwater already";
   return change === LASTS ? "Stays clean" : `Turns bad on day ${change}`;
 }
+
+/** Flooded floor on a day of the hazard (D307): ground dry on Day 0 (`change` NOT_WATER) that is wet
+ *  on this day (`depth`, per tile) and joined, through this day's water (4-neighbours), to water
+ *  that was already there on Day 0: a river's refill spilling onto its floodplain. 1 where so. */
+export function floodedTiles(W: number, H: number, change: ArrayLike<number>, depth: ArrayLike<number>): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  const seen = new Uint8Array(N);
+  const stack: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (change[i] === NOT_WATER || !(depth[i] > DRY)) continue;
+    seen[i] = 1;
+    stack.push(i);
+  }
+  while (stack.length) {
+    const i = stack.pop()!;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let k = 0; k < 4; k++) {
+      const n = k === 0 ? (x > 0 ? i - 1 : -1) : k === 1 ? (x + 1 < W ? i + 1 : -1) : k === 2 ? (y > 0 ? i - W : -1) : y + 1 < H ? i + W : -1;
+      if (n < 0 || seen[n] || !(depth[n] > DRY)) continue;
+      seen[n] = 1;
+      if (change[n] === NOT_WATER) out[n] = 1;
+      stack.push(n);
+    }
+  }
+  return out;
+}
+
+/** What hovering flooded floor says (D307). */
+export const FLOODS_NOTE = "Floods when the river refills";

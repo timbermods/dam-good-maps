@@ -56,7 +56,7 @@ import { WaterPlayer } from "./waterPlayer";
 import { DayPlayer, type DaySpeed } from "./dayPlayer";
 import { loadDaySpeed, loadLengths, saveDaySpeed, saveLengths, type HazardLengths } from "./hazardPrefs";
 import type { Hazard } from "../core/sim/weather";
-import { hazardNote, NOT_WATER } from "../core/sim/hazard";
+import { FLOODS_NOTE, floodedTiles, hazardNote, NOT_WATER } from "../core/sim/hazard";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
@@ -88,6 +88,8 @@ interface Mirror {
    *  own stay in `water` and `soil`, for the tools). */
   hazardWater?: SurfaceWater | null;
   hazardSoil?: SoilView | null;
+  /** The shown day's flooded floor (D307), worked out when first hovered. */
+  hazardFlood?: { of: SurfaceWater; tiles: Uint8Array } | null;
   entities: EntityView;
   /** The objects on each tile, made when first asked for after the objects change. */
   entitiesAt: Map<number, number[]> | null;
@@ -919,8 +921,14 @@ export default function Editor(props: EditorProps) {
     const m = mirror.current;
     if (!z || !z.bar.player || !m.hazardWater) return describeTile(ctx(), x, y);
     const text = describeTile({ ...ctx(), water: m.hazardWater, soil: m.hazardSoil ?? m.soil }, x, y);
-    const c = z.change?.[y * infoRef.current.W + x] ?? NOT_WATER;
-    const note = hazardNote(z.bar.hazard, c);
+    const i = y * infoRef.current.W + x;
+    const c = z.change?.[i] ?? NOT_WATER;
+    let note = hazardNote(z.bar.hazard, c);
+    // flooded floor (D307): dry ground on Day 0, wet on this day, joined to the river's water
+    if (!note && z.change) {
+      if (m.hazardFlood?.of !== m.hazardWater) m.hazardFlood = { of: m.hazardWater, tiles: floodedTiles(infoRef.current.W, infoRef.current.H, z.change, m.hazardWater.depth) };
+      if (m.hazardFlood.tiles[i]) note = FLOODS_NOTE;
+    }
     return note ? `${text}. ${note}` : text;
   }
 
