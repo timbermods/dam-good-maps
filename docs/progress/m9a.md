@@ -691,6 +691,21 @@ is at the edge of that spread (the model is deterministic: 2,310 run after run).
 its largest difference 4.1% of wet tiles on day 1. The tolerance is not changed; with No badwater
 seed 6 it is Kyler's call on the wet-tile threshold.
 
+### Kyler's D302: the probe's findings (2026-09-28)
+
+- **The wet-tile counts are judged as D297 judges water** (item 3): `cal-timeline` leaves out of both
+  counts every tile within 0.01 of the 0.05 wet line in the game or the model (`runner/compare.ts`;
+  the raw counts stay in the detail beside the judged ones; a self-test check: 20% of wet tiles moved
+  to 0.045 change nothing, to 0 fail). Judged again (`C:\dgm-probe\results\20260927-1443-batch-recompare-d297\`):
+  **101 passed, 2 failed.** Islands 128² seed 1 passes (wet tiles 0.5%, from 5.8%) and No badwater
+  seed 6 passes (0.9%, from 6.5%); every other cal-timeline's wet tiles 0.0–2.5%, water 0.1–1.7%.
+- **Handed on to M9b (D302):** item 1, Any 128² seed 1's clean side pool at (77–80, 92–93) that
+  empties in the drought and refills with badwater (10–21% bad before the badtide; the model agrees
+  with the game), and item 2, Delta 128² seed 1's flats spreading a thin sheet over the plain in the
+  badtide (`cal-timeline`, wet tiles 19.6%). These are the two checks the D297 recompare still fails.
+- **Item 4, the start's water in a sealed puddle:** counted over the batches before the release (the
+  next section).
+
 ### Found and parked
 
 - **Edge inflows that run backwards** (information, for M9b's hydrology): on 3 of 36 edge inflows

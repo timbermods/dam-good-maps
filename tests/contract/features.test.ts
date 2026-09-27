@@ -103,3 +103,20 @@ describe.each([
     expect(encodeWorld(readTimber(r.bytes).world)).toBe(encodeWorld(back.world));
   });
 });
+
+describe("a river's bed on land above 16 (D132, D123)", () => {
+  it("a natural fall may drop as far as the land reaches (22 levels), as the bed's start may stand", () => {
+    const river = (drop: number): Feature => ({
+      id: "a1b2c3d4-0000-4000-8000-000000000001",
+      kind: "river",
+      origin: "generated",
+      role: "river/main",
+      locked: false,
+      params: { path: [[0, 10], [40, 10]], width: 3, bedDepth: 1, bedProfile: { start: 21, steps: [{ at: 20, drop }] }, flow: 2, style: "meandering", entry: { edge: "west" }, exit: { edge: "east" }, badwater: false },
+    });
+    // (a map at Verticality 100 falls 16 or more: its project file must reopen, M9b's chaos batch)
+    expect(validateFeatures([river(18)])).toEqual([]);
+    expect(validateFeatures([river(21)])).toEqual([]);
+    expect(validateFeatures([river(23)])).not.toEqual([]);
+  });
+});
