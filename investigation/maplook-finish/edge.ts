@@ -16,18 +16,22 @@ export class DioramaEdge {
           float a = abs(n.x) > 0.5 ? -vWorld.z : vWorld.x;
           float y = vWorld.y;
           float warp = (vnoise(vec2(a * 0.075, 19.7)) - 0.5) * 0.75;
-          float bed = y + warp;
+          float bed = y + warp + (vnoise(vec2(a*.13,y*.19)+13.7)-.5)*1.3;
           float broad = vnoise(vec2(a * 0.24, y * 1.6));
-          float band = sin(bed * 4.8) * 0.5 + 0.5;
-          vec3 stone = mix(vec3(0.40, 0.43, 0.40), vec3(0.63, 0.59, 0.47), smoothstep(0.2, 0.8, band));
-          float seam = 1.0 - smoothstep(0.035, 0.095 + fwidth(bed), abs(sin(bed * 1.83 + 2.4)));
-          stone = mix(stone, vec3(0.77, 0.71, 0.57), seam * 0.65);
+          // The cliff's charcoal-grey stone, with nonperiodic, dark bed seams.
+          // No sine-spaced courses or bright mortar lines.
+          float band=vnoise(vec2(a*.06,bed*.83));
+          vec3 stone=mix(vec3(.36,.38,.35),vec3(.43,.445,.405),band);
+          float seam=smoothstep(.60,.74,vnoise(vec2(a*.10,bed*2.31)+34.7));
+          stone*=1.0-seam*.13;
           float grain = vnoise(vec2(a * 8.3, y * 16.7));
           float joint = cracks(vec2(a * 0.67 + warp, y * 0.93) + 41.8).x;
           stone *= 0.87 + broad * 0.18 + grain * 0.10;
           stone *= 1.0 - joint * 0.18 * (1.0-smoothstep(0.06,0.22,fwidth(a)));
           stone *= 0.86 + 0.14 * smoothstep(-3.0, 1.0, y);
-          if (finishGeology > 0.5) c = stone;
+          // This hook runs after the terrain lighting multiply. Light this rock
+          // explicitly; leaving it unlit made the old cut pale next to its cliffs.
+          if (finishGeology > 0.5) c = stone*light;
           if (finishSoil > 0.5) {
             float depth = h0 - y;
             float soilDepth = 0.54 + 0.22 * vnoise(vec2(a * 1.53, 7.2));
