@@ -126,6 +126,8 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     Meltwater, Try another; one river on the floor; the camera stays put.
 19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
 20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
+21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
+    the values it took; pin one and Try another: the pinned detail stays, the others vary; pin all the shown values and it repeats.
 13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
     water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 
