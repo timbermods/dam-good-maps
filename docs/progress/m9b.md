@@ -164,8 +164,10 @@ Measured on the draw (seeds 1–100; it does not depend on the theme): all 8 app
   Spire", "Oxbow Bend"), some with the land's noun (the theme's, the sea layout's, or for Any what
   the map shows most); chosen by the seed, never a title the names study forbids (official and
   workshop titles, real places: `src/core/data/forbiddenNames.json`). **How it plays**: the
-  standout's sentence and one thing read from the map (the start's water in the first drought, a
-  dam site near the start, where the badwater lies, the woods). On the map card; the theme moves to
+  standout in the map's own numbers (each intention's check says what it found, "A river winds
+  back and forth 12 times down the hill, dropping 5 levels at its bends.") and one thing read from
+  the map (the start's water in the first drought, a dam site near the start, where the badwater
+  lies, the woods). On the map card; the theme moves to
   the line under the name.
 - **Another like this** (D278 (1c)): on the page beside Refine, and in the editor's menu. A sibling
   keeps the theme, settings and intentions and grows different land (the genome's variation, D143);
