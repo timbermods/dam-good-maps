@@ -353,7 +353,7 @@ async function main(): Promise<void> {
   }
   const selection: Selection = {
     note: "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
-    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, advisories: c.result.advisories ?? [] })),
+    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater || c.result.dropped.unheld) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, advisories: c.result.advisories ?? [] })),
     dropped,
   };
   writeFileSync(SELECTION, JSON.stringify(selection, null, 1) + "\n");

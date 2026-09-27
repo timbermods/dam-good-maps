@@ -116,9 +116,10 @@ export interface Converted {
   flow?: number;
   /** The share of the map any water stands on (MAX_COVER at most). */
   cover?: number;
-  /** Source groups taken out because another's water reached them, theirs reached no edge, or
-   *  theirs stood mostly off the real place's water (D271). */
-  dropped?: { inFlow: number; noOutflow: number; offWater?: number };
+  /** Source groups taken out because another's water reached them, theirs reached no edge,
+   *  theirs stood mostly off the real place's water, or a lake's spring whose lake the land does
+   *  not hold (D271). */
+  dropped?: { inFlow: number; noOutflow: number; offWater?: number; unheld?: number };
   /** The source groups the real place's water gives (at most `GROUPS`), and those kept. */
   beginnings?: number;
   rivers?: number;
@@ -156,7 +157,7 @@ export function rowHeights(row: string): { size: number; heights: Uint8Array } {
 
 /** A source group: its tiles and its flow. A lake's spring (`lake`) gives what the lake's surface
  *  evaporates (`feed`), not a share of the rivers' flow. */
-export type Group = { tiles: number[]; share: number; lake?: true; feed?: number; entry?: true };
+export type Group = { tiles: number[]; share: number; lake?: true; feed?: number; entry?: true; cells?: number[] };
 
 /** A tile counts as observed water when this share of its WorldCover pixels is (D271). */
 export const WET = 0.15;
@@ -171,6 +172,9 @@ const SEA = { metres: 3, share: 0.05 };
  *  a fifth more for its outflow: a lake's spring gives that much (as Pick a place's signature water
  *  does), so the lake stands where the real one does without spreading over the land round it. */
 export const LAKE_FEED = 1.2e-4;
+/** A stretch crossing the edge in places whose median heights differ by more than this (metres)
+ *  flows through: a river, however wide and flat. */
+const RIVER_DROP = 5;
 /** A lake the map's edge cuts: the flat surface the elevation data gives it spills over the edge,
  *  so its spring gives this many times its evaporation, to cover it. */
 const EDGE_LAKE = 4;
@@ -253,6 +257,31 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
     }
     return { i: best, depth: dist[best] };
   };
+  /** Where a stretch crosses the map's edge: each run of its edge tiles (along the edge, gaps of
+   *  at most 2), its middle tile and its median height, highest first. */
+  const edgeRuns = (c: number): { i: number; z: number }[] => {
+    const ring: number[] = [];
+    for (let t = 0; t < size; t++) ring.push(t);
+    for (let t = 1; t < size; t++) ring.push(t * size + size - 1);
+    for (let t = size - 2; t >= 0; t--) ring.push((size - 1) * size + t);
+    for (let t = size - 2; t > 0; t--) ring.push(t * size);
+    const runs: number[][] = [];
+    let gap = 99;
+    for (const i of ring) {
+      if (labels[i] === c) {
+        if (gap > 2 || !runs.length) runs.push([]);
+        runs[runs.length - 1].push(i);
+        gap = 0;
+      } else gap++;
+    }
+    if (runs.length > 1 && labels[ring[0]] === c && labels[ring[ring.length - 1]] === c) runs[0].push(...runs.pop()!);
+    return runs
+      .map((r) => {
+        const zs = r.map((i) => raw[halo(i)]).sort((a, b) => a - b);
+        return { i: r[Math.floor(r.length / 2)], z: zs[Math.floor(zs.length / 2)] };
+      })
+      .sort((a, b) => b.z - a.z);
+  };
   let sea = 0;
   const starts: { c: number; i: number; entry: boolean }[] = [];
   for (let c = 0; c < sizes.length; c++) {
@@ -278,7 +307,22 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
           }
         if (near) entry = e;
       }
-    starts.push({ c, i: entry ? entry.y * size + entry.x : top[c], entry: !!entry });
+    if (entry) {
+      starts.push({ c, i: entry.y * size + entry.x, entry: true });
+      continue;
+    }
+    // no river of the routing's comes in beside it: where it crosses the edge in two places or
+    // more, and is long for its width (more than 12 times the square of its middle's distance from
+    // its shore: a circle is about 3) or its crossings' levels differ by more than RIVER_DROP, it
+    // is a wide river flowing through, and begins at the highest crossing; a lake the edge cuts is
+    // round and level
+    const crossings = edgeRuns(c);
+    const long = cells[c].length > 12 * middle(c).depth ** 2;
+    if (crossings.length > 1 && (long || crossings[0].z - crossings[crossings.length - 1].z > RIVER_DROP)) {
+      starts.push({ c, i: crossings[0].i, entry: true });
+      continue;
+    }
+    starts.push({ c, i: top[c], entry: false });
   }
   // highest first: a stretch the water of a higher one runs through needs no source
   starts.sort((a, b) => raw[halo(b.i)] - raw[halo(a.i)] || a.i - b.i);
@@ -287,9 +331,12 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
   const heads: Head[] = [];
   const lakes: Group[] = [];
   for (const s of starts) {
-    // a river coming in across the edge brings its own water: nothing on the map feeds it
-    if (fed[s.c] && !s.entry) continue;
-    const lake = lakeLike(s.c);
+    // a stretch a river comes in to is that river's; else a broad, flat one is a lake
+    const lake = !s.entry && lakeLike(s.c);
+    // a river coming in across the edge brings its own water: nothing on the map feeds it; a lake
+    // gets its spring even so (its feed is small, and a river's water that does reach it takes the
+    // spring away: water.source_in_flow's rule, below)
+    if (fed[s.c] && !s.entry && !lake) continue;
     // the water's way down from here, on the routing: the stretches it passes within a tile of (a
     // lake's spring gives only what the lake evaporates: the stretches below it need their own)
     for (let p = halo(s.i), n = 0; !lake && p >= 0 && n < 4 * W; p = to[p], n++) {
@@ -310,7 +357,7 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
     // so it gets EDGE_LAKE times as much
     if (lake) {
       const feed = LAKE_FEED * weight[s.c] * (onEdge[s.c] ? EDGE_LAKE : 1);
-      lakes.push({ tiles: [middle(s.c).i], share: feed, lake: true, feed });
+      lakes.push({ tiles: [middle(s.c).i], share: feed, lake: true, feed, cells: cells[s.c] });
       continue;
     }
     const area = Math.max(acc[halo(s.i)], sizes[s.c]);
@@ -374,14 +421,22 @@ function groupsOf(entries: Entry[], heads: Head[], size: number, h: Uint8Array, 
   return out.map((g) => ({ tiles: g.tiles, share: (g.share * flow) / got, ...(g.entry ? { entry: true as const } : {}) }));
 }
 
-/** Each group's share of the flow, and its tiles' strengths (at most 8 a tile, at least 0.1). */
-function strengths(groups: Group[], size: number): [number, number, number][] {
-  const out: [number, number, number][] = [];
-  for (const g of groups) {
-    const each = Math.min(8, Math.max(g.lake ? 0.01 : 0.1, g.share / g.tiles.length));
-    for (const i of g.tiles) out.push([i % size, Math.floor(i / size), Math.round(each * 1000) / 1000]);
+/** Each group's share of the flow, and its tiles' strengths (at most 8 a tile, at least 0.1; a
+ *  lake's spring at least 0.01), in thousandths, their sum at most `flow`. */
+function strengths(groups: Group[], size: number, flow = Infinity): [number, number, number][] {
+  // the least a tile gets can lift the sum over the flow: the rest give up the difference (D214's
+  // cap holds for all of it), a few rounds at most
+  let scale = 1;
+  for (let round = 0; ; round++) {
+    const out: [number, number, number][] = [];
+    for (const g of groups) {
+      const each = Math.min(8, Math.max(g.lake ? 0.01 : 0.1, (g.share * scale) / g.tiles.length));
+      for (const i of g.tiles) out.push([i % size, Math.floor(i / size), Math.floor(each * 1000) / 1000]);
+    }
+    const sum = out.reduce((s, [, , v]) => s + v, 0);
+    if (sum <= flow || round >= 8) return out;
+    scale *= flow / sum;
   }
-  return out;
 }
 
 function sourceEntities(sources: [number, number, number][], h: Uint8Array, size: number): EntitySpec[] {
@@ -637,26 +692,53 @@ function observedMatch(obs: Float32Array, size: number, depth: ArrayLike<number>
 
 /** Whether a group's water stands mostly off the real place's water: its water alone (the settle's
  *  starting state, `prefill`: the lakes it fills to their spill level and the channels it runs
- *  in) covers more tiles with no observed water within 3 tiles than four times the tiles it covers
- *  near observed water, and 200 more. A river's water spreads over the flat floor the 16 levels
- *  give its valley, so the rule is loose: it takes only water that would fill a basin the real
- *  place leaves dry. */
-function offWater(g: Group, obs: Float32Array, size: number, h: Uint8Array): boolean {
+ *  in), spread over every flat its channels cross (where the settle lays a thin sheet), covers more
+ *  tiles with no observed water within 3 tiles than three times the tiles near it, and 200 more. A
+ *  river's water spreads over the flat floor the 16 levels give its valley, so the rule is loose:
+ *  it takes water that would cover a crater floor where the real place has a small lake
+ *  (Ngorongoro). It is asked only of water that begins on the map: a river coming in across the
+ *  edge always stays. A lake's is strict: its basin starts full to its spill level, so a spring whose
+ *  basin is larger than the real lake would fill it all; it goes when more of its water stands over
+ *  a tile from the real lake than on it, and 50 more. */
+export function offWater(g: Group, obs: Float32Array, size: number, h: Uint8Array): boolean {
   const W = size + 2 * HALO;
+  const N = size * size;
   const model = waterModel(size, size, h, sourceEntities(strengths([g], size), h, size).map(mapObject));
   const depth = prefill(model).depth;
+  // the water spreads over every flat its channels cross (the settle's thin sheets): each wet tile's
+  // level, out to the tiles of that level joined to it
+  const wet = new Uint8Array(N);
+  const queue: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (depth[i] > 0.05) {
+      wet[i] = 1;
+      queue.push(i);
+    }
+  if (!g.lake)
+    for (let k = 0; k < queue.length; k++) {
+      const i = queue[k];
+      const x = i % size;
+      for (const j of [x > 0 ? i - 1 : -1, x < size - 1 ? i + 1 : -1, i - size, i + size])
+        if (j >= 0 && j < N && !wet[j] && h[j] === h[i]) {
+          wet[j] = 1;
+          queue.push(j);
+        }
+    }
   let on = 0;
   let off = 0;
-  for (let i = 0; i < size * size; i++) {
-    if (!(depth[i] > 0.05)) continue;
+  for (let i = 0; i < N; i++) {
+    if (!wet[i]) continue;
     const x = i % size;
     const y = (i - x) / size;
+    // a lake's water within a tile of the real lake; a river's within 3 tiles of its river
+    const r = g.lake ? 1 : 3;
     let near = 0;
-    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) near = Math.max(near, obs[(y + dy + HALO) * W + x + dx + HALO]);
-    if (near < NEAR) off++;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) near = Math.max(near, obs[(y + dy + HALO) * W + x + dx + HALO]);
+    // observed water as its stretches are (WET), not a few wet pixels on a marsh
+    if (near < WET) off++;
     else on++;
   }
-  return off > 4 * on + 200;
+  return g.lake ? off > on + 50 : off > 3 * on + 200;
 }
 
 /** One conversion at one flow, `times` the generator's water strength for the map's size, with at
@@ -667,7 +749,8 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
   const found = beginnings(raw, obs, size, h, flow);
   const land = found.groups.length;
   // the groups whose water would stand mostly off the real water go (D271)
-  let groups = found.groups.filter((g) => !offWater(g, obs, size, h));
+  // (a river coming in across the edge is real water that runs on wherever the land takes it: it stays)
+  let groups = found.groups.filter((g) => g.entry || !offWater(g, obs, size, h));
   const off = land - groups.length;
   // the rivers share the flow; each lake keeps its own feed
   // the lakes' feeds come out of the flow (D214's cap holds for all of it), half of it at most
@@ -682,8 +765,8 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
     return [...rivers.map((g) => ({ ...g, share: (g.share * left) / share })), ...lakes.map((g) => ({ ...g, share: g.feed! * scale }))];
   };
   groups = riversOf([...groups.filter((g) => !g.lake).sort((a, b) => b.share - a.share).slice(0, most), ...groups.filter((g) => g.lake)]);
-  const dropped = { inFlow: 0, noOutflow: 0, offWater: off };
-  let sources = strengths(groups, size);
+  const dropped: NonNullable<Converted["dropped"]> = { inFlow: 0, noOutflow: 0, offWater: off };
+  let sources = strengths(groups, size, flow);
   let model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
   let water = canonicalSettle(model);
   for (let round = 0; round < 6 && groups.length; round++) {
@@ -721,7 +804,18 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
     for (const g of gone) if (g === "flow") dropped.inFlow++;
     else if (g === "pool") dropped.noOutflow++;
     groups = riversOf(keep);
-    sources = strengths(groups, size);
+    sources = strengths(groups, size, flow);
+    model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
+    water = canonicalSettle(model);
+  }
+  // a lake the land cannot hold (the elevation data's lake surface is a flat that is no basin, and
+  // the spring's water only makes a thin disc on it) loses its spring: less than half the real lake
+  // under water
+  const unheld = groups.filter((g) => g.lake && g.cells!.filter((i) => water.depth[i] > 0.001).length < g.cells!.length / 2);
+  if (unheld.length) {
+    dropped.unheld = unheld.length;
+    groups = riversOf(groups.filter((g) => !unheld.includes(g)));
+    sources = strengths(groups, size, flow);
     model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
     water = canonicalSettle(model);
   }

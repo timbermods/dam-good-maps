@@ -96,8 +96,11 @@ describe("the gallery's data", () => {
     const cards = INDEX.places.reduce((s, p) => s + size(p.image), 0);
     console.log(`real places: index ${size("index.json")} B, data ${data} B (largest ${Math.max(...INDEX.places.map((p) => size(p.data)))} B), cards ${cards} B`);
     // the index grows with the gallery (85 places were under 64 KB, 753 B a place; Kyler's 150,
-    // D174): the same budget a place, and what the page downloads, gzipped, stays small
-    expect(size("index.json") / INDEX.count).toBeLessThan(64_000 / 85);
+    // D174): the same budget a place, its entries only (the fixed part, the families and the rest,
+    // no longer spreads over as many since Kyler's drops, D271), and what the page downloads,
+    // gzipped, stays small
+    const entries = JSON.stringify(INDEX.places, null, 1).length;
+    expect(entries / INDEX.count).toBeLessThan(64_000 / 85);
     expect(gzipSync(new Uint8Array(readFileSync(join(PLACES_DIR, "index.json"))), { level: 6 }).length).toBeLessThan(32_000);
     expect(Math.max(...INDEX.places.map((p) => size(p.data)))).toBeLessThan(64_000);
     // the pictures load lazily, as the cards come into view
@@ -122,8 +125,11 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
     for (const d of SELECTION.dropped) expect(d.reason.length, d.name).toBeGreaterThan(10);
     for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toMatch(/\((D214|D224|D271)\)/);
     for (const p of SELECTION.places.filter((q) => q.status === "replaced")) expect(p.was, p.id).toMatch(/^n\d{3}-/);
-    // spread across the families: none far behind the rest
-    const perFamily = INDEX.families.map((f) => INDEX.places.filter((p) => p.family === f.id).length);
+    // spread across the families as the tool chose them: none far behind the rest (Kyler's own
+    // drops from the review sheet, D271, counted back in: they are his choice, not the tool's)
+    const LOCATIONS = new Map((JSON.parse(readFileSync("investigation/landscapes/data/locations.json", "utf8")) as { id: string; family: string }[]).map((l) => [l.id, l.family]));
+    const kylers = SELECTION.dropped.filter((d) => /\(D271\)$/.test(d.reason)).map((d) => LOCATIONS.get(d.row.slice(0, 4)));
+    const perFamily = INDEX.families.map((f) => INDEX.places.filter((p) => p.family === f.id).length + kylers.filter((k) => k === f.id).length);
     expect(INDEX.families.length).toBe(20);
     expect(Math.min(...perFamily)).toBeGreaterThanOrEqual(Math.max(...perFamily) - 3);
     // never a random-land control, never the Las Medulas region (a Roman mine)
@@ -186,10 +192,14 @@ describe("titles (Kyler, 2026-09-25)", () => {
     // a region's first map is titled by its place; its second by its own part of the place (D214:
     // a real feature in its square or a position, never "Centre"), else the part the survey sampled
     const regions = new Set<string>();
+    // (an addition whose region's other map Kyler dropped keeps its second map's title, D271)
+    const regionOf = (row: string) => `${Math.floor(Number(row.slice(1, 4)) / 4)}`;
+    const droppedRegions = new Set(SELECTION.dropped.filter((d) => /\(D271\)$/.test(d.reason)).map((d) => regionOf(d.row)));
     for (const p of INDEX.places) {
       const survey = placeData(p).survey;
       const region = Math.floor(Number(survey.slice(1, 4)) / 4);
-      const second = regions.has(`${region}`);
+      const added = SELECTION.places.find((q) => q.id === p.id)!.status === "added";
+      const second = regions.has(`${region}`) || (added && droppedRegions.has(`${region}`));
       regions.add(`${region}`);
       expect(p.name, p.id).toBe(titleOf(p.surveyName, second, survey.replace(/-\w+-\d+$/, "")).name);
       expect(p.name, p.id).not.toMatch(/\bCentre\b/);
@@ -295,7 +305,8 @@ describe("a sample of places", () => {
       const r = built(e.id);
       const templates = readTimber(r.bytes).world.entities.map((x) => String(x.Template));
       expect(templates.filter((t) => t === "UndergroundRuins").length, e.id).toBeGreaterThanOrEqual(1);
-      expect(templates.filter((t) => t === "BlueberryBush").length, e.id).toBeGreaterThan(0);
+      // berry bushes grow on moist ground: a dry place (no real water in its square, D271) has none
+      if (placeData(e).sources.length) expect(templates.filter((t) => t === "BlueberryBush").length, e.id).toBeGreaterThan(0);
       expect(templates.filter((t) => /^(Pine|Birch|Oak)$/.test(t)).length, e.id).toBeGreaterThan(0);
       expect(templates.filter((t) => t === "StartingLocation").length, e.id).toBe(1);
       expect(templates.filter((t) => t === "WaterSource").length, e.id).toBe(placeData(e).sources.length);

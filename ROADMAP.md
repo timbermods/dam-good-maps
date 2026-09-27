@@ -854,8 +854,11 @@ where that is too little, the start moves to the water. Each place is kept on it
 in the version that shows it best, its signature first: most first maps at their place's centre. A
 region's second map is named by a real feature in its square or a direction, never "Centre". A place
 short of the starting-logs floor grows groves that read its own land within the walk: along its
-river, across a stream, on a plateau, in a side valley (D229). Badwater on every map (D200) follows
-once M9a is on `dev`.
+river, across a stream, on a plateau, in a side valley (D229). A place's water follows the real
+place (D271): sources only where ESA WorldCover shows permanent water or OpenStreetMap a permanent
+river, so dry places stay dry but for their real rivers; where the water keeps moving, fewer and
+larger rivers. Badwater on every map (D200) follows once M9a is on `dev` and Kyler has answered the
+D271 sheet.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
 D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
@@ -864,9 +867,10 @@ other land for a playability check; its card notes, in a few plain words, only w
 pump can reach, too little wood near the start, water that keeps moving).
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
-the rebuild, D214, the starting-logs floor and D245 done (151 places, none dropped; 68 with a
-note). Waiting on Kyler's list of places to drop (the new review sheet on #35) and on M9a for the
-badwater stage; released as `real-places-2-done` after both.
+the rebuild, D214, the starting-logs floor, D245 and D271 done (136 places: Kyler's 15 drops; 73
+with a note, 7 of them for water that keeps moving, down from 37). Waiting on Kyler's answer on the
+D271 review sheet (#35) and on M9a for the badwater stage; released as `real-places-2-done` after
+both.
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round

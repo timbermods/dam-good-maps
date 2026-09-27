@@ -1,41 +1,35 @@
 # Real places
 
-> **Where a fresh session resumes (2026-09-26, round 2 after D245; branch `feature/real-places-2`,
-> PR #35 into `dev`).** The D245 rebuild is finished, committed and pushed (last commit on the
-> branch; CI green on #35); nothing is running and nothing is uncommitted.
+> **Where a fresh session resumes (2026-09-27, D271; branch `feature/real-places-2`, PR #35 into
+> `dev`).** D271 is built, committed and pushed (last commit on the branch; CI on #35): Kyler's 15
+> drops, and the water follows the real place (ESA WorldCover's permanent water, OpenStreetMap's
+> permanent rivers where WorldCover misses them; sources only; "The water follows the real place"
+> below, defaults #94). 136 places. The new review sheet (`docs/sheets/real-places-review/`, 6
+> pages) and a draft comment for #35 are handed back to the session that launched this one, which
+> posts them and marks the D245 sheet out of date. Nothing is running.
 >
-> - **Done:** D214 (the flow cap per size, default #80), the "Centre" titles (#81), the
->   starting-logs floor with groves that read the land (D224, D227, D229, #82), and D245: every
->   place kept on its own land; only the absolutes block (the checks that are not about
->   playability, and the floor); notes for the three things that sink a player; 151 places, none
->   dropped (Majuli back). The D245 audit (the 34 D214 changed, and every first map built from an
->   off-centre sample, with the version chosen and why) is in "Kept on their own land" below and in
->   #35's comment https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852892041
->   (default #84): 35 first maps at their centre, 10 swapping names with a second map that already
->   was their centre, 23 kept on their sample; the rest back to their own land and mapping. Notes
->   and what blocks: default #85. The review sheet (6 pages, `docs/sheets/real-places-review/`) is
->   posted: https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852893380 (the
->   earlier sheet is marked out of date). The probe group for water that keeps moving is ready
->   (`npx tsx tools/places-probe.ts`; nothing launched). The tall list (D172) is below.
-> - **Left:** (1) Kyler's drops, from the new review sheet: take each numbered place out of
->   `tools/places/selection.json` (a first-round place goes to `dropped` with his reason), then the
->   commands below. (2) Badwater on every map (D200, D213), once M9a is on `dev`: in `buildPlace`
->   (src/core/places/place.ts) pass `badwater: { setting: "normal", within:
->   DIFFICULTY_RULES.normal.badwaterWithin }` to `planMapResources` and write its resettled water
->   (`resources.water`) into the file before the floor's groves are counted; take #54's changes to
->   places.test.ts and placesCommon.ts; raise `VERSION` in tools/places-convert.ts to 5; then the
->   commands below. (3) Kyler's answers to #80–#82, #84, #85 and #82's dead floor trees.
+> - **Left:** (1) Kyler's answer on the new sheet: the 9 held places (2, 12, 41, 58, 60, 71, 90,
+>   101, 103 on the D245 sheet), the stripes (42, 50, 128, 131: the conversion's 16 levels on an
+>   even slope; a fix changes the land) and 29; #94's defaults; whether real rivers and lakes on
+>   flats get a bed a level down (a land change). (2) Badwater on every map (D200, D213), once M9a is
+>   on `dev` and Kyler has answered the new sheet: in `buildPlace` (src/core/places/place.ts) pass
+>   `badwater: { setting: "normal", within: DIFFICULTY_RULES.normal.badwaterWithin }` to
+>   `planMapResources` and write its resettled water (`resources.water`) into the file before the
+>   floor's groves are counted; take #54's changes to places.test.ts and placesCommon.ts; raise
+>   `VERSION` in tools/places-convert.ts to 6; then the commands below. (3) Kyler's answers to #80,
+>   #84 and #82's dead floor trees.
 > - **Commands** (from the worktree, at most 4 threads while M9a runs; the survey's patches must be
 >   in `investigation/landscapes/.cache/`: `npm ci --ignore-scripts --cache ./npm-cache` and `npm
->   run sample` there, then `git checkout` the two data files it rewrites):
+>   run sample` there, then `git checkout` the two data files it rewrites; the observed water too:
+>   `npx tsx tools/places/worldcover.ts` and `npx tsx tools/places/osm.ts`, a few minutes each):
 >   `npx tsx tools/places-convert.ts --threads 4`; `npx tsx tools/real-places.ts --threads 4`;
 >   `npx tsx tools/places-thumbs.ts --all --port 4832 --threads 4` (the GPU, about 30 minutes);
 >   `npx tsx tools/real-places.ts --check --threads 4`; `python tools/places-sheet.py
 >   docs/sheets/real-places.png "Real places, second round" --html
 >   investigation/landscapes/local/places-sheet`; `python tools/places-review.py
->   docs/sheets/real-places-review --changed-since <the commit Kyler reviewed> --per-page 26`; then
->   `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run --project
->   heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
+>   docs/sheets/real-places-review --was <the commit Kyler reviewed> --marks <marks.json> --per-page
+>   24`; then `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run
+>   --project heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
 >   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`.
 
 **Built** on branch `feature/real-places` (PLAN §20 D136, ROADMAP "Real places"). It is released as
@@ -642,3 +636,68 @@ Tests updated to D245 (D148), none weakened; the absolutes stay blocking:
   its sweep never found `carve` (in LOG_OPS since Live editing) and the nightly failed on #35. This
   branch drew one first; `dev` fixed it the same way (its `randomCarve`), which this branch took at
   the merge.
+
+## The water follows the real place (Kyler, 2026-09-27, D271)
+
+Kyler's review of the D245 sheet: the land is the place's, but its water must be the place's too.
+68 of 151 places carried a note (44 "The water keeps moving", 28 "No water a pump can reach from the
+start"), deserts and badlands were covered in sheets of water, and Ngorongoro was one lake. The
+survey's sources went wherever its routing found a channel, real or not. Built after merging `dev`
+at ee21cf5 (D270, D271, D272).
+
+- **The drops** (D271 (1)): 43, 47, 73, 82, 93, 100, 106, 108, 110, 111, 119, 123, 129, 137 and 150
+  of the D245 sheet (Lake Toba, Godavari Delta, Majuli, Tsingy de Bemaraha, Mount Mayon North,
+  Kinabatangan River East, Kornati, Masurian Lakes, San Daniele, Roaring River Fan East, Tiger
+  Leaping Gorge North, Cape of Good Hope, Danube Delta Southwest, Ilulissat Icefjord Southwest,
+  Painted Desert North) are in `selection.json`'s `dropped`, each "dropped by Kyler from the D245
+  review sheet, number N (D271)"; 136 places. A region's second map keeps its title when its first
+  went (Samosir, Lake Toba).
+- **The observed water** (`tools/places/worldcover.ts`, `tools/places/osm.ts`): ESA WorldCover 10 m
+  2021 v200, class 80 (permanent water), the source Pick a place's signature water already uses
+  (D192), read by byte range from its Cloud Optimized GeoTIFFs on AWS and aggregated onto each
+  survey patch's grid (the share of a tile's 10 m pixels that are water; 1.4 MB for all 136
+  patches). WorldCover misses rivers under about 20 m wide or in a gorge's shade (Todgha, much of the
+  Colca, the Verdon), so OpenStreetMap's permanent rivers (`waterway=river`, not intermittent or
+  seasonal; one Overpass API query a patch) are drawn onto the same grid beside it. Streams, canals
+  and dry washes are left out, so dry places stay dry. Both are cached in
+  `investigation/landscapes/.cache/` (gitignored, D195); `npx tsx tools/places/worldcover.ts` and
+  `npx tsx tools/places/osm.ts` read them again. Credits: the credits page's new "Water data"
+  section (CC BY 4.0 and ODbL, credit by link; docs/real-places-credits.md).
+- **The sources** (`beginnings`, tools/places/convert.ts; `VERSION` 5): sources only, never land
+  (D245). Each stretch of observed water begins where the land's largest river comes in beside it
+  (a mouth row on the edge), or, flowing through, at its highest crossing, or at its highest tile (a
+  spring); a broad, flat stretch is a lake, fed by one spring in its middle with what it evaporates.
+  The sea gets none. A source goes when another's water reaches it (D171), when a spring's water
+  would cover far more land than the real water (a crater floor: Ngorongoro keeps Lake Magadi and
+  nothing else), or when a lake's land cannot hold it. A square with no observed water is dry, with
+  its note. Where the water keeps moving, the 3 largest rivers, then the largest (D214's fewer,
+  larger rivers, back). Every constant is a default the session chose (#94).
+- **Notes before and after:**
+
+  | | places | with a note | "The water keeps moving" | "No water a pump can reach from the start" | "Too little wood near the start" |
+  |---|---|---|---|---|---|
+  | D245 sheet, all 151 | 151 | 68 | 44 | 28 | 1 |
+  | D245 sheet, the 136 kept | 136 | 60 | 37 | 25 | 1 |
+  | now (D271) | 136 | 73 | 7 | 66 | 0 |
+
+  The water that keeps moving is nearly gone. The places a pump cannot reach water from rose: 40
+  are dry now (22 with no permanent water in their square: Death Valley, Painted Desert, Monument
+  Valley and the other deserts, mesas and volcanoes; 2 with only the sea, which the land has no rim
+  to hold; 16 whose real water was a few scattered pixels, a lake the land cannot hold or a spring
+  whose water would have covered far more than the real water), and 26 have their real water but
+  thin (a river or lake the 16 levels make a flat, where the water spreads as a sheet under a pump's
+  0.3) or out of the start's walk. The 96 places with water stand on 84% of their real water
+  (median), and a median 53% of their water stands on or beside it.
+- **Stripes** (D271 (4): 42 Waimakariri River, 50 Kunlun Alluvial Fan, 128 Cliffs of Moher East,
+  131 Atacama Fan North): the conversion, not the land or the elevation tiles. Each is a smooth,
+  even slope (a fan or plain tilting one way; the real heights show no stripes), and fitting its
+  relief to 16 levels makes 16 flat steps of equal width, parallel to the contours: 17 tiles wide
+  on the Waimakariri's 66 m, 17 on the Kunlun fan's 287 m, 5 on Cliffs of Moher East, 10 on the
+  Atacama fan. The water then spreads over each step. What would fix it (a land change, so not
+  done): fit the levels to the land's own shape with its overall tilt taken out first (a detrended
+  mapping), so the levels go to its channels and bars; or, for the rivers only, lower the observed
+  river's bed a level, as Pick a place's signature water does, so the water stays in its channel.
+- **Also for Kyler (land, not changed):** a real river or lake on a flat the 16 levels make spreads
+  as a sheet (Drumheller's valley floor, the Toklat's braided plain); a lake the map's edge cuts
+  drains over the edge (Crater Lake at 60 m is 7.7 km across, its lake 9 km). Both would take the
+  same bed a level down under the real water, a land change.
