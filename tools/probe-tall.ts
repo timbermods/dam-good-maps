@@ -18,7 +18,8 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { entityJson, bush, tree, waterSource, type EntitySpec } from "../src/core/format/entities";
 import { FOOTPRINTS, startEntranceTile, worldBlocks, type Placement } from "../src/core/format/footprints";
 import { num, type JsonObject } from "../src/core/format/json";
@@ -39,7 +40,7 @@ import { makeSpec, type ThemeId } from "../src/core/spec/mapspec";
 import { validateMap } from "../src/core/validate/checks";
 
 /** The highest surface the game allows with its top layer empty. */
-const TALL_MAX = LAYERS - 1;
+export const TALL_MAX = LAYERS - 1;
 const OWNER = "dgm-probe-tall";
 
 function arg(name: string, fallback: string): string {
@@ -50,7 +51,7 @@ function arg(name: string, fallback: string): string {
 // ------------------------------------------------------------------------------------------ drafts
 
 /** A map as heights and objects, before its water is settled. */
-interface Draft {
+export interface Draft {
   W: number;
   H: number;
   heights: Uint8Array;
@@ -60,14 +61,14 @@ interface Draft {
   removed: Record<string, number>;
 }
 
-interface Built {
+export interface Built {
   file: TimberFile;
   heights: Uint8Array;
   model: WaterModel;
   settle: CanonicalWater;
 }
 
-function fromGenerated(theme: ThemeId, seed: number, size: number): Draft & { water: Float64Array } {
+export function fromGenerated(theme: ThemeId, seed: number, size: number): Draft & { water: Float64Array } {
   const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
   if (!r.report.passed) throw new Error(`${theme} ${seed} ${size}² did not pass its checks`);
   const b = r.built;
@@ -77,7 +78,7 @@ function fromGenerated(theme: ThemeId, seed: number, size: number): Draft & { wa
 const placement = (e: EntitySpec): Placement => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped });
 
 /** The tiles an object's blocks cover. */
-function tilesOf(e: EntitySpec): [number, number][] {
+export function tilesOf(e: EntitySpec): [number, number][] {
   const fp = FOOTPRINTS[e.template];
   if (!fp) return [[e.x, e.y]];
   const seen = new Set<string>();
@@ -89,7 +90,7 @@ function tilesOf(e: EntitySpec): [number, number][] {
   return out;
 }
 
-function drop(d: Draft, keep: (e: EntitySpec) => boolean): void {
+export function drop(d: Draft, keep: (e: EntitySpec) => boolean): void {
   d.entities = d.entities.filter((e) => {
     if (keep(e)) return true;
     d.removed[e.template] = (d.removed[e.template] ?? 0) + 1;
@@ -98,7 +99,7 @@ function drop(d: Draft, keep: (e: EntitySpec) => boolean): void {
 }
 
 /** The generator's and Real places' build steps on a draft: the canonical settle, soil, the file. */
-function assemble(d: Draft): Built {
+export function assemble(d: Draft): Built {
   const { W, H, heights } = d;
   let max = 0;
   for (const h of heights) max = Math.max(max, h);
@@ -130,7 +131,7 @@ function assemble(d: Draft): Built {
 
 /** Assemble, and drop the objects the game would delete or the slopes that join nothing after a
  *  change of terrain (the validator's own lists), until the load checks allow it. */
-function assembleFitting(d: Draft): Built {
+export function assembleFitting(d: Draft): Built {
   for (let round = 0; round < 4; round++) {
     const b = assemble(d);
     const v = validateMap(b.file, { profile: "export", loadOnly: true });
@@ -151,7 +152,7 @@ function assembleFitting(d: Draft): Built {
 
 /** Every tile at level `from` or higher raised by `by`; objects standing wholly on raised ground go up
  *  with it, objects that straddle the new cliff are left for assembleFitting to remove. */
-function liftHighGround(d: Draft, from: number, by: number): void {
+export function liftHighGround(d: Draft, from: number, by: number): void {
   const { W } = d;
   const lifted = (x: number, y: number) => d.heights[y * W + x] >= from;
   const next: EntitySpec[] = [];
@@ -297,7 +298,7 @@ function findSummit(d: Draft, water: Float64Array, reach = 13): [number, number]
 
 // ------------------------------------------------------------------------------------------ the maps
 
-interface TallMap {
+export interface TallMap {
   id: string;
   title: string;
   tests: string;
@@ -313,7 +314,7 @@ interface TallMap {
 
 const DESCRIPTION = "DGM Probe tall-map test (not for play). The in-game map editor only edits terrain up to level 16.";
 
-function highlandsLift(): TallMap {
+export function highlandsLift(): TallMap {
   const d = fromGenerated("highlands", 4242, 128);
   d.description = `${DESCRIPTION} Highlands (4242) 128²: every tile at level 11–16 raised 6 levels to 17–22; the rest as generated.`;
   liftHighGround(d, 11, 6);
@@ -401,7 +402,7 @@ function yosemiteStretched(): TallMap {
 }
 
 /** Water above 16 in a built map: moving tiles (the settle's outflow) and standing ones, spread apart. */
-function waterTiles(b: Built): { flow: [number, number][]; pool: [number, number][] } {
+export function waterTiles(b: Built): { flow: [number, number][]; pool: [number, number][] } {
   const W = b.file.world.sizeX;
   const { depth, out } = b.settle;
   const moving: [number, number, number][] = [];
@@ -578,4 +579,5 @@ function main(): void {
   }
 }
 
-main();
+// run as a command (tools/probe-ceiling.ts imports the builders above)
+if (process.argv[1] && resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) main();

@@ -52,6 +52,10 @@ export function probeHome(): string {
 export function tallDir(): string {
   return resolve(process.env.DGM_PROBE_TALL ?? join(DEFAULT_PROBE_HOME, 'tall'));
 }
+/** The ceiling maps tools/probe-ceiling.ts writes (PLAN §20 D244), with their manifest ceiling.json. */
+export function ceilingDir(): string {
+  return resolve(process.env.DGM_PROBE_CEILING ?? join(DEFAULT_PROBE_HOME, 'ceiling'));
+}
 export const probePaths = () => {
   const home = probeHome();
   return {
