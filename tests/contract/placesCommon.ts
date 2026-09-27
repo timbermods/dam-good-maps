@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
-import { decodePlaceFile, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodePlaceFile, LOG_FLOOR, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 
@@ -56,7 +56,8 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
 /** Each place: its .timber, built as the deploy builds it (build, settle, validate, write), passes
  *  the export profile and every check of the generate profile but its known faults, which flag it
  *  as long as the places have them (`PLACES_HAVE_EDGE_WALLS`, `PLACES_SOURCES_IN_FLOW`,
- *  `PLACES_LACK_MINE_SITES`), and is the same bytes as the index records. */
+ *  `PLACES_LACK_MINE_SITES`), has the starting-logs floor's logs near its start (D224), and is the
+ *  same bytes as the index records. */
 export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], build: (e: PlaceIndexEntry) => ReturnType<typeof placeTimber> = (e) => placeTimber(placeData(e))): void {
   describe(title, () => {
     it.each(places.map((p) => [p.name, p] as const))("%s", (_name, entry) => {
@@ -75,6 +76,9 @@ export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], b
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
       expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES);
+      // the starting-logs floor (Kyler, 2026-09-26, D224), at every difficulty: the logs within 20
+      // tiles' walk of the start, as start.wood counts them
+      expect(startLogs(v), entry.id).toBeGreaterThanOrEqual(LOG_FLOOR);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works
       expect(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity).toBe(PLACES_LACK_MINE_SITES ? "warning" : "info");

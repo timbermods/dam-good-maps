@@ -31,9 +31,30 @@ import type { WaterModel } from "../sim/water";
 import { DIFFICULTY_RULES, defaultSettings } from "../spec/mapspec";
 import { validateMap, type Validation } from "../validate/checks";
 import { CREDITS_URL, fileNotices } from "./attribution";
+import logFloor from "../data/log-floor.json";
 import type { PlaceView } from "./view";
 
 export const PLACE_FORMAT = 2;
+
+/** The starting-logs floor (Kyler, 2026-09-26, D224): every place has at least this many logs
+ *  within 20 tiles' walk of its start, at every difficulty, counted as `start.wood` counts (grown
+ *  trees by their species' yield, dead ones too; src/core/data/log-floor.json, computed from the
+ *  game's own data for its version). A blocking rule for the places until M9a's validators carry
+ *  it: tools/places-convert.ts chooses only starts that meet it, and tools/real-places.ts and the
+ *  places tests refuse a place that does not. */
+export const LOG_FLOOR: number = logFloor.floor;
+
+/** The logs within 20 tiles' walk of a built place's start: `start.wood`'s count. */
+export function startLogs(v: Validation): number {
+  const c = v.report.checks.find((x) => x.id === "start.wood");
+  return typeof c?.value === "number" ? c.value : 0;
+}
+
+/** Why a built place is below the starting-logs floor, or null. */
+export function logFloorProblem(v: Validation): string | null {
+  const logs = startLogs(v);
+  return logs >= LOG_FLOOR ? null : `start.log_floor: ${logs} logs within 20 tiles' walk of the start, under the floor of ${LOG_FLOOR} (D224)`;
+}
 
 /** One real place as the site stores it (public/real-places/data/<id>.json.gz). */
 export interface PlaceData {
@@ -207,7 +228,8 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
   const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
   const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
   // the resource baseline, as the generator would give a map of this size designed for Normal
-  // (resources/plan.ts): starting wood and berries near the start with the generator's margins
+  // (resources/plan.ts): starting wood and berries near the start with the generator's margins,
+  // the wood never under the starting-logs floor (D224), at every difficulty
   const rules = DIFFICULTY_RULES.normal;
   const resources = planMapResources({
     W,
@@ -220,7 +242,7 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
     start: startCentreOf(objects.find((o) => o.template === "StartingLocation")!),
     settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources,
     seed: hash32("real-place", p.survey),
-    nearStart: { wood: Math.ceil(1.35 * rules.woodWithin20), bushes: Math.max(rules.berriesTarget, Math.ceil(1.15 * rules.bushesWithin20)) },
+    nearStart: { wood: Math.ceil(1.35 * Math.max(rules.woodWithin20, LOG_FLOOR)), bushes: Math.max(rules.berriesTarget, Math.ceil(1.15 * rules.bushesWithin20)) },
     ruinsClear: rules.ruinsWithin + 7,
     owner: `real-place:${p.id}`,
   });

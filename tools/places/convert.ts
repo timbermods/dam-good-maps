@@ -1,7 +1,8 @@
 // One real place from one survey patch (Real places, second round: Kyler, 2026-09-25 and 26; PLAN
-// §20 D151, D152, D164, D171, D200, D214): the land as it is, the water sources where water begins,
-// the start where the start requirements hold, and the map built and checked as the gallery builds
-// it (src/core/places/place.ts). tools/places-convert.ts runs it on many patches and chooses.
+// §20 D151, D152, D164, D171, D200, D214, D224): the land as it is, the water sources where water
+// begins, the start where the start requirements hold, and the map built and checked as the
+// gallery builds it (src/core/places/place.ts). tools/places-convert.ts runs it on many patches and
+// chooses.
 //
 // 1. The terrain: the survey's patch, cropped and quantised to 16 levels (hydro.ts), as it is. No
 //    wall or rim along the edges (D151), and water may drain off the map (D152).
@@ -24,7 +25,9 @@
 //    each 8×8 block by moist land near, then scored by the walk to clean water a pump reaches
 //    (start.water) and the moist land within 20 tiles' walk (where groves and bushes grow); the
 //    best are tried in turn: the place is built (its resources planned on the ground) and checked
-//    with every check of the generate profile, and the first that passes is the start. When none
+//    with every check of the generate profile and the starting-logs floor (D224: at least its logs
+//    within 20 tiles' walk, the resources planting toward it), and the first that passes is the
+//    start. When none
 //    does, the start moves to the water (D214, as Pick a place's designed water places it): the
 //    starts with a pump's shore within their walk come first (`walkToPumpShore`).
 
@@ -36,7 +39,7 @@ import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, pumpShoreDistance, reachAt, WALK_LI
 import { MinHeap } from "../../src/core/math/grid";
 import { waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { density } from "../../src/core/gen/calibrated";
-import { encodeHeights, buildPlace, type PlaceData } from "../../src/core/places/place";
+import { encodeHeights, buildPlace, logFloorProblem, type PlaceData } from "../../src/core/places/place";
 import { moistureBarrier, waterModel, type MapObject } from "../../src/core/sim/model";
 import { moisture } from "../../src/core/sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../../src/core/sim/prefill";
@@ -468,6 +471,8 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, 
       const built = buildPlace(place, water);
       const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
       const failing = v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
+      // the starting-logs floor (D224), a blocking rule the validators do not carry yet
+      if (logFloorProblem(v)) failing.push("start.log_floor");
       const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
       if (v.report.passed && !failing.length) return { row, ok: true, size, ...base, start, advisories, ...(moved ? { moved } : {}), ms: 0 };
       if (!best || failing.length < best.failing.length) best = { failing, advisories };

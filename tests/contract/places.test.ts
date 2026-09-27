@@ -115,12 +115,12 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
     expect(INDEX.places.map((p) => p.id)).toEqual(SELECTION.places.map((p) => p.id));
     expect(INDEX.places.map((p) => placeData(p).survey)).toEqual(SELECTION.places.map((p) => p.row));
     // the first round's 85: each kept (from its own survey row), made from another row of its
-    // region (its title kept), or dropped with the reason; an addition D214 took is dropped with
-    // its reason too
+    // region (its title kept), or dropped with the reason; an addition D214 (rivers, not floods) or
+    // D224 (the starting-logs floor) took is dropped with its reason too
     const first = SELECTION.places.filter((p) => p.status !== "added");
     expect(first.length + SELECTION.dropped.filter((d) => d.status !== "added").length).toBe(85);
     for (const d of SELECTION.dropped) expect(d.reason.length, d.name).toBeGreaterThan(10);
-    for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toContain("D214");
+    for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toMatch(/\((D214|D224)\)/);
     for (const p of SELECTION.places.filter((q) => q.status === "replaced")) expect(p.was, p.id).toMatch(/^n\d{3}-/);
     // spread across the families: none far behind the rest
     const perFamily = INDEX.families.map((f) => INDEX.places.filter((p) => p.family === f.id).length);

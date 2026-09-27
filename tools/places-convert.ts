@@ -1,5 +1,5 @@
 // Real places, second round (Kyler, 2026-09-25 and 26; PLAN §20 D151, D152, D155, D164, D171, D174,
-// D214):
+// D214, D224):
 // every real place converted again from the landscape survey's elevation patches under today's
 // rules, and the gallery grown to about 150. It writes each place's data
 // (public/real-places/data/<id>.json.gz: terrain, sources, start, words) and the choice
@@ -33,7 +33,8 @@
 //   place: a real feature in its square or a position (titles.ts SECOND, D214), else the part the
 //   survey sampled ("Colca Canyon North"). The survey's random-land controls and the Las Medulas
 //   region (a Roman mine, D136) stay out.
-// - Converted again (no --reselect), a place that no longer passes (D214 capped the flow) tries
+// - Converted again (no --reselect), a place that no longer passes (D214 capped the flow; D224
+//   asks for the starting-logs floor near the start) tries
 //   its region's other rows as those rules allow, on other land than the region's other map: a
 //   first-round place its first-round fallbacks (its title kept), an addition the region's other
 //   rows, best first. One that none of them gives is dropped, with the reason.
@@ -43,14 +44,14 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { gzipSync, strToU8 } from "fflate";
 import { isMainThread } from "node:worker_threads";
-import { PLACE_FORMAT, type PlaceData } from "../src/core/places/place";
+import { LOG_FLOOR, PLACE_FORMAT, type PlaceData } from "../src/core/places/place";
 import { convertRow, coverOf, FLOW_CAP, MAX_COVER, PATCHES, type Converted, type PlaceMeta } from "./places/convert";
 import { defaultThreads, runPool, serve } from "./places/pool";
 import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 2;
+const VERSION = 3;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -125,8 +126,8 @@ interface Selection {
   /** `rivers`: the most source groups kept, when fewer than the land gives (D214); `startMoved`:
    *  the start from the shore-first ranking (D214). */
   places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; rivers?: number; startMoved?: true; sourcesDropped?: Converted["dropped"]; advisories: string[] }[];
-  /** Places no row gives any more: the first round's (no status: Majuli), and those D214 took
-   *  (their status as they were). */
+  /** Places no row gives any more: the first round's (no status: Majuli), and those D214 or D224
+   *  took (their status as they were). */
   dropped: { name: string; row: string; status?: Chosen["status"]; reason: string; tried: string[] }[];
 }
 
@@ -274,7 +275,8 @@ async function main(): Promise<void> {
         }
       }
       if (!r) {
-        dropped.push({ name: p.name, row: p.row, status: p.status, reason: `rivers, not floods (D214): at most ${FLOW_CAP[own.size]}× the water for ${own.size}², ${res.reason}`, tried: [p.row, ...tries.get(p.id)!.map((o) => o.id)] });
+        const rule = /start\.log_floor/.test(res.reason ?? "") ? `the starting-logs floor (D224): at least ${LOG_FLOOR} logs within 20 tiles' walk of the start` : `rivers, not floods (D214): at most ${FLOW_CAP[own.size]}× the water for ${own.size}²`;
+        dropped.push({ name: p.name, row: p.row, status: p.status, reason: `${rule}; no row of the region passes (its own: ${res.reason})`, tried: [p.row, ...tries.get(p.id)!.map((o) => o.id)] });
         continue;
       }
       regions.add(r.region);

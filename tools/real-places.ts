@@ -19,7 +19,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";
 import { writeTimber } from "../src/core/format/timber";
-import { buildPlace, decodePlaceFile, placeFileName, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { placeView, type PlaceView } from "../src/core/places/view";
 import { validateMap } from "../src/core/validate/checks";
 import { defaultThreads, runPool, serve } from "./places/pool";
@@ -47,6 +47,9 @@ serve<string, Built>(
       const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
       const bad = (checks: typeof v.report.checks) => checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
       const failing = [...new Set([...bad(v.report.checks).map((id) => `export: ${id}`), ...bad(strict.report.checks)])];
+      // the starting-logs floor (D224), until the validators carry it
+      const floor = logFloorProblem(strict);
+      if (floor) failing.push(floor);
       if (!v.report.passed && !failing.length) failing.push("export: not passed");
       if (!strict.report.passed && !failing.some((f) => !f.startsWith("export"))) failing.push("generate: not passed");
       const advisories = strict.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
