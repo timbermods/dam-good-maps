@@ -267,7 +267,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     } else if (d < 1 + 3 / q.r) {
       const M = before.heights[i];
       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
-      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > 0.15 && !(finish && nearWater(i))) {
+      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > 0.15 && !(style?.benches === "dry" && nearWater(i))) {
         m.heights[i] = Math.min(M, f + Math.round((M - f) * 0.58));
         mask[i] = 2;
         arrival[i] = q.s;
@@ -912,7 +912,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       outwash: 0,
       requestedWidth: sizeOf(s),
     },
-    finished: { style: style?.course ?? "round 4", visits: visits.length, reached: reached.length },
+    finished: { style: style ? `${style.course}${style.benches === "all" ? ", benches" : ""}` : "round 4", visits: visits.length, reached: reached.length },
     joins,
   };
   let removed = true;
