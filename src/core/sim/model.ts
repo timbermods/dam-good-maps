@@ -88,9 +88,11 @@ export function waterModel(W: number, H: number, surface: Uint8Array, objects: r
       }
       if (cells.length) {
         let strength = rule.runs && !isDelayed(o.components) ? specifiedStrength(o.components) : 0;
+        const specified = strength;
         if (strength > MAX_STRENGTH_PER_TILE * rule.tiles.length) strength = MAX_STRENGTH_PER_TILE * rule.tiles.length;
         if (!(strength > 0)) strength = 0;
         const e: Emitter = { cells, strength, contamination: rule.contamination };
+        if (strength > 0 && specified > strength) e.specified = specified;
         if (rule.seep) e.depthLimit = { anchor: cells[0], off: SEEP_OFF, on: SEEP_ON };
         emitters.push(e);
       }

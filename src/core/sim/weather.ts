@@ -41,3 +41,32 @@ export function badtideContamination(sinceStart: number, days: number): number {
   if (toEnd < 0.5) return shape(toEnd);
   return 1;
 }
+
+const f32 = Math.fround;
+/** DayNightCycle.DayLengthInSeconds: 768 ticks × TickTimeSpec 0.6 s, in float. */
+const DAY_SECONDS = f32(768 * f32(0.6));
+/** WaterStrengthSpec: MaxWaterSourceChangePerSecond and MinWaterSourceChangeScaler. */
+const MAX_CHANGE = f32(0.0058);
+const MIN_SCALER = f32(0.15);
+
+/** How many days a source of specified strength `strength` takes to ease down before a drought
+ *  (DroughtWaterStrengthModifier.GetTransitionTime: S / (day length · max change a second), about
+ *  S / 2.67; investigation/cycles/weather.ts `transitionDays`, FIDELITY.md "Drought ramp"). */
+export function droughtTransitionDays(strength: number): number {
+  return strength / (DAY_SECONDS * MAX_CHANGE);
+}
+
+/** The share of its specified strength a source gives `x` days from a drought's start (x < 0
+ *  before it): the game eases it down over its transition before the drought, by 1 − p(0.85p +
+ *  0.15) of the way p through it, and stops it for the drought
+ *  (DroughtWaterStrengthModifier.GetStrengthModifier and GetModifier; investigation/cycles/weather.ts
+ *  `droughtModifier`). The ease back up after a drought is outside a drought's own days. */
+export function droughtStrength(x: number, strength: number): number {
+  if (x >= 0) return 0;
+  if (!(strength > 0)) return 1;
+  const transition = droughtTransitionDays(strength);
+  const progress = x + transition;
+  if (progress < 0) return 1;
+  const scaler = (1 - MIN_SCALER) * (progress / transition) + MIN_SCALER;
+  return 1 - (progress * DAY_SECONDS * MAX_CHANGE * scaler) / strength;
+}

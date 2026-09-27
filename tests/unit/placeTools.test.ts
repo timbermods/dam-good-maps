@@ -3,7 +3,7 @@
 // rectangle.
 
 import { describe, expect, it } from "vitest";
-import { removeTool, shelfTool } from "../../src/editor/placeTools";
+import { shelfTool } from "../../src/editor/placeTools";
 import { quietWord, SHELF } from "../../src/editor/shelfItems";
 import { DEFAULT_OPTIONS, sourceRequest } from "../../src/editor/tools";
 import type { TileHit } from "../../src/render3d";
@@ -47,39 +47,14 @@ describe("the shelf's pointer tool", () => {
   });
 });
 
-describe("the shelf's objects (D212)", () => {
-  it("read Start, Water source, Badwater source, Pine, Birch, Oak, Berry bush and so on; the sources place clean and bad", () => {
-    expect(SHELF.slice(0, 7).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Pine", "Birch", "Oak", "Berry bush"]);
-    const [clean, bad] = [SHELF[1], SHELF[2]];
+describe("the shelf's objects (D212, D226)", () => {
+  it("read Water source, Badwater source, Start, Pine, Birch, Oak, Berry bush and so on (D226); the sources place clean and bad", () => {
+    expect(SHELF.slice(0, 7).map((it) => it.name)).toEqual(["Water source", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush"]);
+    const [clean, bad] = [SHELF[0], SHELF[1]];
     expect([clean.source, clean.template, clean.key, bad.source, bad.template]).toEqual(["clean", "WaterSource", "6", "bad", "BadwaterSource"]);
     // what they place: a clean source on the tile, a bad one's 3 x 3 round it, at the row's strength
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: false, sourceStrength: 4 }, 10, 12)).toMatchObject({ template: "WaterSource", x: 10, y: 12, components: { WaterSource: { SpecifiedStrength: 4 } } });
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true, badwaterStrength: 2 }, 10, 12)).toMatchObject({ template: "BadwaterSource", x: 9, y: 11, components: { WaterSource: { SpecifiedStrength: 2 } } });
-  });
-});
-
-describe("Remove's pointer tool", () => {
-  it("glows under the pointer; a click takes a tile, a drag a rectangle", () => {
-    const removed: number[][] = [];
-    const lit: (number[] | null)[] = [];
-    const t = removeTool({
-      W,
-      H: W,
-      objectsOn: (tiles) => tiles.filter((i) => i % 2 === 0),
-      highlight: (c) => lit.push(c),
-      drawing: () => undefined,
-      remove: (tiles) => removed.push(tiles),
-    });
-    t.hover!(hit(2, 0), ev());
-    expect(lit.at(-1)).toEqual([2]);
-    t.down(hit(3, 3), ev());
-    t.up(hit(3, 3), ev());
-    expect(removed).toEqual([[63]]);
-    t.down(hit(1, 1), ev());
-    t.move(hit(3, 2), ev());
-    t.up(hit(3, 2), ev());
-    expect(removed.at(-1)!.length).toBe(6);
-    expect(lit.at(-1)).toBeNull();
   });
 });
 

@@ -26,7 +26,13 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 }
 
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
-  return viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  const out = viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  if (f.heat) out.push(f.heat.buffer as Transferable);
+  return out;
+}
+
+function sendFrame(f: ed.ForceFrame | null): ed.ForceFrame | null {
+  return f ? transfer(f, frameBuffers(f)) : null;
 }
 
 function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
@@ -34,8 +40,12 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant") return [];
-  return viewBuffers(e.kind === "water" || e.kind === "weather" ? { water: e.water } : e.view) as Transferable[];
+  if (e.kind === "instant" || e.kind === "hazard") return [];
+  return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
+}
+
+function dayBuffers(d: ed.HazardDay): Transferable[] {
+  return viewBuffers({ water: d.water, soil: d.soil }) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
@@ -99,27 +109,55 @@ const api = {
   // the tools: plan (a preview), then apply; move and delete with planning again
   planTool: (req: ed.ToolRequest, id: string) => ed.planTool(req, id),
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
-  /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
-  startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
-  stopWeather: () => ed.stopWeather(),
+  /** A drought or a badtide of so many days on the map as it is (D267): its last day, the notes
+   *  for its water and the start's marker (how far it has come: hazard events); null when an edit
+   *  or another hazard came first. */
+  async showHazard(hazard: "drought" | "badtide", days: number, id?: number) {
+    const r = await ed.showHazard(hazard, days, { id });
+    return r ? transfer(r, [r.change.buffer, r.startWater.buffer, ...dayBuffers(r.last)] as Transferable[]) : null;
+  },
+  /** A day of the hazard shown (0: the map as it is), or null once it has ended. */
+  hazardDay(day: number) {
+    const d = ed.hazardDay(day);
+    return d ? transfer(d, dayBuffers(d)) : null;
+  },
+  /** The water within a day of the hazard shown, for the step to it (its last frame is the day). */
+  hazardSteps(day: number) {
+    const f = ed.hazardSteps(day);
+    return f ? transfer(f, f.flatMap((w) => viewBuffers({ water: w }) as Transferable[])) : null;
+  },
+  /** The hazard view ends (an edit, D269; or its button again). */
+  endHazard: () => ed.endHazard(),
   moveFeature: (id: string, dx: number, dy: number) => sendUpdate(ed.moveFeature(id, dx, dy)),
   deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
-  damSites: () => ed.damSiteLayer(),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
+  applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
+  /** A brush stroke that clears the sources it passed over (D249): one undo step. */
+  strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
   instantCheck: () => ed.instantCheck(),
-  // the forces (D194, D203): a carve at work, a frame at a time; Stop keeps it, Esc drops it
-  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
-  /** Try another path: the last kept carve again, with the next seed. */
-  carveAgain: () => sendStarted(ed.carveAgain()),
-  carveAdvance(steps: number) {
-    const f = ed.carveAdvance(steps);
-    return f ? transfer(f, frameBuffers(f)) : null;
+  // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
+  // Esc drops it
+  forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
+  /** Try another: the last kept force again, with the next seed. */
+  forceAgain: () => sendStarted(ed.forceAgain()),
+  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
+  /** A painted Lift's fault as it is painted now. */
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1) => sendFrame(ed.forcePaint(path, side)),
+  forceStop: () => sendUpdate(ed.forceStop()),
+  forceCancel() {
+    const v = ed.forceCancel();
+    return transfer(v, viewBuffers(v) as Transferable[]);
   },
+  // (the carve's own calls)
+  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
+  carveAgain: () => sendStarted(ed.carveAgain()),
+  carveAdvance: (steps: number) => sendFrame(ed.carveAdvance(steps)),
   carveStop: () => sendUpdate(ed.carveStop()),
   carveCancel() {
     const v = ed.carveCancel();
@@ -136,7 +174,7 @@ const api = {
   exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
-    return transfer(r, [r.moisture.buffer, r.badwater.buffer, r.drought.buffer, r.roofed.buffer] as Transferable[]);
+    return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
   },
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);

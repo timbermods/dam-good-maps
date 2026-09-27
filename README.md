@@ -37,9 +37,10 @@ The editor:
   painting swaps Raise and Lower. Esc cancels a stroke.
 - **Flatten** levels the ground to the height where you start. Ctrl+click picks another level; on
   water, the riverbed's.
-- The row under the brushes holds their options: **Square**, **Precise**, **Straight lines** and
-  **Level lines**. **Flatten** adds **In steps** and **Edges**. **Smooth** adds **Make walkable**,
-  which lays the game's slopes.
+- The row under the brushes holds their options: their **Size** (a number and a slider), **Square**,
+  **Precise** and **Straight lines**. **Flatten** adds **In steps** and **Edges** (ramped edges lay
+  the game's slopes on its rim). **Level lines** is a view switch beside **Height colours**. A
+  natural slope goes exactly where you want it from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
@@ -48,17 +49,16 @@ The editor:
 - A new source's water flows at once. The row under the brushes sets its strength.
 - Over a placed source, Shift+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
-- **Remove** (X) takes the object you click, or everything in the rectangle you drag. It never
-  changes the ground, and the start stays.
-- M selects an area, as does Ctrl+drag with a brush. Raise it, lower it, level it, dig it out or
-  clear its objects.
+- Point at an object or a source and press **Delete** to remove it. The start stays.
+- **Select** (M) marks an area, as does Ctrl+drag with a brush. Raise it, lower it, level it or dig
+  it out. **Delete** clears everything standing in it.
 - Drag the start to move it. Point at it to see its water, wood and berries.
-- The water flows as you edit. **Pause**, **Speed**, **Skip**, **Replay** and **Follow** control
+- The water flows as you edit. **Pause**, **Speed**, **Skip** and **Replay** control
   it. **Drought** and **Badtide** show what each does to the map.
 - A brush over water clears the water around it, so you see the bed. **Clear water** (T) clears all
   of it.
-- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Moisture**,
-  **Badwater**, **Drought**, **Dam sites**, **Minimap** and **Sound**.
+- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Badwater**,
+  **Minimap** and **Sound**.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.

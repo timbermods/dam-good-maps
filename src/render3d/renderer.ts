@@ -42,10 +42,12 @@ import {
   WebGLRenderTarget,
   Box3,
   LinearSRGBColorSpace,
+  LinearFilter,
   ColorManagement,
 } from "three";
 import { BrushCursor, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
+import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -59,6 +61,10 @@ import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 ColorManagement.enabled = false;
 
 export type ViewMode = "orbit" | "top";
+
+/** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
+ *  a clear red. */
+const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
 export interface ViewState {
   mode: ViewMode;
@@ -137,6 +143,8 @@ interface MapState {
 }
 
 const PITCH_MIN = 0.18;
+/** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
+const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
@@ -476,6 +484,7 @@ export class MapRenderer {
   setMap(v: MapView, keepView = false): BuildStats {
     const t0 = performance.now();
     this.clearMap();
+    this.waterQueue.clear();
     const { W, H, heights } = v;
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
@@ -595,6 +604,8 @@ export class MapRenderer {
     this.lightTex?.dispose();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
+    this.forceFx?.clear();
+    this.setHeat(null);
   }
 
   private dropMesh(m: Mesh): void {
@@ -822,6 +833,9 @@ export class MapRenderer {
     m.water = water;
     m.surface = surface;
     const lower = lowerByTile(surface, water);
+    // (a stroke's chunks still waiting are meshed now too, on this water)
+    for (const key of this.waterQueue) changed.add(key);
+    this.waterQueue.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
@@ -832,6 +846,59 @@ export class MapRenderer {
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
+  }
+
+  /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
+  private readonly waterQueue = new Set<string>();
+
+  /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
+   *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
+   *  nearest the view's middle first, with the ground's tile data under them. While a stroke is
+   *  painted the water can move all over the map (a lake still filling after a force): meshing every
+   *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
+   *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
+  updateWaterSoon(water: WaterView): number {
+    const m = this.map;
+    if (!m) return 0;
+    const surface = surfaceWater(m.W, m.H, water);
+    if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0);
+    m.water = water;
+    m.surface = surface;
+    for (const key of changed) this.waterQueue.add(key);
+    this.updateClearAround();
+    this.requestRender();
+    this.onMapChange?.();
+    return changed.size;
+  }
+
+  /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
+  private drainWater(budget: number): void {
+    const m = this.map;
+    if (!m) {
+      this.waterQueue.clear();
+      return;
+    }
+    const t0 = performance.now();
+    const tx = this.view.target[0] / CHUNK;
+    const ty = -this.view.target[2] / CHUNK;
+    const keys = [...this.waterQueue].map((k) => {
+      const [cx, cy] = k.split(",").map(Number);
+      return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
+    });
+    keys.sort((a, b) => a.d - b.d);
+    let baked = false;
+    for (const { k, cx, cy } of keys) {
+      if (baked && performance.now() - t0 > budget) break;
+      this.waterQueue.delete(k);
+      this.meshWater(cx, cy, null);
+      // the ground under it: its tile data (the water over each top)
+      if (this.tileTex) {
+        tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+        this.tileTex.needsUpdate = true;
+      }
+      baked = true;
+    }
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1010,7 +1077,10 @@ export class MapRenderer {
           const k = own[i];
           if (k < 0 || !want.has(m.entities.y[k] * m.W + m.entities.x[k])) continue;
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * color[j]);
+          // (a source's blue would only darken: it turns a clear red, D249)
+          const t = m.entities.templates[m.entities.template[k]];
+          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
           mesh.instanceColor.needsUpdate = true;
         }
       }
@@ -1033,6 +1103,57 @@ export class MapRenderer {
   }
 
   private surge: Surge | null = null;
+  private forceFx: ForceEffects | null = null;
+
+  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+   *  effects play on their own clocks. Not with reduced motion, not in software. */
+  setForceMoment(m: ForceMoment): void {
+    if (!this.juicy || m.verb === "carve") return;
+    this.forceFxOf().set(m);
+  }
+
+  /** The force was kept: its tails play out (dust settling, lava cooling). */
+  forceDone(): void {
+    this.forceFx?.finish();
+  }
+
+  /** Esc, undo: a force's effects and its heat go at once. */
+  clearForce(): void {
+    this.forceFx?.clear();
+    this.setHeat(null);
+  }
+
+  private forceFxOf(): ForceEffects {
+    return (this.forceFx ??= new ForceEffects(this.scene, () => this.requestRender(), (x, y) => {
+      const m = this.map;
+      if (!m) return 0;
+      const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+      return m.heights[i];
+    }));
+  }
+
+  /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null. */
+  setHeat(mask: Uint8Array | null): void {
+    const u = this.terrainMat?.uniforms;
+    if (!u?.eruptionMask) return;
+    const m = this.map;
+    const old = u.eruptionMask.value as DataTexture;
+    if (!mask || !m || mask.length !== m.W * m.H * 4 || this.software) {
+      u.eruptionAge.value = -1;
+      if (old.image.width !== 1) {
+        old.dispose();
+        u.eruptionMask.value = overlayTexture(1, 1);
+      }
+      return;
+    }
+    old.dispose();
+    const t = overlayTexture(m.W, m.H);
+    (t.image.data as Uint8Array).set(mask);
+    t.magFilter = t.minFilter = LinearFilter;
+    t.needsUpdate = true;
+    u.eruptionMask.value = t;
+    this.requestRender();
+  }
 
   /** A force's head at work (a carve's surge, D199), on the ground shown; null puts it away. Not
    *  with reduced motion, not in software. */
@@ -1043,6 +1164,20 @@ export class MapRenderer {
       return;
     }
     (this.surge ??= new Surge(this.scene, () => this.requestRender())).set(head, trail, m.heights, m.W);
+  }
+
+  /** Where tile (x, y) is in the view, for a sound (D220, D226): its distance (0 near, 1 far) and its
+   *  pan (−1 left, 1 right). What is on screen is what is being edited: it plays at nearly its full
+   *  level at any zoom (the camera's own distance made every sound far, a whisper, at the usual
+   *  views); only what is off screen fades and softens, the further off the more. */
+  soundPlace(x: number, y: number): { distance: number; pan: number } {
+    const m = this.map;
+    if (!m) return { distance: 0, pan: 0 };
+    const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+    const p = new Vector3(x + 0.5, m.heights[i], -(y + 0.5));
+    const ndc = p.project(this.camera());
+    const off = Math.max(Math.abs(ndc.x), Math.abs(ndc.y));
+    return { distance: Number.isFinite(off) && ndc.z <= 1 ? Math.max(0, Math.min(1, (off - 0.8) / 1.5)) : 1, pan: Number.isFinite(ndc.x) ? Math.max(-1, Math.min(1, ndc.x)) : 0 };
   }
 
   /** A puff of dust where ground was lowered at tile (x, y), `size` tiles across. */
@@ -1387,11 +1522,25 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
+    if (this.waterQueue.size) {
+      this.drainWater(WATER_MESH_BUDGET_MS);
+      if (this.waterQueue.size) this.requestRender();
+    }
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
+    // a force's heat on the ground (the camera never shakes, D265)
+    const fx = this.forceFx;
+    const heat = fx && !this.reducedMotion ? fx.heat(t0) : null;
+    const u = this.terrainMat.uniforms;
+    if (u.eruptionAge) {
+      u.eruptionAge.value = heat ? heat.age : -1;
+      u.coolingAge.value = heat ? heat.cooling : 0;
+    }
+    const cam = this.camera();
     const q = this.beginGpuTimer();
-    this.gl.render(this.scene, this.camera());
+    this.gl.render(this.scene, cam);
     this.endGpuTimer(q);
     if (this.recording) this.cpuTimes.push(performance.now() - t0);
     // tell the page only when the view moved (the water's frames do not)
@@ -1810,6 +1959,7 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.effects?.dispose();
     this.surge?.dispose();
+    this.forceFx?.dispose();
     this.terrainMat.dispose();
     this.waterMat.dispose();
     this.fallMat.dispose();

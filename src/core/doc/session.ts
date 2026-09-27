@@ -13,6 +13,7 @@
 // - Documents opened by a newer generator open from their stored base, exactly, until
 //   `rebuildWithCurrentGenerator` (PLAN §19.7).
 
+import { isTall, withTallNote } from "../format/world";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { storedWetMask } from "../analysis/mechanics";
@@ -38,6 +39,7 @@ import type { PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type Profile, type ValidationReport } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
+import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
   applyOp,
@@ -325,6 +327,12 @@ export class MapSession {
    *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
     return this.mode === "live" ? new Map() : this.baseStuff().terrain.columns;
+  }
+
+  /** The ground of the map as it was opened (its stored base, before the edits): the forces derive
+   *  the map's hidden rock from it once, so every force on the map meets the same rock (D220). */
+  get openedHeights(): Uint8Array {
+    return this.baseStuff().terrain.heights;
   }
 
   /** Operations in the log (the player's edits on this generation). */
@@ -819,7 +827,7 @@ export class MapSession {
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
-    if (this.mode === "live") return toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") return tallNoted(toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {}), built.heights);
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
@@ -834,13 +842,13 @@ export class MapSession {
     const world: WorldModel = { ...w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), singletons, entities: built.entities.map(entityJson) };
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
-    return {
+    return tallNoted({
       metadata: parse(this.gen.base.metadata) as JsonObject,
       thumbnail: blank ?? (redraw ? thumbnailJpeg(built.heights, W, H, built.waterFromFile ? null : built.water) : b.file.thumbnail),
       versionTxt: this.gen.base.versionTxt,
       world,
       extraFiles: [],
-    };
+    }, built.heights);
   }
 
   /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
@@ -1048,6 +1056,8 @@ export function labelOf(op: AppliedOp): string {
       return BRUSH_NAMES[op.params.tool] ?? "Brush";
     case "carve":
       return op.params.replaces !== undefined ? "Try another path" : op.params.dry ? "Carve a dry canyon" : "Carve a river";
+    case "forceResult":
+      return forceLabel(op.params);
     case "placeEntity":
       return `Place ${op.params.template}`;
     case "moveEntity":
@@ -1065,3 +1075,13 @@ export function labelOf(op: AppliedOp): string {
   }
 }
 
+/** A map whose land goes above 16 is tall, with the tall note in its description; back at 16 or
+ *  below, a standard map again, without it (D172 (4), D244). A description that needs no change
+ *  stays byte for byte. */
+function tallNoted(file: TimberFile, heights: ArrayLike<number>): TimberFile {
+  const md = file.metadata;
+  if (!md) return file;
+  const text = typeof md.MapDescription === "string" ? md.MapDescription : "";
+  const described = withTallNote(text, isTall(heights));
+  return described === text ? file : { ...file, metadata: { ...md, MapDescription: described } };
+}

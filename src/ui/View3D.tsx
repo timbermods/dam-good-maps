@@ -41,6 +41,8 @@ export interface View3DProps {
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
+  /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
+  besideHeight?: ComponentChildren;
   /** Whether the legend shows (the editor: only while an overlay is on, D184). */
   showLegend?: boolean;
 }
@@ -105,6 +107,7 @@ function saveMarkers(on: boolean): void {
 export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const compass = useRef<HTMLDivElement>(null);
+  const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
@@ -116,6 +119,19 @@ export function View3D(props: View3DProps) {
   const [mapTick, setMapTick] = useState(0);
   const onHover = useRef(props.onHover);
   onHover.current = props.onHover;
+
+  // the view bar wraps before the compass; what sits under it (the editor's brush bar) reads its
+  // height from --view-controls-h
+  useEffect(() => {
+    const el = controls.current;
+    const frame = el?.parentElement;
+    if (!el || !frame || typeof ResizeObserver === "undefined") return;
+    const note = () => frame.style.setProperty("--view-controls-h", `${el.offsetHeight}px`);
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
 
   useEffect(() => {
     let r: MapRenderer;
@@ -260,7 +276,8 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={ground === "height"} onClick={toggleGround} title="Colour the ground by height instead of by soil">
         Height colours
       </button>
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show dam sites, slope arrows and a line at every level, and draw small far-off objects larger">
+      {props.besideHeight}
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show the sources, slope arrows and a line at every level, and draw small far-off objects larger">
         Markers
       </button>
     </>
@@ -271,11 +288,8 @@ export function View3D(props: View3DProps) {
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
-      <div class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "orbit"} onClick={() => pick("orbit")} title="Drag to turn, right-drag to move, wheel to zoom">
-          Orbit
-        </button>
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick("top")} title="North up. Drag to move, wheel to zoom">
+      <div ref={controls} class="view3d-controls" role="group" aria-label="View">
+        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
           Top-down
         </button>
         <button type="button" onClick={() => renderer.current?.resetView()}>
@@ -315,7 +329,7 @@ export function View3D(props: View3DProps) {
                     With <b>Markers</b> on:
                   </p>
                   <ul class="pick-list">{marked.map(item)}</ul>
-                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger, and dam sites wider.</p>
+                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger.</p>
                 </>
               ) : null}
               <p class="note">Click a line to show it on the map.</p>

@@ -1,8 +1,9 @@
-// The Select tool's tiles (PLAN §20 D184): a rectangle, a freehand outline, the same level; added
-// and taken away; its size in words (D183).
+// The Select tool's tiles (PLAN §20 D184, D259, D261, D264): a rectangle, a circle, a freehand
+// outline, the Wand (the ground at a level, or a river's or lake's water as the view draws it);
+// added and taken away; its size in words (D183); Max water depth's levels.
 
 import { describe, expect, it } from "vitest";
-import { outlineTiles, rectTilesBetween, sameLevelTiles, Selection, sizeWords } from "../../src/editor/select";
+import { circleTiles, depthLevels, outlineTiles, rectTilesBetween, sameLevelTiles, Selection, sizeWords, waterTiles } from "../../src/editor/select";
 
 const W = 20;
 const H = 16;
@@ -19,6 +20,37 @@ describe("the Select tool", () => {
     expect(t).toContain(5 * W + 5);
     expect(t).toContain(2 * W + 2);
     expect(t).not.toContain(12 * W + 12);
+  });
+
+  it("a circle: the tiles within its radius of its middle", () => {
+    const t = circleTiles(10, 8, 3, W, H);
+    expect(t).toContain(8 * W + 13);
+    expect(t).not.toContain(11 * W + 13);
+    expect(t.length).toBe(29);
+  });
+
+  it("the Wand on water: the water joined to the tile, and no bank tile; on dry ground, nothing", () => {
+    // a river along y 6–7, a lake at x 14–17, y 10–13 joined to it by x 15, y 8–9; a bank film
+    // the view doesn't draw beside it
+    const wet = new Uint8Array(W * H);
+    for (let x = 0; x < W; x++) wet[6 * W + x] = wet[7 * W + x] = 1;
+    for (let y = 8; y <= 9; y++) wet[y * W + 15] = 1;
+    for (let y = 10; y <= 13; y++) for (let x = 14; x <= 17; x++) wet[y * W + x] = 1;
+    wet[2 * W + 2] = 1;
+    const t = waterTiles((i) => wet[i] === 1, W, H, 3, 6);
+    expect(t.length).toBe(2 * W + 2 + 16);
+    expect(t).not.toContain(5 * W + 3);
+    expect(t).not.toContain(2 * W + 2);
+    expect(waterTiles((i) => wet[i] === 1, W, H, 3, 3)).toEqual([]);
+  });
+
+  it("Max water depth: the ground under deeper water rises so the water sits that deep, surface kept", () => {
+    // a lake 6 deep (floor 2, surface 8), a shallow edge 1 deep (floor 7), a dry tile
+    const h = new Uint8Array([2, 2, 7, 9]);
+    const water = [6, 6, 1, 0];
+    const surface = [8, 8, 8, NaN];
+    const by = depthLevels([0, 1, 2, 3], h, water, surface, 3);
+    expect([...by.entries()]).toEqual([[5, [0, 1]]]);
   });
 
   it("the same level: the ground at the clicked level joined to it", () => {

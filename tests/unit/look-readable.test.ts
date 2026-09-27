@@ -1,16 +1,15 @@
 // Map look's fix round (PLAN §20 D114): every meaning reads in greyscale and with any colour
 // blindness, never by colour alone. The meanings keep an order of lightness; contamination (a layer
-// over the ground since Kyler's contamination round) reads by its veins; dam sites are hatched
-// with a dark rim; dead trees, slope arrows and the start keep a minimum size from afar; the legend
+// over the ground since Kyler's contamination round) reads by its veins; a hatched overlay (alpha
+// 255) has a dark rim; dead trees, slope arrows and the start keep a minimum size from afar; the legend
 // names every meaning the view draws.
 
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
-import { DAM } from "../../src/editor/tools";
 import { buildEntities } from "../../src/render3d/entities3d";
 import { hatchMarks } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { contaminatedGround, contaminationVein, contaminationVeins, DAM_OVERLAY, DAM_SITE, damLegendSwatch, DEAD_TREE, GROUND, groundColor, HATCH, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody } from "../../src/render3d/palette";
+import { contaminatedGround, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody } from "../../src/render3d/palette";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -30,8 +29,6 @@ describe("the meanings in lightness", () => {
     expect(lum(WATER.shallow)).toBeGreaterThan(lum(WATER.bad) + 0.3);
     // living trees are dark, dead trees nearly white
     expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.55);
-    // a dam site's stripes: light and dark
-    expect(lum(DAM_SITE) - lum(HATCH.dark)).toBeGreaterThan(0.7);
   });
 });
 
@@ -80,13 +77,8 @@ describe("contamination", () => {
   });
 });
 
-describe("dam sites", () => {
-  it("are hatched (alpha 255), in the editor and the preview alike", () => {
-    expect(DAM_OVERLAY[3]).toBe(255);
-    expect([...DAM]).toEqual([...DAM_OVERLAY]);
-  });
-
-  it("mark the hatched tiles and their neighbours, for the rim", () => {
+describe("a hatched overlay (alpha 255)", () => {
+  it("marks the hatched tiles and their neighbours, for the rim", () => {
     const W = 5;
     const H = 4;
     const overlay = new Uint8Array(W * H * 4);
@@ -145,9 +137,7 @@ describe("the legend", () => {
     const labels = [...legendEntries("moisture"), ...objectLegend()].map((e) => e.label);
     for (const want of [/Moist/, /Dry/, /Contaminated/, /^Water: darker is deeper/, /^Badwater$/, /mixed with badwater/, /Walls/, /dead/, /Living trees/, /The start/, /Slopes: arrows point uphill/, /Ruins/, /Mine site/, /Geothermal field/, /Water source/, /Badwater source/, /blocks/])
       expect(labels.some((l) => want.test(l)), String(want)).toBe(true);
-    // the dam site's swatch is hatched light and dark
-    const dam = decodeURIComponent(/url\("data:image\/svg\+xml,([^"]*)"\)/.exec(damLegendSwatch())![1]);
-    expect(dam).toContain(cssColor(DAM_SITE));
-    expect(dam).toContain(cssColor(HATCH.dark));
+    // no dam site is drawn (D287)
+    expect(labels.some((l) => /dam site/i.test(l))).toBe(false);
   });
 });

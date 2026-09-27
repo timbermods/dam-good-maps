@@ -1,20 +1,26 @@
-// The Select tool (PLAN §20 D184): no permanent slot; M opens it, or a Ctrl+drag with any brush out.
-// A rectangle, a freehand outline, or the same level (a click takes the ground at its level joined
-// to it); Shift adds, Alt subtracts (Alt+drag: a plain Alt+click is the game's layer pick). While
-// dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What it does to the selection
-// (raise or lower by some levels, flatten or set to a level, dig out, clear trees and objects) is
-// one operation each, one undo step.
+// The Select tool (PLAN §20 D184, D259, D261): a small button on the bar beside the brushes; M
+// opens it too, or a Ctrl+drag with any brush out. Rectangle, Circle (dragged from its middle out, its
+// radius beside the pointer), Freehand (an outline), Brush (painted in with the brush ring, at the
+// brushes' size) and Wand (a click takes the ground joined to it at its level, or on water that
+// river's or lake's water as the view draws it: a snapshot). Shift adds, Alt takes away (Alt+drag: a
+// plain Alt+click is the game's layer pick), in every mode; Ctrl+click on the land takes its level as
+// Set level's target. While dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What
+// it does to the selection (raise or lower by some levels, set to a level, cut down or fill up to
+// it, dig out, water no deeper than a depth; Delete clears what stands there, D288) is exact, one undo step each; while it
+// is open it is the working area (D254): the brushes and the forces work only inside it.
 
 import { polygonMask } from "../core/features/geometry";
 import type { Point } from "../core/features/schema";
 import type { PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
 
-export type SelectMode = "rect" | "free" | "level";
+export type SelectMode = "rect" | "circle" | "free" | "brush" | "wand";
 export const SELECT_MODES: [SelectMode, string][] = [
   ["rect", "Rectangle"],
+  ["circle", "Circle"],
   ["free", "Freehand"],
-  ["level", "Same level"],
+  ["brush", "Brush"],
+  ["wand", "Wand"],
 ];
 
 /** The selected tiles, and their extent. */
@@ -114,6 +120,53 @@ export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: num
   return out;
 }
 
+/** The tiles within `r` of tile (cx, cy) (their middles, a circle). */
+export function circleTiles(cx: number, cy: number, r: number, W: number, H: number): number[] {
+  const out: number[] = [];
+  const R = Math.max(0.5, r);
+  for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
+    for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= R * R) out.push(y * W + x);
+  return out;
+}
+
+/** Wand on water (D261): the water joined to tile (x, y) (four neighbours), as the view draws it
+ *  (`wet`: the view's own water tiles, clean or bad), at most `limit` tiles; the clicked tile must be
+ *  water itself. */
+export function waterTiles(wet: (i: number) => boolean, W: number, H: number, x: number, y: number, limit = 1 << 20): number[] {
+  const start = y * W + x;
+  if (!wet(start)) return [];
+  const seen = new Uint8Array(W * H);
+  const out = [start];
+  seen[start] = 1;
+  for (let q = 0; q < out.length && out.length < limit; q++) {
+    const i = out[q];
+    const cx = i % W;
+    for (const j of [i - 1, i + 1, i - W, i + W]) {
+      if (j < 0 || j >= W * H || seen[j] || (j === i - 1 && cx === 0) || (j === i + 1 && cx === W - 1)) continue;
+      seen[j] = 1;
+      if (wet(j)) out.push(j);
+    }
+  }
+  return out;
+}
+
+/** Max water depth (D264): where the water is deeper than `depth`, the level the ground under it
+ *  rises to so the water sits that deep (its surface kept: a lake's is its spill level), grouped by
+ *  that level; shallower water and dry land aren't in it. `surface` is the water's surface there. */
+export function depthLevels(tiles: Iterable<number>, heights: ArrayLike<number>, water: ArrayLike<number>, surface: ArrayLike<number>, depth: number): Map<number, number[]> {
+  const by = new Map<number, number[]>();
+  for (const i of tiles) {
+    if (!(water[i] > depth)) continue;
+    const to = Math.round(surface[i] - depth);
+    if (to <= heights[i]) continue;
+    const list = by.get(to);
+    if (list) list.push(i);
+    else by.set(to, [i]);
+  }
+  for (const list of by.values()) list.sort((a, b) => a - b);
+  return by;
+}
+
 export interface SelectHost {
   W: number;
   H: number;
@@ -121,28 +174,45 @@ export interface SelectHost {
   mode(): SelectMode;
   /** The selection changed (the overlay and the row redraw). */
   changed(): void;
-  /** The tiles being drawn (before they join the selection), and the size words beside the
-   *  pointer; null when done. */
+  /** The tiles being drawn (before they join the selection), and the words beside the pointer (a
+   *  size, a radius); null when done. */
   drawing(tiles: number[] | null, words: string | null, ev: PointerEvent | null): void;
+  /** Whether the view draws water on a tile (Wand, D261). */
+  wet?(i: number): boolean;
+  /** The brushes' size (Brush mode paints the selection with the brush ring). */
+  brushSize?(): number;
+  /** The Brush mode's ring under the pointer (null: none). */
+  ring?(at: [number, number] | null, radius: number): void;
+  /** Ctrl+click on the land while a selection is open: that tile's level, as Set level's target. */
+  sample?(level: number): void;
 }
 
-/** The Select tool's pointer handling: one drag (or click) at a time. */
+/** The Select tool's pointer handling (D184, D259): one drag (or click) at a time. Rectangle and
+ *  Circle (from the middle outward, its radius beside the pointer) are dragged; Freehand an outline;
+ *  Brush paints tiles in with the brush ring; Wand takes what a click is on: the ground joined to it
+ *  at its level, or the water joined to it (D261). Shift adds and Alt takes away, in every mode. */
 export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode): PointerTool & { wantsAlt: true } {
   let start: [number, number] | null = null;
   let points: [number, number][] = [];
   let how: "set" | "add" | "subtract" = "set";
   let tiles: number[] = [];
+  /** Brush mode: the tiles painted so far in this drag. */
+  let painted: Set<number> | null = null;
+  /** Ctrl held on a click: Set level's target, unless it drags. */
+  let sampling: TileHit | null = null;
   const mode = () => forced ?? host.mode();
-  const show = (ev: PointerEvent) => {
+  const words = (list: readonly number[]): string | null => {
     const W = host.W;
-    const H = host.H;
-    if (!start) return;
-    tiles = mode() === "free" ? outlineTiles(points, W, H) : rectTilesBetween(start, points[points.length - 1] ?? start, W, H);
+    if (!list.length) return null;
+    if (mode() === "circle" && start) {
+      const last = points[points.length - 1] ?? start;
+      return `radius ${Math.round(Math.hypot(last[0] - start[0], last[1] - start[1]))}`;
+    }
     let x0 = Infinity;
     let y0 = Infinity;
     let x1 = -1;
     let y1 = -1;
-    for (const i of tiles) {
+    for (const i of list) {
       const x = i % W;
       const y = (i - x) / W;
       x0 = Math.min(x0, x);
@@ -150,35 +220,80 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
       y0 = Math.min(y0, y);
       y1 = Math.max(y1, y);
     }
-    host.drawing(tiles, tiles.length ? sizeWords({ w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: tiles.length }) : null, ev);
+    return sizeWords({ w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: list.length });
+  };
+  const show = (ev: PointerEvent) => {
+    const W = host.W;
+    const H = host.H;
+    if (!start) return;
+    const last = points[points.length - 1] ?? start;
+    const m = mode();
+    if (m === "brush") tiles = [...painted!];
+    else if (m === "free") tiles = outlineTiles(points, W, H);
+    else if (m === "circle") tiles = circleTiles(start[0], start[1], Math.hypot(last[0] - start[0], last[1] - start[1]), W, H);
+    else tiles = rectTilesBetween(start, last, W, H);
+    host.drawing(tiles, words(tiles), ev);
+  };
+  const paint = (x: number, y: number) => {
+    for (const i of circleTiles(x, y, host.brushSize?.() ?? 3, host.W, host.H)) painted!.add(i);
   };
   return {
     wantsAlt: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
+      // Ctrl+click: the tile's level, as Set level's target
+      // (a brush's Ctrl+drag hands its drag here: that one selects)
+      if ((ev.ctrlKey || ev.metaKey) && !forced && sel.count && host.sample) {
+        sampling = hit;
+        return true;
+      }
       how = ev.shiftKey ? "add" : ev.altKey ? "subtract" : "set";
-      if (mode() === "level") {
-        sel.apply(sameLevelTiles(host.heights(), host.W, host.H, hit.x, hit.y), how);
+      if (mode() === "wand") {
+        // a click on water takes that water; on land, the ground at its level joined to it
+        const W = host.W;
+        const onWater = host.wet?.(hit.y * W + hit.x) ?? false;
+        sel.apply(onWater ? waterTiles(host.wet!, W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y), how);
         host.changed();
         start = null;
         return true;
       }
       start = [hit.x, hit.y];
       points = [start];
+      if (mode() === "brush") {
+        painted = new Set();
+        paint(hit.x, hit.y);
+      }
       show(ev);
       return true;
     },
     move(hit: TileHit | null, ev: PointerEvent) {
+      if (sampling) return;
+      if (mode() === "brush") host.ring?.(hit ? [hit.x + 0.5, hit.y + 0.5] : null, host.brushSize?.() ?? 3);
       if (!start || !hit) return;
       const last = points[points.length - 1];
-      if (mode() === "free") {
-        if (!last || last[0] !== hit.x || last[1] !== hit.y) points.push([hit.x, hit.y]);
+      const m = mode();
+      if (m === "free" || m === "brush") {
+        if (!last || last[0] !== hit.x || last[1] !== hit.y) {
+          points.push([hit.x, hit.y]);
+          if (m === "brush") {
+            // (along the way, so a quick drag leaves no gaps)
+            const n = last ? Math.max(1, Math.ceil(Math.hypot(hit.x - last[0], hit.y - last[1]))) : 1;
+            for (let k = 1; k <= n; k++) paint(Math.round(last ? last[0] + ((hit.x - last[0]) * k) / n : hit.x), Math.round(last ? last[1] + ((hit.y - last[1]) * k) / n : hit.y));
+          }
+        }
       } else points = [start, [hit.x, hit.y]];
       show(ev);
     },
     up() {
+      if (sampling) {
+        const s = sampling;
+        sampling = null;
+        host.sample?.(host.heights()[s.y * host.W + s.x]);
+        return;
+      }
       if (!start) return;
       start = null;
+      painted = null;
       sel.apply(tiles, how);
       tiles = [];
       host.drawing(null, null, null);
@@ -186,8 +301,14 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
     },
     cancel() {
       start = null;
+      sampling = null;
+      painted = null;
       tiles = [];
       host.drawing(null, null, null);
+    },
+    hover(hit: TileHit | null) {
+      if (mode() === "brush") host.ring?.(hit ? [hit.x + 0.5, hit.y + 0.5] : null, host.brushSize?.() ?? 3);
+      else host.ring?.(null, 0);
     },
   };
 }

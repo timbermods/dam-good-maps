@@ -121,8 +121,16 @@ button[aria-pressed="true"] {
   position: absolute;
   top: 10px;
   left: 10px;
+  /* clear of the compass: the bar wraps to a second row before it reaches it */
+  right: 64px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  pointer-events: none;
+}
+
+.view3d-controls > * {
+  pointer-events: auto;
 }
 
 .view3d-controls button,
@@ -543,10 +551,10 @@ button[aria-pressed="true"] {
   --side-panel-width: 214px;
 }
 
-/* the brush bar's place over the map: below the camera's buttons */
+/* the brush bar's place over the map: below the camera's buttons (however many rows they take) */
 .brush-bar-wrap {
   position: absolute;
-  top: 52px;
+  top: calc(18px + var(--view-controls-h, 34px));
   left: 10px;
   display: flex;
   flex-direction: column;
@@ -608,6 +616,56 @@ button[aria-pressed="true"] {
   justify-content: flex-end;
 }
 
+/* a drought's or a badtide's day strip (D267): on the water bar's own line beneath its buttons,
+   Day 0 to the last day, the day shown pressed and the start's marked day ringed in the warning
+   colour, then Play, Speed and the length */
+.water-bar .day-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-basis: 100%;
+}
+
+.day-strip .days {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.day-strip .day {
+  min-width: 24px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-strip .day[aria-current="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.day-strip .day.marked {
+  box-shadow: inset 0 0 0 2px var(--warn);
+  font-weight: 700;
+}
+
+.day-strip input[type="number"] {
+  width: 3.5em;
+}
+
+.day-strip .strip-note {
+  padding: 0 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.day-strip .strip-note.marked {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 /* a source's marker (D196): its strength, over it; quiet until its water is the pointer's */
 .source-markers {
   position: absolute;
@@ -633,4 +691,50 @@ button[aria-pressed="true"] {
 .source-marker.feeding {
   outline: 2px solid var(--accent);
   font-weight: 600;
+}
+
+/* the source the pointer targets (D249): Delete removes it */
+.source-marker.target {
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Aim's arrow (D258): a thin straight arrow from where the drag began to the pointer, readable on
+   every ground (a pale line with a dark edge) */
+.aim-arrow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.aim-arrow-edge {
+  stroke: rgba(20, 24, 22, 0.55);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: rgba(20, 24, 22, 0.55);
+}
+
+.aim-arrow-line {
+  stroke: #fbf8ef;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.aim-arrow-head {
+  fill: #fbf8ef;
+}
+
+/* the Select row as a chip while a brush or a force is out (D259: one row at a time) */
+.select-chip-bar {
+  align-self: flex-start;
+  padding: 3px;
+}
+
+.select-chip {
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
 }

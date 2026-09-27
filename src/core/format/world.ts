@@ -13,6 +13,35 @@ export const EDITOR_MAX_HEIGHT = 16;
  *  20260925-tall); the in-game map editor edits only up to `EDITOR_MAX_HEIGHT`. */
 export const GAME_MAX_HEIGHT = 22;
 
+/** The editor's one height ceiling, on every map (PLAN §20 D244): D172's tall maximum. The brushes,
+ *  the forces, Select's levels and the build's integrity pass all stop here. */
+export const CEILING = GAME_MAX_HEIGHT;
+
+/** A map whose land goes above `EDITOR_MAX_HEIGHT` is a tall map (D172, D244); at or below it, a
+ *  standard one again. */
+export function isTall(heights: ArrayLike<number>): boolean {
+  for (let i = 0; i < heights.length; i++) if (heights[i] > EDITOR_MAX_HEIGHT) return true;
+  return false;
+}
+
+/** A tall map's note in its description (D172 (4), D244), in plain words: what the probe found the
+ *  in-game editor does with it (run ceiling-20260927). */
+export const TALL_NOTE = "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16.";
+
+/** The description with the tall note when the map is tall, and without it when it isn't. */
+export function withTallNote(description: string, tall: boolean): string {
+  const has = description.split("\n\n").some((p) => p.trim() === TALL_NOTE);
+  // (a description that has it and should, or hasn't and shouldn't, stays exactly as it is)
+  if (has === tall) return description;
+  const bare = description
+    .split("\n\n")
+    .filter((p) => p.trim() !== TALL_NOTE)
+    .join("\n\n")
+    .trimEnd();
+  if (!tall) return bare;
+  return bare ? `${bare}\n\n${TALL_NOTE}` : TALL_NOTE;
+}
+
 export interface WorldModel {
   gameVersion: string;
   timestamp: string;
@@ -313,4 +342,38 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
     floor.push(f.length >= 4 ? Number(f[3]) : -1);
   }
   return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+}
+
+/** The outflows a file stores for the water on each tile's first column (`WaterMapNew.ColumnOutflows`,
+ *  FORMAT.md §4.3: `"0"` or `Bottom:Left:Top:Right`, each part `"0"` or `targetIndex|flow` with the
+ *  target in the game's grid padded by one tile), four per tile in the simulation's order (−y, −x,
+ *  +y, +x, as `WaterSim.out` holds them); a flow to anywhere but the tile's own neighbour on the
+ *  same column is left out. Null when the file stores none. */
+export function storedOutflows(singletons: JsonObject, W: number, H: number): Float64Array | null {
+  const wm = singletons.WaterMapNew;
+  if (!isObject(wm) || !isObject(wm.ColumnOutflows)) return null;
+  const tokens = String(wm.ColumnOutflows.Array).split(" ");
+  const plane = W * H;
+  if (tokens.length < plane) return null;
+  const out = new Float64Array(4 * plane);
+  const stride = W + 2;
+  let any = false;
+  for (let i = 0; i < plane; i++) {
+    const t = tokens[i];
+    if (t === "0") continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const want = [(y - 1 + 1) * stride + x + 1, (y + 1) * stride + x, (y + 2) * stride + x + 1, (y + 1) * stride + x + 2];
+    const parts = t.split(":");
+    for (let k = 0; k < 4 && k < parts.length; k++) {
+      const p = parts[k];
+      if (p === "0") continue;
+      const [target, flow] = p.split("|");
+      const v = Number(flow);
+      if (Number(target) !== want[k] || !(v > 0)) continue;
+      out[4 * i + k] = v;
+      any = true;
+    }
+  }
+  return any ? out : null;
 }

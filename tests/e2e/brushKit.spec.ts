@@ -1,10 +1,10 @@
 // The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205, D212): Raise … Naturalize |
-// the forces | Remove, and a row with only the picked tool's options (the sources are on the
+// Select | the forces, and a row with only the picked tool's options (the sources are on the
 // shelf); square, precise with a hold that digs a level more at a steady pace down to its stop
-// level, straight lines with their length, level lines, Flatten in steps and with ramped edges,
-// "the start fits here" after a Flatten stroke,
-// Smooth make walkable; hold F to size the brush; the sounds' switch; the Select tool (M, or
-// Ctrl+drag) with its size and its actions.
+// level, straight lines with their length, level lines (a view switch beside Height colours, with
+// any tool: D248), Flatten in steps and with ramped edges, "the start fits here" after a Flatten
+// stroke, Smooth with no walkable option (D247); hold F to size the brush; the sounds' switch; the
+// Select tool (M, or Ctrl+drag) with its size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -37,7 +37,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("the top bar and the brush kit: options, precise hold with a stop, straight lines, terraces, walkable, Select", async ({ page }) => {
+test("the top bar and the brush kit: options, precise hold with a stop, straight lines, terraces, Smooth with no walkable option, Level lines in the view bar, Select", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -50,18 +50,18 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
-  // the top bar: the five brushes, the forces and Remove, and a row with only the picked tool's
-  // options; the sources are on the shelf, right after the start (D212)
+  // the top bar: the five brushes, Select and the forces (no Remove, D288), and a row with only the
+  // picked tool's options; the sources are on the shelf, first, then the start (D212, D226's order)
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Remove (X)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Select (M)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
+  expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
-  // the forces: Carve is ready, in their group (D194, D199); the others keep their slots hidden
-  // until they are (D202, D203, D206)
-  await expect(bar.getByRole("button", { name: "Carve (7)" })).toBeVisible();
-  for (const name of ["Craterize", "Quake", "Erupt"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
+  // the forces, all four ready (D216, D219), in their own group between the brushes and Remove
+  const forces = bar.getByRole("group", { name: "Forces" });
+  for (const name of ["Carve (7)", "Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
   // F and R do nothing with no brush or object out: the old camera zoom on R and F is gone (D212;
   // F sizes the brush, R turns the shelf's object)
   const distance = () => page.evaluate(() => window.dgm3d!.renderer.getView().distance);
@@ -70,7 +70,7 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("r");
   await page.waitForTimeout(150);
   expect(await distance()).toBe(d0);
-  // the sounds: on and quiet by default, an off switch, the volume beside it (D212)
+  // the sounds: on by default (clearly audible since D226), an off switch, the volume beside it (D212)
   const soundButton = page.getByRole("button", { name: "Sound", exact: true });
   await expect(soundButton).toHaveAttribute("aria-pressed", "true");
   await soundButton.hover();
@@ -86,14 +86,26 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("2");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });
-  for (const t of ["Square", "Precise", "Straight lines", "Level lines"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
+  for (const t of ["Square", "Precise", "Straight lines", "Clear sources"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
   await expect(lowerRow.getByLabel("In steps")).toHaveCount(0);
-  await expect(lowerRow.getByLabel("Make walkable")).toHaveCount(0);
+  await expect(lowerRow.getByLabel("Level lines")).toHaveCount(0);
 
-  // level lines
-  await lowerRow.getByLabel("Level lines").check();
+  // level lines: a view switch beside Height colours (D248), the same with a brush out or none
+  const view = page.getByRole("group", { name: "View" });
+  const levelLines = view.getByRole("button", { name: "Level lines" });
+  await expect(levelLines).toHaveAttribute("aria-pressed", "false");
+  const viewWords = (await view.getByRole("button").allTextContents()).map((t) => t.trim());
+  expect(viewWords.indexOf("Level lines")).toBe(viewWords.indexOf("Height colours") + 1);
+  await levelLines.click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(true);
-  await lowerRow.getByLabel("Level lines").uncheck();
+  // the brush put away: level lines stay
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("group", { name: "Lower options" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(true);
+  await levelLines.click();
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(false);
+  await page.keyboard.press("2");
+  await expect(lowerRow).toBeVisible();
 
   // precise, square, and a hold that stops at its level (D193)
   const pit = (await flatDry(page, start, 3))!;
@@ -147,7 +159,7 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   expect(ys.size).toBeLessThanOrEqual(2);
   await lowerRow.getByLabel("Straight lines").uncheck();
 
-  // Flatten in steps, Smooth make walkable: in the stroke's operation
+  // Flatten in steps: in the stroke's operation
   await page.keyboard.press("3");
   const flatRow = page.getByRole("group", { name: "Flatten options" });
   await flatRow.getByLabel("In steps").check();
@@ -234,11 +246,17 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption("start");
 
   await page.keyboard.press("4");
-  await page.getByRole("group", { name: "Smooth options" }).getByLabel("Make walkable").check();
-  // over the precise pit's 2-level walls: worn to steps a beaver can climb
+  // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted); its stroke
+  // over the precise pit's walls carries none
+  const smoothRow = page.getByRole("group", { name: "Smooth options" });
+  await expect(smoothRow).toBeVisible();
+  // (only the toggles all five brushes share: Square, Precise, Straight lines and Clear sources, D249)
+  await expect(smoothRow.getByRole("checkbox")).toHaveCount(4);
+  await expect(smoothRow.getByLabel("Clear sources")).toHaveCount(1);
+  await expect(smoothRow.getByLabel(/walkable/i)).toHaveCount(0);
   await page.mouse.click(pp.x, pp.y);
   await settle(page);
-  expect((await lastStroke(page))!.walkable).toBe(true);
+  expect((await lastStroke(page))!.walkable).toBeUndefined();
   expect((await lastStroke(page))!.size).toBe(sized);
 
   // the Select tool: M, a rectangle with its size, raise it by 2, one step
@@ -270,7 +288,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("Escape");
   await expect(sel).toHaveCount(0);
 
-  // Ctrl+drag with a brush out selects too
+  // Ctrl+drag with a brush out selects too: the brush stays out, and the Select row is a chip
+  // beside it (D259: one row at a time)
   await page.keyboard.press("1");
   await page.keyboard.down("Control");
   await page.mouse.move(q0.x, q0.y);
@@ -278,6 +297,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.mouse.move(q1.x, q1.y, { steps: 5 });
   await page.mouse.up();
   await page.keyboard.up("Control");
-  await expect(page.getByRole("group", { name: "Selection" }).getByRole("status")).toHaveText("6 × 5 tiles");
+  await expect(page.locator(".select-chip")).toHaveText("Working inside 6 × 5 · Esc to clear");
+  await expect(page.getByRole("group", { name: "Selection" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Raise brush/ })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
 });

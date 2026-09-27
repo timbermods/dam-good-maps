@@ -80,10 +80,6 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
         <div><dt>Badwater</dt><dd>{f.badwaterFlow ? `${f.badwaterFlow} water/s from ${f.badwaterSources} source${f.badwaterSources > 1 ? "s" : ""}` : "none"}</dd></div>
         <div><dt>Under water</dt><dd>{Math.round(f.wetShare * 100)}% of the map</dd></div>
         <div><dt>Water from the start</dt><dd>{f.waterDistance === null ? "none within reach" : `${f.waterDistance} tiles' walk`}</dd></div>
-        <div>
-          <dt>Best dam site</dt>
-          <dd>{f.bestDam ? `${f.bestDam.volume.toLocaleString()} water behind a ${f.bestDam.length}-tile dam` : "none near the start"}</dd>
-        </div>
         <div><dt>Drought need</dt><dd>{f.reservoirNeed.toLocaleString()} water stored</dd></div>
         <div><dt>Trees</dt><dd>{trees.length} ({living} alive)</dd></div>
         <div><dt>Berry bushes</dt><dd>{count((t) => t === "BlueberryBush")}</dd></div>

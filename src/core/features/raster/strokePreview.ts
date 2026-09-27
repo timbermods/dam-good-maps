@@ -71,7 +71,24 @@ export class StrokePreview {
    *  shown heights that changed, or null. */
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
     const r = this.stroke.add(dabs, pressure, levels);
+    return r ? this.settle(r) : null;
+  }
+
+  /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle
+   *  tile (D249), as the build does. Returns the rectangle of shown heights that changed, or null. */
+  finish(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
+    const r = rigid.length ? this.stroke.level(rigid) : null;
     if (!r) return null;
+    this.finished = this.finished ? { x0: Math.min(this.finished.x0, r.x0), y0: Math.min(this.finished.y0, r.y0), x1: Math.max(this.finished.x1, r.x1), y1: Math.max(this.finished.y1, r.y1) } : r;
+    return this.settle(r);
+  }
+
+  /** The tiles `finish` changed (outside the dabs' reach too), or null. */
+  finished: Rect | null = null;
+
+  /** After the stroke changed the tiles in `r`: the integrity pass round them, and what the page
+   *  shows that changed. */
+  private settle(r: Rect): Rect | null {
     const { W, H, heights, last } = this;
     // a precise stroke's tiles stay as it leaves them (build step 6 marks them the same way)
     if (this.precise)

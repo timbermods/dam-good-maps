@@ -13,8 +13,12 @@
 
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
+import { CEILING } from "../format/world";
+import { JsonFloat } from "../format/json";
 import { objectTile } from "../sim/model";
 import type { WaterState } from "../sim/water";
+import type { Fallen } from "./objects";
+import { geology } from "./random";
 
 /** Steps of a force in one second of it (the player's pace changes only how fast they are shown). */
 export const STEPS_PER_SECOND = 10;
@@ -26,10 +30,49 @@ export interface ForceMap {
   heights: Uint8Array;
   entities: EntitySpec[];
   water: WaterState;
-  /** The highest level a force may build to (16; 22 on tall maps). */
+  /** The highest level a force may build to: the editor's one ceiling (D244). */
   maxHeight: number;
   /** Hardness (0–1) of each whole level, when the map has its rock layers (absent: derived). */
   rockLayers?: number[];
+  /** Fresh volcanic rock, a bit per level of each tile (rock.ts); absent: none. */
+  lava?: Uint32Array;
+  /** Trees knocked down by earlier forces, as they lie (objects.ts). */
+  fallen?: Fallen[];
+}
+
+/** The highest level a force builds to: the editor's one ceiling on every map, D172's tall maximum
+ *  (D244; before it 16, or a tall map's own top). A map a force raises past 16 becomes tall. */
+export function forceCeiling(_heights?: ArrayLike<number>): number {
+  return CEILING;
+}
+
+/** A force's map with everything the verbs read filled in. */
+export interface FullForceMap extends ForceMap {
+  rockLayers: number[];
+  lava: Uint32Array;
+  fallen: Fallen[];
+}
+
+/** Objects as plain JSON (a force works on copies; the exact numbers of a file stay in the map's). */
+export const plainEntities = (e: readonly EntitySpec[]): EntitySpec[] => JSON.parse(JSON.stringify(e, (_k, v) => (v instanceof JsonFloat ? v.value : v)));
+
+/** A copy of a force's map that shares nothing with it. */
+export function snapshotMap<T extends ForceMap>(m: T): T {
+  return {
+    ...m,
+    heights: m.heights.slice(),
+    entities: plainEntities(m.entities),
+    ...(m.rockLayers ? { rockLayers: m.rockLayers.slice() } : {}),
+    ...(m.fallen ? { fallen: structuredClone(m.fallen) } : {}),
+    ...(m.lava ? { lava: m.lava.slice() } : {}),
+    water: { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() },
+  };
+}
+
+/** A copy with its rock beds (derived from its ground when it has none), fresh rock and fallen trees. */
+export function fullMap(m: ForceMap): FullForceMap {
+  const r = snapshotMap(m);
+  return { ...r, rockLayers: r.rockLayers ?? geology(r.heights), fallen: r.fallen ?? [], lava: r.lava ?? new Uint32Array(r.W * r.H) };
 }
 
 /** One stream of a force's head (a carve splits into two round a hard rock core). */
@@ -83,20 +126,11 @@ export function entityTiles(W: number, H: number, e: Pick<EntitySpec, "template"
   return out;
 }
 
-/** The ground no force touches: the start's footprint and a tile round it, and `also` (the land
- *  above the layer showing, an imported map's caves). */
-export function protectedGround(m: Pick<ForceMap, "W" | "H" | "entities">, also: Uint8Array | null = null): Uint8Array {
-  const keep = also ? also.slice() : new Uint8Array(m.W * m.H);
-  for (const e of m.entities)
-    if (e.template === "StartingLocation")
-      for (const i of entityTiles(m.W, m.H, e))
-        for (let y = -1; y <= 1; y++)
-          for (let x = -1; x <= 1; x++) {
-            const xx = (i % m.W) + x;
-            const yy = Math.floor(i / m.W) + y;
-            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H) keep[yy * m.W + xx] = 1;
-          }
-  return keep;
+/** The ground no force touches: `also` (the land above the layer showing, an imported map's
+ *  caves). The start's is not among it: a force is bound only by nature, and the start is carried
+ *  to level ground when a force breaks its own (D257). */
+export function protectedGround(m: Pick<ForceMap, "W" | "H">, also: Uint8Array | null = null): Uint8Array {
+  return also ? also.slice() : new Uint8Array(m.W * m.H);
 }
 
 /** What a force left, literally: the changed tiles (sorted) and their new levels, the objects that

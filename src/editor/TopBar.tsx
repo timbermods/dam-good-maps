@@ -1,24 +1,28 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
-// the forces | Remove, and a small row beneath with only the picked tool's options (the sources are
-// on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
-// while it changes (Shift+scroll, { and }). The brush kit's toggles are off by default: square,
-// precise (with "stop at" for a hold, D193), straight lines, level lines; Flatten has "in steps"
-// and its edges, Smooth "make walkable". The forces (D194, D202, D203, D206: Carve, Craterize,
-// Quake, Erupt) are a group of their own on one shared core, each options row starting with its
-// mode switch; each slot stays empty until Kyler says its prototype is ready (Carve is), and the
-// public site shows none until their release (release.ts, D219). While a force is at work the
-// other tools wait. Built from the shared bar and button styles (D176).
+// Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
+// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
+// while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
+// slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
+// hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
+// Flatten has "in steps" and its edges; Smooth has none (D247: the
+// shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
+// Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each row Power,
+// Size, at most one choice and Try another, the gesture deciding the rest (D289); all four are ready (D216, D219), and the public site shows none
+// until their release (release.ts, D219). While a force is at work the other tools wait. Built from
+// the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
-import type { RemoveKind } from "../core/features/objects";
+import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
+import type { Verb } from "../core/forces/op";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
- *  cut through a gorge; a cross. */
-function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
+ *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano; a
+ *  dashed frame. */
+function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -56,46 +60,55 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "carve" }) {
           <path d="M2 4l4 12M18 4l-4 12M11 3c-3 3 2 5-1 8s1 4 0 6" />
         </svg>
       );
-    case "remove":
+    case "craterize":
       return (
         <svg {...ICON}>
-          <path d="M5 5l10 10M15 5L5 15" />
+          <path d="M2 14c2 0 3-3 8-3s6 3 8 3M5 14c1 2 3 3 5 3s4-1 5-3M13 2l-3 5M15 5l-2 1" />
+        </svg>
+      );
+    case "quake":
+      return (
+        <svg {...ICON}>
+          <path d="M2 11h5l2-3 2 5 2-3h5M3 15h4M13 15h4M3 7h3M14 7h3" />
+        </svg>
+      );
+    case "erupt":
+      return (
+        <svg {...ICON}>
+          <path d="M2 17l5-8h6l5 8M8 9l1-2h2l1 2M9 5c0-2 2-2 2-4M12 5c1-1 3-1 3-3" />
+        </svg>
+      );
+    case "select":
+      return (
+        <svg {...ICON}>
+          <path d="M3 3h3M9 3h2M14 3h3v3M17 9v2M17 14v3h-3M11 17H9M6 17H3v-3M3 11V9M3 6V3" />
         </svg>
       );
   }
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | "remove" | "carve";
-
-/** What Remove takes (its filters), and their words. */
-export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
-  ["trees", "Trees"],
-  ["bushes", "Bushes"],
-  ["ruins", "Ruins"],
-  ["objects", "Objects"],
-  ["slopes", "Slopes"],
-  ["sources", "Sources"],
-];
+export type TopTool = BrushTool | Verb;
 
 /** The forces (D203, D206): their slots in the bar, each hidden until it is ready. One shared core
- *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its modes:
- *  every force's options row starts with its mode switch. */
+ *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its one
+ *  signature choice where it has one (D289: the gesture decides the rest). */
 export interface Force {
-  id: string;
+  id: Verb;
   name: string;
   ready: boolean;
-  /** The mode switch that starts its options row (the first mode is the default). */
-  modes: readonly [string, string];
+  /** Its one choice as a switch that starts its options row (the first is the default): Quake's
+   *  Lift or Slide. The others' click or drag is their mode (D289). */
+  modes?: readonly [string, string];
   /** Its key, and what it does, for its button's title. */
   key?: string;
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or aim it from one spot to another. Stop keeps it, Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: false, modes: ["Strike", "Aim"] },
-  { id: "quake", name: "Quake", ready: false, modes: ["Lift", "Slide"] },
-  { id: "erupt", name: "Erupt", ready: false, modes: ["Vent", "Fissure"] },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Esc takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -105,17 +118,20 @@ export const SHOWN_FORCES: readonly Force[] = forcesShownIn({ mode: import.meta.
 /** This build shows the force `id`. */
 export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
-/** A force's options row: its mode switch first, then the force's own options. */
-export function ForceOptions(p: { force: Force; mode: string; onMode(mode: string): void; children?: ComponentChildren }) {
+/** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
+ *  Size and Try another (D289). */
+export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: string): void; children?: ComponentChildren }) {
   return (
-    <div class="map-bar options-row" role="group" aria-label={`${p.force.name} options`}>
-      <div class="segmented" role="group" aria-label="Mode">
-        {p.force.modes.map((m) => (
-          <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode(m)}>
-            {m}
-          </button>
-        ))}
-      </div>
+    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} options`}>
+      {p.force.modes ? (
+        <div class="segmented" role="group" aria-label="Mode">
+          {p.force.modes.map((m) => (
+            <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode?.(m)}>
+              {m}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {p.children ? <div class="bar-group">{p.children}</div> : null}
     </div>
   );
@@ -124,10 +140,6 @@ export function ForceOptions(p: { force: Force; mode: string; onMode(mode: strin
 export interface TopBarProps {
   /** The brush out, or null. */
   active: BrushTool | null;
-  /** Remove is picked, and what it takes. */
-  remove: boolean;
-  removeKinds: readonly RemoveKind[];
-  onRemoveKinds(kinds: RemoveKind[]): void;
   settings: BrushSettings;
   onPick(tool: TopTool | null): void;
   /** The force picked (its id), its options row, and whether one is at work (the other tools wait). */
@@ -139,6 +151,11 @@ export interface TopBarProps {
   loading?: boolean;
   /** A selection's own row (its size, its actions), when there is one. */
   selectRow?: ComponentChildren;
+  /** With a brush or a force out while a selection is open: the Select row as a chip (D259). */
+  selectChip?: ComponentChildren;
+  /** The Select tool is open (its button, D259), and its button's click. */
+  selecting?: boolean;
+  onSelect?(): void;
   /** Another row beneath the bar: the shelf's object's options (a source's strength), a selected
    *  source's. */
   row?: { label: string; content: ComponentChildren } | null;
@@ -153,6 +170,47 @@ export function Toggle(p: { label: string; title: string; on: boolean; onChange(
       <input type="checkbox" checked={p.on} onChange={() => p.onChange(!p.on)} />
       {p.label}
     </label>
+  );
+}
+
+/** A size on a slider with its number (D226): a brush's (hold F to drag it too), and each force's
+ *  size, which follows Power (Auto, pressed) until the slider sets it by hand; Auto puts it back. */
+export function SizeControl(p: {
+  label: string;
+  title: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  /** What the number reads (the value, by default). */
+  words?: string;
+  onChange(v: number): void;
+  /** A force's: it follows Power while `on`; `onAuto` switches. */
+  auto?: { on: boolean; onAuto(on: boolean): void };
+}) {
+  const words = p.words ?? String(p.value);
+  return (
+    <span class="size-control">
+      <label class="slider-field" title={p.title}>
+        {p.label}
+        <input
+          type="range"
+          min={p.min}
+          max={p.max}
+          step={p.step}
+          aria-label={p.label}
+          aria-valuetext={p.auto?.on ? `${words}, following Power` : words}
+          value={p.value}
+          onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))}
+        />
+        <output>{words}</output>
+      </label>
+      {p.auto ? (
+        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power: move the slider to set it yourself` : `Let ${p.label.toLowerCase()} follow Power again`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
+          Auto
+        </button>
+      ) : null}
+    </span>
   );
 }
 
@@ -182,6 +240,20 @@ export function TopBar(p: TopBarProps) {
             <span class="icon-word">{b.name}</span>
           </button>
         ))}
+        {p.onSelect ? (
+          <button
+            type="button"
+            class="icon-button"
+            aria-pressed={!!p.selecting}
+            aria-label="Select (M)"
+            title={off ? why : "Select (M): mark an area, then set it to a level, work only inside it, or press Delete to clear what stands there (Ctrl+A: the whole map)"}
+            disabled={off}
+            onClick={p.onSelect}
+          >
+            <Icon tool="select" />
+            <span class="icon-word">Select</span>
+          </button>
+        ) : null}
         {SHOWN_FORCES.length ? (
           <>
             <span class="bar-divider" aria-hidden="true" />
@@ -197,34 +269,22 @@ export function TopBar(p: TopBarProps) {
                   disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
                   onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
                 >
-                  {f.id === "carve" ? <Icon tool="carve" /> : null}
+                  <Icon tool={f.id} />
                   <span class="icon-word">{f.name}</span>
                 </button>
               ))}
             </span>
           </>
         ) : null}
-        <span class="bar-divider" aria-hidden="true" />
-        <button
-          type="button"
-          class="icon-button"
-          aria-pressed={p.remove}
-          aria-label="Remove (X)"
-          title={off ? why : "Remove (X): click an object, or drag over many. It never changes the ground; the start stays."}
-          disabled={off}
-          onClick={() => p.onPick(p.remove ? null : "remove")}
-        >
-          <Icon tool="remove" />
-          <span class="icon-word">Remove</span>
-        </button>
       </div>
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
+            <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and drag to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={BRUSH_SIZE_MAX} step={0.5} onChange={(size) => set({ size })} />
             <Toggle label="Square" title="A square brush instead of a round one" on={s.square} onChange={(square) => set({ square })} />
             <Toggle label="Precise" title="Hard edges and straight walls, a level at a time: hold still to dig or build a level more" on={s.precise} onChange={(precise) => set({ precise })} />
             <Toggle label="Straight lines" title="The stroke runs straight from where you press to the pointer; its length shows beside it" on={s.straight} onChange={(straight) => set({ straight })} />
-            <Toggle label="Level lines" title="A thin line wherever the ground steps down a level" on={s.levelLines} onChange={(levelLines) => set({ levelLines })} />
+            <Toggle label="Clear sources" title="The water sources the brush passes over go with the stroke (they glow red under the ring first)" on={s.clearSources} onChange={(clearSources) => set({ clearSources })} />
             {t === "flatten" ? (
               <>
                 <Toggle label="In steps" title="Terraces: benches every few levels from the flatten level" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
@@ -254,7 +314,7 @@ export function TopBar(p: TopBarProps) {
                     set({ level: v === "start" ? null : Number(v) });
                   }}>
                     <option value="start">Where I start</option>
-                    {Array.from({ length: 17 }, (_, k) => k).map((k) => (
+                    {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
                       <option key={k} value={String(k)}>
                         {k}
                       </option>
@@ -263,7 +323,6 @@ export function TopBar(p: TopBarProps) {
                 </label>
               </>
             ) : null}
-            {t === "smooth" ? <Toggle label="Make walkable" title="Wear steps to one level and put the game's natural slopes on them, so beavers can walk up" on={s.walkable} onChange={(walkable) => set({ walkable })} /> : null}
             {s.precise && heaps ? (
               <>
                 <Toggle label="Stop at" title={`A hold stops at this level (a ${t === "lower" ? "floor" : "ceiling"}): Ctrl+click the map to pick it (on water, its bed)`} on={s.stop !== null} onChange={(on) => set({ stop: on ? (t === "lower" ? 2 : 10) : null })} />
@@ -271,7 +330,7 @@ export function TopBar(p: TopBarProps) {
                   <label>
                     level
                     <select aria-label="Stop level" value={String(s.stop)} onChange={(e) => set({ stop: Number((e.target as HTMLSelectElement).value) })}>
-                      {Array.from({ length: 17 }, (_, k) => k).map((k) => (
+                      {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
                         <option key={k} value={String(k)}>
                           {k}
                         </option>
@@ -285,21 +344,6 @@ export function TopBar(p: TopBarProps) {
         </div>
       ) : null}
       {p.force && p.forceRow ? p.forceRow : null}
-      {p.remove ? (
-        <div class="map-bar options-row" role="group" aria-label="Remove options">
-          <div class="bar-group">
-            {REMOVE_KINDS.map(([k, word]) => (
-              <Toggle
-                key={k}
-                label={word}
-                title={`Remove takes ${word.toLowerCase()}`}
-                on={p.removeKinds.includes(k)}
-                onChange={(on) => p.onRemoveKinds(on ? [...p.removeKinds, k] : p.removeKinds.filter((x) => x !== k))}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
       {p.row ? (
         <div class="map-bar options-row" role="group" aria-label={p.row.label}>
           <div class="bar-group">{p.row.content}</div>
@@ -310,6 +354,7 @@ export function TopBar(p: TopBarProps) {
           {p.selectRow}
         </div>
       ) : null}
+      {p.selectChip ? <div class="map-bar select-chip-bar">{p.selectChip}</div> : null}
       {p.hints ?? null}
     </div>
   );

@@ -1,5 +1,5 @@
 // Kyler's clean look in the page: the 3D view opens clean, with **Markers** off; the button turns
-// on the information layer (slope arrows, dam sites, level lines, far-off objects drawn larger)
+// on the information layer (slope arrows, level lines, far-off objects drawn larger)
 // and the choice lasts; in the editor, the Dam sites view button shows the dam sites with the
 // markers, and the shelf's Slope shows them while it is out; each puts them away after.
 
@@ -47,17 +47,11 @@ test("the 3D view is clean until Markers turns the information layer on", async 
   await page.getByRole("button", { name: "Markers", exact: true }).click();
   expect((await state(page)).markers).toBe(false);
 
-  // the Dam sites view button shows the dam sites, with the markers; off again, the clean view
+  // no Dam sites view (D287): dam sites are never drawn on the map
   const markers = page.getByRole("button", { name: "Markers", exact: true });
-  const dams = page.getByRole("group", { name: "View" }).getByRole("button", { name: "Dam sites", exact: true });
-  await dams.click();
-  await expect(dams).toHaveAttribute("aria-pressed", "true");
-  await expect(markers).toHaveAttribute("aria-pressed", "true");
-  expect((await state(page)).markers).toBe(true);
-  await dams.click();
-  await expect(dams).toHaveAttribute("aria-pressed", "false");
-  await expect(markers).toHaveAttribute("aria-pressed", "false");
-  expect((await state(page)).markers).toBe(false);
+  const viewBar = page.getByRole("group", { name: "View" });
+  for (const gone of ["Dam sites", "Moisture", "Drought", "Orbit"]) await expect(viewBar.getByRole("button", { name: gone, exact: true }), gone).toHaveCount(0);
+  await expect(viewBar.getByRole("button", { name: "Badwater", exact: true })).toHaveCount(1);
   // the shelf's Slope shows the markers (the slopes' arrows) while it is out
   const slope = page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Slope", exact: true });
   await slope.click();
@@ -65,12 +59,5 @@ test("the 3D view is clean until Markers turns the information layer on", async 
   await slope.click();
   await expect(markers).toHaveAttribute("aria-pressed", "false");
 
-  // the dam sites on, the markers stay on when Slope is put away
-  await dams.click();
-  await expect(markers).toHaveAttribute("aria-pressed", "true");
-  await slope.click();
-  await slope.click();
-  await expect(dams).toHaveAttribute("aria-pressed", "true");
-  expect((await state(page)).markers).toBe(true);
   expect(errors).toEqual([]);
 });

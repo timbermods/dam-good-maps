@@ -27,10 +27,16 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   // five of the twelve samples must differ)
   const distinct = new Set(xs.map((x) => x.toFixed(3))).size;
   expect(distinct).toBeGreaterThanOrEqual(5);
-  // it glides to a stop, then stays
-  await page.waitForTimeout(500);
-  const stopped = await view(page);
-  await page.waitForTimeout(200);
+  // it glides to a stop, then stays (the glide takes about half a second; a machine busy with other
+  // tests can stretch its frames, so it is given up to three seconds to come to rest)
+  let stopped = await view(page);
+  for (let k = 0; k < 30; k++) {
+    await page.waitForTimeout(100);
+    const now = await view(page);
+    if (JSON.stringify(now.target) === JSON.stringify(stopped.target)) break;
+    stopped = now;
+  }
+  await page.waitForTimeout(300);
   expect((await view(page)).target).toEqual(stopped.target);
   expect(stopped.target).not.toEqual(v0.target);
 

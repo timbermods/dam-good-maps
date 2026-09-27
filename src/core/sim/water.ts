@@ -29,6 +29,9 @@ export interface Emitter {
   cells: number[];
   /** Blocks of water per second at full strength (0 for sources that are off). */
   strength: number;
+  /** The source's own specified strength, where the game limits what it gives below it (over 8 a
+   *  tile): the drought's ease is timed by it (core/sim/weather.ts `droughtStrength`). */
+  specified?: number;
   /** Contamination of the emitted water: 0 clean, 1 badwater. */
   contamination: number;
   /** Seeps: off while the water at `anchor` is deeper than `off`, back on below `on`. */
@@ -110,7 +113,16 @@ export class WaterSim {
   /** Seep on/off state per emitter (1 = on). */
   private readonly seepOn: Uint8Array;
 
-  constructor(model: WaterModel, initial?: WaterState) {
+  /** The game's spill threshold at the map's edge too (its padding is an open column, floor 0,
+   *  never wet: water on a floor-0 tile at the edge keeps its last 0.1 there, as it would beside a
+   *  dry tile on the same floor). The game does this; the heightfield port leaves it out, and it
+   *  stays out of the settle and the generator until D293's change (one water model everywhere) so
+   *  no map's water moves; the Drought and Badtide days use it, since a draining river shows it
+   *  (the DGM Probe's games, docs/progress/weather-days.md). */
+  readonly edgeSpill: boolean;
+
+  constructor(model: WaterModel, initial?: WaterState, opts: { edgeSpill?: boolean } = {}) {
+    this.edgeSpill = opts.edgeSpill ?? false;
     const { W, H } = model;
     const N = W * H;
     this.W = W;
@@ -292,7 +304,7 @@ export class WaterSim {
             fk = 0.995 * prev + K * e;
           }
         } else {
-          if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+          if ((inside || this.edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
           fk = prev + K * e;
         }
         f[b + k] = fk > 0 ? fk : 0;

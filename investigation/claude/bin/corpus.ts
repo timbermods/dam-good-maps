@@ -1154,14 +1154,14 @@ R("B14", "simple", "flatten a spot in the southwest into a plateau beavers can w
   },
 });
 R("B15", "simple", "wear down the steep steps in the south so beavers can walk there", "rv96", {
-  note: "the brush kit (D184): Smooth with make walkable",
-  goals: [G("g1", "the south's steps worn to one level, with slopes on them")],
-  report: { mustSay: ["how many tiles it smoothed, and the steepest step before and after", "that the game's natural slopes join the steps"] },
+  note: "the brush kit (D184, D247): Smooth wears the steps to one level; Smooth lays no slopes now, so a beaver's way up a 1-level step is the shelf's Slope, placed where it joins one",
+  goals: [G("g1", "the south's steps worn to one level")],
+  report: { mustSay: ["how many tiles it smoothed, and the steepest step before and after", "that a slope from the shelf joins a 1-level step where beavers should climb (Smooth lays none)"] },
   pass: [VALID, START_RULES_HOLD],
   reference: {
     calls: [call("resolve_region", { where: "the south third" })],
-    proposal: { steps: [{ op: "brush", tool: "smooth", where: "the south third", size: "medium", walkable: true, passes: 3 }] },
-    checks: [chk("propose", "steps.0.report.1", "matches", "^made walkable")],
+    proposal: { steps: [{ op: "brush", tool: "smooth", where: "the south third", size: "medium", passes: 3 }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^smooths [0-9]+ of [0-9]+ tiles in 3 passes: the steepest step there goes from [0-9]+ to 1 levels")],
   },
 });
 R("B16", "simple", "put a medium relic in the east third, turned sideways", "rv96", {
@@ -1228,6 +1228,83 @@ R("B21", "simple", "carve a river from the bend at 60, 40 up into the hills at 8
     calls: [call("dry_run", { steps: [{ op: "carve", from: [60, 40], to: [85, 60] }] })],
     proposal: { steps: [{ op: "carve", from: [60, 40], to: [85, 60], defyGravity: true }] },
     checks: [chk("call:0", "steps.0.errors.0", "matches", "uphill"), chk("propose", "steps.0.resolved.reason", "equals", "destination"), chk("propose", "steps.0.report.0", "matches", "^carves a river")],
+  },
+});
+R("B22", "simple", "put a crater about 24 tiles across near (80, 62)", "rv96", {
+  note: "Craterize (D202): a giant impact where asked, as the editor's button makes it; its size set by hand, light debris",
+  goals: [G("g1", "a crater about 24 tiles across near (80, 62)")],
+  report: { mustSay: ["where it struck and how wide the crater is", "how deep its floor goes and how high its rim and debris reach", "the trees it knocked down and the objects it took"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "craterize" })],
+    proposal: { steps: [{ op: "craterize", at: [80, 62], size: 24, debris: "light" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^strikes a crater 24 tiles across [(]asteroid, power 55[)] at [(]80, 62[)]"), chk("propose", "steps.0.resolved.mode", "equals", "strike")],
+  },
+});
+R("B23", "simple", "raise a small volcano near (75, 25)", "rv96", {
+  note: "Erupt (D206): a vent, its power a cone, light flows so it keeps to its own ground",
+  goals: [G("g1", "a small volcano near (75, 25)")],
+  report: { mustSay: ["where it rose and how high", "that its fresh lava is hard rock"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "erupt" })],
+    proposal: { steps: [{ op: "erupt", at: [75, 25], power: "cone", flows: "light" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^raises a volcano [(]cone, power 40[)] at [(]75, 25[)]"), chk("propose", "steps.0.resolved.mode", "equals", "vent")],
+  },
+});
+R("B24", "simple", "lift the land north of a short fault from (55, 80) to (80, 80)", "rv96", {
+  note: "Quake (D203, D219): Lift along a drawn fault, the left of an eastward line (north) rising, a tremor's power",
+  goals: [G("g1", "the land north of the line from (55, 80) to (80, 80) lifted")],
+  report: { mustSay: ["which side lifted and by how much", "how much the other side dropped"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "quake" })],
+    proposal: { steps: [{ op: "quake", line: [[55, 80], [80, 80]], side: "left", power: "tremor" }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^lifts the land on the left of the fault by up to [0-9]+ levels"), chk("propose", "steps.0.resolved.mode", "equals", "lift")],
+  },
+});
+R("B25", "conflicting", "drop a meteor right on the start", "rv96", {
+  feasible: "no",
+  note: "every force refuses where the start sits (D202): the quiet word is the editor's, Start here",
+  goals: [G("g1", "a crater where the start is")],
+  report: { mustSay: ["conflict: the start's ground stays as it is, so the impact can't land there", "offer: a crater beside the start instead"] },
+  pass: ["the step is refused with the start's reason", "the conflict is reported with an offer"],
+  reference: {
+    calls: [call("dry_run", { steps: [{ op: "craterize", at: [34, 47], power: "meteor" }] })],
+    checks: [chk("call:0", "steps.0.errors.0", "matches", "^Start here")],
+  },
+});
+R("B26", "simple", "carve a wide, shallow river from the east hills, powerful but only two levels deep", "rv96", {
+  note: "Carve's Depth (D226): power and size are separate; a wide river at high power, its depth capped by hand below the land it runs through",
+  goals: [G("g1", "a wide river from the east hills, two levels deep at most")],
+  report: { mustSay: ["where it starts, how far it ran and why it ended", "that its depth is held to two levels below the land, however strong it is"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "carve" })],
+    proposal: { steps: [{ op: "carve", where: "the east third", power: 90, width: 16, depth: 2 }] },
+    checks: [chk("propose", "steps.0.resolved.depth", "equals", 2), chk("propose", "steps.0.resolved.deepest", "max", 2), chk("propose", "steps.0.report.1", "matches", "^its depth set to 2 levels")],
+  },
+});
+R("B27", "simple", "raise a broad volcano about 60 tiles across near (70, 20), not very tall", "rv96", {
+  note: "Erupt's Size (D226): its breadth set by hand, its height from power; broad and low",
+  goals: [G("g1", "a broad, low volcano about 60 tiles across near (70, 20)")],
+  report: { mustSay: ["where it rose, how high and how broad", "that its fresh lava is hard rock"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "erupt" })],
+    proposal: { steps: [{ op: "erupt", at: [70, 20], power: "cone", size: 60, shape: "broad", flows: "light" }] },
+    checks: [chk("propose", "steps.0.resolved.breadth", "equals", 60), chk("propose", "steps.0.report.0", "matches", "^raises a volcano [(]cone, power 40[)] at [(]70, 20[)]: up to level [0-9]+, [0-9]+ levels at most, 60 tiles across")],
+  },
+});
+R("B28", "simple", "put a water source on the hill at (70, 30) and let it carve its own river down", "rv96", {
+  note: "Unleash, on a source (D239): the placed source's own water carves its course with Carve's engine, its width from the source's strength; the source stays, no other is added",
+  goals: [G("g1", "a river carved from a new source at (70, 30), the source still its origin")],
+  report: { mustSay: ["the source placed and its strength", "where its river ran and why it ended, and how wide it is (from the source's strength)", "that the source stays the river's origin: no other source"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "carve" })],
+    proposal: { steps: [{ op: "addSource", kind: "water", at: [70, 30], strength: 3 }, { op: "carve", source: [70, 30], power: 60 }] },
+    checks: [chk("propose", "steps.1.report.0", "matches", "^unleashes the water source at [(]70, 30[)] [(]river, power 60[)]: .*6.1 tiles wide [(]the source's 3 blocks/s[)]"), chk("propose", "steps.1.report.1", "matches", "^the source stays the river's origin"), chk("propose", "steps.1.resolved.width", "equals", 6.1)],
   },
 });
 R("B11", "simple", "draw a straight canal from the river south to the map edge at x 72", "rv96", {

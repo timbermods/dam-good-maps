@@ -982,8 +982,9 @@ export function cornerFor(x: number, y: number, o: Orientation): [number, number
 }
 
 /** The operations that move the start to the nearest spot where it stands well (a fix for the
- *  start checks), or null when there is none within 24 tiles. */
-export function moveStartNear(s: MapSession, fromX: number, fromY: number): EditOp[] | null {
+ *  start checks), or null when there is none within 24 tiles. `level`: only where its ground is
+ *  level already (a start a force carries, D257: the force's land stays as it made it). */
+export function moveStartNear(s: MapSession, fromX: number, fromY: number, level = false): EditOp[] | null {
   const b = s.built;
   const { W, H } = b;
   const feat = s.features.find((f): f is StartFeature => f.kind === "start");
@@ -1004,7 +1005,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number): Edit
         let ok = true;
         for (let yy = y - 2; yy <= y + 2 && ok; yy++) for (let xx = x - 2; xx <= x + 2 && ok; xx++) if (b.water[yy * W + xx] > 0.05 || b.channel[yy * W + xx]) ok = false;
         for (let yy = y - rr; yy <= y + rr && ok; yy++) for (let xx = x - rr; xx <= x + rr && ok; xx++) if (pieces[yy * W + xx]) ok = false;
-        if (!ok || startProblem(b, x, y, o, false, feat.id, pieces)) continue;
+        if (!ok || startProblem(b, x, y, o, level, feat.id, pieces)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
         return [{ op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
       }
@@ -1014,6 +1015,48 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number): Edit
     }
   }
   return null;
+}
+
+/** Whether an edit that changed the tiles `changed` broke the start's own ground (D257): it stood on
+ *  some of them, and now it is off level ground, in a river, on an object or off the map there. */
+export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): boolean {
+  const b = s.built;
+  const { W } = b;
+  const feat = s.features.find((f): f is StartFeature => f.kind === "start");
+  const ent = b.entities.find((e) => e.template === "StartingLocation");
+  if (!feat && !ent) return false;
+  const o: Orientation = feat ? feat.params.orientation : ent!.orientation;
+  const [x, y] = feat ? feat.params.position : startCentre(ent!.x, ent!.y, o);
+  const corner = cornerFor(x, y, o);
+  const door = startEntranceTile(corner[0], corner[1], o);
+  const tiles = [door[1] * W + door[0]];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
+  if (!tiles.some((i) => changed.has(i))) return false;
+  const why = startProblem(b, x, y, o, true, feat ? feat.id : ent!.owner, pieceTiles(s));
+  return why !== null && why !== "under water";
+}
+
+/** Where the map's start stands (its middle), or null without one. */
+export function startMiddle(s: MapSession): [number, number] | null {
+  const feat = s.features.find((f): f is StartFeature => f.kind === "start");
+  if (feat) return [feat.params.position[0], feat.params.position[1]];
+  const e = s.built.entities.find((g) => g.template === "StartingLocation");
+  return e ? startCentre(e.x, e.y, e.orientation) : null;
+}
+
+/** The operations that carry the start off ground a force broke (D257: a force is bound only by
+ *  nature; the editor keeps one start, on level ground): worked out on the map with the force
+ *  applied, which is then taken back. Empty when the start still stands well, or has nowhere to go. */
+export function carryStartOps(s: MapSession, force: EditOp): EditOp[] {
+  if (force.op !== "forceResult") return [];
+  if (!s.apply(force, "user").ok) return [];
+  try {
+    if (!startBrokenBy(s, new Set(force.params.tiles))) return [];
+    const at = startMiddle(s);
+    return (at && moveStartNear(s, at[0], at[1], true)) || [];
+  } finally {
+    s.undo();
+  }
 }
 
 export type { Facing };
