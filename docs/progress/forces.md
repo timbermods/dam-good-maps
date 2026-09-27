@@ -1,14 +1,14 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **State (2026-09-26, the forces build).** Built on branch `feature/forces` (from `dev` at 985e1cf):
-> the four forces as the top bar's forces group on one shared forces core (Codex's #59), the
-> editor's sounds on Codex's synthesised engine (#58), their tests, Claude's steps and the docs.
-> They show on the preview and the dev server, never on the public site (`FORCES_RELEASED` stays
-> false, pending #69). The branch is not merged into `dev` until Kyler has tried the forces (D219).
-> Checked at the last push: typecheck clean; `npm run test:quick` 621 passed, 13 skipped; the
-> browser tests (`npx playwright test`) 51 passed, 1 skipped; the Claude reference suite 132 of 145
-> (128 of 141 on `dev`: B22-B25 pass, the same 13 fail); CI green.
-> Next: the milestone session puts the branch on the preview; Kyler tries it.
+> **State (2026-09-26, round 2 in progress: Kyler's review, D226).** Branch `feature/forces`, dev
+> merged in (f3f8a39, then e1fe89e with #63 and #64). Done and committed: Erupt kept to the demo
+> (the prototype's exactly where it has room; a peak within the room it has near the ceiling,
+> broader rather than taller; new cones on the flanks; it always completes, at the demo's pace);
+> Power and size separate in every force (Carve's new Depth, Erupt's Size, the shared size control);
+> the brush size in the row; the shelf's order; the editor's sounds on Codex's round two (#64,
+> recorded CC0 foley, `public/sounds/juice-2/`). Round one's forces build is below (D219).
+> Left: the browser tests for round 2, the captures, EDITOR_PLAN and this log's D226 section, a
+> final merge of `origin/dev`, CI.
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
 Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high power), D205 and D212
