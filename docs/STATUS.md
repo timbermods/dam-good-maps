@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D276), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D277), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your twenty-five decisions since the restart are recorded (D252–D276, below) and in the living docs.
+Your twenty-six decisions since the restart are recorded (D252–D277, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -321,6 +321,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D277: all M12 work is deferred while you refine Dam Good Maps: no Claude steps, suite requests or re-runs; the Claude suite leaves the regular checks (kept, unmaintained); M12 stays last and starts by catching Claude up.
 - D276: M9b defers difficulty through terrain to a later step of its own; the floor and the start's guards unchanged; Variety, Surprise me, the dam-wall check and M12 readiness kept.
 - D275: M9b folds recipes into intentions; flow-direction variety from the 8 orientations (all appear, none over a quarter).
 - D274: M9b's intentions: your four, the seven in the set, and ten candidates added (oxbow, stepped lakes, split round an island, twin falls, the long cliff, hanging valleys, two ways to grow, badwater through the richest land, a relic on a pinnacle, a plug holding a lake); four left out; settles #66.
@@ -410,7 +411,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D276.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D277.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
