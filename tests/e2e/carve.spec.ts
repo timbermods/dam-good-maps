@@ -59,15 +59,17 @@ async function highGround(page: Page): Promise<[number, number]> {
 
 test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Esc takes it back, Try another path replaces it", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
-  // its row: Power, Size, Keep river or Dry canyon (D289), no mode switch and nothing more
+  // its row: Power, Size, Keep river or Dry canyon (D289), a mode is the gesture, and a More button
+  // for its other settings (D309: wander, walls and depth, closed by default)
   const carve = page.getByRole("button", { name: "Carve (7)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row).toBeVisible();
   expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "Keep river", "Dry canyon"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "Keep river", "Dry canyon", "More"]);
   await expect(row.getByRole("combobox")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Keep river" })).toHaveAttribute("aria-pressed", "true");
   // (a creek, so it ends by itself soon)
   await row.getByRole("slider", { name: "Power" }).fill("15");
@@ -122,6 +124,41 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
+});
+
+test("Carve's More (D309): closed by default; its details on Auto; pinning one keeps it through Try another", async ({ page }) => {
+  await refine(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Carve (7)" }).click();
+  const row = page.getByRole("group", { name: "Carve options" });
+  await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
+  await row.getByRole("button", { name: "More" }).click();
+  const details = page.getByRole("group", { name: "Carve details" });
+  await expect(details).toBeVisible();
+  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Depth"]);
+  await expect(details.getByRole("combobox", { name: "Walls" })).toBeVisible();
+  // every detail starts on Auto (D309); the land and the seed lean and vary them, tested at
+  // tests/contract/forceNature.test.ts
+  for (const name of ["Wander follows the land", "Walls follows the land", "Depth follows Power"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+
+  const at = await highGround(page);
+  await row.getByRole("slider", { name: "Power" }).fill("15");
+  await clickTile(page, at[0], at[1]);
+  await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
+  await idle(page);
+  // pin Wander to the value the run just drew (one click, D309 (3))
+  const wander = await details.getByRole("slider", { name: "Wander" }).inputValue();
+  await details.getByRole("button", { name: "Wander follows the land" }).click();
+  await expect(details.getByRole("button", { name: "Wander follows the land" })).toHaveAttribute("aria-pressed", "false");
+  await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
+
+  // Try another: the pinned Wander never moves, even though it replaces the carve with another one
+  await row.getByRole("button", { name: "Try another path" }).click();
+  await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
+  await idle(page);
+  expect((await labels(page)).at(-1)).toBe("Try another path");
+  await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
+  // More stays open across it (D309: it remembers whether it was left open)
+  await expect(details).toBeVisible();
 });
 
 test("Carve: a drag aims it, with only an arrow, and on release it runs that way, uphill or not; undo while it runs takes it back", async ({ page }) => {

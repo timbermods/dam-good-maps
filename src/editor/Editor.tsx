@@ -36,8 +36,8 @@ import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type S
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
-import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
-import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
+import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
+import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
 import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
@@ -1408,23 +1408,38 @@ export default function Editor(props: EditorProps) {
   // ------------------------------------------------------------------------------ the forces
 
   /** Each force's options for the next one (D199, D202, D203, D206; kept for the visit), Aim's start,
-   *  and the tile the pointer is on while aiming. */
-  const [carveUi, setCarveUi] = useState<CarveUi>(DEFAULT_CARVE);
+   *  and the tile the pointer is on while aiming. Each row's details, behind More, start on Auto
+   *  (null) unless a pin was remembered from a past visit (D309). */
+  const [forcesPrefs] = useState(loadForcesPrefs);
+  const [carveUi, setCarveUi] = useState<CarveUi>({ ...DEFAULT_CARVE, ...forcesPrefs.carve });
   const carveUiRef = useRef(carveUi);
   carveUiRef.current = carveUi;
-  const [craterUi, setCraterUi] = useState<CraterUi>(DEFAULT_CRATER);
+  const [craterUi, setCraterUi] = useState<CraterUi>({ ...DEFAULT_CRATER, ...forcesPrefs.craterize });
   const craterUiRef = useRef(craterUi);
   craterUiRef.current = craterUi;
-  const [eruptUi, setEruptUi] = useState<EruptUi>(DEFAULT_ERUPT);
+  const [eruptUi, setEruptUi] = useState<EruptUi>({ ...DEFAULT_ERUPT, ...forcesPrefs.erupt });
   const eruptUiRef = useRef(eruptUi);
   eruptUiRef.current = eruptUi;
-  const [quakeUi, setQuakeUiState] = useState<QuakeUi>(DEFAULT_QUAKE);
+  const [quakeUi, setQuakeUiState] = useState<QuakeUi>({ ...DEFAULT_QUAKE, ...forcesPrefs.quake });
   const quakeUiRef = useRef(quakeUi);
   quakeUiRef.current = quakeUi;
   const setQuakeUi = (u: QuakeUi) => {
     quakeUiRef.current = u;
     setQuakeUiState(u);
   };
+  /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
+  const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
+  // the pins and the open More panels are remembered with the player's other editor preferences
+  // (D309); Power, Size, dry and mode last only the visit, as before
+  useEffect(() => {
+    saveForcesPrefs({
+      more: moreOpen,
+      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth },
+      craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
+      erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
+      quake: { scarp: quakeUi.scarp },
+    });
+  }, [moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp]);
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -1530,7 +1545,23 @@ export default function Editor(props: EditorProps) {
     start: (again) =>
       enqueue(() => {
         const q = forceReq.current;
-        if (again || !q) return api.forceAgain();
+        if (again || !q) {
+          // Try another: the row's current pins go with it (D309), so a detail still on Auto
+          // re-rolls and one the player pinned keeps its value; Unleash (no More button of its own)
+          // and any other caller outside the row send none, and every detail re-rolls, as before D309
+          const verb = unleashRef.current ? null : infoRef.current.forceAgain;
+          const pins =
+            verb === "carve"
+              ? carveDetails(carveUiRef.current)
+              : verb === "craterize"
+                ? craterDetails(craterUiRef.current)
+                : verb === "erupt"
+                  ? eruptDetails(eruptUiRef.current)
+                  : verb === "quake"
+                    ? quakeDetails(quakeUiRef.current)
+                    : undefined;
+          return api.forceAgain(pins);
+        }
         return api.forceStart(q);
       }),
     advance: (steps) => enqueue(() => api.forceAdvance(steps)),
@@ -2152,6 +2183,8 @@ export default function Editor(props: EditorProps) {
     const force = FORCES.find((f) => f.id === tool)!;
     const st = forcer.current?.status ?? null;
     const canAgain = info.forceAgain === tool;
+    const more = moreOpen[tool as Verb] ?? false;
+    const onMore = (open: boolean) => setMoreOpen((m) => ({ ...m, [tool as Verb]: open }));
     if (tool === "carve")
       return (
         <CarveRow
@@ -2165,13 +2198,16 @@ export default function Editor(props: EditorProps) {
           onAgain={() => void forceAgain()}
           onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
           onRevert={() => forcer.current?.cancel()}
+          more={more}
+          onMore={onMore}
+          drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
         />
       );
     if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
     const again = () => void forceAgain();
-    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} />;
-    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} />;
-    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} />;
+    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
+    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 
   /** Clear sources (D249): the sources under the ring glow red before the stroke reaches them, and
@@ -3274,6 +3310,58 @@ function saveBrush(s: BrushSettings): void {
     localStorage.setItem(BRUSH_KEY, JSON.stringify({ size: s.size, strength: s.strength, ...(s.clearSources ? { clearSources: true } : {}) }));
   } catch {
     // the brush lasts for this visit only
+  }
+}
+
+const FORCES_KEY = "dgm.forces";
+
+/** Each force's More (open or closed), and the details the player has pinned (D309); a detail still
+ *  on Auto is null. Power, Size, dry and mode last only the visit, as before. */
+interface ForcesPrefs {
+  more: Partial<Record<Verb, boolean>>;
+  carve: Pick<CarveUi, "wander" | "walls" | "depth">;
+  craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
+  erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges">;
+  quake: Pick<QuakeUi, "scarp">;
+}
+
+const AUTO_FORCES_PREFS: ForcesPrefs = {
+  more: {},
+  carve: { wander: null, walls: null, depth: null },
+  craterize: { walls: null, centre: null, debris: null, rays: null },
+  erupt: { shape: null, summit: null, flows: null, ridges: null },
+  quake: { scarp: null },
+};
+
+/** `v` if it is one of `options`, else `null` (a detail left on Auto: a stray or outdated value
+ *  never reaches the row). */
+function among<T>(v: unknown, options: readonly T[]): T | null {
+  return (options as readonly unknown[]).includes(v) ? (v as T) : null;
+}
+
+function loadForcesPrefs(): ForcesPrefs {
+  try {
+    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown> }> | null;
+    if (!s) return AUTO_FORCES_PREFS;
+    const more: Partial<Record<Verb, boolean>> = {};
+    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
+    return {
+      more,
+      carve: { wander: typeof s.carve?.wander === "number" ? s.carve.wander : null, walls: among(s.carve?.walls, ["steep", "wide"]), depth: typeof s.carve?.depth === "number" ? s.carve.depth : null },
+      craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
+      erupt: { shape: among(s.erupt?.shape, ["steep", "broad"]), summit: among(s.erupt?.summit, ["auto", "peak", "crater", "caldera"]), flows: among(s.erupt?.flows, ["light", "heavy"]), ridges: typeof s.erupt?.ridges === "boolean" ? s.erupt.ridges : null },
+      quake: { scarp: among(s.quake?.scarp, ["sheer", "stepped"]) },
+    };
+  } catch {
+    return AUTO_FORCES_PREFS;
+  }
+}
+
+function saveForcesPrefs(p: ForcesPrefs): void {
+  try {
+    localStorage.setItem(FORCES_KEY, JSON.stringify(p));
+  } catch {
+    // the pins last for this visit only
   }
 }
 

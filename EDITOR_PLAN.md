@@ -47,6 +47,13 @@ editor is desktop-first (D185).
   scarp) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
   ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
   shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
+  **A small More button, at the row's end, opens those details** (D309, amending D289): closed by default, remembering
+  whether it was left open. Every detail starts on **Auto**, nature's own pick; setting one pins it, with a small way
+  back to Auto beside it (the same idiom as Size's own Auto, D226). Once a force runs, a detail still on Auto shows the
+  value it just took, one click away from being pinned, so the player can Try another until they love a result and pin
+  what made it. Try another re-rolls only the details still on Auto; a pin is remembered with the player's other editor
+  preferences, and the operation keeps the values it ran with (picked or pinned), so replay and undo stay exact and old
+  projects replay unchanged. The controls themselves are the ones from before D289, brought back rather than rebuilt.
   The four forces are built on one shared forces core (D203, D206, D220). While a force works its row is its status
   (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop, D289); the other tools wait. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
@@ -932,7 +939,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
 | The Remove tool (X, its filters, its drag and its red hover); Select's Clear objects | D288: Select and Delete; Delete on what the pointer is on |
-| The forces' mode switches (Unleash or Aim, Strike or Aim, Vent or Fissure); Carve's Defy gravity, Width and Depth, Wander and Walls, and its mid-carve Stop; Craterize's Walls, Centre, Debris and Rays; Erupt's Shape, Summit, Flows and Ridges; Quake's Scarp and its Side that moves control | D289: Power, Size, at most one choice, Try another; the gesture is the mode; the rest from the land and the seed; X flips Quake's side |
+| The forces' mode switches (Unleash or Aim, Strike or Aim, Vent or Fissure); Carve's Defy gravity, its mid-carve Stop, and Quake's Side that moves control | D289: the gesture is the mode; an aimed carve cuts through rises instead; D309 confirms Defy gravity and the mid-carve Stop stay gone; X flips Quake's side |
 | The Orbit and Top-down pair; the Dam sites view, the map card's best dam site and the preview's hatched dam site; the Moisture and Drought views | D287: one Top-down toggle; the land shows moisture; the water bar's Drought, day by day |
 | Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |

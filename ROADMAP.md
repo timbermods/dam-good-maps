@@ -926,7 +926,8 @@ they conflict):
 1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
    Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
    the left shelf (D212). Every force's row is Power, Size, at most one choice and Try another (D289); the gesture
-   is the mode (a click or a drag), and the rest of its character comes from the land and the seed. The forces go to
+   is the mode (a click or a drag), and the rest of its character comes from the land and the seed, behind a small
+   More button, each detail on Auto until pinned (D309). The forces go to
    the preview and are released only after Kyler has tried them (D219): until then the public site shows
    no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (a click vents, a drag opens a
    fissure; Power, Size, Try another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land
