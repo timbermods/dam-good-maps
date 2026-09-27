@@ -3,66 +3,31 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D293), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D296), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your forty-two decisions since the restart are recorded (D252–D293, below) and in the living docs.
+Your forty-five decisions since the restart are recorded (D252–D296, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
 1. **Real places (#35):** your D271 is being built: the 15 drops, then the water made to follow each real place (observed
    rivers and lakes, dry places dry, D214's fewer, larger rivers where it keeps moving). Then a new sheet on #35 with the
    9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
-2. **M9a's review set is on #56 for your yes** (D252; frozen generator 788c145; `review/m9a-set`). My read against
-   PERFECT's "Maps" and "Water", from the contact sheet, the comparison and the 14 random maps in 3D (eyeball counts, not
-   measures; M9b adds the water measure):
-   - **Much better than what's live.** Every 0.6.2 map is one template (River Valley: the same sine river and a
-     ruler-straight wall, 30 times; Islands: a round lake with five oval islands and straight channels, 30 times). 0.7.0 has
-     none of that: no ruler-straight channels or walls, and seeds genuinely differ within a theme (Maps 1, 2).
-   - **Water is often a tangle, rarely one readable river** (planning chat's point: agree). In Any, River Valley, Highlands
-     and Lake Basin most maps show several thin channels and blotchy lakes; I'd call a main river readable at a glance on
-     roughly a third of them. Canyon reads best: a long winding river on most seeds (Canyon 2, 5, 20, 22, 24). Fails Water 2.
-   - **The themes blur** (agree, with one exception): River Valley, Highlands and Lake Basin are hard to tell apart; Delta
-     almost never shows a river splitting into channels at low ground; Canyon is the exception (its rivers do run between
-     cliffs), so "Canyon rarely shows canyons" is too harsh.
-   - **Islands is one layout thirty times** (agree, and worse): 0.7.0's Islands aren't islands. Every seed is a central
-     green landmass crossed by rivers inside a ring of lower ground; there is no sea (D209: M9b).
-   - **Circles read as stamped** (agree): near-perfect round lakes or rings on Any 24, Delta 13 and 27, River Valley 23,
-     Lake Basin 30, and round lakes on about ten more (Highlands 2, 10, 26; Lake Basin 3, 8, 26; River Valley 20, 30). In 3D
-     the badwater hollows are round red discs too (Lake Basin 324). Fails Maps 1.
-   - **Few maps have a character you'd describe** (agree): the most describable ones are the round craters, the stamped
-     ones. Maps 3 mostly unmet.
-   - **Mine:** in 3D much of the land is bare dry rock with the water in one part of the map (Canyon 437 is nearly all dry
-     rock, its water in one corner; Canyon 734 similar). Whether that's the canvas you want is your eye's call.
-   - **Starts:** starts with a full ring of planting within 10 tiles fell from 14 to 3 of 112; **11 of 240 starts** (Any,
-     River Valley, Canyon, Highlands at Normal and Hard, seeds 1–30) have a standing dead grove (#90).
-   - **Captures:** the 3D views show the editor as it is on M9a's branch (Orbit, Dam sites, Moisture, Drought, Remove,
-     Follow); the lean editor is on the forces branch. Judge the land.
-   My view: 0.7.0 is a clear step up and a good canvas under D282, with its shortfalls squarely in M9b's five outcomes
-   (readable water, themes, character, nothing stamped, Islands). Release M9a and fix them in M9b, unless you want the
-   circles or Islands fixed first.
-3. **A question for you, not urgent** (it matters only when the stacked engine is wired in): with the game's rules on heightfields
-   (D293), 29 of 30 generated maps keep every wet tile, but Highlands 128² seed 3 has a 5 cm sheet on flat ground that sits at 0.049
-   today and spreads to 0.054 / 0 under the game's rules: 94 tiles cross the 0.05 wet line (volume moves 0.02%). That fails the 3D
-   acceptance line "no wet tile differs" (ROADMAP, 3D step 1). Accept thin-sheet flips like this as the game's own result, or keep the
-   line and treat such maps as a finding to look at?
-4. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+2. **M9a: approved** (D294). Its probe batch runs when the machine is quiet, then `m9a-done` and the release. The review
+   set's shortfalls are M9b's starting list; my read is on #56 and in the Progress log.
+3. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+4. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
-   Drought and Badtide day by day, a sitting of its own; M9a's review set, then its release. **Later:** #83 (the new trees
+5. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+   Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
 ### For Kyler: plan conflicts
 
-1. **The Frame pass's touch-up now runs before the design pass creates its records.** D284 moves Map look 2 (which folds
-   in the Frame pass's touch-up, D283 (2)) to right after the forces' release, alongside "The page is the editor"
-   (ROADMAP.md, "Map look 2: the High look" and "The page is the editor"). But Kyler's editor UI audit and the design
-   pass that creates the design records (D176, amended by D236) only follow "The page is the editor". So the touch-up
-   would run before the records it was meant to work from exist. Not changed either way; flagging rather than picking.
+None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
 
 ### Your checklist for the forces sitting (on the preview once D249, D257–D260 and the ceiling are built)
 
@@ -376,6 +341,9 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D296: the frame's touch-up to the High look is done in the design pass; the High look adoption changes no interface styling.
+- D295: thin-sheet flips are the game's result: a tile may change wet/dry only within 0.01 of the wet line, volume within 0.1%.
+- D294: yes to M9a (probe batch, then `m9a-done`); M9b starts from the review set's shortfalls; #90 accepted.
 - D293: one water model everywhere, the game's: the Python check gets the game's evaporation rule when the stacked engine is wired in; heightfield water unchanged until then.
 - D292: Glaciate merged as it is (#69, 8ef9842); adopted on `feature/glaciate`, its floor's water led into one river, for your sitting.
 - D291: Glaciate's round 4 pre-approved: merged when its report shows one river on the floor (wet share under 15%, one wet passage) and no camera motion, with CI green; then adopted on its own branch from the forces, for your sitting.
@@ -482,7 +450,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D293.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D296.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
