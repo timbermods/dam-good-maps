@@ -21,7 +21,8 @@ import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { THEME_PRESETS, VT_DEFAULT, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
 import { drawIntentions, nudgeFor, type IntentionId } from "./intentions";
-import { clamp } from "./num";
+import { clamp, unit } from "./num";
+import { TWO_PI } from "../math/detmath";
 
 export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral";
 
@@ -134,6 +135,9 @@ export interface Genome {
   /** An island sea in the map's middle, with islands scattered through it (Islands; one of the
    *  water features "Any" combines freely). */
   sea: boolean;
+  /** How the island sea lies (M9b, D209, D294): in the map's middle, off one edge, an archipelago
+   *  across the map, an island chain, atolls, or two seas; null without a sea. */
+  seaLayout?: SeaLayout | null;
   /** Falls on the rivers (the Waterfalls setting): 0 spreads every drop along the course (no
    *  falls), 1 lets the land decide, 2 gathers more of them. */
   falls: 0 | 1 | 2;
@@ -599,7 +603,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // a radial slope falls toward the first bowl when there is one
   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
   if (g.tiltKind === "radial" && bowl) g.focus = [bowl.at[0], bowl.at[1]];
-  if (sea) addSea(g, rng, W, H, attempt, areaK, tallK);
+  if (sea) addSea(g, stream(seed, "sea-layout", theme, attempt), W, H, attempt, areaK, tallK);
   const knolls = Math.round(d(p.knollsPer128) * areaK);
   if (knolls > 0) g.parts.push({ kind: "knolls", at: [0.5, 0.5], size: 0, height: 1.5 + rng.float(), turn: 0, extra: knolls, soft: 0 });
   // a recipe, sometimes (at most a forced part)
@@ -618,27 +622,163 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   return g;
 }
 
-/** Islands in a sea (Kyler, 2026-09-25): a broad body of water with the land scattered through it,
- *  in the map's middle, so the land rises from it toward every edge (water that reaches the edge
- *  leaves the map, and edges are never walled). */
+/** The ways an island sea lies (M9b; D209: "archipelagos across the whole map, a sea off one edge,
+ *  island chains, atolls"; D294: Islands had no sea). */
+export const SEA_LAYOUTS = ["central", "edge", "archipelago", "chain", "atolls", "twoSeas"] as const;
+export type SeaLayout = (typeof SEA_LAYOUTS)[number];
+const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
+
+/**
+ * Islands in a sea (Kyler, 2026-09-25; M9b: in many layouts, D209, D294): a broad body of water with
+ * the land scattered through it, held in a bowl so the land rises from it toward the edges (water
+ * that reaches an edge leaves the map, and edges are never walled). The layout says where the sea
+ * lies and how its islands stand: in the middle; off one edge, behind a strip of coast (the map's
+ * orientation turns it to any edge, D275); an archipelago of many islands of every size across most
+ * of the map; a chain of islands along an arc; atolls, rings of islets round a lagoon (lobed, never a
+ * circle); or two seas with a ridge between them. The islands are parts like any other: where they
+ * stand clear of the water is the land's doing. Its own random stream, so the rest of the genome
+ * keeps its draws.
+ */
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
+  const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+  g.seaLayout = layout;
   g.tiltKind = "radial";
-  g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+  const side = Math.min(W, H);
   // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
-  const R = Math.min(W, H) * (0.36 + 0.08 * rng.float()) * Math.max(0.75, 1 - 0.05 * attempt);
-  const depth = 9 + 2.5 * rng.float();
-  g.parts.push({ kind: "basin", at: [g.focus[0], g.focus[1]], size: R, height: -depth, turn: rng.float(), extra: 0, soft: 0, shape: "sea" });
-  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
-  // islands scattered through the sea, standing clear of it
-  const isles = Math.round((12 + 10 * rng.float()) * Math.max(1, areaK));
-  for (let k = 0; k < isles; k++) {
-    const [ux, uy] = [rng.float() * 2 - 1, rng.float() * 2 - 1];
-    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, Math.sqrt(ux * ux + uy * uy));
-    g.parts.push({ kind: rng.float() < 0.35 ? "cone" : "mesa", at: [g.focus[0] + (ux * r * R) / W, g.focus[1] + (uy * r * R) / H], size: 3 + 6 * rng.float(), height: depth + (1.5 + 4 * rng.float()) * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
+  const shrink = Math.max(0.75, 1 - 0.05 * attempt);
+  const n = (k: number) => Math.max(1, Math.round(k * Math.max(1, areaK)));
+  const isle = (at: [number, number], size: number, rise: number, depth: number, kind?: PartKind) => {
+    const k: PartKind = kind ?? (rng.float() < 0.35 ? "cone" : "mesa");
+    g.parts.push({ kind: k, at, size, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
+  };
+  const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
+    g.parts.push({ kind: "basin", at, size: R * shrink, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
+  };
+  // islands scattered through a sea: evenly over its area, of mixed sizes
+  const scatter = (cx: number, cy: number, R: number, count: number, depth: number, big = 0.1) => {
+    for (let k = 0; k < count; k++) {
+      const [ux, uy] = unit(rng.float());
+      const r = 0.92 * Math.sqrt(rng.float()) * R;
+      const roll = rng.float();
+      const size = roll < big ? 9 + 5 * rng.float() : roll < big + 0.3 ? 5.5 + 3.5 * rng.float() : 3 + 2.5 * rng.float();
+      isle([cx + (ux * r) / W, cy + (uy * r) / H], size, 1.5 + 4 * rng.float(), depth);
+    }
+  };
+  let tilt = 8.5 + rng.float();
+  switch (layout) {
+    case "central": {
+      g.focus = [0.36 + 0.28 * rng.float(), 0.36 + 0.28 * rng.float()];
+      const R = side * (0.34 + 0.08 * rng.float());
+      const depth = 9 + 2.5 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.2 + 0.6 * rng.float());
+      scatter(g.focus[0], g.focus[1], R, n(12 + 8 * rng.float()), depth);
+      break;
+    }
+    case "edge": {
+      // the sea lies along the south edge, behind a strip of coast its outlet crosses
+      g.focus = [0.35 + 0.3 * rng.float(), 0.25 + 0.06 * rng.float()];
+      const R = side * (0.32 + 0.08 * rng.float());
+      const depth = 8 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
+      scatter(g.focus[0], g.focus[1], R, n(9 + 7 * rng.float()), depth);
+      tilt = 7.5 + rng.float();
+      // (its water leaves by the coast: the south edge is the way out, D275 turns it)
+      g.flowDir = 6;
+      break;
+    }
+    case "archipelago": {
+      g.focus = [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()];
+      const R = side * (0.44 + 0.08 * rng.float());
+      const depth = 6.5 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1 + 0.5 * rng.float());
+      scatter(g.focus[0], g.focus[1], R, n(22 + 12 * rng.float()), depth, 0.14);
+      tilt = 6 + 1.5 * rng.float();
+      break;
+    }
+    case "chain": {
+      g.focus = [0.38 + 0.24 * rng.float(), 0.38 + 0.24 * rng.float()];
+      const R = side * (0.36 + 0.08 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      const turn = rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, turn, 1.5 + 0.6 * rng.float());
+      // an arc through the sea's middle, bending round a centre off to one side of its long axis
+      const [ax, ay] = unit(turn);
+      const bend = (rng.float() < 0.5 ? 1 : -1) * R * (1.3 + 1.2 * rng.float());
+      const ccx = g.focus[0] * W - ay * bend;
+      const ccy = g.focus[1] * H + ax * bend;
+      // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
+      const base = turn + (bend > 0 ? -0.25 : 0.25);
+      const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
+      const count = n(9 + 5 * rng.float());
+      for (let k = 0; k < count; k++) {
+        const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
+        const [ux, uy] = unit(base + t * span);
+        const mid = 1 - Math.abs(t) * 1.2;
+        const size = 3.5 + 4.5 * Math.max(0, mid) * (0.6 + 0.4 * rng.float());
+        isle([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 2 + 4 * rng.float(), depth, rng.float() < 0.6 ? "cone" : "mesa");
+      }
+      scatter(g.focus[0], g.focus[1], R, n(3 + 4 * rng.float()), depth, 0);
+      break;
+    }
+    case "atolls": {
+      g.focus = [0.38 + 0.24 * rng.float(), 0.38 + 0.24 * rng.float()];
+      const R = side * (0.38 + 0.08 * rng.float());
+      const depth = 8 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
+      const atolls = rng.float() < 0.6 ? 1 : 2;
+      const [ox, oy] = unit(rng.float());
+      for (let a = 0; a < atolls; a++) {
+        const off = R * (atolls === 1 ? 0.3 * rng.float() : 0.35 + 0.2 * rng.float()) * (a === 1 ? -1 : 1);
+        const cx = g.focus[0] * W + ox * off;
+        const cy = g.focus[1] * H + oy * off;
+        const ra = (side / 128) * (atolls === 1 ? 9 + 5 * rng.float() : 7 + 3 * rng.float());
+        // lobed: the ring's radius swings with two waves, so it is never a circle
+        const k1 = 2 + (rng.float() < 0.5 ? 1 : 0);
+        const p1 = rng.float();
+        const k2 = 4 + (rng.float() < 0.5 ? 1 : 0);
+        const p2 = rng.float();
+        const islets = n(11 + 6 * rng.float());
+        // one to three passes where the ring stays open to the sea
+        const gaps = 1 + Math.floor(3 * rng.float());
+        const gapAt = Array.from({ length: gaps }, () => rng.float());
+        for (let k = 0; k < islets; k++) {
+          const t = (k + 0.4 * (rng.float() - 0.5)) / islets;
+          if (gapAt.some((q) => Math.abs(((t - q + 1.5) % 1) - 0.5) < 0.045)) continue;
+          const [ux, uy] = unit(t);
+          const r = ra * (1 + 0.2 * unit(k1 * t + p1)[1] + 0.1 * unit(k2 * t + p2)[1]);
+          isle([(cx + ux * r) / W, (cy + uy * r) / H], 2.4 + 2.2 * rng.float(), 1 + 1.5 * rng.float(), depth, "mesa");
+        }
+      }
+      scatter(g.focus[0], g.focus[1], R, n(4 + 6 * rng.float()), depth);
+      break;
+    }
+    case "twoSeas": {
+      g.focus = [0.44 + 0.12 * rng.float(), 0.44 + 0.12 * rng.float()];
+      const turn = rng.float();
+      const [ax, ay] = unit(turn);
+      const apart = side * (0.23 + 0.05 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      for (const sgn of [-1, 1]) {
+        const cx = g.focus[0] + (sgn * ax * apart) / W;
+        const cy = g.focus[1] + (sgn * ay * apart) / H;
+        const R = side * (0.23 + 0.06 * rng.float());
+        sea([cx, cy], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
+        scatter(cx, cy, R, n(6 + 5 * rng.float()), depth);
+      }
+      // a ridge between them, so they stay two
+      g.parts.push({ kind: "ridge", at: [g.focus[0], g.focus[1]], size: side * 1.2, height: 4 + 2 * rng.float(), turn: turn + 0.25, extra: 5 + 3 * rng.float(), soft: 0 });
+      tilt = 7 + 1.5 * rng.float();
+      break;
+    }
   }
-  // the land rises from the sea toward every edge: a steep bowl, quiet noise, levels spread by
-  // height rather than equal area, so the sea keeps a broad floor below its shores
-  g.tilt = Math.max(g.tilt, 8.5 + rng.float());
+  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
+  // the sea is fed from the heights round it: springs, whose rivers pour down into it (a river from
+  // an edge enters low on the bowl's rim, and no sea stands above where its water comes in)
+  g.hydro.inflows = 0;
+  g.hydro.springs = Math.max(g.hydro.springs, 2 + (rng.float() < 0.5 ? 1 : 0));
+  // the land rises from the sea toward the edges: a bowl, quiet noise, levels spread by height
+  // rather than equal area, so the sea keeps a broad floor below its shores
+  g.tilt = Math.max(g.tilt, tilt);
   g.regional.amp *= 0.4;
   g.noise.amp *= 0.5;
   g.hyps.eq = 0.1 + 0.1 * rng.float();
@@ -756,7 +896,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   else if (rr < 1) g.troughs *= rr;
   // lakes and basins
   const dl = LAKE_STEP[s.water.lakes] - LAKE_STEP[p.lakes];
-  if (s.water.lakes === "none") {
+  // (M9b, D294: only a setting moved from the theme's own; at Islands' preset, None, the sea is its
+  // water and kept its budget: the lake budget cut every Islands sea down to nothing)
+  if (s.water.lakes === "none" && p.lakes !== "none") {
     // (a river crossing a hollow leaves no lake: the lake budget cuts its outlet down to nothing)
     g.parts = g.parts.filter((q) => q.kind !== "basin" || q.shape === "sea");
     g.troughs = 0;

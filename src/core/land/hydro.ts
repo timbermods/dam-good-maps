@@ -778,9 +778,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     if (!(depth[seedCell] > 0)) return null;
     let sill = lv.filled[seedCell];
     let tiles = flood(seedCell, sill);
-    // cut the outlet down until the lake fits the budget, and (M9b) until it stands below the bed
-    // where the river comes into it: a lake above that would reach back up the river's channel,
-    // and where the river begins lower (an inflow from a low edge), out by the edge beside its mouth
+    // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
+    // river begins (`maxSill`)
     while ((tiles.length > budget || sill > maxSill) && sill > 1) {
       sill--;
       const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
@@ -793,7 +792,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
 
   /** The bed along a path, sampled every tile of arc: never rising, `cut` levels below the lowest
    *  ground round it, and at a lake's outlet level where it leaves a lake. */
-  const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity) => {
+  const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity) => {
     const st = stamp(path, W, H, Math.ceil(width / 2 + g.hydro.floor * 1.5 + 3 + (natural ? width * 0.15 : 0)));
     const L = arcLength(path);
     const n = Math.max(2, Math.ceil(L));
@@ -821,7 +820,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         }
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
       if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
-        const lk = hollow(ci, natural && Number.isFinite(run) ? Math.floor(run) : Infinity);
+        const lk = hollow(ci, maxSill);
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
         const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
         if (lk && again !== undefined) inLake = lakeOf[again];
@@ -913,7 +912,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const big = hd.flow >= 1.2;
     const cut = 1 + (big ? Math.round(g.hydro.incise) : 0) + (tr.k === mainK ? hanging : 0);
     const floorHalf = big ? g.hydro.floor : g.hydro.floor * 0.3;
-    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half);
+    // (M9b: a lake on the course stands below where the river begins, the mouth's banks or the
+    // spring: its water reaches back up the channel, and above that it would run out by the edge
+    // beside the mouth, or drown the spring)
+    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, natural ? h[hd.cell] : Infinity);
     // knickpoints: a steep reach's drops gather at its head; the reach below is cut to its foot
     const win = Math.round(g.knick);
     if (win > 0)

@@ -11,6 +11,7 @@
 // course stands dry for a stretch cannot be followed.
 
 import type { Feature, RiverFeature } from "../features/schema";
+import { distanceFrom } from "../math/grid";
 
 export interface WaterStory {
   /** Tiles with water 0.05 deep or more. */
@@ -29,6 +30,9 @@ export interface WaterStory {
   /** The share of the main river's course that holds water, and the least of any river's. */
   mainWet: number;
   leastWet: number;
+  /** The share of the dry land within `REACH` of the map's side from clean water (D294: water that
+   *  sits in one corner leaves most of the land bare rock). */
+  reach: number;
   /** The water reads at a glance (D273 (1)). */
   readable: boolean;
   /** Why it does not read, in words (empty when it reads). */
@@ -36,7 +40,9 @@ export interface WaterStory {
 }
 
 /** Limits a readable story keeps (information; the candidate choice prefers maps within them). */
-export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6 } as const;
+export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6, reach: 0.5 } as const;
+/** How far from clean water land counts as within reach of it, as a share of the map's side. */
+export const REACH = 0.14;
 
 const D4 = [
   [1, 0],
@@ -114,8 +120,21 @@ function wetNear(i: number, W: number, H: number, depth: ArrayLike<number>): boo
   return false;
 }
 
-export function waterStory(W: number, H: number, depth: ArrayLike<number>, features: readonly Feature[]): WaterStory {
+export function waterStory(W: number, H: number, depth: ArrayLike<number>, features: readonly Feature[], contamination: ArrayLike<number> | null = null): WaterStory {
   const sys = wetSystems(W, H, depth);
+  // the land within reach of clean water
+  const clean = new Uint8Array(W * H);
+  let dry = 0;
+  for (let i = 0; i < W * H; i++) {
+    if (depth[i] >= 0.05) {
+      if (!contamination || !(contamination[i] >= 0.05)) clean[i] = 1;
+    } else dry++;
+  }
+  const dist = distanceFrom(clean, W, H);
+  const R = REACH * Math.min(W, H);
+  let near = 0;
+  for (let i = 0; i < W * H; i++) if (!(depth[i] >= 0.05) && dist[i] <= R) near++;
+  const reach = dry > 0 ? near / dry : 1;
   let wet = 0;
   let vol = 0;
   let main = -1;
@@ -169,6 +188,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   if (systems > STORY.systems) why.push(`${systems} other water systems`);
   if (heads > STORY.heads) why.push(`${heads} heads feed the main system`);
   if (separate > STORY.separate) why.push(`${separate} rivers never join it`);
+  if (reach < STORY.reach) why.push(`only ${Math.round(reach * 100)}% of the land lies near clean water`);
   if (mainWet < STORY.mainWet) why.push(`the main river holds water on ${Math.round(mainWet * 100)}% of its course`);
   else if (leastWet < STORY.riverWet) why.push(`a river holds water on ${Math.round(leastWet * 100)}% of its course`);
   return {
@@ -182,6 +202,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
     separate,
     mainWet: round3(mainWet),
     leastWet: round3(leastWet),
+    reach: round3(reach),
     readable: why.length === 0,
     why,
   };

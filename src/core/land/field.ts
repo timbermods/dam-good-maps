@@ -87,7 +87,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const sea = shape === "sea";
       const r = stream(s, "basin-shape");
       const [ux, uy] = unit(p.turn);
-      const aspect = sea ? 1 + 0.4 * r.float() : 1.6 + 1.8 * r.float();
+      const drawn = r.float();
+      // (M9b: a sea layout may set the sea's aspect, as `extra`)
+      const aspect = sea ? (p.extra > 0 ? p.extra : 1 + 0.4 * drawn) : 1.6 + 1.8 * drawn;
       const major = p.size * Math.sqrt(aspect);
       const minor = p.size / Math.sqrt(aspect);
       const bend = sea ? 0 : (r.float() * 2 - 1) * 0.6;

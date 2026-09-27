@@ -89,7 +89,7 @@ parentPort.on("message", (job) => {
         img[k] = 230; img[k + 1] = 20; img[k + 2] = 20;
       }
     }
-    const story = waterStory(W, H, b.water, r.features);
+    const story = waterStory(W, H, b.water, r.features, b.contamination);
     const out = extra && extra.outcomesOf ? extra.outcomesOf(r) : null;
     parentPort.postMessage({
       theme: job.theme, seed: job.seed, size: job.size, variety: job.variety, vt: job.vt,
@@ -97,7 +97,7 @@ parentPort.on("message", (job) => {
       passed: r.report.passed, attempts: r.attempts, genomes: r.info.genomes, ms: Math.round(performance.now() - t0),
       intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })),
       drawn: r.info.genome ? r.info.genome.intentions : [],
-      recipe: r.info.genome ? r.info.genome.recipe : null,
+      recipe: r.info.genome ? (r.info.genome.seaLayout ? "sea " + r.info.genome.seaLayout : r.info.genome.recipe) : null,
       hydro: r.info.hydro, story, outcomes: out,
       name: r.name ?? null, description: r.description ?? null,
       failures: r.failures.map((f) => f.failed.join("+")),
@@ -160,7 +160,7 @@ async function main(): Promise<void> {
             writeFileSync(join(outDir, `${tag}.png`), Buffer.from(m.png as string, "base64"));
             const s = m.story as { mainShare: number; systems: number; ponds: number; heads: number; separate: number; readable: boolean; why: string[] };
             const ints = (m.intentions as { id: string; ok: boolean }[]).map((x) => `${x.id}${x.ok ? "+" : "-"}`).join(" ");
-            console.log(`${tag}: ${m.passed ? "ok" : "FAIL"} ${m.attempts}a/${m.genomes}g ${m.ms}ms | story ${s.readable ? "readable" : "NOT (" + s.why.join("; ") + ")"} main ${s.mainShare} sys ${s.systems} ponds ${s.ponds} heads ${s.heads} sep ${s.separate} wet ${(s as {mainWet?: number}).mainWet}/${(s as {leastWet?: number}).leastWet} | ${ints || "(no intentions)"} | fails ${(m.failures as string[]).join(",")}${m.recipe ? " | recipe " + m.recipe : ""}${m.name ? " | " + m.name : ""}`);
+            console.log(`${tag}: ${m.passed ? "ok" : "FAIL"} ${m.attempts}a/${m.genomes}g ${m.ms}ms | story ${s.readable ? "readable" : "NOT (" + s.why.join("; ") + ")"} main ${s.mainShare} sys ${s.systems} ponds ${s.ponds} heads ${s.heads} sep ${s.separate} wet ${(s as {mainWet?: number}).mainWet}/${(s as {leastWet?: number}).leastWet} reach ${(s as {reach?: number}).reach} | ${ints || "(no intentions)"} | fails ${(m.failures as string[]).join(",")}${m.recipe ? " | recipe " + m.recipe : ""}${m.name ? " | " + m.name : ""}`);
             delete m.png;
             m.file = `${tag}.png`;
           }
