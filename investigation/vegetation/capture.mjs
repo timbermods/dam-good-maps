@@ -8,8 +8,6 @@ mkdirSync('out', { recursive: true });
 const url = process.env.VEGETATION_URL ?? (existsSync('.demo-url') ? readFileSync('.demo-url', 'utf8').trim() : undefined);
 if (!url) throw new Error('Start npm run demo first; it records the free port.');
 const smoke = process.argv.includes('--smoke');
-const refresh = process.argv.includes('--refresh');
-const previous = refresh ? JSON.parse(readFileSync('captures/verification.json', 'utf8')) : undefined;
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-vulkan'] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1080 }, deviceScaleFactor: 1 });
 page.setDefaultTimeout(300_000);
@@ -66,6 +64,10 @@ try {
   await page.evaluate(() => window.vegetation.setPose('garden'));
   await page.screenshot({ path: 'captures/demo.jpg', type: 'jpeg', quality: 80, fullPage: true });
   await page.evaluate(() => window.vegetation.load(11)); await snap('types-top-down', 'types');
+  await snap('types-side', 'side');
+  await page.evaluate(() => window.vegetation.configure({ low: true }));
+  await snap('types-top-down-laptop', 'types'); await snap('types-side-laptop', 'side');
+  await page.evaluate(() => window.vegetation.configure({ low: false }));
   if (!smoke) {
     for (const index of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
       console.log('Loading', index); await page.evaluate(index => window.vegetation.load(index), index);
@@ -77,8 +79,7 @@ try {
     console.log('Loading dense stress'); await page.evaluate(() => window.vegetation.load(10));
     await snap('dense-forest-256', 'overview');
     await page.evaluate(() => window.vegetation.setPose('edge'));
-    report.benchmark = refresh ? previous.benchmark : await page.evaluate(() => window.vegetation.benchmark(4));
-    if (refresh) report.benchmarkNote = 'Tree-only stress measurement retained: the final visual revision changes berry placement only; tree geometry and rendering are unchanged.';
+    report.benchmark = await page.evaluate(() => window.vegetation.benchmark(4));
     console.log('Benchmark', JSON.stringify(report.benchmark));
     for (const [index, seed] of [[1, 17], [2, 73]]) {
       console.log('Additional seed', seed); await page.evaluate(([index, seed]) => window.vegetation.load(index, seed), [index, seed]);

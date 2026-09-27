@@ -33,7 +33,7 @@ test('every tile on 256² keeps its trunk base inside its own tile, with determi
   const phases = new Set<number>();
   for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
     const p = placement(x, y); assert.deepEqual(p, placement(x, y));
-    assert.ok(Math.abs(p.dx) + 0.12 * p.scale < 0.5); assert.ok(Math.abs(p.dz) + 0.12 * p.scale < 0.5);
+    assert.ok(Math.abs(p.dx) + 0.14 * p.scale < 0.5); assert.ok(Math.abs(p.dz) + 0.14 * p.scale < 0.5);
     phases.add(Math.round(p.phase * 1000));
   }
   assert.ok(phases.size > 5000);

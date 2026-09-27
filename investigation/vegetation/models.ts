@@ -4,8 +4,8 @@ export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
 export type Detail = 'near' | 'far';
 export const paletteDefaults = {
-  pine: '#264d32', birch: '#77933f', oak: '#56753a', bush: '#395c39',
-  bark: '#806044', birchBark: '#ded9c5', dead: '#c1b69a', berry: '#415f9a', marks: '#494239',
+  pine: '#2b6936', birch: '#a7cc45', oak: '#489a38', bush: '#387632',
+  bark: '#806044', birchBark: '#f2efdd', dead: '#c1b69a', berry: '#7f9bff', marks: '#494239',
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
@@ -59,13 +59,13 @@ class Shape {
   }
 }
 
-/** Irregular star skirt with a raised shoulder: a pine's needles, not a stack of perfect cones. */
+/** Shallow scallops retain one pointed conical outline, including from above. */
 function tier(m: Shape, radius: number, base: number, height: number, seed: number, detailed: boolean) {
   const points: number[] = [], n = detailed ? 12 : 6;
   const ring: V[] = Array.from({ length: n }, (_, i) => {
     const a = i / n * Math.PI * 2 + seed * 0.57;
-    const r = radius * (i % 2 && detailed ? 0.70 : 0.88 + noise(i, seed, 13) * 0.12);
-    return [Math.cos(a) * r, base + (detailed ? noise(i, seed) * 0.07 : 0), Math.sin(a) * r];
+    const r = radius * (i % 2 && detailed ? 0.86 : 0.94 + noise(i, seed, 13) * 0.06);
+    return [Math.cos(a) * r, base + (detailed ? noise(i, seed) * 0.035 : 0), Math.sin(a) * r];
   });
   const tip: V = [0.015 * Math.sin(seed), base + height, 0.015 * Math.cos(seed)];
   for (let i = 0; i < n; i++) {
@@ -74,7 +74,7 @@ function tier(m: Shape, radius: number, base: number, height: number, seed: numb
     if (detailed) points.push(...b, ...[0, base + 0.06, 0], ...a);
   }
   const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(points, 3));
-  m.add(g, 'pine', 0.88 + base * 0.12);
+  m.add(g, 'pine', 0.96 + base * 0.10);
 }
 
 export interface SpeciesDefinition { height: number; wind: number; build: (m: Shape, variant: number, detail: Detail, dead: boolean) => void }
@@ -91,7 +91,7 @@ export const registry: Record<Species, SpeciesDefinition> = {
     } else {
       for (let i = 0; i < (near ? 4 : 3); i++) {
         const f = i / (near ? 4 : 3);
-        tier(m, 0.34 * (1 - f * 0.64), 0.28 + f * (h - 0.65), 0.62 - f * 0.13, v * 4 + i, near);
+        tier(m, 0.365 * (1 - f * 0.64), 0.28 + f * (h - 0.65), 0.66 - f * 0.13, v * 4 + i, near);
       }
       if (near) tier(m, 0.095, h - 0.37, 0.37, v + 19, true);
     }
@@ -116,15 +116,17 @@ export const registry: Record<Species, SpeciesDefinition> = {
       for (let i = 0; i < n; i++) {
         const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
         m.crown([side * (near ? 0.11 : 0.12), 0.85 + (near ? i * 0.072 : i * 0.13), near ? Math.sin(a) * 0.10 : 0],
-          [near ? 0.17 : 0.20, near ? 0.25 : 0.40, near ? 0.13 : 0.16], 'birch', 0.85 + i / n * 0.22, a);
+          [near ? 0.17 : 0.20, near ? 0.25 : 0.40, near ? 0.13 : 0.16], 'birch', 0.97 + i / n * 0.15, a);
       }
     }
   } },
   Oak: { height: 1.46, wind: 0.027, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'dead' : 'bark';
-    m.branch([0, 0, 0], [0.02, 0.87, 0], 0.10, bark, near ? 7 : 3, 0.52);
+    m.branch([0, 0, 0], [0.02, dead ? 0.87 : 0.68, 0], dead ? 0.10 : 0.125, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
     if (!near && !dead) {
-      for (let i = 0; i < 3; i++) { const a = i * 2.4; m.add(new OctahedronGeometry(1), 'oak', 0.92 + i * 0.06, [Math.cos(a) * 0.16, 1.03 + i * 0.06, Math.sin(a) * 0.16], [0.29, 0.29, 0.29], a); }
+      // The same broad main crown and low shoulder as today's signature oak; 36 total triangles.
+      m.crown([0, 0.95, 0], [0.49, 0.39, 0.46], 'oak', 1.02);
+      m.add(new TetrahedronGeometry(1), 'oak', 1.06, [0.18, 0.81, 0.10], [0.30, 0.28, 0.29]);
       return;
     }
     const n = near ? 5 : 3;
@@ -134,11 +136,12 @@ export const registry: Record<Species, SpeciesDefinition> = {
       if (dead && near) m.branch([Math.cos(a) * 0.20, 0.87 + i * 0.055, Math.sin(a) * 0.20], [Math.cos(a + 0.4) * 0.34, 1.12 + i * 0.055, Math.sin(a + 0.4) * 0.34], 0.021, bark, 3, 0.05);
     }
     if (!dead) {
-      for (let i = 0; i < (near ? 8 : 3); i++) {
-        const a = i * 2.4 + v * 0.6, r = near ? (0.18 + (i % 2) * 0.04) * [1, 0.86, 1.06][v] : 0.15;
-        m.crown([Math.cos(a) * r, 0.95 + (i % 3) * 0.09 + (v === 1 ? 0.08 : 0), Math.sin(a) * r], [near ? 0.20 : 0.24, v === 1 ? 0.30 : 0.27, near ? 0.20 : 0.24], 'oak', 0.86 + (i % 3) * 0.08, a);
-      }
-      if (near) m.crown([0, 1.23, 0], [0.24, 0.23, 0.23], 'oak', 1.08, v);
+      // One continuous, squat round crown does the reading; small shoulders only soften its edge.
+      const width = [1, 0.94, 1.04][v];
+      m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 0.97 + (v === 1 ? 0.04 : 0), 0], [0.47 * width, 0.36, 0.44 * width], v * 0.25);
+      m.crown([0.21, 0.82, 0.12], [0.29, 0.27, 0.28], 'oak', 1.06, v * 0.3);
+      m.crown([-0.22, 0.89, 0.08], [0.25, 0.25, 0.27], 'oak', 0.97, v * 0.7);
+      m.crown([0.02, 0.94, -0.22], [0.27, 0.25, 0.24], 'oak', 1.04, v);
     }
   } },
   BlueberryBush: { height: 0.47, wind: 0.008, build(m, v, detail, dead) {
@@ -148,18 +151,19 @@ export const registry: Record<Species, SpeciesDefinition> = {
       return;
     }
     if (!near) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'bush', side === 1 ? 1 : 0.9, [side * 0.12, 0.22, 0], [0.23, 0.23, 0.24]);
-      for (let i = 0; i < 3; i++) m.add(new TetrahedronGeometry(0.04), 'berry', 1, [Math.cos(i * 2.4) * 0.15, 0.37, Math.sin(i * 2.4) * 0.15]);
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'bush', side === 1 ? 1 : 0.96, [side * 0.12, 0.19, 0], [0.23, 0.18, 0.24]);
+      for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.079), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.145, 0.35, Math.sin(i * 2.4 + v) * 0.145]);
+      m.add(new OctahedronGeometry(0.079), 'berry', 1, [0.24, 0.21, 0.12]);
       return;
     }
-    for (let i = 0; i < (near ? 5 : 2); i++) {
+    for (let i = 0; i < 5; i++) {
       const a = i * 2.4 + v;
-      m.crown([Math.cos(a) * 0.13, 0.20 + (i % 2) * 0.08, Math.sin(a) * 0.13], [0.20, 0.19, 0.20], 'bush', 0.86 + (i % 3) * 0.1, a);
+      m.crown([Math.cos(a) * 0.13, 0.18 + (i % 2) * 0.04, Math.sin(a) * 0.13], [0.205, 0.155, 0.195], 'bush', 0.96 + (i % 3) * 0.06, a);
     }
-    for (let i = 0; i < (near ? 11 : 3); i++) {
-      const cluster = i % 5, a = cluster * 2.4 + v;
-      m.crown([Math.cos(a) * 0.13 + Math.sin(i * 1.3) * 0.055, 0.365 + (cluster % 2) * 0.08, Math.sin(a) * 0.13 + Math.cos(i * 1.3) * 0.055], [0.034, 0.032, 0.034], 'berry', 0.9 + (i % 2) * 0.18);
-    }
+    // Big blue fruit sits outside the leaves: a top cluster and a ring readable from any side.
+    for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.075), 'berry', 1.04, [Math.cos(a) * 0.145, 0.355, Math.sin(a) * 0.145]); }
+    m.add(new OctahedronGeometry(0.068), 'berry', 1.10, [0.015, 0.375, 0.015]);
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + v * 0.7; m.add(new OctahedronGeometry(0.073), 'berry', 1, [Math.cos(a) * 0.275, 0.23, Math.sin(a) * 0.275]); }
   } },
 };
 

@@ -75,7 +75,7 @@ async function load(index = Number(select('map').value), seed = Number(check('se
         setPose(currentKind === 'gallery' ? 'garden' : currentKind === 'lineup' ? 'types' : 'edge'); ready = true;
         samples = []; lastAdapt = performance.now();
         $('status').textContent = `${label} · ${forest.stats.plants.toLocaleString()} plants · cameras synced · built in ${(data.ms / 1000).toFixed(1)} s`;
-        $('legend').textContent = currentKind === 'gallery' ? 'Columns: pine · birch · oak · berries. Front: three mature rows. Middle: 8%, 32%, 66% growth. Back: bare / dead.' : 'Pine: dark radial tiers · Birch: light split crowns · Oak: broad lobes · Berries: low blue-dotted clusters.';
+        $('legend').textContent = currentKind === 'gallery' ? 'Columns: pine · birch · oak · berries. Front: three mature rows. Middle: 8%, 32%, 66% growth. Back: bare / dead.' : 'Pine: dark pointed cone · Birch: airy yellow-green clusters · Oak: broad round green crown · Berries: low bushes with bright blue fruit. Lineup rows, front to back: mature, young, dead.';
         worker?.terminate(); worker = undefined; renderIcons(); resolve();
       } catch (e) { $('status').textContent = String(e); reject(e); }
     };
@@ -86,8 +86,9 @@ function camera(v: Partial<ViewState>) { old.setView(v); fresh.setView(v); }
 function setPose(kind: string) {
   if (!map) return;
   select('pose').value = kind;
-  if (currentKind === 'lineup') { camera({ mode: kind === 'types' || kind === 'overview' ? 'top' : 'orbit', target: [11, 2.5, -7], distance: 12, pitch: 0.90, yaw: 0 }); return; }
+  if (currentKind === 'lineup') { camera({ mode: kind === 'types' || kind === 'overview' ? 'top' : 'orbit', target: [11.5, kind === 'side' ? 2.65 : 2.5, kind === 'side' ? -4.5 : -6.5], distance: 9, pitch: kind === 'side' ? 0.24 : 0.90, yaw: 0 }); return; }
   if (currentKind === 'gallery') {
+    if (kind === 'side') { camera({ mode: 'orbit', target: [11, 2.7, -4.5], distance: 10, pitch: 0.24, yaw: 0 }); return; }
     const top = kind === 'types' || kind === 'overview';
     camera({ mode: top ? 'top' : 'orbit', target: [11, 2.5, kind === 'types' ? -4.5 : kind === 'stages' ? -12.3 : -9], distance: kind === 'types' ? 10 : kind === 'stages' ? 15 : 26, pitch: 0.87, yaw: top ? 0 : -0.18 }); return;
   }
@@ -105,7 +106,7 @@ function setPose(kind: string) {
     if (score > best) { best = score; winner = i; }
   }
   if (winner < 0) { setPose('overview'); return; }
-  camera({ mode: kind === 'types' ? 'top' : 'orbit', target: [e.x[winner] + 0.5, e.z[winner] + 0.5, -e.y[winner] - 0.5], distance: kind === 'edge' ? 26 : 13, pitch: kind === 'edge' ? 0.85 : 0.60, yaw: -0.55 });
+  camera({ mode: kind === 'types' ? 'top' : 'orbit', target: [e.x[winner] + 0.5, e.z[winner] + 0.5, -e.y[winner] - 0.5], distance: kind === 'edge' ? 26 : 13, pitch: kind === 'side' ? 0.24 : kind === 'edge' ? 0.85 : 0.60, yaw: -0.55 });
 }
 function apply() {
   const low = check('low').checked;
