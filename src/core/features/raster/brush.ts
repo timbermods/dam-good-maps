@@ -42,6 +42,9 @@
 //   source stands on it; a piece on more than one tile that must stay level (a 3 × 3 badwater
 //   source) is one of the stroke's `rigid` rectangles, whose tiles take the level of its middle
 //   tile once the stroke is applied. A stroke saved with `keep` runs keeps them, as it always did.
+// - The working area (D254, D259): a stroke with an `area` changes only the tiles inside it, and a
+//   tile at most as many levels as it is steps inside it (4-neighbour, from the nearest tile
+//   outside), so the edit meets the locked land at one level a tile: a feathered edge.
 // - Levels stay within 0–16 (the in-game editor's range; a higher imported tile is never raised).
 // - Brushes shape each column's top (`layer: "top"`); the 3D stages extend them to the runs
 //   below (caves), with the same dabs.
@@ -76,6 +79,10 @@ export interface BrushParams {
    *  rectangles [x0, y0, x1, y1]: once the stroke is applied, each one's tiles take the level of its
    *  middle tile. */
   rigid?: [number, number, number, number][];
+  /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the
+   *  stroke changes only its tiles, and by at most as many levels as a tile is steps inside it (its
+   *  feathered edge: the land it changes meets the locked land a level a tile, never in a cliff). */
+  area?: [number, number, number][];
   /** Flatten in steps: benches every `steps` levels (2–8) from the flatten level. */
   steps?: number;
   /** Smooth, walkable (a saved stroke's; the editor no longer offers it, D247): steps of 2 levels or more wear down to 1, and the game's natural slopes
@@ -260,6 +267,10 @@ export class BrushStroke {
   private box: Rect | null = null;
   /** Work buffers for the edge rule. */
   private moved: Int16Array | null = null;
+  /** The working area: each tile's steps inside it (0 outside), and the heights before the stroke
+   *  (smooth and naturalize keep within them); null without an area. */
+  private readonly inside: Uint8Array | null;
+  private readonly start: Uint8Array | null;
 
   constructor(settings: Omit<BrushParams, "dabs">, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true) {
     this.W = W;
@@ -284,6 +295,14 @@ export class BrushStroke {
       this.write = (i) => !kept[i] && inner(i);
     }
     this.swept = new Uint8Array(W * H);
+    // the working area: only inside it, and feathered toward its edge
+    this.inside = settings.area ? areaDepth(settings.area, W, H) : null;
+    this.start = this.inside && !pointwise ? heights.slice() : null;
+    if (this.inside) {
+      const inner = this.write;
+      const inside = this.inside;
+      this.write = (i) => inside[i] > 0 && inner(i);
+    }
   }
 
   /** Dabs so far. */
@@ -403,6 +422,11 @@ export class BrushStroke {
       const x = i % W;
       const y = (i - x) / W;
       const h = heights[i];
+      // (the working area's feathered edge: a tile moves at most its steps inside the area)
+      const was = this.start ? this.start[i] : h;
+      const room = this.inside ? this.inside[i] : 255;
+      const up = h < was + room;
+      const down = h > was - room;
       if (this.settings.tool === "smooth") {
         if (this.settings.walkable) {
           // walkable: a step of 2 levels or more wears down to 1 first
@@ -413,11 +437,11 @@ export class BrushStroke {
           if (y > 0) ({ lo, hi } = mm(heights[i - W], lo, hi));
           if (y < H - 1) ({ lo, hi } = mm(heights[i + W], lo, hi));
           if (h - lo >= 2) {
-            heights[i] = h - 1;
+            if (down) heights[i] = h - 1;
             continue;
           }
           if (hi - h >= 2 && h < BRUSH_MAX_LEVEL) {
-            heights[i] = h + 1;
+            if (up) heights[i] = h + 1;
             continue;
           }
         }
@@ -430,8 +454,9 @@ export class BrushStroke {
           }
         // the neighbourhood's mean, rounded half up
         const target = Math.floor((2 * sum + n) / (2 * n));
-        if (target > h && h < BRUSH_MAX_LEVEL) heights[i] = h + 1;
-        else if (target < h) heights[i] = h - 1;
+        if (target > h && h < BRUSH_MAX_LEVEL) {
+          if (up) heights[i] = h + 1;
+        } else if (target < h && down) heights[i] = h - 1;
         continue;
       }
       // naturalize: wear cliffs into slopes, fill their feet, and wiggle long straight edges
@@ -443,10 +468,13 @@ export class BrushStroke {
       if (y < H - 1) ({ lo, hi } = mm(heights[i + W], lo, hi));
       const step = this.steps![i]++;
       const n = fmix32((this.settings.seed ?? 0) ^ Math.imul(i + 1, 0x9e3779b1) ^ Math.imul(step + 1, 0x85ebca77)) & 1023;
-      if (h - lo >= 2) heights[i] = h - 1;
-      else if (hi - h >= 2 && h < BRUSH_MAX_LEVEL) heights[i] = h + 1;
-      else if (h > lo && n < 200) heights[i] = h - 1;
-      else if (h < hi && n >= 1024 - 200 && h < BRUSH_MAX_LEVEL) heights[i] = h + 1;
+      if (h - lo >= 2) {
+        if (down) heights[i] = h - 1;
+      } else if (hi - h >= 2 && h < BRUSH_MAX_LEVEL) {
+        if (up) heights[i] = h + 1;
+      } else if (h > lo && n < 200) {
+        if (down) heights[i] = h - 1;
+      } else if (h < hi && n >= 1024 - 200 && h < BRUSH_MAX_LEVEL && up) heights[i] = h + 1;
     }
   }
 
@@ -470,6 +498,13 @@ export class BrushStroke {
     // the edge rule: a 4-neighbour distance transform from the ground round the stroke (0 outside);
     // precise strokes have vertical walls, unless a ramped flatten steps its rim down
     if (!depth || this.settings.edges === "ramped") this.edgeRule(m, bw, bh);
+    // the working area's feathered edge: a tile changes at most its steps inside the area
+    const inside = this.inside;
+    if (inside)
+      for (let y = 0; y < bh; y++) {
+        const row = (b.y0 + y) * W + b.x0;
+        for (let x = 0; x < bw; x++) if (m[y * bw + x] > inside[row + x]) m[y * bw + x] = inside[row + x];
+      }
     const { tool, level, stop, steps } = this.settings;
     const L = Math.max(0, Math.min(BRUSH_MAX_LEVEL, level ?? 0));
     const ceil = Math.min(BRUSH_MAX_LEVEL, stop ?? BRUSH_MAX_LEVEL);
@@ -519,6 +554,32 @@ export class BrushStroke {
   }
 }
 
+/** Each tile's steps inside a working area given as runs [y, x0, x1] (4-neighbour, from the
+ *  nearest tile outside it; the map's own edge doesn't count as outside), 0 outside it, at most 255. */
+export function areaDepth(area: readonly (readonly [number, number, number])[], W: number, H: number): Uint8Array {
+  const d = new Uint8Array(W * H);
+  for (const [y, a, b] of area) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) d[y * W + x] = 255;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!d[i]) continue;
+      let v = d[i];
+      if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
+      if (y > 0 && d[i - W] + 1 < v) v = d[i - W] + 1;
+      d[i] = v;
+    }
+  for (let y = H - 1; y >= 0; y--)
+    for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      if (!d[i]) continue;
+      let v = d[i];
+      if (x < W - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
+      if (y < H - 1 && d[i + W] + 1 < v) v = d[i + W] + 1;
+      d[i] = v;
+    }
+  return d;
+}
+
 function mm(v: number, lo: number, hi: number): { lo: number; hi: number } {
   return { lo: v < lo ? v : lo, hi: v > hi ? v : hi };
 }
@@ -557,6 +618,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.walkable !== undefined && (p.tool !== "smooth" || typeof p.walkable !== "boolean")) return ["only smooth makes the ground walkable"];
   if (p.edges !== undefined && (p.tool !== "flatten" || p.edges !== "ramped")) return ["only flatten has ramped edges"];
   if (p.rigid !== undefined && !(Array.isArray(p.rigid) && p.rigid.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[0] >= 0 && r[1] >= 0 && r[0] <= r[2] && r[1] <= r[3] && r[2] < W && r[3] < H && r[2] - r[0] < 8 && r[3] - r[1] < 8))) return ["a stroke's riding pieces are rectangles [x0, y0, x1, y1] on the map, up to 8 tiles across"];
+  if (p.area !== undefined && !(Array.isArray(p.area) && p.area.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's working area is runs [y, x0, x1]"];
   if (p.keep !== undefined && !(Array.isArray(p.keep) && p.keep.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's kept tiles are runs [y, x0, x1]"];
   for (let k = 0; k < p.dabs.length; k += 2) {
     const x = p.dabs[k];

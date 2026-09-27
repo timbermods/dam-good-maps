@@ -64,6 +64,8 @@ export const BAD: Rgba = [230, 60, 50, 180];
  *  show on any ground or water in any colours (Map look, D114). */
 export const DAM: Rgba = [...DAM_OVERLAY];
 export const PROBLEM: Rgba = [230, 60, 50, 150];
+/** The locked land outside the working area (D254): dimmed. */
+export const LOCKED: Rgba = [16, 20, 28, 120];
 
 export interface OverlayLayer {
   tiles: ArrayLike<number>;

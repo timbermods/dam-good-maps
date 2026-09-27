@@ -287,7 +287,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("Escape");
   await expect(sel).toHaveCount(0);
 
-  // Ctrl+drag with a brush out selects too
+  // Ctrl+drag with a brush out selects too: the brush stays out, and the Select row is a chip
+  // beside it (D259: one row at a time)
   await page.keyboard.press("1");
   await page.keyboard.down("Control");
   await page.mouse.move(q0.x, q0.y);
@@ -295,6 +296,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.mouse.move(q1.x, q1.y, { steps: 5 });
   await page.mouse.up();
   await page.keyboard.up("Control");
-  await expect(page.getByRole("group", { name: "Selection" }).getByRole("status")).toHaveText("6 × 5 tiles");
+  await expect(page.locator(".select-chip")).toHaveText("Working inside 6 × 5 · Esc to clear");
+  await expect(page.getByRole("group", { name: "Selection" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Raise brush/ })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
 });

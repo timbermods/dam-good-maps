@@ -221,7 +221,12 @@ editor is desktop-first (D185).
   never locked: it follows the land inside and out. "Fence off an area, then paint inside it" is one motion: Ctrl+drag
   with a brush out makes the selection, and on release the same brush keeps painting inside it. One row at a time: with
   a brush or force picked, the Select row shrinks to a chip beside it ("Working inside 40 × 40 · Esc to clear") that
-  expands when clicked. Every edit is one undo step as always; marking or clearing the area is not an edit.
+  expands when clicked (the brush or force goes back). Every edit is one undo step as always; marking or clearing the
+  area is not an edit. As built: the feathered edge lets a tile change at most as many levels as it is steps inside the
+  area (the edit meets the locked land a level a tile); a stroke keeps its `area` (runs) so it replays exactly; a force
+  treats the land outside as land it keeps, eases its result to the edge the same way once it is kept, and refuses to
+  start outside the area ("Outside the working area: Esc clears it"); Clear sources takes only the sources wholly inside.
+  Set level's list follows the height ceiling's constant (16 until D244's step 2 lifts it).
 
 (D180, D182, D183, D184, D193, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259.)
 
@@ -479,7 +484,8 @@ kit's options it used: square, precise (each dab's depth in levels, a stop level
 keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
 leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's
 rectangle, which takes its middle tile's level once the stroke is applied, D249; strokes saved
-before keep their `keep` runs and replay exactly),
+before keep their `keep` runs and replay exactly), the working area it was painted in (`area`, D254: runs; it changes
+only inside, feathered),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
 edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
