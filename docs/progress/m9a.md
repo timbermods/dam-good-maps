@@ -265,6 +265,27 @@ candidates):
 - **Second districts are rare** (D77: only where one fits): 6 of 70 maps at 128² (seeds 1–10 of
   every theme; Islands 5, Canyon 1), where M7's planner found one on most Delta and Lake Basin maps.
   The batch report now counts them.
+- **A river that stands in pools** (information, for M9b's hydrology; found by the editor test):
+  River Valley 96² seed 4242's main river (north edge to east edge, 4.21 blocks/s) holds its water
+  in level-0 pools exactly 2.0 deep, with dry level-2 stretches between them (tiles 48–54, 63–69 and
+  81–90 of its path), a level-5 ridge across its planned bed at (34, 80), and its last tiles at the
+  east edge dry. The water stands at the height of the level-2 plain round it, so one added spring
+  of 1.5 floods 292 tiles and halves the land the start walks to (1,175 → about 500 tiles). On seeds
+  1, 2 and 4244 at least 95% of the path is wet. Every check passes; a player sees ponds where the
+  map says a river runs to the edge.
+- **Designed for reshapes the land** (information): a harder drought asks for more stored water
+  (PLAN §11.4), and the extra basins are drawn from the same random stream as the rest of the
+  genome, so 4,488–8,380 of the 9,216 tiles differ between a seed's Normal and Hard maps at 96². So
+  "Generate, keeping my edits" after changing Designed for keeps the player's edits on a different
+  valley (the editor names what they then break). Drawing the extra basins from their own stream
+  would keep the rest of the land; not done this late, since it would change every Easy and Hard
+  map.
+- **Starts and the starting-logs floor** (D229; the start-area sheet): see "The starting-logs
+  floor" under Results. Plainly: the floor's added wood does not put the same forest beside every
+  start (it follows each map's own water and land, in every direction). What does recur beside every
+  start is the start's own planting for Minimum starting wood and Minimum starting bushes (D85's
+  near-start groves and berry patches, cyan and magenta on the sheet), and at Normal those groves are
+  larger since D227 (200 logs within 20 tiles' walk, 80 before).
 
 ## Tests updated because a decision changed what they tested
 
@@ -317,7 +338,16 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     default; a new test for the floor: the same logs within 40 tiles' walk, the same at every
     difficulty, rejecting); `spec.test.ts` (a link's unreadable tree count keeps Normal's default,
     whatever it is); `placesCommon.ts` and `places.test.ts` (the places' wood as known faults, above);
-    `look-mine-ruins.test.ts` (the live check's sha for the maps as they now are).
+    `look-mine-ruins.test.ts` (the live check's sha for the maps as they now are); `tests/e2e/start.spec.ts`
+    (the card's Normal wood is at least 200; new: the floor's row on the card and in the editor's
+    indicators, and the page's count equal to the validator's).
+  - `tests/e2e` re-seeded for 0.7.0's maps (dev's Live editing tests were written on the old
+    generator's 4242): `brushKit` on seed 24 (flat, dry, empty ground at level 4 or more for its pits
+    and an unturned mine site), `shelf` on seed 1 (level open ground 7 and 9 wide), `waterTools` and
+    `waterView` on seed 15 (4242's river stands in pools; there one group of sources feeds the
+    water); `waterView`'s new source goes on level ground (the badwater source it becomes stands 3 × 3).
+  - `tools/settings-suite.ts`: River style (braided) on 12 seeds (0.9 on 8 once D227's start rules
+    changed which attempt a seed ends on; 1.0 on 12, its threshold unchanged).
 
 ## API changes (for the Live editing merge)
 
