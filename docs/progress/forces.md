@@ -9,17 +9,21 @@
 > 2. **D249, brushes and sources: done** (the section below; captures linked there).
 > 3. **D257/D258: done** (the section below; `dev` merged at 052aa69 first).
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
-> 5. **D260** (next): water no source feeds recedes at once (stored lakes excepted), a removed source's
->    marker goes at once; the before/after table here. Then message the coordinator the sha.
+> 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264**: work in progress in `git stash`
 >    ("d259-wip": the brush's `area`, the forces' feathered working area, the new Select tool with
 >    Circle, Brush and Wand, its button and chip, Ctrl+A, Set level's Set / Cut down / Fill up, Max
 >    water depth, `applySelection`); tests and docs still to write. Then **D263** (smart Lower's
 >    depth from strokes).
-> 7. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 7. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
+> 8. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
-> Checked at D249's end: see its section. Parked: decisions-pending #84 (Ramped laying its own
-> slopes); Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's
+> **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
+> here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
+> the Claude code already here (D257's steps included) stays as it is, unmaintained; a test that
+> depends on it and breaks is skipped with a note to D277.
+>
+> Checked at each step's end: see its section. Parked: Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's
 > listening check of the sounds. Kyler's forces-sitting checklist is in `docs/STATUS.md`.
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
@@ -27,6 +31,56 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Water that no source feeds recedes at once (D260)
+
+- **The rule** (`unfedTiles` in `src/core/sim/preview.ts`, used by the warm start): of the water carried
+  over to the new ground, a tile loses its feed when the canonical start's walk from the running
+  sources (prefill.ts `flowThrough`, now its own function: every running emitter's water walked
+  downhill or level over the filled surface, and the stored lakes up to their surface) no longer
+  reaches it nor a tile round it, or when less water flows through it than before (a source removed
+  or weakened, a river cut off or turned away: each model's flow is kept while it lives, so an edit
+  compares with the last). Those tiles take the canonical start, dry where nothing reaches them, so
+  their water drains away in the edit's own journey from its first frame, as the canonical settle's
+  does. A stored lake (`RetainedWater`) is reached by its own water: it stays while its hollow holds
+  it, drains through a breach, and is gone when filled in (its surface is under the new ground).
+  A first try (tiles joined through water to no source) missed water joined to another river
+  downstream; the walk follows the way water runs.
+- **A removed source's marker** goes the moment the objects change (`sourcesChanged`: the sources
+  near the pointer and those its water comes from are found again at once, from the objects as they
+  are, not the page's memo).
+
+The time until the view shows no water the canonical settle won't have (a tile over 0.05 deep where
+the settle is dry), 256², seed 7, measured on the preview's frames played at normal speed; water the
+preview never drains waits for the background check (0.7 s, then its own settle). `.scratch/d260measure.ts`
+(not committed: run on this machine, before and after the change).
+
+| Map | Edit | Before | After |
+|---|---|---|---|
+| River Valley | remove the strongest source (its 10 at the river's mouth) | 2.5 s (432 tiles until the check's settle) | at once (the first frame) |
+| River Valley | a river cut off with a Raise across it | 4.0 s (42 tiles) | 4.8 s (42 tiles): none of them wet before the edit, at most 0.06 deep: the backed-up river's thin spread the preview stops before, not unfed water |
+| River Valley | Kyler's sheet: one of its two sources removed | at once | 0.3 s |
+| River Valley | Kyler's sheet: then the other | 1.5 s | 0.4 s |
+| Highlands | remove the strongest source | 5.5 s (176 tiles) | at once |
+| Highlands | a river cut off with a Raise across it | 7.7 s (16 tiles) | 10.4 s (16 tiles): as River Valley's, a thin new spread (at most 0.06 deep) |
+| Highlands | Kyler's sheet: one of its two sources removed | 10.4 s (106 tiles) | 17.8 s (37 tiles, at most 0.10 deep): the sheet's thin fringe the preview stops before drying |
+| Highlands | Kyler's sheet: then the other | 1.0 s | 1.1 s |
+| both | a carve's oxbow lake breached with Lower | (no oxbow formed in six Wander-100 carves at 256²) | the contract test's stored lake drains through its breach as the canonical settle's |
+
+(The "after" check-settle times differ from "before" with this machine's load: M9a's batches were
+running.) What's left is the preview's own approximation (its stopping rule ends while thin sheets,
+at most 0.1 deep, still spread or retreat), not water without a feed; the canonical settle ends the
+journey there as before. Not loosened: the parity tests pass unchanged.
+
+Tests: `tests/contract/unfedWater.test.ts` (a pool whose source goes is dry from the preview's first
+frame and ends as the canonical settle; with two sources, removing one restarts it and it settles to
+what the other keeps; a river cut off by raised ground: below the cut unfed, above fed, the preview
+ending as the settle; a stored lake kept by an edit elsewhere, drained through a breach as the
+settle, gone when filled in), `tests/e2e/unfedWater.spec.ts` (a source placed and settled, removed with
+Delete: its marker gone at once, its water drained within four seconds).
+
+For Kyler's forces sitting: remove a source (Delete, or Remove): its label goes at once and its water
+drains away in a second or two; cut a river with Raise: the water below the cut goes.
 
 ## The camera still, the forces at their own pace (D265, D266)
 

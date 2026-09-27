@@ -458,6 +458,7 @@ export default function Editor(props: EditorProps) {
       m.coverAt = null;
       r?.updateEntities(v.entities);
       reglow();
+      sourcesChanged();
     }
     if (v.water || v.entities) setWaterTick((t) => t + 1);
   }
@@ -961,6 +962,17 @@ export default function Editor(props: EditorProps) {
     const feed = mirror.current.water ? (feedingGroups(mirror.current.water, gs, info.W, info.H, hit.x, hit.y) ?? []) : [];
     setFeeding(feed);
     r?.setSourceGlow(feed.flatMap((k) => gs[k].tiles));
+  }
+  const hoverSourcesRef = useRef(hoverSources);
+  hoverSourcesRef.current = hoverSources;
+  /** The objects changed: the sources near the pointer and those feeding its water are found again
+   *  at once, so a removed source's marker, label and glow go with it (D260), never after the water
+   *  or the background check. */
+  function sourcesChanged() {
+    // (the groups as the objects are now: the page's memo follows at its next render)
+    groupsRef.current = sourceGroups(mirror.current.entities, infoRef.current.W, mirror.current.heights);
+    hoverKey.current = "";
+    hoverSourcesRef.current(renderer.current?.hoverHit ?? null);
   }
   /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
    *  near the pointer and those its water comes from. */
@@ -1471,6 +1483,7 @@ export default function Editor(props: EditorProps) {
       m.coverAt = null;
       r?.updateEntities(e);
       reglow();
+      sourcesChanged();
     }
     if (v.water || v.entities) v.frame = requestAnimationFrame(() => flushForceView());
   }
