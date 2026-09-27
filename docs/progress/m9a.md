@@ -2,21 +2,26 @@
 
 > **In progress (2026-09-27): the batches on the re-frozen generator.** Kyler's D252 (1) unfroze
 > the generator: starts stop looking alike (37b2f50; see "Starts stop looking alike" under What was
-> built and under Results). **The generator is frozen again at ca63a56** (37b2f50 with `origin/dev`
-> merged to 97ed254, the same maps; dev was first merged to 5c54e32; M9a's pending #77–#80 became
-> #87–#90, the start planting's default is #93). The batches started at 0f70fcb for the restart's
-> step 1, and again at 37b2f50, were stopped before any run finished (only this worktree's processes).
-> **Done on ca63a56:** every settings experiment moves its target (seeds 1–4); the quick suite (693);
-> the probe group M9a's 15 maps rebuilt in `C:\dgm-probe\maps\20260927-0742-batch` (run id
-> `20260927-0742-batch`; `tools/check-maps.ts`: every check passes in TypeScript, and the Python
-> load checks, the Hard map at Hard; 209–1,494 logs within the floor's walk), never launched by this
-> session. **Left, in order:** (1) every batch, running: Normal at 96², 128², 192² and 256² for all
-> seven options, and Hard at 128² (the commands are in "Next session"); (2) the Claude suite,
-> running (≥ 103 of 120); (3) the batch tables under Results; (4) CI green on #56. The review set
-> (D252 (2)) and the probe batch are the orchestrator's. **Caveats** for Kyler (see "Found and
-> parked"): a river that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the
-> Real places' wood as known faults for Real places 2, River style (braided) at its threshold, and a
-> start whose walk is mostly moist land still gets the start rules' trees on every side.
+> built and under Results). **The generator is frozen again at 788c145** (its code as of 5e15143,
+> which keeps a walk short of moist land for the start's wood; d1fd46b merges `origin/dev` to
+> c678e5b, docs only; 788c145 re-seeds tests). An earlier freeze, ca63a56, made River Valley 96² seed
+> 1333 (an e2e determinism seed) mapless and was dropped; its batches and those at 0f70fcb and 37b2f50
+> were stopped (only this worktree's processes) and re-run. M9a's pending #77–#80 became #87–#90;
+> the start planting's default is #93; D270 answered them (#87, #88, #93 accepted; #89 for the
+> feature operations and Claude only; #90 held); D277 took the Claude suite off M9a's gates.
+> **Done on 788c145's generator:** every settings experiment moves its target (seeds 1–4, run on
+> 37b2f50: 5e15143 changes only tight walks); the quick suite (695); the Normal batches at 96² and
+> 128² (every option 100% final but 96² Lake Basin 99%: seed 99, mapless on the even planting too);
+> the probe group M9a's 15 maps rebuilt in `C:\dgm-probe\maps\20260927-0853-batch` (run id
+> `20260927-0853-batch`; `tools/check-maps.ts`: every check passes in TypeScript and the Python load
+> checks, the Hard map at Hard; 250–1,494 logs within the floor's walk), never launched by this
+> session. **Left, in order:** (1) the Normal batches at 192² and 256² and Hard at 128², running
+> (the commands are in "Next session"); (2) the batch tables under Results; (3) CI green on #56.
+> The review set (D252 (2)) and the probe batch are the orchestrator's. **Caveats** for Kyler (see
+> "Found and parked"): a river that stands in pools (River Valley 96² 4242), Designed for reshapes
+> the land, the Real places' wood as known faults for Real places 2, River style (braided) at its
+> threshold, and a start whose walk is mostly moist land still gets the start rules' trees on every
+> side.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -555,7 +560,7 @@ The D252 session's list (2026-09-27). D252 (1) changed generated maps, so every 
 maps are made again on the re-frozen generator (reports in `investigation/m9a/local/`, out of git,
 D195):
 
-1. **Every batch** (≥ 98% final per option and size, blocking):
+1. **Every batch** (≥ 98% final per option and size, blocking; 96² and 128² done on 788c145's generator, `--sizes 96,128` then `--sizes 192,256`):
    - Normal, all seven options at every size:
      `npx tsx tools/batches.ts --sizes 96,128,192,256 --seeds 1-100 --jobs 8 --out investigation/m9a/local/batches-d252`
    - Hard at 128²:
@@ -563,13 +568,13 @@ D195):
    - then `npx tsx tools/batches.ts --summary-only --out investigation/m9a/local/batches-d252` (and
      with `--sizes 128 --difficulty hard` for the Hard folder) writes `summary.md`; the tables go under
      Results.
-2. ~~**The probe maps**~~ done on ca63a56: `npm --prefix investigation/probe run batch -- --job-only --group M9a`
-   made the 15 maps in `C:\dgm-probe\maps\20260927-0742-batch` (run id `20260927-0742-batch`, job
-   preview `investigation/probe/.cache/job-preview.json`); `npx tsx tools/check-maps.ts C:/dgm-probe/maps/20260927-0742-batch`
+2. ~~**The probe maps**~~ done on 788c145: `npm --prefix investigation/probe run batch -- --job-only --group M9a`
+   made the 15 maps in `C:\dgm-probe\maps\20260927-0853-batch` (run id `20260927-0853-batch`, job
+   preview `investigation/probe/.cache/job-preview.json`); `npx tsx tools/check-maps.ts C:/dgm-probe/maps/20260927-0853-batch`
    checks them (every check in TypeScript and the Python load checks; `--difficulty hard` for the Hard
    map). The launch is the orchestrator's (`npm --prefix investigation/probe run batch -- --group M9a`);
    never launched by this session.
-3. ~~**Merge `origin/dev`**~~ done (to 97ed254: ca63a56, pushed); then CI green on #56
+3. ~~**Merge `origin/dev`**~~ done (to c678e5b: d1fd46b, pushed at 788c145); then CI green on #56
    (`gh run list --branch feature/m9a`).
 4. The start planting's measures: `npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128 --jobs 7`.
 
