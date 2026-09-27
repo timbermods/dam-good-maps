@@ -2,7 +2,8 @@
 // lists: the in-game checks of docs/ingame-log.md that concern the map itself (their files and the numbers
 // in each milestone's checks.txt), the cycle model's calibration points (investigation/cycles/CALIBRATION.md
 // on branch investigation/cycles-exact), the Map look captures (docs/map-look/after/after.json), the high
-// terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), and any .timber files given on the
+// terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), the terrain-3D test maps T1–T6
+// (tools/probe-3d.ts, PLAN §20 D127), and any .timber files given on the
 // command line (the M9 prototypes, for example).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -13,6 +14,7 @@ import { NEW_GAME_DAY } from './job';
 import { generated, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
 import { REPO, tallDir } from './paths';
+import { terrain3dGames, type Terrain3dEntry } from './terrain3d';
 
 export type Verdict = 'passed' | 'failed' | 'not measurable' | 'recorded';
 
@@ -53,6 +55,8 @@ export interface GameDef {
   pairs?: string[];
   /** A tall map's entry in tall.json (tools/probe-tall.ts). */
   tall?: TallEntry;
+  /** A terrain-3D test map's entry in terrain3d.json (tools/probe-3d.ts). */
+  terrain3d?: Terrain3dEntry;
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -416,6 +420,10 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
       checks,
     });
   }
+
+  // Terrain above terrain (PLAN §20 D127, D279): the test maps T1–T6 of investigation/terrain3d/DESIGN.md §8,
+  // written with tools/probe-3d.ts into C:\dgm-probe\terrain3d; their checks are in terrain3d.ts.
+  games.push(...terrain3dGames());
 
   // The cycle model's calibration points (CALIBRATION.md on investigation/cycles-exact), under forced weather
   games.push({

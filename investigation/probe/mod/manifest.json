@@ -1,6 +1,6 @@
 {
   "Name": "DGM Probe",
-  "Version": "0.2.0",
+  "Version": "0.3.0",
   "Id": "kyler.dgmprobe",
   "MinimumGameVersion": "1.1.2.4",
   "Description": "Dam Good Maps' automatic in-game test runner. Local only, never published. It does nothing unless the game is started by the probe's runner (with -dgmprobe and -dgmprobeHome <folder>) and a job file is present in that folder, which is never inside Documents/Timberborn. Its optional mods never exist: they make the game's mod sorter place it after every other mod, so the player's mod load order is never rewritten.",

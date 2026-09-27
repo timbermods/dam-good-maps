@@ -52,6 +52,11 @@ export function probeHome(): string {
 export function tallDir(): string {
   return resolve(process.env.DGM_PROBE_TALL ?? join(DEFAULT_PROBE_HOME, 'tall'));
 }
+/** The terrain-3D test maps tools/probe-3d.ts writes (T1–T6, PLAN §20 D127, D279), with their manifest
+ *  terrain3d.json. */
+export function terrain3dDir(): string {
+  return resolve(process.env.DGM_PROBE_TERRAIN3D ?? join(DEFAULT_PROBE_HOME, 'terrain3d'));
+}
 export const probePaths = () => {
   const home = probeHome();
   return {

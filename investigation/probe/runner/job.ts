@@ -93,13 +93,22 @@ export interface Job {
 
 // ---------------------------------------------------------------------------------------- results
 
+/** A water column as the mod records it: floor, depth, contamination, and (from mod 0.3.0) overflow, a
+ *  full cave's pressure (0 in the open). */
+export type WaterColumnRecord = [number, number, number] | [number, number, number, number];
+/** A terrain column (a solid run) as the mod records it (from 0.3.0): floor, ceiling (its top, where
+ *  plants stand), moisture, soil contamination. */
+export type TerrainRunRecord = [number, number, number, number];
+
 export interface TileSample {
   x: number;
   y: number;
-  /** Every water column on the tile, bottom up: floor, depth, contamination. */
-  columns: [number, number, number][];
+  /** Every water column on the tile, bottom up. */
+  columns: WaterColumnRecord[];
   moisture: number;
   soilContamination: number;
+  /** On a tile with more than one terrain column (from mod 0.3.0): every terrain column, bottom up. */
+  runs?: TerrainRunRecord[];
 }
 
 export interface SampleRow {
@@ -140,7 +149,10 @@ export interface MapSnapshot {
   terrain: number[];
   terrainColumns: number[];
   /** Tiles with more than one water column (caves, overhangs): x, y and every column. */
-  layered: { x: number; y: number; columns: [number, number, number][] }[];
+  layered: { x: number; y: number; columns: WaterColumnRecord[] }[];
+  /** Tiles with more than one terrain column (from mod 0.3.0): x, y and every terrain column, so the soil
+   *  of cave floors and roofs is recorded, not only the top one's. */
+  terrainLayered?: { x: number; y: number; runs: TerrainRunRecord[] }[];
   plants: EntityRecord[];
   sources: EntityRecord[];
 }
