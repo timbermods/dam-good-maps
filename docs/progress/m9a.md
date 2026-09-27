@@ -1,27 +1,30 @@
 # M9a: terrain and water from processes
 
-> **Ready for the probe batch and the release (2026-09-27).** Kyler said yes to M9a on D252 (2)'s
+> **Waiting on the probe batch's second run (2026-09-27).** Kyler said yes to M9a on D252 (2)'s
 > review set (D294); its shortfalls go to M9b. Kyler's D252 (1) unfroze the generator: starts stop
 > looking alike (37b2f50; see "Starts stop looking alike" under What was built and under Results).
 > **The generator is frozen at 788c145** (its code as of 5e15143, which keeps a walk short of moist
-> land for the start's wood; every later commit is tests, docs or merges of `dev` without code). An
-> earlier freeze, ca63a56, made River Valley 96² seed 1333 (an e2e determinism seed) mapless and was
-> dropped; the batches at 0f70fcb, 37b2f50 and ca63a56 were stopped (only this worktree's processes)
-> and re-run. M9a's pending #77–#80 became #87–#90 and the start planting's default is #93; Kyler
-> answered them (D270, D294: #87, #88, #90 and #93 accepted; #89 for the feature operations and
-> Claude only). D277 took the Claude suite off M9a's gates. **Done on 788c145's generator:** every
-> settings experiment moves its target (seeds 1–4); the quick suite; every batch, 100 seeds of every
-> option at 96², 128², 192² and 256² at Normal and at 128² on Hard: every option and size at 98%
-> final or better (the tables under Results); the probe group M9a's 15 maps rebuilt in
-> `C:\dgm-probe\maps\20260927-0853-batch` (run id `20260927-0853-batch`; `tools/check-maps.ts`:
-> every check passes in TypeScript and the Python load checks, the Hard map at Hard; 250–1,494 logs
-> within the floor's walk), never launched by this session; CI green (the heavy rivers case at 256²
-> skipped under D277). **Left:** the orchestrator's DGM Probe batch on those maps, then the merge
-> into `dev`, `m9a-done` and the release. **Caveats** for Kyler (see "Found and parked"): a river
-> that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood
-> as known faults for Real places 2, River style (braided) and Berries near start at their
-> thresholds, and a start whose walk is mostly moist land still gets the start rules' trees on every
-> side.
+> land for the start's wood). An earlier freeze, ca63a56, made River Valley 96² seed 1333 (an e2e
+> determinism seed) mapless and was dropped; the batches at 0f70fcb, 37b2f50 and ca63a56 were
+> stopped (only this worktree's processes) and re-run. M9a's pending #77–#80 became #87–#90 and the
+> start planting's default is #93; Kyler answered them (D270, D294: #87, #88, #90 and #93 accepted;
+> #89 for the feature operations and Claude only). D277 took the Claude suite off M9a's gates.
+> **Done on 788c145's generator:** every settings experiment moves its target (seeds 1–4); every
+> batch, 100 seeds of every option at 96², 128², 192² and 256² at Normal and at 128² on Hard: every
+> option and size at 98% final or better (the tables under Results). **The probe batch
+> 20260927-0853-batch** (the orchestrator's) failed 5 of 103 checks; the main cause was the file
+> writing its water's outflows as 0 (see "The DGM Probe batch 20260927-0853-batch" under Results).
+> **0d9e473 writes the settled outflows into the file** (FORMAT.md §4.3): depths, checks and the
+> generator's decisions unchanged, every file's bytes new; CI green on it (push 36327168832, PR
+> 36327171912, Nightly 36327171917 with the heavy tests). The probe group's 15 maps are rebuilt on it
+> in `C:\dgm-probe\maps\20260927-1443-batch` (run id `20260927-1443-batch`; `tools/check-maps.ts`:
+> every check passes, the Hard map at Hard), never launched by this session. **Left:** the
+> orchestrator's second probe run on those maps, then the merge into `dev`, `m9a-done` and the
+> release. **Caveats** for Kyler (see "Found and parked" and the probe section): a river that stands
+> in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood as known
+> faults for Real places 2, River style (braided) and Berries near start at their thresholds, a
+> start whose walk is mostly moist land still gets the start rules' trees on every side, and, if they
+> persist, the probe's Delta refill (2) and the post-drought badwater pool (5).
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -507,6 +510,55 @@ cases against candidates):
   P04's new patch lands outside the start's 20-tile walk; I07's premise (badwater cannot fit on a
   48² map) held under the old 30-tile rule only.
 
+### The DGM Probe batch 20260927-0853-batch (the orchestrator's, on 788c145's maps)
+
+15 maps played through a drought and a badtide with Kyler's installed mods: 98 checks passed, 5
+failed (results in `C:\dgm-probe\results\20260927-0853-batch\`, out of git). Diagnosed with small
+checks against the generator's own water simulation (`src/core/sim/water.ts`, the game's rules):
+
+- **The cause of 1, and most of 3 and 4: the file wrote every outflow as 0.** Restarted from a
+  probe file's stored depths with its flows at rest, the simulation gives the game's day 1 exactly
+  (Delta 128² seed 1: volume 2,582 → 2,650 and 78.5% of wet tiles within 0.1, the worst tile
+  (53, 63) 1.015 → 0.759 against the game's 0.760; the weir map 1,728 and 1,806 wet tiles, the
+  game's; the Hard map 1,205 against the game's 1,207). Continued with the settle's own flows, the
+  same water holds a day (Delta 100% within 0.1, volume 2,582 → 2,584; the weir map 1,713 → 1,713;
+  the Hard map 1,125 → 1,126). The settle was right; the file threw its momentum away
+  (`world.ts`: "outflows 0, momentum rebuilds within a few ticks", as official maps ship), and the
+  game restarted every river from rest. Every map surges (3–8% more water in the first 128 ticks)
+  and most settle back within 0.1; a map whose flow can settle more than one way re-routes: seeds
+  1–30 of every option at 128², 4 of 210 (Canyon 1, Delta 2, Islands 1) below 95% within 0.1 a day
+  after a restart from rest.
+- **The fix (the orchestrator's go):** the settled outflows go into the file
+  (`WaterMapNew.ColumnOutflows`, the game's `Bottom:Left:Top:Right` of `targetIndex|flow`, targets in
+  its grid padded by one tile, `settledSimulationSingletons`; FORMAT.md §4.3). Depths, every check
+  and every generator decision are unchanged, so the batches stand; the bytes of every file change
+  (generated maps, the editor's exports of imports, and the Real places, which share the writer:
+  their gallery index re-pinned; Real places 2's branch picks it up at merge). Loaded with its
+  outflows, the stored water holds a day (`tests/contract/outflows.test.ts`: Delta 128² seed 1 over
+  99% within 0.1). The Python oracle: 0 round-trip failures, 0 disagreements. The probe maps are
+  rebuilt for the whole M9a group to be played again.
+- **Failure 2** (Delta, cal-timeline after the drought: wet tiles 2,120–2,220 in the game against
+  2,311–2,462 in the model, the volume within 0.8%): Delta's flats hold thin sheets near the probe's
+  0.05 wet threshold, and the refill's split between its channels depends on the path (the
+  simulation restarted from rest gives a third answer, 2,297–2,453). Partly the start from rest;
+  if it persists after the fix, it is the check's 5% on wet tiles for a braided delta: Kyler's call.
+- **Failure 3** (Hard 128² seed 5, cal-timeline: water 1,207 in the game against 1,160 in the model
+  on day 1): the game matches the restart from rest; the cycle model (`investigation/cycles` at
+  a9cdb86) does not reproduce the momentum reset. The fix should close it; otherwise it is the
+  model's fidelity, not the map.
+- **Failure 4** (the weir map, cal-timeline: 1,806 wet tiles in the game against 1,550 in the model
+  on days 1–2): the same; the 256 extra tiles are thin sheets (the water check passed at 100%).
+- **Failure 5** (Any 128² seed 1, m9a-badwater: 21 tiles 10–21% bad more than 3 tiles from the
+  file's badwater, just before the badtide): not the stored water (days 1 and 2.83 match the file,
+  in the game and the simulation). At the refill after the drought, badwater reaches a side pool at
+  (77–80, 92–93) beside its way down before the clean water flushes it; the simulation shows the
+  pool turn bad at the refill (day 6) and clear by day 7, the game keeps it 10–21% bad through day
+  8.83. The start's water stays clean (0%; the pool is about 42 tiles from the start). The rule
+  "only within 3 tiles of the file's" does not allow for that: Kyler's call on the tolerance, or
+  M9b (keep badwater's way down clear of stagnant pools). Not a contamination-timing artefact of the
+  model at a hazard's start: this check compares the game with the file, and the pool turned bad
+  before the badtide.
+
 ### Found and parked
 
 - **Edge inflows that run backwards** (information, for M9b's hydrology): on 3 of 36 edge inflows
@@ -625,6 +677,16 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     replaying the test's own search on the generated maps.
   - New: `tests/contract/startPlanting.test.ts` (D252) and `tests/contract/sourcesUnderEdits.test.ts`
     (D270's #89: a brush stroke and a Select action over a badwater spring are never refused).
+- With the settled outflows written into the file (after the probe batch, 2026-09-27):
+  - `look-mine-ruins.test.ts`: the live check's sha re-pinned again (`776a9a44…`; `ec1ff6d3…`
+    before the outflows), D148.
+  - `public/real-places/index.json`: every place's `.timber` sha256 and size re-pinned (the places
+    share the writer; their data files are unchanged).
+  - `properties.test.ts`: the large preset (192²) on seed 305: dev's housekeeping (no `setLock` in
+    `randomOps.ts`) shifted the random draws, and on seed 303's M9a map none of them applied a tool
+    edit, which the test requires (D148).
+  - New: `tests/contract/outflows.test.ts` (the file stores the settle's outflows in the game's
+    format; loaded with them, Delta 128² seed 1's water holds a day).
 
 ## API changes (for the Live editing merge)
 

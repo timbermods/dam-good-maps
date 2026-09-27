@@ -61,6 +61,7 @@ export function toWorld(spec: MapSpec, built: BuildResult, opts: PackOptions = {
         moisture: built.moisture,
         soilContamination: built.soilContamination,
         sat: built.settle.sat,
+        out: built.settle.out,
       });
   return {
     gameVersion: GAME_VERSION,
