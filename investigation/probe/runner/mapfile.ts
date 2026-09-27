@@ -99,6 +99,42 @@ export function readMapBytes(bytes: Uint8Array, path = ''): MapInfo {
   };
 }
 
+/**
+ * The water's momentum the file stores (`WaterMapNew.ColumnOutflows`, FORMAT.md §4.3), which the game
+ * loads with the water: four values per tile in the file's order Bottom, Left, Top, Right (y − 1,
+ * x − 1, y + 1, x + 1), the cycle model's order too. Only for a plain heightfield (one water level),
+ * the only map the model plays; null otherwise, or when the array does not fit the map. A part whose
+ * target is not that neighbour in the game's padded grid is left at 0 (`skipped` counts them).
+ */
+export function storedOutflows(file: TimberFile): { out: Float64Array; flowing: number; skipped: number } | null {
+  const w = file.world;
+  const W = w.sizeX, H = w.sizeY, N = W * H;
+  const wm = w.singletons.WaterMapNew;
+  if (!isObject(wm) || !isObject(wm.ColumnOutflows) || ('Levels' in wm && num(wm.Levels) !== 1)) return null;
+  const tokens = String(wm.ColumnOutflows.Array).split(' ');
+  if (tokens.length !== N) return null;
+  const out = new Float64Array(4 * N);
+  const stride = W + 2;
+  let flowing = 0, skipped = 0;
+  for (let i = 0; i < N; i++) {
+    if (tokens[i] === '0') continue;
+    const x = i % W, y = (i - x) / W;
+    const targets = [y * stride + x + 1, (y + 1) * stride + x, (y + 2) * stride + x + 1, (y + 1) * stride + x + 2];
+    tokens[i].split(':').slice(0, 4).forEach((part, k) => {
+      if (part === '0') return;
+      const [target, flow] = part.split('|');
+      const f = Number(flow);
+      if (Number(target) !== targets[k] || !(f > 0)) {
+        skipped++;
+        return;
+      }
+      out[4 * i + k] = f;
+      flowing++;
+    });
+  }
+  return { out, flowing, skipped };
+}
+
 /** Connected wet areas (4-neighbour, depth > min), largest first. */
 export function wetAreas(m: Pick<MapInfo, 'W' | 'H' | 'depth'>, min = 0.05): { tiles: number[]; volume: number; cx: number; cy: number; deepest: number }[] {
   const { W, H, depth } = m;

@@ -13,6 +13,10 @@ import { NEW_GAME_DAY } from './job';
 import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
 import { REPO, tallDir } from './paths';
+import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
+import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
+import { DIFFICULTY_RULES } from '../../../src/core/spec/mapspec';
+import { WALK_BLOCKERS } from '../../../src/core/validate/playability';
 
 export type Verdict = 'passed' | 'failed' | 'not measurable' | 'recorded';
 
@@ -460,9 +464,9 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
   // or exception, the start placed); objects (every object at its tile); water (after a day 95% of
   // wet tiles within 0.1 deep of the file, the volume within 10%); terrain (every tile's height as in
   // the file); cal-timeline (the map's water volume and wet tiles within 5% of the model each day);
-  // drought-start-water (the start's water within 10% of its volume of the model through the
-  // drought); m9a-badwater (before the badtide, the start's water under 5% contamination, and badwater
-  // only within 3 tiles of the file's); m9a-weir (the water beside the weir within 0.1 deep of the
+  // drought-start-water (the start's water, the water `start.water` counts, within 10% of its volume
+  // of the model through the drought); m9a-badwater (before the badtide, the start's water under 5%
+  // contamination, and badwater only within 3 tiles of the file's); m9a-weir (the water beside the weir within 0.1 deep of the
   // file's after a day, and at least 0.6 deep upstream); m9a-nobad (no badwater source, and the badtide
   // still turns the water bad); the tall map's high-* checks; m9a-shots (nothing visibly broken, by
   // eye from the contact sheet).
@@ -473,7 +477,7 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     { id: 'drought-start-water', title: "The start's water through a Normal drought, against the model", how: 'measure' },
   ];
   const M9A_BADWATER: CheckDef = { id: 'm9a-badwater', title: "Badwater stays in its hollow and its way down; the start's water stays clean until the badtide", how: 'measure' };
-  const m9aGame = (id: string, title: string, bytes: () => Uint8Array, extra: CheckDef[] = [], mode: GameDef['mode'] = 'Normal', tiles: (m: MapInfo) => [number, number][] = (m) => startWater(m).slice(0, 6)): GameDef => ({
+  const m9aGame = (id: string, title: string, bytes: () => Uint8Array, extra: CheckDef[] = [], mode: GameDef['mode'] = 'Normal', tiles: (m: MapInfo) => [number, number][] = (m) => startWater(m, mode).slice(0, 6)): GameDef => ({
     id, title: `M9a · ${title}`, group: 'M9a', bytes: memo(bytes), faction: 'Folktails', mode,
     cycles: M9A_CYCLES, days: 12.5, tiles, sampleHours: 1, daily: true, model: true,
     checks: [...GENERIC, ...M9A_WEATHER, ...extra, M9A_SHOTS],
@@ -564,13 +568,80 @@ export function lakeTiles(m: MapInfo): [number, number][] {
   return [sorted[0], sorted[Math.floor(sorted.length / 4)], sorted[Math.floor(sorted.length / 2)], sorted[Math.floor((3 * sorted.length) / 4)]].map((t) => [t % m.W, (t / m.W) | 0] as [number, number]);
 }
 
-/** The wet tiles nearest the start, nearest first (the water a new colony would drink). */
-export function startWater(m: MapInfo): [number, number][] {
+export interface StartWater {
+  /** The water tiles a pump on a shore the start walks to reaches, the shortest walk first. */
+  pump: { x: number; y: number; walk: number }[];
+  /** The bodies of water (4-connected, over 0.05 deep) those tiles are in: the start's water. */
+  bodies: number[][];
+  /** The rule's walk for the difficulty (12 / 20 / 28). */
+  within: number;
+}
+
+const startWaterCache = new WeakMap<MapInfo, Map<string, StartWater>>();
+
+/**
+ * The start's water by the product's own water rule, `start.water` (PLAN §11.4, D153): clean water a
+ * pump reaches (0.3 deep or more, under 5% badwater, its surface 0–2 levels below the shore) beside a
+ * shore tile the start walks to within the rule's walk for the difficulty, over the map's own ground and
+ * its slopes (never player stairs), from the district center's middle tile; walking blocked by the
+ * same objects. The same pieces as `checkStart` in src/core/validate/playability.ts; the probe's self-test
+ * checks the nearest against the product's own verdict. Nothing when the map has no start.
+ */
+export function startWaterOf(m: MapInfo, mode: GameDef['mode'] = 'Normal'): StartWater {
+  let byMode = startWaterCache.get(m);
+  if (!byMode) startWaterCache.set(m, (byMode = new Map()));
+  const known = byMode.get(mode);
+  if (known) return known;
+  const { W, H, heights: h } = m;
+  const N = W * H;
+  const within = DIFFICULTY_RULES[mode.toLowerCase() as 'easy' | 'normal' | 'hard'].waterWithin;
+  const result: StartWater = { pump: [], bodies: [], within };
+  byMode.set(mode, result);
+  if (!m.start) return result;
+  const place = (e: MapInfo['entities'][number]): Placement => {
+    const bo = e.components.BlockObject as { Flipped?: boolean } | undefined;
+    return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation as Orientation, flipped: bo?.Flipped === true };
+  };
+  const blocked = new Uint8Array(N);
+  const links: [number, number][] = [];
+  for (const e of m.entities) {
+    if (WALK_BLOCKERS.has(e.template) && FOOTPRINTS[e.template]) for (const [x, y] of footprintTiles(e.template, place(e))) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
+    if (e.template !== 'Slope' || e.x < 0 || e.x >= W || e.y < 0 || e.y >= H) continue;
+    const [dx, dy] = slopeHighSide(e.orientation as Orientation);
+    const hx = e.x + dx, hy = e.y + dy;
+    if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
+  }
+  const cells = worldBlocks(FOOTPRINTS.StartingLocation, place(m.start)).filter((b) => b.localZ === 0);
+  const sx = Math.round(cells.reduce((a, b) => a + b.x, 0) / cells.length);
+  const sy = Math.round(cells.reduce((a, b) => a + b.y, 0) / cells.length);
+  const walk = walkDistance(h, W, H, blocked, links, { x: sx, y: sy });
+  const counted = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const d = m.depth[i];
+    if (!(d >= PUMP_DEPTH) || !(m.contamination[i] < PUMP_CLEAN)) continue;
+    const surface = h[i] + d;
+    const x = i % W, y = (i - x) / W;
+    let best = Infinity;
+    for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) {
+      if (n < 0 || !(walk[n] < best)) continue;
+      if (surface >= h[n] - PUMP_REACH && surface <= h[n] + 0.01) best = walk[n];
+    }
+    if (best <= within) {
+      result.pump.push({ x, y, walk: best });
+      counted[i] = 1;
+    }
+  }
+  const dist2 = (p: { x: number; y: number }) => (p.x - sx) ** 2 + (p.y - sy) ** 2;
+  result.pump.sort((a, b) => a.walk - b.walk || dist2(a) - dist2(b) || a.y - b.y || a.x - b.x);
+  result.bodies = wetAreas(m).filter((a) => a.tiles.some((t) => counted[t])).map((a) => a.tiles);
+  return result;
+}
+
+/** The start's water tiles (the water `start.water` counts, the shortest walk first), or a lake's
+ *  tiles on a map with no start. */
+export function startWater(m: MapInfo, mode: GameDef['mode'] = 'Normal'): [number, number][] {
   if (!m.start) return lakeTiles(m);
-  const s = m.start;
-  const wet: [number, number, number][] = [];
-  for (let t = 0; t < m.W * m.H; t++) if (m.depth[t] > 0.3 && m.contamination[t] < 0.05) wet.push([t % m.W, (t / m.W) | 0, (t % m.W - s.x) ** 2 + (((t / m.W) | 0) - s.y) ** 2]);
-  return wet.sort((a, b) => a[2] - b[2]).map(([x, y]) => [x, y]);
+  return startWaterOf(m, mode).pump.map((p) => [p.x, p.y]);
 }
 
 export { within, readMapBytes };

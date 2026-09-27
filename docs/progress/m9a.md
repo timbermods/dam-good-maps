@@ -1,13 +1,16 @@
 # M9a: terrain and water from processes
 
-> **The probe's second run is diagnosed; waiting on the orchestrator (2026-09-27).** The re-run
-> 20260927-1443-batch on 0d9e473's maps passed 99 of 103 checks, the water check on all 15 (see
-> "The DGM Probe re-run 20260927-1443-batch" under Results): Canyon 128² seed 1's start water is the
-> probe's model still starting every river at rest now that files store their outflows (started from
-> them, the model gives the game's numbers); Any 128² seed 1's badwater pool is the map (the model
-> agrees with the game); Delta 128² seed 1 is its flats after a drought; No badwater seed 6 is the
-> 0.05 wet threshold. Nothing in the generator changed for it. Waiting on: the probe model's start
-> (`runModel`, the orchestrator's call), Kyler's call on the pool and on Delta's flats.
+> **The probe's second run is diagnosed and judged again with the probe fixed; waiting on the
+> orchestrator (2026-09-27).** The re-run 20260927-1443-batch on 0d9e473's maps passed 99 of 103
+> checks, the water check on all 15 (see "The DGM Probe re-run 20260927-1443-batch" under Results).
+> The orchestrator's go fixed the probe, not the maps or the tolerances: its model starts from the
+> file's stored outflows, as the game does, and the start's water is the water `start.water` counts.
+> Judged again (`C:\dgm-probe\results\20260927-1443-batch-recompare\`): 99 passed, 4 failed. Canyon
+> 128² seed 1's start water passes (a gap of 0.4%). What fails: Any 128² seed 1's post-drought
+> badwater pool (the map; the model agrees with the game), Delta 128² seed 1's flats after a drought,
+> and the 0.05 wet threshold on No badwater seed 6 and, newly, Islands 128² seed 1 (5.8%; 141 tiles
+> 0.048–0.051 deep). Nothing in the generator changed for it. Waiting on: Kyler's call on the pool,
+> on Delta's flats and on the wet-tile threshold.
 >
 > Kyler said yes to M9a on D252 (2)'s
 > review set (D294); its shortfalls go to M9b. Kyler's D252 (1) unfroze the generator: starts stop
@@ -637,6 +640,56 @@ With the model started from the file's outflows, 2 and the stale part of 3 go aw
 behaviour (the model agrees with the game), 3 is Delta's post-drought flats and 4 is the wet-tile
 threshold. The model change is in the probe (`runModel`), not the generator, and waits for the
 orchestrator.
+
+### The probe fixed, and the re-run judged again (20260927-1443-batch-recompare)
+
+The orchestrator's go (a stale reference corrected, not a tolerance changed), in `investigation/probe`:
+
+- **The model starts from what the game loads.** `runModel` gives the cycle model the outflows the file
+  stores (`storedOutflows` in `runner/mapfile.ts`, each part's target checked against the game's padded
+  grid; the model's own `settleMomentum`). A file that stores every outflow as 0 starts at rest, as
+  before. `verdicts.json` records each model's start (every M9a map: "the file's outflows", 1,795–37,120
+  flowing).
+- **The start's water is the water `start.water` counts** (`startWaterOf` in `runner/catalog.ts`): clean
+  water a pump reaches (0.3 deep or more, under 5% badwater, its surface 0–2 levels below the shore)
+  beside a shore tile the start walks to within the difficulty's walk (12 / 20 / 28), over the map's own
+  ground and slopes, walking blocked by the same objects, and the whole bodies of water (4-connected,
+  over 0.05 deep) those tiles belong to. `drought-start-water` measures those bodies together;
+  `m9a-badwater` and the sampled tiles take the six nearest by walk. On Canyon 128² seed 1 that is 3
+  bodies, 460 tiles, 356 water: the river beside the start (440 tiles), the 19-tile pool 5 tiles away and
+  the sealed hole at (63, 77), which `start.water` itself counts (its nearest water, 2.4 tiles' walk,
+  tied with the river at (64, 78)). **For Kyler:** `start.water` counts a sealed one-tile hole holding
+  0.9 water as the start's water. On Canyon seed 1 the river also passes, so the verdict stands; the rule
+  sets no size.
+- **`--compare-only RUN --compare-to NAME`** judges a run again into `results\NAME` and `sheet\NAME.html`,
+  leaving the run's own verdicts, summary and sheet as they were (checked: their hashes unchanged), and
+  refuses when this checkout builds other maps than the run played (all 15 byte for byte the same).
+- **Self-test** (`npm --prefix investigation/probe test`): all passed, 49 checks (44 before), among
+  them the stored outflows read on an M9a map, the model's start (outflows on an M9a map, at rest on
+  the M8 file), and the probe's nearest start water the same walk and tile as the product's
+  `start.water` on every M9a map. Typecheck ok.
+
+Judged again: **99 passed, 4 failed** (the same count, not the same four):
+
+| Map | Check | 1443-batch (model at rest) | recompare (model from the outflows) |
+|---|---|---|---|
+| Any 128² seed 1 | m9a-badwater | failed (21 tiles, the side pool) | failed, unchanged (the check does not use the model) |
+| Canyon 128² seed 1 | drought-start-water | failed (1 tile; gap 19.2%) | **passed** (460 tiles; gap 0.4%: 71.9 / 7.4 / 3.6% left, model 71.5 / 7.4 / 3.6%) |
+| Delta 128² seed 1 | cal-timeline | failed (wet 16.2%) | failed (wet 19.3%, water 1.7%; the model matches the game to day 9.83) |
+| Islands 128² seed 1 | cal-timeline | passed (water 4.4%, wet 4.1%) | **failed** (wet 5.8% on day 3.83: 2,451 / 2,310; water 1.7%) |
+| No badwater seed 6 | cal-timeline | failed (wet 6.5%) | failed (wet 6.5%, water 0.3%) |
+
+Every other cal-timeline is closer to the game than before (largest water differences 0.1–1.1%, from
+up to 4.5%; Any 256² 3.9% → 0.1%, Canyon 4.5% → 1.1%, Hard 3.0% → 0.2%). **Islands is the wet-tile
+threshold, like item 4:** a day into the drought the game has 141 wet tiles the model does not, every
+one 0.048–0.051 deep (e.g. (85, 1) 0.050 in the game, 0.048 in the model), none more than 0.1 apart,
+all of them on the flats draining at that moment (x 25–88, y 1–32), and 1,605 / 1,605 four hours later.
+The model itself swings as much under changes far below what a file can hold: at that moment it gives
+2,310 wet tiles as loaded, 2,302 and 2,450 with its start depths moved by ±1e-6 (two draws), 2,374
+with the outflows moved by 1e-5 of themselves and 2,307 with them rounded to float32; the game's 2,451
+is at the edge of that spread (the model is deterministic: 2,310 run after run). From rest it passed,
+its largest difference 4.1% of wet tiles on day 1. The tolerance is not changed; with No badwater
+seed 6 it is Kyler's call on the wet-tile threshold.
 
 ### Found and parked
 

@@ -29,7 +29,10 @@ once, and only for the plan it was printed for.
   `C:\dgm-probe\tall\` and checks each map with both validators), then play them as the group
   `Tall maps`, with `--keep-mods`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
-- `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run.
+- `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
+  `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
+  own verdicts, summary and sheet as they were; it refuses when this checkout builds other maps than the run
+  played.
 - `--restore-only`: put the game's settings, logs and saves back after an interrupted run.
 - `--keep-mods`: play with the installed mods (no setting is changed or restored; the loaded mods are recorded).
 - `--compare-settings <export.reg> --reference <backup.reg>`: compare an export of the game's settings with a
@@ -39,6 +42,15 @@ once, and only for the plan it was printed for.
 
 A full batch waits until the machine is quiet (no tests, batches, benchmarks or headless browsers of
 another session, and a low processor load). `--no-wait` skips the wait.
+
+## What the game is compared with
+
+- The model (`runner/model.ts`: the cycle model of `investigation/cycles`) starts from what the game loads:
+  the file's water and the outflows the file stores, its momentum. A file that stores every outflow as `"0"`
+  starts every river at rest, in the game and in the model.
+- The start's water (`drought-start-water`, `m9a-badwater` and the sampled tiles) is the water the project's
+  own `start.water` rule counts: clean water a pump reaches from a shore the start walks to within the
+  difficulty's walk, and the whole bodies of water it belongs to.
 
 ## What stays on this machine
 

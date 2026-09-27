@@ -168,6 +168,35 @@ async function main(): Promise<void> {
   const w2 = compare.evaluate({ L: L2, others: new Map(), model: null, modelError: null }, [m8.checks.find((c) => c.id === 'water')!])[0];
   check('compare: a drained map fails the water check', w2.verdict === 'failed', w2.detail);
 
+  // 4b. the model starts from what the game loads: the file's water and the outflows it stores
+  const modelM = require('./model') as typeof import('./model');
+  const m9a = prepared.filter((p) => p.game.group === 'M9a' && p.game.model);
+  const canyon = m9a.find((p) => p.game.id === 'm9a-canyon-128')!;
+  const cflows = mapfile.storedOutflows(canyon.info.file);
+  check("outflows: an M9a map's stored outflows are read, every target the neighbour's", !!cflows && cflows.flowing > 100 && cflows.skipped === 0, cflows ? `${cflows.flowing} flowing, ${cflows.skipped} skipped` : 'none');
+  const m8flows = mapfile.storedOutflows(m8.info.file);
+  check('outflows: a file storing every outflow as 0 reads as at rest', !!m8flows && m8flows.flowing === 0);
+  const momentum = (p: typeof canyon) => modelM.runModel(readFileSync(p.map.mapFile), `${p.game.id}.timber`, p.game.cycles, catalogM.D0 + 2 / 768, [], [], []).momentum;
+  const cm = momentum(canyon), m8m = momentum(m8);
+  check('model: starts from the stored outflows on an M9a map, at rest on a file without them', /^the file's outflows \(\d+ flowing\)$/.test(cm) && /^at rest/.test(m8m), `${cm} | ${m8m}`);
+
+  // 4c. the start's water is the water the product's start.water counts (the nearest the same walk and tile)
+  const { MapSession } = require('../../../src/core/doc/session') as typeof import('../../../src/core/doc/session');
+  const agree: string[] = [];
+  let differ = 0;
+  for (const p of m9a) {
+    const sw = catalogM.startWaterOf(p.info, p.game.mode);
+    const v = MapSession.importMap(readFileSync(p.map.mapFile), `${p.game.id}.timber`).validate('export').report.checks.find((c) => c.id === 'start.water')!;
+    const tile = v.where?.tiles?.[0];
+    const nearest = sw.pump.filter((q) => q.walk === sw.pump[0]?.walk);
+    const same = !!tile && Math.round((sw.pump[0]?.walk ?? NaN) * 10) / 10 === v.value && nearest.some((q) => q.x === tile[0] && q.y === tile[1]);
+    if (!same) differ++;
+    agree.push(`${p.game.id} ${same ? 'same' : `DIFFERS (probe ${sw.pump[0]?.walk.toFixed(1)} at (${sw.pump[0]?.x}, ${sw.pump[0]?.y}), product ${String(v.value)} at (${tile?.join(', ')}))`}`);
+  }
+  check("start water: the probe's nearest is start.water's own on every M9a map", m9a.length >= 13 && differ === 0, agree.join('; '));
+  const cw = catalogM.startWaterOf(canyon.info, canyon.game.mode);
+  check("start water: Canyon 128² seed 1's is its river and pools, not only the sealed one-tile hole at (63, 77)", cw.bodies.length > 1 && cw.bodies.flat().length > 100 && cw.pump.some((q) => q.x === 63 && q.y === 77), `${cw.bodies.length} bodies, ${cw.bodies.flat().length} tiles; the nearest (${cw.pump[0]?.x}, ${cw.pump[0]?.y}) ${cw.pump[0]?.walk.toFixed(1)} tiles' walk`);
+
   // 5a. the hand-kept settings backup: a .reg file of the whole key and the mods' values in text
   execFileSync('reg.exe', ['add', TEST_KEY, '/v', mods.prefsValueName('ModPriority.Local.SomeMod.someone.somemod'), '/t', 'REG_DWORD', '/d', '4294967295', '/f'], { stdio: 'ignore' });
   const b = safety.backupSettings();

@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
-import { type CheckDef, D0, startWater, type Verdict, weirTiles } from './catalog';
+import { type CheckDef, D0, startWater, startWaterOf, type Verdict, weirTiles } from './catalog';
 import type { MapResult, MapSnapshot, SampleRow } from './job';
 import type { Prepared } from './jobs';
 import { wetAreas, type MapInfo } from './mapfile';
@@ -630,7 +630,7 @@ const EVALS: Record<string, Eval> = {
           if (ex.length < 4) ex.push(`(${t % W}, ${(t / W) | 0}) ${pct(s.contamination[t])}`);
         }
       }
-    const sw = startWater(info).slice(0, 6);
+    const sw = startWater(info, c.L.prepared.game.mode).slice(0, 6);
     const maxStart = Math.max(0, ...sw.map(([x, y]) => s.contamination[y * W + x]));
     const ok = maxStart < 0.05 && outside <= Math.max(2, 0.02 * bad);
     return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s.day - D0)} days${bt ? ', just before the badtide' : ''}: the start's water (${sw.length} tiles) at most ${pct(maxStart)} contaminated; badwater tiles (over 10%): ${bad} (${fileBad} in the file), ${outside} more than 3 tiles from the file's${ex.length ? ` (${ex.join(', ')})` : ''}` };
@@ -779,10 +779,11 @@ function timeline(c: Ctx) {
 
 function startWaterDrought(c: Ctx) {
   const info = c.L.info;
-  const first = startWater(info)[0];
-  if (!first) throw new NotMeasurable('no water near the start');
-  const area = wetAreas(info).find((a) => a.tiles.includes(first[1] * info.W + first[0]));
-  if (!area) throw new NotMeasurable('no water body at the start');
+  if (!info.start) throw new NotMeasurable('no start on this map');
+  // the start's water: every body of water holding water `start.water` counts (catalog.startWaterOf)
+  const sw = startWaterOf(info, c.L.prepared.game.mode);
+  if (!sw.pump.length) throw new NotMeasurable(`no clean water a pump reaches within ${sw.within} tiles' walk of the start (start.water)`);
+  const area = { tiles: sw.bodies.flat() };
   const brief = briefFor(c.L.prepared.game.title);
   const hazard = c.L.prepared.map.moments.find((m) => m.id === 'drought1-start')!.day;
   const pts = [hazard - 0.01, hazard + 1, hazard + 2, hazard + 3];
@@ -801,7 +802,7 @@ function startWaterDrought(c: Ctx) {
   const ok = c.model ? worst <= 0.1 : true;
   return {
     verdict: (rows.length ? (c.model ? (ok ? 'passed' : 'failed') : 'recorded') : 'not measurable') as Verdict,
-    detail: `the start's water (${area.tiles.length} tiles, ${v0.toFixed(0)} water at the start; ${Math.hypot(first[0] - info.start!.x, first[1] - info.start!.y).toFixed(0)} tiles from the start) through a 3-day Normal drought from day ${f2(hazard - D0)}: ${rows.join('; ')}${c.model ? `; largest game–model gap ${pct(worst)} of the start volume` : ''}${brief ? `. The brief says: "${brief}"` : ''}`,
+    detail: `the start's water (the water start.water counts within ${sw.within} tiles' walk: ${sw.bodies.length} ${sw.bodies.length === 1 ? 'body' : 'bodies'}, ${area.tiles.length} tiles, ${v0.toFixed(0)} water at the start; a pump reaches it ${sw.pump[0].walk.toFixed(1)} tiles' walk from the start) through a 3-day Normal drought from day ${f2(hazard - D0)}: ${rows.join('; ')}${c.model ? `; largest game–model gap ${pct(worst)} of the start volume` : ''}${brief ? `. The brief says: "${brief}"` : ''}`,
   };
 }
 
