@@ -127,6 +127,14 @@ editor is desktop-first (D185).
   headroom it has: near the height ceiling it grows broader rather than taller, never flat-topped;
   overlapping eruptions build new cones on the flanks; an eruption always completes, as in the demo
   Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
+- **Glaciate, a force of nature** (D246; after the forces round 2, once Kyler has tried Codex's demo): it turns a valley
+  that's already there into a glacial valley: a broad, level floor between steep walls; basins that dip below their own
+  outlet, a chain of lakes; hanging side valleys with waterfalls; moraines and an outwash plain from the material it cut.
+  "Carve gives you water; Glaciate gives you land." **Flow** (click high ground, and it follows the valleys) or **Aim**
+  (drag, and it grinds through ridges into a pass); **Power**; **Size** (Auto, D226); **Meltwater** (on by default); **Try
+  another**; nothing more without Kyler's say. Two acts, about five seconds: the ice advances, then melts back and reveals
+  the valley as its lakes fill. It refuses to run over the start, respects the height ceiling (D244), and keeps and feeds
+  its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being

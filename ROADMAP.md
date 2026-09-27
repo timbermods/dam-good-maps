@@ -945,6 +945,10 @@ they conflict):
      Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
+   - **Glaciate** (D246), after the forces round 2: a fifth force that turns a valley into a glacial valley (a level floor
+     between steep walls, a chain of lakes, hanging valleys, moraines and an outwash plain); Flow or Aim, Power, Size,
+     Meltwater, Try another; about five seconds in two acts. Codex's `investigation/glaciate` is held until Kyler has tried
+     its demo, then adopted onto the shared forces core.
    - **One height ceiling** (D244): after an in-game probe check of editor-made tall maps, every tool can raise land to
      D172's tall maximum on any map; a map above 16 becomes tall, and standard again at 16 or below; built with Unleash,
      on the preview, not released until Kyler has tried it.
