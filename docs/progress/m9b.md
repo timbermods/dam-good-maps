@@ -211,6 +211,24 @@ moved. The time is the same within the machine's noise (game mode ~20 ms at 128�
 game's rules: the Real places conversion (`places/place.ts`), `planMapResources` (Real places and
 Pick a place) and the editor's soil view; decisions-pending #109.
 
+### The probe's two findings (D302)
+
+Measured with the weather-cycle model the probe compares the game against, which followed the game
+on both (`investigation/m9b/cycle-check.ts`: 3 temperate days, a 3-day drought, 3 temperate, a
+3-day badtide; 10–40 s a map, no game):
+
+- **Badwater refilling pools** (D273 (1), (5)): water over 10% badwater more than 3 tiles from the
+  file's badwater, just before the badtide. On M9b's Any 128² seed 1, 40 tiles: refilling after the
+  drought, the ditch (cut one below the ground beside it) rose over its banks and left a 0.1-deep
+  sheet of badwater on the flat beside it. Ditches are now cut two below the ground beside them: 0
+  tiles outside the way down on 15 maps (two Delta maps keep 2 tiles, within the probe's allowance).
+- **A sheet in the badtide** (D273 (2)): tiles 0.05–0.12 deep a day into the badtide, dry in the
+  file and more than 2 tiles from its water. Delta on M9b: 0–7 tiles (seeds 1–5). River Valley:
+  284 and 491 tiles on seeds 1 and 4 (none on 3); Any 4 and 5: 65–77. It is the floodplain: the
+  valley floor one level over the bed (PLAN §7.4), the channel running about 0.7 deep; after the
+  drought the refill overtops onto the floor and leaves a film. Asked of Kyler through the milestone
+  session (a floor two over the bed, wider channels, or accepted as a floodplain that floods).
+
 ### Chaos (D273 (6))
 
 Any at Variety 100 and Verticality 100 (`tools/batches.ts --set "vy=100&vt=100"`, 4 jobs, the
