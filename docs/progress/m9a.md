@@ -1,20 +1,22 @@
 # M9a: terrain and water from processes
 
-> **In progress (2026-09-27): D252's start planting, then the batches again.** Kyler's D252 (1)
-> unfroze the generator: starts stop looking alike (see "Starts stop looking alike" under What was
-> built). `origin/dev` is merged in (to 5c54e32: the D222 settle rule, the waterfalls, D230–D256;
-> M9a's pending #77–#80 became #87–#90). The batches started at 0f70fcb for the restart's step 1 were
-> stopped before any run finished (only this worktree's processes) and are re-run whole on the
-> re-frozen generator. **Left, in order:** (1) the settings experiments, the quick suite and the
-> Claude suite on the new generator, then re-freeze it; (2) every batch again: Normal at 96², 128²,
-> 192² and 256² for all seven options, and Hard at 128² (the commands are in "Next session");
-> (3) the batch table under Results; (4) the probe group M9a's 15 maps rebuilt on the re-frozen
-> generator (a new `C:\dgm-probe\maps\<stamp>-batch`, never launched by this session); (5) merge
-> `origin/dev` again (the ROADMAP and EDITOR_PLAN sweep for D252–D256), push, and CI green on #56.
-> The review set (D252 (2)) is the orchestrator's. **Caveats** for Kyler (see "Found and parked"): a
-> river that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real
-> places' wood as known faults for Real places 2, River style (braided) at its threshold, and a start
-> whose walk is mostly moist land still gets the start rules' trees on every side.
+> **In progress (2026-09-27): the batches on the re-frozen generator.** Kyler's D252 (1) unfroze
+> the generator: starts stop looking alike (37b2f50; see "Starts stop looking alike" under What was
+> built and under Results). **The generator is frozen again at ca63a56** (37b2f50 with `origin/dev`
+> merged to 97ed254, the same maps; dev was first merged to 5c54e32; M9a's pending #77–#80 became
+> #87–#90, the start planting's default is #93). The batches started at 0f70fcb for the restart's
+> step 1, and again at 37b2f50, were stopped before any run finished (only this worktree's processes).
+> **Done on ca63a56:** every settings experiment moves its target (seeds 1–4); the quick suite (693);
+> the probe group M9a's 15 maps rebuilt in `C:\dgm-probe\maps\20260927-0742-batch` (run id
+> `20260927-0742-batch`; `tools/check-maps.ts`: every check passes in TypeScript, and the Python
+> load checks, the Hard map at Hard; 209–1,494 logs within the floor's walk), never launched by this
+> session. **Left, in order:** (1) every batch, running: Normal at 96², 128², 192² and 256² for all
+> seven options, and Hard at 128² (the commands are in "Next session"); (2) the Claude suite,
+> running (≥ 103 of 120); (3) the batch tables under Results; (4) CI green on #56. The review set
+> (D252 (2)) and the probe batch are the orchestrator's. **Caveats** for Kyler (see "Found and
+> parked"): a river that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the
+> Real places' wood as known faults for Real places 2, River style (braided) at its threshold, and a
+> start whose walk is mostly moist land still gets the start rules' trees on every side.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -244,6 +246,14 @@ bushes (D85), planted first and evenly on the moist land nearest the start, and 
 - **The start's yard** (6 tiles from its middle) stays clear of its own planting where the walk has
   room elsewhere; standing dead groves on the walk's dry ground only where its moist land runs out,
   as before.
+- **A walk short of moist land** (a narrow floodplain: less than 1.25 × the room the start's berries
+  and trees need): the map's own groves and patches keep out of it on their first pass, and the
+  start's groves draw their species by the wood they give (D164's tight rule), with no lean to the
+  place or the opening, so all of that land goes to the start's wood as before. Found by CI on
+  ca63a56: without it, River Valley 96² seed 1333 (one of the e2e determinism seeds) made no map (12
+  attempts; three short of Minimum starting wood, the map's own low-yield groves having taken the
+  scarce moist land, and the place's lean cutting the oaks). With it, the seed passes on its second
+  attempt (the even planting took five).
 - **Measured** by `src/core/analysis/startPlanting.ts` (the planting's share within 6 and 10 tiles,
   the directions it fills within 10, its lean to one side, its nearest tile, kinds and species) and
   `tools/start-spread.ts` (per theme and seed; see Results). Tested by
@@ -342,8 +352,40 @@ workshop maps, which live on Kyler's main PC.
     each map's water, but it is recognisably the same arrangement at every start (River Valley 7's
     groves ring its start). That is the start rules' planting, not the floor's; spreading it over
     the 20 tiles' walk the way `floorWood` reads the land would be the change, for Kyler to decide.
+    *(Kyler decided it: D252 (1), built 2026-09-27; the sheet above shows the planting before it.
+    The sheet after it is part of D252 (2)'s review set.)*
+
+### Starts stop looking alike (D252 (1)): the start rules' planting before and after
+
+`npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128`,
+Normal, 112 starts; "before" is the even planting at 0f70fcb's generator (with the start's patches
+given their own role to be measured), "after" the re-frozen generator (37b2f50, the same maps as
+ca63a56). A ring: 6 or more of the 8 directions round the start each holding a sixteenth of the
+planting within 10 tiles. Lean: how much the planting sits to one side (0 all round, 1 on one bearing).
+
+| | Rings | 5+ directions filled | Mean lean | Share within 6 tiles (median) | Share within 10 tiles (median) | Plants the start rules planted (median) |
+|---|---|---|---|---|---|---|
+| Before | 14 | 36 | 0.38 | 19% | 54% | 140 |
+| After | 3 | 12 | 0.54 | 13% | 45% | 112 |
+
+Every start of both meets Minimum starting wood, Minimum starting bushes and the floor. Starts
+with standing dead trees in the start's own groves, at 96² (River Valley, Any, Canyon, Highlands,
+seeds 1–12): 11 of 48 before, 9 after; at 128² after: 17 of 112. The kinds of place the groves went
+(after, 128², 715 groves): open ground 279, river banks 229, across the water 105, side valleys 80,
+and dead wood on dry ground 22 where the moist land ran out; no plateau (moist ground two levels
+above the start is rare on 0.7.0's land). Zoomed crops of River Valley and Any seeds 1–16
+before and after were looked at (not committed): before, cyan groves and magenta patches round
+nearly every start; after, the planting on one side or farther out, and many starts standing in the
+map's own woods. A start whose walk is mostly moist land still gets trees on every side.
 
 ### The Claude suite (D134)
+
+> **No longer an M9a gate (PLAN §20 D277, 2026-09-27): all M12 work is deferred, preparation
+> included.** The suite is not re-run or re-tuned for D252's maps; its files and the Claude code stay
+> as they are, and a quick or CI test that depends on them and breaks is skipped with a note pointing
+> to D277. A run on 37b2f50's maps, stopped part-way when the generator changed again, had 16 of its
+> first 69 cases failing, 6 of them new since the floor's maps (S04, S06, S07, P01, P03, F09: sites
+> or ground near the start that the map's own woods now fill). What follows is as it stood before.
 
 `npx tsx investigation/claude/bin/reference.ts`: 81 of 120 on 0.7.0 before the re-tune (the
 handoff's 81), 100 after it (the full run gave 99; F05's re-tune came after it). After the merge of
@@ -521,10 +563,14 @@ D195):
    - then `npx tsx tools/batches.ts --summary-only --out investigation/m9a/local/batches-d252` (and
      with `--sizes 128 --difficulty hard` for the Hard folder) writes `summary.md`; the tables go under
      Results.
-2. **The probe maps**: `npm --prefix investigation/probe run batch -- --job-only --group M9a` (15 maps
-   into a new `C:\dgm-probe\maps\<stamp>-batch`; its path goes here). Never launched by this session.
-3. **Merge `origin/dev`** again (the ROADMAP, EDITOR_PLAN and HANDOFF sweep for D252–D256), push, and
-   CI green on #56.
+2. ~~**The probe maps**~~ done on ca63a56: `npm --prefix investigation/probe run batch -- --job-only --group M9a`
+   made the 15 maps in `C:\dgm-probe\maps\20260927-0742-batch` (run id `20260927-0742-batch`, job
+   preview `investigation/probe/.cache/job-preview.json`); `npx tsx tools/check-maps.ts C:/dgm-probe/maps/20260927-0742-batch`
+   checks them (every check in TypeScript and the Python load checks; `--difficulty hard` for the Hard
+   map). The launch is the orchestrator's (`npm --prefix investigation/probe run batch -- --group M9a`);
+   never launched by this session.
+3. ~~**Merge `origin/dev`**~~ done (to 97ed254: ca63a56, pushed); then CI green on #56
+   (`gh run list --branch feature/m9a`).
 4. The start planting's measures: `npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128 --jobs 7`.
 
 ### The restart's list (2026-09-27, kept as written; its step 1 is superseded by D252: every batch is re-run above)

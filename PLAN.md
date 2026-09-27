@@ -713,7 +713,9 @@ overlap.
      across the water, a plateau, a side valley or open ground, weighted by its room on the layout's
      side and by how natural it is, its species leaning to the place. The start's yard (6 tiles) stays
      clear where the walk has room elsewhere; standing dead groves on its dry ground only where the
-     moist land runs out. Then the rest of the map's trees.
+     moist land runs out. Where the walk's moist land is short of what the start needs, the map's
+     groves and patches keep out of it and the start's groves draw their species by the wood they give.
+     Then the rest of the map's trees.
    - Succulent groves go on dry soil and are alive.
    - Living trees: 35% saplings (`Growable` 0.2–0.95).
    - Dead trees: `LivingNaturalResource.IsDead`.
