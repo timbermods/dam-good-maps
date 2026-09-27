@@ -36,15 +36,19 @@ try{
  }
  await ready();const final=await page.screenshot();const im=await loadImage(final),cc=createCanvas(840,574),ct=cc.getContext('2d');ct.drawImage(im,0,0,840,574);const rgba=ct.getImageData(0,0,840,574).data,pal=quantize(rgba,128);encoder.writeFrame(applyPalette(rgba,pal),840,574,{palette:pal,delay:1400});encoder.finish();writeFileSync('captures/two-acts.gif',encoder.bytes());
  writeFileSync('captures/default.png',final);await panels('two-acts',contact);
- const player=await page.evaluate(()=>({result:window.glaciate.evidence.result,errors:window.glaciate.evidence.errors}));assert.equal(player.result.op.params.request.intent.origin,16*128+64);assert.equal(player.result.op.params.request.settings.seed,891);
+ const player=await page.evaluate(()=>({result:window.glaciate.evidence.result,errors:window.glaciate.evidence.errors,terrainFinalMs:window.glaciate.evidence.terrainFinalMs,retreatEndMs:window.glaciate.evidence.retreatEndMs,terrainExact:window.glaciate.evidence.terrainExact}));assert.equal(player.result.op.params.request.intent.origin,16*128+64);assert.equal(player.result.op.params.request.settings.seed,891);
+ assert.ok(player.terrainExact&&player.terrainFinalMs<5000&&player.terrainFinalMs<player.retreatEndMs,'128-square terrain final before retreat ends');
  await page.click('#undo');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial);
  // Browser cancellation during each act; exact signatures include objects, contamination and geology.
  for(const time of [1200,3500]){
   await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:16*128+64}}),DEFAULTS);await page.waitForTimeout(time);await page.keyboard.press('Escape');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial);
  }
  // Comparative pictures show the same renderer, camera, map and final simulated water.
- await show('default');const glacier=await image();await show('carve');const carve=await image();
- await panels('carve-comparison',[{title:'Glaciate · Power 60 / Size Auto',subtitle:'Stepped basins; material kept in moraines and receiving ground',bytes:glacier},{title:'Carve · Power 100 / Width 24 / Depth 12',subtitle:'Pinned Round 2 · Steep walls / Wander 5',bytes:carve}]);
+ await show('before');const untouched=await image();await show('default');const glacier=await image();await show('carve');const carve=await image();
+ await panels('default-before-after',[{title:'Before · River Valley 18',subtitle:'128² · untouched editor generation',bytes:untouched},{title:'Round 2 · default Glaciate',subtitle:'Flow at 64,16 · Power 60 · Size Auto · Meltwater on',bytes:glacier}]);
+ await panels('carve-comparison',[{title:'Glaciate · Power 60 / Size Auto',subtitle:'Broad dry floor, narrow stream and retained sediment',bytes:glacier},{title:'Carve · Power 100 / Width 24 / Depth 12',subtitle:'Pinned Round 2 · Steep walls / Wander 5',bytes:carve}]);
+ await show('kyler-round1');const oldKyler=await image();await show('kyler');const newKyler=await image();
+ await panels('kyler-review',[{title:'Before · untouched River Valley 18',subtitle:'Reconstructed head 64,16 · Power 47',bytes:untouched},{title:'Round 1 · reproduced failure',subtitle:'Lake with retained ruin columns',bytes:oldKyler},{title:'Round 2 · same head and Power',subtitle:'Dry floor; swept ruins removed',bytes:newKyler}],3);
  const gallery=[{title:'Glaciate · River Valley 18',subtitle:'Generated 128², default glacier',bytes:glacier}];
  for(const [id,title]of [['near-lauterbrunnen','Lauterbrunnen'],['near-aoraki-hooker-valley','Hooker Valley'],['near-glencoe','Glencoe']]){await page.evaluate(id=>window.glaciate.load(id),id);await ready();await page.waitForTimeout(300);gallery.push({title,subtitle:'Bundled real-place terrain, unchanged; normalized camera framing',bytes:await image()});}
  await panels('gallery-comparison',gallery);
@@ -55,7 +59,8 @@ try{
  // Performance is a separate run with no screenshots or screenshot compression during either act.
  await page.evaluate(()=>window.glaciate.load('highlands-256'));await ready();await page.waitForTimeout(500);
  await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:112*256+80}}),DEFAULTS);await page.waitForFunction(()=>!window.glaciate.evidence.ready);await ready();
- const timing=await page.evaluate(()=>{const e=window.glaciate.evidence;return {frames:e.frames,advance:e.advanceFrames,retreat:e.retreatFrames,longTasks:e.longTasks,duration:e.duration,firstTerrainMs:e.firstTerrainMs,planningMs:e.planningMs,errors:e.errors,result:{settled:e.result.settled,ticks:e.result.ticks}};});
+ const timing=await page.evaluate(()=>{const e=window.glaciate.evidence;return {frames:e.frames,advance:e.advanceFrames,retreat:e.retreatFrames,longTasks:e.longTasks,duration:e.duration,firstTerrainMs:e.firstTerrainMs,planningMs:e.planningMs,terrainFinalMs:e.terrainFinalMs,retreatEndMs:e.retreatEndMs,terrainExact:e.terrainExact,errors:e.errors,result:{settled:e.result.settled,ticks:e.result.ticks}};});
+ assert.ok(timing.terrainExact&&timing.terrainFinalMs<5000&&timing.terrainFinalMs<timing.retreatEndMs,'256-square terrain final before retreat ends');
  const stats=(v:number[])=>{const a=v.slice().sort((a,b)=>a-b);return {count:a.length,median:a[Math.floor(a.length*.5)],p95:a[Math.floor(a.length*.95)],worst:a.at(-1)};};
  // Cancel after the last terrain stage while the real large-map water solve is pending.
  await page.evaluate(()=>window.glaciate.load('highlands-256'));await ready();
@@ -68,6 +73,7 @@ try{
  assert.equal(errors.length,0);assert.equal(timing.errors.length,0);
  const report={browser:await browser.version(),viewport:[1200,820],renderer:await page.evaluate(()=>{const gl=window.glaciate.view.gl.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);}),normalSpeed:true,captureDuringPerformance:false,all:stats(timing.frames),advance:stats(timing.advance),retreat:stats(timing.retreat),longTasks:timing.longTasks,planningMs:timing.planningMs,firstTerrainMs:timing.firstTerrainMs,totalMs:timing.duration,water:timing.result,checks:['real default-settings pointer gesture','undo exact','Esc during advance exact','Esc during retreat exact','gallery loads','no browser exceptions'],errors};
  report.checks.push('Esc during final settling exact; no late completion');
+ Object.assign(report,{terrain128:{exact:player.terrainExact,finalMs:player.terrainFinalMs,retreatEndMs:player.retreatEndMs},terrain256:{exact:timing.terrainExact,finalMs:timing.terrainFinalMs,retreatEndMs:timing.retreatEndMs}});report.checks.push('128 and 256 terrain exact before retreat ends');
  writeFileSync('checks/browser.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
  const audio=await page.evaluate(async()=>{
   const module='/audio.ts',Sound=(await import(module)).Sound,s=new Sound(),ctx=new OfflineAudioContext(1,48000*6,48000);s.ctx=ctx;

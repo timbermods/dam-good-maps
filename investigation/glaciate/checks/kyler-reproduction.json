@@ -1,0 +1,691 @@
+{
+  "reference": "f63e4aea0d24b63088e1fe4556b95ee8f0cbf8d1",
+  "head": [
+    64,
+    16
+  ],
+  "power": 47,
+  "seed": 891,
+  "ruins": [
+    {
+      "id": "ed9af873-2e0d-4810-868b-f13c16cfaf00",
+      "template": "RuinColumnH1",
+      "x": 47,
+      "y": 30,
+      "z": 8
+    },
+    {
+      "id": "d7256bff-705f-4486-b6fa-9841bf7e2290",
+      "template": "RuinColumnH5",
+      "x": 48,
+      "y": 30,
+      "z": 8
+    },
+    {
+      "id": "0b0e4db4-3db2-408e-8286-f8b996c25e90",
+      "template": "RuinColumnH2",
+      "x": 49,
+      "y": 30,
+      "z": 8
+    },
+    {
+      "id": "6de88317-06da-4a3d-a7b5-481c3994369a",
+      "template": "RuinColumnH6",
+      "x": 50,
+      "y": 30,
+      "z": 7
+    },
+    {
+      "id": "236de700-f476-4d4d-aa1a-0d5f5506743c",
+      "template": "RuinColumnH1",
+      "x": 51,
+      "y": 30,
+      "z": 7
+    },
+    {
+      "id": "ca3d2f61-dbef-4ca1-9986-83e691271bab",
+      "template": "RuinColumnH1",
+      "x": 46,
+      "y": 31,
+      "z": 8
+    },
+    {
+      "id": "8d299330-68eb-46ee-8c42-f71a592254d8",
+      "template": "RuinColumnH2",
+      "x": 47,
+      "y": 31,
+      "z": 8
+    },
+    {
+      "id": "9ce6fd9c-67e2-49f6-8ec8-91b7d9853ec9",
+      "template": "RuinColumnH2",
+      "x": 48,
+      "y": 31,
+      "z": 8
+    },
+    {
+      "id": "82efb4a3-7570-4087-8b91-a6011c96c389",
+      "template": "RuinColumnH8",
+      "x": 49,
+      "y": 31,
+      "z": 8
+    },
+    {
+      "id": "a475148d-218f-4226-8dfd-02cedeb64246",
+      "template": "RuinColumnH2",
+      "x": 50,
+      "y": 31,
+      "z": 7
+    },
+    {
+      "id": "149e239d-ff27-47f7-87df-ce1a31d30ec2",
+      "template": "RuinColumnH2",
+      "x": 51,
+      "y": 31,
+      "z": 7
+    },
+    {
+      "id": "e302190f-217f-4493-b311-c349a60aeec3",
+      "template": "RuinColumnH1",
+      "x": 52,
+      "y": 31,
+      "z": 7
+    },
+    {
+      "id": "87f3af69-8596-40d7-986f-f305d4e92977",
+      "template": "RuinColumnH2",
+      "x": 45,
+      "y": 32,
+      "z": 6
+    },
+    {
+      "id": "0a93eb37-f55c-4c11-b93a-f6d0a9d03caa",
+      "template": "RuinColumnH1",
+      "x": 46,
+      "y": 32,
+      "z": 6
+    },
+    {
+      "id": "e2746deb-5d27-432b-8da5-895ae20a6bd9",
+      "template": "RuinColumnH1",
+      "x": 47,
+      "y": 32,
+      "z": 8
+    },
+    {
+      "id": "30e7a7f7-e9f9-4972-98f1-8b0026932b93",
+      "template": "RuinColumnH1",
+      "x": 48,
+      "y": 32,
+      "z": 8
+    },
+    {
+      "id": "2800f247-cca2-417b-8f0c-c048b826db76",
+      "template": "RuinColumnH8",
+      "x": 49,
+      "y": 32,
+      "z": 8
+    },
+    {
+      "id": "ee42b99d-a01a-4233-9e3b-51a4260a6aa3",
+      "template": "RuinColumnH6",
+      "x": 50,
+      "y": 32,
+      "z": 8
+    },
+    {
+      "id": "06b0eec4-f5f4-440f-ba61-007b9019d794",
+      "template": "RuinColumnH6",
+      "x": 51,
+      "y": 32,
+      "z": 7
+    },
+    {
+      "id": "0c09b353-1f72-4e43-a291-e6287bd66713",
+      "template": "RuinColumnH5",
+      "x": 52,
+      "y": 32,
+      "z": 7
+    },
+    {
+      "id": "6bd0fe5f-daae-4c2c-a296-9bb3acfbf0d4",
+      "template": "RuinColumnH6",
+      "x": 53,
+      "y": 32,
+      "z": 7
+    },
+    {
+      "id": "c5272cd9-cbfa-47e3-b40f-6c6c3406b6c1",
+      "template": "RuinColumnH1",
+      "x": 44,
+      "y": 33,
+      "z": 6
+    },
+    {
+      "id": "0ff075f7-755b-4d97-98af-1a10f52d8517",
+      "template": "RuinColumnH2",
+      "x": 45,
+      "y": 33,
+      "z": 6
+    },
+    {
+      "id": "35744972-d17a-4625-9842-a20868f6014b",
+      "template": "RuinColumnH2",
+      "x": 46,
+      "y": 33,
+      "z": 6
+    },
+    {
+      "id": "c114d061-612f-41fa-b34e-a7ce815da4af",
+      "template": "RuinColumnH3",
+      "x": 47,
+      "y": 33,
+      "z": 6
+    },
+    {
+      "id": "953b560e-4fba-42ed-ab71-08afcc0c8d4a",
+      "template": "RuinColumnH2",
+      "x": 48,
+      "y": 33,
+      "z": 8
+    },
+    {
+      "id": "9e53a5a0-3231-4dda-812e-b727c263d2b3",
+      "template": "RuinColumnH6",
+      "x": 49,
+      "y": 33,
+      "z": 8
+    },
+    {
+      "id": "1465cac9-1148-4686-a4e9-1b3f7e279822",
+      "template": "RuinColumnH6",
+      "x": 50,
+      "y": 33,
+      "z": 8
+    },
+    {
+      "id": "06ba5e25-a382-440b-a5e4-3bddcf34409b",
+      "template": "RuinColumnH6",
+      "x": 51,
+      "y": 33,
+      "z": 7
+    },
+    {
+      "id": "a95ebead-c9cc-4a34-837e-7b7b89b0f39b",
+      "template": "RuinColumnH5",
+      "x": 52,
+      "y": 33,
+      "z": 7
+    },
+    {
+      "id": "6c7925ab-239b-457b-a0d6-8aad0b32a702",
+      "template": "RuinColumnH3",
+      "x": 53,
+      "y": 33,
+      "z": 7
+    },
+    {
+      "id": "ceaa8ef6-5ab5-4be1-82d3-d044982470fa",
+      "template": "RuinColumnH4",
+      "x": 54,
+      "y": 33,
+      "z": 7
+    },
+    {
+      "id": "85178ffd-93b3-4d57-aa83-5312c5088771",
+      "template": "RuinColumnH2",
+      "x": 44,
+      "y": 34,
+      "z": 6
+    },
+    {
+      "id": "139f7241-7815-4674-b189-79b2f1a5d612",
+      "template": "RuinColumnH3",
+      "x": 45,
+      "y": 34,
+      "z": 6
+    },
+    {
+      "id": "5b25d2d9-b201-42af-865b-72cbd0db1417",
+      "template": "RuinColumnH6",
+      "x": 46,
+      "y": 34,
+      "z": 6
+    },
+    {
+      "id": "1baf5846-92e2-46b7-9764-c3878930b587",
+      "template": "RuinColumnH3",
+      "x": 47,
+      "y": 34,
+      "z": 6
+    },
+    {
+      "id": "96eb65b2-64a3-45dd-959c-12439814b919",
+      "template": "RuinColumnH5",
+      "x": 48,
+      "y": 34,
+      "z": 8
+    },
+    {
+      "id": "cb24a091-d829-4228-9d21-546e318f5141",
+      "template": "RuinColumnH6",
+      "x": 49,
+      "y": 34,
+      "z": 8
+    },
+    {
+      "id": "8fa8b626-e4a4-4f31-a9f2-4c79834cc925",
+      "template": "RuinColumnH3",
+      "x": 50,
+      "y": 34,
+      "z": 8
+    },
+    {
+      "id": "3517da65-fb61-4238-a947-889263c2fed6",
+      "template": "RuinColumnH4",
+      "x": 51,
+      "y": 34,
+      "z": 7
+    },
+    {
+      "id": "96f7f01a-a1c3-4d42-ab25-a106f7f61415",
+      "template": "RuinColumnH1",
+      "x": 52,
+      "y": 34,
+      "z": 7
+    },
+    {
+      "id": "cb497961-4d08-497a-a71a-9b6ad9425d24",
+      "template": "RuinColumnH3",
+      "x": 53,
+      "y": 34,
+      "z": 7
+    },
+    {
+      "id": "7c1b06a5-5133-4fc8-bf60-1e5b51607dc6",
+      "template": "RuinColumnH3",
+      "x": 54,
+      "y": 34,
+      "z": 7
+    },
+    {
+      "id": "c940affd-7064-48aa-9f8b-5d927a19481b",
+      "template": "RuinColumnH1",
+      "x": 44,
+      "y": 35,
+      "z": 6
+    },
+    {
+      "id": "45d054b8-ec64-4f70-bb47-1e2d789c48b9",
+      "template": "RuinColumnH1",
+      "x": 45,
+      "y": 35,
+      "z": 6
+    },
+    {
+      "id": "c0ebd2a5-a6d0-4092-a7b6-bd68fcff9798",
+      "template": "RuinColumnH6",
+      "x": 46,
+      "y": 35,
+      "z": 6
+    },
+    {
+      "id": "c7b09171-1895-44a2-82f7-a075b49642bc",
+      "template": "RuinColumnH4",
+      "x": 47,
+      "y": 35,
+      "z": 6
+    },
+    {
+      "id": "0cfca44d-60bb-407d-a4e2-b200d8850a45",
+      "template": "RuinColumnH3",
+      "x": 48,
+      "y": 35,
+      "z": 6
+    },
+    {
+      "id": "220d69d8-fbca-4d59-bfcc-4683b3d3e8a6",
+      "template": "RuinColumnH3",
+      "x": 49,
+      "y": 35,
+      "z": 8
+    },
+    {
+      "id": "457549c6-4361-4def-aed4-486f3403dc82",
+      "template": "RuinColumnH1",
+      "x": 50,
+      "y": 35,
+      "z": 8
+    },
+    {
+      "id": "95c135ab-52e4-493e-9938-cf8b5e58efb1",
+      "template": "RuinColumnH1",
+      "x": 51,
+      "y": 35,
+      "z": 8
+    },
+    {
+      "id": "1d5ce092-f95f-4c75-be41-7bc3f0c846c0",
+      "template": "RuinColumnH1",
+      "x": 52,
+      "y": 35,
+      "z": 7
+    },
+    {
+      "id": "ee46bf1e-6c1b-49a4-a8ea-ebd8d0065046",
+      "template": "RuinColumnH2",
+      "x": 53,
+      "y": 35,
+      "z": 7
+    },
+    {
+      "id": "17394a7c-96a9-447d-ab97-49c39bf199a6",
+      "template": "RuinColumnH2",
+      "x": 54,
+      "y": 35,
+      "z": 7
+    },
+    {
+      "id": "89844f18-c3fc-4413-8082-8bf59ef2dd53",
+      "template": "RuinColumnH1",
+      "x": 44,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "f251575c-bff1-45ec-b4a6-10702f624e69",
+      "template": "RuinColumnH4",
+      "x": 45,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "a651a3ee-d7ce-4f5e-8a3b-4e55b321689c",
+      "template": "RuinColumnH4",
+      "x": 46,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "2ae92c24-f4e0-4570-a1a9-c52a3e72f7ee",
+      "template": "RuinColumnH5",
+      "x": 47,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "6f128211-93b0-43a8-8abf-eb0187efa55d",
+      "template": "RuinColumnH7",
+      "x": 48,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "5f901410-06e2-4437-9a3a-7ed0f5362051",
+      "template": "RuinColumnH3",
+      "x": 49,
+      "y": 36,
+      "z": 6
+    },
+    {
+      "id": "adf7e9cd-f21c-4e63-8544-a4e12555a228",
+      "template": "RuinColumnH4",
+      "x": 50,
+      "y": 36,
+      "z": 8
+    },
+    {
+      "id": "078e3230-c99e-4b6b-9f29-5ad6d86926dd",
+      "template": "RuinColumnH5",
+      "x": 51,
+      "y": 36,
+      "z": 8
+    },
+    {
+      "id": "07bfa989-7929-4ffa-9b45-bb3d27d38368",
+      "template": "RuinColumnH2",
+      "x": 52,
+      "y": 36,
+      "z": 7
+    },
+    {
+      "id": "e3f61b5e-45ca-4526-ae74-a3f05caab8a9",
+      "template": "RuinColumnH1",
+      "x": 53,
+      "y": 36,
+      "z": 7
+    },
+    {
+      "id": "e185ecff-3442-4b04-b7a3-f8a98a66b961",
+      "template": "RuinColumnH1",
+      "x": 54,
+      "y": 36,
+      "z": 8
+    },
+    {
+      "id": "a5bc5cca-7f11-4bbc-8437-ffb6417ead8f",
+      "template": "RuinColumnH1",
+      "x": 44,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "9eb822b8-be14-4955-8b40-e2d296a3b530",
+      "template": "RuinColumnH2",
+      "x": 45,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "def4a46a-24d7-4476-baa6-df776a3bda4b",
+      "template": "RuinColumnH7",
+      "x": 46,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "586fb29a-b3ef-4626-a7da-65e1ea0e3183",
+      "template": "RuinColumnH4",
+      "x": 47,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "d1a4d15d-f03b-421b-b9bb-2fcacb13794c",
+      "template": "RuinColumnH4",
+      "x": 48,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "3310d5c1-f6e7-4232-ae82-f00a862a338d",
+      "template": "RuinColumnH6",
+      "x": 49,
+      "y": 37,
+      "z": 6
+    },
+    {
+      "id": "445afe36-5960-4df4-9ad6-435164c54b40",
+      "template": "RuinColumnH7",
+      "x": 50,
+      "y": 37,
+      "z": 8
+    },
+    {
+      "id": "69321018-db9f-4154-89e3-38437bb99007",
+      "template": "RuinColumnH4",
+      "x": 51,
+      "y": 37,
+      "z": 9
+    },
+    {
+      "id": "6ce84d0e-6047-42f5-8542-c1d4d886e4e1",
+      "template": "RuinColumnH3",
+      "x": 52,
+      "y": 37,
+      "z": 9
+    },
+    {
+      "id": "c56f782f-1969-4596-b18d-9daff0b2c1bc",
+      "template": "RuinColumnH1",
+      "x": 53,
+      "y": 37,
+      "z": 9
+    },
+    {
+      "id": "d798e224-789b-4071-9b4a-0a0fbbf1cf0e",
+      "template": "RuinColumnH1",
+      "x": 54,
+      "y": 37,
+      "z": 10
+    },
+    {
+      "id": "5b20b8e3-1070-40a3-b58e-48e471a8332d",
+      "template": "RuinColumnH2",
+      "x": 45,
+      "y": 38,
+      "z": 6
+    },
+    {
+      "id": "b6c17c8e-3432-4628-bbf1-600dddb74374",
+      "template": "RuinColumnH4",
+      "x": 46,
+      "y": 38,
+      "z": 6
+    },
+    {
+      "id": "36fcf238-425a-4016-bb17-c85840d3ce1e",
+      "template": "RuinColumnH6",
+      "x": 47,
+      "y": 38,
+      "z": 6
+    },
+    {
+      "id": "ef7a1c82-70e4-44b1-94b4-b03079b6d38d",
+      "template": "RuinColumnH7",
+      "x": 48,
+      "y": 38,
+      "z": 6
+    },
+    {
+      "id": "e4798b82-9598-43a3-8646-15a75a036bc9",
+      "template": "RuinColumnH6",
+      "x": 49,
+      "y": 38,
+      "z": 7
+    },
+    {
+      "id": "8969daa2-02e0-49f4-8bc0-4221aba9b58a",
+      "template": "RuinColumnH8",
+      "x": 50,
+      "y": 38,
+      "z": 8
+    },
+    {
+      "id": "78dee2e8-0e98-47a7-8d5d-596e956ba4dc",
+      "template": "RuinColumnH3",
+      "x": 51,
+      "y": 38,
+      "z": 10
+    },
+    {
+      "id": "005c5757-54df-4350-9589-e61d98ed2af0",
+      "template": "RuinColumnH5",
+      "x": 52,
+      "y": 38,
+      "z": 10
+    },
+    {
+      "id": "8fc32629-06fc-4d68-a44e-aa131b9805f0",
+      "template": "RuinColumnH1",
+      "x": 53,
+      "y": 38,
+      "z": 10
+    },
+    {
+      "id": "0debbd1c-42c4-4671-bc9f-d036047727fd",
+      "template": "RuinColumnH2",
+      "x": 46,
+      "y": 39,
+      "z": 5
+    },
+    {
+      "id": "4665fa9a-d11d-41f7-9457-f9ad429dc594",
+      "template": "RuinColumnH1",
+      "x": 47,
+      "y": 39,
+      "z": 5
+    },
+    {
+      "id": "c78d7f1c-abd5-4e91-b5c9-634e389ca42f",
+      "template": "RuinColumnH4",
+      "x": 48,
+      "y": 39,
+      "z": 7
+    },
+    {
+      "id": "7f091a7a-b327-46e8-ad44-b0a156d0bd42",
+      "template": "RuinColumnH7",
+      "x": 49,
+      "y": 39,
+      "z": 8
+    },
+    {
+      "id": "46a7bdac-54f1-4d41-8e6a-478c6e24ca44",
+      "template": "RuinColumnH5",
+      "x": 50,
+      "y": 39,
+      "z": 9
+    },
+    {
+      "id": "109bfaec-5acf-472d-860e-552c1690e12d",
+      "template": "RuinColumnH4",
+      "x": 51,
+      "y": 39,
+      "z": 9
+    },
+    {
+      "id": "e67335ef-dd36-429a-8034-d8aa2cecf6a1",
+      "template": "RuinColumnH2",
+      "x": 52,
+      "y": 39,
+      "z": 10
+    },
+    {
+      "id": "40cda051-78e1-476b-907a-68e3e67fb31f",
+      "template": "RuinColumnH2",
+      "x": 47,
+      "y": 40,
+      "z": 7
+    },
+    {
+      "id": "c74ab541-be8d-40c0-822d-c53b9b503384",
+      "template": "RuinColumnH2",
+      "x": 48,
+      "y": 40,
+      "z": 7
+    },
+    {
+      "id": "3548256f-aea5-4700-a711-821f956c7936",
+      "template": "RuinColumnH3",
+      "x": 49,
+      "y": 40,
+      "z": 7
+    },
+    {
+      "id": "575d4e4d-9375-4ab5-82e4-2f6356fc0108",
+      "template": "RuinColumnH8",
+      "x": 50,
+      "y": 40,
+      "z": 8
+    },
+    {
+      "id": "623d81b1-30e4-4ab8-8c82-177b92bc2474",
+      "template": "RuinColumnH7",
+      "x": 51,
+      "y": 40,
+      "z": 9
+    }
+  ],
+  "note": "Reconstructed matching failure at the original default head; the review supplied no recorded pointer coordinates. This is a reproduction, not a claim of recovered click telemetry."
+}

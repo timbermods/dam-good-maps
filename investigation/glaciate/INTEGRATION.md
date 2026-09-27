@@ -2,13 +2,25 @@
 
 Investigation only. Production files, the gallery and `investigation/README.md` are unchanged. The branch is held for Kyler to try the demo (D246); this document does not authorize adoption, merging or release.
 
+## Round 2, after Kyler's review
+
+Adopt the dry-floor model in `morphology.ts`, not Round 1's chain of full-width basins. `model.ts` now owns routing, settings and staged reveal; `morphology.ts` owns excavation, drainage, deposition, object policy and land measurements. Keep the result-operation/session contract. The broad floor must sit above a narrow stream with an open downstream outlet; a tarn and one terminal ribbon lake are optional, and short tongues omit them. The lobe uses a shallow directional sweep and an open arc, never a circular lake/ring.
+
+Auto Size now rounds `8 + 36 * Power / 100` (30 at Power 60). Flow reach is `mapWidth * (0.22 + 0.85 * Power / 100)`, bounded by the map and protected start. Aim has a larger smooth bend. Reconnect existing wet tributary entrances before covering old channels, and carry drainage through the actual map boundary. Existing 256² rivers need more channel capacity than a new meltwater source alone. Preserve source capacity checks during the port.
+
+Swept non-plants are removed under the excavation policy, with pinned objects refused. Do not ride ruin columns onto the new floor: that recreates the island/pedestal failure. Trees keep real displaced coordinates. New land comes from graded outwash and terrain-conforming ledge fill; one-block donor/receiver pairs improve flat pads while keeping the material ledger exact. Never fill the stream notch with moraine material.
+
+Keep both land metrics: the trough's dry 2×2-pad tiles and the net before/after building space over all affected ground/water/object footprints plus the one-tile pad collar. Verify that net against the whole map; also report the direct height-edited-region subtotal. The default and its three variations gain land in the supplied tests, but constrained near-edge gestures can still lose it. That limitation needs product judgment before adoption.
+
+The ice overlay has fixed cross sections, an advancing curved front and advected streaks. Remove the old radial-lobe mesh. Do not tie its clock to water ticks. Terrain and moved/removed objects are final by the end of advance; defer most canonical water work until after the terrain animation. At both 128² and 256², assert every displayed height equals the recorded endpoint before retreat ends. A cancellation epoch must guard the final frame as well as the terrain stages.
+
 ## Fit to the shipping forces
 
 Read against `feature/forces` at `cd9225cea5cdff18318b7d57c4ef2e3a70628dc2`, including `docs/progress/forces.md` Round 2 and `src/core/forces/{force,op,result,runs,objects,rock}.ts`. The demo imports **no code from that branch**. It reuses `dev`'s shared investigation map/object/rock services, actual chunk builders and editor materials; its operation/session adapters are local copies/extensions of the forces-core contract.
 
 | Here | Proposed adoption |
 | --- | --- |
-| `model.ts`: `Valley`, `makePlan`, `reveal` | `src/core/forces/glaciate.ts`, a new run implementing the existing force run lifecycle |
+| `model.ts` / `morphology.ts`: routing, `makePlan`, `reveal`, `measure` | `src/core/forces/glaciate.ts`, a new run implementing the existing force run lifecycle |
 | `session.ts` | Use the existing worker/session history and cancellation token; do not add a second history owner |
 | `operation.ts` | Extend `op.ts`, `result.ts` and document schema/build handling, preserving older operations |
 | `worker.ts` | Existing worker commands, dirty chunk queue and bounded water work |
@@ -37,19 +49,19 @@ lake: { tiles: number[], floor: number[], depth: number[], contamination: number
 
 Production's compact `ForceResultParams` differs from this study envelope. Add `glaciate` to `Verb`/`VERBS`; extend the settings union and `ForceWhere` with the existing origin/end form. Build `tiles/heights/rock/removed/moved` through the existing literal extraction. Store the real new source with `source` and the union of basin records with `lake: RetainedWater` (already used by Carve). Do not store the animated ice mesh, timestep snapshots or morphology metrics in the document. Do retain the settled endpoint in the worker's normal history snapshot. Add a schema migration only if the serialized version needs one; existing operations must remain byte-for-byte replay compatible.
 
-The production builder must collect retained water from **all** applicable result operations, in operation order, and pass it into `WaterModel.retained` before `canonicalRun`. Never replace a stored lake with a dry fresh solve on load, settle, undo or export. Feed the valley with the real head source when Meltwater is on; strength follows Size (0.75 + 0.16 × nominal width, capped at 8), not Power. Existing source settings remain real and editable. D239 Unleash on that source can therefore use the normal Carve action later; Glaciate introduces no second Unleash control. With Meltwater off, the tool adds no source or retained water; an existing river may still wet the changed terrain.
+The production builder must collect retained water from **all** applicable result operations, in operation order, and pass it into `WaterModel.retained` before `canonicalRun`. Never replace a stored lake with a dry fresh solve on load, settle, undo or export. Feed the valley with the real head source when Meltwater is on; strength follows Size (0.4 + 0.025 × nominal width, capped at 2), not Power. Existing source settings remain real and editable. D239 Unleash on that source can therefore use the normal Carve action later; Glaciate introduces no second Unleash control. With Meltwater off, the tool adds no source or retained water; an existing river may still wet the changed terrain.
 
 ## Renderer and the two acts
 
 Eighteen terrain stages advance over three seconds; twelve retreat stages reveal water over two seconds (fifty logical force steps, six shown stages per second). Only changed integer terrain/water chunks are remeshed. This demo calls the shared view's `begin(false)` and supplies no morph/glide attributes: terrain never relies on the GPU morphs missing from the editor. Ice is ordinary overlay geometry with a small fragment shader clipping its advancing/retreating front. Terrain, water curtains, trees and lighting use the repository renderer.
 
-A fallback requiring no new shader is the same ribbon partitioned into station strips, with visibility toggled at the existing effect pace. Reduced motion hides the overlay and camera effects while the terrain/result lifecycle remains cancellable. No camera shake. Refresh lighting at commit (the prototype keeps old lighting during the acts; that temporary mismatch is visible). Retain the normal final water solve: if it exceeds five seconds, show the quiet settling state. Do not speed up an incomplete solve to claim a five-second endpoint.
+A fallback requiring no new shader is the same ribbon partitioned into station strips, with visibility toggled at the existing effect pace. Reduced motion hides the overlay and camera effects while the terrain/result lifecycle remains cancellable. No camera shake. Refresh lighting when the terrain finishes, then again after water settles. Retain the normal final water solve: if it exceeds five seconds, show the quiet settling state. Do not speed up an incomplete solve to claim a five-second endpoint.
 
 The moved trees retain species, components and real moved coordinates, staying upright as the game will show them. They do not acquire a render-only horizontal log pose. Existing shared-core fallen metadata is preserved on prior objects but is never invented for new Glaciate trees. Reconcile slopes after terrain and object movement, including unchanged tiles whose neighbours changed; remove disconnected chains to a fixed point, and refuse if a pinned slope would lose its connection. New source IDs use the repository's deterministic GUID builder.
 
 ## Controls and sound
 
-Add **Glaciate** beside Carve, Craterize, Quake and Erupt in the forces group. Its row, in order: **Mode (Flow/Aim), Power, Size with Auto, Meltwater**, then **Try another**. Default: Flow, Power 60, Size Auto (22 tiles nominal), Meltwater on. Use the shared `SizeControl` convention: moving the slider sets it by hand; Auto restores following. No fifth control, no separate depth, speed, moraine or basin slider. Low-ground pointer message: **“No room to deepen here · widening and building moraines”**. Start refusal: **“Start here”**. Physical lack of deposition capacity is a quiet refusal, never lost material.
+Add **Glaciate** beside Carve, Craterize, Quake and Erupt in the forces group. Its row, in order: **Mode (Flow/Aim), Power, Size with Auto, Meltwater**, then **Try another**. Default: Flow, Power 60, Size Auto (30 tiles nominal), Meltwater on. Use the shared `SizeControl` convention: moving the slider sets it by hand; Auto restores following. No fifth control, no separate depth, speed, moraine or basin slider. Low-ground pointer message: **“No room to deepen here · widening and building moraines”**. Start refusal: **“Start here”**. Physical lack of deposition capacity is a quiet refusal, never lost material.
 
 Use the existing global Sound switch and saved volume. Advance begins the stone-friction bed and low pitched wooden resonance; one crack at onset and another at 1.75 s; retreat begins the waterfall recording at 3 s. Schedule using the audio clock, tag all voices with the run ID, and stop them on Esc, undo, map changes and hidden-page events. Reuse juice-2's lazy decoding and drop late sounds rather than replaying them. The low resonance is a wood-foley stand-in, not a field recording of a glacier. Sources and all pitch/filter/gain/envelope edits are in `bank.json`. Speaker/headphone judgment remains a listening check.
 
@@ -57,7 +69,7 @@ Use the existing global Sound switch and saved volume. Advance begins the stone-
 
 Propose a bounded step `glaciate`: `{mode, origin:[x,y], end?, power?, size?, meltwater?, seed?}`. Defaults equal the UI. Limits: maps ≤256²; heightfield only; Power 0–100; Size null or 4–64 tiles; integral in-bounds origin/end; distinct Aim endpoints; seed 0–2³²−1. The caller cannot disable protection or override the ceiling. Refuse starts, affected pinned/locked objects, protected/cave columns, insufficient deposit capacity and invalid coordinates. Return changed bounds, source ID, below-outlet basin depths, deposit/cut ratio, low-ground notice and operation sequence, not a bulky map array.
 
-Add request-suite cases for: a U-valley with three fed lakes; a pass between two valleys; a dry glacier; a small width at high Power; a flat-ground lobe; low ground; refused start; cancellation and reroll. Expectations must inspect literal terrain and water, not only a success string. Rerun the full existing reference suite during adoption; no Claude API key or model call is needed. M12 stays ready, not blocked on this investigation.
+Add request-suite cases for: a broad dry U-valley with a narrow stream and optional small tarn/ribbon lake; a pass between two valleys; a dry glacier; a small width at high Power; a flat-ground lobe; low ground; refused start; cancellation and reroll. Add Kyler's reproduced Power 47 regression and assert no ruin island survives. Expectations must inspect literal terrain and water, not only a success string. Rerun the full existing reference suite during adoption; no Claude API key or model call is needed. M12 stays ready, not blocked on this investigation.
 
 ## Bring these tests across
 
@@ -65,4 +77,4 @@ Port `tests/core.ts`'s real-map determinism, literal replay, source/retained-wat
 
 ## Proposed investigation index row
 
-| [Glaciate](glaciate/README.md) | Valley glacier: drainage-following Flow, ridge-crossing Aim, stepped retained lakes, conserved moraines and outwash; remeshed advance/retreat and recorded CC0 foley. [Report](glaciate/REPORT.md), [adoption](glaciate/INTEGRATION.md). Held for Kyler's demo try; includes explicit morphology and source-availability limits. | `investigation/glaciate` |
+| [Glaciate](glaciate/README.md) | Round 2 after Kyler's review: broad dry U-valleys, narrow meltwater, few small lakes, open lobes, conserved moraines/outwash and flowing advance/retreat. [Report](glaciate/REPORT.md), [adoption](glaciate/INTEGRATION.md). Default before/after and Power 47 regression; held for Kyler's demo try. | `investigation/glaciate` |

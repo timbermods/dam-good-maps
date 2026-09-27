@@ -8,30 +8,30 @@
   "normalSpeed": true,
   "captureDuringPerformance": false,
   "all": {
-    "count": 1125,
+    "count": 1177,
     "median": 6.099999999998545,
     "p95": 6.200000000000728,
-    "worst": 11.200000000000728
+    "worst": 18.200000000000728
   },
   "advance": {
-    "count": 590,
+    "count": 528,
     "median": 6.099999999998545,
     "p95": 6.200000000000728,
-    "worst": 8.099999999998545
+    "worst": 6.900000000001455
   },
   "retreat": {
-    "count": 326,
+    "count": 320,
     "median": 6.099999999998545,
     "p95": 6.200000000000728,
-    "worst": 11.200000000000728
+    "worst": 18.200000000000728
   },
   "longTasks": [],
-  "planningMs": 573.3999999761581,
-  "firstTerrainMs": 749.6000000238419,
-  "totalMs": 6848.199999988079,
+  "planningMs": 191.70000004768372,
+  "firstTerrainMs": 296.2999999523163,
+  "totalMs": 7169.400000035763,
   "water": {
     "settled": true,
-    "ticks": 1920
+    "ticks": 2304
   },
   "checks": [
     "real default-settings pointer gesture",
@@ -40,7 +40,18 @@
     "Esc during retreat exact",
     "gallery loads",
     "no browser exceptions",
-    "Esc during final settling exact; no late completion"
+    "Esc during final settling exact; no late completion",
+    "128 and 256 terrain exact before retreat ends"
   ],
-  "errors": []
+  "errors": [],
+  "terrain128": {
+    "exact": true,
+    "finalMs": 3056.900000035763,
+    "retreatEndMs": 5024
+  },
+  "terrain256": {
+    "exact": true,
+    "finalMs": 3212.699999988079,
+    "retreatEndMs": 5164.599999964237
+  }
 }

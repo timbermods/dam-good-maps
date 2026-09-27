@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run.mjs tests/core.ts && node scripts/run.mjs tests/schema.ts && node scripts/run.mjs tests/export.ts",
     "maps": "node scripts/run.mjs scripts/maps.ts",
-    "captures": "npm run comparison && node scripts/run.mjs tests/browser.ts",
+    "captures": "node scripts/round1-reference.mjs && node scripts/run.mjs scripts/reproduce.ts && npm run comparison && node scripts/run.mjs tests/browser.ts",
     "comparison": "node scripts/carve-reference.mjs && node scripts/run.mjs tests/comparison.ts"
   },
   "dependencies": {

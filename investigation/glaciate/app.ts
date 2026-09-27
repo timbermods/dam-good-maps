@@ -19,7 +19,7 @@ function download(name:string,data:BlobPart,type='application/json'){const a=doc
 function sync(){($<HTMLSelectElement>('mode')).value=settings.mode;$<HTMLInputElement>('power').value=String(settings.power);$('power-value').textContent=String(settings.power);
  $<HTMLInputElement>('size').value=String(sizeOf(settings));$('size-value').textContent=String(sizeOf(settings));$('auto').setAttribute('aria-pressed',String(settings.size===null));$<HTMLInputElement>('meltwater').checked=settings.meltwater;}
 function start(req?:Request,reroll=false){if(!ready||running)return;baseline=view.capture();ice.preview([]);running=true;ready=false;evidence.ready=false;measure=true;frames=[];longTasks=[];previousFrame=0;started=performance.now();phaseTime=0;evidence.inputTime=started;evidence.firstTerrainMs=null;evidence.advanceFrames=[];evidence.retreatFrames=[];
- evidence.stage=0;$('phase').textContent='Ice gathering…';status('Esc or Undo brings everything back.');sound.warm();sound.begin();
+ evidence.stage=0;evidence.terrainFinalMs=null;evidence.retreatEndMs=null;$('phase').textContent='Ice gathering…';status('Esc or Undo brings everything back.');sound.warm();sound.begin();
  if(req){const i=req.intent.origin,x=i%view.W+.5,y=Math.floor(i/view.W)+.5;ice.set([{x,y,s:0,r:3,floor:0,outlet:0},{x:x+.7,y:y+.7,s:1,r:3,floor:0,outlet:0}],view.heights,view.W,true);}
  send({type:reroll?'reroll':'start',request:req});}
 function cancel(){if(!map)return;sound.stop();ice.clear();measure=false;minEpoch=epoch+1;ready=false;evidence.ready=false;
@@ -35,10 +35,10 @@ worker.onmessage=({data:a})=>{
  if(a.type==='frame'){view.commit(a.heights,a.keep,light);light=null;evidence.signature=a.signature;if(running&&evidence.firstTerrainMs===null)evidence.firstTerrainMs=performance.now()-evidence.inputTime;view.collect([...past,...future,...(baseline?[baseline]:[])]);}
  if(a.type==='preview'&&a.id===previewId&&!running){ice.preview(a.path,view.heights,view.W);if(a.shallow){$('pointer').textContent='No room to deepen here · widening and building moraines';$('pointer').style.display='block';}}
  if(a.type==='planned'){ice.set(a.path,a.baseHeights,view.W,a.lobe);started=performance.now();settings=a.settings;sync();status(a.notice||'Advance · the whole valley opens beneath the ice');evidence.plan=a;evidence.planningMs=a.planningMs;}
- if(a.type==='stage'){phaseTime=a.t;evidence.stage=a.t;$('phase').textContent=a.t<3?'Advance · ice taking the valley':'Retreat · the valley comes to light';if(a.t>=3)status('Lakes fill in steps. Meltwater finds the falls.');}
+ if(a.type==='stage'){phaseTime=a.t;evidence.stage=a.t;if(a.t>=5&&evidence.retreatEndMs===null)evidence.retreatEndMs=performance.now()-evidence.inputTime;if(a.terrainFinal&&evidence.terrainFinalMs===null){evidence.terrainFinalMs=performance.now()-evidence.inputTime;evidence.terrainExact=view.heights.every((h,i)=>h===evidence.plan.finalHeights[i]);}$('phase').textContent=a.t<3?'Advance · ice taking the valley':'Retreat · the valley comes to light';if(a.t>=3)status('Dry terraces emerge beside the meltwater stream.');}
  if(a.type==='settling'){$('phase').textContent='Water finding its level…';ice.update(5);status('The final water is settling before the result is kept.');}
  if(a.type==='finished'){evidence.finished++;evidence.result=a;evidence.frames=frames;evidence.longTasks=longTasks;evidence.duration=performance.now()-(started-evidence.planningMs);measure=false;ice.clear();sound.stop();running=false;
-  if(baseline)past.push(baseline);baseline=null;future.length=0;$('phase').textContent='A new valley';status(`${a.basins.length} basins · ${a.metrics.cut.toLocaleString()} blocks moved · deposit/cut ${a.metrics.ratio.toFixed(3)}${a.settled?'':' · water solve reached its tick limit'}`);}
+  if(baseline)past.push(baseline);baseline=null;future.length=0;$('phase').textContent='A new valley';status(`${a.metrics.dryFloor.toLocaleString()} dry floor tiles · ${a.metrics.buildableGain>=0?'+':''}${a.metrics.buildableGain} buildable tiles · sediment ${a.metrics.ratio.toFixed(3)}${a.settled?'':' · water tick limit reached'}`);}
  if(a.type==='error'){evidence.errors.push(a.message);sound.stop();ice.clear();measure=false;running=false;if(baseline)view.restore(baseline);baseline=null;$('phase').textContent=a.message.replace(/^Error: /,'');status('Choose another head or a smaller glacier.');}
  if(a.type==='ready'){ready=true;evidence.ready=true;$('loading').style.display='none';}
  if(a.type==='project')download('glaciate-study.json',JSON.stringify(a.project));
@@ -68,7 +68,7 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(running)cancel();e
 document.addEventListener('visibilitychange',()=>{if(document.hidden)sound.stop();});
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',e=>{motion=!e.matches;});
 function animate(now:number){if(measure&&previousFrame){const dt=now-previousFrame;frames.push(dt);if(phaseTime<3)evidence.advanceFrames.push(dt);else if(phaseTime<5)evidence.retreatFrames.push(dt);}previousFrame=now;
- if(running)ice.update(motion?Math.min(phaseTime+.1,(now-started)/1000):5);view.render(now/1000,motion);requestAnimationFrame(animate);}
+ if(running)ice.update(motion?(now-started)/1000:5);view.render(now/1000,motion);requestAnimationFrame(animate);}
 requestAnimationFrame(animate);sync();setTimeout(()=>sound.init(),500);
 // Local browser test seam: uses the same command path, geometry, shaders and controls as the demo.
 (window as any).glaciate={evidence,view,load,start,cancel,send,settings:(s:Partial<Settings>)=>{settings={...settings,...s};sync();},snapshot:()=>send({type:'snapshot'}),

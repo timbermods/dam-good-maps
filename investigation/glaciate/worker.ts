@@ -1,6 +1,6 @@
 import { Session } from './session';
 import { loadMap } from './maps';
-import { route,flatAt,sizeOf,waterRun,DEFAULTS,type Request } from './model';
+import { route,flatAt,sizeOf,waterRun,measure,DEFAULTS,type Request } from './model';
 import { snapshot,json,modelFor,type ForceMap } from '../forces-core/core/map';
 import { protectedGround } from '../forces-core/core/objects';
 import { changedChunks,frameContext,makeChunk } from '../forces-core/core/meshes';
@@ -28,7 +28,7 @@ self.onmessage=async({data:a})=>{
   const cancelledEpoch=++epoch;session?.undo();busy=false;last=null;send({type:'cancelled',signature:signature(session.map)},cancelledEpoch);await frame(cancelledEpoch,true);if(cancelledEpoch===epoch)send({type:'ready'},cancelledEpoch);return;
  }
  if(a.type==='preview'){if(!busy&&session){try{const m=session.map,r=sizeOf(a.settings)/2,shallow=m.heights[a.intent.origin]<=2;
-  const lobe=a.settings.mode==='flow'&&flatAt(m,a.intent.origin,r),path=lobe?Array.from({length:49},(_,k)=>({x:a.intent.origin%m.W+.5+Math.cos(k/48*Math.PI*2)*r*1.3,y:Math.floor(a.intent.origin/m.W)+.5+Math.sin(k/48*Math.PI*2)*r*1.3})):route(m,a.settings,a.intent,session.valley);
+  const lobe=a.settings.mode==='flow'&&flatAt(m,a.intent.origin,Math.min(10,r)),full=route(m,a.settings,a.intent,session.valley),path=lobe?full.slice(0,Math.max(6,Math.round(r*2.2))):full;
   send({type:'preview',id:a.id,path,shallow});}catch{}}return;}
  if(a.type==='load'){epoch++;session?.cancel();busy=false;last=null;}
  if(busy)return;busy=true;const e=++epoch;send({type:'begin'});
@@ -36,19 +36,19 @@ self.onmessage=async({data:a})=>{
   if(a.type==='load'){const loaded=await loadMap(a.id);if(e!==epoch)return;session=new Session(loaded);last=null;send({type:'reset',map:session.map});await frame(e,true);}
   if(a.type==='show'){session=new Session(a.map);last=null;send({type:'reset',map:session.map});await frame(e,true);}
   if(a.type==='start'||a.type==='reroll'){
-   const plannedAt=performance.now(),p=session.start(a.request,a.type==='reroll');send({type:'planned',path:p.path,mask:p.mask,baseHeights:p.before.heights,lobe:p.lobe,notice:p.notice,settings:p.request.settings,metrics:p.metrics,basins:p.basins,planningMs:performance.now()-plannedAt});
+   const plannedAt=performance.now(),p=session.start(a.request,a.type==='reroll');send({type:'planned',path:p.path,mask:p.mask,baseHeights:p.before.heights,finalHeights:p.map.heights,lobe:p.lobe,notice:p.notice,settings:p.request.settings,metrics:p.metrics,basins:p.basins,planningMs:performance.now()-plannedAt});
    const run=waterRun(p);let water:ReturnType<typeof run.advance>=null;const began=performance.now();
    for(let step=1;step<=30;step++){
     if(e!==epoch)return;
     // Bounded worker work; UI never waits for a water tick or a chunk mesh.
-    if(!water)water=run.advance(32);
+    if(step>18&&!water)water=run.advance(8);
     if(water)p.map.water={depth:water.depth.slice(),contamination:water.contamination.slice()};
-    session.frame(step/6);await frame(e);if(e!==epoch)return;send({type:'stage',t:step/6});
+    session.frame(step/6);await frame(e,step===18);if(e!==epoch)return;send({type:'stage',t:step/6,terrainFinal:step>=18});
     await pause(Math.max(0,began+step*1000/6-performance.now()));
    }
    if(!water)send({type:'settling'});
    while(!water){if(e!==epoch)return;water=run.advance(8);await pause();}
-   if(e!==epoch)return;p.map.water={depth:water.depth.slice(),contamination:water.contamination.slice()};
+   if(e!==epoch)return;p.map.water={depth:water.depth.slice(),contamination:water.contamination.slice()};measure(p);
    const op=session.finish({settled:water.settled,ticks:water.ticks});await frame(e,true);if(e!==epoch)return;
    send({type:'finished',op,metrics:p.metrics,basins:p.basins,hanging:p.hanging.length,settled:water.settled,ticks:water.ticks,signature:signature(session.map)},e);
   }

@@ -1,6 +1,6 @@
 # Glaciate
 
-A valley glacier investigation for Dam Good Maps. All changes live in this folder.
+A valley glacier investigation for Dam Good Maps. **Round 2 leaves a broad dry floor with a narrow meltwater stream, a few small lakes, and conserved sediment.** All changes live in this folder.
 
 From the repository root, with Node 22 or newer:
 
@@ -14,7 +14,7 @@ The launcher installs this folder's locked dependencies on first use and prints 
 
 The options row has Mode, Power, Size and Meltwater, plus **Try another**. Size follows Power while Auto is pressed; touching its slider sets a manual width. Auto restores the link. Try another uses the same original land and gesture with the next seed; it does not stack glaciers.
 
-The normal animation is three seconds of advance and two of retreat. A real water settle can continue afterwards; the status says when that happens. **Esc cancels; Undo restores the entire event, including trees and water.** Redo and saved studies assign the recorded result without rerunning the glacier. Sound and Motion switches sit outside the options row. System reduced-motion preferences are respected.
+The normal animation is three seconds of flowing advance and two of retreat. Terrain finishes during advance; a real water settle can continue after retreat, and the status says when that happens. **Esc cancels; Undo restores the entire event, including trees and water.** Redo and saved studies assign the recorded result without rerunning the glacier. Sound and Motion switches sit outside the options row. System reduced-motion preferences are respected.
 
 **Save study / Open study** use a prototype JSON format, not a production project format. **Download .timber** writes the current terrain, actual entity positions and displayed water through the repository writer. It does not launch Timberborn. Keep/cancel a running force before exporting. The game continues normal water simulation after loading.
 
@@ -22,7 +22,8 @@ Try these gestures (tile coordinates, x/y; Top view helps):
 
 | Map | Gesture | Purpose |
 | --- | --- | --- |
-| River Valley 18, 128² | Flow at 64,16 | Default stepped lakes |
+| River Valley 18, 128² | Flow at 64,16 | Default dry U-valley |
+| River Valley 18, 128² | Flow at 64,16, Power 47 | Reproduced review case |
 | River Valley 18, 128² | Flow at 32,32 | Flat-ground lobe |
 | River Valley 18, 128² | Aim from 28,80 to 97,35 | Pass through the range |
 | Highlands 7, 128² | Flow at 64,96 | Existing tributary crossings |
@@ -38,7 +39,7 @@ npm --prefix investigation/glaciate run build
 npm --prefix investigation/glaciate run captures
 ```
 
-`captures` needs installed Google Chrome. Run `test` first: it saves large result maps in ignored `local/results/`, which the browser capture harness reads. Captures first build a **read-only comparison oracle** from the pinned Round 2 `feature/forces` commit (`cd9225c`, required in the local Git object database; `git fetch origin feature/forces` supplies it on a fresh clone). That oracle lives under ignored `local/` and is never imported by the demo or Glaciate implementation. It sets Carve to Width 24, Depth 12, Power 100, Steep walls and Wander 5.
+`captures` needs installed Google Chrome. Run `test` first: it saves large result maps in ignored `local/results/`, which the browser capture harness reads. Captures build **read-only comparison oracles** from the Round 1 Glaciate commit `f63e4ae` (in this branch's history) and the pinned Round 2 `feature/forces` commit (`cd9225c`, required in the local Git object database; `git fetch origin feature/forces` supplies it on a fresh clone). They live under ignored `local/` and are never imported by the demo. Carve uses Width 24, Depth 12, Power 100, Steep walls and Wander 5. The Power 47 reproduction is labelled as a reconstructed matching failure, since the review contained no saved pointer coordinates.
 
 The harness opens its own local server, captures the real renderer, and measures performance in a separate run without taking screenshots. `run maps` regenerates the six committed terrain inputs. Source-selection scans and all large temporary results stay in ignored `local/`.
 

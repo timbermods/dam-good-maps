@@ -16,6 +16,7 @@
     "origin": 2112
   },
   "carve": {
+    "buildableGain": -1431,
     "cut": 18334,
     "deposited": 0,
     "changed": 2647,
@@ -39,9 +40,10 @@
     "settled": true
   },
   "glaciate": {
-    "cut": 9187,
-    "deposited": 9187,
-    "changed": 8360,
-    "excavatedBelowOutlet": 1083
+    "buildableGain": 134,
+    "cut": 2638,
+    "deposited": 2638,
+    "changed": 3024,
+    "excavatedBelowOutlet": 180
   }
 }

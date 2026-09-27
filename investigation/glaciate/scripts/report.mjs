@@ -1,115 +1,115 @@
 import {readFileSync,writeFileSync,readdirSync,statSync} from 'node:fs';
-const core=JSON.parse(readFileSync('checks/core.json','utf8')),browser=JSON.parse(readFileSync('checks/browser.json','utf8')),audio=JSON.parse(readFileSync('checks/audio.json','utf8')),comparison=JSON.parse(readFileSync('checks/comparison.json','utf8'));
-const fmt=x=>Number(x).toFixed(1),r=core.cases.find(x=>x.id==='default');
-const sizes=readdirSync('captures').map(name=>({name,bytes:statSync('captures/'+name).size}));
-const rows=core.cases.map(c=>`| ${c.id} | ${c.metrics.cut.toLocaleString()} | ${c.metrics.ratio.toFixed(3)} | ${c.metrics.floorWidth} | ${c.metrics.crossRange} | ${(c.metrics.flatShare*100).toFixed(1)}% | ${c.basins.map(b=>b.depth).join(', ')} | ${c.metrics.outwash} |`).join('\n');
-const basinRows=r.basins.map((b,i)=>`| ${i+1} | ${b.floor} | ${b.outlet} | ${b.depth} | ${b.tiles} | ${b.fed?'yes':'no'} |`).join('\n');
-const timingRows=[['Advance',browser.advance],['Retreat',browser.retreat],['Entire run incl. planning/settle',browser.all]].map(([name,b])=>`| ${name} | ${b.count} | ${fmt(b.median)} | ${fmt(b.p95)} | ${fmt(b.worst)} |`).join('\n');
-const report=`# Glaciate: a valley glacier force
+const read=name=>JSON.parse(readFileSync('checks/'+name+'.json','utf8'));
+const core=read('core'),browser=read('browser'),comparison=read('comparison'),audio=read('audio');
+const hero=core.cases.find(c=>c.id==='default'),kyler=core.cases.find(c=>c.id==='kyler');
+const f=x=>Number(x).toFixed(1),signed=x=>(x>=0?'+':'')+x;
+const sizes=readdirSync('captures').map(name=>statSync('captures/'+name).size);
+const table=core.cases.map(c=>{const m=c.metrics;return `| ${c.id} | ${m.dryFloor} | ${f(m.wetShare*100)}% | ${f(m.length)} / ${f(m.valleyLength)} | ${m.longestWall} | ${m.buildableBefore} → ${m.buildableAfter} | ${signed(m.buildableGain)} | ${signed(m.directGain)} |`;}).join('\n');
+const material=core.cases.map(c=>{const m=c.metrics;return `| ${c.id} | ${m.cut} / ${m.deposited} | ${m.ratio.toFixed(3)} | ${m.floorWidth} | ${m.outwashDry} | ${c.basins.map(b=>b.depth).join(', ')||'none'} | ${m.treesMoved} / ${m.objectsRemoved} |`;}).join('\n');
+const frameRows=[['Advance',browser.advance],['Retreat',browser.retreat],['Whole run',browser.all]].map(([n,t])=>`| ${n} | ${t.count} | ${f(t.median)} | ${f(t.p95)} | ${f(t.worst)} |`).join('\n');
+const report=`# Glaciate — Round 2, after Kyler's review
 
-**The default result reads as a chain of broad, stepped lakes, distinct from the tested wide Carve.** The valley-wall treatment still belongs to the same visual family. This is a held investigation for Kyler to try, not an unconditional magic-bar pass or an editor release.
+![Default before and after on the same untouched map](captures/default-before-after.png)
 
-![Glaciate and Round 2 Carve on the same valley](captures/carve-comparison.png)
+**The default now leaves a broad dry valley with a narrow stream.** On River Valley 18, 128², the same head (64,16), Flow / Power 60 / Size Auto / Meltwater on gives **${hero.metrics.dryFloor.toLocaleString()} dry, level floor tiles**, **${f(hero.metrics.wetShare*100)}% of the trough under water**, and **${signed(hero.metrics.buildableGain)} buildable tiles overall** in the affected region. Its centreline runs ${f(hero.metrics.length)} tiles, ${f(hero.metrics.length/128*100)}% of the map width. The largest measured cardinal run on its curved outline is ${hero.metrics.longestWall} tiles. This is a modest net land gain on an input valley that was already largely buildable, not thousands of newly created building sites.
 
-The comparison uses River Valley seed 18, 128², exactly the same untouched terrain and head (64,16). Glaciate: Flow, Power 60, Size Auto, Meltwater on, seed 891. Carve: **Power 100, Width 24 (maximum), Depth 12 (maximum), Steep walls, Wander 5**, Keep river, seed 891. The comparison oracle reads the pinned Round 2 code at cd9225c into ignored local storage; Glaciate itself does not depend on that branch. [Exact comparison settings and measurements](checks/comparison.json).
+Changed: the full-width stepped-basin recipe is gone. A dry bank datum follows the existing valley; a narrow, continuously draining channel lies below it. There is room for a small head tarn and one terminal ribbon lake, with lakes omitted on short, cramped tongues. The lobe sweeps forward into an open scoured area. Aim has a broad natural bend. Non-plants swept by the floor are removed rather than left on islands. The visible tongue has a travelling rounded nose and moving surface streaks; no radial swelling. Terrain is committed during advance, before retreat finishes at both tested sizes.
 
-| What differs in this valley | Glaciate | Carve |
+Kept: deterministic seeds, a literal result operation, exact replay/undo/cancellation, retained water, source feed, the floor/22 ceiling, one material ledger, moved trees, recorded CC0 foley, and the editor's chunk renderer. No production files changed. [Round 1 report](https://github.com/timbermods/dam-good-maps/blob/f63e4aea0d24b63088e1fe4556b95ee8f0cbf8d1/investigation/glaciate/REPORT.md) remains in history; its lake-chain goal is superseded.
+
+## Kyler's Power 47 case
+
+![Untouched land, reproduced Round 1 failure, and Round 2 at Power 47](captures/kyler-review.png)
+
+The review did not contain saved pointer coordinates. Running the old implementation at the original default head **(64,16), River Valley 18, Power 47, seed 891** reproduces the lake with ruin columns left in its floor. This is a matching reproduction, not recovered click telemetry. The same input now has **${kyler.metrics.dryFloor} dry floor tiles**, **${f(kyler.metrics.wetShare*100)}% water**, and **${signed(kyler.metrics.buildableGain)} buildable tiles**. Swept ruin columns are removed under the force's excavation policy. The exact pinned reference, coordinates and surviving Round 1 ruin IDs are recorded in [checks/kyler-reproduction.json](checks/kyler-reproduction.json); its large result stays in ignored local storage.
+
+## Carve gives you water; Glaciate gives you land
+
+![Same valley and gesture, Glaciate beside Round 2 Carve](captures/carve-comparison.png)
+
+Both start from the identical untouched River Valley 18 map and head. Carve uses the pinned Round 2 code at cd9225c: **Power 100, Width 24, Depth 12, Steep, Wander 5, Keep river**, seed 891. Glaciate uses the default settings above. The oracle is read-only and is not imported by the demo.
+
+| Same input | Glaciate | Carve |
 | --- | ---: | ---: |
-| Excavated cells below their actual drainage outlet | ${comparison.glaciate.excavatedBelowOutlet} | ${comparison.carve.excavatedBelowOutlet} |
-| Excavated blocks | ${comparison.glaciate.cut.toLocaleString()} | ${comparison.carve.cut.toLocaleString()} |
-| Deposited blocks | ${comparison.glaciate.deposited.toLocaleString()} | ${comparison.carve.deposited.toLocaleString()} |
-| Changed terrain cells, including deposition | ${comparison.glaciate.changed.toLocaleString()} | ${comparison.carve.changed.toLocaleString()} |
+| Net buildable tiles, whole affected region | ${signed(comparison.glaciate.buildableGain)} | ${signed(comparison.carve.buildableGain)} |
+| Cut blocks | ${comparison.glaciate.cut} | ${comparison.carve.cut} |
+| Deposited blocks | ${comparison.glaciate.deposited} | ${comparison.carve.deposited} |
+| Changed terrain cells | ${comparison.glaciate.changed} | ${comparison.carve.changed} |
 
-At block scale, **the cliffs and broad cuts can look alike**. Glaciate's reliable visual distinction here is the intervening outlets and retained lakes. Its receiving ground and moraines broaden the edited region, but a dry or single-basin glacier can still read like a wide Carve. Carve already has sediment fans and retained oxbows in other settings; this is not a claim that deposition or lakes are exclusive to Glaciate. In this particular comparison Carve runs to the map edge and exports its sediment; Glaciate keeps all of it on the map. The whole-valley-versus-channel distinction is weaker than the stepped-lake distinction and needs Kyler's eye.
+The visual difference is now the broad green floor and dry land beside the narrow stream, with receiving ground at the end. The cliffs remain recognisably related to Carve's block-scale cut. The small lakes are secondary. This comparison does not claim Carve cannot leave land, deposit sediment or retain oxbows in its other settings. [Full comparison evidence](checks/comparison.json).
 
 ## The two acts
 
-![Actual default-control browser recording](captures/two-acts.gif)
+![Recorded flowing advance and retreat](captures/two-acts.gif)
 
-[Contact sheet](captures/two-acts.png) · [Full default result](captures/default.png). The recording begins with an actual player click at default settings, placed from Top view so the intended high-ground tile is not occluded, then returns to the angled view. It is a sampled recording of the live WebGL renderer, not a CPU illustration. The final hold shows the fully settled endpoint. Captions on the contact sheet record actual logical stage times.
+![Two-act contact sheet from the actual browser](captures/two-acts.png)
 
-Ice gathers immediately at the pointer. A connected translucent ribbon advances down the chosen valley; integer terrain chunks change under it. Retreat clips the ribbon back from the snout towards the head, revealing water along the valley. Nominal pace: **3 seconds advance + 2 seconds retreat**, with 18 and 12 shown terrain stages. Main-thread overlays animate between stages. The actual 256² endpoint, including planning and final water solve, took **${fmt(browser.totalMs/1000)} seconds** here; the status explicitly shows settling if the water outlasts the acts. There is no hidden terrain morph or promise that every machine finishes the solve in five seconds.
+A real pointer click starts the default event. Fixed ribbon geometry covers the valley; a rounded leading edge travels from head to snout, reaching the end at about three seconds. Advected surface bands make the downstream motion visible. Retreat removes the ice from snout back to head. The flat-ground lobe uses this same directional tongue. Ice does not grow by scaling a disc. The renderer remeshes changed integer chunks and adds the overlay; no terrain GPU morph is used.
 
-## What was built and why
+The browser compares every displayed terrain height with the literal final plan. On 128², the terrain was exact **${f(browser.terrain128.finalMs)} ms after input**, before retreat ended at ${f(browser.terrain128.retreatEndMs)} ms. On 256² it was exact at **${f(browser.terrain256.finalMs)} ms**, before retreat ended at ${f(browser.terrain256.retreatEndMs)} ms. Terrain and object changes finish during advance; water may continue settling afterwards. The overlay animates on the main thread independently of water work. Esc and Undo are checked during advance, retreat and final settling, including rejection of a late completion.
 
-- **Flow** follows a priority-flood drainage route already present in the map. A short running average removes grid stairs, retaining broad bends. The path is independent of the variation seed. The snout stops before the boundary where practical, preserving room for receiving ground. Hover uses the same drainage cache; flat ground previews a lobe.
-- **Aim** follows the drag through intervening high ground, with a mild seeded bend. It can cross a ridge and make a U-shaped pass. It currently lacks a saddle-finding refinement, so it is straighter and more canal-like than Flow.
-- A cirque scours the first part of the route. Broad cross sections have a level central bed with steep shoulders. The longitudinal profile alternates depressed basins and higher outlets; outlet datums step downhill where the input valley has enough fall. Actual basins are measured by a second priority flood, not assumed from the recipe.
-- **Power** sets reach and excavation depth. **Size** follows Power (Auto) or stays at the manually selected 4–64 tile width. Default Power 60 gives nominal width 22. **Meltwater** adds a real source at the head, with strength following Size. No fifth force control was added. Sound, motion and camera are view controls outside the row.
-- Cut blocks are counted, then deposited into an irregular curved terminal ridge, lateral strips and receiving ground. Any remaining material spreads in a bounded outer apron. No material is silently exported or deleted; insufficient capacity refuses the gesture. Deposits never exceed 22. On low ground, excavation is floor-clamped, the footprint widens by 35%, and the pointer says **“No room to deepen here · widening and building moraines.”**
-- A locally flat head produces a shallow lobe and enclosing deposition. Trees are moved to free edge/moraine tiles without overlapping existing plants. Their IDs, species, components and actual exported coordinates survive. No new render-only fallen-log pose is used. Unsupported non-plants follow the excavation/support policy; affected starts and pinned objects refuse the whole event.
-- Basins get a stored RetainedWater record. Both a fresh canonical settle and export start from that water; the head source feeds the chain when Meltwater is on. The canonical game-model solve supplies the final displayed water. Turning Meltwater off adds no source or retained fill; pre-existing rivers may still wet the result.
-- One literal forceResult stores terrain, objects, water, contamination and rock changes. Esc/undo restores the whole state. Try another plans on the original series base and records the new seed; undo returns to the previous variation, and cancelled variations consume a seed. Save/open replays literal endpoints without rerunning the algorithm.
+## The land and its limits
 
-## Real terrain, not a roomy study map
+Flow's priority-flood route follows existing low corridors. Power controls requested reach; boundaries and the protected start can shorten it. The default now covers a useful part of the 128² map. Auto width is 8 + 36 × Power/100, rounded, giving **30 tiles nominal at Power 60**; manual Size remains 4–64. Width varies along the land, and the tongue narrows near the boundary so its end is not clipped into a square. The player still gets only Mode, Power, Size and Meltwater, plus Try another.
 
-All standard inputs are unmodified outputs from **the editor's src/core/gen/generate.ts path** at the fetched dev base: River Valley 18 at 96² and 128², Highlands 7 at 128² and 256², and Delta 39 at 128². Every generation passes its own validation on the first attempt. They contain the actual trees, objects, start and water. Their full ranges are 0–16 depending on map, not a manufactured level-3 platform. [Map generation record](checks/maps.json).
+The floor meets the original upper shoulder as a steep curved wall. Its longitudinal datum descends in terraces, above a separately incised stream. Existing wet tributary entrances get connections into that stream. Outlets reach the actual map boundary: stopping two rows inside the map had created accidental dams during development. Meltwater sources use real exported source entities, with strength 0.4 + 0.025 × nominal width, capped at 2. Wider existing 256² rivers get more channel capacity. Lakes, where there is room, are small pockets below the channel outlet and are stored in the operation.
 
-Two requested inputs are unavailable in the fetched repository: **the dev editor has no Verticality control**, and **River Coe is not present in public/real-places**. The picker therefore labels the tall case honestly: the existing v2 generator's VT85 unlocked pre-build pipeline, Highlands 7, 128², range 0–18. It has no product object/source build and does not count as an editor VT85 acceptance test. River Coe is omitted, not substituted. Yosemite is not used.
+Cut material first grades receiving ground where a dry forward fan fits; the stream remains open. Low terminal arcs and lateral ridges follow the footprint. Remaining material fills narrow ledges against existing terraces. Paired one-block cuts/fills join broken pads while conserving volume. There is no uniform circular outer apron. Trees move to actual supported edge positions, retaining IDs/species/components; swept non-plants are removed. Pinned objects and the start remain protected. Slopes whose connections are lost are pruned before export.
 
-![Generated glacier alongside the available real glacial valleys](captures/gallery-comparison.png)
+![Gallery reference terrain](captures/gallery-comparison.png)
 
-Lauterbrunnen 256², Hooker Valley 128² and Glencoe 96² are the unchanged bundled heightfields, with normalized camera framing. They are terrain references, not photographs or identical physical scales. They load with their bundled objects and a dry water state in this study viewer. Glencoe's broad valley composition is the clearest reference; Glaciate's regular chain of basins is more emphatic, while its surrounding slopes remain less naturally composed than the best real-place terrain. [Elevation provenance](ATTRIBUTION.md).
+Glencoe is the clearest dry-floor composition reference. Lauterbrunnen and Hooker Valley are also shown as unchanged bundled heightfields at normalized framing; they are not photographs or identical physical scales. The generated floor is still more regular than the real valleys. River Coe is absent from this checkout's gallery, and Yosemite remains excluded. Elevation attribution is in [ATTRIBUTION.md](ATTRIBUTION.md).
 
-![Aim, lobe, low ground and tall terrain](captures/edge-cases.png)
+![Aim, lobe, low ground, and tall terrain](captures/edge-cases.png)
 
-![Power low, default and high on the same gesture](captures/power.png)
+Aim bends through the range and uses the same dry-bank/stream rules. The lobe is mostly dry scoured ground with a small wet pocket and an open moraine edge. Low ground widens and uses real shoulder material to raise dry land. A fan is not guaranteed when the glacier ends near an edge, a protected start, an existing river or rising ground. The table reports zero where no new dry fan was made; it does not relabel a side ridge as outwash.
 
-Power comparison: Flow at (96,32), River Valley 18, 128², Power 15/60/95, Auto size. The default hero gesture reaches the protected start at high Power and correctly refuses, so the whole Power comparison uses this second gesture instead. Size stays automatic in all three.
+![Power 15, 60 and 95](captures/power.png)
 
-![Original and three Try anothers](captures/alternatives.png)
+Same Power-comparison input as Round 1: head (96,32), River Valley 18, Power 15/60/95, Auto Size. This head is close to the map boundary, so all three reaches are boundary-limited. Low and high Power can still lose building space there; the exact values are reported below. A universal positive-gain guarantee for every possible gesture is not claimed.
 
-The alternatives share the exact original map, gesture and settings. Seeds are the LCG successors of 891, stored with each operation. The lake depths, step positions and moraine details change; the underlying valley route stays the same.
+![Three deterministic alternatives](captures/alternatives.png)
 
-## Measurements
+These are the same original terrain and gesture with three successors of seed 891. They vary widths, tarns and moraines without changing the underlying drainage route or stacking glaciers. All three default variations are required by tests to gain building space.
 
-Material is counted as the sum of positive/negative final height differences, in whole blocks. Every accepted case below has deposited/cut **1.000**. Outwash is the number of deposited blocks inside the forward receiving-ground region; it is **not** a buildable-area count. Floor width is the median contiguous equal-height run across sampled normal cross sections. Cross range is their median max-minus-min elevation. Flat share is the fraction of core cells whose four cardinal neighbours share their level; it includes submerged floor.
+## Measurements that count dry land
 
-| Case | Cut blocks | Deposit/cut | Measured floor width | Cross range, levels | Flat core share | Basin depths below outlet | Outwash blocks |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: |
-${rows}
+A **buildable tile** is dry (water depth ≤0.05) and belongs to at least one level 2×2 pad. Trees are assumed clearable; other entity footprints and the start are excluded. This is building space, not a claim of path access from the start or an in-game construction probe. **Dry floor** applies this test only inside the broad trough footprint. Water share counts every footprint tile above the same depth threshold.
 
-The default's basins, measured against their true flood spill level:
+The before/after counts use exactly the same **affected region**: the trough, changed ground, wet/dry transitions and changed non-plant footprints, with a one-tile collar because a neighbouring edit changes a 2×2 pad. Tests require its net gain to equal the whole-map gain, preventing an omitted downstream loss from improving the result. The **direct-only** column separately counts just the trough and height-changed cells; large-map, Aim and another-2 gain overall despite losing building space inside those cells, because of drainage and adjacent-pad changes. Both figures are shown rather than hiding this distinction.
 
-| Basin | Lowest floor | Outlet | Below outlet | Cells | Head-source feed reachable |
-| --- | ---: | ---: | ---: | ---: | --- |
-${basinRows}
+Length is the centreline arc length versus the portion of the valley followed. They are equal by construction for Flow; this is not the full length of the valley to the sea. The default sinuosity is ${hero.metrics.centreline.toFixed(4)} versus ${hero.metrics.valley.toFixed(4)} for its followed route. Aim compares with its aimed curve, not a geographic valley. Wall run is the longest exact horizontal or vertical segment of the rasterized trough outline, including caps; it is not a guarantee about every diagonal or every pre-existing map wall. The regenerated captures were inspected for square ends and long straight cuts.
 
-Every case's individual basin records, including all outlet heights, are in [checks/core.json](checks/core.json). Tests separately remove other sources and verify the head source can reach each basin in the prefill routing. They also run the canonical water model to convergence and compare fresh solves, rather than treating that routing check as a water simulation.
+| Case | Dry level floor | Trough wet | Length / followed valley | Longest wall | Buildable before → after | Net affected | Direct-only net |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+${table}
 
-Centreline straightness uses polyline length / endpoint chord. Default Flow: **${r.metrics.centreline.toFixed(4)}** for the trough and **${r.metrics.valley.toFixed(4)}** for the route it followed. These are equal because the trough retains that route's geometry. This proves no further straightening by the cross-section model; it does **not** prove that a priority-flood route is always the best geographic valley centreline. Aim's reference is the aimed curve itself and is not an existing-valley straightness measurement.
+| Case | Cut / deposited blocks | Ratio | Median dry bank width | New dry outwash tiles | Basin depths below outlet | Trees moved / non-plants removed |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+${material}
 
-At 256² (Highlands 7, 80/112, default settings), installed Chrome **${browser.browser}**, 1200×820, headless, renderer **${browser.renderer}**. Sound is warmed and on. This is a separate run with no screenshots or GIF compression during measurement. Frame intervals come from requestAnimationFrame; these are browser measurements on this host, not in-game FPS or a universal hardware promise.
+Dry bank width is the longest contiguous dry, equal-height run across each sampled normal section, then the median; the river splits the two banks. It is not the full nominal width, and submerged floor is no longer counted as building land. The raw record still includes cross-section range and flat share for comparison with Round 1. Every individual basin's floor, outlet, depth, area and feed reachability is in [checks/core.json](checks/core.json).
 
-| Interval | Frames | Median ms | p95 ms | Worst ms |
+## Performance and verification
+
+Chrome ${browser.browser}, 1200×820, headless, **${browser.renderer}**. Normal speed, warmed sound on; the performance run takes no screenshots. Values are requestAnimationFrame intervals on this host, not in-game FPS.
+
+| Interval at 256² | Frames | Median ms | p95 ms | Worst ms |
 | --- | ---: | ---: | ---: | ---: |
-${timingRows}
+${frameRows}
 
-**Long tasks: ${browser.longTasks.length}**${browser.longTasks.length?' ('+browser.longTasks.map(fmt).join(', ')+' ms)':''}. Worker planning: **${fmt(browser.planningMs)} ms**; first terrain mesh commit: **${fmt(browser.firstTerrainMs)} ms** after input; full endpoint: **${fmt(browser.totalMs)} ms**, water settled in **${browser.water.ticks} ticks**. The immediate local gathering overlay precedes that mesh commit. [Raw browser evidence](checks/browser.json). Worker MessageChannel yields avoid nested timer delays; terrain stages are deliberately coarser than overlay frames.
+Long tasks: **${browser.longTasks.length}**. Planning: ${f(browser.planningMs)} ms. First terrain commit: ${f(browser.firstTerrainMs)} ms. Full endpoint, including the final water solve: **${f(browser.totalMs/1000)} seconds**, ${browser.water.ticks} water ticks. The terrain timing above is measured separately from that endpoint. [Browser evidence](checks/browser.json).
 
-Sound: five recorded CC0 foley files, 299,164 bytes, with an off switch. The actual recipe rendered through OfflineAudioContext measures **${fmt(audio.strongest100msDbFS)} dBFS** in the strongest non-overlapping 100 ms window and **${fmt(audio.peakDbFS)} dBFS** sample peak at master 0.72. That is close to juice-2's force loudness target, with ample peak headroom. This is a signal measurement, not a listening approval. The low groan is pitched wood foley, not a glacier field recording. [Audio evidence](checks/audio.json), [manifest](bank.json).
+The model suite passes **${core.checks} assertions**, plus 12 schema/malformed-operation checks and exported-file checks on ${core.cases.length} endpoints. Coverage retains determinism, exact literal replay, atomic invalid import, undo/cancel, material accounting, bounds, retained water/feed and alternate seeds. Round 2 adds dry-majority floors, few basins, no swept non-plant survivors, no invented water on previously dry advance tiles, final terrain by the end of advance, outline runs at most 12 tiles, correct region accounting, and positive gain for the default, Power 47, the near-edge default-Power case and three default variations. Browser checks cover the real click, both terrain deadlines and cancellation through final settling. Typecheck and Vite build pass; the standalone bundle retains the size advisory.
 
-## Verification and honest limits
+The standard-map exports pass the repository's load/design checks, including valid GUIDs, slopes and a 960×540 thumbnail. No Timberborn launch was performed. The tall VT85 pre-build still lacks a playable start, so its game download is refused. The tall solver can reach its tick cap; the UI and raw results say so rather than calling it settled. The existing dev editor has no Verticality control: this labelled generator pre-build remains a substitute study, not an editor acceptance test.
 
-The model suite passes **${core.checks} assertions**, plus **12 schema/malformed-input checks**. It covers same-seed determinism, untouched inputs, full material accounting, floor/ceiling bounds, basin outlets and source feed, fresh retained-water settle, literal JSON replay, cancelled advance/retreat, one-step undo/redo, portable saved history, alternate seeds, the protected start, dry mode, pinned objects, atomic invalid import and exported water tokens. The browser checks exercise a real default-control click, exact undo, Esc during each act and final settling, no late completion after cancellation, gallery loading and no uncaught browser exceptions. Typecheck and Vite build pass; Vite reports the expected standalone bundle-size advisory. [Schema checks](checks/schema.json).
+The five CC0 recordings and their provenance are unchanged. The actual recipe measures ${f(audio.strongest100msDbFS)} dBFS in its loudest 100 ms window and ${f(audio.peakDbFS)} dBFS peak. Sound can be turned off; the low groan is still pitched wood foley, not a glacier field recording. [Manifest](bank.json), [audio checks](checks/audio.json).
 
-The investigation remains short of a complete production acceptance:
+Remaining limits: some constrained gestures lose land; outwash needs forward room; narrow or very steep terrain can leave shelves; source/catchment capacity is approximate; cliff regularity and sonic likeness still need Kyler's eye and ear. No fifth control was added. An ice-sheet mode remains a possible later investigation and is not built.
 
-1. **Outwash is not guaranteed at every gesture.** The Power 60/95 comparison's head points towards ground with no suitable forward fan region; its material goes into ridges/apron instead. The hero and main 256² case do make receiving ground. Improve terminal placement and contiguous fan grading before claiming every glacier creates a broad flat building plain.
-2. **Hanging valleys are inherited, not comprehensively detected.** Existing wet tributary crossings become falls when the trough lowers them. The recorded count is crossing tiles, not independent waterfalls. Dry side-valley morphology and guaranteed stream reconnection need a dedicated tributary detector; this model does not manufacture decorative falls detached from real water.
-3. **Whole-valley naturalism is uneven.** Tall or narrow input valleys can retain irregular shelves in the nominal floor. High Power can merge basins into one large lake; the mild Aim bend still reads rather straight. The circular lobe and outer apron can look stamped. No fifth control is justified: improve automatic land reading, not the row.
-4. **The five-second moment is a target, not the full solve duration.** The worker plan and canonical water can outlast it, especially at 256². Lighting is refreshed at commit, so old shadows/soil tint can linger during the acts. No unsupported GPU terrain morph hides this limitation.
-5. **No in-game probe was run.** Export roundtrips verify actual terrain/objects/water fields and layer 22 stays empty. All 13 standard-map endpoints also pass the repository's export load/design checks, including the 960×540 JPEG, GUIDs, placements and slope connections. The tall pre-build's only failure is its missing start; the demo refuses its .timber download and allows Save study instead. [Export validation](checks/export.json). These checks do not establish Timberborn loading, building access, drought survival or long-term water behaviour. The stored game source follows normal game simulation; the demo never pins a perpetual lake surface.
-6. The tall editor acceptance and River Coe reference remain unavailable as described above. The demo's imports are investigation scaffolding, not a finished production adapter. Caves, layer cuts, arbitrary locked regions and mixed production edit history belong to adoption tests.
-7. Speaker/headphone balance and the glacier likeness of the groan await a human listening check. Sounds asked for before lazy decoding are dropped, following Round 2; the first-ever click can miss its onset accent.
+## Run and adopt
 
-An **ice-sheet mode** could be a later investigation for broad multi-valley coverage. It is deliberately not built here. This round stays a valley glacier with one flat-ground lobe fallback.
-
-## Delivery boundary
-
-[README](README.md) runs the demo. [INTEGRATION](INTEGRATION.md) proposes the shared-core port, operation/schema, top-bar button and four-control row, sound cues, bounded Claude glaciate step (D134), tests and investigation-index row. [ATTRIBUTION](ATTRIBUTION.md) lists every asset/source and edit.
-
-All implementation, assets, measurements and documentation are under investigation/glaciate/. Standard inputs are committed compressed; large results and the pinned comparison bundle stay in gitignored local/. Captures total **${(sizes.reduce((s,a)=>s+a.bytes,0)/1048576).toFixed(2)} MiB**, largest **${(Math.max(...sizes.map(a=>a.bytes))/1048576).toFixed(2)} MiB**, well under the 30 MB folder budget. The only authorized remote branch is investigation/glaciate and the only PR targets dev. Nothing is merged, approved, released or deployed by this task.
+[README](README.md) runs the demo; [INTEGRATION](INTEGRATION.md) updates the adoption proposal. Everything changed is under investigation/glaciate/. Captures total **${(sizes.reduce((a,b)=>a+b,0)/1048576).toFixed(2)} MiB**, largest **${(Math.max(...sizes)/1048576).toFixed(2)} MiB**; large reference/results stay ignored. This round updates the existing investigation/glaciate branch and PR #69. No merge, approval, auto-merge, other branch, tag or release is part of this task.
 `;
-writeFileSync('REPORT.md',report);
-console.log('Report generated from checked measurements');
+writeFileSync('REPORT.md',report);console.log('Round 2 report generated from checked measurements');

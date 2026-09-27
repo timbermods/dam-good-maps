@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { writeFileSync,mkdirSync } from 'node:fs';
 import { fixture } from './fixtures';
-import { DEFAULTS,makePlan,Valley,waterRun,nextSeed,type Plan } from '../model';
+import { DEFAULTS,makePlan,measure,reveal,Valley,waterRun,nextSeed,type Plan } from '../model';
+import { buildable } from '../morphology';
 import { snapshot,json,modelFor,storedMap } from '../../forces-core/core/map';
 import { startProblem } from '../../forces-core/core/objects';
 import { Session } from '../session';
@@ -15,6 +16,7 @@ let checks=0;const ok=(v:unknown,label:string)=>{assert.ok(v,label);checks++;};
 const rows:any[]=[];
 export const cases=[
  {id:'default',map:'river-128',x:64,y:16}, {id:'small-map',map:'river-96',x:52,y:16},
+ {id:'kyler',map:'river-128',x:64,y:16,power:47},
  {id:'side-valleys',map:'highlands-128',x:64,y:96}, {id:'large-map',map:'highlands-256',x:80,y:112},
  {id:'lobe',map:'river-128',x:32,y:32}, {id:'low-ground',map:'highlands-256',x:208,y:112},
  {id:'tall',map:'tall-128',x:32,y:80}, {id:'aim',map:'river-128',x:28,y:80,end:[97,35]},
@@ -35,6 +37,16 @@ for(const c of cases){
  const plants=p.map.entities.filter(e=>/^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
  ok(new Set(plants.map(e=>e.x+','+e.y)).size===plants.length,'displaced trees never overlap existing plants');
  const run=waterRun(p);let settled=null;while(!settled)settled=run.advance(128);p.map.water={depth:settled.depth.slice(),contamination:settled.contamination.slice()};
+ measure(p);
+ ok(p.metrics.wetShare<.5,'most of the trough is dry');
+ ok(p.basins.length<=3,'small number of lakes');
+ ok(reveal(p,3).heights.every((h,i)=>h===p.map.heights[i]),'terrain final at end of advance');
+ ok(reveal(p,5).heights.every((h,i)=>h===p.map.heights[i]),'retreat cannot change final terrain');
+ const a=buildable(m),b=buildable(p.map);ok(b.reduce((s,v,i)=>s+v-a[i],0)===p.metrics.buildableGain,'affected-region net gain equals whole-map change');
+ if(c.id==='default'||c.id==='power-default'||c.id==='kyler'||c.id.startsWith('another'))ok(p.metrics.buildableGain>0,'default and variations gain buildable land');
+ const advance=reveal(p,1.5);ok(advance.water.depth.every((d,i)=>m.water.depth[i]>.01||d===0),'advance never invents water on formerly dry ground');
+ ok(p.metrics.longestWall<=12,'no long cardinal wall on the trough outline');
+ ok(p.map.entities.every(e=>e.owner==='glaciate'||e.template==='StartingLocation'||/^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template)||!p.mask[e.y*m.W+e.x]||p.mask[e.y*m.W+e.x]===2),'no non-plant is left in the trough');
  const fresh=waterRun(p);let again=null;while(!again)again=fresh.advance(31);ok(p.map.water.depth.every((d,i)=>d===again!.depth[i]),'fresh settle starts with identical stored lake water');
  const sourceOnly={...modelFor(p.map),emitters:modelFor({...p.map,entities:p.map.entities.filter(e=>e.owner==='glaciate')}).emitters};
  const fed=prefill(sourceOnly),spill=spillLevels(modelFor(p.map));
@@ -49,11 +61,12 @@ for(const c of cases){
  ok(p.map.water.depth.every((d,i)=>Math.abs((cols[i]==='0'?0:Number(cols[i].split(':')[0]))-d)<1e-5),'export stores displayed water');
  ok(file.world.voxels.slice(22*m.W*m.H).every(v=>v===0),'empty ceiling layer');
  const record={...c,settings:s,intent,planningMs:planMs,settled:settled.settled,ticks:settled.ticks,signature:signature(p.map),metrics:p.metrics,basins:p.basins.map(b=>({floor:b.floor,outlet:b.outlet,depth:b.depth,tiles:b.tiles.length,fed:b.fed})),hangingCrossingTiles:p.hanging.length,notice:p.notice,refused:null};
- rows.push(record);writeFileSync('local/results/'+c.id+'.json',JSON.stringify(json(p.map)));console.log(c.id,JSON.stringify({...p.metrics,basins:record.basins.length,settled:settled.settled}));
+ rows.push(record);writeFileSync('local/results/'+c.id+'.json',JSON.stringify(json(p.map)));writeFileSync('local/results/'+c.id+'-plan.json',JSON.stringify({path:p.path,mask:Array.from(p.mask),metrics:p.metrics}));console.log(c.id,JSON.stringify({...p.metrics,basins:record.basins.length,settled:settled.settled}));
  if(c.id==='default')defaultPlan=p;
  }catch(e){rows.push({...c,refused:String(e)});console.error(c.id,String(e));throw e;}
 }
 const p=defaultPlan!,m=p.before;
+writeFileSync('local/results/before.json',JSON.stringify(json(m)));
 const start=m.entities.find(e=>e.template==='StartingLocation')!;
 assert.throws(()=>makePlan(m,DEFAULTS,{origin:start.y*m.W+start.x}),/Start here/);checks++;
 const changed=makePlan(m,{...DEFAULTS,seed:nextSeed(DEFAULTS.seed)},p.request.intent);ok(signature(changed.map)!==signature(makePlan(m,DEFAULTS,p.request.intent).map),'Try another changes the result');
