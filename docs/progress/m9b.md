@@ -10,7 +10,7 @@
 > (30 in the first round). **Left, in order:** re-seeding the quick suite's map-bound tests (18
 > failed on 0.8.0's maps; the decisions' ones are updated), the oracle, the batches (≥ 98% final
 > per theme and size), chaos at 256², the names hand-check, generation time (a broad sea's settle),
-> then the first review set. Defaults this session chose: decisions-pending #100–#110.
+> then the first review set. Defaults this session chose: decisions-pending #100–#109 and #130–#132.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -228,7 +228,7 @@ on both (`investigation/m9b/cycle-check.ts`: 3 temperate days, a 3-day drought, 
   valley floor one level over the bed (PLAN §7.4), the channel running about 0.7 deep; after the
   drought the refill overtops onto the floor and leaves a film. **Kyler's answer (D307):** a floor
   one level over its bed that floods when the river refills or in a badtide is a floodplain, as the
-  game plays it; the floor rule and the channels' depth stay (decisions-pending #112).
+  game plays it; the floor rule and the channels' depth stay (decisions-pending #132).
 
 ### Chaos (D273 (6))
 
