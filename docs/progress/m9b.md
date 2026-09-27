@@ -211,3 +211,11 @@ Pick a place) and the editor's soil view; decisions-pending #109.
 ## Tests updated because a decision changed what they tested
 
 - `tests/contract/spec.test.ts`: the codec's round trip draws Variety too (D276: a setting).
+- `tests/unit/genome.test.ts`: "draws zero, one or two intentions" is now "draws one or two
+  intentions, never none" (D273 (3): every map has a character).
+- `tests/contract/live-water.test.ts`: a regeneration whose own map passed takes the attempts its
+  candidate choice takes (D278 (1a)), fewer than every layout, instead of exactly one.
+- `tests/e2e/editor.spec.ts`, `tests/e2e/legend.spec.ts`: the editor's heading and the page's
+  caption name the map by its own name (D278 (1b)), read from the card, not "River Valley".
+- `tests/contract/ops.test.ts`: the placed Blockage goes on a free tile found on the map, not at
+  (40, 3), which 0.8.0's map of seed 77 covers.
