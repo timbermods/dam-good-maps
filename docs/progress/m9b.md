@@ -1,16 +1,18 @@
 # M9b: composition and variety
 
-> **In progress (2026-09-27).** Branch `feature/m9b` (draft PR #70), from `feature/m9a` (merged in
-> to 83963672, M9a's merge of `dev`) and `dev` (to d02ac283). Generator **0.8.0**. Built: one
-> readable water system with courses held end to end, Islands' sea in six layouts kept off the
-> map's edges, the themes steered toward their promises and checked, the candidate choice by D273's
-> outcomes, D274's intentions (a map's own found one when none drawn emerged), the 8 orientations,
-> names and a how-it-plays line in the map's own numbers, Another like this, Variety as a setting,
-> D298's game soil. On seeds 1–10 of every theme at 128², 58 of 70 maps meet all three outcomes
-> (30 in the first round). **Left, in order:** re-seeding the quick suite's map-bound tests (18
-> failed on 0.8.0's maps; the decisions' ones are updated), the oracle, the batches (≥ 98% final
-> per theme and size), chaos at 256², the names hand-check, generation time (a broad sea's settle),
-> then the first review set. Defaults this session chose: decisions-pending #100–#109 and #130–#132.
+> **In progress (2026-09-28).** Branch `feature/m9b` (draft PR #70), from `feature/m9a` (merged in
+> to 6be0d53) and `dev` (to d02ac283). Generator **0.8.0**. Built: one readable water system with
+> courses held end to end, Islands' sea in six layouts, the themes steered toward their promises
+> and checked, the candidate choice, D274's intentions, the 8 orientations, names and a
+> how-it-plays line in the map's own numbers, Another like this, Variety as a setting, the game's
+> soil rules (D298) and now the game's water rules and edge spill (D293, D303: one switch, D308),
+> the probe's badwater finding (D302 (1)). **The plan (D308):** the rules switch lands with one
+> re-pin of the tests and golden fixtures (the water golden vectors done; the map-bound tests and
+> `npm run oracle` next, once the generator settles); then iterate on contact sheets and small
+> samples; the full batches, the 200-seeds-per-theme measures and one pooled probe batch run once,
+> at the release candidate; a review set only when Kyler's eye is needed. **Asked of Kyler:** D297's
+> line fails on 8 of 18 maps under the game's rules (the dry-tile evaporation; see "The game's
+> water rules"). Defaults this session chose: decisions-pending #100–#109 and #130–#132.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -210,6 +212,26 @@ shifts every later draw; where no tile's moisture crossed zero (Highlands, Islan
 moved. The time is the same within the machine's noise (game mode ~20 ms at 128²). Not yet on the
 game's rules: the Real places conversion (`places/place.ts`), `planMapResources` (Real places and
 Pick a place) and the editor's soil view; decisions-pending #109.
+
+### The game's water rules (D293, D303, D308)
+
+`sim/water.ts` runs the game's rules by default (`rules: "port"` keeps the port as it was, for the
+tests): evaporation on every active tile, a dry one that receives water too; the spill threshold at
+the map's edge (floor-0 tiles beside the padding; `edgeSpill`, taken from `feature/weather-days`);
+a partial obstacle (NaturalDam) read from the higher of the two floors; the source step setting the
+old depth. The game's fifth rule, direction limiters, needs a badtide drain's roofed cell, which a
+heightfield cannot hold. `prototype/watersim.py` runs the same rules, bit for bit (every golden
+fixture and the edge, dam and seep grids: 0 difference); the golden vectors are regenerated; the
+speed-ups test keeps its port digests (still byte-exact) and pins the game's beside them.
+
+**D297's line** (`tools/water-rules-band.ts`: the canonical settle, game against port, on the same
+map's water model): 10 of 18 maps within (six themes, seeds 1–3, 128²). Outside: River Valley 2
+(139 tiles, volume −0.36%), Lake Basin 3 (156 tiles, 0.057 → 0), Delta 3 (30 tiles, −0.85%),
+Delta 1 and 2, Highlands 1 and 2, River Valley 3 (3–30 tiles). Taking the rules one at a time on
+three of them, the dry-tile evaporation makes all of it (without it: 0 tiles, 0.000%); the edge
+spill alone moves a few edge-row tiles from 0 to 0.1. Thin spreading films (0.04–0.09 deep) no
+longer form, or take another way, since a dry tile loses 1e-3 a second before it wets. The game's
+result is the line's own reference; asked of Kyler through the milestone session.
 
 ### The probe's two findings (D302)
 
