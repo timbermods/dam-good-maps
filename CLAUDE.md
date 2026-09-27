@@ -85,7 +85,7 @@ text.
 - The site stays noindex and unannounced until launch. Launch needs versioned deploys (M13) and Kyler's go-ahead;
   then set the repository variable `DGM_PUBLIC` to `true`.
 - Steps outside the milestones are released the same way:
-  - the design pass (after M11 and the refinement phase, before M12) is tagged `design-done` once Kyler has
+  - the design pass (straight after Kyler's editor UI audit of the combined page, D236) is tagged `design-done` once Kyler has
     approved and merged it on `dev`;
   - Map look (after M8, before M9) is tagged `map-look-done` once Kyler approves the look, or ships inside the M9
     release;
@@ -93,6 +93,7 @@ text.
   - Live editing is tagged `live-editing-done` once Kyler says it feels right; its preview is built from its
     branch into `/preview/` (noindex) by the deploy workflow;
   - Save to Timberborn is tagged `save-to-timberborn-done`, and Pick a place `pick-a-place-done`;
+  - the refinement phase is tagged `refinement-done` (pending #79's default, D236);
   - the start and edge rules are tagged `start-edge-rules-done`; the Real places second round
     `real-places-2-done`; contaminated ground as a layer `look-contamination-done`, once Kyler approves it;
   - the Map look fixes, once Kyler approves each: badwater blending `look-badwater-done`; mine sites and ruins
