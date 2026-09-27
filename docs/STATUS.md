@@ -16,7 +16,13 @@ Your fifty-five decisions since the restart are recorded (D252–D306, below) an
    accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
 2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
-3. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
+3. **M9b: a floodplain question, with a default** (from D302's handed-on findings). After a drought the refill overtops a big
+   river's floor (one level above its bed, PLAN §7.4) and leaves a thin sheet on it a day into the badtide: River Valley seeds 1
+   and 4 have 284 and 491 such tiles, Any 4 and 5 about 70 (M9b's broader floors make more of it). Options: (a) big rivers' floors
+   two levels over the bed (moisture reach along them 16 → 10 tiles); (b) wider channels for the same flow, about 0.5 deep instead
+   of 0.7 (the floor rule unchanged); (c) accept it as a floodplain that floods, and say so in the Drought and Badtide view.
+   **Default being built: (b).** Say if you prefer (a) or (c). (The side-pool finding is fixed: ditches cut two below the ground.)
+4. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
    Every result drops 0 voxels under the game's support rule (also 160 random gestures); reach from support at most 3; 15–130 ms to the
@@ -24,7 +30,7 @@ Your fifty-five decisions since the restart are recorded (D252–D306, below) an
    one sweeping curve); small arches (thin ridges are rare on today's maps); faces under about four levels can't be worn, so on the
    terraced Highlands 24 of 40 random gestures say "No rock to wear here", which may feel like refusing; water under new roofs is an
    approximation (said on screen); not yet checked in the game; the view follows the Standard look but isn't its shader.
-4. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
+5. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
    a sitting of its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). Two findings:
    - **"The worst day at once" doesn't hold on water-rich maps.** Time to the last day on this machine: 256² River Valley, drought
      1.8–3.8 s, badtide 14–22 s; 128² Lake Basin and Islands 16–48 s. The cost is the game's own water rules (9 days of plain
@@ -40,7 +46,7 @@ Your fifty-five decisions since the restart are recorded (D252–D306, below) an
      its flows; and the game's 0.1 spill threshold where a river leaves the map at floor 0). **Default #125 for you:** that last
      rule is used by the drought run only, so no map changes today; the agent recommends adding it to all water with D293's move to
      the game's rules (the 3D engine's game mode should already carry it).
-5. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
+6. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
    Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
    shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
    switchable, in four groups on a Look menu. Standard is unchanged (its shader sources hash as `dev`'s; 12 views differ no more than
@@ -50,14 +56,14 @@ Your fifty-five decisions since the restart are recorded (D252–D306, below) an
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-6. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
+7. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
    the ceiling (D244 step 2) is built too (73809c2). The preview for your sitting goes up with Glaciate's adoption. Your answers on its
    two questions are D299 (the generator page's Moist soil switch stays for now; Quake's Left/Right stays gone).
-7. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+8. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-8. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+9. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-9. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+10. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
