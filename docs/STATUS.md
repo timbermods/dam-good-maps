@@ -14,8 +14,24 @@ Your fifty decisions since the restart are recorded (D252–D301, below) and in 
 
 1. **Real places (#35): answered (D300)** and being finished on `feature/real-places-2`: both land fixes, a water floor, #94
    accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
-2. **M9a: approved** (D294). Its probe batch runs when the machine is quiet, then `m9a-done` and the release. The review
-   set's shortfalls are M9b's starting list; my read is on #56 and in the Progress log.
+2. **M9a's release: your call on four probe findings.** You said yes (D294) with the probe batch as the gate. It ran twice. The first
+   run (98/103) found a real fault, now fixed: our files stored the water's flows as zero, so the game reset them at load and Delta's
+   water didn't hold; the files now store the settled flows (0d9e473) and the water holds on all 15 maps. The probe's own model was
+   then corrected to start from those flows as the game does (464a2be). Judged again: **99 passed, 4 failed**, and in each the game and
+   the model agree on the substance:
+   - **Any 128² s1:** after the drought, a clean side pool on badwater's way down refills with badwater (up to 21%) and keeps it until
+     the badtide; the start's water stays at 0%, the pool is 42 tiles away; the model agrees with the game to 0.1%. A map behaviour.
+   - **Delta 128² s1:** after the drought, thin films on its flats pick their own route, and during the badtide spread a shallow sheet
+     (0.06–0.10 deep) over part of the plain; the model drains it; wet tiles differ 19%, water 1.7%.
+   - **No badwater s6 and Islands 128² s1:** on one day, wet-tile counts differ 6.5% and 5.8% (the check allows 5%), all within
+     0.002 of the 0.05 wet line, while the water agrees within 0.3% and 1.7%; hours later the counts are equal. The model itself
+     swings more than the gap under changes too small for a file to store.
+   - **A product question:** `start.water` counts a sealed one-tile hole (0.9 water, touching the river only diagonally) as a start's
+     nearest water on Canyon s1. That start also has the river and a 19-tile pool, so it passes either way.
+   **My recommendation:** release M9a now. Judge the model's wet-tile counts the way D297 judges water (tiles within 0.01 of the
+   wet line don't count), which clears the last item; M9b takes the side pool (keep badwater's way down clear of pools, outcome 1) and
+   Delta's flats (its outcome 2 delta); and `start.water` ignores sealed bodies smaller than a few tiles (M9b, a generator rule). Say
+   "release", or name what to fix first.
 3. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
