@@ -1,0 +1,206 @@
+{
+ "note": "The stacked water engine's results on our own maps with terrain above terrain (tools/stack-golden.ts; PLAN §20 D279). Regenerate with npx tsx tools/stack-golden.ts only when the engine is meant to change, and say why in the commit.",
+ "verified": null,
+ "cases": [
+  {
+   "name": "t1-support",
+   "size": [
+    96,
+    64
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": null,
+   "dropped": 24,
+   "hashes": {
+    "depth": "3a3ed164e42500a1",
+    "overflow": "3a3ed164e42500a1",
+    "contamination": "3a3ed164e42500a1",
+    "moisture": "3a3ed164e42500a1",
+    "soilContamination": "3a3ed164e42500a1",
+    "dropped": "62f328a99574e4ab"
+   },
+   "summary": {
+    "volume": 0,
+    "wetColumns": 0,
+    "roofedWetColumns": 0,
+    "pressurised": 0,
+    "moistRuns": 0
+   }
+  },
+  {
+   "name": "t2-walking",
+   "size": [
+    64,
+    48
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 128
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "2aae7dc846aaf25f",
+    "overflow": "2aae7dc846aaf25f",
+    "contamination": "2aae7dc846aaf25f",
+    "moisture": "2aae7dc846aaf25f",
+    "soilContamination": "2aae7dc846aaf25f",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 0,
+    "wetColumns": 0,
+    "roofedWetColumns": 0,
+    "pressurised": 0,
+    "moistRuns": 0
+   }
+  },
+  {
+   "name": "t3-cave-water",
+   "size": [
+    64,
+    64
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 2176
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "a93122acb6fbdd8e",
+    "overflow": "5a915da332465453",
+    "contamination": "de2f256064a0af79",
+    "moisture": "b4b8dd31c6738050",
+    "soilContamination": "de2f256064a0af79",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 702.462743,
+    "wetColumns": 342,
+    "roofedWetColumns": 98,
+    "pressurised": 44,
+    "moistRuns": 2612
+   }
+  },
+  {
+   "name": "t4-soil",
+   "size": [
+    64,
+    48
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 2048
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "593e2cc6e8e24c18",
+    "overflow": "858b7701a6a1f70b",
+    "contamination": "2aae7dc846aaf25f",
+    "moisture": "2fe17f9f59da1970",
+    "soilContamination": "2aae7dc846aaf25f",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 1136.094264,
+    "wetColumns": 264,
+    "roofedWetColumns": 229,
+    "pressurised": 198,
+    "moistRuns": 985
+   }
+  },
+  {
+   "name": "t5-plants",
+   "size": [
+    48,
+    48
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 512
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "735cc0e408995426",
+    "overflow": "1c02730953829883",
+    "contamination": "1c02730953829883",
+    "moisture": "796551b6399da5d9",
+    "soilContamination": "1c02730953829883",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 13.990936,
+    "wetColumns": 44,
+    "roofedWetColumns": 0,
+    "pressurised": 0,
+    "moistRuns": 554
+   }
+  },
+  {
+   "name": "cave-valley",
+   "size": [
+    40,
+    32
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 384
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "f0531faa2e51e8a1",
+    "overflow": "a21a749f470d79e7",
+    "contamination": "cc61635da46b2c99",
+    "moisture": "da60975dc7a1a0ac",
+    "soilContamination": "cc61635da46b2c99",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 232.243556,
+    "wetColumns": 218,
+    "roofedWetColumns": 38,
+    "pressurised": 15,
+    "moistRuns": 614
+   }
+  },
+  {
+   "name": "lake-cave",
+   "size": [
+    30,
+    20
+   ],
+   "levels": 2,
+   "runs": 2,
+   "settle": {
+    "settled": true,
+    "ticks": 512
+   },
+   "dropped": 0,
+   "hashes": {
+    "depth": "4b1c2b6958333e4e",
+    "overflow": "5354c05af8285425",
+    "contamination": "e9a15a094703faae",
+    "moisture": "3dea437883f3a8f7",
+    "soilContamination": "e9a15a094703faae",
+    "dropped": "e3b0c44298fc1c14"
+   },
+   "summary": {
+    "volume": 444.480483,
+    "wetColumns": 130,
+    "roofedWetColumns": 16,
+    "pressurised": 16,
+    "moistRuns": 130
+   }
+  }
+ ]
+}
