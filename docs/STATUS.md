@@ -15,7 +15,9 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
    the demo (a peak within its headroom, never a flat mesa; cones on the flanks; it always completes), a size control
    beside Power in every force (Carve's Width and new Depth, Craterize's Size, Erupt's Size), the brush size back in the
    options row, the shelf starting Water source, Badwater source, Start, Pine, and louder sounds. #74 is accepted.
-2. **Real places: the places to drop.** The numbered review sheet is on PR #35:
+2. **Real places: being rebuilt to your D245** (places kept on their own land; only the correctness checks and the floor
+   gate a place; a few plain words on the card for what would sink a player). A new review sheet will replace the one
+   below, which is out of date: pick drops from the new one only. The old sheet was on PR #35:
    [Review sheet: which places should go?](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5851924825)
    (five pages of 30; changed cards marked). Reply there with the numbers to drop. Worth your eye: 21 places now show other
    land of their region under their first-round titles (Yosemite Valley, Geirangerfjord, Iguazu Falls among them), since
@@ -279,6 +281,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
 - D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.
 - D243: Codex's Map look phase 3, "finish the world" (`investigation/maplook-finish`), is merged as proposals only when green; nothing adopted until Kyler reviews its stages.
 - D241, D242: #66's vegetation and #65's Map look 3 (phase 1) approved; both adopted into the High look in the Map look work with #38's water and soft shadows (warm sunlight, ambient occlusion, colour-preserving tone mapping and grade, distance haze, sky, rock strata, soil edges, colour variation; the new trees tuned to this lighting); each effect switchable; Standard unchanged; High measured on dense 256² maps before release. The new trees in Standard only if cheap on a real GPU (#83).

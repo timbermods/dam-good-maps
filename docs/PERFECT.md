@@ -33,6 +33,7 @@ The game's difficulty setting governs the game's difficulty. On the map, challen
 ## Real places
 1. Someone who knows the place recognises it, and its signature feature is there.
 2. It's still a great Timberborn map, not just a pretty copy.
+3. The beauty of real places is the unique composition of terrain features. It's wonderful if it's playable, but not meeting the cutoff should not disqualify the place; the editor can fix shortcomings if a place is interesting enough to want to play.
 
 ## The look
 1. It reads instantly as Timberborn, only cleaner.

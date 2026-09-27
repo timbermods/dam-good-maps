@@ -839,6 +839,9 @@ every place rebuilt without perimeter walls, water free to drain; and the galler
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
 D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
+Only those, and the file playing exactly as the editor shows it, gate a place (D245): a place is never dropped or moved to
+other land for a playability check; its card notes, in a few plain words, only what would sink a player (no water a
+pump can reach, too little wood near the start, water that keeps moving).
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round
