@@ -1,0 +1,205 @@
+{
+  "date": "2026-09-27T01:54:07.036Z",
+  "method": "Static overview, 32 draws per GPU query; 4 warm pairs and 12 measured alternating full/off pairs per effect. Times divided by 32. Specimens separately profiled on their own context. No FPS inferred from these batched workloads.",
+  "renderer": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "maps": [
+    {
+      "W": 128,
+      "H": 128,
+      "effects": [
+        {
+          "effect": "water",
+          "onP50": 0.28288,
+          "offP50": 0.2808,
+          "deltaP50": 0.0020800000000000263,
+          "deltaMin": -0.07024000000000002,
+          "deltaMax": 0.04784000000000002
+        },
+        {
+          "effect": "shadows",
+          "onP50": 0.198016,
+          "offP50": 0.179744,
+          "deltaP50": 0.01827200000000001,
+          "deltaMin": -0.007263999999999993,
+          "deltaMax": 0.039936
+        },
+        {
+          "effect": "ao",
+          "onP50": 0.202496,
+          "offP50": 0.195648,
+          "deltaP50": 0.003264000000000017,
+          "deltaMin": -0.00969600000000001,
+          "deltaMax": 0.03817599999999999
+        },
+        {
+          "effect": "tone",
+          "onP50": 0.19888,
+          "offP50": 0.197664,
+          "deltaP50": 0.0012800000000000034,
+          "deltaMin": -0.0071360000000000035,
+          "deltaMax": 0.022432000000000007
+        },
+        {
+          "effect": "grade",
+          "onP50": 0.202336,
+          "offP50": 0.197536,
+          "deltaP50": 0.005888000000000004,
+          "deltaMin": -0.007039999999999991,
+          "deltaMax": 0.013920000000000016
+        },
+        {
+          "effect": "haze",
+          "onP50": 0.197888,
+          "offP50": 0.198592,
+          "deltaP50": 0.0005439999999999889,
+          "deltaMin": -0.011136000000000007,
+          "deltaMax": 0.166944
+        },
+        {
+          "effect": "sky",
+          "onP50": 0.1984,
+          "offP50": 0.198656,
+          "deltaP50": -0.00038399999999999546,
+          "deltaMin": -0.01312000000000002,
+          "deltaMax": 0.00739200000000001
+        },
+        {
+          "effect": "strata",
+          "onP50": 0.198624,
+          "offP50": 0.195168,
+          "deltaP50": 0.0067839999999999845,
+          "deltaMin": -0.006879999999999997,
+          "deltaMax": 0.0184
+        },
+        {
+          "effect": "blend",
+          "onP50": 0.199616,
+          "offP50": 0.199648,
+          "deltaP50": -0.0034560000000000146,
+          "deltaMin": -0.012319999999999998,
+          "deltaMax": 0.007071999999999995
+        },
+        {
+          "effect": "variation",
+          "onP50": 0.197568,
+          "offP50": 0.19776,
+          "deltaP50": 0.004416000000000003,
+          "deltaMin": -0.006527999999999978,
+          "deltaMax": 0.036767999999999995
+        },
+        {
+          "effect": "finish-pass",
+          "onP50": 0.199328,
+          "offP50": 0.15584,
+          "deltaP50": 0.04224,
+          "deltaMin": 0.021791999999999978,
+          "deltaMax": 0.05241599999999999
+        }
+      ],
+      "specimenGpuP50": 0.007424,
+      "specimenWithoutWindGpuP50": 0.004384,
+      "specimenTriangles": 8196
+    },
+    {
+      "W": 256,
+      "H": 256,
+      "effects": [
+        {
+          "effect": "water",
+          "onP50": 0.277472,
+          "offP50": 0.272064,
+          "deltaP50": 0.0020479999999999943,
+          "deltaMin": -0.012863999999999987,
+          "deltaMax": 0.019807999999999992
+        },
+        {
+          "effect": "shadows",
+          "onP50": 0.272032,
+          "offP50": 0.248256,
+          "deltaP50": 0.0232,
+          "deltaMin": 0.010815999999999992,
+          "deltaMax": 0.034175999999999984
+        },
+        {
+          "effect": "ao",
+          "onP50": 0.271296,
+          "offP50": 0.263456,
+          "deltaP50": 0.005695999999999979,
+          "deltaMin": -0.005503999999999953,
+          "deltaMax": 0.015679999999999972
+        },
+        {
+          "effect": "tone",
+          "onP50": 0.267008,
+          "offP50": 0.266368,
+          "deltaP50": 0.0005439999999999889,
+          "deltaMin": -0.02031999999999995,
+          "deltaMax": 0.009568000000000021
+        },
+        {
+          "effect": "grade",
+          "onP50": 0.27024,
+          "offP50": 0.273088,
+          "deltaP50": -0.0009599999999999609,
+          "deltaMin": -0.07523200000000002,
+          "deltaMax": 0.017087999999999992
+        },
+        {
+          "effect": "haze",
+          "onP50": 0.267456,
+          "offP50": 0.26976,
+          "deltaP50": 0.0020479999999999943,
+          "deltaMin": -0.018559999999999965,
+          "deltaMax": 0.010240000000000027
+        },
+        {
+          "effect": "sky",
+          "onP50": 0.276672,
+          "offP50": 0.272576,
+          "deltaP50": 0.004351999999999967,
+          "deltaMin": -0.011904000000000026,
+          "deltaMax": 0.027680000000000038
+        },
+        {
+          "effect": "strata",
+          "onP50": 0.269248,
+          "offP50": 0.266112,
+          "deltaP50": 0.0050240000000000284,
+          "deltaMin": -0.007584000000000035,
+          "deltaMax": 0.148032
+        },
+        {
+          "effect": "blend",
+          "onP50": 0.274464,
+          "offP50": 0.27296,
+          "deltaP50": 0.005087999999999981,
+          "deltaMin": -0.006367999999999985,
+          "deltaMax": 0.015520000000000034
+        },
+        {
+          "effect": "variation",
+          "onP50": 0.271072,
+          "offP50": 0.2744,
+          "deltaP50": -0.0009599999999999609,
+          "deltaMin": -0.01574399999999998,
+          "deltaMax": 0.015936000000000006
+        },
+        {
+          "effect": "finish-pass",
+          "onP50": 0.267904,
+          "offP50": 0.249312,
+          "deltaP50": 0.022143999999999997,
+          "deltaMin": 0.008992,
+          "deltaMax": 0.039296
+        }
+      ],
+      "specimenGpuP50": 0.005984,
+      "specimenWithoutWindGpuP50": 0.003552,
+      "specimenTriangles": 8196
+    }
+  ],
+  "errors": []
+}

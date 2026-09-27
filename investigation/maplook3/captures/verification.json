@@ -1,0 +1,378 @@
+{
+  "date": "2026-09-27T01:50:14.474Z",
+  "renderer": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "maps": [
+    {
+      "label": "riverValley · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4577,
+      "milliseconds": 23.600000023841858,
+      "trees": 1009,
+      "ruins": 874,
+      "bytes": 65536,
+      "water": 1133
+    },
+    {
+      "label": "riverValley · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8939,
+      "milliseconds": 85.69999998807907,
+      "trees": 2006,
+      "ruins": 1235,
+      "bytes": 262144,
+      "water": 3894
+    },
+    {
+      "label": "canyon · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4594,
+      "milliseconds": 31.099999964237213,
+      "trees": 404,
+      "ruins": 939,
+      "bytes": 65536,
+      "water": 654
+    },
+    {
+      "label": "canyon · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8913,
+      "milliseconds": 98.89999997615814,
+      "trees": 592,
+      "ruins": 1266,
+      "bytes": 262144,
+      "water": 2789
+    },
+    {
+      "label": "highlands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4429,
+      "milliseconds": 22.19999998807907,
+      "trees": 1009,
+      "ruins": 712,
+      "bytes": 65536,
+      "water": 1555
+    },
+    {
+      "label": "highlands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8903,
+      "milliseconds": 84.19999998807907,
+      "trees": 2126,
+      "ruins": 1217,
+      "bytes": 262144,
+      "water": 4758
+    },
+    {
+      "label": "lakeBasin · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4460,
+      "milliseconds": 23,
+      "trees": 936,
+      "ruins": 829,
+      "bytes": 65536,
+      "water": 4040
+    },
+    {
+      "label": "lakeBasin · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8888,
+      "milliseconds": 87.70000004768372,
+      "trees": 1819,
+      "ruins": 1227,
+      "bytes": 262144,
+      "water": 9177
+    },
+    {
+      "label": "delta · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4517,
+      "milliseconds": 28.80000001192093,
+      "trees": 716,
+      "ruins": 894,
+      "bytes": 65536,
+      "water": 1560
+    },
+    {
+      "label": "delta · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8942,
+      "milliseconds": 88.09999996423721,
+      "trees": 1688,
+      "ruins": 1289,
+      "bytes": 262144,
+      "water": 4234
+    },
+    {
+      "label": "islands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 3718,
+      "milliseconds": 18.600000023841858,
+      "trees": 1009,
+      "ruins": 526,
+      "bytes": 65536,
+      "water": 5434
+    },
+    {
+      "label": "islands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8880,
+      "milliseconds": 87,
+      "trees": 2126,
+      "ruins": 1238,
+      "bytes": 262144,
+      "water": 15584
+    },
+    {
+      "label": "near-victoria-falls",
+      "W": 128,
+      "H": 128,
+      "objects": 2294,
+      "milliseconds": 24.30000001192093,
+      "trees": 696,
+      "ruins": 395,
+      "bytes": 65536,
+      "water": 8121
+    },
+    {
+      "label": "near-yosemite-valley",
+      "W": 96,
+      "H": 96,
+      "objects": 1604,
+      "milliseconds": 11.199999988079071,
+      "trees": 486,
+      "ruins": 235,
+      "bytes": 36864,
+      "water": 2864
+    },
+    {
+      "label": "near-danube-delta",
+      "W": 96,
+      "H": 96,
+      "objects": 1620,
+      "milliseconds": 11.5,
+      "trees": 486,
+      "ruins": 251,
+      "bytes": 36864,
+      "water": 4372
+    }
+  ],
+  "captures": [
+    {
+      "file": "overview-128.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 243.2,
+        "target": [
+          64,
+          7,
+          -64
+        ]
+      }
+    },
+    {
+      "file": "cliff.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 1.5707963267948966,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          71.5,
+          11,
+          -90.5
+        ]
+      }
+    },
+    {
+      "file": "forest-edge.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.45,
+        "pitch": 0.68,
+        "distance": 36,
+        "target": [
+          54.5,
+          8,
+          -39.5
+        ]
+      }
+    },
+    {
+      "file": "riverbank.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          2.5,
+          8.485764503479004,
+          -78.5
+        ]
+      }
+    },
+    {
+      "file": "contaminated-ground.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          35.5,
+          9,
+          -82.5
+        ]
+      }
+    },
+    {
+      "file": "overview-256.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 486.4,
+        "target": [
+          128,
+          7,
+          -128
+        ]
+      }
+    },
+    {
+      "file": "real-victoria.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 1.5707963267948966,
+        "pitch": 0.58,
+        "distance": 32,
+        "target": [
+          47.5,
+          3.224825143814087,
+          -36.5
+        ]
+      }
+    },
+    {
+      "file": "real-yosemite.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -1.5707963267948966,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          27.5,
+          12,
+          -56.5
+        ]
+      }
+    },
+    {
+      "file": "real-danube.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 182.39999999999998,
+        "target": [
+          48,
+          7,
+          -48
+        ]
+      }
+    }
+  ],
+  "checks": {
+    "parity": {
+      "channels": 1832012,
+      "different": 0,
+      "max": 0
+    },
+    "toggles": {
+      "baseline": {
+        "high": 2487186689,
+        "standard": 386236510
+      },
+      "off": [
+        {
+          "name": "water",
+          "high": 1954083096,
+          "standard": 386236510
+        },
+        {
+          "name": "shadows",
+          "high": 2277423939,
+          "standard": 386236510
+        },
+        {
+          "name": "ao",
+          "high": 3502826901,
+          "standard": 386236510
+        },
+        {
+          "name": "tone",
+          "high": 1242309125,
+          "standard": 386236510
+        },
+        {
+          "name": "grade",
+          "high": 1381319556,
+          "standard": 386236510
+        },
+        {
+          "name": "haze",
+          "high": 3894455880,
+          "standard": 386236510
+        },
+        {
+          "name": "sky",
+          "high": 3232098046,
+          "standard": 386236510
+        },
+        {
+          "name": "strata",
+          "high": 2109305944,
+          "standard": 386236510
+        },
+        {
+          "name": "blend",
+          "high": 3958381114,
+          "standard": 386236510
+        },
+        {
+          "name": "variation",
+          "high": 1639580484,
+          "standard": 386236510
+        }
+      ]
+    },
+    "cameraSync": true,
+    "cameraSyncReverse": true,
+    "vegetation": {
+      "triangles": 8196,
+      "wind8": 1578153087,
+      "wind11": 2694063510,
+      "still8": 32532630,
+      "still11": 32532630,
+      "hidden": true
+    }
+  },
+  "errors": []
+}

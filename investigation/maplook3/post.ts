@@ -4,7 +4,7 @@ import { bridge } from './base-effects';
 
 /** Legacy materials author display RGB. Decode once, tone map/grade in linear light,
  * then encode once. The product renderer and its output colour space stay untouched.
- * Neutral shoulder derived from three.js r186 PBRNeutralToneMapping (MIT), itself
+ * Neutral shoulder derived from three.js r186 NeutralToneMapping (MIT), itself
  * the Khronos PBR Neutral curve. This is a bridge, not a physical HDR relighting. */
 export class Post {
   tone = true;
@@ -27,7 +27,9 @@ export class Post {
       vec3 neutral(vec3 c) {
         float x = min(c.r, min(c.g, c.b));
         float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;
-        c -= offset;
+        // Attenuate only the toe to preserve the calibrated dark palette. The
+        // highlight shoulder remains full strength and bounds every HDR peak.
+        c -= offset * 0.32;
         float peak = max(c.r, max(c.g, c.b));
         if (peak < 0.76) return c;
         float d = 0.24;
@@ -38,13 +40,13 @@ export class Post {
       }
       void main() {
         vec3 c = decode(texture2D(inputImage, vUv).rgb);
-        // Compensate Neutral's toe gently; keep the measured water body near its anchor.
-        if (tone > 0.5) c = mix(c, neutral(c * 1.10), 0.32);
         if (grade > 0.5) {
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
           c = mix(vec3(l), c, 1.025);
           c *= mix(vec3(0.992, 1.0, 1.010), vec3(1.025, 1.008, 0.980), smoothstep(0.035, 0.55, l));
         }
+        // Grade before the bounded shoulder, so warm highlights cannot clip after it.
+        if (tone > 0.5) c = neutral(c * 1.032);
         gl_FragColor = vec4(encode(max(c, vec3(0.0))), 1.0);
       }
     `,

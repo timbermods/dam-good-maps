@@ -2,7 +2,7 @@ import './style.css';
 import { MapRenderer, type ViewState } from '../../src/render3d/renderer';
 import type { MapView } from '../../src/render3d/model';
 import { THEMES, THEME_NAMES } from '../../src/core/spec/mapspec';
-import { CHANGES, NOT_ENDORSED, PROVIDER_NOTICES } from '../../src/core/places/attribution';
+import { CHANGES, NOT_ENDORSED, PROVIDER_NOTICES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL } from '../../src/core/places/attribution';
 import { Effects, bridge } from './base-effects';
 import { WaterFlow, surfaceContamination } from '../maplook2/flow';
 import { badwaterBed } from '../maplook2/badwater-bed';
@@ -60,6 +60,7 @@ const generated = group('Generated landscapes');
 for (const theme of THEMES) for (const size of [128, 256]) option(generated, `${THEME_NAMES[theme]} · ${size}²`, { kind: 'generated', theme, size });
 const real = group('Real places');
 for (const name of ['near-victoria-falls', 'near-yosemite-valley', 'near-danube-delta']) option(real, name.replaceAll('-', ' '), { kind: 'place', name });
+const source = document.createElement('a'); source.href = ELEVATION_SOURCE_URL; source.textContent = ELEVATION_SOURCE; $('credits').append(source);
 for (const text of [CHANGES, NOT_ENDORSED, ...PROVIDER_NOTICES]) { const p = document.createElement('p'); p.textContent = text; $('credits').append(p); }
 const gpu = standard.gpu().renderer;
 $('gpu').textContent = `${gpu}${/SwiftShader|llvmpipe|Software|Basic Render/i.test(gpu) ? ' · software rendering; full Standard forced for comparison' : ''}`;
@@ -113,7 +114,7 @@ for (const [i, r] of [standard, high].entries()) {
     if (measuring && !permitted) return;
     draw(scene, camera); if (scene === b.scene) {
       counts[i]++; totals[i]++;
-      if (i === 1) vegetation.render(b.uniforms.time.value);
+      if (i === 1 && !measuring) vegetation.render(b.uniforms.time.value);
     }
   };
 }
@@ -132,29 +133,58 @@ requestAnimationFrame(frame);
 
 const nextFrame = () => new Promise<number>(resolve => requestAnimationFrame(resolve));
 const percentile = (v: number[], q: number) => [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(v.length * q))] ?? 0;
-/** Measures actual presentation cadence plus completion time. finish() is deliberate:
- * it includes GPU work, rather than reporting only fast asynchronous submission. */
+/** Measure presentation cadence, completion wall time and asynchronous GPU queries.
+ * Each context is timed separately; sum the specimen's GPU time into High. */
 async function measure(mode: 'standard' | 'high' | 'both', milliseconds = 2200) {
   if (!ready || measuring) throw new Error('Map not ready or measurement already active');
   const view = standard.getView(), paused = $<HTMLInputElement>('pause').checked;
   measuring = true; document.body.classList.add('measuring');
+  const pending: { entries: { gl: WebGL2RenderingContext; ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number }; query: WebGLQuery }[]; measured: boolean }[] = [];
+  const gpuTimes: number[] = [];
+  let disjoint = 0;
+  function collect() {
+    for (let i = pending.length - 1; i >= 0; i--) {
+      const p = pending[i];
+      if (!p.entries.every(e => e.gl.getQueryParameter(e.query, e.gl.QUERY_RESULT_AVAILABLE))) continue;
+      const valid = p.entries.every(e => !e.gl.getParameter(e.ext.GPU_DISJOINT_EXT));
+      if (valid && p.measured) gpuTimes.push(p.entries.reduce((sum, e) => sum + e.gl.getQueryParameter(e.query, e.gl.QUERY_RESULT) / 1e6, 0));
+      if (!valid) disjoint++;
+      for (const e of p.entries) e.gl.deleteQuery(e.query);
+      pending.splice(i, 1);
+    }
+  }
   try {
     const renderers = mode === 'both' ? [standard, high] : [mode === 'standard' ? standard : high];
+    const streams = renderers.map(r => ({ gl: bridge(r).gl.getContext() as WebGL2RenderingContext, draw: () => r.renderNow() }));
+    if (renderers.includes(high) && vegetation.enabled) streams.push({ gl: vegetation.context(), draw: () => vegetation.render(bridge(high).uniforms.time.value) });
+    const timers = streams.map(s => ({ ...s, ext: s.gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null }));
+    const gpuSupported = timers.every(t => t.ext);
     const deltas: number[] = [], renderTimes: number[] = [];
     let started = await nextFrame(), lastFrame = started, elapsed = 0;
     while (elapsed < milliseconds + 700) {
       if (document.hidden) throw new Error('Keep the demo visible during measurement');
       const now = await nextFrame(); elapsed = now - started;
+      collect();
       const v = { ...view, yaw: view.yaw + elapsed / 10000 * Math.PI * 2 };
       for (const r of renderers) { r.setView(v); r.setClock(8 + elapsed / 1000); }
       const begin = performance.now(); permitted = true;
-      for (const r of renderers) { r.renderNow(); bridge(r).gl.getContext().finish(); if (r === high && vegetation.enabled) vegetation.finish(); }
+      const entries = [];
+      for (const t of timers) {
+        const query = gpuSupported ? t.gl.createQuery() : null;
+        if (query) t.gl.beginQuery(t.ext!.TIME_ELAPSED_EXT, query);
+        t.draw();
+        if (query) { t.gl.endQuery(t.ext!.TIME_ELAPSED_EXT); entries.push({ gl: t.gl, ext: t.ext!, query }); }
+        t.gl.finish();
+      }
+      if (entries.length) pending.push({ entries, measured: elapsed > 700 });
       permitted = false;
       if (elapsed > 700) { deltas.push(now - lastFrame); renderTimes.push(performance.now() - begin); }
       lastFrame = now;
     }
-    return { mode, frames: deltas.length, fps: 1000 / (deltas.reduce((a, b) => a + b, 0) / deltas.length), frameP50: percentile(deltas, .5), frameP95: percentile(deltas, .95), renderP50: percentile(renderTimes, .5), renderP95: percentile(renderTimes, .95), drawingBuffer: [standard.canvas.width, standard.canvas.height], effects: { ...flags }, shadowPasses: base.passes };
+    for (let k = 0; k < 30 && pending.length; k++) { await nextFrame(); collect(); }
+    return { mode, frames: deltas.length, fps: 1000 / (deltas.reduce((a, b) => a + b, 0) / deltas.length), frameP50: percentile(deltas, .5), frameP95: percentile(deltas, .95), renderP50: percentile(renderTimes, .5), renderP95: percentile(renderTimes, .95), gpuP50: gpuTimes.length ? percentile(gpuTimes, .5) : null, gpuP95: gpuTimes.length ? percentile(gpuTimes, .95) : null, gpuSamples: gpuTimes.length, disjoint, drawingBuffer: [standard.canvas.width, standard.canvas.height], effects: { ...flags }, shadowPasses: base.passes };
   } finally {
+    for (const p of pending) for (const e of p.entries) e.gl.deleteQuery(e.query);
     permitted = false; measuring = false; document.body.classList.remove('measuring');
     standard.setView(view); high.setView(view); $<HTMLInputElement>('pause').checked = paused;
     standard.setClock(clock); high.setClock(clock);

@@ -119,5 +119,6 @@ export class Vegetation {
   }
   get triangles() { return this.meshes.reduce((sum, m) => sum + (m.geometry.index?.count ?? m.geometry.getAttribute('position').count) / 3, 0); }
   finish() { this.gl.getContext().finish(); }
+  context() { return this.gl.getContext() as WebGL2RenderingContext; }
   dispose() { for (const m of this.meshes) m.geometry.dispose(); this.material.dispose(); this.shadow.dispose(); this.gl.dispose(); }
 }
