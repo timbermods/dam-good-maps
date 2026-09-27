@@ -99,6 +99,11 @@ export interface BrushParams {
    *  level a tile to the ground round it, even for a precise stroke, with the game's natural slopes
    *  on its steps. */
   edges?: "ramped";
+  /** A ramped Flatten's own slopes (D270), as the page laid them along its rim when the stroke
+   *  ended: [x, y, orientation] (its high side: 0 north, 1 west, 2 south, 3 east). The build places
+   *  each one that still fits; a ramped stroke saved before D270 has none and asks the slope planner
+   *  instead. */
+  slopes?: [number, number, number][];
   /** Each dab's pressure, 1–255 (a pen's); full when absent. */
   pressure?: number[];
   /** Lower: a stroke that starts in or beside water carves a bed that keeps flowing downhill. */
@@ -661,6 +666,8 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.steps !== undefined && (p.tool !== "flatten" || !Number.isInteger(p.steps) || p.steps < 2 || p.steps > 8)) return ["flatten's steps are 2 to 8 levels apart"];
   if (p.walkable !== undefined && (p.tool !== "smooth" || typeof p.walkable !== "boolean")) return ["only smooth makes the ground walkable"];
   if (p.edges !== undefined && (p.tool !== "flatten" || p.edges !== "ramped")) return ["only flatten has ramped edges"];
+  if (p.slopes !== undefined && (p.edges !== "ramped" || !Array.isArray(p.slopes) || p.slopes.length > 4096 || !p.slopes.every((t) => Array.isArray(t) && t.length === 3 && t.every((v) => Number.isInteger(v)) && t[0] >= 0 && t[1] >= 0 && t[0] < W && t[1] < H && t[2] >= 0 && t[2] <= 3)))
+    return ["a ramped stroke's slopes are [x, y, orientation 0–3] on the map"];
   if ((p.bed !== undefined || p.dry !== undefined || p.deepen !== undefined) && !(p.tool === "lower" && p.channel === true)) return ["only a smart Lower stroke has a bed, dry dabs or a deepening pass"];
   if (p.bed !== undefined && (!Number.isInteger(p.bed) || p.bed < 0 || p.bed > BRUSH_MAX_LEVEL)) return [`a smart Lower stroke's bed is a level from 0 to ${BRUSH_MAX_LEVEL}`];
   if (p.dry !== undefined && (!Number.isInteger(p.dry) || p.dry < 0 || p.bed === undefined)) return ["a new channel's dry dabs are counted from 0, with its bed"];

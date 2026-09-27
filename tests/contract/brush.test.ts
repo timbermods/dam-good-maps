@@ -366,7 +366,9 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     expect(brushProblems({ tool: "raise", size: 3, strength: 5, edges: "ramped", dabs: tile(5, 5) }, W, H)).not.toEqual([]);
   });
 
-  it("on a map: a ramped flatten gets the natural slopes on its rim, and the trees on it ride the ground", () => {
+  // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
+  // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
+  it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
     const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);

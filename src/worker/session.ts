@@ -43,7 +43,7 @@ import type { EntitySpec } from "../core/format/entities";
 import { JsonFloat } from "../core/format/json";
 import type { Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
-import { DERIVED_SLOPES } from "../core/features/ids";
+import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
@@ -79,7 +79,9 @@ import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
-import { areaDepth } from "../core/features/raster/brush";
+import { areaDepth, markBrushTiles } from "../core/features/raster/brush";
+import { StrokePreview } from "../core/features/raster/strokePreview";
+import { rimSlopes } from "../core/features/slopes";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -921,8 +923,34 @@ export function check(op: EditOp): string[] {
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const r = s.apply(op, origin, label);
+  const r = s.apply(withRimSlopes(s, op), origin, label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** A ramped Flatten stroke lays its own slopes along its rim (D270), kept in the stroke: worked out
+ *  here, on the ground as the stroke leaves it, clear of what stands there, the water, and the tiles
+ *  the build keeps free (the start's, the rivers' mouths, the map objects'). A stroke that has its
+ *  slopes already (a replay) or isn't a ramped Flatten goes as it is. */
+function withRimSlopes(s: MapSession, op: EditOp): EditOp {
+  if (op.op !== "brush") return op;
+  const p = op.params;
+  if (p.tool !== "flatten" || p.edges !== "ramped" || p.slopes !== undefined) return op;
+  const { x: W, y: H } = s.size;
+  const b = s.built;
+  const after = b.heights.slice();
+  const { dabs, pressure, levels, ...settings } = p;
+  const preview = new StrokePreview(settings, s.terrainState(), after, W, H);
+  preview.add(dabs, pressure, levels);
+  if (p.rigid?.length) preview.finish(p.rigid);
+  const own = new Uint8Array(W * H);
+  markBrushTiles(p, W, H, own);
+  const blocked = b.cache.reserved.length === W * H ? b.cache.reserved.slice() : new Uint8Array(W * H);
+  for (const e of b.entities) {
+    if (e.template === "Slope" && rebuiltSlope(e.owner)) continue;
+    for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
+  }
+  for (let i = 0; i < W * H; i++) if (b.water[i] > 0.05) blocked[i] = 1;
+  return { op: "brush", params: { ...p, slopes: rimSlopes(after, W, H, own, blocked) } };
 }
 
 /** The last change a control made step by step (a strength slider moved with the arrow keys):
@@ -1454,7 +1482,7 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[])
       continue;
     }
     if (!take.has(kind)) continue;
-    if (kind === "slopes" && (e.owner === DERIVED_SLOPES || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
+    if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
     else ids.push(e.id);
     removed.push(e.y * W + e.x);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
@@ -1504,7 +1532,7 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
     if (e.raw && !placementOf(e.raw)) continue;
     if (entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) ids.push(e.id);
   }
-  const ops: EditOp[] = [op];
+  const ops: EditOp[] = [withRimSlopes(s, op)];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
   const r = ids.length ? s.applyAll(ops, "user", `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared`) : s.apply(op, "user", label);
   return changed(s, r.ok, r.errors, t0);

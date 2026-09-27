@@ -147,7 +147,10 @@ editor is desktop-first (D185).
   never digs below the map's bottom or out from under the start or placed objects (D193).
 - **Flatten** (D204): the target is the height where the stroke starts (Ctrl-click samples any other
   level); it cuts and fills, so one stroke makes a clean plateau; **Edges**: **Cliff** (default) or
-  **Ramped**, where the rim steps down to the land around with natural slopes beavers can climb; a
+  **Ramped**, where the rim steps down to the land around, and the stroke lays its own natural slopes wherever that
+  rim meets ground one level lower, spaced along every stretch of it (the middle of a short one, else about every six
+  tiles), so the pad is walkable from each side that has such ground (D270; before, it asked the slope planner, which
+  often laid none); a
   quiet "the start fits here" hint when the area is big and flat enough for the district center, and a
   stronger one when the start requirements would also hold there; trees and objects ride the ground.
 - **Hills, plateaus, ridges and valleys come from the brushes,** not buttons.
@@ -516,7 +519,9 @@ rectangle, which takes its middle tile's level once the stroke is applied, D249;
 before keep their `keep` runs and replay exactly), the working area it was painted in (`area`, D254: runs; it changes
 only inside, feathered),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
+edges with the slopes a ramped stroke laid on its rim (`slopes`, D270: worked out when the stroke is applied, on the
+ground it leaves, clear of objects, water and the tiles the build keeps free; each placed again by every build while it
+still fits; a ramped stroke from before D270 has none and the slope planner joins its steps, as it did), Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Delete is `deleteEntities`, with `removeSlope` for the slopes the

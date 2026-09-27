@@ -1,7 +1,7 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
-> last at 1491523 (D261-D266). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> last at ea7cf14 (housekeeping's lock removal, #72; merge 5e1a3e2). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):
 >
 > 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
@@ -13,8 +13,11 @@
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
 > 7. **The lean editor, D287-D289, with D290: done** (the section below).
 > 8. **D263: done** (the section below): smart Lower's depth from strokes.
-> 9. **D270** (Kyler's answer to #84, next): Flatten's Ramped lays its own natural slopes along the rim.
+> 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+>
+> **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
+> each section).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
 > here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
@@ -29,6 +32,36 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
+
+- A ramped Flatten stroke now keeps its own slopes, `slopes` in the stroke ([x, y, orientation]).
+  The worker works them out when the stroke is applied (`withRimSlopes`, `src/worker/session.ts`, on
+  `apply` and Clear sources' stroke): the stroke run on the map as it stands, then `rimSlopes`
+  (`src/core/features/slopes.ts`): every 1-level step between a tile the stroke pressed on and its
+  neighbour (the rim stepping down, and its last step onto the ground round it), a slope on the low
+  tile facing the step, with the tile behind at its own level; grouped by the way it faces and its
+  level, joined corner to corner into stretches; one in the middle of a stretch of up to six tiles,
+  else every six from the third; clear of objects (the rebuilt slopes aside), water, and the tiles
+  the build keeps free (the start's, the rivers' mouths and springs, the map objects').
+- The build places each one that still fits (build step 8, before the derived slopes, which go round
+  them and count them as joined), owned by `derived:rim-slopes`; Delete takes one as a
+  `removeSlope`, and a force doesn't list them as removed (both as for the derived slopes).
+- A ramped stroke without `slopes` (saved before D270) asks the slope planner as it always did, so
+  old projects replay unchanged. A cliff pad lays none. `ops.schema.json` and `brushProblems` know
+  `slopes`.
+- EDITOR_PLAN's Flatten line and map-document paragraph say so; decisions-pending #84 was already
+  marked accepted (D270).
+
+Tests: `rampedSlopes.test` (new: a ramped pad on uneven ground lays slopes at every way and level its
+rim steps down, each standing right, spaced along the rim, none where everything is blocked; through
+the worker the stroke keeps them, the build places every one, the page's preview equals the build,
+the project replays them exactly; a cliff pad lays none, and a ramped stroke without them (from
+before D270) lays none of its own). Changed (D148): `brush.test`'s "a ramped flatten gets the natural
+slopes on its rim" is now the test of a stroke saved before D270 (the planner's slopes), renamed.
+
+For Kyler's forces sitting: Flatten with Edges Ramped on uneven ground: slopes appear along the rim
+on every side that steps down, about every six tiles.
 
 ## Smart Lower's depth from strokes (D263)
 
