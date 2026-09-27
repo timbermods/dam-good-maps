@@ -91,20 +91,20 @@ portable frame budget, and shader branching means costs overlap.
 
 | Effect | 128² GPU Δ ms | 256² GPU Δ ms | Other cost / adoption note |
 |---|---:|---:|---|
-| Maplook2 water | −0.001 | +0.012 | Reuses flow field; unchanged palette constants |
-| Cached soft-shadow sampling | +0.022 | +0.047 | 2048² colour/depth target, about 32 MiB; refresh costs excluded |
-| Warm sunlight | −0.001 | +0.009 | Uniform values only; no added draw, texture or shader arithmetic |
-| Ambient occlusion | +0.001 | +0.0002 | 24/86 ms one-time CPU bake; 64/256 KiB texture |
-| Tone curve alone | +0.001 | +0.0003 | Shares pass with grade |
-| Colour grade alone | +0.001 | +0.001 | Shares pass with tone curve |
-| Tone + grade pass together | +0.069 | +0.027 | One full-resolution draw; about 25–27 MiB at measured pane size |
-| Distance haze | −0.002 | +0.001 | Arithmetic in existing material pass; no extra texture |
-| Sky | +0.003 | +0.002 | Replaces the existing sky shader; no extra draw |
-| Rock strata | +0.005 | +0.013 | Existing pattern atlas; no geometry or image uploads |
-| Soil-edge blend | +0.007 | +0.007 | Existing four same-height soil samples |
-| Colour variation | +0.004 | +0.005 | Two extra pattern samples on the ground |
-| Three specimens, total | 0.005 | 0.022 | Absolute GPU time in their small corner canvas; 6 draws, 8,196 triangles |
-| Wind within specimens | +0.002 | +0.019 | Vertex arithmetic; separate-context scheduling/clocks affect these tiny samples |
+| Maplook2 water | −0.008 | +0.003 | Reuses flow field; unchanged palette constants |
+| Cached soft-shadow sampling | +0.024 | +0.022 | 2048² colour/depth target, about 32 MiB; refresh costs excluded |
+| Warm sunlight | +0.005 | −0.003 | Uniform values only; no added draw, texture or shader arithmetic |
+| Ambient occlusion | +0.001 | +0.003 | 24/88 ms one-time CPU bake; 64/256 KiB texture |
+| Tone curve alone | +0.048 | +0.002 | Shares pass with grade; 128² spread spans zero, so not a stable isolated cost |
+| Colour grade alone | +0.007 | +0.008 | Shares pass with tone curve |
+| Tone + grade pass together | +0.042 | +0.040 | One full-resolution draw; about 25–27 MiB at measured pane size |
+| Distance haze | −0.006 | +0.014 | Arithmetic in existing material pass; no extra texture |
+| Sky | +0.006 | +0.004 | Replaces the existing sky shader; no extra draw |
+| Rock strata | +0.005 | +0.010 | Existing pattern atlas; no geometry or image uploads |
+| Soil-edge blend | −0.003 | −0.003 | Existing four same-height soil samples |
+| Colour variation | +0.002 | ≈0 | Two extra pattern samples on the ground |
+| Three specimens, total | 0.010 | 0.006 | Absolute GPU time in their small corner canvas; 6 draws, 8,196 triangles |
+| Wind within specimens | +0.004 | +0.003 | Vertex arithmetic; separate-context scheduling/clocks affect these tiny samples |
 
 The corner canvas is a presentation aid. Product vegetation should share the map renderer,
 lighting and shadow passes. This demo keeps targets for reuse when toggles are off; it frees
