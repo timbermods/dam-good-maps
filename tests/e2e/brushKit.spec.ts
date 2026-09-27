@@ -42,7 +42,9 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  // (seed 24 since M9a, D148: 0.7.0's 4242 has no flat, dry, empty ground 7 wide at level 4 or above
+  // for the pits and the plateau, nor a mine site standing unturned)
+  await page.goto("./#s=24&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

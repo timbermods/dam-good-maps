@@ -138,7 +138,9 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 3,
   },
   {
-    minSeeds: 8,
+    // (12 seeds since D227's start rules changed which attempt a seed ends on: 0.9 on 8, 1.0 on 12;
+    // at its threshold, for M9b's hydrology to look at again)
+    minSeeds: 12,
     setting: "River style (braided)",
     target: "a braided river splits into 2–4 channels across a low plain: rivers leaving by the map edge",
     theme: "riverValley",

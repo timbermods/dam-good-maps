@@ -373,6 +373,17 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (got >= nearWood) break;
       }
     }
+    // where the walk's moist land holds too little (D227's 200 logs at Normal), standing dead groves
+    // on its dry ground give the rest: a dead tree keeps its logs, and Starting wood counts them
+    // (D164); their species drawn by the wood they give
+    if (nearWalk && got < nearWood) {
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && !moist[i] && !wet[i]) w[i] = 1;
+      for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil((nearWood - got) / Math.max(1, each)) + 3), 5)) {
+        if (growGrove(s, each, false, nearWalk, nearFill.trees, true, "forest/start")) got += groveLogs;
+        if (got >= nearWood) break;
+      }
+    }
   }
   // a second district's grove (PLAN §9.8)
   for (const site of sites) {
