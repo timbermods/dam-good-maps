@@ -441,6 +441,11 @@ cases against candidates):
   mouth sits in the lowest ground (a flat the outlets or the edge relaxation left at level 0, or a
   course along the border row), so water from downstream drains back out by the edge tiles beside the
   sealed mouth. Every check passes; a player sees water leave by the edge beside the river's mouth.
+  The heavy `rivers.test.ts` meets the same on a drawn river: on 256² seed 13 the first river drawn
+  from the east edge at (255, 238) loses water off the map beside its mouth at (255, 232) (0.049
+  deep on the nightly of 2026-09-26, before D252; 0.070 on D252's maps), so the PR's Nightly
+  (heavy-tests) is red on that one case (44 of 45 pass). Not re-seeded: the test shows a real leak;
+  for M9b's hydrology, or Kyler's call.
 - **Second districts are rare** (D77: only where one fits): 6 of 70 maps at 128² (seeds 1–10 of
   every theme; Islands 5, Canyon 1), where M7's planner found one on most Delta and Lake Basin maps.
   The batch report now counts them.
@@ -531,10 +536,18 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
   - `tools/settings-suite.ts`: River style (braided) on 12 seeds (0.9 on 8 once D227's start rules
     changed which attempt a seed ends on; 1.0 on 12, its threshold unchanged).
 - With D252's start planting (2026-09-27):
-  - `look-mine-ruins.test.ts`: the live check's sha re-pinned for the maps as they now are (D148).
+  - `look-mine-ruins.test.ts`: the live check's sha re-pinned for the maps as they now are (D148),
+    twice (`fb0e9f70…` at 37b2f50, `ec1ff6d3…` with the tight-walk rule).
   - `parity.test.ts`: the worker's background check test sculpts ground clear of the map's objects
     (its first candidate on Any seed 21 is now the map's mine site, and a sculpt under a mine site
     leaves it floating, a load problem that blocks the export); what it checks is unchanged.
+  - `tests/e2e/waterTools.spec.ts` on River Valley seed 9 (seed 15 now has only one stretch of flat,
+    dry, empty ground 7 wide away from the start; the test places two sources) and
+    `tests/e2e/brushKit.spec.ts` on seed 35 (seed 24 now has room for two of its four stretches at
+    level 4 or above; seed 35 has all four and an unturned mine site), D148. Each seed was found by
+    replaying the test's own search on the generated maps.
+  - New: `tests/contract/startPlanting.test.ts` (D252) and `tests/contract/sourcesUnderEdits.test.ts`
+    (D270's #89: a brush stroke and a Select action over a badwater spring are never refused).
 
 ## API changes (for the Live editing merge)
 
