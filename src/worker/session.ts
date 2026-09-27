@@ -580,9 +580,12 @@ const WATER_FRAME_MS = 150;
  *  sends the stroke's ground as it paints (`draftStroke`); the water around it starts moving at
  *  once, a tick or two after the ground changes, and the page shows each frame as it comes. On
  *  release the stroke's operation carries this water on (`kickWater`); Esc drops it. */
-let draft: { session: MapSession; job: PreviewJob; model: WaterModel; ground: Uint8Array; sent?: Float64Array; fresh: boolean } | null = null;
+let draft: { session: MapSession; job: PreviewJob; model: WaterModel; ground: Uint8Array; sent?: Float64Array; fresh: boolean; touched: boolean } | null = null;
 let draftToken = 0;
-/** How often a stroke's water goes to the page. */
+/** How often a stroke's water goes to the page: every frame once the stroke's ground reaches water;
+ *  while it doesn't, only the water still settling elsewhere moves, at the journey's pace (each
+ *  frame is the whole map's water: sent every frame, it cost the page a frame's time, D244's
+ *  measurements). */
 const DRAFT_FRAME_MS = 16;
 
 export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array): void {
@@ -596,14 +599,14 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
     const model: WaterModel = { ...src, floor: src.floor.slice() };
     // the edit's own settle waits: the stroke's water takes over from it
     stopWater();
-    draft = { session: s, job: new PreviewJob(from, model), model, ground: s.built.heights.slice(), fresh: true };
+    draft = { session: s, job: new PreviewJob(from, model), model, ground: s.built.heights.slice(), fresh: false, touched: false };
     const token = ++draftToken;
     setTimeout(() => void runDraft(token), 0);
   }
   // the stroke's ground: the water's floor moves with it (objects on it stay as they are)
   const d = draft;
-  // new ground: the next frame goes out as soon as the water has answered it
-  d.fresh = true;
+  const H = s.size.y;
+  const D = d.job.sim.D;
   const bw = rect.x1 - rect.x0 + 1;
   for (let y = rect.y0; y <= rect.y1; y++)
     for (let x = rect.x0; x <= rect.x1; x++) {
@@ -612,6 +615,15 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
       if (h === d.ground[i]) continue;
       d.model.floor[i] += h - d.ground[i];
       d.ground[i] = h;
+      // new ground at the water: the next frame goes out as soon as the water has answered it
+      if (!d.fresh)
+        for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1) && !d.fresh; yy++)
+          for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++)
+            if (D[yy * W + xx] > 0.001) {
+              d.fresh = true;
+              d.touched = true;
+              break;
+            }
     }
 }
 
@@ -637,9 +649,9 @@ async function runDraft(token: number): Promise<void> {
     d.fresh = false;
     while (performance.now() - t0 < WATER_SLICE_MS) {
       d.job.sim.run(2);
-      if (fresh || performance.now() - last >= DRAFT_FRAME_MS) break;
+      if (fresh || performance.now() - last >= (d.touched ? DRAFT_FRAME_MS : WATER_FRAME_MS)) break;
     }
-    if (listener && (fresh || performance.now() - last >= DRAFT_FRAME_MS)) {
+    if (listener && (fresh || performance.now() - last >= (d.touched ? DRAFT_FRAME_MS : WATER_FRAME_MS))) {
       fresh = false;
       last = performance.now();
       // only when the water has moved (a stroke far from water sends nothing)

@@ -143,6 +143,8 @@ interface MapState {
 }
 
 const PITCH_MIN = 0.18;
+/** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
+const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
@@ -482,6 +484,7 @@ export class MapRenderer {
   setMap(v: MapView, keepView = false): BuildStats {
     const t0 = performance.now();
     this.clearMap();
+    this.waterQueue.clear();
     const { W, H, heights } = v;
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
@@ -830,6 +833,9 @@ export class MapRenderer {
     m.water = water;
     m.surface = surface;
     const lower = lowerByTile(surface, water);
+    // (a stroke's chunks still waiting are meshed now too, on this water)
+    for (const key of this.waterQueue) changed.add(key);
+    this.waterQueue.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
@@ -840,6 +846,59 @@ export class MapRenderer {
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
+  }
+
+  /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
+  private readonly waterQueue = new Set<string>();
+
+  /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
+   *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
+   *  nearest the view's middle first, with the ground's tile data under them. While a stroke is
+   *  painted the water can move all over the map (a lake still filling after a force): meshing every
+   *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
+   *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
+  updateWaterSoon(water: WaterView): number {
+    const m = this.map;
+    if (!m) return 0;
+    const surface = surfaceWater(m.W, m.H, water);
+    if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0);
+    m.water = water;
+    m.surface = surface;
+    for (const key of changed) this.waterQueue.add(key);
+    this.updateClearAround();
+    this.requestRender();
+    this.onMapChange?.();
+    return changed.size;
+  }
+
+  /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
+  private drainWater(budget: number): void {
+    const m = this.map;
+    if (!m) {
+      this.waterQueue.clear();
+      return;
+    }
+    const t0 = performance.now();
+    const tx = this.view.target[0] / CHUNK;
+    const ty = -this.view.target[2] / CHUNK;
+    const keys = [...this.waterQueue].map((k) => {
+      const [cx, cy] = k.split(",").map(Number);
+      return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
+    });
+    keys.sort((a, b) => a.d - b.d);
+    let baked = false;
+    for (const { k, cx, cy } of keys) {
+      if (baked && performance.now() - t0 > budget) break;
+      this.waterQueue.delete(k);
+      this.meshWater(cx, cy, null);
+      // the ground under it: its tile data (the water over each top)
+      if (this.tileTex) {
+        tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+        this.tileTex.needsUpdate = true;
+      }
+      baked = true;
+    }
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1463,6 +1522,11 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
+    if (this.waterQueue.size) {
+      this.drainWater(WATER_MESH_BUDGET_MS);
+      if (this.waterQueue.size) this.requestRender();
+    }
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
