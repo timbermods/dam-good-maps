@@ -277,7 +277,7 @@ export function View3D(props: View3DProps) {
         Height colours
       </button>
       {props.besideHeight}
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show dam sites, slope arrows and a line at every level, and draw small far-off objects larger">
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show the sources, slope arrows and a line at every level, and draw small far-off objects larger">
         Markers
       </button>
     </>
@@ -289,10 +289,7 @@ export function View3D(props: View3DProps) {
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
       <div ref={controls} class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "orbit"} onClick={() => pick("orbit")} title="Drag to turn, right-drag to move, wheel to zoom">
-          Orbit
-        </button>
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick("top")} title="North up. Drag to move, wheel to zoom">
+        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
           Top-down
         </button>
         <button type="button" onClick={() => renderer.current?.resetView()}>
@@ -332,7 +329,7 @@ export function View3D(props: View3DProps) {
                     With <b>Markers</b> on:
                   </p>
                   <ul class="pick-list">{marked.map(item)}</ul>
-                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger, and dam sites wider.</p>
+                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger.</p>
                 </>
               ) : null}
               <p class="note">Click a line to show it on the map.</p>

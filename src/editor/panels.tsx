@@ -15,23 +15,20 @@ import { plain } from "./words";
 
 // ------------------------------------------------------------------------------ the water layers
 
-export type LayerKind = "none" | "moisture" | "badwater" | "drought" | "roofed";
+/** The water layers the view bar shows (D287: the land shows moisture itself, and the day-by-day
+ *  Drought button shows a drought; no Moisture or Drought view). */
+export type LayerKind = "none" | "badwater" | "roofed";
 
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
-  moisture: "Soil moisture",
   badwater: "Badwater",
-  drought: "Drought",
   roofed: "Water under roofs",
 };
 
 /** What the water layer on the map shows, in a line or two. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
   let text = "";
-  if (kind === "moisture") text = "Green soil is moist: living trees and bushes grow there. Darker is wetter.";
-  else if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
-  else if (kind === "drought")
-    text = `After a ${layers.droughtDays}-day drought, blue water is still there and orange water has dried up. About ${layers.droughtKept.toLocaleString()} of ${layers.droughtNow.toLocaleString()} water is left.`;
+  if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
   else if (kind === "roofed")
     text = layers.roofed.length
       ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`

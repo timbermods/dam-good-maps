@@ -20,11 +20,10 @@ import type { FixOp } from "../core/validate/report";
 import { rulesFor } from "../core/validate/playability";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "../render3d/model";
-import { damLegendSwatch } from "../render3d/palette";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
-import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
+import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
@@ -36,8 +35,7 @@ import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice"
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
-import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
-import { eruptAnatomy, type EruptAnatomy } from "../core/forces/erupt";
+import { eruptAnatomy } from "../core/forces/erupt";
 import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
@@ -58,7 +56,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesOn, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -247,7 +245,6 @@ export default function Editor(props: EditorProps) {
     },
   });
   const [instant, setInstant] = useState<CheckItem[]>([]);
-  const [damSites, setDamSites] = useState<DamSiteView[] | null>(null);
   /** The first run's hints (D184): the steps done so far. */
   const [firstRun, setFirstRun] = useState<Set<FirstStep>>(loadFirstRun);
   const firstDone = (step: FirstStep) =>
@@ -654,13 +651,6 @@ export default function Editor(props: EditorProps) {
     };
   }, [layer, info.version, waterTick, check?.version]);
 
-  // the dam-site layer, measured again after each change while it is shown
-  const showDams = damSites !== null;
-  useEffect(() => {
-    if (!showDams) return;
-    // (a layer put away before its sites arrive stays away)
-    void enqueue(() => api.damSites()).then((d) => setDamSites((shown) => (shown === null ? null : d.sites)));
-  }, [showDams, info.version]);
 
   useEffect(() => props.onChange(info), []);
 
@@ -782,7 +772,6 @@ export default function Editor(props: EditorProps) {
     if (!r || !data) return;
     const layers: OverlayLayer[] = [];
     if (waterLayers && layer !== "none") layers.push(...layerOverlay(waterLayers, layer));
-    if (damSites) for (const d of damSites) layers.push({ tiles: d.tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: DAM });
     if (painted) layers.push({ tiles: painted, color: GOOD });
     else if (fit) layers.push({ tiles: fit.tiles, color: fit.problem ? BAD : GOOD });
     if (removeRect) layers.push({ tiles: removeRect, color: BAD });
@@ -804,7 +793,7 @@ export default function Editor(props: EditorProps) {
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, forceStroke, forceCursor]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, forceStroke, forceCursor]);
 
   // ------------------------------------------------------------------------------ the pointer
 
@@ -3120,11 +3109,6 @@ export default function Editor(props: EditorProps) {
     }
   }
 
-  // the dam sites' line in the legend, with their tiles (a click on it points to them)
-  const legendExtra = useMemo(
-    () => (damSites ? [{ swatch: damLegendSwatch(), label: "Dam sites", markers: true, tiles: damSites.flatMap((d) => d.tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x)) }] : []),
-    [damSites, info.W, info.H],
-  );
   const notices = [...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
@@ -3156,8 +3140,7 @@ export default function Editor(props: EditorProps) {
             class="editor-view"
             label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
             onReady={onReady}
-            legendExtra={legendExtra}
-            markersWanted={damSites !== null || shelf?.id === "Slope"}
+            markersWanted={shelf?.id === "Slope"}
             togglesInButtons
             besideHeight={
               // a view switch (D248): what shows, never how a brush works; whatever tool is picked
@@ -3165,25 +3148,17 @@ export default function Editor(props: EditorProps) {
                 Level lines
               </button>
             }
-            showLegend={layer !== "none" || damSites !== null}
+            showLegend={layer !== "none"}
             viewButtons={
               <>
                 <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
                   Clear water
                 </button>
-                {(["moisture", "badwater", "drought", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
+                {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
                   <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the map`}>
                     {OVERLAY_WORDS[k]}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  aria-pressed={damSites !== null}
-                  onClick={() => setDamSites(damSites === null ? [] : null)}
-                  title="Show the dam sites: where a short dam holds the most water"
-                >
-                  Dam sites
-                </button>
                 <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
                 <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
                   Minimap
@@ -3320,7 +3295,7 @@ export default function Editor(props: EditorProps) {
 }
 
 /** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", moisture: "Moisture", badwater: "Badwater", drought: "Drought", roofed: "Under roofs" };
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
 
 const BRUSH_KEY = "dgm.brush";
 
@@ -3364,21 +3339,10 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
     return out;
   };
   switch (kind) {
-    case "moisture":
-      return [
-        { tiles: pick(l.moisture, 1), color: [120, 200, 110, 70] },
-        { tiles: pick(l.moisture, 2), color: [70, 180, 90, 120] },
-        { tiles: pick(l.moisture, 3), color: [30, 150, 70, 165] },
-      ];
     case "badwater":
       return [
         { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
         { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
-      ];
-    case "drought":
-      return [
-        { tiles: pick(l.drought, 1), color: [50, 110, 235, 170] },
-        { tiles: pick(l.drought, 2), color: [245, 150, 40, 170] },
       ];
     case "roofed":
       return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];

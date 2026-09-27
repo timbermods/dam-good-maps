@@ -11,9 +11,12 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **D263** (next): smart Lower's depth from strokes, new channels about one tile deep.
-> 8. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
-> 9. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 7. **The lean editor, D287-D289, with D290** (in progress): D287 done (the section below); D288
+>    (Select and Delete instead of Remove), D289 (every force's row Power, Size, one choice, Try
+>    another) and D290 (a badwater source cuts its own spring pool) next.
+> 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
+> 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
+> 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
 > here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
@@ -28,6 +31,38 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## The lean editor (D287-D289, D290)
+
+Kyler, 2026-09-27: fewer controls, the land as the interface (D184), the forces as magic, not
+machinery (D258).
+
+### D287: a leaner view bar
+
+- **One Top-down toggle.** The Orbit and Top-down pair is one **Top-down** button, lit while the
+  view looks straight down; a second click goes back to the usual orbit. Reset view stays.
+- **No dam sites anywhere a player looks.** The Dam sites view button, its overlay and legend line,
+  the map card's "Best dam site" row, the generator preview's hatched best dam site and its layer
+  switch are gone, and so is the worker's dam-site layer. The checks dot's reservoir wording names
+  no place ("a short dam within 40 tiles of the start could hold …"). The analysis stays internal:
+  the generator's measures, `water.reservoir`, the metrics. The hatched overlay (alpha 255) stays
+  in the renderer as a general mark, unused for now.
+- **No Moisture or Drought view.** Their buttons, overlays, legends and the worker's layers are
+  gone; Badwater and Under roofs stay. The land shows moisture itself, and the water bar's Drought
+  (D267, on `feature/weather-days`) shows a drought day by day.
+- The Markers view is lit by the shelf's Slope alone now (the dam sites lit it before).
+- The generator page's 2D preview keeps its own **Moist soil** switch: it is a flat preview with no
+  green, not the editor's view bar. Kyler may want it gone too (parked, one line in the handback).
+- Retired terms: "Dam sites view", "Moisture view", a `Best dam site` label, "Show dam sites" and
+  an `Orbit` button. EDITOR_PLAN §3 (the view buttons) and Part 3; the README's button list (and
+  its water line, which still named Follow after D265).
+
+Tests changed to the decision (D148): `look-clean.spec` (the Dam sites view's part became: no Dam
+sites, Moisture, Drought or Orbit button in the view bar, Badwater there); `look-readable.spec` and
+`look.spec` (the legend names no dam site, nothing is hatched); `render3d.spec` (one Top-down
+toggle, on and off, no Orbit); `water.spec` (no best dam site on the card); `look-readable.test`
+(the hatch's rim test kept as the general overlay's; the dam site's colour and swatch checks gone);
+`legend.test` (a generic label instead of "Dam sites").
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 

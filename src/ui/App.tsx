@@ -40,7 +40,6 @@ const LAYER_NAMES: Record<keyof Layers, string> = {
   moisture: "Moist soil",
   contamination: "Contaminated soil",
   reach: "Walkable from start",
-  dam: "Dam site",
   entities: "Objects",
   features: "Feature outlines",
 };
@@ -130,7 +129,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | undefined>(init.note);
-  const [layers, setLayers] = useState<Layers>({ water: true, moisture: false, contamination: false, reach: false, dam: true, entities: true, features: false });
+  const [layers, setLayers] = useState<Layers>({ water: true, moisture: false, contamination: false, reach: false, entities: true, features: false });
   const [downloaded, setDownloaded] = useState(false);
   const [timberborn, setTimberborn] = useState<SaveToTimberbornResult | null>(null);
   const [savingToTimberborn, setSavingToTimberborn] = useState(false);
@@ -574,7 +573,7 @@ export function App() {
             </p>
             <p>
               Every map is checked against the game's loading rules and for a colony's survival: clean water in pump
-              reach, food, wood, land to build on, and a dam site that holds a drought's water.
+              reach, food, wood, land to build on, and water that can be kept through a drought.
             </p>
             <p>Refine a map in the editor, or open any map to look at it in 3D and change it.</p>
           </details>

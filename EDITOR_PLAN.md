@@ -76,9 +76,13 @@ editor is desktop-first (D185).
   have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
   is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
   relics and geothermal fields.
-- **The view buttons:** Orbit, Top-down, Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin
-  line wherever the ground steps down a level, off by default, whatever tool is picked), Markers, Clear water and the
-  overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
+- **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down, off for the usual
+  orbit), Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin line wherever the ground
+  steps down a level, off by default, whatever tool is picked), Markers (the sources and the slopes), Clear water and
+  the overlays, **Badwater** and **Under roofs** (where the map has roofed water). The legend appears only while an
+  overlay is on. No dam site is drawn on the map or named on the map card: Timberborn has no dam sites, and ours were a
+  heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
+  moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
@@ -892,6 +896,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
+| The Orbit and Top-down pair; the Dam sites view, the map card's best dam site and the preview's hatched dam site; the Moisture and Drought views | D287: one Top-down toggle; the land shows moisture; the water bar's Drought, day by day |
 | Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |

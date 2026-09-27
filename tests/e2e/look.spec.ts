@@ -59,7 +59,8 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   // the legend says what the colours mean
   const legend = page.locator(".view3d-legend");
   await expect(legend).toBeVisible();
-  for (const text of ["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead", "Best dam site"]) await expect(legend).toContainText(text);
+  for (const text of ["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead"]) await expect(legend).toContainText(text);
+  await expect(legend).not.toContainText("dam site");
 
   // the default camera: the game's angle
   const view = await page.evaluate(() => window.dgm3d!.renderer.getView());

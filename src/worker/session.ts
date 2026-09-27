@@ -8,7 +8,6 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
-import { damSites as findDamSites } from "../core/analysis/damsites";
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -61,8 +60,6 @@ import { validateMap, type Validation } from "../core/validate/checks";
 import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
-import { droughtStorage } from "../core/sim/drought";
-import { rulesFor } from "../core/validate/playability";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
@@ -1589,22 +1586,15 @@ export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: st
 
 // ------------------------------------------------------------------------------ the water layers
 
-/** The editor's water layers (EDITOR_PLAN §4 overlays, §6): soil moisture, badwater and the soil
- *  it spoils, the analytic drought view, and the tiles under roofs where the preview is
- *  approximate. Per-tile codes, for the page's overlay texture. */
+/** The editor's water layers (EDITOR_PLAN §3 view buttons, D287): badwater and the soil it spoils,
+ *  and the tiles under roofs where the preview is approximate. Per-tile codes, for the page's
+ *  overlay texture. (No moisture or drought layer: the land shows moisture, and the water bar's
+ *  Drought shows a drought day by day.) */
 export interface WaterLayers {
   W: number;
   H: number;
-  /** Soil moisture bands: 0 dry, 1 moist (under 5), 2 wetter (5–9), 3 wettest (10 and up). */
-  moisture: Uint8Array;
   /** 1 badwater, 2 soil its contamination spoils. */
   badwater: Uint8Array;
-  /** The drought view: 1 water kept through the map's drought, 2 water that dries up. */
-  drought: Uint8Array;
-  droughtDays: number;
-  /** Water kept through the drought (blocks), and water there now. */
-  droughtKept: number;
-  droughtNow: number;
   /** Tiles under roofs of an imported map: the preview keeps the file's water there. */
   roofed: Int32Array;
   /** Why the water checks are approximate on this map (null: they are not). */
@@ -1615,51 +1605,28 @@ export interface WaterLayers {
 }
 
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
- *  has no settle: its moisture and drought come from the background check's canonical settle,
- *  once it has run (until then they are empty). */
+ *  has no settle: its badwater soil comes from the background check's canonical settle, once it
+ *  has run. */
 export function waterLayers(): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
   const N = W * H;
-  const days = rulesFor(s.spec, s.meta.designedFor).droughtDays;
   let depth: ArrayLike<number> = b.water;
   let contamination: ArrayLike<number> = b.contamination;
-  let moist: ArrayLike<number> = b.moisture;
   let soil: ArrayLike<number> = b.soilContamination;
-  let model = b.waterModel;
   const fromCheck = b.waterFromFile && lastWater && lastWater.version === version ? lastWater : null;
-  if (fromCheck) ({ depth, contamination, moist, soil, model } = fromCheck);
-  const moisture = new Uint8Array(N);
+  if (fromCheck) ({ depth, contamination, soil } = fromCheck);
   const badwater = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
-    const m = moist[i];
-    moisture[i] = !(m > 0) ? 0 : m < 5 ? 1 : m < 10 ? 2 : 3;
     if (depth[i] > 0.05 && contamination[i] >= 0.05) badwater[i] = 1;
     else if (soil[i] > 0) badwater[i] = 2;
-  }
-  const drought = new Uint8Array(N);
-  let kept = 0;
-  let now = 0;
-  if (!b.waterFromFile || fromCheck) {
-    const left = droughtStorage(model, depth, days);
-    for (let i = 0; i < N; i++) {
-      if (!(depth[i] > 0.05)) continue;
-      now += depth[i];
-      kept += left[i];
-      drought[i] = left[i] > 0.05 ? 1 : 2;
-    }
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
   return {
     W,
     H,
-    moisture,
     badwater,
-    drought,
-    droughtDays: days,
-    droughtKept: Math.round(kept),
-    droughtNow: Math.round(now),
     roofed,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
@@ -1674,53 +1641,6 @@ function lastWaterOf(v: Validation, at: number, w: CanonicalWater, model: WaterM
 /** The canonical water and soil of the last background check of an imported map (the layers of an
  *  unedited import, whose build keeps the file's water). */
 let lastWater: { version: number; depth: Float64Array; contamination: Float64Array; moist: Float64Array; soil: Float64Array; model: WaterModel } | null = null;
-
-// ------------------------------------------------------------------------------ the dam-site layer
-
-export interface DamSiteView {
-  /** The dam line's tiles. */
-  tiles: [number, number][];
-  /** Crest above the channel, blocks held, tiles flooded, and the dam's length. */
-  height: number;
-  volume: number;
-  area: number;
-  length: number;
-}
-
-/** The dam-site layer (EDITOR_PLAN §4): the best straight dams across the map's clean water, the
- *  way `water.reservoir` measures them, best first; within 60 tiles of the start when it has one. */
-export function damSiteLayer(): { sites: DamSiteView[]; ms: number } {
-  const t0 = performance.now();
-  const s = need();
-  const b = s.built;
-  const { W, H } = b;
-  const N = W * H;
-  if (s.showsStoredWater) return { sites: [], ms: 0 };
-  const water = b.water;
-  const clean = new Uint8Array(N);
-  const surface = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    surface[i] = b.heights[i] + water[i];
-    if (water[i] > 0.05 && b.contamination[i] < 0.05) clean[i] = 1;
-  }
-  const at = startAt(s);
-  let dist: Float64Array | null = null;
-  if (at) {
-    const m = new Uint8Array(N);
-    for (let y = at[1] - 1; y <= at[1] + 1; y++) for (let x = at[0] - 1; x <= at[0] + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1;
-    dist = distanceFrom(m, W, H);
-  }
-  const sites = findDamSites(b.heights, clean, surface, W, H, dist).slice(0, 12);
-  return {
-    sites: sites.map((d) => {
-      const half = Math.floor((d.length - 1) / 2);
-      const tiles: [number, number][] = [];
-      for (let k = -half; k <= d.length - 1 - half; k++) tiles.push([d.x + k * d.dir[1], d.y + k * d.dir[0]]);
-      return { tiles, height: d.height, volume: Math.round(d.volume), area: d.area, length: d.length };
-    }),
-    ms: Math.round(performance.now() - t0),
-  };
-}
 
 // ------------------------------------------------------------- the forces (D194, D202, D203, D206)
 
