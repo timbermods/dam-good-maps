@@ -5,7 +5,8 @@ import { soilContamination } from '../../src/core/sim/contamination';
 import { soilView, waterFromDepth, type MapView } from '../../src/render3d/model';
 import type { Difficulty } from '../../src/core/spec/mapspec';
 import { surfaceVelocity } from './flow';
-export interface WeatherBase { model:WaterModel; depth:Float64Array; contamination:Float64Array; view:MapView; difficulty:Difficulty; }
+import {PlantDrought,type DroughtPlants} from './plants';
+export interface WeatherBase { model:WaterModel; depth:Float64Array; contamination:Float64Array; view:MapView; difficulty:Difficulty; dying?:Float32Array; }
 export function weatherSimulation(base:WeatherBase){
  const model={...base.model,emitters:base.model.emitters.map(e=>({...e}))};
  return {sim:new WaterSim(model,{depth:base.depth.slice(),contamination:base.contamination.slice()}),clean:model.emitters.filter(e=>e.contamination===0)};
@@ -15,6 +16,8 @@ export function weatherSimulation(base:WeatherBase){
  * unedited-import display override. No analytic recession or invented front. */
 export async function weatherSnapshots(base:WeatherBase,hazard:Hazard,send:(frame:ReturnType<typeof snapshot>)=>void,cancelled:()=>boolean){
  const {sim,clean}=weatherSimulation(base),days=hazardDays(base.difficulty,hazard),total=days*TICKS_PER_DAY;
+ const plants=hazard==='drought'?new PlantDrought(base.view,base.dying):undefined;
+ let plantMoisture:ArrayLike<number>=base.view.soil?.moisture??moisture(base.view.heights,sim.D,sim.C,base.view.W,base.view.H,null);
  let nextSoil=TICKS_PER_DAY;
  for(let tick=0;tick<total;){
   if(cancelled())return;
@@ -22,18 +25,20 @@ export async function weatherSnapshots(base:WeatherBase,hazard:Hazard,send:(fram
   while(tick<total&&performance.now()-start<8){
    const gap=tick<TICKS_PER_DAY?12:96;
    if(hazard==='badtide')for(const e of clean)e.contamination=badtideContamination(tick/TICKS_PER_DAY,days);
+   plants?.advance(plantMoisture,gap/TICKS_PER_DAY);
    sim.run(gap,hazard==='drought'?0:1);tick+=gap;
-   if(tick>=nextSoil){send(snapshot(base,sim,hazard,tick/TICKS_PER_DAY,days));nextSoil+=TICKS_PER_DAY;}
+   if(plants?.hasLiving){plantMoisture=moisture(base.view.heights,sim.D,sim.C,base.view.W,base.view.H,null);plants.advance(plantMoisture,0);}
+   if(tick>=nextSoil){send(snapshot(base,sim,hazard,tick/TICKS_PER_DAY,days,plants?.snapshot()));nextSoil+=TICKS_PER_DAY;}
   }
   await new Promise<void>(resolve=>setTimeout(resolve,0));
  }
 }
-export function snapshot(base:WeatherBase,sim:WaterSim,phase:Hazard,day:number,days:number){
+export function snapshot(base:WeatherBase,sim:WaterSim,phase:Hazard,day:number,days:number,plants?:DroughtPlants){
  const {view}=base,{W,H,heights}=view;
  const water=waterFromDepth(heights,sim.D,sim.C);
  // These demo generators/places are heightfields. Fail rather than pretend a
  // multi-floor map can use the same surface solver.
  if(view.columns.tiles.length)throw Error('Weather study currently requires a heightfield.');
  const soil=soilView(moisture(heights,sim.D,sim.C,W,H,null),soilContamination(heights,sim.D,sim.C,W,H,null));
- return {water,soil,phase,day,days,velocity:surfaceVelocity(W,H,sim.D,sim.out)};
+ return {water,soil,phase,day,days,velocity:surfaceVelocity(W,H,sim.D,sim.out),plants};
 }

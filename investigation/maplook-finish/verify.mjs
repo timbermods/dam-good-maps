@@ -58,9 +58,10 @@ try{
  const original=await page.evaluate(()=>{const a=window.finish;const h=x=>Array.from(x).reduce((s,v)=>s+v,0);return {depth:h(a.map.water.depth),bad:h(a.map.water.contamination),soil:h(a.map.soil.moisture)};});
  await page.evaluate(()=>window.finish.weather('drought'));await page.waitForFunction(()=>window.finish.weatherDays.length===9);
  await page.evaluate(()=>{const day=document.getElementById('day');day.value='9';day.dispatchEvent(new Event('input'));window.finish.setPose('river');window.finish.freeze();});
- await toggle('dry');await toggle('heat');
+ await toggle('dry');await toggle('heat');await toggle('plants');
  await page.evaluate(()=>window.finish.weather('badtide'));await page.waitForFunction(()=>window.finish.weatherDays.length===8);
  await toggle('sickly','overview');
+ await toggle('poison','river');
  await page.evaluate(()=>{window.finish.weather('normal');window.finish.freeze();});
  const restored=await page.evaluate(()=>{const a=window.finish;const h=x=>Array.from(x).reduce((s,v)=>s+v,0);return {depth:h(a.map.water.depth),bad:h(a.map.water.contamination),soil:h(a.map.soil.moisture)};});
  assert.deepEqual(original,restored);report.weather={original,restored};

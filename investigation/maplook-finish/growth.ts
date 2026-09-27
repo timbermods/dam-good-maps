@@ -14,3 +14,12 @@ export function growthOf(view: EntityView, entities: JsonObject[]): Float32Array
   }
   return Float32Array.from({ length: view.count }, (_, i) => stored.get(`${view.templates[view.template[i]]}:${view.x[i]}:${view.y[i]}:${view.z[i]}`) ?? (view.flags[i] & YOUNG ? 0.35 : 1));
 }
+/** Existing saved dying progress, matched by identity/position like growth. */
+export function dyingOf(view:EntityView,entities:JsonObject[]):Float32Array{
+ const values=new Map<string,number>();
+ for(const e of entities){const p=placementOf(e);if(!p)continue;const raw=((e.Components as JsonObject)?.WateredNaturalResource as JsonObject|undefined)?.DyingProgress;
+  const value=raw instanceof JsonFloat?raw.value:typeof raw==='number'?raw:0;
+  values.set(`${p.template}:${p.x}:${p.y}:${p.z}`,Math.max(0,Math.min(1,value)));
+ }
+ return Float32Array.from({length:view.count},(_,i)=>values.get(`${view.templates[view.template[i]]}:${view.x[i]}:${view.y[i]}:${view.z[i]}`)??0);
+}

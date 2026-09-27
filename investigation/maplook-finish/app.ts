@@ -17,6 +17,7 @@ import { WaterFinish } from './water-finish';
 import { Landmarks } from './landmarks';
 import { Seasons } from './seasons';
 import type { MapRequest } from './maps.worker';
+import type {DroughtPlants} from './plants';
 
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const input=(id:string)=>$<HTMLInputElement>(id), select=(id:string)=>$<HTMLSelectElement>(id);
@@ -32,10 +33,11 @@ const seasons=new Seasons(b.terrainMat,b.waterMat,b.skyMat);post.climate=seasons
 let forest:Forest|undefined, map:MapView|undefined, baseMap:MapView|undefined, velocity=new Float32Array(2), currentKind='', label='', ready=false, worker:Worker|undefined, serial=0;
 let clock=8, measuring=false, paused=false, low=false, syncing=false;
 let objectIndex=0, activeWeather='normal';
+let plantState:DroughtPlants|undefined;
 const stageLabels=['The diorama edge','Water’s finishing touches','Objects & landmarks','Visible seasons'];
 const effectLabels:Record<string,string>={geology:'Rock beds',soil:'Soil cap',section:'Water section',crown:'Continuous crown',landing:'Irregular landing',bubbles:'Bubbly froth',mist:'Mist',rings:'Splash rings',riverfoam:'River foam',landmarks:'Original models',objectdetail:'Fine detail',dry:'Dry soil & grass',heat:'Heat shimmer',sickly:'Badtide sky'};
-Object.assign(effectLabels,{ruins:'Ruins',mine:'Mine site',relics:'Relics',start:'District centre',geothermal:'Geothermal',thorns:'Thorns',slopes:'Slopes',dams:'Natural dams',blocks:'Blockages',sources:'Sources'});
-const stageKeys=[['geology','soil','section'],['crown','landing','bubbles','mist','rings','riverfoam'],['landmarks','objectdetail','ruins','mine','relics','start','geothermal','thorns','slopes','dams','blocks','sources'],['dry','heat','sickly']];
+Object.assign(effectLabels,{ruins:'Ruins',mine:'Mine site',relics:'Relics',start:'District centre',geothermal:'Geothermal',thorns:'Thorns',slopes:'Slopes',dams:'Natural dams',blocks:'Blockages',sources:'Sources',plants:'Drought plants',poison:'Poisoned soil (proposal)'});
+const stageKeys=[['geology','soil','section'],['crown','landing','bubbles','mist','rings','riverfoam'],['landmarks','objectdetail','ruins','mine','relics','start','geothermal','thorns','slopes','dams','blocks','sources'],['dry','plants','heat','sickly','poison']];
 const foundationLabels:Record<string,string>={water:'Water (#38)',shadows:'Soft shadows',sunlight:'Warm sunlight',ao:'Ambient occlusion',tone:'Tone mapping',grade:'Colour grade',haze:'Haze',sky:'Sky',strata:'Cliff strata',blend:'Soil edges',variation:'Colour variation',vegetation:'Approved vegetation'};
 const flags:Record<string,boolean>=Object.fromEntries([...Object.keys(effectLabels),...Object.keys(foundationLabels)].map(k=>[k,true]));
 const stages=[true,true,true,true];
@@ -57,6 +59,8 @@ function apply(){
   if(objects)for(const child of objects.children){if(isPlant(child.name.split('.')[0]))child.visible=!flags.vegetation;}
   landmarks.apply(on(2,'landmarks'),on(2,'objectdetail')&&!low,flags);
   seasons.dry.value=+(on(3,'dry')&&activeWeather==='drought');
+  seasons.poison.value=+on(3,'poison');
+  forest?.setDrought(plantState,on(3,'plants')&&activeWeather==='drought');
   seasons.sky.value=on(3,'sickly')&&activeWeather==='badtide'&&seasons.stats.contaminated>0?.095:0;
   post.heat=on(3,'heat')&&activeWeather==='drought'&&!low&&!matchMedia('(prefers-reduced-motion: reduce)').matches?1:0;
   base.dirty=true;
@@ -145,7 +149,7 @@ function setPose(kind:string){
  }
  camera(v);
 }
-type WeatherFrame={water:WaterView;soil:SoilView;phase:string;day:number;days:number;velocity:Float32Array};
+type WeatherFrame={water:WaterView;soil:SoilView;phase:string;day:number;days:number;velocity:Float32Array;plants?:DroughtPlants};
 const weatherFrames=new Map<number,WeatherFrame>();
 let weatherComplete=false,weatherFramePending=0,dayPinned=false;
 function resetWeather(){activeWeather='normal';weatherFrames.clear();weatherComplete=false;dayPinned=false;$('weather-status').textContent="Map's stored water and moisture";input('day').value='0';['normal','drought','badtide'].forEach(k=>$(k).setAttribute('aria-pressed',String(k==='normal')));}
@@ -153,6 +157,7 @@ function showWeatherDay(day:number){
  if(!map||!baseMap)return;
  const f=weatherFrames.get(day);
  if(day>0&&!f)return;
+ plantState=f?.plants;
  const water=f?.water??baseMap.water,soil=f?.soil??baseMap.soil!;
  map={...map,water,soil};
  rs.forEach(r=>{r.updateWater(water);r.updateSoil(soil);});
@@ -239,6 +244,6 @@ $('capture').onclick=()=>{freeze();const c=document.createElement('canvas');c.wi
 const source=document.createElement('a');source.href=ELEVATION_SOURCE_URL;source.textContent=ELEVATION_SOURCE;$('credits').append(source);
 for(const text of [CHANGES,NOT_ENDORSED,...PROVIDER_NOTICES]){const p=document.createElement('p');p.textContent=text;$('credits').append(p);}
 $('gpu').textContent=high.gpu().renderer+' · Three.js 0.186.0 · Standard renderer unchanged; full Standard forced on software WebGL';
-const api={get ready(){return ready;},get map(){return map;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,weather,showWeatherDay,get weatherReady(){return weatherComplete;},get weatherDays(){return [...weatherFrames.keys()];},get weatherState(){return activeWeather;},setPose,camera,setEffects,setStages,freeze,measure,measureStages,gpuBatch,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats,water:waterFinish.stats,landmarks:landmarks.stats,seasons:seasons.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
+const api={get ready(){return ready;},get map(){return map;},get velocity(){return velocity;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,weather,showWeatherDay,get weatherReady(){return weatherComplete;},get weatherDays(){return [...weatherFrames.keys()];},get weatherState(){return activeWeather;},setPose,camera,setEffects,setStages,freeze,measure,measureStages,gpuBatch,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats,water:waterFinish.stats,landmarks:landmarks.stats,seasons:seasons.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
 (window as unknown as {finish:typeof api}).finish=api;
 requestAnimationFrame(frame);void load(2).catch(console.error);

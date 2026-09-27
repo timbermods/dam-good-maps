@@ -7,7 +7,7 @@ import { entityView, emptyColumns, soilView, waterFromDepth, surfaceWater, type 
 import { WaterSim } from '../../src/core/sim/water';
 import { waterModelFromWorld } from '../../src/core/sim/model';
 import { surfaceVelocity } from './flow';
-import { growthOf } from './growth';
+import { growthOf,dyingOf } from './growth';
 import { galleryMap } from '../../tools/waterfall-gallery';
 import { canonicalSettle } from '../../src/core/sim/prefill';
 import { moisture } from '../../src/core/sim/moisture';
@@ -67,7 +67,7 @@ self.onmessage = async ({data:r}:MessageEvent<MapRequest>) => {
     const {view}=openTimber(bytes,label+'.timber');current=view;
     const world=readTimber(bytes).world;
     const sw=surfaceWater(view.W,view.H,view.water);
-    weatherBase={view,model:waterModelFromWorld(world,view.heights),depth:Float64Array.from(sw.depth),contamination:Float64Array.from(sw.contamination),difficulty:'normal'};
+    weatherBase={view,model:waterModelFromWorld(world,view.heights),depth:Float64Array.from(sw.depth),contamination:Float64Array.from(sw.contamination),difficulty:'normal',dying:dyingOf(view.entities,world.entities)};
     if(!settled?.out){
       const sw=surfaceWater(view.W,view.H,view.water);
       const sim=new WaterSim(waterModelFromWorld(world,view.heights),{depth:Float64Array.from(sw.depth),contamination:Float64Array.from(sw.contamination)});

@@ -7,6 +7,8 @@ import { moisture } from '../../src/core/sim/moisture';
 import { soilContamination } from '../../src/core/sim/contamination';
 import { climateData } from './seasons';
 import { riverField } from './water-finish';
+import {riverAnalysis} from './river';
+import {PlantDrought} from './plants';
 import { weatherSnapshots,type WeatherBase } from './weather';
 
 function fixture():WeatherBase{
@@ -54,7 +56,38 @@ test('still water and dry land produce no invented river foam',()=>{
  assert.ok(field.every(x=>x===0));
  const velocity=new Float32Array(view.W*view.H*2).fill(2),moving=riverField(view,velocity),sw=surfaceWater(view.W,view.H,view.water);
  for(let i=0;i<field.length;i++){assert.ok(Number.isFinite(moving[i]));if(sw.depth[i]<=.001)assert.equal(moving[i],0);}
- assert.ok(moving.some(x=>x>0));
+ assert.ok(moving.every(x=>x===0),'uniform ordinary flow has no added froth');
+});
+test('rough foam is relative to each river and stays at rapids, obstacles and short fall tails',()=>{
+ const W=36,H=24,heights=new Uint8Array(W*H).fill(2),depth=new Float32Array(W*H),v=new Float32Array(W*H*2);
+ for(let y=8;y<16;y++)for(let x=0;x<W;x++){const i=y*W+x;heights[i]=0;depth[i]=1;v[i*2]=6;}
+ const make=():MapView=>({W,H,heights,columns:emptyColumns(),entities:entityView([]),water:waterFromDepth(heights,depth,new Float32Array(W*H))});
+ assert.ok(riverField(make(),v).every(x=>x===0),'uniform channel stays clean despite fast absolute flow');
+ for(let y=8;y<16;y++)for(let x=23;x<26;x++)v[(y*W+x)*2]=12;
+ const rock=12*W+15;heights[rock]=2;depth[rock]=0;for(const j of [rock-1,rock+1,rock-W,rock+W])v[j*2]=11;
+ let a=riverAnalysis(make(),v);assert.ok(a.counts.rapids>0);assert.ok(a.counts.obstacles>0);
+ assert.equal(a.field[10*W+5],0,'ordinary upstream reach has no extra foam');
+ assert.equal(a.field[rock],0,'dry rock has no foam');
+ for(const j of [rock+1,rock+W,rock+W+1]){heights[j]=2;depth[j]=0;}
+ for(const j of [rock-1,rock-W,rock+2,rock+2*W])v[j*2]=11;
+ assert.ok(riverAnalysis(make(),v).counts.obstacles>0,'a wider rock also creates a local wake');
+ a=riverAnalysis(make(),v);
+ assert.deepEqual(a.field,riverAnalysis(make(),Float32Array.from(v,x=>x*2)).field,'doubling the whole river does not expand the foam');
+ v.fill(0);for(let y=8;y<16;y++)for(let x=0;x<W;x++){v[(y*W+x)*2]=6;if(x<7)heights[y*W+x]=2;}
+ a=riverAnalysis(make(),v);assert.ok(a.counts.falls>0);
+ assert.equal(a.falls[10*W+12],0,'fall foam dies out within a few downstream tiles');
+});
+test('plants use zero-moisture species timers, reset when rewetted, and retain death',()=>{
+ const map=fixture().view;
+ map.entities=entityView([{template:'BlueberryBush',x:8,y:4,z:7},{template:'Pine',x:9,y:4,z:7},{template:'Birch',x:10,y:4,z:7}].map(e=>({...e,orientation:'Cw0',owner:'study'})));
+ const moisture=new Uint8Array(map.W*map.H);moisture[4*map.W+10]=1;
+ const p=new PlantDrought(map);p.advance(moisture,8);
+ assert.equal(p.snapshot().killed,0,'no species dies before the earliest possible delay');
+ assert.ok(p.snapshot().stress[0]>.7);assert.equal(p.snapshot().stress[2],0,'even a little moisture keeps a plant green');
+ p.advance(moisture,2);assert.equal(p.snapshot().dead[0],1,'berry passes its maximum 9.9-day delay');assert.equal(p.snapshot().dead[1],0,'pine cannot die before 11.7 days');
+ moisture.fill(1);p.advance(moisture,.1);assert.equal(p.snapshot().stress[1],0);assert.equal(p.snapshot().dead[0],1,'dead form persists within the preview');
+ moisture.fill(0);p.advance(moisture,10);assert.equal(p.snapshot().dead[1],0,'rewetting reset the timer');
+ p.advance(moisture,7);assert.equal(p.snapshot().dead[1],1);
 });
 test('cancelled weather emits nothing',async()=>{
  const frames:unknown[]=[];await weatherSnapshots(fixture(),'badtide',f=>frames.push(f),()=>true);assert.equal(frames.length,0);
