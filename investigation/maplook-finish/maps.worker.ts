@@ -48,7 +48,7 @@ self.onmessage = async ({data:r}:MessageEvent<MapRequest>) => {
         const entities=entityView(objectTypes.map((template,i)=>({template,x:4+i*6,y:12,z:4,orientation:'Cw0',owner:'study',strength:1.5})));
         view={W,H,heights,columns:emptyColumns(),entities,water:waterFromDepth(heights,new Float32Array(W*H),new Float32Array(W*H)),soil:{moisture:new Uint8Array(W*H).fill(128),contamination:new Uint8Array(W*H)}};
         // Slope climbs one genuine level; no decorative floating ramp.
-        for(let x=51;x<55;x++)for(let y=13;y<16;y++)heights[y*W+x]=5;
+        for(let x=51;x<55;x++)for(let y=9;y<12;y++)heights[y*W+x]=5;
         velocity=new Float32Array(W*H*2); label='Landmark study · original procedural models';
       }
       current=view; self.postMessage({id,view,label,velocity,growth:undefined}); return;

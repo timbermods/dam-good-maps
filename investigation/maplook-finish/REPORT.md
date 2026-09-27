@@ -13,3 +13,6 @@ Stages 2–4 and verification are in progress.
 
 Stage 2: world-space crown detail, a dissolving pool contact, small circular bubbles, mist and expanding rings. River foam reads a smoothed turbulence envelope from simulated velocity and actual wet neighbours. Tiny water-height steps share their neighbours' body colour, removing bright dotted tile seams. Paired old/new tall-fall, landing and river-rock captures pass Chrome shader checks. Mist and rings each add one bounded draw; measurements follow.
 
+
+Stage 3: original roof shingles, log courses, windows and a start banner; fluted and broken relic columns; dark vent stones; thorn canes; a stone-and-wood natural dam; blockage boulders; spring bowls; and worn slopes. Ruins retain their approved scaffold, pale panels and moisture-gated ivy, with gussets and bolts. The mine retains its real framed pit, roots and corner platforms, with pulley and joinery detail. Each object family can be switched off. All 13 object types have side/top paired captures; TypeScript and browser shader checks pass.
+

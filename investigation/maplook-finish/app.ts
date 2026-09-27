@@ -14,6 +14,7 @@ import { Forest, isPlant, vegetationMaterial } from './forest';
 import { motion } from './wind';
 import { DioramaEdge } from './edge';
 import { WaterFinish } from './water-finish';
+import { Landmarks } from './landmarks';
 import type { MapRequest } from './maps.worker';
 
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -25,12 +26,14 @@ const flow=new WaterFlow(b.waterMat), bed=badwaterBed(b.terrainMat,b.waterMat);
 const lighting=new Lighting(high,base), terrain=new Terrain(b.terrainMat), edge=new DioramaEdge(b.terrainMat,b.waterMat), post=new Post(high);
 const vegMaterial=vegetationMaterial(b.objectMat); motion.vegSway.value=0;
 const waterFinish=new WaterFinish(high,b.waterMat);
+const landmarks=new Landmarks(b.objectMat);b.scene.add(landmarks.group);
 let forest:Forest|undefined, map:MapView|undefined, baseMap:MapView|undefined, velocity=new Float32Array(2), currentKind='', label='', ready=false, worker:Worker|undefined, serial=0;
 let clock=8, measuring=false, paused=false, low=false, syncing=false;
 let objectIndex=0, activeWeather='normal';
 const stageLabels=['The diorama edge','Water’s finishing touches','Objects & landmarks','Visible seasons'];
 const effectLabels:Record<string,string>={geology:'Rock beds',soil:'Soil cap',section:'Water section',crown:'Continuous crown',landing:'Irregular landing',bubbles:'Bubbly froth',mist:'Mist',rings:'Splash rings',riverfoam:'River foam',landmarks:'Original models',objectdetail:'Fine detail',dry:'Dry soil & grass',heat:'Heat shimmer',sickly:'Badtide sky'};
-const stageKeys=[['geology','soil','section'],['crown','landing','bubbles','mist','rings','riverfoam'],['landmarks','objectdetail'],['dry','heat','sickly']];
+Object.assign(effectLabels,{ruins:'Ruins',mine:'Mine site',relics:'Relics',start:'District centre',geothermal:'Geothermal',thorns:'Thorns',slopes:'Slopes',dams:'Natural dams',blocks:'Blockages',sources:'Sources'});
+const stageKeys=[['geology','soil','section'],['crown','landing','bubbles','mist','rings','riverfoam'],['landmarks','objectdetail','ruins','mine','relics','start','geothermal','thorns','slopes','dams','blocks','sources'],['dry','heat','sickly']];
 const foundationLabels:Record<string,string>={water:'Water (#38)',shadows:'Soft shadows',sunlight:'Warm sunlight',ao:'Ambient occlusion',tone:'Tone mapping',grade:'Colour grade',haze:'Haze',sky:'Sky',strata:'Cliff strata',blend:'Soil edges',variation:'Colour variation',vegetation:'Approved vegetation'};
 const flags:Record<string,boolean>=Object.fromEntries([...Object.keys(effectLabels),...Object.keys(foundationLabels)].map(k=>[k,true]));
 const stages=[true,true,true,true];
@@ -50,6 +53,7 @@ function apply(){
   if(forest){forest.group.visible=flags.vegetation;forest.low=low;}
   const objects=(high as unknown as {objects:Group}).objects;
   if(objects)for(const child of objects.children){if(isPlant(child.name.split('.')[0]))child.visible=!flags.vegetation;}
+  landmarks.apply(on(2,'landmarks'),on(2,'objectdetail')&&!low,flags);
   base.dirty=true;
   high.requestRender();
 }
@@ -89,10 +93,11 @@ async function load(index=Number(select('map').value),seed=Number(input('seed').
   if(data.error){fail(data.error);return;}
   if(data.weather||data.restored||data.weatherDone){weatherMessage(data);return;}
   try {
-    forest?.dispose();forest=undefined;map=data.view;baseMap=structuredClone(map);velocity=data.velocity;label=data.label;
+    forest?.dispose();forest=undefined;landmarks.clear();map=data.view;baseMap=structuredClone(map);velocity=data.velocity;label=data.label;
     lighting.setMap(map!);flow.set(map!.W,map!.H,velocity,surfaceContamination(map!));
     rs.forEach(r=>r.setMap(map!));base.fit(map!.W,map!.H);
     forest=new Forest(map!.entities,data.growth,vegMaterial);b.scene.add(forest.group);
+    landmarks.setMap(map!,(high as unknown as {objects:Group}).objects);
     waterFinish.setMap(map!,velocity);resetWeather();apply();setPose(currentKind==='objects'?'objects':currentKind==='falls'?'fall':'overview');
     ready=true;pendingReject=undefined;samples=[];adaptAt=performance.now();
     $('status').textContent=label+' · '+map!.entities.count.toLocaleString()+' objects';
@@ -109,7 +114,7 @@ function setPose(kind:string){
  const {W,H,heights}=map,sw=surfaceWater(W,H,map.water);
  let v:Partial<ViewState>={mode:'orbit',target:[W/2,6,-H/2],distance:Math.max(W,H)*1.4,pitch:0.85,yaw:-0.55};
  if(kind==='objects'||kind==='object'||kind==='top'){
-   if(currentKind==='objects'){const x=4+objectIndex*6;v={mode:kind==='top'?'top':'orbit',target:kind==='objects'?[42,4.5,-13]:[x+1.0,5,-13],distance:kind==='objects'?62:objectTypes[objectIndex]==='UndergroundRuins'?10:7,pitch:0.62,yaw:-0.5};}
+   if(currentKind==='objects'){const x=4+objectIndex*6,name=objectTypes[objectIndex],center:Record<string,number[]>={UndergroundRuins:[2,2],StartingLocation:[1,1],BadwaterSource:[1,1],GeothermalField:[1,1],SmallRelic:[.5,0],MediumRelic:[1,.5],LargeRelic:[1,1]},c=center[name]??[0,0];v={mode:kind==='top'?'top':'orbit',target:kind==='objects'?[42,4.5,-13]:[x+c[0]+.5,name.startsWith('Ruin')?6:name==='StartingLocation'?5.5:4.7,-12-c[1]-.5],distance:kind==='objects'?62:name==='UndergroundRuins'?10:name.startsWith('Ruin')||name==='StartingLocation'?8:6.7,pitch:0.58,yaw:-0.5};}
    else if(kind==='top')v.mode='top';
  }else if(kind==='edge'||kind==='badedge'){
    let best=-Infinity,point=[0,0,0],yaw=0;
@@ -139,7 +144,7 @@ $('all').onclick=()=>{setStages(stages.some(Boolean)?[false,false,false,false]:[
 input('low').onchange=()=>{low=input('low').checked;b.gl.setPixelRatio(low?0.85:Math.min(devicePixelRatio,1.5));apply();};
 select('layout').onchange=()=>{const v=select('layout').value;document.querySelectorAll('#comparison article').forEach((el,i)=>el.classList.toggle('hidden',v===(i?'standard':'high')));$('comparison').classList.toggle('single',v!=='both');samples=[];adaptAt=performance.now();};
 function renderNow(r:MapRenderer){const x=r as unknown as {frame:number};if(x.frame)cancelAnimationFrame(x.frame);x.frame=0;r.renderNow();}
-function freeze(t=8){input('pause').checked=true;clock=t;motion.vegTime.value=t;rs.forEach(r=>{r.setClock(t);renderNow(r);});}
+function freeze(t=8){input('pause').checked=true;clock=t;motion.vegTime.value=t;rs.forEach((r,i)=>{r.setClock(t);renderNow(r);renderNow(r);$(i?'high-fps':'standard-fps').textContent='Paused · '+drawCounts[i]+' draws';});}
 function frame(now:number){
  const dt=now-prev;prev=now;paused=input('pause').checked||document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches;
  if(ready&&!paused&&!measuring){clock+=Math.min(dt,100)/1000;rs.forEach(r=>r.setClock(clock));motion.vegTime.value=clock;samples.push(dt);if(samples.length>600)samples.shift();}
@@ -168,6 +173,6 @@ $('capture').onclick=()=>{freeze();const c=document.createElement('canvas');c.wi
 const source=document.createElement('a');source.href=ELEVATION_SOURCE_URL;source.textContent=ELEVATION_SOURCE;$('credits').append(source);
 for(const text of [CHANGES,NOT_ENDORSED,...PROVIDER_NOTICES]){const p=document.createElement('p');p.textContent=text;$('credits').append(p);}
 $('gpu').textContent=high.gpu().renderer+' · Three.js 0.186.0 · Standard renderer unchanged; full Standard forced on software WebGL';
-const api={get ready(){return ready;},get map(){return map;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,setPose,camera,setEffects,setStages,freeze,measure,measureStages,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
+const api={get ready(){return ready;},get map(){return map;},get label(){return label;},get stages(){return [...stages];},get flags(){return {...flags};},get options(){return options;},get gpu(){return high.gpu();},standard,high,load,setPose,camera,setEffects,setStages,freeze,measure,measureStages,get counts(){return {draws:drawCounts,triangles,vegetation:forest?.stats,ambient:lighting.stats,water:waterFinish.stats,landmarks:landmarks.stats};},selectObject(i:number,top=false){objectIndex=i;select('object').value=String(i);setPose(top?'top':'object');}};
 (window as unknown as {finish:typeof api}).finish=api;
 requestAnimationFrame(frame);void load(2).catch(console.error);
