@@ -7,6 +7,12 @@ and private-field bridge. Keep each addition independently switchable for diagno
 
 ## Lighting and finish
 
+**Warm sunlight:** retain the measured palette and sun direction. Relative to Standard's
+light uniforms, multiply the sun by (1.48, 1.30, 1.10) and sky fill by 0.97. This raises
+direct light more than ambient light, so sunlit faces are warm and bright while local AO
+and shadows retain depth. It is an independent switch, with no additional draw or texture.
+When off, the original maplook2 shadow-light balance is restored.
+
 **Ambient occlusion:** move the eight-direction, four-radius horizon calculation to a worker.
 Cache one RGBA8 texel per tile: 64 KiB at 128², 256 KiB at 256². Recompute changed rectangles
 plus an eight-tile border after sculpting, and tree/ruin footprints after placement or removal.
@@ -16,18 +22,26 @@ caves/overhangs keep existing shading and need a separate acceptance case before
 Do not rebuild the whole field on every brush frame.
 
 **Tone mapping and colour grade:** the current custom shaders author display RGB. This bridge
-decodes that RGB, grades in linear light, applies a Khronos Neutral shoulder with slight
-exposure lift and a 32%-strength toe, and encodes once in a single full-resolution pass.
-The shoulder bounds bright values; grading precedes it to avoid clipped warm highlights. The High finish
+decodes that RGB, grades in linear light, applies 1.22 exposure and a peak-preserving shoulder,
+and encodes once in a single full-resolution pass. The shoulder begins at linear peak 0.82,
+scaling all channels together toward a bounded peak of 1. It retains the Neutral shoulder's
+form but removes its darkening toe and whitening of highlights. There is no filmic wash.
+The grade adds 6% linear-light saturation and a gentle warm highlight balance, retaining
+sunny yellow-greens. Grading precedes the shoulder to avoid clipped warm highlights. The High finish
 allows values above one before that pass. This is not a conversion to physically based HDR
 lighting. Preserve the maplook2 colour anchors during product adoption by measuring final
-framebuffer samples again; the optional grade changes their displayed values slightly.
+framebuffer samples again; exposure and lighting deliberately brighten their final appearance.
+Keep the captured-view regression: whole canvas, a shared map mask and sunny-green pixels
+must each match or exceed Standard in mean brightness, linear luminance and saturation.
+The test is a guard against a dull finish, not a substitute for judging the art direction.
 The demo retains four-sample MSAA in its half-float render target. At the measured 719×637
 pane that target needs roughly 25–27 MiB (multisampled colour/depth and resolve buffers),
 in addition to the normal buffers. Avoid allocating it at all when both finish effects are off.
 
-**Haze and sky:** use the same pale, warm horizon for distance air and the procedural sky.
-Haze fades with distance beyond the camera target and is disabled in the top view. Clouds
+**Haze and sky:** use a clear blue sky and the same pale horizon for distant air. Haze starts
+at max(64 tiles, 1.275 × camera-target distance), easing to at most 5.5% at
+max(160 tiles, 3.38 × camera-target distance). Nearby land keeps its full colour and detail.
+It is disabled in the top view. Clouds
 are static, soft and confined above the horizon; a broad sun glow replaces a hard sun disc.
 No cloud textures, bloom, depth-of-field blur or vignette. Keep map labels and overlays out
 of the post pass in the product so their colours remain exact.
@@ -117,7 +131,7 @@ editing updates and context restoration before replacing any map trees.
 ## Acceptance and limits
 
 The current demo checks each effect, all-off Standard parity, two-way cameras, vegetation
-motion/pause and 15 real generated/place cases. It is an art prototype, not a product-quality
+motion/pause, nine matched colour comparisons and 15 generated/place cases. It is an art prototype, not a product-quality
 renderer interface. The private hooks deliberately throw if upstream shaders change.
 Final appeal still belongs to Kyler's eye against the game. No game assets or in-game captures
 were accessed and no Timberborn process was launched.

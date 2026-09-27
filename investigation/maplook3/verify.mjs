@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { openDemo } from './browser.mjs';
+import { measureColour, assertColour } from './colour.mjs';
 process.chdir(fileURLToPath(new URL('.', import.meta.url)));
 mkdirSync('captures', { recursive: true });
 mkdirSync('local', { recursive: true });
@@ -61,7 +62,10 @@ try {
       assert.ok(found, `Missing ${kind}`);
       await page.waitForTimeout(150);
       await page.locator('#comparison').screenshot({ path: `captures/${name}.jpg`, type: 'jpeg', quality: 78 });
-      report.captures.push({ file: `${name}.jpg`, camera: await page.evaluate(() => window.maplook3.standard.getView()) }); console.log('Captured', name);
+      const colour = await measureColour(page);
+      report.captures.push({ file: `${name}.jpg`, camera: await page.evaluate(() => window.maplook3.standard.getView()), colour });
+      assertColour(colour, name);
+      console.log('Captured', name, 'map brightness / saturation vs Standard:', colour.map.ratio.brightness.toFixed(3), colour.map.ratio.saturation.toFixed(3));
     }
     for (const [name, kind] of [['overview-128', 'overview'], ['cliff', 'cliff'], ['forest-edge', 'forest'], ['riverbank', 'shore'], ['contaminated-ground', 'contaminated']]) await capture(name, kind);
     await page.screenshot({ path: 'captures/demo.jpg', type: 'jpeg', quality: 76 });

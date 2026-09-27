@@ -6,6 +6,7 @@
     "demo": "node run.mjs",
     "build": "vite build",
     "check": "tsc --noEmit",
+    "check:colour": "node check-colour.mjs",
     "verify": "node verify.mjs",
     "bench": "node benchmark.mjs",
     "profile": "node profile-gpu.mjs",

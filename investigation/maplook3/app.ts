@@ -17,7 +17,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const standard = new MapRenderer($<HTMLCanvasElement>('standard'));
 const high = new MapRenderer($<HTMLCanvasElement>('high'));
 standard.setClock(8); high.setClock(8);
-const base = new Effects(high); base.water = base.shadows = true; base.apply();
+const base = new Effects(high); base.water = base.shadows = base.sunlight = true; base.apply();
 const flow = new WaterFlow(bridge(high).waterMat);
 const bed = badwaterBed(bridge(high).terrainMat, bridge(high).waterMat);
 const lighting = new Lighting(high, base);
@@ -25,7 +25,7 @@ const terrain = new Terrain(bridge(high).terrainMat);
 const post = new Post(high);
 const vegetation = new Vegetation($<HTMLCanvasElement>('trees'));
 $('specimen-panel').hidden = false;
-const labels = { water: 'Water', shadows: 'Soft shadows', ao: 'Ambient occlusion', tone: 'Tone mapping', grade: 'Colour grade', haze: 'Distance haze', sky: 'Sky', strata: 'Rock strata', blend: 'Soil edges', variation: 'Colour variation', specimens: 'Tree sketch', wind: 'Wind' };
+const labels = { water: 'Water', shadows: 'Soft shadows', sunlight: 'Warm sunlight', ao: 'Ambient occlusion', tone: 'Tone mapping', grade: 'Colour grade', haze: 'Distance haze', sky: 'Sky', strata: 'Rock strata', blend: 'Soil edges', variation: 'Colour variation', specimens: 'Tree sketch', wind: 'Wind' };
 type Effect = keyof typeof labels;
 const flags = Object.fromEntries(Object.keys(labels).map(k => [k, true])) as Record<Effect, boolean>;
 for (const [key, label] of Object.entries(labels)) {
@@ -37,7 +37,7 @@ for (const [key, label] of Object.entries(labels)) {
 function setEffects(change: Partial<Record<Effect, boolean>>) {
   Object.assign(flags, change);
   for (const k of Object.keys(labels) as Effect[]) $<HTMLInputElement>(k).checked = flags[k];
-  base.water = flags.water; base.shadows = flags.shadows; base.apply(); bed.setEnabled(flags.water);
+  base.water = flags.water; base.shadows = flags.shadows; base.sunlight = flags.sunlight; base.apply(); bed.setEnabled(flags.water);
   lighting.ao.value = +flags.ao; lighting.haze.value = +flags.haze; lighting.sky.value = +flags.sky;
   lighting.unclamp.value = +(flags.tone || flags.grade);
   terrain.strata.value = +flags.strata; terrain.blend.value = +flags.blend; terrain.variation.value = +flags.variation;

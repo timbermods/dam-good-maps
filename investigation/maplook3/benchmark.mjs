@@ -19,7 +19,7 @@ try {
     await page.evaluate(() => { window.maplook3.setPose('overview'); window.maplook3.freeze(); });
     const entry = await page.evaluate(() => { const a = window.maplook3; const e = a.map.entities; let trees = 0; for (let k = 0; k < e.count; k++) if (/^(Pine|Birch|Oak)/.test(e.templates[e.template[k]])) trees++; return { label: a.label, W: a.map.W, H: a.map.H, objects: e.count, totalTrees: trees, ambient: a.lighting.stats, samples: [] }; });
     report.maps.push(entry);
-    const effects = ['ao', 'tone', 'grade', 'haze', 'sky', 'strata', 'blend', 'variation', 'specimens', 'wind'];
+    const effects = ['sunlight', 'ao', 'tone', 'grade', 'haze', 'sky', 'strata', 'blend', 'variation', 'specimens', 'wind'];
     const cases = ['standard', 'foundation', 'full', 'both', ...effects.map(k => `without-${k}`)];
     for (let round = 0; round < 2; round++) for (const name of (round ? [...cases].reverse() : cases)) {
       const result = await page.evaluate(async ({ name }) => {

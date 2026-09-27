@@ -12,8 +12,9 @@ Real places use the repository's existing terrain datasets, not art textures. At
 shown in the demo using src/core/places/attribution.ts; the upstream dataset notices remain
 applicable. Generated maps come from the repository generator and are not committed.
 
-three.js 0.186.0 is the same version as the repository (MIT). The neutral tone mapping curve
+three.js 0.186.0 is the same version as the repository (MIT). The tone mapping shoulder
 is derived from three.js's `NeutralToneMapping` shader (the Khronos PBR Neutral curve),
+with its toe and highlight desaturation removed for this bright stylised look,
 credited in post.ts. Source: `node_modules/three/src/renderers/shaders/ShaderChunk/tonemapping_pars_fragment.glsl.js`,
 installed at the pinned 0.186.0 version. The derivative's licence notice follows.
 

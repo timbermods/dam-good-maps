@@ -12,10 +12,16 @@ both views, then offers the measurements as JSON.
 ## Result
 
 High builds on maplook2's calibrated water and soft shadows. It adds soft ambient occlusion,
-a restrained neutral tone curve and colour grade, gentle distance haze, a warmer sky,
+a colour-preserving highlight curve, warm vivid grade, distant haze, a clear blue sky,
 stratified rock, softer soil boundaries and subtle colour variation. Integer levels and
 contamination's crack layer stay readable. Three original tree specimens show the proposed
 direction, with root-anchored wind. The map's existing trees are unchanged.
+
+The sunny-afternoon revision removes the darkening toe and highlight whitening. Exposure
+is 1.22; a stronger warm sun separates lit faces from shade without lowering the ambient
+fill across the map. **Warm sunlight** has its own switch. Haze now starts at least 64 tiles
+away and beyond the camera target, with a 5.5% maximum blend. Materials, strata, soil edges,
+colour variation, AO and the vegetation sketch are unchanged from the first study.
 
 Standard imports the current renderer. With every addition off, High matches it exactly:
 **zero differences across 1,832,012 framebuffer channels**. The comparison forces full
@@ -36,6 +42,32 @@ Standard is left, High right, at the same camera and water time (8 seconds).
 
 JPEGs are 1440 pixels across or smaller, about 11–175 KB each. Larger generated results,
 dependencies and builds are ignored.
+
+## Brightness and colour check
+
+All nine paired views pass: High's mean brightness and saturation are at least Standard's,
+both across the whole canvas and across the same map pixels with the sky excluded.
+Map-only gains are below; these are relative percentages, not percentage points.
+
+| Matched view | Brightness | Saturation |
+|---|---:|---:|
+| 128² overview | +13.4% | +29.3% |
+| Cliff | +7.5% | +32.5% |
+| Forest edge | +10.2% | +29.3% |
+| Riverbank | +12.9% | +28.4% |
+| Contaminated ground | +12.7% | +29.4% |
+| 256² overview | +16.7% | +42.6% |
+| Victoria Falls | +7.1% | +22.6% |
+| Yosemite | +3.3% | +53.9% |
+| Danube Delta | +5.5% | +30.0% |
+
+The check reads raw framebuffer pixels before JPEG compression, at identical cameras and
+time. Brightness is mean display-RGB luma (0.2126 R + 0.7152 G + 0.0722 B); saturation is
+mean HSV saturation. Linear-light luminance also passes in every view. A black-sky Standard
+draw supplies one shared map mask. UI and the corner sketch are excluded. A shared sunny
+yellow-green selection also passes, including Yosemite. Individual shadow pixels can stay
+dark: the goal is depth within a bright scene. These checks are assertions in `run verify`,
+with per-view values in [verification.json](captures/verification.json).
 
 ## Speed
 
@@ -66,6 +98,7 @@ at both sizes and three Real places, with no page/shader errors. They check ever
 Standard preservation, both-direction camera input, and wind on/off. [Verification](captures/verification.json).
 
 With the demo running, `npm --prefix investigation/maplook3 run verify` refreshes captures;
+`run check:colour` repeats just the nine colour comparisons (results in ignored `local/`);
 `run bench` measures frame rates and `run profile` measures paired GPU costs. These use the
 installed Chrome. `run check` and `run build` check compilation. The built bundle is a
 compilation check; Real-place loading is supplied by the local demo server.
@@ -91,3 +124,5 @@ the original checkout's older, checked-out `dev` reference alone.
 4. Added pine, birch and oak specimens with wind; corrected issues found by visual checks.
 5. Measured both sizes and individual costs; added repeatable checks and small captures.
 6. Wrote the integration proposals and checked the folder boundary before publishing the PR.
+7. Retuned High for a bright warm afternoon; added an independent sun switch and objective
+   colour checks, keeping the accepted terrain and vegetation work intact.

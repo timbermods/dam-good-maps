@@ -33,7 +33,7 @@ try {
         context.deleteQuery(q); throw new Error('GPU timer did not settle');
       }
       const effects = [];
-      for (const key of ['water', 'shadows', 'ao', 'tone', 'grade', 'haze', 'sky', 'strata', 'blend', 'variation', 'finish-pass']) {
+      for (const key of ['water', 'shadows', 'sunlight', 'ao', 'tone', 'grade', 'haze', 'sky', 'strata', 'blend', 'variation', 'finish-pass']) {
         const on = [], off = [], differences = [];
         for (let k = 0; k < 16; k++) {
           const samples = {};

@@ -25,8 +25,9 @@ export class Lighting {
       material.fragmentShader = replace(material.fragmentShader,
         'c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));',
         `if (m3Haze > 0.5 && hazeAmount > 0.0) {
-          float farAir = 1.0 - exp(-max(0.0, d - hazeRange.x * 0.82) / max(1.0, hazeRange.y - hazeRange.x));
-          c = mix(c, vec3(0.70, 0.76, 0.79), farAir * 0.19);
+          // A clear afternoon: no air wash in the foreground or at the target.
+          float farAir = smoothstep(max(64.0, hazeRange.x * 1.5), max(160.0, hazeRange.y * 1.3), d);
+          c = mix(c, vec3(0.78, 0.84, 0.91), farAir * 0.055);
         } else c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));`);
       material.fragmentShader = replace(material.fragmentShader, 'return clamp(c, 0.0, 1.0);', 'return m3Unclamp > 0.5 ? max(c, vec3(0.0)) : clamp(c, 0.0, 1.0);');
       material.needsUpdate = true;
@@ -47,12 +48,12 @@ export class Lighting {
     material.fragmentShader = replace(material.fragmentShader, '        gl_FragColor = vec4(c, 1.0);', /* glsl */ `
       if (m3Sky > 0.5) {
         float horizon = exp(-abs(d.y) * 5.5);
-        c = mix(vec3(0.38, 0.57, 0.72), vec3(0.77, 0.81, 0.80), horizon);
-        if (d.y < 0.0) c = mix(vec3(0.53, 0.65, 0.70), c, exp(d.y * 3.0));
+        c = mix(vec3(0.39, 0.65, 0.91), vec3(0.78, 0.84, 0.91), horizon);
+        if (d.y < 0.0) c = mix(vec3(0.49, 0.71, 0.89), c, exp(d.y * 3.0));
         vec2 p = d.xz / max(abs(d.y), 0.12) * 1.1;
         float n = vn(p) * 0.52 + vn(p * 2.07 + 3.7) * 0.30 + vn(p * 4.31 + 19.1) * 0.18;
         float cloud = smoothstep(0.55, 0.79, n) * smoothstep(0.03, 0.22, d.y);
-        c = mix(c, vec3(0.91, 0.90, 0.84), cloud * 0.65);
+        c = mix(c, vec3(0.97, 0.96, 0.89), cloud * 0.55);
         float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
         c += vec3(0.11, 0.075, 0.028) * sun;
       }

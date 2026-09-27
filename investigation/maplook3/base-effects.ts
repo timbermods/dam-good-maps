@@ -58,6 +58,7 @@ export class Effects {
   private sky: Color;
   shadows = false;
   water = false;
+  sunlight = false;
   passes = 0;
   dirty = true;
   private restoreRender: WebGLRenderer['render'];
@@ -137,9 +138,10 @@ export class Effects {
     this.b.waterMat = this.water ? this.high : this.standard;
     for (const mesh of this.b.water.values()) mesh.material = this.b.waterMat;
     for (const material of this.originalShaders.keys()) material.uniforms.mlEnabled.value = this.shadows ? 1 : 0;
-    // Lighting only. Do not alter the terrain's textures, finish/grade or contact shading.
-    this.b.uniforms.sunColor.value.copy(this.sun).multiply(this.shadows ? new Color(1.12, 1.06, 0.97) : new Color(1, 1, 1));
-    this.b.uniforms.skyColor.value.copy(this.sky).multiplyScalar(this.shadows ? 0.83 : 1);
+    // Warm sun has its own switch. Raise direct light more than fill so AO stays
+    // local and sunlit faces separate clearly; off keeps maplook2's foundation.
+    this.b.uniforms.sunColor.value.copy(this.sun).multiply(this.sunlight ? new Color(1.48, 1.30, 1.10) : this.shadows ? new Color(1.12, 1.06, 0.97) : new Color(1, 1, 1));
+    this.b.uniforms.skyColor.value.copy(this.sky).multiplyScalar(this.sunlight ? 0.97 : this.shadows ? 0.83 : 1);
     if (!this.shadows) this.b.uniforms.sunDir.value.copy(SUN);
     this.renderer.requestRender();
   }
