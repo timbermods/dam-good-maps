@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D286), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D289), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your thirty-five decisions since the restart are recorded (D252–D286, below) and in the living docs.
+Your thirty-eight decisions since the restart are recorded (D252–D289, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -19,9 +19,7 @@ Your thirty-five decisions since the restart are recorded (D252–D286, below) a
    14 random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. The
    start planting is spread over the 20-tile walk (starts with a full ring within 10 tiles: 14 of 112 → 3). My honest read
    against PERFECT's "Maps" and "Water" follows here once the set exists. #90 (dead groves) waits for it.
-3. **Two questions for you, neither urgent:**
-   - **Housekeeping's merge** (D286 (5) and (9)): (5) says merge it early, (9) says nothing merges into `dev` without your yes. I read (5) as your
-     yes for housekeeping only and will merge it when its CI is green; say if you want to see the PR first.
+3. **A question for you, not urgent** (housekeeping's merge is answered: yours for it alone):
    - **3D and the Python check** (D280): D280 keeps heightfield water's Python check exactly as today, but the game's full rules on
      heightfields (D120) move every generated map's water in its last digits, so `prototype/watersim.py` would need the same change (in
      practice one rule: evaporation on a dry tile that receives water) or the two stop agreeing bit for bit. Options: add that rule to the
@@ -73,8 +71,11 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 15. **Map-wide Select actions** (D264): Ctrl+A, 16, **Cut down** on a tall map (nothing left above 16, nothing lower
     touched); **Fill up** on a hollow; Wand a deep lake, **Max water depth** 3 (the same surface, 3 deep); the same on a
     river (about 3 deep, and the report says so if any stayed deeper); each one undo step with its label.
-16. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
-17. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
+16. **The lean editor** (D287–D289): one Top-down toggle; no Dam sites, Moisture or Drought views; no Remove tool (Select, then
+    Delete: objects and sources go, the start stays; point at one thing and press Delete); each force's row is Power, Size, at most one
+    choice (Carve: river or dry canyon) and Try another, which varies the rest; Carve aimed through a rise.
+17. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
+18. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
 13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
     water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 
@@ -339,6 +340,9 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D289: every force's row is Power, Size, at most one signature choice, Try another; Carve's Defy gravity and keep-carved button gone. On feature/forces.
+- D288: the Remove tool goes; Select and Delete remove a selection's objects and sources (never the start). On feature/forces.
+- D287: one Top-down toggle; no Dam sites, Moisture or Drought views. On feature/forces.
 - D286: until Tuesday 8:00 PDT, more in parallel: M9b starts (m9b-build, xhigh), the High look adoption starts (build), housekeeping (routine), the 3D foundations only as new modules (the stacked water engine at xhigh, the support check); the conversion to runs after the forces and M9b merge (that order stays). Nothing merges into dev without your yes.
 - D285: slimmed: M13 (a problem link, shortcuts and help, a performance pass; versioned deploys and mobile layouts to Later), the Weather step (the drought line and a map-card line), Pick a place (a 2D shaded-relief map, the preview on release, desktop only); the time-lapse to Later.
 - D284: the High look is adopted right after the forces' release, alongside "The page is the editor", and becomes the default where it runs smoothly (fallback to Standard, measured on the RTX 2070 SUPER).
@@ -438,7 +442,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D286.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D289.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
