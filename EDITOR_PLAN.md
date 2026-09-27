@@ -129,7 +129,11 @@ Make a valley, drop a source, and there's a river.
   strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
-  with its strength; Markers shows every source (D196).
+  with its strength; Markers shows every source (D196). Removing the map's last badwater source is
+  never refused: the map becomes a **No badwater** map (a peaceful one; badtides still come), a
+  quiet line in the notices says so, the file's description and checks follow, and undo brings the
+  source and the setting back (D213). A tool that would reshape the ground under a source keeps off
+  it and says why (decisions-pending #75).
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the

@@ -269,6 +269,9 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     the map edge, where no lake may go).
   - `shelf.test.ts` (from Live editing): the painted grove goes on River Valley 96² seed 4 (seed
     4242 has no open level ground 9 wide clear of other pines at 0.7.0).
+  - `carve.test.ts` (from Live editing), the oxbow lake kept with its carve: Canyon 96² seed 5, the
+    carve from (20, 80) aimed at (76, 16), the same settings (seed 1's course cuts no bend off now;
+    the search tried 10 aims on 25 maps).
 
 ## API changes (for the Live editing merge)
 
