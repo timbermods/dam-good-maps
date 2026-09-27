@@ -143,14 +143,24 @@ None has run yet. Three are prepared, to run after the restart, M9a's first (D21
   touched. HANDOFF now says to build with `--no-install`.
 - **Timberborn was open when I arrived;** you closed it (12:05).
 
-### 7. Running (2026-09-27)
+### 7. Running (2026-09-27, Sunday 02:00 PDT; more in parallel until Tuesday 8:00 PDT, D286)
 
-- **M9a** (`m9a-build`, Opus 5.5 xhigh; `feature/m9a`; CI was green at 0f70fcb): merging `dev` (#56 was 69 commits
-  behind, with 4 conflicts), then the start planting (D252), a re-freeze, every batch again, the probe maps rebuilt;
-  then the review set for you and the probe batch (the session runs it).
-- **The forces** (`build`, Opus 5.5 high; `feature/forces`; CI was red at c1438df on `forces.spec.ts:183`, the Erupt
-  fit words D258 removes): CI, D249, D257/D258, D259 with the working area, D260; D244 step 2 after the Ceiling batch.
-- **Real places** (`feature/real-places-2`, 33f7050): waits for your drops, then badwater after M9a.
+| Workstream | Branch (worktree) | Agent, model | State |
+|---|---|---|---|
+| M9a: batches, review set, probe batch | `feature/m9a` (`-m9a`) | `m9a-build`, Opus 5.5 xhigh | fixing a start-planting bug CI found (River Valley 96² seed 1333: no map); then re-freeze, every batch, the probe maps; has the machine first |
+| M9a's review set | detached (`-review`) | `routine`, Sonnet 5 medium | tooling ready (`investigation/m9a-review/make-all.ts`); waits for M9a's new frozen commit |
+| The forces, toward your sitting | `feature/forces` (`-forces`) | `build`, Opus 5.5 high | done: CI fix, D249, D257/D258, D265/D266; next D260, the Select work (D259, D261, D264), D263, #84 |
+| Drought and Badtide, day by day | `feature/weather-days` (`-weather`) | `build`, Opus 5.5 high | started from the forces' ddbef45; owns the water bar |
+| Real places, the water fix (D271) | `feature/real-places-2` (`-places`) | `build`, Opus 5.5 high | the drops, then water from the real place; a new sheet for you |
+| The Erode investigation (D281) | `investigation/erode` (`-erode`) | `build`, Opus 5.5 high | started; held until you've tried it |
+| M9b (D273–D278) | `feature/m9b` (`-m9b`) | `m9b-build`, Opus 5.5 xhigh | started from M9a's generator; pauses first if M9a is delayed |
+| The High look adoption (D284) | `feature/high-look` (`-high`) | `build`, Opus 5.5 high | started; visible seasons wait for the day-by-day branch |
+| 3D foundations: the stacked water engine, the support check | `feature/terrain3d-a` (`-3d`) | `build-xhigh`, Opus 5.5 xhigh until Tuesday, then `build` | being handed over to xhigh; new modules only (D286 (3)) |
+| Housekeeping (#91, A3, A4) | `chore/housekeeping` (`-house`) | `routine`, Sonnet 5 medium | started; merged early |
+| Docs for D279–D286, then the consistency sweep | `dev` (main clone) | `routine`, Sonnet 5 medium | the living docs, then a fresh agent's sweep |
+| Orchestrating, merging, probe batches | `dev` | the session, Opus 5.5 high | |
+
+Nothing merges into `dev` or is released without your yes (D286 (9)); every new piece is held on its branch.
 
 ## The takeover, 2026-09-26
 
