@@ -212,13 +212,31 @@ async function parent(): Promise<void> {
   const seedsFor = (size: number) => (seedArg.includes("=") ? (seedArg.split(",").find((p) => p.startsWith(`${size}=`)) ?? `${size}=1-100`).split("=")[1] : seedArg);
   const fileOf = (theme: string, size: number) => join(out, `${size}-${theme}.jsonl`);
   const tasks = sizes.flatMap((size) => themes.map((theme) => ({ theme, size })));
+  // --resume: keep each file's complete lines and run only the seeds it lacks
+  const resume = process.argv.includes("--resume");
   const run = (t: { theme: string; size: number }) =>
     new Promise<void>((done) => {
-      const argv = ["--import", "tsx", resolve(ROOT, "tools", "start-water-fed.ts"), "--child", "--theme", t.theme, "--size", String(t.size), "--seeds", seedsFor(t.size), "--difficulty", difficulty];
+      const f = fileOf(t.theme, t.size);
+      let seeds = seedsFor(t.size);
+      if (resume && existsSync(f)) {
+        const kept = readFileSync(f, "utf8").split("\n").filter((l) => {
+          try {
+            return !!l && typeof (JSON.parse(l) as SeedResult).seed === "number";
+          } catch {
+            return false;
+          }
+        });
+        writeFileSync(f, kept.map((l) => l + "\n").join(""));
+        const have = new Set(kept.map((l) => (JSON.parse(l) as SeedResult).seed));
+        const left = parseSeeds(seeds).filter((s) => !have.has(s));
+        if (!left.length) return done();
+        seeds = left.join(",");
+      }
+      const argv = ["--import", "tsx", resolve(ROOT, "tools", "start-water-fed.ts"), "--child", "--theme", t.theme, "--size", String(t.size), "--seeds", seeds, "--difficulty", difficulty];
       if (set) argv.push("--set", set);
       const t0 = performance.now();
       const p = spawn(process.execPath, argv, { stdio: ["ignore", "pipe", "pipe"], cwd: ROOT });
-      p.stdout.pipe(createWriteStream(fileOf(t.theme, t.size)));
+      p.stdout.pipe(createWriteStream(f, { flags: resume ? "a" : "w" }));
       let err = "";
       p.stderr.on("data", (d) => (err += String(d)));
       p.on("close", (code) => {

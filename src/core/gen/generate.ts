@@ -28,7 +28,7 @@ import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
-import { pumpShoreDistance, reachAt, walkDistance } from "../analysis/walk";
+import { pumpShoreDistance, reachAt, startWaterShore, walkDistance } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, type BuildResult, type GeneratedField, type LockedLayer } from "../features/build";
 import { entityTiles } from "../features/edits";
@@ -382,6 +382,17 @@ function startWaterWalk(b: BuildResult, depth: ArrayLike<number> = b.water): num
   return pumpShoreDistance(walk, b.heights, b.W, b.H, depth, b.contamination).distance;
 }
 
+/** The start's water by the rule with Kyler's D302 (`start.water`): only water a running source
+ *  feeds, or a lake that lasts the rule's drought (`days`) within its walk, counts; never a sealed
+ *  puddle. */
+function startWaterServed(b: BuildResult, within: number, days: number): number {
+  const d = startWalk(b, false);
+  if (!d) return Infinity;
+  const walk = new Float64Array(b.W * b.H);
+  for (let i = 0; i < walk.length; i++) walk[i] = reachAt(d, b.W, b.H, i);
+  return startWaterShore(walk, b.heights, b.W, b.H, b.water, b.contamination, b.waterModel.emitters, droughtStorage(b.waterModel, b.water, days), within).distance;
+}
+
 /** Tiles the colony walks to from the start (the objects must not cut the start off). */
 function startWalkable(b: BuildResult): number {
   const d = startWalk(b, true);
@@ -448,6 +459,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const N = W * H;
   const seed = spec.seed;
   const rule = spec.settings.start.rules.waterWithin;
+  // the rule's drought, which a start's unfed water must last (D302; `start.water`)
+  const droughtDays = DROUGHT[spec.designedFor].days;
   const ctx = opts.context ?? null;
   const protect = ctx?.protect ?? null;
   const policy: DroughtPolicy = opts.drought ?? (spec.designedFor === "easy" ? "require" : "prefer");
@@ -778,7 +791,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let layout: Feature[] = [...rivers, ...bad.features, startOf(pick)];
   // a start on level ground and no new hollow keep the water: this build reuses the settle
   let base = build(layout, "resources");
-  if (!(startWaterWalk(base) <= rule - 2) || wetRing(base, pick)) return fail("start water moved", base, true);
+  if (!(startWaterServed(base, rule, droughtDays) <= rule - 2) || wetRing(base, pick))
+    // (the water beside the start only a sealed puddle, D302, or the water moved away)
+    return fail(startWaterWalk(base) <= rule - 2 && !wetRing(base, pick) ? "start water a sealed puddle" : "start water moved", base, true);
   if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
@@ -874,7 +889,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!p3 || p3.levelled || (p3.x === pick!.x && p3.y === pick!.y)) return null;
       const lay3 = [...layout.filter((f) => f.kind !== "start"), startOf(p3)];
       const b3 = build(lay3, "resources");
-      if (!(startWaterWalk(b3) <= rule - 2) || wetRing(b3, p3)) return null;
+      if (!(startWaterServed(b3, rule, droughtDays) <= rule - 2) || wetRing(b3, p3)) return null;
       // the second district keeps its distance and its walk from the start, the rise its stairs
       for (const st of sites) {
         const d = Math.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
