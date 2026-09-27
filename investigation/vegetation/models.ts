@@ -1,11 +1,11 @@
-import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
+import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
 export type Detail = 'near' | 'far';
 export const paletteDefaults = {
-  pine: '#356345', birch: '#92ad50', oak: '#648044', bush: '#395c39',
-  bark: '#806044', birchBark: '#ded9c5', dead: '#c1b69a', berry: '#617baa', marks: '#494239',
+  pine: '#264d32', birch: '#77933f', oak: '#56753a', bush: '#395c39',
+  bark: '#806044', birchBark: '#ded9c5', dead: '#c1b69a', berry: '#415f9a', marks: '#494239',
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
@@ -99,6 +99,10 @@ export const registry: Record<Species, SpeciesDefinition> = {
   Birch: { height: 1.51, wind: 0.049, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'dead' : 'birchBark';
     m.branch([0, 0, 0], [0.015, 0.94, 0], 0.046, bark, near ? 6 : 3, 0.5);
+    if (!near && !dead) {
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.12, side === 1 ? 1.08 : 0.99, 0], [0.21, 0.42, 0.16]);
+      return;
+    }
     for (const side of [-1, 1]) {
       m.branch([0, 0.60, 0], [side * 0.16, 1.24 + (side + 1) * 0.06, 0.02 * v], 0.027, bark, near ? 5 : 3, 0.1);
       if (near) m.branch([side * 0.08, 0.94, 0], [side * 0.27, 1.10, -0.12], 0.016, bark, 3, 0.05);
@@ -118,7 +122,11 @@ export const registry: Record<Species, SpeciesDefinition> = {
   } },
   Oak: { height: 1.46, wind: 0.027, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'dead' : 'bark';
-    m.branch([0, 0, 0], [0.02, 0.87, 0], 0.10, bark, near ? 7 : 4, 0.52);
+    m.branch([0, 0, 0], [0.02, 0.87, 0], 0.10, bark, near ? 7 : 3, 0.52);
+    if (!near && !dead) {
+      for (let i = 0; i < 3; i++) { const a = i * 2.4; m.add(new OctahedronGeometry(1), 'oak', 0.92 + i * 0.06, [Math.cos(a) * 0.16, 1.03 + i * 0.06, Math.sin(a) * 0.16], [0.29, 0.29, 0.29], a); }
+      return;
+    }
     const n = near ? 5 : 3;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 + v * 0.4;
@@ -127,8 +135,8 @@ export const registry: Record<Species, SpeciesDefinition> = {
     }
     if (!dead) {
       for (let i = 0; i < (near ? 8 : 3); i++) {
-        const a = i * 2.4 + v * 0.6, r = near ? 0.18 + (i % 2) * 0.04 : 0.15;
-        m.crown([Math.cos(a) * r, 0.95 + (i % 3) * 0.09, Math.sin(a) * r], [near ? 0.20 : 0.24, 0.27, near ? 0.20 : 0.24], 'oak', 0.86 + (i % 3) * 0.08, a);
+        const a = i * 2.4 + v * 0.6, r = near ? (0.18 + (i % 2) * 0.04) * [1, 0.86, 1.06][v] : 0.15;
+        m.crown([Math.cos(a) * r, 0.95 + (i % 3) * 0.09 + (v === 1 ? 0.08 : 0), Math.sin(a) * r], [near ? 0.20 : 0.24, v === 1 ? 0.30 : 0.27, near ? 0.20 : 0.24], 'oak', 0.86 + (i % 3) * 0.08, a);
       }
       if (near) m.crown([0, 1.23, 0], [0.24, 0.23, 0.23], 'oak', 1.08, v);
     }
@@ -139,13 +147,18 @@ export const registry: Record<Species, SpeciesDefinition> = {
       for (let i = 0; i < 4; i++) m.branch([0, 0, 0], [Math.cos(i * 2.4) * 0.21, 0.28, Math.sin(i * 2.4) * 0.21], 0.022, 'dead', 3, 0.1);
       return;
     }
+    if (!near) {
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'bush', side === 1 ? 1 : 0.9, [side * 0.12, 0.22, 0], [0.23, 0.23, 0.24]);
+      for (let i = 0; i < 3; i++) m.add(new TetrahedronGeometry(0.04), 'berry', 1, [Math.cos(i * 2.4) * 0.15, 0.37, Math.sin(i * 2.4) * 0.15]);
+      return;
+    }
     for (let i = 0; i < (near ? 5 : 2); i++) {
       const a = i * 2.4 + v;
       m.crown([Math.cos(a) * 0.13, 0.20 + (i % 2) * 0.08, Math.sin(a) * 0.13], [0.20, 0.19, 0.20], 'bush', 0.86 + (i % 3) * 0.1, a);
     }
     for (let i = 0; i < (near ? 11 : 3); i++) {
-      const a = i * 2.4 + v;
-      m.crown([Math.cos(a) * 0.19, 0.34 + (i % 3) * 0.028, Math.sin(a) * 0.19], [0.026, 0.025, 0.026], 'berry', 0.9 + (i % 2) * 0.18);
+      const cluster = i % 5, a = cluster * 2.4 + v;
+      m.crown([Math.cos(a) * 0.13 + Math.sin(i * 1.3) * 0.055, 0.365 + (cluster % 2) * 0.08, Math.sin(a) * 0.13 + Math.cos(i * 1.3) * 0.055], [0.034, 0.032, 0.034], 'berry', 0.9 + (i % 2) * 0.18);
     }
   } },
 };

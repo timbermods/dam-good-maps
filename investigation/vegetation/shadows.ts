@@ -57,6 +57,9 @@ export class Effects {
   private sun: Color;
   private sky: Color;
   shadows = false;
+  moving = false;
+  private dirty = true;
+  invalidate() { this.dirty = true; }
   water = false;
   passes = 0;
   private center = new Vector3();
@@ -92,7 +95,7 @@ export class Effects {
     }
     const render = this.b.gl.render.bind(this.b.gl);
     this.b.gl.render = (scene, camera) => {
-      if (scene === this.b.scene && this.shadows) {
+      if (scene === this.b.scene && this.shadows && (this.dirty || this.moving)) {
         const oldTarget = this.b.gl.getRenderTarget();
         const override = this.b.scene.overrideMaterial;
         const hidden = [this.b.sky, ...this.b.water.values(), ...this.b.falls.values(), ...this.b.scene.children.filter(m => m.userData.vegetationGhost)];
@@ -106,6 +109,7 @@ export class Effects {
           this.b.gl.setClearColor(0xffffff, 1);
           render(scene, this.camera);
           this.passes++;
+          this.dirty = false;
         } finally {
           this.b.scene.overrideMaterial = override;
           hidden.forEach((m, i) => { m.visible = visible[i]; });
@@ -125,6 +129,7 @@ export class Effects {
     this.apply();
   }
   sunAngle(degrees: number) {
+    this.dirty = true;
     const dir = SUN.clone().applyAxisAngle(new Vector3(0, 1, 0), degrees * Math.PI / 180);
     this.b.uniforms.sunDir.value.copy(this.shadows ? dir : SUN);
     this.camera.position.copy(this.center).addScaledVector(dir, 330);
@@ -135,6 +140,7 @@ export class Effects {
     this.renderer.requestRender();
   }
   apply() {
+    this.dirty = true;
     this.b.waterMat = this.water ? this.high : this.standard;
     for (const mesh of this.b.water.values()) mesh.material = this.b.waterMat;
     for (const material of this.originalShaders.keys()) material.uniforms.mlEnabled.value = this.shadows ? 1 : 0;

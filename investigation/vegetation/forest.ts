@@ -5,7 +5,7 @@ import { motion, windGLSL } from './wind';
 
 export const isPlant = (name: string): name is Species => species.includes(name as Species);
 // The inherited custom shader writes display-referred RGB itself, without three's output transform.
-const displayColor = (hex: string) => new Color(hex).convertLinearToSRGB();
+const displayColor = (hex: string) => new Color(parseInt(hex.slice(1, 3), 16) / 255, parseInt(hex.slice(3, 5), 16) / 255, parseInt(hex.slice(5, 7), 16) / 255);
 export function vegetationMaterial(base: ShaderMaterial) {
   const material = new ShaderMaterial({
     defines: { ...base.defines }, uniforms: { ...base.uniforms, ...motion,
@@ -26,13 +26,14 @@ export function vegetationMaterial(base: ShaderMaterial) {
 export function setPalette(material: ShaderMaterial, palette: Palette) {
   slots.forEach((k, i) => (material.uniforms.vegPalette.value[i] as Color).copy(displayColor(palette[k])));
 }
-type Entry = { index: number; species: Species; dead: boolean; variant: number; matrix: Matrix4; tint: Color; wind: number[]; near: boolean; x: number; y: number; z: number };
+type Entry = { index: number; species: Species; dead: boolean; variant: number; matrix: Matrix4; tint: Color; wind: number[]; near: boolean; x: number; y: number; z: number; nearBatch?: InstancedMesh; farBatch?: InstancedMesh };
 type Batch = { mesh: InstancedMesh; detail: Detail; key: string };
 
 /** Whole-species instancing: at most 32 draws, independent of map area or tree count.
  * Far variants collapse to one silhouette/species. LOD changes only with camera/mode changes. */
 export class Forest {
   group = new Group(); entries: Entry[] = []; batches: Batch[] = []; private key = '';
+  revision = 0;
   detail = true; low = false; stats = { plants: 0, near: 0, far: 0, triangles: 0, draws: 0, lodMs: 0 };
   constructor(view: EntityView, growth: Float32Array | undefined, public material: ShaderMaterial) {
     for (let i = 0; i < view.count; i++) {
@@ -60,21 +61,35 @@ export class Forest {
       }
     }
     this.stats.plants = this.entries.length;
+    this.bindBatches();
+  }
+  bindBatches() {
+    const lookup = new Map(this.batches.map(b => [b.key, b.mesh]));
+    for (const e of this.entries) { e.nearBatch = lookup.get(`${e.species}.${e.dead}.near.${e.variant}`)!; e.farBatch = lookup.get(`${e.species}.${e.dead}.far.0`)!; }
   }
   update(camera: Camera, pixels: number, force = false) {
     camera.updateMatrixWorld();
     const key = `${this.detail}|${this.low}|${pixels}|${camera.projectionMatrix.elements.join(',')}|${camera.matrixWorld.elements.join(',')}`;
-    if (!force && key === this.key) return; this.key = key;
-    const start = performance.now(), lookup = new Map(this.batches.map(b => [b.key, b.mesh]));
-    this.stats.near = this.stats.far = this.stats.triangles = this.stats.draws = 0;
-    for (const b of this.batches) b.mesh.count = 0;
+    if (!force && key === this.key) return;
+    let changed = force || !this.key; this.key = key;
+    const start = performance.now();
     const c = camera.matrixWorldInverse.elements, proj = camera.projectionMatrix.elements;
     for (const e of this.entries) {
       const depth = -(c[2] * e.x + c[6] * e.y + c[10] * e.z + c[14]);
       const perUnit = pixels * 0.5 * proj[5] / (proj[15] === 1 ? 1 : Math.max(0.1, depth));
-      e.near = this.detail && !this.low && perUnit > (e.near ? 18 : 23);
-      const detail = e.near ? 'near' : 'far', v = e.near ? e.variant : 0;
-      const mesh = lookup.get(`${e.species}.${e.dead}.${detail}.${v}`)!;
+      const cx = c[0] * e.x + c[4] * e.y + c[8] * e.z + c[12], cy = c[1] * e.x + c[5] * e.y + c[9] * e.z + c[13];
+      const w = proj[15] === 1 ? 1 : depth;
+      // Offscreen casters remain in the cheap silhouette, including trees behind the camera.
+      const onScreen = w > 0 && Math.abs(cx * proj[0]) < w * 1.25 && Math.abs(cy * proj[5]) < w * 1.25;
+      const near = this.detail && !this.low && onScreen && perUnit > (e.near ? 18 : 23);
+      if (near !== e.near) changed = true; e.near = near;
+    }
+    if (!changed) { this.stats.lodMs = performance.now() - start; return; }
+    this.revision++;
+    this.stats.near = this.stats.far = this.stats.triangles = this.stats.draws = 0;
+    for (const b of this.batches) b.mesh.count = 0;
+    for (const e of this.entries) {
+      const detail = e.near ? 'near' : 'far', mesh = e.near ? e.nearBatch! : e.farBatch!;
       const i = mesh.count++; mesh.setMatrixAt(i, e.matrix); mesh.setColorAt(i, e.tint);
       (mesh.geometry.getAttribute('wind') as InstancedBufferAttribute).setXYZW(i, ...e.wind as [number, number, number, number]);
       mesh.userData.objects[i] = e.index;

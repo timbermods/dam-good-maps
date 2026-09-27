@@ -1,0 +1,42 @@
+{
+  "node": "v24.13.0",
+  "platform": "win32",
+  "count": 52224,
+  "buildMs": 67.22460000000001,
+  "lodP50": 3.289100000000019,
+  "lodP95": 7.058900000000051,
+  "stats": {
+    "plants": 52224,
+    "near": 1365,
+    "far": 50859,
+    "triangles": 1949944,
+    "draws": 12,
+    "lodMs": 2.6054000000000315
+  },
+  "geometry": [
+    {
+      "species": "Pine",
+      "today": 26,
+      "near": 144,
+      "far": 30
+    },
+    {
+      "species": "Birch",
+      "today": 36,
+      "near": 328,
+      "far": 28
+    },
+    {
+      "species": "Oak",
+      "today": 48,
+      "near": 308,
+      "far": 36
+    },
+    {
+      "species": "BlueberryBush",
+      "today": 52,
+      "near": 320,
+      "far": 28
+    }
+  ]
+}

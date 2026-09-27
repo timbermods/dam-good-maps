@@ -27,6 +27,7 @@ const options: { label: string; request: MapRequest }[] = [
   ...(['riverValley', 'highlands', 'lakeBasin'] as const).flatMap(theme => [128, 256].map(size => ({ label: `${theme} · ${size}²`, request: { kind: 'generated' as const, theme, size } }))),
   ...['near-victoria-falls', 'near-yosemite-valley', 'near-danube-delta'].map(name => ({ label: name.replaceAll('-', ' '), request: { kind: 'place' as const, name } })),
   { label: 'Dense forest stress · 256² generated terrain', request: { kind: 'stress' } },
+  { label: 'Type lineup · mature / young / dead', request: { kind: 'lineup' } },
 ];
 options.forEach((o, i) => select('map').add(new Option(o.label, String(i))));
 renderers.forEach((r, i) => {
@@ -36,7 +37,7 @@ renderers.forEach((r, i) => {
   b.gl.render = (scene, camera) => {
     if (scene !== b.scene) { draw(scene, camera); return; }
     if ($(i ? 'new-pane' : 'old-pane').classList.contains('hidden')) return;
-    if (i === 1) forest?.update(camera, r.canvas.clientHeight);
+    if (i === 1 && forest) { const before = forest.revision; forest.update(camera, r.canvas.clientHeight); if (forest.revision !== before) effects[1].invalidate(); }
     b.gl.info.reset(); const start = performance.now(); draw(scene, camera);
     observations[i].submitMs = performance.now() - start;
     observations[i].frames++; observations[i].draws = b.gl.info.render.calls; observations[i].triangles = b.gl.info.render.triangles;
@@ -50,7 +51,7 @@ for (const text of [CHANGES, NOT_ENDORSED, ...PROVIDER_NOTICES]) { const p = doc
 async function load(index = Number(select('map').value), seed = Number(check('seed').value)) {
   ready = false; worker?.terminate(); const id = ++serial;
   select('map').value = String(index); currentKind = options[index].request.kind;
-  check('seed').disabled = ['gallery', 'place'].includes(currentKind);
+  check('seed').disabled = ['gallery', 'lineup', 'place'].includes(currentKind);
   $('status').textContent = 'Building the map in a worker…';
   worker = new Worker(new URL('./maps.worker.ts', import.meta.url), { type: 'module' });
   return new Promise<void>((resolve, reject) => {
@@ -69,8 +70,10 @@ async function load(index = Number(select('map').value), seed = Number(check('se
           objects.remove(child); const mesh = child as InstancedMesh; mesh.geometry.dispose(); mesh.dispose();
         }
         forest = new Forest(map!.entities, growth, material); bridge(fresh).scene.add(forest.group);
+        if (currentKind === 'gallery') { forest.entries.forEach(e => { e.variant = Math.floor(e.index / 4) % 3; }); forest.bindBatches(); }
         effects.forEach(e => e.fit(map!.W, map!.H)); apply();
-        setPose(currentKind === 'gallery' ? 'garden' : 'edge'); ready = true;
+        setPose(currentKind === 'gallery' ? 'garden' : currentKind === 'lineup' ? 'types' : 'edge'); ready = true;
+        samples = []; lastAdapt = performance.now();
         $('status').textContent = `${label} · ${forest.stats.plants.toLocaleString()} plants · cameras synced · built in ${(data.ms / 1000).toFixed(1)} s`;
         $('legend').textContent = currentKind === 'gallery' ? 'Columns: pine · birch · oak · berries. Front: three mature rows. Middle: 8%, 32%, 66% growth. Back: bare / dead.' : 'Pine: dark radial tiers · Birch: light split crowns · Oak: broad lobes · Berries: low blue-dotted clusters.';
         worker?.terminate(); worker = undefined; renderIcons(); resolve();
@@ -83,16 +86,17 @@ function camera(v: Partial<ViewState>) { old.setView(v); fresh.setView(v); }
 function setPose(kind: string) {
   if (!map) return;
   select('pose').value = kind;
+  if (currentKind === 'lineup') { camera({ mode: kind === 'types' || kind === 'overview' ? 'top' : 'orbit', target: [11, 2.5, -7], distance: 12, pitch: 0.90, yaw: 0 }); return; }
   if (currentKind === 'gallery') {
     const top = kind === 'types' || kind === 'overview';
-    camera({ mode: top ? 'top' : 'orbit', target: [11, 2.5, kind === 'stages' ? -12.3 : -9], distance: kind === 'types' ? 18 : kind === 'stages' ? 17 : 26, pitch: 0.87, yaw: top ? 0 : -0.18 }); return;
+    camera({ mode: top ? 'top' : 'orbit', target: [11, 2.5, kind === 'types' ? -4.5 : kind === 'stages' ? -12.3 : -9], distance: kind === 'types' ? 10 : kind === 'stages' ? 15 : 26, pitch: 0.87, yaw: top ? 0 : -0.18 }); return;
   }
   if (kind === 'overview') { camera({ mode: 'top', target: [map.W / 2, 5, -map.H / 2], distance: Math.max(map.W, map.H) * 1.5 }); return; }
   const e = map.entities, planted = new Set<number>();
-  for (let i = 0; i < e.count; i++) if (isPlant(e.templates[e.template[i]])) planted.add(e.y[i] * map.W + e.x[i]);
+  for (let i = 0; i < e.count; i++) if (isPlant(e.templates[e.template[i]]) && e.templates[e.template[i]] !== 'BlueberryBush') planted.add(e.y[i] * map.W + e.x[i]);
   let winner = -1, best = -Infinity;
   for (let i = 0; i < e.count; i++) {
-    if (!isPlant(e.templates[e.template[i]]) || e.flags[i] & DEAD && kind !== 'stages') continue;
+    if (!isPlant(e.templates[e.template[i]]) || e.templates[e.template[i]] === 'BlueberryBush' || e.flags[i] & DEAD && kind !== 'stages') continue;
     const x = e.x[i], y = e.y[i]; let count = 0;
     for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (planted.has((y + dy) * map.W + x + dx)) count++;
     let score = kind === 'edge' ? 25 - Math.abs(20 - count) : count;
@@ -108,6 +112,7 @@ function apply() {
   motion.vegSway.value = check('sway').checked && !low && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0;
   if (forest) { forest.detail = check('detail').checked; forest.low = low; }
   effects.forEach(e => { e.shadows = check('shadows').checked && !low; e.apply(); });
+  effects[1].moving = motion.vegSway.value > 0;
   renderers.forEach(r => bridge(r).gl.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2)));
   check('sway').disabled = low; check('detail').disabled = low;
   renderers.forEach(r => r.requestRender());
@@ -167,10 +172,10 @@ function frame(now: number) {
   if (ready && !document.hidden && !runningBenchmark && !check('pause').checked) {
     clock += Math.min(dt, 100) / 1000; motion.vegTime.value = clock;
     renderers.forEach((r, i) => { if (select('layout').value !== (i ? 'old' : 'new')) r.setClock(clock); });
-    samples.push(dt);
+    samples.push(dt); if (samples.length > 600) samples.shift();
   }
   if (now - lastSample > 1200) {
-    observations.forEach((o, i) => { $(`${i ? 'new' : 'old'}-fps`).textContent = `${(o.frames * 1000 / (now - lastSample)).toFixed(0)} fps · ${o.draws} draws`; o.frames = 0; });
+    observations.forEach((o, i) => { $(`${i ? 'new' : 'old'}-fps`).textContent = `${check('pause').checked && !runningBenchmark ? 'Paused' : (o.frames * 1000 / (now - lastSample)).toFixed(0) + ' fps'} · ${o.draws} draws`; o.frames = 0; });
     if (forest) $('counts').textContent = `${forest.stats.near.toLocaleString()} near / ${forest.stats.far.toLocaleString()} far · ${forest.stats.triangles.toLocaleString()} plant triangles · last LOD update ${forest.stats.lodMs.toFixed(2)} ms`;
     lastSample = now;
   }

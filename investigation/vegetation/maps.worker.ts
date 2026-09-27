@@ -6,22 +6,22 @@ import { openTimber, closeSession } from '../../src/worker/session';
 import { emptyColumns, emptyWater, entityView, surfaceWater, type MapView, type EntityInput } from '../../src/render3d/model';
 import { growthOf } from './growth';
 import { noise, species } from './models';
-export type MapRequest = { id?: number; kind: 'generated' | 'place' | 'gallery' | 'stress'; size?: number; seed?: number; theme?: ThemeId; name?: string };
+export type MapRequest = { id?: number; kind: 'generated' | 'place' | 'gallery' | 'lineup' | 'stress'; size?: number; seed?: number; theme?: ThemeId; name?: string };
 
-function gallery() {
+function gallery(lineup = false) {
   const W = 24, H = 22, entries: EntityInput[] = [], growth: number[] = [];
   // Four columns; rows: three natural variants, three growth stages, bare forms.
-  for (let row = 0; row < 7; row++) for (let col = 0; col < 4; col++) {
-    const g = row < 3 || row === 6 ? 1 : [0.08, 0.32, 0.66][row - 3];
-    entries.push({ template: species[col], x: 6 + col * 3, y: 3 + row * 2, z: 2, orientation: 'Cw0', owner: 'diagnostic', dead: row === 6, young: g < 1 }); growth.push(g);
+  for (let row = 0; row < (lineup ? 3 : 7); row++) for (let col = 0; col < 4; col++) {
+    const g = lineup ? row === 1 ? 0.32 : 1 : row < 3 || row === 6 ? 1 : [0.08, 0.32, 0.66][row - 3];
+    entries.push({ template: species[col], x: 6 + col * 3, y: lineup ? 4 + row * 3 : 3 + row * 2, z: 2, orientation: 'Cw0', owner: 'diagnostic', dead: row === (lineup ? 2 : 6), young: g < 1 }); growth.push(g);
   }
   const view: MapView = { W, H, heights: new Uint8Array(W * H).fill(2), columns: emptyColumns(), water: emptyWater(), entities: entityView(entries), soil: { moisture: new Uint8Array(W * H).fill(180), contamination: new Uint8Array(W * H) } };
-  return { view, growth: Float32Array.from(growth), label: 'Specimen garden · original diagnostic layout' };
+  return { view, growth: Float32Array.from(growth), label: lineup ? 'Type lineup · columns pine / birch / oak / berries · rows mature / young / dead' : 'Specimen garden · original diagnostic layout' };
 }
 self.onmessage = async ({ data: r }: MessageEvent<MapRequest>) => {
   const start = performance.now();
   try {
-    if (r.kind === 'gallery') { self.postMessage({ id: r.id, ...gallery(), ms: performance.now() - start }); return; }
+    if (r.kind === 'gallery' || r.kind === 'lineup') { self.postMessage({ id: r.id, ...gallery(r.kind === 'lineup'), ms: performance.now() - start }); return; }
     let bytes: Uint8Array, label: string;
     if (r.kind === 'generated' || r.kind === 'stress') {
       const size = r.kind === 'stress' ? 256 : r.size ?? 128;
