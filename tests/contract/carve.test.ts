@@ -23,7 +23,7 @@ import { storedWater } from "../../src/core/format/world";
 import { oxbowBasin, oxbowLake } from "../../src/core/forces/carve/water";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
-import { WaterSim } from "../../src/core/sim/water";
+import { TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -518,6 +518,14 @@ describe("a carve in the document (breakage rule)", () => {
     s.settleCanonical();
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
+    // only the lake still changes, by evaporating: the water has settled (D222), and the quiet dot
+    // says so; the settle still stops where its own test does, so the water is what it always was
+    expect(s.built.settle.settled).toBe(false);
+    expect(s.built.settle.ticks).toBe(4 * TICKS_PER_DAY);
+    expect(s.built.settle.steadyTicks).toBeLessThan(4 * TICKS_PER_DAY);
+    const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
+    expect(settles.ok, settles.message).toBe(true);
+    expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);
     // the same carve without its kept water: the game's settle from the land and the sources alone
     const bare = MapSession.fromGenerated(r, r.file);
     const { lake: _lake, ...params } = op.params;

@@ -15,7 +15,7 @@
 // (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources.
 
 import { MinHeap } from "../math/grid";
-import { SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
+import { sealedTiles, SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -180,7 +180,9 @@ export interface CanonicalWater extends SettleResult {
 }
 
 /** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks). The same input always gives the same bytes. */
+ *  days, checked every 128 ticks). The same input always gives the same bytes. A sealed oxbow
+ *  lake's evaporation never keeps it from counting as settled (`steadyTicks`, D222), and never
+ *  changes where it stops. */
 export function canonicalSettle(m: WaterModel): CanonicalWater {
   const run = canonicalRun(m);
   let r = run.advance(Infinity);
@@ -193,7 +195,7 @@ export function canonicalSettle(m: WaterModel): CanonicalWater {
  *  equals `canonicalSettle`'s. */
 export function canonicalRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
   const sim = new WaterSim(m, prefill(m));
-  const run = new SettleRun(sim);
+  const run = new SettleRun(sim, { sealed: sealedTiles(m) });
   let done: CanonicalWater | null = null;
   return {
     advance(ticks: number): CanonicalWater | null {

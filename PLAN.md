@@ -1157,7 +1157,11 @@ checks:
    under 0.2% and at least 99.5% of tiles move by at most 0.005 (the §11.3 rule, counted exactly,
    with sums in index order so the Python oracle stops on the same tick); at most 4 game days.
    From 3D-a (D120) the checks count columns (air gaps): at most 0.5% of the map's tiles' worth may
-   still move.
+   still move. Only real flow is the water still changing (D222): at each check the water of a
+   sealed basin that only lost water (the oxbow lake above, while no running source and no map
+   edge is in it) is left out of the test, and the first check that passes then marks the water
+   as settled (`steadyTicks`, `waterSteady`); the settle still runs on to its own test, so the
+   water it gives, and every file, is the same as without the rule.
 3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7
    significant digits, depths under 1e-6 dry), outflows 0, soil moisture and contamination at
    steady state, and the evaporation modifiers of the settled water.
@@ -1243,7 +1247,8 @@ basins (a lake, a valley basin and a weir pool): they agree within 5% of the sto
   - The editor's interactive preview re-settles from the previous state (EDITOR_PLAN.md, Checks
     and water). The file always gets the canonical settle (§2.1, §19.7). As built in M8 (D99): the warm start keeps
     the settled water away from the edit and pre-fills round it; the preview stops when at most
-    0.05% of the map still moves by more than 0.05 (64-tick checks, one day at most). Local edits
+    0.05% of the map still moves by more than 0.05 (64-tick checks, one day at most), or when only
+    a sealed basin's evaporation still changes it (D222). Local edits
     at 256² take at most 1.76 s in Node and 1.4–1.7 s in Chrome (Islands and Lake Basin); the
     canonical settle follows in the background, in slices, and before every export.
 
@@ -1335,7 +1340,7 @@ clean water has contamination under 0.05.
 
 | Id | Rule |
 |---|---|
-| `water.settles` | Steady within 4 game days: volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady: maps need not hold their water (D152); what fails is water that never settles. |
+| `water.settles` | Steady within 4 game days: volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady: maps need not hold their water (D152); what fails is water that never settles. Only real flow counts (D222): a sealed basin that is only evaporating (a carve's oxbow lake: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, so a map whose drying lake is all that still changes has settled. Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
 | `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Islands and Lake Basin); official p90 0.40. Planned for M9 (decisions-pending #33): the cap follows the premise, 0.35 by default and up to 0.70 for water premises (moat, archipelago, lone island, lake world), which declare their water budget; workshop maps: median 0.27, p90 0.67. |
 | `water.clean_exists` | Clean wet tiles ≥ 2% of the map. Since D152 a target with an advisory warning: maps need not hold their water, and the start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region (depth > 0) touches a map-edge tile that drains (not a walled source tile) or a lake feature. Not applicable without features (imports). |
