@@ -173,8 +173,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **`investigation/maplook3`** (Codex, D228: phase 1 of a higher-fidelity High look): when its PR is open and green,
   merge it at a boundary as an investigation, proposals only, like #38; adopt nothing until Kyler has reviewed its demo
   and said which effects to keep (then they join Map look 2's High mode). Not pushed yet (2026-09-26).
-- **Codex's second sound round** (natural recorded textures with a crisp, musical reward, D226): hook it into Live
-  editing's juice when its PR lands, and show it on the preview.
+- **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
+  Balatro as the reference; D226): merge it as proposals when green, hook it into Live editing's juice, and show it on
+  the preview.
 - **Codex tasks that reported (merged 2026-09-26):** `investigation/forces-core` (one core for the four forces) and `investigation/juice`
   (synthesised editor sounds). Merge each at a boundary once green and adopt it as proposals (D220): build the forces on the
   forces core if it has landed; hook the sounds into Live editing (on by default, quiet, with an off switch) and show them on
