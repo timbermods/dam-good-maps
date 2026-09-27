@@ -93,7 +93,10 @@ editor is desktop-first (D185).
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
   slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
-  preview, released with the forces). Pen pressure on drawing tablets.
+  preview, released with the forces). Pen pressure on drawing tablets. **Clear sources** (D249): one toggle in the options
+  row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
+  in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
+  the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
 - **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
@@ -138,7 +141,8 @@ editor is desktop-first (D185).
   the valley as its lakes fill. It refuses to run over the start, respects the height ceiling (D244), and keeps and feeds
   its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
-  changes terrain, and it refuses removals that would break a rule (such as deleting the start).
+  changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
+  source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
   checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
   Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
@@ -162,7 +166,10 @@ Make a valley, drop a source, and there's a river.
   strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
-  with its strength; Markers shows every source (D196).
+  with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
+  pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
+  another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
+  receding live.
 - **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
   small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
   downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
