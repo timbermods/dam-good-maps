@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D298) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D309) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -22,14 +22,11 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
 its own release; after that, the editor's work and M9b share it. Getting the forces to the preview for Kyler's sitting,
 and then released, comes first among the work waiting for him.
 
-**Until Kyler's Claude allowance resets, Tuesday 2026-09-29 8:00 PDT (D286):** more runs in parallel than D282 alone
-would allow, each on its own branch and worktree (§2) so no piece redoes another's work: M9a keeps running (`m9a-build`);
-the forces queue, the Drought and Badtide day strip, the Real places water fix and the Erode investigation keep running
-(`build`); M9b starts now, on its own branch from `feature/m9a`'s frozen generator (`m9b-build`); the 3D stacked-column
-water engine starts now, new modules only, on `build-xhigh` until the lapse, then `build`; the High look adoption starts
-now (`build`); housekeeping runs on its own branch (`routine`); the milestone session keeps orchestrating, merging and
-sequencing the machine. Heavy batches still run one at a time, M9a first; if M9a's review set or probe batch is delayed,
-M9b or the High look pauses first. Nothing is released or merged into `dev` without Kyler's yes.
+**The parallel streams D286 started keep going, each on D301's model** (D286's other temporary rules ended on 2026-09-27; §7's
+table): M9a (`m9a-build`) until its release; M9b (`m9b-build`); the forces, Glaciate's adoption and the 3D foundations (`build`);
+Real places' D300 fixes (`build`), then its badwater stage and release (`build-light`); the Drought and Badtide branch and the High
+look, built and held for Kyler (their fixes after his look: `build-light` and `build`). Heavy batches still run one at a time, M9a
+first; nothing is released or merged into `dev` without Kyler's yes.
 
 1. **M9a** (`m9a-build`, `feature/m9a` at 0f70fcb, #56), now under D252: merge `dev` in; build the start planting
    spread over the 20-tile walk, reading the land (D252 (1)); re-freeze the generator; finish the Normal batches (96²;
@@ -299,22 +296,26 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D299), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D310), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,
   and only when it starts in `C:\Users\krams\code\DamGoodMaps`; start the milestone session there, at Opus 5.5, high.
 
+  **D301 (in force since 2026-09-27):** Opus where judgment is the product, Sonnet where the job is written down, scripts where it's
+  only waiting.
+
   | Work | Definition | Model, effort |
   |---|---|---|
-  | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
-  | M9b, composition and variety (D262, D278, D286 (2)) | `m9b-build` | Opus 5.5, xhigh |
+  | M9b | `m9b-build` | Opus 5.5, xhigh |
+  | M9a until its release, then idle | `m9a-build` | Opus 5.5, xhigh |
+  | The forces and the fixes from Kyler's sitting, the Glaciate adoption, the 3D foundations and water engine (wiring after the forces and M9b merge), the High look's fixes, Erode's adoption; anything touching the water simulation, the generator's processes or the forces | `build` | Opus 5.5, high |
+  | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5, high |
+  | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5, medium |
+  | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
   | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
-  | **Temporary, until Tuesday 2026-09-29 8:00 PDT (D286 (3)):** the 3D stacked-column water engine (step 1 of terrain above terrain) | `build-xhigh` | Opus 5.5, xhigh |
-  | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246), the Drought and Badtide day strip (D267), the Erode investigation (D281), and — once `build-xhigh` lapses — the 3D water engine's conversion work (D286 (3)) | `build` | Opus 5.5, high |
-  | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps, housekeeping (D283 (3), D286 (5)) | `routine` | Sonnet 5, medium |
-  | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
+  | Waiting on CI, batches and probe runs | background scripts that report when they finish, never an agent polling | — |
 
 
 ## 8. Lessons from the last sessions
