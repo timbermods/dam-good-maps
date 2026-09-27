@@ -20,6 +20,7 @@ from analysis import (components, dam_sites, distance_from, is_dead, placement, 
                       reach_at, walk_distance, walk_regions)
 from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
+from soil import contamination_game, moisture_game
 from storage import SECONDS_PER_DAY, dam_walls, levee_storage, pump_shore_tile, running_flow
 
 WET = 0.05                   # water deeper than this is a water tile
@@ -399,8 +400,9 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # a principle (D111): no built dam wall across a valley (src/core/analysis/ridge.ts)
     walls = dam_walls(h, D)
     rep.add("terrain.dam_wall", not walls, f"{len(walls)} dam walls" if walls else "no dam wall", len(walls), 0)
-    M = moisture(h, D, C, sim.sat(), barrier)
-    SC = contamination(h, D, C, barrier)
+    # the game's own soil rules (D298), as the TypeScript validator and the build have them
+    M = moisture_game(h, floor, D, C, sim.sat(), barrier)
+    SC = contamination_game(h, floor, D, C, barrier)
     water.update({"D": D, "C": C, "M": M, "SC": SC, "ticks": sim.ticks, "settled": settled})
 
     # ---- a mine site on every map (Kyler, 2026-09-25)
@@ -521,7 +523,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     else:
         kept = drought_storage(floor, D, rules["drought_days"], sources, dam)
         Cd = np.where(kept > 0, C, 0.0)
-        Md = moisture(h, kept, Cd, cluster_saturation(kept > 0), barrier)
+        Md = moisture_game(h, floor, kept, Cd, cluster_saturation(kept > 0), barrier)
         thirsty = 0
         for e in m.entities:
             if e["Template"] != "BlueberryBush" or "BlockObject" not in e.get("Components", {}) or is_dead(e):

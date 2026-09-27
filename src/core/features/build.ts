@@ -18,9 +18,8 @@
 import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide } from "../format/footprints";
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
-import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { moisture } from "../sim/moisture";
+import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
@@ -886,8 +885,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    moist = moisture(heights, water, contamination, W, H, barrier);
-    soil = soilContamination(heights, water, contamination, W, H, barrier);
+    // the game's own soil rules (D298)
+    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
+    moist = s.moisture;
+    soil = s.contamination;
   }
   const settleOut: CanonicalWater = settle ?? { settled: true, ticks: 0, depth: none, contamination: none, sat: new Uint8Array(N) };
   const withWater = {
