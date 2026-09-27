@@ -25,11 +25,22 @@ Your forty-seven decisions since the restart are recorded (D252–D298, below) a
    one sweeping curve); small arches (thin ridges are rare on today's maps); faces under about four levels can't be worn, so on the
    terraced Highlands 24 of 40 random gestures say "No rock to wear here", which may feel like refusing; water under new roofs is an
    approximation (said on screen); not yet checked in the game; the view follows the Standard look but isn't its shader.
-4. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+4. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
+   a sitting of its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). Two findings:
+   - **"The worst day at once" doesn't hold on water-rich maps.** Time to the last day on this machine: 256² River Valley, drought
+     1.8–3.8 s, badtide 14–22 s; 128² Lake Basin and Islands 16–48 s. The cost is the game's own water rules (9 days of plain
+     simulation on 128² Islands take 22.8 s). Default #124: the strip opens at once and each day shows as it's worked out,
+     landing on the last day. M9a's simulation speedups (D130) will help once they reach dev.
+   - **Most starts lose their water on day 1 of a drought.** On River Valley, Canyon, Highlands and Delta the start draws on a
+     river, which drains on day 1, so the marker usually reads "Day 1: your start's water is gone"; Lake Basin and Islands keep
+     their lake through 9 days. That is the game's rule (sources stop), but it bears on PERFECT's "the start survives its first
+     cycles" (Challenge) and may belong in M9b.
+   Its defaults #120–#124 (the step pace, the start's water rule, per-tile hover notes, the highlight, days as they're worked out).
+5. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+6. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+7. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
