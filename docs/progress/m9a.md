@@ -1,25 +1,20 @@
 # M9a: terrain and water from processes
 
-> **Paused for a session restart (2026-09-27), at a clean point: resume here.** The generator is
-> frozen (its code as of 652d4e2; every later commit is tests, docs, sheets or the Claude corpus).
-> **Done:** the starting-logs floor (D224, D227, D229: `start.wood_floor` in both validators, 178 logs
-> within 40 tiles' walk, Minimum starting wood 250 / 200 / 0 within 20, the floor's wood added the way
-> the land offers it); every settings experiment moves its target on CI's seeds 1–4 (braided on 12);
-> the quick suite (670) and CI green at 022a967; the e2e tests re-seeded for 0.7.0's maps (D148);
-> the contact sheet (`docs/sheets/m9a.png`) and D229's start-area sheet (`docs/sheets/m9a-start-areas.png`,
-> done; for the orchestrator and Kyler to look at: see "The starting-logs floor" under Results); the
-> Any measures; the Claude suite at **103 of 120** (118 of 141); the Hard batch at 128² (100% final on
-> every option); the batches at Normal for 256² (100% on every option), 192² River Valley, Canyon,
-> Highlands (100%) and Any (99%), and 128² River Valley (100%); the probe group M9a's 15 maps prepared
-> and checked. **Left, in order:** (1) the rest of the Normal batches, stopped cleanly for the
-> restart (every map made so far passed): the commands are in "Next session", step 1; (2) the batch
-> table under Results from their summary; (3) push, and CI green on #56 (camera.spec's held-key timing
-> failed once on CI and passed on the next run: timing, not a regression); (4) the orchestrator's
-> DGM Probe batch on the prepared maps (`C:\dgm-probe\maps\20260927-0424-batch`), never launched
-> by this session. **Caveats** for Kyler (see "Found and parked"): at Normal the start's own groves
-> and berry patches recur beside every start (D85's planting, larger with D227's 200 logs), a river
-> that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood
-> as known faults for Real places 2, and River style (braided) at its threshold.
+> **In progress (2026-09-27): D252's start planting, then the batches again.** Kyler's D252 (1)
+> unfroze the generator: starts stop looking alike (see "Starts stop looking alike" under What was
+> built). `origin/dev` is merged in (to 5c54e32: the D222 settle rule, the waterfalls, D230–D256;
+> M9a's pending #77–#80 became #87–#90). The batches started at 0f70fcb for the restart's step 1 were
+> stopped before any run finished (only this worktree's processes) and are re-run whole on the
+> re-frozen generator. **Left, in order:** (1) the settings experiments, the quick suite and the
+> Claude suite on the new generator, then re-freeze it; (2) every batch again: Normal at 96², 128²,
+> 192² and 256² for all seven options, and Hard at 128² (the commands are in "Next session");
+> (3) the batch table under Results; (4) the probe group M9a's 15 maps rebuilt on the re-frozen
+> generator (a new `C:\dgm-probe\maps\<stamp>-batch`, never launched by this session); (5) merge
+> `origin/dev` again (the ROADMAP and EDITOR_PLAN sweep for D252–D256), push, and CI green on #56.
+> The review set (D252 (2)) is the orchestrator's. **Caveats** for Kyler (see "Found and parked"): a
+> river that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real
+> places' wood as known faults for Real places 2, River style (braided) at its threshold, and a start
+> whose walk is mostly moist land still gets the start rules' trees on every side.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -222,6 +217,42 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
   list them as known faults (`PLACES_SHORT_OF_WOOD`, `PLACES_BELOW_THE_FLOOR`) for Real places 2 to
   plant for, as the edge walls and the missing mine sites are.
 
+### Starts stop looking alike (PLAN §20 D252 (1)), built 2026-09-27
+
+The start-area sheet showed the same ring of groves and berry patches within about 10 tiles of
+every start at Normal: the start rules' own planting for Minimum starting wood and Minimum starting
+bushes (D85), planted first and evenly on the moist land nearest the start, and larger since D227's
+200 logs. Now (`gen/resources.ts`; decisions-pending #91, a default):
+
+- **The map's own groves and patches come first**, the start's share kept back; the start rules then
+  add only what those leave short within 20 tiles' walk (1.35 × Minimum starting wood in grown logs
+  and the berries' target, as before), the way the floor's wood does (D229); what the start does not
+  use goes to the rest of the map afterwards, so the map's amounts stay the baseline's. On many maps
+  the start stands in the map's own woods and the start rules plant few trees or none.
+- **A layout per map** (`startLayout`, its own random stream `start-planting`): a side and a distance
+  for the groves (a bearing, how strongly they lean to it, 1–3, and a walk of 6–17 tiles they gather
+  round), a side and distance for the berries (with the groves, or 60° off to one side, 6–16 tiles
+  out), a grove size (1–3 × the Grove size median) and an opening (D164's lever: as the mix, twice as
+  often as oak-rich or a pine forest). Each tile of the walk gets a weight for groves and one for
+  berries (basic operations only: `cosDet`, `sinDet`, `expDet`); they lean the draws and never forbid
+  a tile.
+- **The groves read the land** (`placeKinds`, shared with the floor's wood): each draws a kind of
+  place within the walk (a river's banks, across the water, a plateau, a side valley, open ground),
+  weighted by its room on the layout's side and by how natural it is (D229's weights), and grows from
+  it into the land beside it; its species leans to the place and the opening. Roles name the kind
+  (`forest/start/<kind>/…`; the start's patches are `berryPatch/start/…`).
+- **The start's yard** (6 tiles from its middle) stays clear of its own planting where the walk has
+  room elsewhere; standing dead groves on the walk's dry ground only where its moist land runs out,
+  as before.
+- **Measured** by `src/core/analysis/startPlanting.ts` (the planting's share within 6 and 10 tiles,
+  the directions it fills within 10, its lean to one side, its nearest tile, kinds and species) and
+  `tools/start-spread.ts` (per theme and seed; see Results). Tested by
+  `tests/contract/startPlanting.test.ts`: the measure tells a ring from a side, and on River Valley and
+  Any at 96² (seeds 1–8) every start meets Minimum starting wood, Minimum starting bushes and the
+  floor, the planting leans (mean lean above 0.45; the even planting it replaced gave 0.36 there and
+  fails the test), at most 3 of 16 fill 6 of the 8 directions, yards stay clear, and the groves go to
+  several kinds of place with oak-rich and pine-rich openings.
+
 ## Results
 
 ### The settings experiments (ROADMAP M6), CI's seeds 1–4 at 96²
@@ -386,7 +417,10 @@ cases against candidates):
   start (it follows each map's own water and land, in every direction). What does recur beside every
   start is the start's own planting for Minimum starting wood and Minimum starting bushes (D85's
   near-start groves and berry patches, cyan and magenta on the sheet), and at Normal those groves are
-  larger since D227 (200 logs within 20 tiles' walk, 80 before).
+  larger since D227 (200 logs within 20 tiles' walk, 80 before). *(Answered by Kyler's D252 (1),
+  built 2026-09-27: see "Starts stop looking alike" under What was built. What remains: a start whose
+  walk is mostly moist land still gets the start rules' trees on every side, since the amount they
+  ask for fills it.)*
 
 ## Tests updated because a decision changed what they tested
 
@@ -449,6 +483,11 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
     water); `waterView`'s new source goes on level ground (the badwater source it becomes stands 3 × 3).
   - `tools/settings-suite.ts`: River style (braided) on 12 seeds (0.9 on 8 once D227's start rules
     changed which attempt a seed ends on; 1.0 on 12, its threshold unchanged).
+- With D252's start planting (2026-09-27):
+  - `look-mine-ruins.test.ts`: the live check's sha re-pinned for the maps as they now are (D148).
+  - `parity.test.ts`: the worker's background check test sculpts ground clear of the map's objects
+    (its first candidate on Any seed 21 is now the map's mine site, and a sculpt under a mine site
+    leaves it floating, a load problem that blocks the export); what it checks is unchanged.
 
 ## API changes (for the Live editing merge)
 
@@ -469,6 +508,26 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
 (See the final section of the PR.)
 
 ## Next session
+
+The D252 session's list (2026-09-27). D252 (1) changed generated maps, so every batch and the probe
+maps are made again on the re-frozen generator (reports in `investigation/m9a/local/`, out of git,
+D195):
+
+1. **Every batch** (≥ 98% final per option and size, blocking):
+   - Normal, all seven options at every size:
+     `npx tsx tools/batches.ts --sizes 96,128,192,256 --seeds 1-100 --jobs 8 --out investigation/m9a/local/batches-d252`
+   - Hard at 128²:
+     `npx tsx tools/batches.ts --sizes 128 --seeds 128=1-100 --jobs 2 --difficulty hard --out investigation/m9a/local/batches-d252-hard`
+   - then `npx tsx tools/batches.ts --summary-only --out investigation/m9a/local/batches-d252` (and
+     with `--sizes 128 --difficulty hard` for the Hard folder) writes `summary.md`; the tables go under
+     Results.
+2. **The probe maps**: `npm --prefix investigation/probe run batch -- --job-only --group M9a` (15 maps
+   into a new `C:\dgm-probe\maps\<stamp>-batch`; its path goes here). Never launched by this session.
+3. **Merge `origin/dev`** again (the ROADMAP, EDITOR_PLAN and HANDOFF sweep for D252–D256), push, and
+   CI green on #56.
+4. The start planting's measures: `npx tsx tools/start-spread.ts --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-16 --size 128 --jobs 7`.
+
+### The restart's list (2026-09-27, kept as written; its step 1 is superseded by D252: every batch is re-run above)
 
 Where the session that built the starting-logs floor stopped (2026-09-27, a restart of the milestone
 session). Every step before these is done (the list it followed is kept below, as written).

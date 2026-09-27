@@ -330,7 +330,9 @@ setting under "Start rules", with the difficulty's default:
 difficulty's defaults (D66). The generator never aims below a minimum, and any target that sits
 lower rises to it (Easy's Berries near start becomes 40); near-start groves aim at 1.35 × Minimum
 starting wood in grown logs, and where the walk holds little moist land they draw their species by
-the wood they give as well as by the mix. The start's bench stands a level above the floodplain
+the wood they give as well as by the mix. The map's own groves and patches come first; the start
+rules add only what those leave short within the walk, spread over it the way the land offers it,
+so no two starts get the same ring (D252, §7.7). The start's bench stands a level above the floodplain
 (D26), and the colony walks down to the river over the map's own slopes: the derived slope out of
 the start's own level stands on the boundary nearest the start and the river together (§7.5). The
 bench no longer runs to the bank (D97's strip, which only the old same-level rule needed); a
@@ -689,16 +691,27 @@ overlap.
 
 1. **Start**: one `StartingLocation` on the bench, the door facing the river. Keep clear a
    Chebyshev radius of 3 around it and the 3×3 in front of the entrance.
-2. **Berries**: 2–3 patches of blueberry bushes within 16 tiles of the start on moist soil beside
-   clean water, until the difficulty minimum is met. Then patches elsewhere (median 20–40, beside
-   water) up to the density target. Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and
-   55% ripe elsewhere, as in official maps.
+2. **Berries**: patches of blueberry bushes across the map (median 20–40, beside water) up to the
+   density target, the start's share kept back; then, where they leave the start short of its target
+   within 20 tiles' walk, 1–3 patches on moist soil beside clean water, on the side and at the
+   distance the start's layout draws (item 3); what they leave of the start's share goes to the rest
+   of the map. Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55% ripe elsewhere,
+   as in official maps.
 3. **Forests**:
    - Groves are single-species blobs grown with a compactness of about 0.8, sized log-normal around
      the grove-size median.
-   - Near-start groves come first: at least 40 living trees within 18 tiles.
-   - Then living groves on moist soil up to about 40% of the tree target, then dead groves on dry
-     soil.
+   - The map's groves come first: living groves on moist soil up to about a quarter of it, then dead
+     groves on dry soil, the start's share kept back.
+   - Then the start's own groves add the wood the map's leave short of the start's target within 20
+     tiles' walk (at least 40 living trees' worth; D252). Each map draws a layout from its own stream:
+     a side and a distance for its groves (a bearing and a walk of 6–17 tiles they gather round) and
+     for its berries (beside the groves or off to one side), a grove size (1–3 × the Grove size
+     median) and an opening (as the mix, oak-rich or a pine forest; D164's lever). Each grove draws
+     a kind of place from the land within the walk, as the floor's wood does (D229): a river's banks,
+     across the water, a plateau, a side valley or open ground, weighted by its room on the layout's
+     side and by how natural it is, its species leaning to the place. The start's yard (6 tiles) stays
+     clear where the walk has room elsewhere; standing dead groves on its dry ground only where the
+     moist land runs out. Then the rest of the map's trees.
    - Succulent groves go on dry soil and are alive.
    - Living trees: 35% saplings (`Growable` 0.2–0.95).
    - Dead trees: `LivingNaturalResource.IsDead`.

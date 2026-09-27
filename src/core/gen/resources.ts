@@ -14,9 +14,10 @@ import { entityTiles } from "../features/edits";
 import { WALK_BLOCKERS } from "../validate/playability";
 import { TREE_LOGS, type EntitySpec } from "../format/entities";
 import { slopeHighSide } from "../format/footprints";
-import { distanceFrom, tilesToRuns } from "../math/grid";
+import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { hash32, tileHash01 } from "../math/hash";
-import { stream } from "../math/rng";
+import { cosDet, expDet, sinDet } from "../math/detmath";
+import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
@@ -198,30 +199,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     out.push(f);
   }
 
-  // where the colony's walk holds little moist land (a narrow floodplain), the near-start berries
-  // and groves share it by their minimums instead of the berries taking theirs first (D85)
-  let nearBushes = near.bushes;
-  let nearWood = near.wood;
-  // where the walk holds little moist land, the near-start groves draw their species by the wood
-  // they give as well as by the mix, so the land there still gives the starting wood (D164)
-  let tight = false;
-  let dense = false;
-  if (nearWalk) {
-    let room = 0;
-    for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
-    const need = 1.25 * (near.bushes + near.trees);
-    // (the groves and patches' own gaps take ground too: fill them there)
-    dense = room < need / 0.75;
-    if (room < need) {
-      tight = true;
-      const r = spec.settings.start.rules;
-      nearBushes = Math.max(Math.ceil(1.1 * r.bushesWithin20), Math.floor((near.bushes * room) / need));
-      nearWood = Math.max(Math.ceil(1.2 * r.woodWithin20), Math.floor((near.wood * room) / need));
-    }
-  }
-  const nearTrees = Math.ceil(nearWood / logsPerTree(spec.settings.resources.speciesMix));
-
-  // ---- berry patches beside water, the first ones near the start (PLAN §7.7)
+  // ---- berry patches beside water (PLAN §7.7)
   const vegRng = stream(seed, "veg", candidate, attempt);
   const waterDist = distanceFrom(wet, W, H);
   const nearWater = (i: number) => waterDist[i] <= 5;
@@ -229,7 +207,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // near the start, patches and groves fill more of their ground (the start requirements count
   // them there), and all of it where the colony's walk holds little moist land
   const nearFill = { bushes: 0.85, trees: 0.7 };
-  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number): number => {
+  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch"): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && moist[i] && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
@@ -237,7 +215,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     if (!grown) return 0;
     const tiles = grown.tiles;
     for (const i of grown.area) free[i] = 0;
-    const role = anchorRole("berryPatch", tiles);
+    const role = anchorRole(prefix, tiles);
     const f: BerryPatchFeature = {
       id: featureId(seed, "berryPatch", role),
       kind: "berryPatch",
@@ -250,31 +228,6 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     bushCount += tiles.length;
     return tiles.length;
   };
-  if (g.start) {
-    const want = nearBushes;
-    // 2–3 patches as PLAN §7.7 says, more when the target is large or the moist land near the
-    // start is narrow (a canyon floor): patches until the target is met, at most 6 a pass. They go
-    // within the colony's walk first, in two passes (D85 counts 20 tiles' walk), beyond it only
-    // when that walk holds too little moist land.
-    const each = Math.max(4, Math.floor(want / Math.max(2, Math.ceil(want / 30))));
-    let got = 0;
-    for (const within of nearWalk ? [nearWalk, nearWalk, null] : [null]) {
-      if (got >= want) break;
-      const w = new Float64Array(N);
-      for (let i = 0; i < N; i++) {
-        const x = i % W;
-        const y = (i - x) / W;
-        const dx = x - g.start.x;
-        const dy = y - g.start.y;
-        const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= BUSHES.nearStartRadius * BUSHES.nearStartRadius;
-        if (nearHere && free[i] && moist[i]) w[i] = (nearWater(i) ? 2 : 1) * byWalk(i);
-      }
-      for (const s of pickSeeds(vegRng, w, W, 6, 6)) {
-        got += patch(s, Math.min(each, Math.max(4, want - got)), 1, within, dense ? 1 : nearFill.bushes);
-        if (got >= want) break;
-      }
-    }
-  }
   // a second district's berries (PLAN §9.8)
   for (const site of sites) {
     const w = new Float64Array(N);
@@ -291,14 +244,20 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       if (got >= SITE_BUSHES) break;
     }
   }
-  // the rest of the map's bushes: a few large patches beside water (the baseline)
-  syncTaken();
-  for (const p of planPatches(ground, budget.bushes - bushCount, { rng: vegRng, waterDist })) {
-    const role = anchorRole("berryPatch", p.tiles);
-    out.push({ id: featureId(seed, "berryPatch", role), kind: "berryPatch", origin: "generated", role, locked: false, params: { area: tilesToRuns(p.tiles, W), density: 1, ripeShare: 0.55 } });
-    bushCount += p.tiles.length;
-  }
-  takeFromBaseline();
+  // the map's bushes (the baseline): a few large patches beside water
+  const patchCentres: [number, number][] = [];
+  const basePatches = (want: number) => {
+    syncTaken();
+    for (const p of planPatches(ground, want, { rng: vegRng, waterDist, centres: patchCentres })) {
+      const role = anchorRole("berryPatch", p.tiles);
+      out.push({ id: featureId(seed, "berryPatch", role), kind: "berryPatch", origin: "generated", role, locked: false, params: { area: tilesToRuns(p.tiles, W), density: 1, ripeShare: 0.55 } });
+      bushCount += p.tiles.length;
+    }
+    takeFromBaseline();
+  };
+  // (the start's share is kept back for its own planting below, and what that does not use goes
+  // to the rest of the map afterwards)
+  basePatches(budget.bushes - bushCount - (g.start ? near.bushes : 0));
 
   // ---- groves: single-species, alive on moist soil and stored dead on dry soil (PLAN §7.7)
   const grove = FOREST.grove[spec.settings.resources.groveSize];
@@ -313,10 +272,11 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // the starting wood the last grove gives: its trees by its species' yield, but for the saplings
   // the forest's rasterizer will make (the same tile hash; D164)
   let groveLogs = 0;
-  // every grove planted, for the starting-logs floor's count (D224, D227)
+  // every grove planted, for the starting wood's and the starting-logs floor's counts (D224, D227)
   const planted: PlantedGrove[] = [];
   const woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
-  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove"): number => {
+  // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
+  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[]): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
@@ -329,7 +289,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) clearings[(y + dy) * W + x + dx] = 1;
     }
     const byWood = forWood && woodW.some((w) => w > 0);
-    let sp: (typeof species)[number] = species[anySpecies ? vegRng.weighted(byWood ? woodW : speciesW) : 0];
+    const mixed = byWood ? woodW : speciesW;
+    const placed = place ? mixed.map((w, k) => w * place[k]) : mixed;
+    let sp: (typeof species)[number] = species[anySpecies ? vegRng.weighted(placed.some((w) => w > 0) ? placed : mixed) : 0];
     if (sp === "Succulent" && living) sp = livingSpecies(speciesW); // succulents are the dry-land tree
     for (const i of grown.area) free[i] = 0;
     const role = anchorRole(prefix, tiles);
@@ -345,46 +307,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     planted.push({ id: f.id, tiles, species: sp, living });
     treeCount += tiles.length;
     // the starting wood it gives: grown trees within the colony's walk
-    groveLogs = 0;
-    if (sp !== "Succulent") {
-      const sYoung = hash32(seed, f.id, "young");
-      for (const i of tiles) if ((!nearWalk || nearWalk[i]) && (!living || tileHash01(sYoung, i % W, (i - (i % W)) / W) >= FOREST.youngShare)) groveLogs += TREE_LOGS[sp];
-    }
+    groveLogs = grownLogs(seed, W, f.id, tiles, sp, living, moist, nearWalk);
     return tiles.length;
   };
-  if (g.start) {
-    const r = FOREST.nearStart.radius;
-    let got = 0;
-    const each = Math.floor(grove.median * 1.5);
-    // within the colony's walk first, as the berries, until the groves give the wood aimed at
-    for (const within of nearWalk ? [nearWalk, nearWalk, null] : [null]) {
-      if (got >= nearWood) break;
-      const w = new Float64Array(N);
-      for (let i = 0; i < N; i++) {
-        const x = i % W;
-        const y = (i - x) / W;
-        const dx = x - g.start.x;
-        const dy = y - g.start.y;
-        const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= r * r;
-        if (nearHere && free[i] && moist[i]) w[i] = byWalk(i);
-      }
-      for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start")) got += groveLogs;
-        if (got >= nearWood) break;
-      }
-    }
-    // where the walk's moist land holds too little (D227's 200 logs at Normal), standing dead groves
-    // on its dry ground give the rest: a dead tree keeps its logs, and Starting wood counts them
-    // (D164); their species drawn by the wood they give
-    if (nearWalk && got < nearWood) {
-      const w = new Float64Array(N);
-      for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && !moist[i] && !wet[i]) w[i] = 1;
-      for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil((nearWood - got) / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, each, false, nearWalk, nearFill.trees, true, "forest/start")) got += groveLogs;
-        if (got >= nearWood) break;
-      }
-    }
-  }
   // a second district's grove (PLAN §9.8)
   for (const site of sites) {
     const w = new Float64Array(N);
@@ -403,27 +328,183 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       if (got >= SITE_TREES) break;
     }
   }
-  // the rest of the map's trees (the baseline): living groves on moist ground, at most on a
-  // quarter of it, and the rest on dry ground, dead (or succulents); each grove one species
-  let moistRoom = 0;
-  for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
-  const livingWant = Math.max(0, Math.min(budget.living - succulentsOf(budget, spec.settings.resources) - treeCount, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
-  const dryWant = Math.max(0, budget.trees - treeCount - livingWant);
-  syncTaken();
-  for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist })) {
-    const role = anchorRole("forest/grove", gr.tiles);
-    out.push({
-      id: featureId(seed, "forest", role),
-      kind: "forest",
-      origin: "generated",
-      role,
-      locked: false,
-      params: { area: tilesToRuns(gr.tiles, W), density: 1, speciesMix: { [gr.species]: 1 }, groveSize: gr.tiles.length, life: "auto", youngShare: FOREST.youngShare },
-    });
-    planted.push({ id: featureId(seed, "forest", role), tiles: gr.tiles, species: gr.species, living: gr.living });
-    treeCount += gr.tiles.length;
+  // the map's trees (the baseline): living groves on moist ground, at most on a quarter of it, and
+  // the rest on dry ground, dead (or succulents); each grove one species. `keep` trees are kept
+  // back for the start's own planting
+  const baseGroves = (keep: number) => {
+    let moistRoom = 0;
+    for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
+    const livingWant = Math.max(0, Math.min(budget.living - succulentsOf(budget, spec.settings.resources) - treeCount - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
+    const dryWant = Math.max(0, budget.trees - treeCount - livingWant - keep);
+    syncTaken();
+    for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist })) {
+      const role = anchorRole("forest/grove", gr.tiles);
+      out.push({
+        id: featureId(seed, "forest", role),
+        kind: "forest",
+        origin: "generated",
+        role,
+        locked: false,
+        params: { area: tilesToRuns(gr.tiles, W), density: 1, speciesMix: { [gr.species]: 1 }, groveSize: gr.tiles.length, life: "auto", youngShare: FOREST.youngShare },
+      });
+      planted.push({ id: featureId(seed, "forest", role), tiles: gr.tiles, species: gr.species, living: gr.living });
+      treeCount += gr.tiles.length;
+    }
+    takeFromBaseline();
+  };
+  baseGroves(g.start ? near.trees : 0);
+
+  // ---- the start's own planting (PLAN §5.6, D85, D164, D227; D252): the map's own groves and
+  //      patches come first, and the start rules add only what they leave short of the targets
+  //      within the colony's walk, reading the land the way the floor's wood does (D229)
+  if (g.start) {
+    // what the map's own plants already give within the walk: living bushes (patches grow only on
+    // moist ground) and grown logs
+    let gotBushes = 0;
+    let gotWood = 0;
+    if (nearWalk) {
+      for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i]) gotBushes++;
+      for (const p of planted) gotWood += grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, nearWalk);
+    }
+    // where the walk holds little moist land (a narrow floodplain), the start's berries and groves
+    // share it by their minimums instead of the berries taking theirs first (D85), fill all of it,
+    // and draw their species by the wood they give as well as by the mix (D164)
+    let nearBushes = near.bushes;
+    let nearWood = near.wood;
+    let tight = false;
+    let dense = false;
+    const perTree = logsPerTree(spec.settings.resources.speciesMix);
+    if (nearWalk) {
+      let room = 0;
+      for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
+      const shortBushes = Math.max(0, near.bushes - gotBushes);
+      const shortWood = Math.max(0, near.wood - gotWood);
+      const need = 1.25 * (shortBushes + shortWood / perTree);
+      // (the groves and patches' own gaps take ground too: fill them there)
+      dense = room < need / 0.75;
+      if (room < need) {
+        tight = true;
+        const r = spec.settings.start.rules;
+        nearBushes = Math.max(Math.ceil(1.1 * r.bushesWithin20), gotBushes + Math.floor((shortBushes * room) / need));
+        nearWood = Math.max(Math.ceil(1.2 * r.woodWithin20), gotWood + Math.floor((shortWood * room) / need));
+      }
+    }
+    const nearTrees = Math.ceil(Math.max(0, nearWood - gotWood) / perTree);
+    // the start's yard stays clear of its own planting where the walk has room for it elsewhere
+    // (D252): a start is not hemmed in by its own groves and patches
+    let plantWalk = nearWalk;
+    if (nearWalk && !dense) {
+      plantWalk = nearWalk.slice();
+      for (let y = g.start.y - YARD_CLEAR; y <= g.start.y + YARD_CLEAR; y++)
+        for (let x = g.start.x - YARD_CLEAR; x <= g.start.x + YARD_CLEAR; x++)
+          if (x >= 0 && y >= 0 && x < W && y < H && (x - g.start.x) * (x - g.start.x) + (y - g.start.y) * (y - g.start.y) < YARD_CLEAR * YARD_CLEAR) plantWalk[y * W + x] = 0;
+    }
+    // where the start's own planting leans, drawn once per map (D252): its groves and its berry
+    // patches each take a side and a distance within the walk
+    const lay = walk && nearWalk ? startLayout(stream(seed, "start-planting", candidate, attempt), g.start, walk, nearWalk, W, H, grove.median) : null;
+
+    // its berries: 1–3 patches (PLAN §7.7), more when the moist land near the start is narrow (a
+    // canyon floor), at most 6 a pass. They go within the colony's walk first, in two passes (D85
+    // counts 20 tiles' walk), on the layout's side and at its distance, beyond the walk only when
+    // it holds too little moist land.
+    const wantBushes = nearBushes - gotBushes;
+    if (wantBushes > 0) {
+      const each = lay ? Math.max(4, Math.ceil(wantBushes / lay.patches)) : Math.max(4, Math.floor(wantBushes / Math.max(2, Math.ceil(wantBushes / 30))));
+      let got = 0;
+      for (const within of plantWalk ? [plantWalk, plantWalk, null] : [null]) {
+        if (got >= wantBushes) break;
+        const w = new Float64Array(N);
+        for (let i = 0; i < N; i++) {
+          const x = i % W;
+          const y = (i - x) / W;
+          const dx = x - g.start.x;
+          const dy = y - g.start.y;
+          const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= BUSHES.nearStartRadius * BUSHES.nearStartRadius;
+          if (nearHere && free[i] && moist[i]) w[i] = (nearWater(i) ? 2 : 1) * (within && lay ? lay.berries[i] : byWalk(i));
+        }
+        for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, 6, 6)) {
+          got += patch(s, Math.min(each, Math.max(4, wantBushes - got)), 1, within, dense ? 1 : nearFill.bushes, "berryPatch/start");
+          if (got >= wantBushes) break;
+        }
+      }
+    }
+
+    // its groves: each draws a kind of place within the walk (a river's banks, across the water, a
+    // plateau, a side valley, open ground), weighted by its room on the layout's side and at its
+    // distance and by how natural it is, and grows from that ground into the land beside it, its
+    // species leaning to the place; a kind whose room won't take a grove gives way
+    let got = gotWood;
+    const r = FOREST.nearStart.radius;
+    const each = Math.floor(grove.median * 1.5);
+    if (lay && nearWalk) {
+      const kindOf = placeKinds({ W, H, heights: g.heights, wet, moist, free, waterDist, start: g.start, within: plantWalk! });
+      const used = new Set<FloorWoodKind>();
+      while (got < nearWood) {
+        const room = LIVING_KINDS.map((k) => {
+          let n = 0;
+          let s = 0;
+          for (let i = 0; i < N; i++)
+            if (kindOf[i] === at(k) && free[i]) {
+              n++;
+              s += lay.groves[i];
+            }
+          return n >= 8 ? s : 0;
+        });
+        const weights = LIVING_KINDS.map((k, j) => (room[j] > 0 ? Math.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
+        if (!weights.some((w) => w > 0)) break;
+        const kind = LIVING_KINDS[lay.rng.weighted(weights)];
+        used.add(kind);
+        const seedW = new Float64Array(N);
+        for (let i = 0; i < N; i++) if (kindOf[i] === at(kind) && free[i]) seedW[i] = lay.groves[i];
+        const zone = besideTiles(seedW, W, H, 3);
+        for (let i = 0; i < N; i++) zone[i] &= plantWalk![i];
+        // enough trees for the logs still wanted, within the layout's grove size
+        const n = Math.max(6, Math.min(Math.ceil((nearWood - got) / (perTree * 0.8)), Math.round(lay.rng.logNormal(lay.groveSize, 0.45)), grove.cap));
+        const sp = FLOOR_KINDS[kind].species;
+        let grew = false;
+        for (const s of pickSeeds(lay.rng, seedW, W, 3, 4)) {
+          if (!growGrove(s, n, true, zone, dense ? 1 : nearFill.trees, tight, `forest/start/${kind}`, [sp.pine * lay.opening[0], sp.birch * lay.opening[1], sp.oak * lay.opening[2], 0])) continue;
+          got += groveLogs;
+          grew = true;
+          break;
+        }
+        if (!grew) for (let i = 0; i < N; i++) if (kindOf[i] === at(kind)) kindOf[i] = 0;
+      }
+    }
+    // then any moist ground within the colony's walk (on the layout's side first), and beyond it
+    // only when the walk holds too little
+    for (const within of plantWalk ? [plantWalk, plantWalk, null] : [null]) {
+      if (got >= nearWood) break;
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) {
+        const x = i % W;
+        const y = (i - x) / W;
+        const dx = x - g.start.x;
+        const dy = y - g.start.y;
+        const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= r * r;
+        if (nearHere && free[i] && moist[i]) w[i] = within && lay ? lay.groves[i] : byWalk(i);
+      }
+      for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
+        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start", lay ? [...lay.opening, 0] : undefined)) got += groveLogs;
+        if (got >= nearWood) break;
+      }
+    }
+    // where the walk's moist land holds too little (D227's 200 logs at Normal), standing dead groves
+    // on its dry ground give the rest: a dead tree keeps its logs, and Starting wood counts them
+    // (D164); their species drawn by the wood they give
+    if (nearWalk && got < nearWood) {
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (plantWalk![i] && free[i] && !moist[i] && !wet[i]) w[i] = lay ? lay.groves[i] : 1;
+      for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, Math.max(4, Math.ceil((nearWood - got) / Math.max(1, each)) + 3), 5)) {
+        if (growGrove(s, each, false, plantWalk, nearFill.trees, true, "forest/start/dead")) got += groveLogs;
+        if (got >= nearWood) break;
+      }
+    }
+
+    // the rest of the map's bushes and trees: what the start's planting did not use of the budget
+    basePatches(budget.bushes - bushCount);
+    baseGroves(0);
   }
-  takeFromBaseline();
 
   // ---- the starting-logs floor (D224, D227, D229): every map has the floor's logs within 40
   //      tiles' walk of the start, at every difficulty. Where the map's own trees give less, wood is
@@ -463,6 +544,170 @@ const FLOOR_KINDS: Record<FloorWoodKind, { like: number; living: boolean; specie
   dead: { like: 0.05, living: false, species: { pine: 2, birch: 1, oak: 1 } },
 };
 
+/** The kinds in the order `placeKinds` numbers them (1 + the index; 0 is nowhere). */
+const KINDS = Object.keys(FLOOR_KINDS) as FloorWoodKind[];
+const at = (k: FloorWoodKind) => KINDS.indexOf(k) + 1;
+/** The kinds of place a living grove grows on. */
+const LIVING_KINDS = KINDS.filter((k) => FLOOR_KINDS[k].living);
+
+/** Within this many tiles of the start's middle (straight-line) its own planting keeps off, where the
+ *  walk has room for it elsewhere (D252). */
+const YARD_CLEAR = 6;
+/** How far the start's planting spreads round the distance its layout leans to, in tiles' walk. */
+const REACH_SPREAD = 4;
+/** The start's own yard: within this many tiles of its middle the planting is rare (a tree or patch
+ *  there weighs (r / YARD)⁴ as much), so a start is not hemmed in by its own groves. */
+const YARD = 8;
+/** The openings a start's planting can lean to (D164: "species variety becomes a lever the
+ *  generator can use for different openings, oak-rich and slow against birch-rich and fast"): its
+ *  groves' species weights on the settings' mix (pine, birch, oak), and how often each is drawn. */
+const OPENINGS: readonly { species: readonly [number, number, number]; weight: number }[] = [
+  { species: [1, 1, 1], weight: 2 }, // as the mix says
+  { species: [1, 0.5, 3], weight: 1 }, // oak-rich: fewer, heavier trees
+  { species: [3, 1, 0.5], weight: 1 }, // a pine forest
+];
+
+/** Where the start's own planting goes within its walk (PLAN §20 D252). Planted evenly on the moist
+ *  land nearest the start, its groves and berry patches made the same ring within about 10 tiles of
+ *  every start. Each map now draws, from its own stream, a side and a distance for its groves (a
+ *  bearing, how strongly they lean to it, and a walk of 6–17 tiles they gather round) and for its
+ *  berries (beside the groves, across from them or off to one side, 6–16 tiles out), the size of
+ *  its groves (1–3 × the Grove size setting's median), its opening (the groves' species: as the
+ *  mix, oak-rich or a pine forest) and how many patches its berries come in (1–3). Each tile within
+ *  the walk gets a weight for the groves and one for the berries; they lean the draws, never forbid
+ *  a tile, so a start whose walk holds little moist land still gets its wood and berries. */
+interface StartLayout {
+  rng: Rng;
+  groves: Float64Array;
+  berries: Float64Array;
+  groveSize: number;
+  opening: readonly [number, number, number];
+  patches: number;
+}
+
+function startLayout(rng: Rng, start: { x: number; y: number }, walk: Float64Array, nearWalk: Uint8Array, W: number, H: number, groveMedian: number): StartLayout {
+  const N = W * H;
+  // e^(lean × (cos θ − 1)) for the tile's direction from the start against the bearing, times a
+  // bell round the distance, less in the start's yard (basic operations only, PLAN §2.1)
+  const side = (turn: number, lean: number, reach: number) => {
+    const bx = cosDet(turn);
+    const by = sinDet(turn);
+    const out = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!nearWalk[i]) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      const dx = x - start.x;
+      const dy = y - start.y;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const c = r > 0 ? (dx * bx + dy * by) / r : 0;
+      const d = walk[i] - reach;
+      const yard = r < YARD ? (r * r * r * r) / (YARD * YARD * YARD * YARD) : 1;
+      out[i] = yard * expDet(lean * (c - 1) - (d * d) / (2 * REACH_SPREAD * REACH_SPREAD));
+    }
+    return out;
+  };
+  const turn = 2 * Math.PI * rng.float();
+  const groves = side(turn, rng.range(1, 3), rng.range(6, 17));
+  const off = [0, Math.PI / 3, -Math.PI / 3][rng.weighted([2, 1, 1])] + rng.range(-0.4, 0.4);
+  const berries = side(turn + off, rng.range(1, 3), rng.range(6, 16));
+  const groveSize = groveMedian * rng.range(1, 3);
+  const opening = OPENINGS[rng.weighted(OPENINGS.map((o) => o.weight))].species;
+  return { rng, groves, berries, groveSize, opening, patches: 1 + rng.weighted([1, 2, 1]) };
+}
+
+/** The kind of place each free, dry-footed tile within `within` is, reading the land round the
+ *  start (D229; D252 for the start's own planting): on moist ground, the far side of water from the
+ *  start, a river's banks, a plateau two levels above the start, a side valley (ground below its
+ *  surroundings), or open ground; on dry ground, a dead plateau or dry ground. Tiles within 3 of the
+ *  start are none. */
+function placeKinds(o: { W: number; H: number; heights: Uint8Array; wet: Uint8Array; moist: Uint8Array; free: Uint8Array; waterDist: Float64Array; start: { x: number; y: number }; within: Uint8Array }): Uint8Array {
+  const { W, H, heights, wet, moist, free, waterDist, start, within } = o;
+  const N = W * H;
+  const hs = heights[start.y * W + start.x];
+  // the mean ground within 3 tiles: a side valley lies below it
+  const sum = new Float64Array((W + 1) * (H + 1));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) sum[(y + 1) * (W + 1) + x + 1] = heights[y * W + x] + sum[y * (W + 1) + x + 1] + sum[(y + 1) * (W + 1) + x] - sum[y * (W + 1) + x];
+  const meanAround = (x: number, y: number) => {
+    const x0 = Math.max(0, x - 3);
+    const y0 = Math.max(0, y - 3);
+    const x1 = Math.min(W, x + 4);
+    const y1 = Math.min(H, y + 4);
+    return (sum[y1 * (W + 1) + x1] - sum[y0 * (W + 1) + x1] - sum[y1 * (W + 1) + x0] + sum[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+  };
+  // water between the start and a tile, on the straight line (a forest across a stream)
+  const acrossWater = (x: number, y: number) => {
+    const dx = x - start.x;
+    const dy = y - start.y;
+    const steps = Math.ceil(2 * Math.max(Math.abs(dx), Math.abs(dy)));
+    for (let k = 2; k < steps - 1; k++) {
+      const px = Math.round(start.x + (dx * k) / steps);
+      const py = Math.round(start.y + (dy * k) / steps);
+      if (wet[py * W + px]) return true;
+    }
+    return false;
+  };
+  const kindOf = new Uint8Array(N); // index into KINDS + 1; 0: nowhere
+  for (let i = 0; i < N; i++) {
+    if (!within[i] || !free[i] || wet[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (Math.abs(x - start.x) <= 3 && Math.abs(y - start.y) <= 3) continue;
+    const h = heights[i];
+    const flat = (x === 0 || Math.abs(heights[i - 1] - h) <= 1) && (x === W - 1 || Math.abs(heights[i + 1] - h) <= 1) && (y === 0 || Math.abs(heights[i - W] - h) <= 1) && (y === H - 1 || Math.abs(heights[i + W] - h) <= 1);
+    if (moist[i]) {
+      if (waterDist[i] <= 8 && acrossWater(x, y)) kindOf[i] = at("across");
+      else if (waterDist[i] <= 3) kindOf[i] = at("riverside");
+      else if (h >= hs + 2 && flat) kindOf[i] = at("plateau");
+      else if (meanAround(x, y) - h >= 0.75) kindOf[i] = at("valley");
+      else kindOf[i] = at("open");
+    } else kindOf[i] = h >= hs + 2 && flat ? at("deadPlateau") : at("dead");
+  }
+  return kindOf;
+}
+
+/** The tiles within `reach` 4-connected steps of the tiles `from` marks: a grove that starts on its
+ *  kind's ground grows into the land beside it, a forest, not a ribbon cut to the kind's own tiles. */
+function besideTiles(from: Uint8Array | Float64Array, W: number, H: number, reach: number): Uint8Array {
+  const N = W * H;
+  const near = new Float64Array(N).fill(Infinity);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (from[i]) {
+      near[i] = 0;
+      q.push(i);
+    }
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h];
+    if (near[i] >= reach) continue;
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
+      if (j < 0 || j >= N || near[j] <= near[i] + 1) continue;
+      near[j] = near[i] + 1;
+      q.push(j);
+    }
+  }
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) out[i] = near[i] <= reach ? 1 : 0;
+  return out;
+}
+
+/** The logs a planted grove's grown trees give within `within` (every tile when null): the forest
+ *  rasterizer's saplings by the same tile hash give none yet, and a tree on dry ground stands dead
+ *  and keeps its logs (D164, D224). */
+function grownLogs(seed: number, W: number, id: string, tiles: readonly number[], sp: string, living: boolean, moist: Uint8Array, within: Uint8Array | null): number {
+  const logs = LOGS_PER_TREE_SPECIES[sp] ?? 0;
+  if (!logs) return 0;
+  const sYoung = hash32(seed, id, "young");
+  let n = 0;
+  for (const i of tiles) {
+    if (within && !within[i]) continue;
+    if (living && moist[i] && tileHash01(sYoung, i % W, (i - (i % W)) / W) < FOREST.youngShare) continue;
+    n += logs;
+  }
+  return n;
+}
+
 interface FloorWoodInput {
   W: number;
   H: number;
@@ -500,65 +745,13 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
   const { W, H, seed, start, heights, wet, moist, free, waterDist, walk, floorWalk } = o;
   const N = W * H;
   const logsOf = (sp: string) => LOGS_PER_TREE_SPECIES[sp] ?? 0;
-  // the grown logs the planted groves give within the walk (the forest rasterizer's saplings by the
-  // same tile hash; a tree on dry ground stands dead and keeps its logs)
-  const grownLogs = (id: string, tiles: readonly number[], sp: string, living: boolean) => {
-    const sYoung = hash32(seed, id, "young");
-    let n = 0;
-    for (const i of tiles) {
-      if (!floorWalk[i]) continue;
-      if (living && moist[i] && tileHash01(sYoung, i % W, (i - (i % W)) / W) < FOREST.youngShare) continue;
-      n += logsOf(sp);
-    }
-    return n;
-  };
   let got = 0;
-  for (const p of o.planted) got += grownLogs(p.id, p.tiles, p.species, p.living);
+  for (const p of o.planted) got += grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, floorWalk);
   const want = Math.ceil(1.15 * LOG_FLOOR);
   if (got >= want) return [];
 
   // the land within the walk
-  const hs = heights[start.y * W + start.x];
-  // the mean ground within 3 tiles: a side valley lies below it
-  const sum = new Float64Array((W + 1) * (H + 1));
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) sum[(y + 1) * (W + 1) + x + 1] = heights[y * W + x] + sum[y * (W + 1) + x + 1] + sum[(y + 1) * (W + 1) + x] - sum[y * (W + 1) + x];
-  const meanAround = (x: number, y: number) => {
-    const x0 = Math.max(0, x - 3);
-    const y0 = Math.max(0, y - 3);
-    const x1 = Math.min(W, x + 4);
-    const y1 = Math.min(H, y + 4);
-    return (sum[y1 * (W + 1) + x1] - sum[y0 * (W + 1) + x1] - sum[y1 * (W + 1) + x0] + sum[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0));
-  };
-  // water between the start and a tile, on the straight line (a forest across a stream)
-  const acrossWater = (x: number, y: number) => {
-    const dx = x - start.x;
-    const dy = y - start.y;
-    const steps = Math.ceil(2 * Math.max(Math.abs(dx), Math.abs(dy)));
-    for (let k = 2; k < steps - 1; k++) {
-      const px = Math.round(start.x + (dx * k) / steps);
-      const py = Math.round(start.y + (dy * k) / steps);
-      if (wet[py * W + px]) return true;
-    }
-    return false;
-  };
-  const kindOf = new Uint8Array(N); // index into KINDS + 1; 0: nowhere
-  const KINDS = Object.keys(FLOOR_KINDS) as FloorWoodKind[];
-  const at = (k: FloorWoodKind) => KINDS.indexOf(k) + 1;
-  for (let i = 0; i < N; i++) {
-    if (!floorWalk[i] || !free[i] || wet[i]) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    if (Math.abs(x - start.x) <= 3 && Math.abs(y - start.y) <= 3) continue;
-    const h = heights[i];
-    const flat = (x === 0 || Math.abs(heights[i - 1] - h) <= 1) && (x === W - 1 || Math.abs(heights[i + 1] - h) <= 1) && (y === 0 || Math.abs(heights[i - W] - h) <= 1) && (y === H - 1 || Math.abs(heights[i + W] - h) <= 1);
-    if (moist[i]) {
-      if (waterDist[i] <= 8 && acrossWater(x, y)) kindOf[i] = at("across");
-      else if (waterDist[i] <= 3) kindOf[i] = at("riverside");
-      else if (h >= hs + 2 && flat) kindOf[i] = at("plateau");
-      else if (meanAround(x, y) - h >= 0.75) kindOf[i] = at("valley");
-      else kindOf[i] = at("open");
-    } else kindOf[i] = h >= hs + 2 && flat ? at("deadPlateau") : at("dead");
-  }
+  const kindOf = placeKinds({ W, H, heights, wet, moist, free, waterDist, start, within: floorWalk });
   // on Hard, beyond the 20 tiles' walk first
   const far = new Uint8Array(N);
   for (let i = 0; i < N; i++) far[i] = kindOf[i] && !(walk[i] <= 20) ? 1 : 0;
@@ -591,24 +784,9 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
       // same soil, within the walk: a forest, not a ribbon cut to the kind's own tiles
       const seedW = new Float64Array(N);
       for (let i = 0; i < N; i++) if (kindOf[i] === at(kind) && free[i] && (!zone || zone[i])) seedW[i] = 1;
-      const near = new Float64Array(N).fill(Infinity);
-      const q: number[] = [];
-      for (let i = 0; i < N; i++) if (seedW[i]) {
-        near[i] = 0;
-        q.push(i);
-      }
-      for (let h = 0; h < q.length; h++) {
-        const i = q[h];
-        if (near[i] >= 3) continue;
-        const x = i % W;
-        for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
-          if (j < 0 || j >= N || near[j] <= near[i] + 1) continue;
-          near[j] = near[i] + 1;
-          q.push(j);
-        }
-      }
+      const beside = besideTiles(seedW, W, H, 3);
       const allowed = new Uint8Array(N);
-      for (let i = 0; i < N; i++) allowed[i] = near[i] <= 3 && floorWalk[i] && free[i] && !wet[i] && (kd.living ? moist[i] : !moist[i]) && (!zone || zone[i]) ? 1 : 0;
+      for (let i = 0; i < N; i++) allowed[i] = beside[i] && floorWalk[i] && free[i] && !wet[i] && (kd.living ? moist[i] : !moist[i]) && (!zone || zone[i]) ? 1 : 0;
       const seeds = pickSeeds(rng, seedW, W, 3, 6);
       let grew = false;
       for (const s of seeds) {
@@ -629,7 +807,7 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
           free[i] = 0;
           o.ground.taken[i] = 1;
         }
-        got += grownLogs(f.id, tiles, sp, kd.living);
+        got += grownLogs(seed, W, f.id, tiles, sp, kd.living, moist, floorWalk);
         grew = true;
         break;
       }
