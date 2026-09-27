@@ -1,0 +1,29 @@
+{
+  "name": "dam-good-maps-glaciate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "node launch.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run.mjs tests/core.ts && node scripts/run.mjs tests/schema.ts && node scripts/run.mjs tests/export.ts",
+    "maps": "node scripts/run.mjs scripts/maps.ts",
+    "captures": "node scripts/run.mjs tests/browser.ts",
+    "report": "node scripts/audit.mjs && node scripts/report.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "fflate": "0.8.3",
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "@types/three": "^0.186.0",
+    "esbuild": "^0.28.0",
+    "gifenc": "1.0.3",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.0"
+  }
+}
