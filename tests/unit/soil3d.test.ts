@@ -2,6 +2,7 @@
 // sim/moisture.ts's and sim/contamination.ts's numbers on a heightfield, bit for bit; both modes
 // follow the game's rules through a roof over a full cave (GAME_RULES.md §6).
 
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { heightMasks, terrainColumns, waterColumns } from "../../src/core/sim/columns";
 import { soilContamination } from "../../src/core/sim/contamination";
@@ -10,8 +11,9 @@ import { moisture } from "../../src/core/sim/moisture";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { StackSim } from "../../src/core/sim/stack";
 import { stackModel } from "../../src/core/sim/stackModel";
+import { canonicalStackSettle } from "../../src/core/sim/stackPrefill";
 import { columnSaturation, soil3d, type SoilMode } from "../../src/core/sim/soil3d";
-import { object, source, valley } from "./stackMaps";
+import { caveValley, object, source, valley } from "./stackMaps";
 
 describe("soil per terrain run", () => {
   it("gives today's moisture and contamination on a heightfield, bit for bit (port mode)", () => {
@@ -104,6 +106,22 @@ describe("soil per terrain run", () => {
       expect(t.moisture[N + 7 * W + 12]).toBeGreaterThan(0);
       for (let i = 0; i < N; i++) expect(t.moisture[i]).toBe(0);
     }
+  });
+
+  it("keeps game mode's output as pinned, on a heightfield and on a cave map", () => {
+    // D298: M9b adopts game mode from this module; a speed change must not move a bit
+    const hash = (s: { moisture: Float64Array; contamination: Float64Array }) => createHash("sha256").update(new Uint8Array(s.moisture.buffer)).update(new Uint8Array(s.contamination.buffer)).digest("hex").slice(0, 16);
+    const W = 40;
+    const H = 32;
+    const h = valley(W, H);
+    for (let y = H / 2 + 3; y < H / 2 + 6; y++) for (let x = 1; x < 4; x++) h[y * W + x] = 7;
+    const objects = [source(2, H / 2, h[(H / 2) * W + 2], 3), source(1, H / 2 + 3, 7, 2, "BadwaterSource"), object("Blockage", 20, H / 2, h[(H / 2) * W + 20]), object("Thorns", 10, H / 2 + 2, h[(H / 2 + 2) * W + 10])];
+    const water = canonicalSettle(waterModel(W, H, h, objects));
+    const masks = heightMasks(W, H, h);
+    expect(hash(soil3d(masks, waterColumns(masks, objects), water, objects, "game"))).toBe("54248ee8ab705b8c");
+    const m = caveValley();
+    const model = stackModel(m, m.objects);
+    expect(hash(soil3d(m, model.cols, canonicalStackSettle(model), m.objects, "game"))).toBe("0cc4ffa2027949c4");
   });
 
   it("uses the engine's own saturation on stacked columns", () => {

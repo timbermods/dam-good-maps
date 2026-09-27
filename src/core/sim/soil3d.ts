@@ -409,59 +409,133 @@ const C_THRESHOLD = f32(0.001);
 /** The spread's neighbour order (`MoistureCalculationTask`): −y, −x, +x, +y, then the diagonals. */
 const SPREAD8: readonly [number, number, boolean][] = [[0, -1, false], [-1, 0, false], [1, 0, false], [0, 1, false], [-1, -1, true], [1, -1, true], [-1, 1, true], [1, 1, true]];
 
-/** The game's soil tasks run tick by tick from dry soil until nothing changes (at most `maxTicks`):
- *  only runs whose inputs changed are recomputed, which gives the same values as recomputing all. */
-function settleTicks(runs: TerrainColumns, cell: (n: number, last: Float32Array) => number, maxTicks: number): Float32Array {
-  const { W, H, N, T } = runs;
+/** The spread's graph: for every run, the runs of its 8 neighbour tiles that overlap it ([floor,
+ *  top] against [floor, top], both ends inclusive), in the game's order, as edges `start[n]` to
+ *  `start[n + 1]`; `diag` marks a diagonal step. Overlap is symmetric, so a run's edges are also
+ *  the runs it feeds. `nodes` lists every run. Built once per terrain (moisture and contamination
+ *  share it). */
+interface SpreadGraph {
+  start: Int32Array;
+  to: Int32Array;
+  diag: Uint8Array;
+  nodes: Int32Array;
+}
+
+const graphs = new WeakMap<TerrainColumns, SpreadGraph>();
+
+function spreadGraph(runs: TerrainColumns): SpreadGraph {
+  const cached = graphs.get(runs);
+  if (cached) return cached;
+  const { W, H, N, T, count, floor, ceil } = runs;
   const NN = T * N;
-  const last = new Float32Array(NN);
-  let active: number[] = [];
-  for (let n = 0; n < NN; n++) if ((n - (n % N)) / N < runs.count[n % N]) active.push(n);
-  const mark = new Int32Array(NN);
-  let stamp = 0;
-  for (let tick = 0; tick < maxTicks && active.length; tick++) {
-    // every run of the tick reads the last tick's values; the new ones are applied after
-    const changed: number[] = [];
-    const values: number[] = [];
-    for (const n of active) {
-      const v = cell(n, last);
-      if (v !== last[n]) {
-        changed.push(n);
-        values.push(v);
-      }
-    }
-    for (let k = 0; k < changed.length; k++) last[changed[k]] = values[k];
-    // a run depends on its own last value and on the runs of the 8 tiles round it
-    stamp++;
-    active = [];
-    for (const n of changed) {
+  const DX = SPREAD8.map((d) => d[0]);
+  const DY = SPREAD8.map((d) => d[1]);
+  const start = new Int32Array(NN + 1);
+  let nodeCount = 0;
+  // two passes: count the edges, then fill them
+  for (let pass = 0; pass < 2; pass++) {
+    const to = pass ? new Int32Array(start[NN]) : null;
+    const diag = pass ? new Uint8Array(start[NN]) : null;
+    const nodes = pass ? new Int32Array(nodeCount) : null;
+    let e = 0;
+    let a = 0;
+    for (let n = 0; n < NN; n++) {
+      if (pass) {
+        if (start[n] !== e) throw new Error("spread graph: counts differ");
+      } else start[n] = e;
       const i = n % N;
+      if ((n - i) / N >= count[i]) continue;
+      if (nodes) nodes[a] = n;
+      a++;
+      const top = ceil[n];
+      const bottom = floor[n];
       const x = i % W;
       const y = (i - x) / W;
-      for (let dy = -1; dy <= 1; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= H) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          const xx = x + dx;
-          if (xx < 0 || xx >= W) continue;
-          const j = yy * W + xx;
-          for (let k = 0; k < runs.count[j]; k++) {
-            const m = k * N + j;
-            if ((dx || dy || m === n) && mark[m] !== stamp) {
-              mark[m] = stamp;
-              active.push(m);
-            }
+      for (let d = 0; d < 8; d++) {
+        const xx = x + DX[d];
+        const yy = y + DY[d];
+        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
+        const j = yy * W + xx;
+        for (let k = 0; k < count[j]; k++) {
+          const r = k * N + j;
+          if (ceil[r] < bottom) continue;
+          if (floor[r] > top) break;
+          if (to) {
+            to[e] = r;
+            diag![e] = d >= 4 ? 1 : 0;
           }
+          e++;
         }
       }
     }
+    if (!pass) {
+      start[NN] = e;
+      nodeCount = a;
+    } else {
+      const g = { start, to: to!, diag: diag!, nodes: nodes! };
+      graphs.set(runs, g);
+      return g;
+    }
+  }
+  throw new Error("unreachable");
+}
+
+/** The game's soil tasks run tick by tick from dry soil until nothing changes (at most `maxTicks`):
+ *  only runs whose inputs changed (a run itself, or a run it reads) are recomputed, which gives the
+ *  same values as recomputing all. */
+function settleTicks(g: SpreadGraph, NN: number, cell: (n: number, last: Float32Array) => number, maxTicks: number): Float32Array {
+  const last = new Float32Array(NN);
+  let active = new Int32Array(NN);
+  active.set(g.nodes);
+  let activeCount = g.nodes.length;
+  let nextActive = new Int32Array(NN);
+  const changed = new Int32Array(NN);
+  const values = new Float32Array(NN);
+  const mark = new Int32Array(NN);
+  let stamp = 0;
+  for (let tick = 0; tick < maxTicks && activeCount; tick++) {
+    // every run of the tick reads the last tick's values; the new ones are applied after
+    let nc = 0;
+    for (let a = 0; a < activeCount; a++) {
+      const n = active[a];
+      const v = cell(n, last);
+      if (v !== last[n]) {
+        changed[nc] = n;
+        values[nc++] = v;
+      }
+    }
+    for (let k = 0; k < nc; k++) last[changed[k]] = values[k];
+    stamp++;
+    let na = 0;
+    for (let k = 0; k < nc; k++) {
+      const n = changed[k];
+      if (mark[n] !== stamp) {
+        mark[n] = stamp;
+        nextActive[na++] = n;
+      }
+      for (let e = g.start[n]; e < g.start[n + 1]; e++) {
+        const r = g.to[e];
+        if (mark[r] !== stamp) {
+          mark[r] = stamp;
+          nextActive[na++] = r;
+        }
+      }
+    }
+    const t = active;
+    active = nextActive;
+    nextActive = t;
+    activeCount = na;
   }
   return last;
 }
 
-/** Moisture per run by the game's own rules at their steady state ("game" mode). */
+/** Moisture per run by the game's own rules at their steady state ("game" mode). What a run gets
+ *  from water (its own, the cave below, the 4 neighbours) does not change from tick to tick, so it
+ *  is found once; each tick only spreads. */
 export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth), maxTicks = 3000): Float64Array {
-  const { W, H, N } = runs;
+  const { W, H, N, T } = runs;
+  const NN = T * N;
+  const g = spreadGraph(runs);
   const { own, below } = runWater(runs, wc, false);
   const D = Float32Array.from(depth);
   const C = Float32Array.from(contamination);
@@ -474,20 +548,35 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
     if (s >= 1) return 0;
     return Math.trunc(f32(initialRange(c) * f32(1 - s)));
   };
-  const cell = (n: number, last: Float32Array): number => {
+  // per run: a fixed value (a barrier, or clean water of its own), else its water term and its
+  // water's (1 - c); and the height a neighbour's spread climbs from (its top plus its water)
+  const fixed = new Float32Array(NN).fill(NaN);
+  const num = new Float64Array(NN);
+  const keep = new Float32Array(NN);
+  const climbBase = new Int32Array(NN);
+  for (let a = 0; a < g.nodes.length; a++) {
+    const n = g.nodes[a];
     const i = n % N;
     const top = runs.ceil[n];
     const bottom = runs.floor[n];
-    if (barrier && barrier.has(top * N + i)) return 0;
     const w = own[n];
-    if (w >= 0 && D[w] > 0 && C[w] <= M_MIN_WATER) return Math.trunc(initialRange(w));
-    let num = 0;
+    climbBase[n] = top + Math.ceil(w >= 0 ? D[w] : 0);
+    if (barrier && barrier.has(top * N + i)) {
+      fixed[n] = 0;
+      continue;
+    }
+    if (w >= 0 && D[w] > 0 && C[w] <= M_MIN_WATER) {
+      fixed[n] = Math.trunc(initialRange(w));
+      continue;
+    }
+    keep[n] = f32(1 - (w >= 0 ? C[w] : 0));
+    let v = 0;
     const b = below[n];
-    if (b >= 0 && f32(D[b] + wc.floor[b]) >= wc.ceil[b]) num = range(b) - (top - bottom - 1) * 6;
+    if (b >= 0 && f32(D[b] + wc.floor[b]) >= wc.ceil[b]) v = range(b) - (top - bottom - 1) * 6;
     const x = i % W;
     const y = (i - x) / W;
     for (const [dx, dy] of DIRS4) {
-      if (num >= 16) break;
+      if (v >= 16) break;
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
@@ -504,74 +593,73 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
       if (c < 0) continue;
       const surface = Math.ceil(f32(wc.floor[c] + D[c]));
       if (surface <= bottom) continue;
-      const v = range(c) - Math.max(0, top - surface) * 6;
-      if (v > num) num = v;
+      const m = range(c) - Math.max(0, top - surface) * 6;
+      if (m > v) v = m;
     }
+    num[n] = v;
+  }
+  const cell = (n: number, last: Float32Array): number => {
+    const f = fixed[n];
+    if (f === f) return f;
+    const water = num[n];
     let spread = 0;
-    if (num < 16) {
-      for (const [dx, dy, diag] of SPREAD8) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const j = yy * W + xx;
-        const cost = diag ? M_DIAG : 1;
-        for (let k = 0; k < runs.count[j]; k++) {
-          const r = k * N + j;
-          const rt = runs.ceil[r];
-          if (rt < bottom) continue;
-          if (runs.floor[r] > top) break;
-          const m = last[r];
-          if (m === 0) continue;
-          const up = top - rt;
-          let v: number;
-          if (up < 0) v = f32(m - cost);
-          else {
-            const wr = own[r];
-            const credit = Math.ceil(wr >= 0 ? D[wr] : 0);
-            const climb = up - credit;
-            v = climb < 0 ? f32(m - cost) : f32(f32(m - climb * 6) - cost);
-          }
-          if (v > spread) spread = v;
-        }
+    if (water < 16) {
+      const top = runs.ceil[n];
+      for (let e = g.start[n]; e < g.start[n + 1]; e++) {
+        const r = g.to[e];
+        const m = last[r];
+        if (m === 0) continue;
+        const cost = g.diag[e] ? M_DIAG : 1;
+        const climb = top - climbBase[r];
+        const v = climb < 0 ? f32(m - cost) : f32(f32(m - climb * 6) - cost);
+        if (v > spread) spread = v;
       }
     }
     const was = last[n];
     let decayed = f32(was - M_DECAY);
     if (decayed < 0) decayed = 0;
     let v = decayed;
-    if (num > decayed && num >= spread) {
+    if (water > decayed && water >= spread) {
       const cap = f32(was + M_SPREAD);
-      v = num > cap ? cap : num;
+      v = water > cap ? cap : water;
     } else if (spread > decayed) v = spread;
-    const cn = w >= 0 ? C[w] : 0;
-    const out = f32(v * f32(1 - cn));
+    const out = f32(v * keep[n]);
     return out < M_MIN ? 0 : out;
   };
-  return Float64Array.from(settleTicks(runs, cell, maxTicks));
+  return Float64Array.from(settleTicks(g, NN, cell, maxTicks));
 }
 
 /** Soil contamination per run by the game's own rules at their steady state ("game" mode): the
- *  candidates' fixed point, which the levels equalize to (0 below the threshold). */
+ *  candidates' fixed point, which the levels equalize to (0 below the threshold). As for moisture,
+ *  the water terms are found once. */
 export function contamination3dGame(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, maxTicks = 3000): Float64Array {
-  const { W, H, N } = runs;
+  const { W, H, N, T } = runs;
+  const NN = T * N;
+  const g = spreadGraph(runs);
   const { below } = runWater(runs, wc, false);
   const D = Float32Array.from(depth);
   const C = Float32Array.from(contamination);
-  const cell = (n: number, last: Float32Array): number => {
+  const barred = new Uint8Array(NN);
+  const num = new Float32Array(NN);
+  for (let a = 0; a < g.nodes.length; a++) {
+    const n = g.nodes[a];
     const i = n % N;
     const top = runs.ceil[n];
     const bottom = runs.floor[n];
-    if (barrier && barrier.has(top * N + i)) return 0;
-    let num = 0;
+    if (barrier && barrier.has(top * N + i)) {
+      barred[n] = 1;
+      continue;
+    }
+    let v = 0;
     const b = below[n];
     if (b >= 0 && f32(D[b] + wc.floor[b]) >= wc.ceil[b]) {
       const s = f32(C[b] - C_MIN_WATER);
-      num = s < 0 ? 0 : f32(f32(s * C_SCALER) - f32((top - bottom - 1) * C_VERT));
+      v = s < 0 ? 0 : f32(f32(s * C_SCALER) - f32((top - bottom - 1) * C_VERT));
     }
     const x = i % W;
     const y = (i - x) / W;
     for (const [dx, dy] of DIRS4) {
-      if (num >= C_MAX) break;
+      if (v >= C_MAX) break;
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
@@ -592,38 +680,37 @@ export function contamination3dGame(runs: TerrainColumns, wc: WaterColumns, dept
       if (surface <= bottom) continue;
       const scaled = f32(s * C_SCALER);
       const up = top - surface;
-      const v = up < 0 ? scaled : f32(scaled - f32(up * C_VERT));
-      if (v > num) num = v;
+      const m = up < 0 ? scaled : f32(scaled - f32(up * C_VERT));
+      if (m > v) v = m;
     }
+    num[n] = v;
+  }
+  // what the climb costs a spread along each edge (no credit for water)
+  const climbCost = new Float32Array(g.to.length);
+  for (let a = 0; a < g.nodes.length; a++) {
+    const n = g.nodes[a];
+    for (let e = g.start[n]; e < g.start[n + 1]; e++) climbCost[e] = f32(Math.max(0, runs.ceil[n] - runs.ceil[g.to[e]]) * C_VERT);
+  }
+  const cell = (n: number, last: Float32Array): number => {
+    if (barred[n]) return 0;
+    const water = num[n];
     let spread = 0;
-    if (num < C_MAX) {
-      for (const [dx, dy, diag] of SPREAD8) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const j = yy * W + xx;
-        const cost = diag ? C_DIAG : C_REG;
-        for (let k = 0; k < runs.count[j]; k++) {
-          const r = k * N + j;
-          const rt = runs.ceil[r];
-          if (rt < bottom) continue;
-          if (runs.floor[r] > top) break;
-          const climb = Math.max(0, top - rt);
-          const v = f32(f32(last[r] - f32(climb * C_VERT)) - cost);
-          if (v > spread) spread = v;
-        }
+    if (water < C_MAX) {
+      for (let e = g.start[n]; e < g.start[n + 1]; e++) {
+        const v = f32(f32(last[g.to[e]] - climbCost[e]) - (g.diag[e] ? C_DIAG : C_REG));
+        if (v > spread) spread = v;
       }
     }
     const was = last[n];
     let decayed = f32(was - C_DECAY);
     if (decayed < 0) decayed = 0;
-    if (num > decayed && num >= spread) {
+    if (water > decayed && water >= spread) {
       const cap = f32(was + C_SPREAD);
-      return num > cap ? cap : num;
+      return water > cap ? cap : water;
     }
     return spread > decayed ? spread : decayed;
   };
-  const cand = settleTicks(runs, cell, maxTicks);
+  const cand = settleTicks(g, NN, cell, maxTicks);
   const out = new Float64Array(cand.length);
   for (let n = 0; n < cand.length; n++) out[n] = cand[n] < C_THRESHOLD ? 0 : cand[n];
   return out;
