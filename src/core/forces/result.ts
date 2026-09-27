@@ -2,7 +2,7 @@
 // the map it started from and the map it made. The four forces share this; a carve adds its source and
 // its sealed lake (carve/result.ts).
 
-import { DERIVED_SLOPES } from "../features/ids";
+import { rebuiltSlope } from "../features/ids";
 import type { EntitySpec } from "../format/entities";
 import type { ForceMap, FullForceMap } from "./force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "./op";
@@ -12,7 +12,7 @@ type Literal = Pick<ForceResultParams, "tiles" | "heights" | "rock" | "removed" 
 const round4 = (v: number) => Math.round(v * 1e4) / 1e4;
 
 /** Objects a force never lists as removed: the start, and the slopes the build derives again. */
-export const keptObject = (e: EntitySpec) => e.template === "StartingLocation" || e.owner === DERIVED_SLOPES || e.owner.startsWith("pinned:");
+export const keptObject = (e: EntitySpec) => e.template === "StartingLocation" || rebuiltSlope(e.owner) || e.owner.startsWith("pinned:");
 
 /** The difference between `before` and `after`: the tiles whose level changed, the fresh rock that
  *  changed, the objects gone and carried, the trees newly knocked down. `kept(e)`: objects the result

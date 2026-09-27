@@ -1,5 +1,5 @@
 // The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205, D212): Raise … Naturalize |
-// the forces | Remove, and a row with only the picked tool's options (the sources are on the
+// Select | the forces, and a row with only the picked tool's options (the sources are on the
 // shelf); square, precise with a hold that digs a level more at a steady pace down to its stop
 // level, straight lines with their length, level lines (a view switch beside Height colours, with
 // any tool: D248), Flatten in steps and with ramped edges, "the start fits here" after a Flatten
@@ -50,10 +50,11 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
-  // the top bar: the five brushes, the forces and Remove, and a row with only the picked tool's
-  // options; the sources are on the shelf, first, then the start (D212, D226's order)
+  // the top bar: the five brushes, Select and the forces (no Remove, D288), and a row with only the
+  // picked tool's options; the sources are on the shelf, first, then the start (D212, D226's order)
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Remove (X)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Select (M)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
   expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);

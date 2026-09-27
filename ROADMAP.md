@@ -923,17 +923,17 @@ they conflict):
   always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
   full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
-1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-   Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
-   left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
-   preview and are released only after Kyler has tried them (D219): until then the public site shows
-   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
-   Power, Steep or Broad, a summit, flows, Try
-   another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land along a drawn fault (Lift
-   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` (#52, ready with Lift and
-   Slide, D219). All four forces share one forces core, built on `investigation/forces-core` (#59, D220).
-   Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
-   another); built from `investigation/craterize` (#51, ready, D216). A small row
+1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
+   Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
+   the left shelf (D212). Every force's row is Power, Size, at most one choice and Try another (D289); the gesture
+   is the mode (a click or a drag), and the rest of its character comes from the land and the seed. The forces go to
+   the preview and are released only after Kyler has tried them (D219): until then the public site shows
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (a click vents, a drag opens a
+   fissure; Power, Size, Try another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land
+   along a drawn fault (Lift or Slide, its one choice; Power, Try another; X flips the side); built from
+   `investigation/quake` (#52, ready with Lift and Slide, D219). All four forces share one forces core, built on
+   `investigation/forces-core` (#59, D220). Craterize (D202) simulates a giant impact (a click strikes, a drag aims;
+   Power, Size, Try another); built from `investigation/craterize` (#51, ready, D216). A small row
    beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
    only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines (level lines moved
    to the view buttons, D248). Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
@@ -953,7 +953,7 @@ they conflict):
      to place, and water spreads at once; the row beneath sets the next one's strength.
      Shift+scroll over any source changes its strength live (a friendly note past the official
      range, never a block); drag to move it; a click selects it (its strength, clean or bad,
-     Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
+     Remove); Delete or that Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
    - **Glaciate** (D246), after the forces round 2: a fifth force that turns a valley into a glacial valley (a level floor
@@ -983,13 +983,12 @@ they conflict):
      play and Speed, the start's-water marker; an edit ends the hazard view, D269; the game's rules,
      from `investigation/cycles`); moisture spreading as the land greens; optional sounds of our own. The
      final water is always the game's settled result, at any speed.
-   - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
-     Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
-     (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
-     Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
-     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, carving
-     effects (no following camera, D265), Space to pause, Stop, Esc or Ctrl+Z to undo it
-     instantly. On the preview until Kyler has tried it (D219).
+   - **Carve** (D194, D216, D289): a force of nature, the first of the forces group (key 7): a click unleashes it,
+     a drag aims it (cutting through rises on its way); Power from creek to catastrophe, Size (its width), Keep river
+     or Dry canyon, Try another path; it forms gorges and valleys (D181). Built from `investigation/carve` (#47): its
+     wander and walls drawn from the land and the seed, variation (bends wider and deeper on the outside, narrower on
+     the straights), oxbow lakes sealed by sediment, carving effects (no following camera, D265), Space to pause, Esc
+     or Ctrl+Z to undo it instantly; it keeps itself when it ends. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
@@ -998,8 +997,10 @@ they conflict):
    forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
    trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
-4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Level lines (D248), Markers, and the overlays
-   (moisture, contamination, drought). The legend appears only while an overlay is on.
+4. **View buttons** (D287): one Top-down toggle, Reset view, Height colours, Level lines (D248), Markers, and the
+   overlays, Badwater and Under roofs. The legend appears only while an overlay is on. No dam site is drawn on the map
+   or named on the map card; no Moisture or Drought view (the land shows moisture; the water bar's Drought shows a
+   drought day by day).
    Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
    that hides everything above the level, the layer pick, and tools that act on the visible land.
    Also (D205): a corner minimap (on by default at 256², a toggle among the view buttons), small
@@ -1013,9 +1014,9 @@ they conflict):
    the map. Never a pop-up.
 7. **The start:** its water, wood and berry reach appears around it while hovered or dragged, then
    fades.
-8. **Remove:** click one, drag many; filters; a red highlight on hover; Delete removes a selection;
-   one undo step each; water re-flows live; never changes terrain; a removal that breaks a rule is
-   refused live; instant on 256².
+8. **Delete** (D288; no Remove tool): with a selection open, Delete removes everything standing inside it, objects
+   and sources, as one undo step; with none, Delete removes what the pointer is on (a source within its reach, else
+   the object on the tile). The start always stays; water re-flows live; never changes terrain; instant on 256².
 9. **Select, and the working area** (D254, D259; on `feature/forces` with the forces round 2, for Kyler's
    forces sitting): Select gets a small button on the bar beside the brushes (M and Ctrl+drag still open
    it), with Circle and Brush beside Rectangle and Freehand, and Same level becomes Wand, which also selects a river's or lake's visible water (D261); Set level reaches the map's
@@ -1042,18 +1043,19 @@ they conflict):
 **Removed:** the landform tools and their handles (D182); the river tool with its start and end
 rules, Natural or exact, width, depth and strength controls; the lake click-fill; the Channel tool;
 separate plant brushes; the cursor readouts (only the level number while flattening stays); the
-text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
+text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs; the Orbit button, the Dam sites view,
+the Moisture and Drought views (D287); the Remove tool and Select's Clear objects (D288).
 <!-- /retired-terms:allow -->
 
 **Kept:** the smooth camera (D180, approved by Kyler); every edit live, as one undo step, with
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
-out, clear trees and objects); Ctrl-click samples a level (on water, its bed); heavy operations
+out, Delete what stands there); Ctrl-click samples a level (on water, its bed); heavy operations
 ("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
 an operation that replays exactly and survives regeneration and format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
-landforms already in a project open as plain terrain). Until the Frame pass, new interface uses the existing
-shared styles and components (D176). **Kept from M10** (D253): Naturalize never breaks
+landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
+shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks
 `slopes.connect` or a set piece's protected tiles, as tests on the brush as it is now; the
 naturalness measurement against the official maps stays as information.
 
@@ -1641,7 +1643,7 @@ branch (`feature/weather-days`) and merged separately (D267 (9)). This step adds
 below on top of those buttons.
 
 **Delivers**
-1. **The drought line** (D269's proposal, now built rather than only proposed): every lake and
+1. **The drought line** (D269's proposal): every lake and
    river shows a faint line on its shore where its water will stand on the last day of a drought
    (the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed;
    the start's water is marked a little more strongly. It updates in the background after each
@@ -1755,16 +1757,16 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   count only water standing at or above the start's ground, so a lakeside start like Beaverome's
   passes? Measure how many official, workshop and generated starts it changes before deciding.
   Until then the floor rule applies only to water under roofs (3D terrain step 1);
-- **the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md), both P3: a `__proto__`
-  key in an imported singleton is rewritten as forged sibling data (parse into null-prototype
-  records, write own keys only); and the JSON parser accepts raw control characters inside strings
-  (reject them, as `JSON.parse` does). Each with its round-trip test;
+- **done: the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md; #72): `parse`
+  (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
+  stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
+  does; each with its round-trip test (`tests/unit/format.test.ts`);
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
-- **the unused lock and regional-regrowth code** (#91; old projects holding a lock still open): D253
-  dropped locking part of a map and regrowing it region by region from the plan; the dead code they
-  left behind is being removed now, on `chore/housekeeping`.
+- **done: the unused lock and regional-regrowth code** (#91; #72): D253 dropped locking part of a
+  map and regrowing it region by region; their operations, fields and the stamp origin are removed,
+  and an old project holding a lock still opens with its land as it was kept.
 
 Every check keeps passing (`water.storage_possible` included, D111); batches stay at 98% or better;
 the Python oracle changes with the TypeScript, with 0 disagreements, wherever an item touches
@@ -1795,7 +1797,7 @@ and descriptions (D84, D88), left in `investigation/claude/` as they are until M
 - the judgement-word table (EDITOR_PLAN.md, Claude integration, "Judgement words"): each word's
   levers, measured targets, direction, size and guards.
 
-**Design** (D176): M12's new interface is built to the Frame pass's records (DESIGN.md and the
+**Design** (D176, amended by D236): M12's new interface is built to the design pass's records (DESIGN.md and the
 tokens), with the impeccable-app-flow's finish review on the new screens; no second full design
 pass.
 

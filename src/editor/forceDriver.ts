@@ -9,7 +9,6 @@
 // is free) and kept when the pointer lets go. Nothing on the page waits on it: the worker runs a step
 // in a few milliseconds, between the frames.
 
-import type { ForceHead } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import type { Point } from "../core/forces/quake";
 import type { ForceFrame, ForceStarted } from "../worker/session";
@@ -74,7 +73,6 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export class ForceDriver {
   status: ForceStatus | null = null;
   private token = 0;
-  private head: ForceHead | null = null;
   /** A painted stroke waiting for the worker (the latest wins), and one in flight. */
   private stroke: { path: Point[]; side: 1 | -1 } | null = null;
   private painting = false;
@@ -175,14 +173,12 @@ export class ForceDriver {
 
   private finish(kept: boolean): void {
     this.status = null;
-    this.head = null;
     this.host.renderer()?.setSurge(null);
     this.host.ended(kept);
     this.host.changed();
   }
 
   private show(f: ForceFrame): void {
-    this.head = f.head;
     if (this.status) this.status.steps = f.steps;
     this.host.show(f);
     if (f.verb === "carve") this.host.renderer()?.setSurge(f.done ? null : f.head, f.trail);

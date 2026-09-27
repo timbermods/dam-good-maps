@@ -1,7 +1,7 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
-> last at 1491523 (D261-D266). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> last at ea7cf14 (housekeeping's lock removal, #72; merge 5e1a3e2). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):
 >
 > 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
@@ -11,9 +11,13 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **D263** (next): smart Lower's depth from strokes, new channels about one tile deep.
-> 8. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
-> 9. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 7. **The lean editor, D287-D289, with D290: done** (the section below).
+> 8. **D263: done** (the section below): smart Lower's depth from strokes.
+> 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
+> 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+>
+> **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
+> each section).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
 > here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
@@ -28,6 +32,201 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
+
+- A ramped Flatten stroke now keeps its own slopes, `slopes` in the stroke ([x, y, orientation]).
+  The worker works them out when the stroke is applied (`withRimSlopes`, `src/worker/session.ts`, on
+  `apply` and Clear sources' stroke): the stroke run on the map as it stands, then `rimSlopes`
+  (`src/core/features/slopes.ts`): every 1-level step between a tile the stroke pressed on and its
+  neighbour (the rim stepping down, and its last step onto the ground round it), a slope on the low
+  tile facing the step, with the tile behind at its own level; grouped by the way it faces and its
+  level, joined corner to corner into stretches; one in the middle of a stretch of up to six tiles,
+  else every six from the third; clear of objects (the rebuilt slopes aside), water, and the tiles
+  the build keeps free (the start's, the rivers' mouths and springs, the map objects').
+- The build places each one that still fits (build step 8, before the derived slopes, which go round
+  them and count them as joined), owned by `derived:rim-slopes`; Delete takes one as a
+  `removeSlope`, and a force doesn't list them as removed (both as for the derived slopes).
+- A ramped stroke without `slopes` (saved before D270) asks the slope planner as it always did, so
+  old projects replay unchanged. A cliff pad lays none. `ops.schema.json` and `brushProblems` know
+  `slopes`.
+- EDITOR_PLAN's Flatten line and map-document paragraph say so; decisions-pending #84 was already
+  marked accepted (D270).
+
+Tests: `rampedSlopes.test` (new: a ramped pad on uneven ground lays slopes at every way and level its
+rim steps down, each standing right, spaced along the rim, none where everything is blocked; through
+the worker the stroke keeps them, the build places every one, the page's preview equals the build,
+the project replays them exactly; a cliff pad lays none, and a ramped stroke without them (from
+before D270) lays none of its own). Changed (D148): `brush.test`'s "a ramped flatten gets the natural
+slopes on its rim" is now the test of a stroke saved before D270 (the planner's slopes), renamed.
+
+For Kyler's forces sitting: Flatten with Edges Ramped on uneven ground: slopes appear along the rim
+on every side that steps down, about every six tiles.
+
+## Smart Lower's depth from strokes (D263)
+
+- **A new channel** (a smart Lower stroke that leaves the water it starts in or beside) records its
+  `bed`: one level below that water's surface round the first dab (the page reads it: the highest
+  surface there, rounded, less one), never below the water's own bed; and `dry`, the first dab on
+  land. While its dabs are still in the water, the bed holds (no pit where it leaves; the water's own
+  tiles keep their ground); from `dry` on it steps down to a level below lower land and never rises,
+  as before; the brush's middle cuts to it (through a rise too), and **no tile the brush reaches is
+  cut below the bed**, however long it's held (`floorBed`: the lowest bed that reached each tile). A
+  one-deep river's branch is one level below the land; a three-deep river's branch has water about a
+  tile deep, its bed two above the river's.
+- **A deepening pass** (a stroke that never leaves the water it began in) records `deepen`: what the
+  brush's middle passes over goes down exactly one level, once, with the brush's soft edge; holding
+  adds nothing. A two-deep river is two passes.
+- **The page** starts a stroke from inside the water as a deepening pass and, the moment a dab's tile
+  was dry when the stroke began, paints the whole stroke again as a new channel (its `bed` and
+  `dry`), as `rideObjects` repaints a Flatten; a straight line starts again from its own start. A
+  stroke from beside the water is a new channel from its first dab.
+- **Plain Lower** is unchanged, and a stroke saved before D263 (`channel` alone) replays exactly as
+  before (its bytes pinned in the test, taken from the code before D263). `ops.schema.json` has
+  `bed`, `dry` and `deepen`; `brushProblems` checks them.
+- EDITOR_PLAN's map-document paragraph says how the stroke records it (the Smart Lower line was
+  already D263's, from `dev`).
+
+Tests: `smartLowerDepth.test` (new: from a one-deep river a stroke held 700 dabs leaves the channel
+exactly one below the land, nothing lower anywhere, the river untouched; from a three-deep river the
+channel is at land less one, the river keeps its bed (the old rule dug three deep); a deepening pass
+held 500 dabs makes it exactly two deep; across a rise the bed never rises and the rise is cut to it;
+plain Lower still digs deeper while held; the old rule's bytes pinned; the page's preview equals the
+build for both kinds, and the project replays). Changed (D148): `waterTools.spec`'s smart Lower
+check (the bed is now a level below the river's surface, not the river's bed: the stroke records that
+bed, nothing along it sits above it or below what the rule allows, and the river keeps its ground).
+
+For Kyler's forces sitting: draw a river out of a deep river with smart Lower, holding the mouse:
+about a tile of water all the way, and no deeper where you paused; draw along it again: one level
+deeper each pass.
+
+## The lean editor (D287-D289, D290)
+
+Kyler, 2026-09-27: fewer controls, the land as the interface (D184), the forces as magic, not
+machinery (D258).
+
+### D287: a leaner view bar
+
+- **One Top-down toggle.** The Orbit and Top-down pair is one **Top-down** button, lit while the
+  view looks straight down; a second click goes back to the usual orbit. Reset view stays.
+- **No dam sites anywhere a player looks.** The Dam sites view button, its overlay and legend line,
+  the map card's "Best dam site" row, the generator preview's hatched best dam site and its layer
+  switch are gone, and so is the worker's dam-site layer. The checks dot's reservoir wording names
+  no place ("a short dam within 40 tiles of the start could hold …"). The analysis stays internal:
+  the generator's measures, `water.reservoir`, the metrics. The hatched overlay (alpha 255) stays
+  in the renderer as a general mark, unused for now.
+- **No Moisture or Drought view.** Their buttons, overlays, legends and the worker's layers are
+  gone; Badwater and Under roofs stay. The land shows moisture itself, and the water bar's Drought
+  (D267, on `feature/weather-days`) shows a drought day by day.
+- The Markers view is lit by the shelf's Slope alone now (the dam sites lit it before).
+- The generator page's 2D preview keeps its own **Moist soil** switch: it is a flat preview with no
+  green, not the editor's view bar. Kyler may want it gone too (parked, one line in the handback).
+- Retired terms: "Dam sites view", "Moisture view", a `Best dam site` label, "Show dam sites" and
+  an `Orbit` button. EDITOR_PLAN §3 (the view buttons) and Part 3; the README's button list (and
+  its water line, which still named Follow after D265).
+
+Tests changed to the decision (D148): `look-clean.spec` (the Dam sites view's part became: no Dam
+sites, Moisture, Drought or Orbit button in the view bar, Badwater there); `look-readable.spec` and
+`look.spec` (the legend names no dam site, nothing is hatched); `render3d.spec` (one Top-down
+toggle, on and off, no Orbit); `water.spec` (no best dam site on the card); `look-readable.test`
+(the hatch's rim test kept as the general overlay's; the dam site's colour and swatch checks gone);
+`legend.test` (a generic label instead of "Dam sites").
+
+### D288: Select and Delete instead of Remove
+
+- **The Remove tool is gone**: its bar button, X, its filters row, its drag and its red hover
+  (`removeTool` in `placeTools.ts` and its unit tests). X now only flips Quake's side.
+- **Delete** does it all: with a selection open (Select, a Ctrl+drag, Ctrl+A), the Delete key or
+  the Selection row's **Delete** (which replaces **Clear objects**) removes everything standing
+  inside it, objects, slopes and sources, as one undo step ("Remove 23 objects"); the start stays
+  and says so. With no selection, Delete takes what the pointer is on: a source within its reach
+  first (D249), else the object on the tile ("Remove a tree"). Under a cut, only what stands on
+  the visible land. The worker's `removeAt` is the same call, with every kind.
+- Docs: EDITOR_PLAN §3 (the top bar; Delete where Remove was; the keys; the Select line), Part 3;
+  ROADMAP's Live editing items 1, 4, 8 and its Removed list; the README's lines. Retired: a
+  `Remove (X)` label, a `Clear objects` button.
+
+Tests changed to the decision (D148): `shelf.spec`'s Remove test became Delete's (pointed at a
+pine; a rectangle round a grove and a source, by key and by the row's button, one step, undone in
+one; the ground unchanged; the start stays, pointed at and under Ctrl+A); `brushSources.spec` lost
+its Remove-drag part (D249's "a drag from a source takes only sources" went with the tool);
+`brushKit.spec` and `publicSite.spec` look for Select where they looked for Remove.
+
+### D289: every force's row takes Glaciate's shape
+
+- **The rows.** Carve: Power, **Size** (its width, following Power or set; its depth follows both),
+  Keep river or Dry canyon, Try another path. Craterize: Power, Size, Try another. Erupt: Power,
+  Size, Try another. Quake: Lift or Slide (its one choice), Power, Try another; X flips the side
+  that moves (the Side control is gone; the painting status says so). No mode switches, no Walls,
+  Centre, Debris, Rays, Shape, Summit, Flows, Ridges, Scarp, Wander, Width and Depth pair, and no
+  Defy gravity.
+- **The gesture is the mode.** Carve: a click unleashes, a drag (two tiles or more) aims, and an
+  aimed carve goes where it is dragged, uphill too (the page sends `defyGravity` with every aim; the
+  flag stays in the operation's data). Craterize: a click strikes, a drag aims a glancing blow.
+  Erupt: a click vents; a drag paints a fissure (shown once it leaves its tile; a drag too short for
+  a fissure vents where it began). Quake: painted, as before.
+- **Nature** (`src/core/forces/nature.ts`, new): the hidden choices are drawn from a stream of the
+  series' seed, the tile the force acts round and its height, leaned by the ground's ruggedness
+  (relief within 8 tiles, 8 levels = fully rugged): rugged ground carves straighter (wander about 25
+  instead of 55) between steep walls and raises steeper cones and sheer scarps; open ground lets a
+  river wander and shows an impact's rays; a harder impact throws heavy debris more often, a stronger
+  eruption runs heavy flows. Summits and crater centres keep Auto three times in four. The worker
+  draws them only for the editor's own requests (`natural: true`), before the run, so the run, the
+  frames and the kept `forceResult` all carry the drawn settings; Try another (the next seed) draws
+  again. Old projects replay exactly (their results are literal); another caller's settings run as
+  given.
+- **No Stop.** Carve's and Unleash's mid-carve Stop is gone: Pause (Space) and Revert (Esc) stay, and
+  a carve keeps itself when it ends. (The driver's own stop still keeps a painted Lift on release.)
+- The carve's own refusal for an uphill aim without the flag says only "The end point is uphill of
+  the start" (only another caller can meet it).
+- Docs: EDITOR_PLAN §3 (the top bar's forces, the gestures, the sizes), Craterize, Quake, Erupt,
+  Unleash and Carve, Part 3; ROADMAP's Live editing item 1 and its Carve line. Retired: a `Defy
+  gravity` toggle and "turn on Defy gravity", "keep what's carved so far", a "Side that moves" group.
+
+Tests: `forceNature.test` (new: the same place and seed draw the same; 24 seeds draw more than four
+characters for each force and both scarps; the land leans wander and walls; the editor's force runs
+with and keeps the drawn settings, five Try anothers re-roll them, the project replays to the same
+bytes, and a force without `natural` runs as asked). Changed to the decision (D148): `carve.spec`
+(the row is exactly Power, Size, Auto, Keep river, Dry canyon; the carve runs at a creek's Power and
+keeps itself when it ends, no Stop; the aim test drags without a mode switch or Defy gravity, and
+the "a click in Aim goes nowhere" check went with Aim's switch); `forces.spec` (each row's exact
+controls; Erupt's fissure is a drag; Craterize's aim a drag; Quake's side read from the page's hook,
+`gesture().side`, flipped by X; the ceiling test no longer counts the peak's tiles, since its summit
+is nature's now: `eruptHeadroom.test` keeps that check with each summit set; the camera test waits
+for the carve to end instead of Stop); `unleash.spec` (waits for the end, no Stop); `sizes.spec`
+(Carve's size is Size); `release.test` (only Quake has a switch); `carve.test` (the uphill refusal's
+words).
+
+For Kyler's forces sitting: each force's row (Power, Size, one choice at most, Try another); click
+or drag decides the mode (a Carve dragged uphill cuts through); Try another a few times on one spot:
+the walls, rays, summit or wander change with the land's lean; X flips Quake's side (say if you want
+the Left/Right control back).
+
+### D290: a badwater source cuts its own spring pool
+
+- Placed from the shelf, switched from clean (the row's Water: Badwater) or dragged, a badwater
+  source on uneven ground no longer refuses: `springPool` (`src/core/doc/placing.ts`) cuts its nine
+  tiles down to the lowest of them with an exact `sculpt` flatten (never filling) and removes what was
+  placed by hand on them (a generated tree makes room by itself, as before), before the source's own
+  operation, in the same undo step; the shelf's ghost is green there. The worker adds the pool to the
+  shelf's plan (`planEntity`) and to any group of edits that places or moves a badwater source
+  (`applyAll`: the switch and the drag). It still refuses at the map's edge ("it does not fit on the
+  map"), in a cave, and on the start ("the district center stands there").
+- One plain reason each: "it would stand inside the ground: the ground under it is not level" and
+  "it would float: …" are "the ground under it is not level"; the "it can't stand there: " prefix is
+  gone from placements and moves.
+- EDITOR_PLAN's sources paragraph says so.
+
+Tests: `springPool.test` (new: placed on uneven ground the nine tiles take the lowest level and
+nothing else changes, one step, undone in one, replayed from the project; switched from clean and
+dragged, the same, one step each; refused only at the edge and on the start, with one plain reason,
+and the hover agrees); `springPool.spec` (new: Kyler's case through the page: the shelf's ghost green
+on uneven ground, a clean source switched to Badwater cuts its pool, one step, one undo). Changed
+(D148): `objects.test` (a relic on uneven ground is refused with "the ground under it is not
+level" alone).
+
+For Kyler's forces sitting: switch a clean source in a riverbed to Badwater: it takes, with a small
+level pool under it; drag a badwater source up a slope: it cuts its pool there.
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 

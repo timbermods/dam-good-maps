@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "setLock", "regenerateRegion", "specPatch"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "specPatch"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -28,8 +28,6 @@
     { "if": { "properties": { "op": { "const": "setEntityProps" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setEntityProps" } } } },
     { "if": { "properties": { "op": { "const": "pinSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/pinSlope" } } } },
     { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } },
-    { "if": { "properties": { "op": { "const": "setLock" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLock" } } } },
-    { "if": { "properties": { "op": { "const": "regenerateRegion" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/regenerateRegion" } } } },
     { "if": { "properties": { "op": { "const": "specPatch" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/specPatch" } } } }
   ],
   "$defs": {
@@ -41,12 +39,6 @@
       "type": "array",
       "minItems": 1,
       "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
-    },
-    "region": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["runs"],
-      "properties": { "runs": { "$ref": "#/$defs/runs" } }
     },
     "brush": {
       "description": "A terrain brush stroke (live editing): the brush, and its dabs as quarter-tile pairs [x0, y0, x1, y1, ...]. Its dabs must lie on the map; the engine checks that.",
@@ -63,6 +55,10 @@
         "shape": { "enum": ["square"] },
         "precise": { "type": "boolean" },
         "channel": { "type": "boolean" },
+        "bed": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "dry": { "type": "integer", "minimum": 0 },
+        "deepen": { "const": true },
+        "slopes": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 16 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 16 },
         "keep": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
@@ -312,30 +308,6 @@
       "additionalProperties": false,
       "required": ["x", "y"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } }
-    },
-    "setLock": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "region"],
-      "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9-]{1,40}$" },
-        "region": {
-          "type": ["object", "null"],
-          "additionalProperties": false,
-          "required": ["runs"],
-          "properties": { "runs": { "$ref": "#/$defs/runs" } }
-        }
-      }
-    },
-    "regenerateRegion": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["area", "seedVariant", "layers"],
-      "properties": {
-        "area": { "$ref": "#/$defs/region" },
-        "seedVariant": { "type": "integer", "minimum": 0 },
-        "layers": { "type": "array", "minItems": 1, "items": { "enum": ["terrain", "water", "resources"] } }
-      }
     },
     "specPatch": {
       "type": "object",

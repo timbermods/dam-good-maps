@@ -1,19 +1,18 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
-// the forces | Remove, and a small row beneath with only the picked tool's options (the sources are
-// on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
+// Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
+// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
 // while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
 // slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
 // hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
 // Flatten has "in steps" and its edges; Smooth has none (D247: the
 // shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206, D246: Carve, Craterize,
-// Quake, Erupt, Glaciate; keys 7, 8, 9, 0 and -) are a group of their own on one shared core, each options row
-// starting with its mode switch (Glaciate's gesture is its mode: it has none); all are ready (D216, D219), and the public site shows none
+// Quake, Erupt, Glaciate; keys 7, 8, 9, 0 and -) are a group of their own on one shared core, each row Power,
+// Size, at most one choice and Try another, the gesture deciding the rest (D289); all five are ready (D216, D219), and the public site shows none
 // until their release (release.ts, D219). While a force is at work the other tools wait. Built from
 // the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
-import type { RemoveKind } from "../core/features/objects";
 import { BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import type { Verb } from "../core/forces/op";
@@ -22,8 +21,8 @@ const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
  *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano, a
- *  U-shaped valley under its ice; a cross. */
-function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
+ *  U-shaped valley under its ice; a dashed frame. */
+function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -85,12 +84,6 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
           <path d="M2 4c2 0 3 2 3 6s2 6 5 6 5-2 5-6 1-6 3-6M7 4c1 2 2 3 3 3s2-1 3-3" />
         </svg>
       );
-    case "remove":
-      return (
-        <svg {...ICON}>
-          <path d="M5 5l10 10M15 5L5 15" />
-        </svg>
-      );
     case "select":
       return (
         <svg {...ICON}>
@@ -101,38 +94,28 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | "remove" | Verb;
-
-/** What Remove takes (its filters), and their words. */
-export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
-  ["trees", "Trees"],
-  ["bushes", "Bushes"],
-  ["ruins", "Ruins"],
-  ["objects", "Objects"],
-  ["slopes", "Slopes"],
-  ["sources", "Sources"],
-];
+export type TopTool = BrushTool | Verb;
 
 /** The forces (D203, D206): their slots in the bar, each hidden until it is ready. One shared core
- *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its modes:
- *  every force's options row starts with its mode switch. */
+ *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its one
+ *  signature choice where it has one (D289: the gesture decides the rest). */
 export interface Force {
   id: Verb;
   name: string;
   ready: boolean;
-  /** The mode switch that starts its options row (the first mode is the default); none when the
-   *  gesture is the mode (Glaciate: a click Flows, a drag Aims, D258). */
-  modes: readonly [string, string] | readonly [];
+  /** Its one choice as a switch that starts its options row (the first is the default): Quake's
+   *  Lift or Slide. The others' click or drag is their mode (D289). */
+  modes?: readonly [string, string];
   /** Its key, and what it does, for its button's title. */
   key?: string;
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Stop keeps it, Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, modes: ["Strike", "Aim"], key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Esc takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, modes: ["Vent", "Fissure"], key: "0", hint: "a volcano where you click, or paint a fissure. Esc takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, modes: [], key: "-", hint: "click high ground and a glacier carves a valley down it, or drag the way it grinds through the ridges. Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or drag the way it grinds through the ridges. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -142,11 +125,12 @@ export const SHOWN_FORCES: readonly Force[] = forcesShownIn({ mode: import.meta.
 /** This build shows the force `id`. */
 export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
-/** A force's options row: its mode switch first (when it has one), then the force's own options. */
+/** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
+ *  Size and Try another (D289). */
 export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: string): void; children?: ComponentChildren }) {
   return (
     <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} options`}>
-      {p.force.modes.length ? (
+      {p.force.modes ? (
         <div class="segmented" role="group" aria-label="Mode">
           {p.force.modes.map((m) => (
             <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode?.(m)}>
@@ -163,10 +147,6 @@ export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: str
 export interface TopBarProps {
   /** The brush out, or null. */
   active: BrushTool | null;
-  /** Remove is picked, and what it takes. */
-  remove: boolean;
-  removeKinds: readonly RemoveKind[];
-  onRemoveKinds(kinds: RemoveKind[]): void;
   settings: BrushSettings;
   onPick(tool: TopTool | null): void;
   /** The force picked (its id), its options row, and whether one is at work (the other tools wait). */
@@ -273,7 +253,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then set it to a level or work only inside it (Ctrl+A: the whole map)"}
+            title={off ? why : "Select (M): mark an area, then set it to a level, work only inside it, or press Delete to clear what stands there (Ctrl+A: the whole map)"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -303,19 +283,6 @@ export function TopBar(p: TopBarProps) {
             </span>
           </>
         ) : null}
-        <span class="bar-divider" aria-hidden="true" />
-        <button
-          type="button"
-          class="icon-button"
-          aria-pressed={p.remove}
-          aria-label="Remove (X)"
-          title={off ? why : "Remove (X): click an object, or drag over many. It never changes the ground; the start stays."}
-          disabled={off}
-          onClick={() => p.onPick(p.remove ? null : "remove")}
-        >
-          <Icon tool="remove" />
-          <span class="icon-word">Remove</span>
-        </button>
       </div>
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
@@ -384,21 +351,6 @@ export function TopBar(p: TopBarProps) {
         </div>
       ) : null}
       {p.force && p.forceRow ? p.forceRow : null}
-      {p.remove ? (
-        <div class="map-bar options-row" role="group" aria-label="Remove options">
-          <div class="bar-group">
-            {REMOVE_KINDS.map(([k, word]) => (
-              <Toggle
-                key={k}
-                label={word}
-                title={`Remove takes ${word.toLowerCase()}`}
-                on={p.removeKinds.includes(k)}
-                onChange={(on) => p.onRemoveKinds(on ? [...p.removeKinds, k] : p.removeKinds.filter((x) => x !== k))}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
       {p.row ? (
         <div class="map-bar options-row" role="group" aria-label={p.row.label}>
           <div class="bar-group">{p.row.content}</div>

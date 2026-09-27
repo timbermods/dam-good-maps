@@ -4,7 +4,6 @@
 
 import { FOOTPRINTS, type Orientation } from "../core/format/footprints";
 import type { ToolRequest } from "../worker/session";
-import { DAM_OVERLAY } from "../render3d/palette";
 
 /** Source's options: a source's water, clean or bad, and its strength in blocks per second
  *  (clean: one tile, at most 8; bad: 3 × 3, at most 72). */
@@ -60,9 +59,6 @@ export const MOVING: Rgba = [110, 214, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
 export const GOOD: Rgba = [80, 200, 90, 170];
 export const BAD: Rgba = [230, 60, 50, 180];
-/** Dam sites: alpha 255 draws them hatched light and dark with a dark rim (the 3D view), so they
- *  show on any ground or water in any colours (Map look, D114). */
-export const DAM: Rgba = [...DAM_OVERLAY];
 export const PROBLEM: Rgba = [230, 60, 50, 150];
 /** The locked land outside the working area (D254): dimmed. */
 export const LOCKED: Rgba = [16, 20, 28, 120];

@@ -1,16 +1,16 @@
-// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226), each
-// starting with its mode switch (ForceOptions): Craterize's Strike or Aim, Power, Size (following
-// Power, or set by hand), Steep or Terraced walls, its centre, Light or Heavy debris and Rays; Erupt's
-// Vent or Fissure, Power, Size (its breadth: following Power, or set by hand), Steep or Broad, its
-// summit, Light or Heavy flows and Ridges; Quake's Lift or Slide, Power (its drawn line sets its length),
-// Sheer or Stepped scarp and the side that moves (X flips it); Glaciate's Power, Size and Meltwater
-// alone (D289: a click Flows, a drag Aims, so it needs no mode switch; everything else is the land's
-// and the seed's). Try another once one is kept. While a force is at work its row is its status and
-// Revert (Esc). Carve's row is its own (CarveRow.tsx).
-// Built from the shared bar styles (D176).
+// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226, D289): every
+// force's row is Power, Size, at most one signature choice and Try another. Craterize: Power, Size
+// (following Power, or set by hand), Try another; a click strikes, a drag aims a glancing blow.
+// Erupt: Power, Size (its breadth), Try another; a click vents, a drag opens a fissure. Quake: its
+// one choice, Lift or Slide, and Power (its drawn line sets its length); X flips the side that moves.
+// The rest of each force's character (Craterize's walls, centre, debris and rays; Erupt's shape,
+// summit, flows and ridges; Quake's scarp) comes from the land and the seed (core/forces/nature.ts),
+// which Try another re-rolls. Glaciate: Power, Size and its one choice, Meltwater; a click Flows, a
+// drag Aims. While a force is at work its row is its status and Revert (Esc).
+// Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
-import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
+import { CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
+import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
@@ -18,36 +18,25 @@ import { ForceOptions, SizeControl, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next impact (kept for the visit). */
 export interface CraterUi {
-  mode: "strike" | "aim";
   power: number;
   size: number | null;
-  walls: "steep" | "terraced";
-  centre: CraterSettings["centre"];
-  debris: "light" | "heavy";
-  rays: boolean;
 }
-export const DEFAULT_CRATER: CraterUi = { mode: CRATER_DEFAULTS.mode, power: CRATER_DEFAULTS.power, size: CRATER_DEFAULTS.size, walls: CRATER_DEFAULTS.walls, centre: CRATER_DEFAULTS.centre, debris: CRATER_DEFAULTS.debris, rays: CRATER_DEFAULTS.rays };
+export const DEFAULT_CRATER: CraterUi = { power: CRATER_DEFAULTS.power, size: CRATER_DEFAULTS.size };
 
 export interface EruptUi {
-  mode: "vent" | "fissure";
   power: number;
-  shape: "steep" | "broad";
-  summit: EruptSettings["summit"];
-  flows: "light" | "heavy";
-  ridges: boolean;
   /** Its breadth, tiles across, or null: it follows Power (D226). */
   size: number | null;
 }
-export const DEFAULT_ERUPT: EruptUi = { mode: ERUPT_DEFAULTS.mode, power: ERUPT_DEFAULTS.power, shape: ERUPT_DEFAULTS.shape, summit: ERUPT_DEFAULTS.summit, flows: ERUPT_DEFAULTS.flows, ridges: ERUPT_DEFAULTS.ridges, size: null };
+export const DEFAULT_ERUPT: EruptUi = { power: ERUPT_DEFAULTS.power, size: null };
 
 export interface QuakeUi {
   mode: "lift" | "slide";
   power: number;
-  scarp: "sheer" | "stepped";
   /** The side of the stroke that moves: 1 its left, -1 its right (X flips it). */
   side: 1 | -1;
 }
-export const DEFAULT_QUAKE: QuakeUi = { mode: QUAKE_DEFAULTS.mode, power: QUAKE_DEFAULTS.power, scarp: QUAKE_DEFAULTS.scarp, side: 1 };
+export const DEFAULT_QUAKE: QuakeUi = { mode: QUAKE_DEFAULTS.mode, power: QUAKE_DEFAULTS.power, side: 1 };
 
 export interface GlaciateUi {
   power: number;
@@ -57,17 +46,19 @@ export interface GlaciateUi {
 }
 export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater };
 
-/** A new series' settings (its first personality: the prototypes' own default seeds). */
-export const craterSettingsOf = (u: CraterUi): CraterSettings => ({ ...u, seed: CRATER_DEFAULTS.seed });
-export const eruptSettingsOf = (u: EruptUi): EruptSettings => ({ ...u, seed: ERUPT_DEFAULTS.seed });
-export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed });
+/** A new series' settings (its first personality: the prototypes' own default seeds). The choices
+ *  the rows don't show are placeholders the worker draws from the land and the seed (D289); the
+ *  gesture sets the mode: `aimed` a dragged, glancing impact; `fissure` a painted fissure. */
+export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ ...CRATER_DEFAULTS, mode: aimed ? "aim" : "strike", power: u.power, size: u.size, seed: CRATER_DEFAULTS.seed });
+export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ ...ERUPT_DEFAULTS, mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, seed: ERUPT_DEFAULTS.seed });
+export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: QUAKE_DEFAULTS.scarp, seed: QUAKE_DEFAULTS.seed });
 /** (A glacier's mode is its gesture's: the worker sets it, D258.) */
 export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, seed: GLACIATE_DEFAULTS.seed });
 
 /** A force at work: what it is doing, and Revert (Esc). */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (X flips the side that moves)" : "The ground is moving…";
   return (
     <div class="map-bar options-row" role="group" aria-label={`${p.force.name} at work`}>
       <div class="bar-group">
@@ -93,21 +84,9 @@ function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: n
   );
 }
 
-function Segmented<T extends string>(p: { label: string; value: T; options: readonly [T, string, string][]; onChange(v: T): void }) {
-  return (
-    <div class="segmented" role="group" aria-label={p.label}>
-      {p.options.map(([v, word, title]) => (
-        <button type="button" key={v} aria-pressed={p.value === v} title={title} onClick={() => p.onChange(v)}>
-          {word}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function Again(p: { show: boolean; onAgain(): void; what: string }) {
   return p.show ? (
-    <button type="button" onClick={p.onAgain} title={`The same ${p.what} from the same land, another way (it replaces the last one)`}>
+    <button type="button" onClick={p.onAgain} title={`The same ${p.what} from the same land, another way, with another character (it replaces the last one)`}>
       Try another
     </button>
   ) : null;
@@ -126,9 +105,8 @@ export function CraterizeRow(p: RowProps<CraterUi>) {
   const u = p.ui;
   const set = (patch: Partial<CraterUi>) => p.onUi({ ...u, ...patch });
   const size = u.size ?? craterSize(u.power);
-  const centre = u.centre === "auto" ? autoCentre(size) : u.centre;
   return (
-    <ForceOptions force={p.force} mode={u.mode === "aim" ? "Aim" : "Strike"} onMode={(m) => set({ mode: m === "Aim" ? "aim" : "strike" })}>
+    <ForceOptions force={p.force}>
       <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits: deeper, wider, with more debris" />
       <SizeControl
         label="Size"
@@ -140,33 +118,6 @@ export function CraterizeRow(p: RowProps<CraterUi>) {
         onChange={(v) => set({ size: v })}
         auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
       />
-      <label title="Steep: one cliff all round. Terraced: broad benches stepping down">
-        Walls
-        <select aria-label="Walls" value={u.walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as CraterUi["walls"] })}>
-          <option value="steep">Steep</option>
-          <option value="terraced">Terraced</option>
-        </select>
-      </label>
-      <label title={`What stands in the middle (Auto: ${centre} for this size)`}>
-        Centre
-        <select aria-label="Centre" value={u.centre} onChange={(e) => set({ centre: (e.target as HTMLSelectElement).value as CraterUi["centre"] })}>
-          <option value="auto">Auto</option>
-          <option value="bowl">Bowl</option>
-          <option value="peak">Peak</option>
-          <option value="ring">Ring</option>
-          <option value="flat">Flat</option>
-        </select>
-      </label>
-      <Segmented
-        label="Debris"
-        value={u.debris}
-        onChange={(debris) => set({ debris })}
-        options={[
-          ["light", "Light debris", "A thin skirt of debris round the rim"],
-          ["heavy", "Heavy debris", "A thick apron of debris thrown far round it"],
-        ]}
-      />
-      <Toggle label="Rays" title="Streaks of debris thrown out in a starburst" on={u.rays} onChange={(rays) => set({ rays })} />
       <Again show={p.canAgain} onAgain={p.onAgain} what="impact" />
     </ForceOptions>
   );
@@ -177,7 +128,7 @@ export function EruptRow(p: RowProps<EruptUi>) {
   const set = (patch: Partial<EruptUi>) => p.onUi({ ...u, ...patch });
   const breadth = u.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth(eruptSettingsOf(u)) / 2) * 2));
   return (
-    <ForceOptions force={p.force} mode={u.mode === "fissure" ? "Fissure" : "Vent"} onMode={(m) => set({ mode: m === "Fissure" ? "fissure" : "vent" })}>
+    <ForceOptions force={p.force}>
       <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
       <SizeControl
         label="Size"
@@ -189,34 +140,6 @@ export function EruptRow(p: RowProps<EruptUi>) {
         onChange={(v) => set({ size: v })}
         auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : breadth }) }}
       />
-      <Segmented
-        label="Shape"
-        value={u.shape}
-        onChange={(shape) => set({ shape })}
-        options={[
-          ["steep", "Steep", "A tall, steep cone"],
-          ["broad", "Broad", "A broad, gentle shield"],
-        ]}
-      />
-      <label title={`Its top (Auto: ${u.summit === "auto" ? autoSummit(u.power) : u.summit} at this power)`}>
-        Summit
-        <select aria-label="Summit" value={u.summit} onChange={(e) => set({ summit: (e.target as HTMLSelectElement).value as EruptUi["summit"] })}>
-          <option value="auto">Auto</option>
-          <option value="peak">Peak</option>
-          <option value="crater">Crater</option>
-          <option value="caldera">Caldera</option>
-        </select>
-      </label>
-      <Segmented
-        label="Flows"
-        value={u.flows}
-        onChange={(flows) => set({ flows })}
-        options={[
-          ["light", "Light flows", "Short lava flows"],
-          ["heavy", "Heavy flows", "Long lava flows that can dam rivers"],
-        ]}
-      />
-      <Toggle label="Ridges" title="The flows set into ridges down its sides" on={u.ridges} onChange={(ridges) => set({ ridges })} />
       <Again show={p.canAgain} onAgain={p.onAgain} what="eruption" />
     </ForceOptions>
   );
@@ -228,24 +151,6 @@ export function QuakeRow(p: RowProps<QuakeUi>) {
   return (
     <ForceOptions force={p.force} mode={u.mode === "slide" ? "Slide" : "Lift"} onMode={(m) => set({ mode: m === "Slide" ? "slide" : "lift" })}>
       <Power verb="quake" value={u.power} onChange={(power) => set({ power })} title={u.mode === "slide" ? `How far the land slides: ${slideTiles(u.power)} tiles` : "How high the land lifts, and how far the shaking reaches"} />
-      <Segmented
-        label="Scarp"
-        value={u.scarp}
-        onChange={(scarp) => set({ scarp })}
-        options={[
-          ["sheer", "Sheer", "One sheer cliff along the fault"],
-          ["stepped", "Stepped", "Benches stepping down from the fault"],
-        ]}
-      />
-      <Segmented
-        label="Side that moves"
-        value={u.side === 1 ? "left" : "right"}
-        onChange={(v) => set({ side: v === "left" ? 1 : -1 })}
-        options={[
-          ["left", "Left", "The land on the left of the stroke moves (X flips it)"],
-          ["right", "Right", "The land on the right of the stroke moves (X flips it)"],
-        ]}
-      />
       <Again show={p.canAgain} onAgain={p.onAgain} what="quake" />
     </ForceOptions>
   );

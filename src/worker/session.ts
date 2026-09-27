@@ -7,8 +7,6 @@
 // problems warn and are noted in the map's description when the player exports anyway. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
-
-import { damSites as findDamSites } from "../core/analysis/damsites";
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -35,7 +33,7 @@ import {
 import type { PlanRecord } from "../core/features/setpieces";
 import { removeKindOf, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
+import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, planRiverBadwater, springPool, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
 import type { SetPieceKind } from "../core/features/schema";
 import { distanceFrom } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
@@ -45,7 +43,7 @@ import type { EntitySpec } from "../core/format/entities";
 import { JsonFloat } from "../core/format/json";
 import type { Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
-import { DERIVED_SLOPES } from "../core/features/ids";
+import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
@@ -61,13 +59,12 @@ import { validateMap, type Validation } from "../core/validate/checks";
 import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
-import { droughtStorage } from "../core/sim/drought";
-import { rulesFor } from "../core/validate/playability";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
+import { carveNature, craterNature, eruptNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
@@ -84,7 +81,9 @@ import { GlaciateRun } from "../core/forces/glaciate/run";
 import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
-import { areaDepth } from "../core/features/raster/brush";
+import { areaDepth, markBrushTiles } from "../core/features/raster/brush";
+import { StrokePreview } from "../core/features/raster/strokePreview";
+import { rimSlopes } from "../core/features/slopes";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -926,8 +925,34 @@ export function check(op: EditOp): string[] {
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const r = s.apply(op, origin, label);
+  const r = s.apply(withRimSlopes(s, op), origin, label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** A ramped Flatten stroke lays its own slopes along its rim (D270), kept in the stroke: worked out
+ *  here, on the ground as the stroke leaves it, clear of what stands there, the water, and the tiles
+ *  the build keeps free (the start's, the rivers' mouths, the map objects'). A stroke that has its
+ *  slopes already (a replay) or isn't a ramped Flatten goes as it is. */
+function withRimSlopes(s: MapSession, op: EditOp): EditOp {
+  if (op.op !== "brush") return op;
+  const p = op.params;
+  if (p.tool !== "flatten" || p.edges !== "ramped" || p.slopes !== undefined) return op;
+  const { x: W, y: H } = s.size;
+  const b = s.built;
+  const after = b.heights.slice();
+  const { dabs, pressure, levels, ...settings } = p;
+  const preview = new StrokePreview(settings, s.terrainState(), after, W, H);
+  preview.add(dabs, pressure, levels);
+  if (p.rigid?.length) preview.finish(p.rigid);
+  const own = new Uint8Array(W * H);
+  markBrushTiles(p, W, H, own);
+  const blocked = b.cache.reserved.length === W * H ? b.cache.reserved.slice() : new Uint8Array(W * H);
+  for (const e of b.entities) {
+    if (e.template === "Slope" && rebuiltSlope(e.owner)) continue;
+    for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
+  }
+  for (let i = 0; i < W * H; i++) if (b.water[i] > 0.05) blocked[i] = 1;
+  return { op: "brush", params: { ...p, slopes: rimSlopes(after, W, H, own, blocked) } };
 }
 
 /** The last change a control made step by step (a strength slider moved with the arrow keys):
@@ -952,8 +977,29 @@ export function applyStep(op: EditOp, label: string, key: string): SessionUpdate
 export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const r = s.applyAll(ops, origin, label);
+  const r = s.applyAll(withSpringPools(s, ops), origin, label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** A badwater source placed or moved in a group of edits (a clean source switched to bad: the old
+ *  one removed, the new one placed; a source dragged) cuts its own spring pool where its ground
+ *  isn't level (D290), in the same step, before it. */
+function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
+  const bad = (op: EditOp) =>
+    op.op === "placeEntity" ? op.params.template === "BadwaterSource" : op.op === "moveEntity" ? s.built.entities.some((e) => e.id === op.params.id && e.template === "BadwaterSource") : false;
+  if (!ops.some(bad)) return ops;
+  const out: EditOp[] = [];
+  const removed = new Set<string>();
+  for (const op of ops) {
+    if (op.op === "deleteEntities") for (const id of op.params.entities) removed.add(id);
+    if (op.op === "placeEntity" && bad(op)) out.push(...springPool(s, op.params, removed));
+    if (op.op === "moveEntity" && bad(op)) {
+      const e = s.built.entities.find((g) => g.id === op.params.id)!;
+      out.push(...springPool(s, { x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
+    }
+    out.push(op);
+  }
+  return out;
 }
 
 export function undo(): SessionUpdate {
@@ -1438,7 +1484,7 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[])
       continue;
     }
     if (!take.has(kind)) continue;
-    if (kind === "slopes" && (e.owner === DERIVED_SLOPES || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
+    if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
     else ids.push(e.id);
     removed.push(e.y * W + e.x);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
@@ -1488,7 +1534,7 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
     if (e.raw && !placementOf(e.raw)) continue;
     if (entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) ids.push(e.id);
   }
-  const ops: EditOp[] = [op];
+  const ops: EditOp[] = [withRimSlopes(s, op)];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
   const r = ids.length ? s.applyAll(ops, "user", `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared`) : s.apply(op, "user", label);
   return changed(s, r.ok, r.errors, t0);
@@ -1591,22 +1637,15 @@ export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: st
 
 // ------------------------------------------------------------------------------ the water layers
 
-/** The editor's water layers (EDITOR_PLAN §4 overlays, §6): soil moisture, badwater and the soil
- *  it spoils, the analytic drought view, and the tiles under roofs where the preview is
- *  approximate. Per-tile codes, for the page's overlay texture. */
+/** The editor's water layers (EDITOR_PLAN §3 view buttons, D287): badwater and the soil it spoils,
+ *  and the tiles under roofs where the preview is approximate. Per-tile codes, for the page's
+ *  overlay texture. (No moisture or drought layer: the land shows moisture, and the water bar's
+ *  Drought shows a drought day by day.) */
 export interface WaterLayers {
   W: number;
   H: number;
-  /** Soil moisture bands: 0 dry, 1 moist (under 5), 2 wetter (5–9), 3 wettest (10 and up). */
-  moisture: Uint8Array;
   /** 1 badwater, 2 soil its contamination spoils. */
   badwater: Uint8Array;
-  /** The drought view: 1 water kept through the map's drought, 2 water that dries up. */
-  drought: Uint8Array;
-  droughtDays: number;
-  /** Water kept through the drought (blocks), and water there now. */
-  droughtKept: number;
-  droughtNow: number;
   /** Tiles under roofs of an imported map: the preview keeps the file's water there. */
   roofed: Int32Array;
   /** Why the water checks are approximate on this map (null: they are not). */
@@ -1617,51 +1656,28 @@ export interface WaterLayers {
 }
 
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
- *  has no settle: its moisture and drought come from the background check's canonical settle,
- *  once it has run (until then they are empty). */
+ *  has no settle: its badwater soil comes from the background check's canonical settle, once it
+ *  has run. */
 export function waterLayers(): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
   const N = W * H;
-  const days = rulesFor(s.spec, s.meta.designedFor).droughtDays;
   let depth: ArrayLike<number> = b.water;
   let contamination: ArrayLike<number> = b.contamination;
-  let moist: ArrayLike<number> = b.moisture;
   let soil: ArrayLike<number> = b.soilContamination;
-  let model = b.waterModel;
   const fromCheck = b.waterFromFile && lastWater && lastWater.version === version ? lastWater : null;
-  if (fromCheck) ({ depth, contamination, moist, soil, model } = fromCheck);
-  const moisture = new Uint8Array(N);
+  if (fromCheck) ({ depth, contamination, soil } = fromCheck);
   const badwater = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
-    const m = moist[i];
-    moisture[i] = !(m > 0) ? 0 : m < 5 ? 1 : m < 10 ? 2 : 3;
     if (depth[i] > 0.05 && contamination[i] >= 0.05) badwater[i] = 1;
     else if (soil[i] > 0) badwater[i] = 2;
-  }
-  const drought = new Uint8Array(N);
-  let kept = 0;
-  let now = 0;
-  if (!b.waterFromFile || fromCheck) {
-    const left = droughtStorage(model, depth, days);
-    for (let i = 0; i < N; i++) {
-      if (!(depth[i] > 0.05)) continue;
-      now += depth[i];
-      kept += left[i];
-      drought[i] = left[i] > 0.05 ? 1 : 2;
-    }
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
   return {
     W,
     H,
-    moisture,
     badwater,
-    drought,
-    droughtDays: days,
-    droughtKept: Math.round(kept),
-    droughtNow: Math.round(now),
     roofed,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
@@ -1676,53 +1692,6 @@ function lastWaterOf(v: Validation, at: number, w: CanonicalWater, model: WaterM
 /** The canonical water and soil of the last background check of an imported map (the layers of an
  *  unedited import, whose build keeps the file's water). */
 let lastWater: { version: number; depth: Float64Array; contamination: Float64Array; moist: Float64Array; soil: Float64Array; model: WaterModel } | null = null;
-
-// ------------------------------------------------------------------------------ the dam-site layer
-
-export interface DamSiteView {
-  /** The dam line's tiles. */
-  tiles: [number, number][];
-  /** Crest above the channel, blocks held, tiles flooded, and the dam's length. */
-  height: number;
-  volume: number;
-  area: number;
-  length: number;
-}
-
-/** The dam-site layer (EDITOR_PLAN §4): the best straight dams across the map's clean water, the
- *  way `water.reservoir` measures them, best first; within 60 tiles of the start when it has one. */
-export function damSiteLayer(): { sites: DamSiteView[]; ms: number } {
-  const t0 = performance.now();
-  const s = need();
-  const b = s.built;
-  const { W, H } = b;
-  const N = W * H;
-  if (s.showsStoredWater) return { sites: [], ms: 0 };
-  const water = b.water;
-  const clean = new Uint8Array(N);
-  const surface = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    surface[i] = b.heights[i] + water[i];
-    if (water[i] > 0.05 && b.contamination[i] < 0.05) clean[i] = 1;
-  }
-  const at = startAt(s);
-  let dist: Float64Array | null = null;
-  if (at) {
-    const m = new Uint8Array(N);
-    for (let y = at[1] - 1; y <= at[1] + 1; y++) for (let x = at[0] - 1; x <= at[0] + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1;
-    dist = distanceFrom(m, W, H);
-  }
-  const sites = findDamSites(b.heights, clean, surface, W, H, dist).slice(0, 12);
-  return {
-    sites: sites.map((d) => {
-      const half = Math.floor((d.length - 1) / 2);
-      const tiles: [number, number][] = [];
-      for (let k = -half; k <= d.length - 1 - half; k++) tiles.push([d.x + k * d.dir[1], d.y + k * d.dir[0]]);
-      return { tiles, height: d.height, volume: Math.round(d.volume), area: d.area, length: d.length };
-    }),
-    ms: Math.round(performance.now() - t0),
-  };
-}
 
 // ------------------------------------------------------------- the forces (D194, D202, D203, D206)
 
@@ -1742,6 +1711,9 @@ export type ForceRequest = (
    *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
    *  locked land a level a tile. */
   area?: [number, number, number][];
+  /** The editor's row (D289): the choices it doesn't show are drawn from the land and the seed
+   *  (nature.ts), again at each Try another. */
+  natural?: boolean;
 };
 
 /** A carve to start: the carve's own request (kept for the carve's calls). */
@@ -1954,6 +1926,7 @@ function refusal(e: unknown): string {
 function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replaces?: number, state: TerrainState = s.terrainState()): ForceStarted {
   const { W, H } = base;
   const N = W * H;
+  if (req.natural) req = naturalRequest(req, base);
   const cut = req.cut;
   const inMap = (p: [number, number]) => p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
@@ -1992,7 +1965,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           try {
             carve = new CarveRun(base, settings, intent, { keep, sourceId: crypto.randomUUID(), unleashed: e.id, bad: e.template === "BadwaterSource" });
           } catch (err) {
-            // (a source's own water runs downhill: Unleash has no Defy gravity)
+            // (a source's own water runs downhill: an unleashed source never cuts uphill)
             throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
           }
           break;
@@ -2058,6 +2031,30 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     viewAt: -Infinity,
   };
   return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb };
+}
+
+/** The editor's force (D289): the choices its row doesn't show, drawn from the ground where it acts
+ *  and the series' seed; what it runs with, and what its operation keeps. */
+function naturalRequest(req: ForceRequest, base: FullForceMap): ForceRequest {
+  const { W, H } = base;
+  const clampTile = (x: number, y: number) => Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)));
+  const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
+  const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
+  switch (req.verb) {
+    case "carve":
+      return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "craterize":
+      return { ...req, settings: craterNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "erupt":
+      return { ...req, settings: eruptNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "quake": {
+      const m = mid(req.path);
+      return { ...req, settings: quakeNature(req.settings, ground(clampTile(m.x, m.y))) };
+    }
+    case "glaciate":
+      // (its row is all it has; its planner draws the rest from the land and the seed)
+      return req;
+  }
 }
 
 /** Start a force on the map as it stands: a new series, at its seed. */

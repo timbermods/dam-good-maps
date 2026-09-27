@@ -37,11 +37,18 @@ editor is desktop-first (D185).
 
 ## 3. The screen
 
-- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group) | Remove, with a small options
-  row for the picked tool; every force's options row starts with its mode switch. The four forces
-  are built on one shared forces core (D203, D206, D220). While a force works its row is its status
-  (Carve's with Pause and Stop) and Revert; the other tools wait. The forces go to the preview first
+- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
+  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group), with a small options
+  row for the picked tool (no Remove tool, D288: see **Delete** below). **Every force's row takes Glaciate's shape**
+  (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
+  **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
+  unleashes a carve, strikes, or vents; a drag aims a carve or an impact, or opens a fissure. Everything else (Carve's
+  wander, walls and depth; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
+  scarp) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
+  ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
+  shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
+  The four forces are built on one shared forces core (D203, D206, D220). While a force works its row is its status
+  (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop, D289); the other tools wait. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
   no forces group at all.
   **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its floor,
@@ -51,16 +58,15 @@ editor is desktop-first (D185).
   starting-logs floor), each with its one-click fix: move the start (near the water, for water out of reach), plant
   berry bushes, plant oaks for the starting logs.
   **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
-  mode (Carve's Unleash, Craterize's Strike, Erupt's Vent, Unleash on a source) is one click, the force starting at once
-  and finding its own way; a small cursor shows where it will act. Aim is a drag in a direction: while dragging, only a
-  thin straight arrow from where the drag began to the pointer; on release the force goes that way and the arrow goes.
-  A stroke the player paints stays drawn as it is painted, since it is the gesture itself (Quake's fault, Erupt's
-  fissure). The only word a force shows is why it won't act at all (Erupt's "No room to rise here"; Aim uphill without
-  Defy gravity).
+  (Carve unleashed, Craterize's strike, Erupt's vent, Unleash on a source) starts the force at once, finding its own
+  way; a small cursor shows where it will act. A drag in a direction aims Carve or Craterize: while dragging, only a
+  thin straight arrow from where the drag began to the pointer; on release the force goes that way (an aimed carve
+  cuts through rises on its way, D289) and the arrow goes. A stroke the player paints stays drawn as it is painted,
+  since it is the gesture itself (Quake's fault, Erupt's fissure). The only word a force shows is why it won't act at
+  all (Erupt's "No room to rise here").
   **Power and size are separate in every force** (D226): each size control follows Power by default, or is
-  set by hand: Carve's **Width** and **Depth** (how deep it cuts, in levels below the land around it, so high
-  Power can carve a wide, shallow river), Craterize's **Size**, Erupt's **Size** (breadth); Quake's drawn line
-  sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
+  set by hand: Carve's **Size** (how wide it cuts; its depth follows Power and the width), Craterize's **Size**,
+  Erupt's **Size** (breadth); Quake's drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
   resize (D226).
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
@@ -74,11 +80,15 @@ editor is desktop-first (D185).
   field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
   trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
   have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
-  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  is one undo step, and Select and Delete clear them (D288). Unique landmarks stay single-placement: the start, the mine site,
   relics and geothermal fields.
-- **The view buttons:** Orbit, Top-down, Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin
-  line wherever the ground steps down a level, off by default, whatever tool is picked), Markers, Clear water and the
-  overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
+- **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down, off for the usual
+  orbit), Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin line wherever the ground
+  steps down a level, off by default, whatever tool is picked), Markers (the sources and the slopes), Clear water and
+  the overlays, **Badwater** and **Under roofs** (where the map has roofed water). The legend appears only while an
+  overlay is on. No dam site is drawn on the map or named on the map card: Timberborn has no dam sites, and ours were a
+  heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
+  moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
@@ -89,7 +99,7 @@ editor is desktop-first (D185).
   land (packed earth for Raise, loose stone for Lower, a mineral scrape for Flatten, leaves for Smooth
   and Naturalize); an accent for each thing placed by its material (hollow wood and leaves for a
   tree, damped metal for a ruin, heavy timber for the mine site, a splash and bubbles for a source,
-  murkier for badwater); an earth puff for Remove; a reversed wooden catch for undo; and each force's
+  murkier for badwater); an earth puff for a delete; a reversed wooden catch for undo; and each force's
   own, phase by phase (a torrent for Carve; a breath, a crack, a boom and falling stone for
   Craterize; a fault's crack and grind for Quake and its Slide; pressure, a roaring plume and a
   cooling hiss for Erupt). Repeating an action climbs a small pentatonic ladder (to a fifth) and
@@ -137,15 +147,18 @@ editor is desktop-first (D185).
   never digs below the map's bottom or out from under the start or placed objects (D193).
 - **Flatten** (D204): the target is the height where the stroke starts (Ctrl-click samples any other
   level); it cuts and fills, so one stroke makes a clean plateau; **Edges**: **Cliff** (default) or
-  **Ramped**, where the rim steps down to the land around with natural slopes beavers can climb; a
+  **Ramped**, where the rim steps down to the land around, and the stroke lays its own natural slopes wherever that
+  rim meets ground one level lower, spaced along every stretch of it (the middle of a short one, else about every six
+  tiles), so the pad is walkable from each side that has such ground (D270; before, it asked the slope planner, which
+  often laid none); a
   quiet "the start fits here" hint when the area is big and flat enough for the district center, and a
   stronger one when the start requirements would also hold there; trees and objects ride the ground.
 - **Hills, plateaus, ridges and valleys come from the brushes,** not buttons.
 - **Craterize, a force of nature** (D202): its own top-bar button next to Carve (key 8), simulating a
-  giant impact. **Strike** (a click) or **Aim** (press on the impact and drag the way the impactor
-  travels: a glancing blow, an oval crater thrown forward); **Power** (a pebble to a cataclysm);
-  **Size** (following Power, or set: D226); **Steep** or **Terraced** walls; **Centre** (Auto, Bowl,
-  Peak, Ring, Flat); **Light** or **Heavy debris**, with or without **Rays**; **Try another**. A small
+  giant impact. A click strikes; a drag from the impact the way the impactor travels aims it (a glancing blow, an
+  oval crater thrown forward); **Power** (a pebble to a cataclysm); **Size** (following Power, or set: D226); **Try
+  another**. Its walls (steep or terraced), centre (bowl, peak, ring or flat), debris (light or heavy) and rays come
+  from the land and the seed (D289). A small
   cursor under the pointer, and Aim's thin arrow while dragging (D258). The impact moment: a streak falls, a flash, a shock
   ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, lying away from the
@@ -154,9 +167,9 @@ editor is desktop-first (D185).
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
   (D219; ready: D216, D226).
 - **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
-  painted fault: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; the side that moves
-  (**Left** or **Right** of the stroke; **X** flips it, even while painting); **Try another** (another
-  tilt and crack). The drawn line sets its length (D226). The fault shows on the land as it is
+  painted fault: **Lift** or **Slide** (its one choice, D289); **Power**; **Try another** (another tilt and crack).
+  **X** flips the side of the stroke that moves, even while painting; its scarp (sheer or stepped) comes from the land
+  and the seed. The drawn line sets its length (D226). The fault shows on the land as it is
   painted (D258: the stroke is the gesture). Lift shows its whole result as it is painted (the ground reacts behind
   the pointer) and is kept when let go; Slide shows the fault while it is painted, then its block
   slides along it tile by tile, 3 to 20 tiles, and a river that crossed the fault is joined again
@@ -167,9 +180,9 @@ editor is desktop-first (D185).
   `investigation/quake` (#52, with both Lift and Slide) on the forces core (#59), on the preview until
   Kyler has tried it (D219; ready: D226).
 - **Erupt, a force of nature** (D206, D216, D226): in the forces group (key 0). It raises a volcano:
-  its mode (**Vent**, a click, or **Fissure**, painted); **Power**; **Size** (breadth: following Power,
-  or set: D226); **Steep** or **Broad**; **Summit** (Auto, Peak, Crater, Caldera); **Light** or
-  **Heavy flows**, with or without **Ridges**; **Try another**. The ground stirs, then the volcano
+  a click vents, a drag opens a fissure (D289: the gesture is the mode); **Power**; **Size** (breadth: following
+  Power, or set: D226); **Try another**. Its shape (steep or broad), summit (peak, crater or caldera), flows (light or
+  heavy) and ridges come from the land and the seed (D289). The ground stirs, then the volcano
   swells level by level; its plume billows bigger and darker the more powerful the eruption (D216),
   the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
   always keeps a peak within the headroom it has: near the height ceiling it spreads wider rather
@@ -211,9 +224,10 @@ editor is desktop-first (D185).
 - **The block tool** (PLAN §20 D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a
   block's face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to
   hollow a cave; sized like the brushes; shows at once any block the game's support rule would drop.
-- **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
-  changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
-  source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
+- **Delete** (D288; there is no Remove tool): with a selection open, the Delete key (or the Selection row's **Delete**)
+  removes everything standing inside it, objects and sources, as one undo step; the start always stays, and says so.
+  With no selection, Delete removes what the pointer is on: a source within its targeting range (D249) first, else the
+  object on the tile. It never changes terrain.
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
   checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
   Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
@@ -226,7 +240,7 @@ editor is desktop-first (D185).
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out, Clear objects) are exact, with hard edges: precision tools. **Select all** (D264): Ctrl+A selects the whole
+  Dig out) are exact, with hard edges: precision tools; **Delete** clears what stands in the selection (D288). **Select all** (D264): Ctrl+A selects the whole
   map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
   down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
@@ -270,13 +284,17 @@ Make a valley, drop a source, and there's a river.
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
   Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
   past the official range); drag to move. A click on a placed source selects it and shows its
-  strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
+  strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
   pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
-  receding live.
+  receding live. **A badwater source cuts its own spring pool** (D290): it is 3 × 3 in the game and needs level ground,
+  so where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest of
+  them (never filled, so its water isn't dammed) and what stood on them goes, a small level pool in the same undo step;
+  it refuses only at the map's edge, in a cave and on the start. Every placement refusal is one plain reason ("the
+  ground under it is not level", "the district center stands there").
 - **Unleash, on a source** (D239): select a placed water or badwater source and a small **Unleash** action sits beside it,
   next to its strength, with a quick **Power** (or press U). Clicked, the source's own water carves its course downhill
   with Carve's engine (momentum, wander, waterfalls, the carving moment and its effects; the camera stays where the player left it, D265); where it stands in
@@ -286,8 +304,8 @@ Make a valley, drop a source, and there's a river.
   where the rim is nearest the aim; uphill, it says the water runs downhill); the source's own drag still moves it. Its
   width is the width whose Carve source would have the source's strength (a stronger source, a wider river); the rest is
   Carve's defaults, so it's one click. The source stays the river's origin: the carve is a dry one and adds no other
-  source; a badwater source carves a badwater river. While it works the row is Carve's own (Pause, Stop keeps what is
-  carved, Revert); Esc takes it all back, as with Carve; the whole carve is one undo step ("Unleash a source");
+  source; a badwater source carves a badwater river. While it works the row is Carve's own (Pause, Revert; it keeps
+  itself when it ends, D289); Esc takes it all back, as with Carve; the whole carve is one undo step ("Unleash a source");
   **Try another** re-rolls the course in its place ("Try another course"). Stored literally like every force (the
   carve's `forceResult`, with the source it unleashed), so projects replay exactly; the retained oxbow water (#70) and the
   settle rule (D222) apply as to any carve. The Carve tool stays as it is. Claude's `carve` step takes a `source` to
@@ -326,21 +344,21 @@ Make a valley, drop a source, and there's a river.
   Weather step's summary and map-card lines build on these buttons (D133).
 - **Carve, a force of nature** (D194, D199, D216): the first button of the forces group (key 7),
   with its full set:
-  - **Unleash** (one click, where the small cursor is) and **Aim** (a drag in a direction, with only a thin
-    arrow from where it began to the pointer, D258), with **Defy gravity** for aimed carves that climb uphill;
-  - **Power** (creek to catastrophe), **Width** (following Power by default, or set by hand for
-    slot canyons or wide lazy rivers) and **Depth** (following Power, or capped by hand: how many levels
-    below the land around it the carve may cut, so high Power can carve a wide, shallow river; D226);
-  - **Wander** (straight to winding), natural variation within each carve (at high Wander too: bends
-    wider and deeper on the outside, narrower on the straights, never a uniform tube), and **Try another
-    path**; a bend cut off becomes an oxbow lake, sealed by sediment at both ends;
-  - **Steep** or **Wide** walls; **Keep river** (the default) or **Dry canyon**. Keep river leaves a
+  - a click unleashes it where the small cursor is; a drag aims it (only a thin arrow from where it began to the
+    pointer, D258), and an aimed carve goes where the player dragged, cutting through rises on its way (D289);
+  - **Power** (creek to catastrophe) and **Size** (how wide it cuts: following Power by default, or set by hand for
+    slot canyons or wide lazy rivers; its depth follows Power and the width, D226, D289);
+  - its wander (straight to winding) and walls (a steep gorge or wide terraces) drawn from the land and the seed
+    (D289), with natural variation within each carve (bends wider and deeper on the outside, narrower on the
+    straights, never a uniform tube), and **Try another path**, which re-rolls them; a bend cut off becomes an oxbow
+    lake, sealed by sediment at both ends;
+  - its one choice, **Keep river** (the default) or **Dry canyon**. Keep river leaves a
     source at the origin whose strength follows the river's Width, not its Power, so a slot canyon
     keeps a modest stream and a wide river a big one; Dry canyon leaves no source. The source is
     editable afterwards like any other;
   - the visible carving effects (a surging head, crumbling blocks, dust, muddy water), the camera
     staying where the player left it (D265: no Follow);
-  - Space pauses it; **Stop** keeps what's carved; Esc or Ctrl+Z (or undo) reverts the whole carve
+  - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc or Ctrl+Z (or undo) reverts the whole carve
     instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
@@ -393,7 +411,8 @@ Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
-Erupt, X Remove (with Quake picked, X flips the side of the fault that moves) and M Select.
+Erupt and M Select; with Quake picked, X flips the side of the fault that moves. Delete removes what the
+pointer is on, or everything in an open selection (D288).
 Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
@@ -483,7 +502,6 @@ MapDocument {
   base              // built from spec, or parsed from an imported file; stored in the project file, never mutated
   features          // parametric feature objects (PLAN.md §19.2)
   edits             // ordered list of edit operations
-  locks             // regions protected from regeneration
   meta              // name, premise, designedFor, timestamps, app version, import report
 }
 ```
@@ -499,11 +517,16 @@ before D182 open with their land exactly as it was, as plain terrain.
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
-brush strokes, placements and moves, source changes, removals, the Select tool's actions,
-`regenerateRegion`, `setLock` and `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke
-replays exactly and survives regeneration and format 3. A Lower stroke that starts in or beside
-water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
-strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
+brush strokes, placements and moves, source changes, removals, the Select tool's actions, and
+`specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke replays exactly and survives
+regeneration and format 3. A Lower stroke that starts in or beside
+water records `channel` (smart Lower) and, since D263, how deep it may cut: a new channel records its `bed` (one level
+below the surface of the water round its first dab, never below that water's own bed, as the page read it) and `dry`
+(its first dabs still in that water, where the bed holds, so no pit), and a stroke that never leaves the water it began
+in is a deepening pass (`deepen`: a level off what the brush's middle passes over, once). The page starts a stroke from
+inside the water as a deepening pass and repaints it as a new channel the moment a dab leaves that water. Strokes saved
+before D263 (`channel` alone) keep their old start, the lowest ground there, and replay exactly. The bed never rises
+along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
 leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's
@@ -511,10 +534,12 @@ rectangle, which takes its middle tile's level once the stroke is applied, D249;
 before keep their `keep` runs and replay exactly), the working area it was painted in (`area`, D254: runs; it changes
 only inside, feathered),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
+edges with the slopes a ramped stroke laid on its rim (`slopes`, D270: worked out when the stroke is applied, on the
+ground it leaves, clear of objects, water and the tiles the build keeps free; each placed again by every build while it
+still fits; a ramped stroke from before D270 has none and the slope planner joins its steps, as it did), Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
-with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
+with the shelf's R, in one step; Delete is `deleteEntities`, with `removeSlope` for the slopes the
 build places, and never touches the ground or the start. A stroke with **Clear sources** on is one
 step of the `brush` and a `deleteEntities` of the sources it pressed on (D249). A force's run becomes one operation whose
 result is stored literally, so a replay assigns it and never runs the force again: `forceResult`,
@@ -753,7 +778,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - picking against the heightfield and the features for direct manipulation;
   - the shelf (D184): each object's picture is drawn once by the view itself (the object's model in
     the map's look, into a small render target), and the ghost under the pointer is the object's own
-    model, tinted green or red; Remove tints the objects under the pointer red;
+    model, tinted green or red; a source the pointer targets glows (D249);
   - the minimap (D205): the Real places top-down picture (`core/render/shade.ts`, one pixel a tile),
     drawn again when the page is idle after an edit or its water settles, never per frame; the
     outline is the view's four corners carried to the ground at the camera's target level;
@@ -917,6 +942,9 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
+| The Remove tool (X, its filters, its drag and its red hover); Select's Clear objects | D288: Select and Delete; Delete on what the pointer is on |
+| The forces' mode switches (Unleash or Aim, Strike or Aim, Vent or Fissure); Carve's Defy gravity, Width and Depth, Wander and Walls, and its mid-carve Stop; Craterize's Walls, Centre, Debris and Rays; Erupt's Shape, Summit, Flows and Ridges; Quake's Scarp and its Side that moves control | D289: Power, Size, at most one choice, Try another; the gesture is the mode; the rest from the land and the seed; X flips Quake's side |
+| The Orbit and Top-down pair; the Dam sites view, the map card's best dam site and the preview's hatched dam site; the Moisture and Drought views | D287: one Top-down toggle; the land shows moisture; the water bar's Drought, day by day |
 | Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |

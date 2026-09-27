@@ -1,6 +1,6 @@
 // Unleash, on a source (PLAN §20 D239), through the page: a placed source, selected, has a small
-// Unleash action beside its strength (and U); it carves its own course with Carve's engine, Stop keeps
-// it as one step and undo takes it back, Esc takes it all back as it runs; dragged from Unleash onto
+// Unleash action beside its strength (and U); it carves its own course with Carve's engine, kept as one
+// step when it ends (no Stop, D289) and undo takes it back, Esc takes it all back as it runs; dragged from Unleash onto
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -11,14 +11,13 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const running = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
-/** Stop keeps what is carved, if it is still carving (it may end by itself first). */
+/** Waits for the carve to end and keep itself (no Stop, D289). */
 async function stopIfRunning(page: Page) {
-  if (await running(page)) await page.getByRole("group", { name: "Unleash at work" }).getByRole("button", { name: "Stop" }).click({ timeout: 5_000 }).catch(() => undefined);
-  await expect.poll(() => running(page), { timeout: 60_000 }).toBeNull();
+  await expect.poll(() => running(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
 }
 
-test("Unleash: a selected source carves its own course; Stop keeps it as one step; Esc takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
+test("Unleash: a selected source carves its own course, kept as one step when it ends; Esc takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=96&d=n&t=highlands");
@@ -83,7 +82,7 @@ test("Unleash: a selected source carves its own course; Stop keeps it as one ste
   const n0 = (await labels(page)).length;
   const before = await heights(page);
 
-  // a click: it carves; Stop keeps it as one step; the source is still there, and still selected
+  // a click: it carves, kept as one step when it ends; the source is still there, and still selected
   await row.getByRole("button", { name: "Unleash" }).click();
   const work = page.getByRole("group", { name: "Unleash at work" });
   await expect(work).toBeVisible();

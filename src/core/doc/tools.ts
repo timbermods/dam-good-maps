@@ -21,7 +21,7 @@ import { BUILDERS, planSetPiece, type PlanContext, type PlanRecord } from "../fe
 import { FLOW_PRESETS, type Facing } from "../features/setpieces/common";
 import { startEntranceTile, type Orientation } from "../format/footprints";
 import type { Edge, Feature, LakeFeature, LandformFeature, Point, RiverFeature, SetPieceFeature, SetPieceKind, StartFeature } from "../features/schema";
-import { runsToTiles, type Runs } from "../math/grid";
+import type { Runs } from "../math/grid";
 import { clone } from "../spec/mergepatch";
 import { dependentsOf, patchFeature, type EditOp, type OpParams } from "./ops";
 import { entityTiles } from "../features/edits";
@@ -42,8 +42,7 @@ export function planContextOf(s: MapSession, exclude: string | null = null): Pla
   const { x: W, y: H } = s.size;
   const features = exclude ? s.features.filter((f) => f.id !== exclude) : s.features;
   const b: BuildResult = exclude ? s.terrainWith(features) : s.built;
-  const locked = s.state.locks.length ? new Uint8Array(W * H) : null;
-  if (locked) for (const l of s.state.locks) for (const i of runsToTiles(l.region.runs, W)) if (i >= 0 && i < W * H) locked[i] = 1;
+  // locks were removed (D253, D270): no region is ever off-limits to the tools this way any more.
   return {
     W,
     H,
@@ -53,7 +52,7 @@ export function planContextOf(s: MapSession, exclude: string | null = null): Pla
     channel: b.channel,
     occupied: b.occupied,
     start: startZone(s, b),
-    locked,
+    locked: null,
     protect: b.cache.terrain.protect,
     objects: b.entities.map((e) => ({ x: e.x, y: e.y, template: e.template })),
   };

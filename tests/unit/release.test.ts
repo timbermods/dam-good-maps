@@ -46,14 +46,14 @@ describe("the forces before their release", () => {
     expect(pre.forceShown("carve")).toBe(true);
   });
 
-  it("under the tests, the top bar shows the five forces, each with its key and its modes (Glaciate's gesture is its mode: none)", async () => {
+  it("under the tests, the top bar shows the five forces, each with its key; only Quake has a mode switch, its one choice (D289: the others' gesture is the mode)", async () => {
     const t = await import("../../src/editor/TopBar");
     for (const id of ["carve", "craterize", "quake", "erupt", "glaciate"] as const) expect(t.forceShown(id)).toBe(true);
-    expect(t.FORCES.map((f) => [f.name, f.key, ...f.modes])).toEqual([
-      ["Carve", "7", "Unleash", "Aim"],
-      ["Craterize", "8", "Strike", "Aim"],
+    expect(t.FORCES.map((f) => [f.name, f.key, ...(f.modes ?? [])])).toEqual([
+      ["Carve", "7"],
+      ["Craterize", "8"],
       ["Quake", "9", "Lift", "Slide"],
-      ["Erupt", "0", "Vent", "Fissure"],
+      ["Erupt", "0"],
       ["Glaciate", "-"],
     ]);
   });

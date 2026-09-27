@@ -4,14 +4,15 @@
 // and rejected when invalid, never clamped silently (the set-piece builders are the one place that
 // reduces values, and they report it).
 //
-// The document keeps an ordered log of applied operations. Feature and lock operations change the
-// document state and store undo data; sculpt, slope and entity operations are overlays that the
-// build pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). Replaying the log on a new
+// The document keeps an ordered log of applied operations. Feature operations change the document
+// state and store undo data; sculpt, slope and entity operations are overlays that the build
+// pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). Replaying the log on a new
 // generation (regeneration) re-applies every operation whose target still exists; the others are
 // kept and flagged as orphaned, never dropped (PLAN §19.4).
 //
-// `specPatch` (change settings and regenerate) and `regenerateRegion` are not log operations:
-// they replace the generation under the log (session.ts).
+// `specPatch` (change settings and regenerate) is not a log operation: it replaces the generation
+// under the log (session.ts). Locks and the retired regenerateRegion operation were removed (D253,
+// D270): an old project that held one still opens, with its land as it was kept (document.ts).
 
 import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
@@ -25,18 +26,11 @@ import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { carveProblems, type CarveParams } from "../forces/carve/op";
 import { forceProblems, type ForceResultParams } from "../forces/op";
-import type { Region } from "../spec/mapspec";
 import { applyMergePatch, clone } from "../spec/mergepatch";
 import opsSchema from "./ops.schema.json" with { type: "json" };
 
-export type OpOrigin = "user" | "claude" | "fix" | "stamp";
+export type OpOrigin = "user" | "claude" | "fix";
 export type SculptMode = "raise" | "lower" | "flatten" | "terrace" | "smooth" | "naturalize";
-
-/** A region protected from regeneration (EDITOR_PLAN §3). */
-export interface Lock {
-  id: string;
-  region: Region;
-}
 
 export type { PlaceEntityParams };
 
@@ -67,9 +61,6 @@ export interface OpParams {
   setEntityProps: { id: string; components: Record<string, unknown>; quiet?: boolean };
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
-  /** Set (or, with region null, remove) the lock with this id. */
-  setLock: { id: string; region: Region | null };
-  regenerateRegion: { area: Region; seedVariant: number; layers: ("terrain" | "water" | "resources")[] };
   /** A JSON Merge Patch on the MapSpec, then regenerate (PLAN §19.1). */
   specPatch: { patch: Record<string, unknown> };
 }
@@ -83,10 +74,8 @@ export interface UndoData {
   replaced?: { op: ForceOp; sculpt: number; entity: number };
   /** The feature before an update or a delete. */
   before?: Feature;
-  /** Where the feature was (delete, reorder) or went (add); where the lock was. */
+  /** Where the feature was (delete, reorder) or went (add). */
   index?: number;
-  /** The lock before a setLock (null: there was none). */
-  lock?: Lock | null;
 }
 
 interface Applied {
@@ -106,7 +95,7 @@ export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 /** Operations kept in the document's log and replayed on every generation. */
 export const LOG_OPS: readonly OpName[] = [
   "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
-  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "setLock",
+  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope",
 ];
 export const ENTITY_OPS: readonly OpName[] = ["placeEntity", "moveEntity", "deleteEntities", "setEntityProps"];
 export const SLOPE_OPS: readonly OpName[] = ["pinSlope", "removeSlope"];
@@ -121,14 +110,13 @@ export type EntityOp = AppliedOpOf<"placeEntity"> | AppliedOpOf<"moveEntity"> | 
 /** The document's current state: the generation's features with the log applied. */
 export interface DocState {
   features: Feature[];
-  locks: Lock[];
   sculpts: SculptOp[];
   slopeEdits: SlopeOp[];
   entityEdits: EntityOp[];
 }
 
 export function emptyState(features: readonly Feature[]): DocState {
-  return { features: clone(features as Feature[]), locks: [], sculpts: [], slopeEdits: [], entityEdits: [] };
+  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [] };
 }
 
 // ----------------------------------------------------------------------------------- dependencies
@@ -286,20 +274,6 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "setEntityProps":
       state.entityEdits.push(op);
       return;
-    case "setLock": {
-      const k = state.locks.findIndex((l) => l.id === op.params.id);
-      const before = k >= 0 ? state.locks[k] : null;
-      if (op.params.region === null) {
-        if (k < 0) {
-          op.orphaned = `lock ${op.params.id} no longer exists`;
-          return;
-        }
-        state.locks.splice(k, 1);
-      } else if (k >= 0) state.locks[k] = { id: op.params.id, region: clone(op.params.region) };
-      else state.locks.push({ id: op.params.id, region: clone(op.params.region) });
-      op.undo = { lock: before, index: k };
-      return;
-    }
     default:
       throw new Error(`${op.op} is not a log operation`);
   }
@@ -377,14 +351,6 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "setEntityProps":
       removeFromList(state.entityEdits, op.seq);
       return;
-    case "setLock": {
-      const u = op.undo!;
-      const k = state.locks.findIndex((l) => l.id === op.params.id);
-      if (u.lock === null || u.lock === undefined) state.locks.splice(k, 1);
-      else if (op.params.region === null) state.locks.splice(u.index!, 0, u.lock);
-      else state.locks[k] = u.lock;
-      return;
-    }
     default:
       throw new Error(`${op.op} is not a log operation`);
   }
@@ -433,8 +399,6 @@ export function opFitsMap(op: EditOp, W: number, H: number): string | null {
     case "pinSlope":
     case "removeSlope":
       return inMap(op.params.x, op.params.y) ? null : `(${op.params.x}, ${op.params.y}) is outside the map`;
-    case "setLock":
-      return op.params.region && runsProblems(op.params.region.runs, W, H, "its region").length ? "its region is outside the map" : null;
     default:
       return null;
   }
@@ -667,13 +631,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
       const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "deleteEntities": {
       if ("quiet" in op.params) return ["quiet is a carve's own"];
@@ -687,12 +651,6 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
-    case "setLock": {
-      if (op.params.region === null) return state.locks.some((l) => l.id === op.params.id) ? [] : [`lock ${op.params.id} does not exist`];
-      return runsProblems(op.params.region.runs, W, H, "the locked region");
-    }
-    case "regenerateRegion":
-      return ["regenerating an area arrives in roadmap M11"];
     case "specPatch":
       return ctx.generated ? [] : ["an imported map has no settings to change"];
   }

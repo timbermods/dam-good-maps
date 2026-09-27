@@ -167,16 +167,9 @@ export const DEAD_TREE: Rgb = [0.82, 0.78, 0.72];
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
 export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
 
-/** A hatched overlay (dam sites): light stripes in the overlay's colour, dark stripes, and a
+/** A hatched overlay (alpha 255): light stripes in the overlay's colour, dark stripes, and a
  *  dark rim round the hatched tiles. */
 export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
-
-/** Dam sites on the map (the overlay colour; alpha 255 draws it hatched). */
-export const DAM_SITE: Rgb = [1.0, 0.9, 0.3];
-
-/** The overlay bytes for a dam site (RGBA; the editor's dam-site layer and the preview's best dam
- *  site). */
-export const DAM_OVERLAY: readonly [number, number, number, number] = [255, 230, 77, 255];
 
 /** The start: a timber lodge with pale walls, a dark roof and a yellow banner on a pale deck. */
 export const START = {
@@ -467,9 +460,3 @@ export function objectLegend(): LegendEntry[] {
   ];
 }
 
-/** A dam site's legend swatch: hatched light and dark, rimmed dark. */
-export function damLegendSwatch(): string {
-  const c = cssColor;
-  const stripes = Array.from({ length: 6 }, (_, k) => `<path d="M${k * 6 - 6} 16 L${k * 6 + 2} 0 L${k * 6 + 5} 0 L${k * 6 - 3} 16Z" fill="${c(HATCH.dark)}"/>`).join("");
-  return icon(`<defs><clipPath id="d"><rect x="2" y="2" width="20" height="12"/></clipPath></defs><rect x="2" y="2" width="20" height="12" fill="${c(DAM_SITE)}"/><g clip-path="url(#d)">${stripes}</g><rect x="1" y="1" width="22" height="14" fill="none" stroke="${c(HATCH.dark)}" stroke-width="2"/>`);
-}

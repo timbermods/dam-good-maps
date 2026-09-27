@@ -2,8 +2,8 @@
 // brushes' row, off by default; with it off, a raise over a source leaves it standing on its raised
 // tile (no pit, no pillar); on, the ring carries a small mark, the sources under it glow red, and
 // the stroke takes them in the same undo step (undo brings them back). With any tool picked, the
-// pointer within about two tiles of a source targets it and Delete removes it (one step). A Remove
-// drag that starts on a source takes only sources: a tree in its rectangle stays.
+// pointer within about two tiles of a source targets it and Delete removes it (one step). (D288 took
+// the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -36,7 +36,7 @@ async function hold(page: Page, x: number, y: number) {
   await idle(page);
 }
 
-test("brushes and sources (D249): they ride the ground; Clear sources takes them with the stroke; Delete removes the one targeted; a Remove drag from a source takes only sources", async ({ page }) => {
+test("brushes and sources (D249): they ride the ground; Clear sources takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=96&d=n&t=highlands");
@@ -127,32 +127,5 @@ test("brushes and sources (D249): they ride the ground; Clear sources takes them
   await idle(page);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(true);
 
-  // Remove: a drag that starts beside a source takes only sources; a pine in its rectangle stays
-  await page.keyboard.press("Escape");
-  await shelf.getByRole("button", { name: /^Pine/ }).click();
-  const pine = await client(page, bx + 4, ay);
-  await page.mouse.move(pine.x + 3, pine.y);
-  await page.mouse.click(pine.x, pine.y);
-  await idle(page);
-  await page.keyboard.press("Escape");
-  const pines = () => page.evaluate(([x, y]) => {
-    const e = window.dgm3d!.renderer.mapState()!.entities;
-    let n = 0;
-    for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "Pine" && e.x[k] === x && e.y[k] === y) n++;
-    return n;
-  }, [bx + 4, ay] as [number, number]);
-  await expect.poll(pines).toBe(1);
-  await page.keyboard.press("x");
-  const from = await client(page, bx - 1, ay + 1);
-  const to = await client(page, bx + 6, ay - 2);
-  await page.mouse.move(from.x, from.y);
-  await page.mouse.down();
-  for (let k = 1; k <= 8; k++) await page.mouse.move(from.x + ((to.x - from.x) * k) / 8, from.y + ((to.y - from.y) * k) / 8);
-  await expect(page.locator(".shape-note")).toHaveText("1 source");
-  await page.mouse.up();
-  await idle(page);
-  await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(false);
-  expect(await pines()).toBe(1);
-  expect((await labels(page)).at(-1)).toBe("Remove a source");
   expect(errors).toEqual([]);
 });
