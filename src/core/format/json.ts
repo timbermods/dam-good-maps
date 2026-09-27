@@ -92,6 +92,12 @@ export function parse(text: string): JsonValue {
     throw new SyntaxError(`JSON: ${msg} at ${i}`);
   };
 
+  // JSON forbids a literal U+0000-U+001F inside a quoted string (they must be escaped).
+  const hasRawControl = (s: string): boolean => {
+    for (let k = 0; k < s.length; k++) if (s.charCodeAt(k) < 0x20) return true;
+    return false;
+  };
+
   const str = (): string => {
     // fast path: no escapes
     const start = ++i;
@@ -99,6 +105,7 @@ export function parse(text: string): JsonValue {
     if (j < 0) fail("unterminated string");
     const seg = text.slice(start, j);
     if (!seg.includes("\\")) {
+      if (hasRawControl(seg)) fail("raw control character in string");
       i = j + 1;
       return seg;
     }
@@ -108,6 +115,7 @@ export function parse(text: string): JsonValue {
       const c = text.charCodeAt(j);
       if (c === 92) j += 2;
       else if (c === 34) break;
+      else if (c < 0x20) fail("raw control character in string");
       else j++;
     }
     const s = JSON.parse(text.slice(start - 1, j + 1)) as string;
@@ -134,7 +142,9 @@ export function parse(text: string): JsonValue {
     const c = text[i];
     if (c === "{") {
       i++;
-      const obj: JsonObject = {};
+      // a null prototype: a "__proto__" member becomes its own data property, never the inherited
+      // setter, so it round-trips as itself instead of being rewritten as a sibling (audit A3)
+      const obj: JsonObject = Object.create(null) as JsonObject;
       ws();
       if (text[i] === "}") {
         i++;

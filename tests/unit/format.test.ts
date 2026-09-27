@@ -32,6 +32,22 @@ describe("C#-style floats (FORMAT.md §4.1, prototype tbmap.format_float)", () =
     expect(stringify({ x: F(2), y: 2 })).toBe('{"x":2.0,"y":2}');
     expect(() => stringify({ x: 0.5 })).toThrow();
   });
+
+  it('a "__proto__" member round-trips as its own data property (audit A3)', () => {
+    const text = '{"__proto__":{"Forged":1},"b":2}';
+    const v = parse(text);
+    expect(Object.getPrototypeOf(v)).toBeNull();
+    expect(Object.keys(v as object)).toEqual(["__proto__", "b"]);
+    expect((v as Record<string, unknown>).__proto__).toEqual({ Forged: 1 });
+    expect((v as { Forged?: number }).Forged).toBeUndefined();
+    expect(stringify(v)).toBe(text);
+  });
+
+  it("rejects a raw control character inside a string (audit A4)", () => {
+    expect(() => parse('{"a":"first line\nsecond line"}')).toThrow(/control character/);
+    expect(() => parse('{"a":"esc\\u0041ped then bad:\t"}')).toThrow(/control character/);
+    expect(parse('{"a":"escaped\\n newline"}')).toEqual({ a: "escaped\n newline" });
+  });
 });
 
 describe("footprints (notes/blocks_and_placement.md §1)", () => {

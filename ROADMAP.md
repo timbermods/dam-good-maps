@@ -1747,16 +1747,16 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   count only water standing at or above the start's ground, so a lakeside start like Beaverome's
   passes? Measure how many official, workshop and generated starts it changes before deciding.
   Until then the floor rule applies only to water under roofs (3D terrain step 1);
-- **the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md), both P3: a `__proto__`
-  key in an imported singleton is rewritten as forged sibling data (parse into null-prototype
-  records, write own keys only); and the JSON parser accepts raw control characters inside strings
-  (reject them, as `JSON.parse` does). Each with its round-trip test;
+- **done: the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md; #72): `parse`
+  (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
+  stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
+  does; each with its round-trip test (`tests/unit/format.test.ts`);
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
-- **the unused lock and regional-regrowth code** (#91; old projects holding a lock still open): D253
-  dropped locking part of a map and regrowing it region by region from the plan; the dead code they
-  left behind is being removed now, on `chore/housekeeping`.
+- **done: the unused lock and regional-regrowth code** (#91; #72): D253 dropped locking part of a
+  map and regrowing it region by region; their operations, fields and the stamp origin are removed,
+  and an old project holding a lock still opens with its land as it was kept.
 
 Every check keeps passing (`water.storage_possible` included, D111); batches stay at 98% or better;
 the Python oracle changes with the TypeScript, with 0 disagreements, wherever an item touches

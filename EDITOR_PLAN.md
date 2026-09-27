@@ -404,7 +404,6 @@ MapDocument {
   base              // built from spec, or parsed from an imported file; stored in the project file, never mutated
   features          // parametric feature objects (PLAN.md §19.2)
   edits             // ordered list of edit operations
-  locks             // regions protected from regeneration
   meta              // name, premise, designedFor, timestamps, app version, import report
 }
 ```
@@ -420,9 +419,9 @@ before D182 open with their land exactly as it was, as plain terrain.
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
-brush strokes, placements and moves, source changes, removals, the Select tool's actions,
-`regenerateRegion`, `setLock` and `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke
-replays exactly and survives regeneration and format 3. A Lower stroke that starts in or beside
+brush strokes, placements and moves, source changes, removals, the Select tool's actions, and
+`specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke replays exactly and survives
+regeneration and format 3. A Lower stroke that starts in or beside
 water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
 strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it

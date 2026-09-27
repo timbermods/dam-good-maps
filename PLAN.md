@@ -1762,7 +1762,6 @@ interface MapSpec {
   };
   setPieces: SetPieceRequest[];       // requested set pieces (Claude steering, D139): {kind, params, region?}
   constraints: {
-    locks: Region[];                  // regeneration never changes these tiles
     keepOut: Region[];                // the planner places nothing here
     keep: FeatureId[];                // user and Claude features the planner builds around
   };
@@ -1789,7 +1788,7 @@ interface MapSpec {
 ### 19.2 Parametric features
 
 One schema (`core/features/schema.ts`) covers every feature. The fields every feature has are
-`{id, kind, origin: "generated" | "user" | "claude" | "stamp", params, locked}`. The generator's
+`{id, kind, origin: "generated" | "user" | "claude", params, locked}`. The generator's
 planner emits features, the build pipeline (§19.8) rasterizes them, and the document keeps them as
 the map's plan. The editor does not edit them as objects (D182, D184): the player's strokes and
 placements are edits on top (EDITOR_PLAN.md, The map document). Sizes are in blocks (tiles) and
@@ -1934,7 +1933,7 @@ There is one reader and one writer (`core/format`), verified by the round-trip t
   normalized `world.json` byte for byte and keeps the original thumbnail. An edited map gets a new
   thumbnail.
 - **Project file** (`.damgoodmaps.json`, gzip-compressed): the `MapDocument` with its spec,
-  features, edits, locks, meta, `generatorVersion` and built base. The base is the whole map:
+  features, edits, meta, `generatorVersion` and built base. The base is the whole map:
   surface heights, the multi-run columns verbatim, and world.json's exact text without its
   terrain array (D37). From format 3 (M9a, D119) the terrain is stored as heights plus runs: every
   tile that is not one plain run from z = 0, as its solid runs, in both `field` and `base`; maps
