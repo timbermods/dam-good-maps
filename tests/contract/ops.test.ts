@@ -51,7 +51,6 @@ describe("every operation applies and undoes", () => {
     ["setEntityProps", { op: "setEntityProps", params: { id: tree.id, components: { Growable: { GrowthProgress: 0.5 } } } }, (s) => expect(stringify(s.exportFile().world.entities.find((e) => e.Id === tree.id)!)).toContain('"Growable":{"GrowthProgress":0.5}')],
     ["removeSlope", { op: "removeSlope", params: { x: slope.x, y: slope.y } }, (s) => expect(s.built.entities.some((e) => e.id === slope.id)).toBe(false)],
     ["pinSlope", { op: "pinSlope", params: { x: slope.x, y: slope.y, orientation: "Cw180" } }, (s) => expect(s.built.entities.find((e) => e.template === "Slope" && e.x === slope.x && e.y === slope.y)?.orientation).toBe("Cw180")],
-    ["setLock", { op: "setLock", params: { id: "north", region: { runs: rectRuns(0, 80, 95, 95) } } }, (s) => expect(s.state.locks.map((l) => l.id)).toEqual(["north"])],
   ];
   it.each(cases)("%s", (_name, op, check) => {
     const s = fresh();
@@ -110,7 +109,6 @@ describe("invalid operations are rejected with a reason and change nothing", () 
     ["a map object not built yet", { op: "addFeature", params: { feature: { id: USER, kind: "mapObject", origin: "claude", locked: false, params: { kind: "bridge", placement: { x: 3, y: 3, orientation: "Cw0" } } } } }, /later version/],
     ["a set piece whose stored plan is out of bounds", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "plugSpillway", request: { lake: "x" }, plan: {}, report: [] } } } }, /belongs to a lake/],
     ["the naturalize brush", { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } }, /roadmap M10/],
-    ["regenerating an area", { op: "regenerateRegion", params: { area: { runs: [[1, 1, 3]] }, seedVariant: 1, layers: ["terrain"] } }, /roadmap M11/],
     ["a faction-only plant", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "Maple", x: 3, y: 3, orientation: "Cw0" } }, /cannot be placed/],
     ["an object without its required components", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "UnstableCore", x: 3, y: 3, orientation: "Cw0" } }, /needs its components/],
     ["a malformed id", { op: "placeEntity", params: { id: "not-a-guid", template: "Pine", x: 3, y: 3, orientation: "Cw0" } }, /must match/],
@@ -199,8 +197,6 @@ describe("operations and the validation report share one shape", () => {
     const samples: unknown[] = [
       { op: "sculpt", params: { mode: "raise", cells: [[1, 2, 3]], amount: 2 } },
       { op: "sculpt", params: { mode: "raise", cells: [[1, 2, 3]], amount: 20 } },
-      { op: "setLock", params: { id: "a", region: null } },
-      { op: "setLock", params: { id: "a", region: { runs: [] } } },
       { op: "deleteEntities", params: { entities: ["11111111-2222-4333-8444-555555555555"], label: 1 } },
       { op: "deleteEntities", params: { entities: ["11111111-2222-4333-8444-555555555555"] }, label: "Remove" },
       { op: "moveEntity", params: { id: "11111111-2222-4333-8444-555555555555", x: 300, y: 1 } },

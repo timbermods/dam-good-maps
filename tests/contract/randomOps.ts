@@ -294,11 +294,6 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     return sl ? { op: "removeSlope", params: { x: sl.x, y: sl.y } } : null;
   }
   if (roll < 91) return { op: "pinSlope", params: { x: rng.int(1, W - 1), y: rng.int(1, H - 1), orientation: pick(rng, ORIENT)! } };
-  if (roll < 95) {
-    const locks = s.state.locks;
-    if (locks.length && rng.float() < 0.4) return { op: "setLock", params: { id: pick(rng, locks)!.id, region: null } };
-    return { op: "setLock", params: { id: `lock-${rng.int(0, 1000)}`, region: { runs: rectRuns(rect(rng, W, H, 12, 12), W) } } };
-  }
   if (roll < 98) return randomCarve(s, rng);
   // an invalid operation: it must be rejected with a reason, and change nothing
   return pick(rng, [
@@ -308,6 +303,5 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     { op: "sculpt", params: { mode: "raise", cells: [[H + 3, 0, 4]], amount: 1 } },
     { op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [4 * W + 8, 10] } },
     { op: "placeEntity", params: { id: guid(rng), template: "Maple", x: 3, y: 3, orientation: "Cw0" } },
-    { op: "regenerateRegion", params: { area: { runs: [[1, 1, 4]] }, seedVariant: 1, layers: ["terrain"] } },
   ] as EditOp[])!;
 }

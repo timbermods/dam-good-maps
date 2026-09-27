@@ -110,7 +110,7 @@ export interface MapSpec {
    *  {count: 1, mod: "none"} until a milestone schedules multi-colony maps. */
   colonies: { count: 1 | 2 | 3 | 4; mod: "none" | "timberTogether" };
   setPieces: SetPieceRequest[];
-  constraints: { locks: Region[]; keepOut: Region[]; keep: string[] };
+  constraints: { keepOut: Region[]; keep: string[] };
   accepted?: { attempt: number; candidate: number };
 }
 
@@ -274,7 +274,7 @@ export function makeSpec(opts: {
     settings: defaultSettings(theme, designedFor, size),
     colonies: { count: 1, mod: "none" },
     setPieces: [],
-    constraints: { locks: [], keepOut: [], keep: [] },
+    constraints: { keepOut: [], keep: [] },
   };
 }
 

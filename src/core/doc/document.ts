@@ -3,13 +3,17 @@
 //
 // A document is a generation plus an edit log:
 // - the generation: the spec (null for imported maps), the features the generator planned
-//   (`baseFeatures`), what a regeneration kept under locks (`kept`), and the built `base`: the
-//   generated map, or the imported file after normalization, stored whole and never mutated, so a
-//   document opens exactly even after the generator has changed (PLAN §19.7);
+//   (`baseFeatures`), what an old regeneration kept under a lock (`kept`; locks and the retired
+//   regenerateRegion operation were removed, D253, D270, but an old project's kept content still
+//   opens as it was), and the built `base`: the generated map, or the imported file after
+//   normalization, stored whole and never mutated, so a document opens exactly even after the
+//   generator has changed (PLAN §19.7);
 // - the log: every applied edit operation, oldest first, with its undo data (ops.ts).
-// `features` and `locks` are the current state, the log applied to the generation. They are
-// stored for readers of the file (the Python validator reads `spec` and `features`) and checked
-// against the log when the file is opened.
+// `features` is the current state, the log applied to the generation. It is stored for readers of
+// the file (the Python validator reads `spec` and `features`) and checked against the log when the
+// file is opened. `dropRetired` migrates a project file that still holds a lock, a `setLock` or
+// `regenerateRegion` operation, or a "stamp" origin (all removed): they are dropped or converted
+// quietly, and the land they held stays as it was saved.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -23,7 +27,7 @@ import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, mapName, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
-import { replay, type AppliedOp, type Lock } from "./ops";
+import { replay, type AppliedOp } from "./ops";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
@@ -55,7 +59,9 @@ export interface SavedView {
   target: [number, number, number];
 }
 
-/** What a regeneration kept of the previous generation under locks (EDITOR_PLAN §3). */
+/** What an old regeneration kept of the previous generation under a lock: locks and the retired
+ *  regenerateRegion operation were removed (D253, D270), but an old project's kept content still
+ *  opens as it was saved. */
 export interface KeptContent {
   /** The locked tiles when the map was regenerated. */
   runs: Runs;
@@ -99,8 +105,6 @@ export interface MapDocument {
   features: Feature[];
   /** The edit log: applied operations, oldest first. */
   edits: AppliedOp[];
-  /** Current locks (from the log's setLock operations). */
-  locks: Lock[];
   /** The next operation's `seq`. */
   nextSeq: number;
   meta: DocMeta;
@@ -122,7 +126,6 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
     kept: null,
     features,
     edits: [],
-    locks: [],
     nextSeq: 1,
     meta: { name: mapName(spec), premise: description(spec), designedFor: spec.designedFor, appVersion: GENERATOR_VERSION },
   };
@@ -153,7 +156,6 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
     kept: null,
     features: [],
     edits: [],
-    locks: [],
     nextSeq: 1,
     meta: {
       name,
@@ -187,6 +189,46 @@ interface DocumentV1 {
   meta: { name: string; premise: string; designedFor: Difficulty };
 }
 
+/** A retired-content note, stashed on a decoded document for `MapSession` to read once and turn
+ *  into a quiet notice; never part of the document type, never saved back. */
+export interface RetiredNotes {
+  __retiredNotes?: string[];
+}
+
+/** An old project may hold a lock, a `setLock` or `regenerateRegion` operation, or a "stamp"
+ *  origin: all removed (D253, D270). Dropped or converted here, quietly; the land they held stays
+ *  as it was saved (`kept` and the stored `base` are untouched). Mutates `raw` in place; returns a
+ *  note for each thing changed. */
+function dropRetired(raw: Record<string, unknown>): string[] {
+  const notes: string[] = [];
+  const spec = raw.spec as { constraints?: Record<string, unknown> } | null | undefined;
+  if (spec?.constraints && "locks" in spec.constraints) delete spec.constraints.locks;
+  if ("locks" in raw) {
+    const locks = raw.locks;
+    delete raw.locks;
+    if (Array.isArray(locks) && locks.length) notes.push("This project held a lock, which is no longer a feature. Its land stays as it was.");
+  }
+  const edits = raw.edits;
+  if (Array.isArray(edits)) {
+    const before = edits.length;
+    const kept = edits.filter((e: { op?: string }) => e?.op !== "setLock" && e?.op !== "regenerateRegion");
+    if (kept.length !== before) {
+      raw.edits = kept;
+      notes.push("This project held a lock or a setLock/regenerateRegion edit, which are no longer features. Its land stays as it was.");
+    }
+  }
+  let stamped = false;
+  for (const list of [raw.baseFeatures, raw.features]) {
+    if (!Array.isArray(list)) continue;
+    for (const f of list) if (f && typeof f === "object" && (f as { origin?: string }).origin === "stamp") {
+      (f as { origin?: string }).origin = "user";
+      stamped = true;
+    }
+  }
+  if (stamped) notes.push("This project held features placed by the stamp tool, which is no longer a feature. They open as the player's own.");
+  return notes;
+}
+
 /** Open a project file. Version 1 files (M1, M2) hold the spec, the features and the heights; they
  *  open with a base that has no stored map, and the session rebuilds it from the features. */
 export function decodeProject(bytes: Uint8Array): MapDocument {
@@ -203,6 +245,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
     throw new ProjectError("not a Dam Good Maps project file");
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+  const notes = dropRetired(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
   upgradeSpec((raw as { spec?: unknown }).spec);
   // a spec saved before every map had a mine site may ask for none; it opens asking for one
@@ -216,6 +259,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
   checkDocument(doc);
+  if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;
 }
 
@@ -240,7 +284,6 @@ function fromV1(v1: DocumentV1): MapDocument {
     kept: null,
     features: v1.features,
     edits: [],
-    locks: [],
     nextSeq: 1,
     meta: { ...v1.meta },
   };
@@ -252,7 +295,6 @@ export function checkDocument(doc: MapDocument): void {
   if (bad.length) throw new ProjectError(`the project file is damaged: ${bad[0].path || "/"} ${bad[0].message}`);
   const { state } = replay(baseFeaturesOf(doc), doc.edits);
   if (!jsonEqual(state.features, doc.features)) throw new ProjectError("the project file is damaged: its features do not match its edits");
-  if (!jsonEqual(state.locks, doc.locks)) throw new ProjectError("the project file is damaged: its locks do not match its edits");
   const top = doc.edits.reduce((m, e) => Math.max(m, e.seq), 0);
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
 }

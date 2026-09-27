@@ -95,9 +95,6 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     const lock = s.apply({ op: "updateFeature", params: { id: lake.id, patch: { locked: true } } });
     expect(lock.errors).toEqual([]);
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
-    // a region lock over it
-    const tiles: [number, number, number][] = [[10, 0, 20]];
-    expect(s.apply({ op: "setLock", params: { id: "8b8b8b8b-1111-4222-8333-444455556666", region: { runs: tiles } } }).errors).toEqual([]);
     // its floor changes, and it moves along the edge, its outline still past it
     expect(s.apply({ op: "updateFeature", params: { id: lake.id, patch: { params: { floorDepth: 2 } } } }).errors).toEqual([]);
     const alongX = lake.params.outline.some(([, y]) => y < 0 || y > W - 1);

@@ -113,7 +113,7 @@ describe("URL codec (PLAN §14.5)", () => {
       if (rng() < 0.2) spec.premise = "gorge-dammed basin";
       if (rng() < 0.2) spec.colonies = { count: pick([2, 3, 4] as const), mod: "timberTogether" };
       if (rng() < 0.2) spec.setPieces = [{ kind: "waterfall", params: { mode: "standalone", lip: [40, 90], facing: "north", width: 20, drop: 6 } }];
-      if (rng() < 0.2) spec.constraints = { locks: [{ runs: [[3, 4, 9]] }], keepOut: [], keep: ["f-abc"] };
+      if (rng() < 0.2) spec.constraints = { keepOut: [], keep: ["f-abc"] };
       expect(both(spec), JSON.stringify(spec)).toEqual([true, true]);
       const back = decodeSpecFragment("#" + encodeSpecFragment(spec))!;
       expect(back.problems).toEqual([]);

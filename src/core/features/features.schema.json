@@ -26,7 +26,7 @@
       "properties": {
         "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
         "kind": { "enum": ["river", "lake", "landform", "setPiece", "forest", "berryPatch", "ruinField", "mapObject", "start"] },
-        "origin": { "enum": ["generated", "user", "claude", "stamp"] },
+        "origin": { "enum": ["generated", "user", "claude"] },
         "role": { "type": "string" },
         "locked": { "type": "boolean" },
         "params": { "type": "object" }
