@@ -82,7 +82,9 @@ editor is desktop-first (D185).
   water, its depth, the bed level and its contamination (D196).
 - **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in
   browsers that can't save to a folder); a small menu for the rest (Open, Save project, Download
-  .timber, History, New map).
+  .timber, History, New map). On a generated map the menu also has **Another like this** (M9b,
+  D278 (1c)): it closes the map (asking first when it has edits) and opens a sibling, the same
+  theme, settings and intentions on different land, with its own share link.
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the
   map. Never a pop-up.
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.

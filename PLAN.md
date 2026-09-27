@@ -556,7 +556,10 @@ anchor positions as fractions of the map.
 premises are folded into intentions, checked by outcome, not drawn as a layout variant (§6 of
 `docs/m9-design.md`, D274). Flow-direction variety no longer comes from drawing a flow axis during
 layout (D67); a finished map is rotated or mirrored into one of its 8 orientations instead, so all 8
-appear and none over a quarter (D275).
+appear and none over a quarter (D275). As built in M9b (`land/orient.ts`): the land is turned right
+after the field is made, from a random stream of its own, and the rivers, the start and the objects
+are found on the turned land (turning a finished map would turn every object's footprint and settle
+the water again); a map that is not square takes the 4 orientations that keep its sides.
 
 ### 7.2 Macro layout
 
@@ -745,6 +748,14 @@ least like the theme's usual maps (the variety score against the theme's referen
 stored as 16×16 signatures and feature vectors, about 4 KB per theme) is preferred. A clearly better candidate never
 loses for being more ordinary. Only true near-duplicates of other maps are rejected; resemblance is otherwise
 information (the largest look-alike cluster), never a reason to reject a good map.
+
+**As built in M9b** (D278 (1a); replaces K = 3 and the score above): the generator makes candidates
+(passing maps) until one meets D273's outcomes: readable water (`analysis/story.ts`), the theme's
+promise (`analysis/signature.ts`, `gen/outcomes.ts`) and at least one standout intention. A
+candidate that misses one grows new land; up to 4 candidates within the 12 attempts, after which the
+one meeting the most outcomes stands (then stored water near the start, where the player asked for
+more reserve). Each candidate is announced as it is found (`onCandidate`), and the page shows the
+first at once with "Looking for a better one (2 of 4)" while it looks on.
 
 ### 7.10 Output
 
@@ -1524,6 +1535,14 @@ seed stream.
   (design version 2 §6, D274) and its read-back features, checked on 30 hand-checked maps (10 at
   Variety 100). The catalogue's landmark word list above (*island in a moat*, *spiral mountain* and
   the rest) is not adopted into M9's naming.
+- **As built in M9b** (`gen/names.ts`): the name comes from the standout intention (a few titles
+  each, some with the land's noun: the theme's, the Islands sea layout's, or for Any what the map
+  shows most), chosen by the seed and never a title the names study forbids (official and workshop
+  maps, real places: `core/data/forbiddenNames.json`); a map without a standout takes a plain name
+  from its land. The "how it plays" line is the standout's sentence and one thing read from the map
+  (the start's water in the first drought, a dam site near the start, where the badwater lies, the
+  woods). Both show on the map card, the theme on the line under the name; the in-game file's name
+  and description are unchanged.
 
 ---
 
@@ -1542,6 +1561,10 @@ A two-pane page. On mobile it stacks, with settings in a drawer.
   - The preview canvas, with layer toggles and a 2D/3D switch.
   - The map card beneath: name, premise, score and the validation report.
   - Download, and **Refine this map**, which opens the same map in the editor (EDITOR_PLAN.md).
+  - **Another like this** (M9b, D278 (1c)): a sibling of the map shown, one per click: the same
+    theme, settings and intentions on different land (the genome's variation, D143), with its own
+    share link (`vr=`, `in=`); a sibling whose land matches the map it came from (85% of tiles within
+    a level) is passed over for the next.
     "Download project file" (`.damgoodmaps.json`, §19.6) stays beside it. After the editor, the page shows the edited map; downloading it goes through the
     editor's export check, and generating again keeps the edits (D44).
   - **Open a map**: any `.timber` or project file opens in the editor.
@@ -1823,6 +1846,9 @@ interface MapSpec {
   may assume a map has one start in a way that would block this.
 - Imported maps have no spec (`spec: null` in the document). Their difficulty comes from the
   document's `meta.designedFor`.
+- **Added in M9b:** `settings.terrain.variety` (Variety, `vy`, 0–100, default 70; a spec stored
+  before it opens with the default); `variation?` (Another like this: the sibling's index, `vr`) and
+  `intentions?` (the intentions a sibling keeps, at most 2, `in`).
 
 ### 19.2 Parametric features
 

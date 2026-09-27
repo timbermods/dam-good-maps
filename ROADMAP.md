@@ -1304,6 +1304,14 @@ design version 1's.
 - **M9b: composition and variety** (tag `m9b-done`; M9c folded in, D278). **Read
   [docs/PERFECT.md](docs/PERFECT.md) and D252 first** (D225, D252): rewritten around five outcomes, judged
   by Kyler's eye against PERFECT, not only by the batches and the measures (D273).
+  - **Status (2026-09-27):** in progress on `feature/m9b` (draft PR #70), generator 0.8.0, on M9a's
+    frozen generator. Built: one readable water system (the main river first, tributaries joining
+    it, courses checked to hold water end to end), Islands' sea in six layouts, the themes steered
+    toward their promises and checked, the candidate choice, the ten new intentions, the 8
+    orientations, names and the how-it-plays line, Another like this, Variety as a setting, and
+    D298's game soil in the build and both validators (docs/progress/m9b.md). Left: the
+    intentions' emergence, the Canyon and Islands promises, generation time, chaos, the tests for
+    0.8.0, the contact sheet and the first review set. Defaults: decisions-pending #100 to #109.
   - **Delivers, judged as five outcomes** (D273; the measures below are information, not gates):
     1. **A readable water story:** a map's water can be followed at a glance, from where it starts,
        into a main river or lake system, to where it leaves; a few tributaries, never a tangle of
