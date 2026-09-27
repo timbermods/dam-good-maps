@@ -627,3 +627,51 @@ another review unless it looks off. Built on `look/waterfalls` after merging `de
 
 **Released on 2026-09-26 as `look-waterfalls-done`** (D215, approved): #53 merged into `dev` (70ce2a8), tagged at
 ee83466, released into `main` in #62 (a73b4b8); the deploy and the live check passed.
+
+#### Kyler's return: soft white water (2026-09-26, D222)
+
+Kyler: soften the foam so its dark bubble cells never read as cracked tiles: soft white water.
+Built on `fix/settle-and-foam`, with #72's change (live-editing.md).
+
+- **Why it read as tiles:** past the white core, the landing's foam was blobs switched on over a
+  narrow band of the noise (0.4–0.52), with the pool showing dark between them, and a lace drawn
+  round those dark cells from the shared Voronoi pattern (`cracks`, the same pattern as the
+  cliff's cracked stone). Up close that is dark polygons with pale edges: cracked tiles.
+- **Soft white water** (`materials.ts` `fallMaterial`, `falls.ts` `FALL_SPLASH.froth`,
+  `frothFloor`): the lace is gone; past the core the splash is a froth whose density eases from
+  0.6 to full white over most of the noise's range (0.15–0.85), so it is denser and thinner in
+  soft patches and never opens onto dark water; it thins only as it drifts out (the tail, a
+  little further out than before). The crown's billows have softer edges (0.02–0.34 of the noise
+  at its foot, 0.1–0.24 before). One texture read fewer per splash pixel. Badwater falls keep the
+  shared palette (their foam is `BADWATER_FOAM`, tan).
+- **Glassy panes along the foot, and the cause:** looking critically at the low views, the foot
+  of a wide fall showed flat translucent panes with straight edges, one per tile (D215's round had
+  them too). Every fall is an instance of one template, and each instance drew all its parts
+  (splash, crown, ribbon) before the next: one tile's crown was blended over its neighbour's
+  ribbon. The template now names its layers (`fallTemplate().layers`: the splashes, the crowns'
+  backs, the ribbons, the crowns' fronts with the far sheets) and the renderer draws each layer
+  for all of a chunk's falls before the next (geometry groups, one material). The panes are gone.
+- **Kept:** D201/D215's shape, the continuous sheet round corners, the splash's size (`fallSplash`,
+  unchanged) and the crown. The map's bytes are unchanged (rendering only; the pinned download in
+  `look-mine-ruins.test.ts` passes).
+- **Cheap at 256²** (`--bench`, this machine's RTX 2070 SUPER, shared with other runs, two runs):
+  every orbit stays at the display's 170 fps. The falls take 4 draw calls per chunk instead of 1:
+  the render call (CPU) is the same on Highlands 2 (141 falls, 0.6–0.7 ms) and rises 0.70 → 1.00
+  ms (first run 0.80 → 1.10) on the stress hillside (1,536 falls in 64 chunks); GPU times move
+  within their run-to-run noise (the hillside's median 0.69 → 1.26 ms in the second run, 0.71 →
+  3.06 in the first, whose p95 was 3.98 → 4.51).
+- **Captures** ([docs/look/waterfalls/](../look/waterfalls/README.md), 4.5 MB; `npx tsx
+  tools/capture-waterfalls.ts --d222 --before <dev> --first <#53 at b00b2fc>`): the D215 pairs of
+  the landing remade (`d215-splash-*`, `d215-l-lip-*`: the first round beside now), and new
+  `d222-foam-*` pairs, dev beside now, up close: the strong fall's landing from above and low down,
+  and the badwater fall's. The other captures there were made before D222 (their after side shows
+  the old foam).
+- **Looked at critically:** no cells, no lace and no panes in any of them; the badwater landing is
+  a soft tan froth. What still looks a little off: up close, the froth past the core reads as a
+  milky haze over the pool more than as bubbly whitewater; from a grazing side angle the crown
+  shows as a faint row of translucent curls, one per tile of the lip; and the ribbon's foot keeps a
+  straight lower edge where it meets the pool (clearest at the badwater fall, up close). Nothing
+  reads as tiles. Older and not D222's: the pool's faint seams between tiles, as D215 noted.
+- Tests: `tests/unit/look-waterfalls.test.ts`: "soft white water where a fall lands (D222)" (no
+  lace, the froth's ease and floor from `FALL_SPLASH`, in both looks; the splash's sizes as D215's)
+  and "draws a layer at a time … (D222)" (the template's layers cover its index, back to front).

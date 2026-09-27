@@ -1,12 +1,25 @@
-# Waterfalls with shape and volume (D201, D215)
+# Waterfalls with shape and volume (D201, D215, D222)
 
 The Standard look, the same camera and water time on each side. The gallery is a small map of our
 own, its water settled by the game's water rules; the rest are generated 256² maps. Made with
 `tools/capture-waterfalls.ts`.
 
+## Kyler's return (D222): soft white water
+
+Dev's foam (D215) on the left, now on the right, up close. Made with `--d222`, which also remade
+the D215 pairs of the landing below (`d215-splash-*`, `d215-l-lip-*`); the other captures here
+were made before D222 and show the old foam.
+
+| Image | What to look at |
+|---|---|
+| [d222-foam-default.jpg](d222-foam-default.jpg) | Where the strong fall lands, from above: the dark cells with pale edges (they read as cracked tiles) are gone; soft white water, denser and thinner in soft patches, thinning as it drifts out. |
+| [d222-foam-low.jpg](d222-foam-low.jpg) | The same landing from low down: no dark cells at the foot, and no glassy panes along it. |
+| [d222-foam-badwater.jpg](d222-foam-badwater.jpg) | The badwater fall's landing: a soft tan froth in the shared badwater palette, no cells. |
+
 ## Kyler's review (D215): one sheet, more whitewater
 
-The first round (#53 before D215) on the left, now on the right.
+The first round (#53 before D215) on the left, now on the right (the landing's pairs with D222's
+foam).
 
 | Image | What to look at |
 |---|---|

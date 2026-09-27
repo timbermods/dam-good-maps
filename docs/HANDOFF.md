@@ -24,7 +24,13 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 5. **Real places, second round (#35):** D214 (strengths near the official range, the start moved closer to water, places that
    still can't work dropped) and the renamed "Centre" titles, then badwater (after M9a lands). Kyler's list of places to drop
    waits for him; no release until then.
-6. Then M9b and M9c (Opus 5.5 at high) and the rest of `ROADMAP.md`.
+6. **Placing objects by brush** (D235): right after the forces round 2, on the preview. Build it on a branch from
+   `feature/forces` (so the preview keeps the forces), e.g. `feature/object-brush`.
+7. **The page is the editor** (D232–D234: 3D everywhere, the landing page's map editable with a full-screen editor, Your
+   maps; and D237: "Without pre-filled water" off the page, kept internal), after the forces round 2 and M9a's release; on the preview, then tell Kyler: his editor UI audit follows, and
+   **the design pass comes straight after it** (D236).
+8. **M9b and M9c** (Opus 5.5 at high) **in parallel with 7**, not waiting for it (the generator and the page are separate
+   code); M9b and M9c take the machine first when the two compete (D236). Then the rest of `ROADMAP.md`.
 
 M9a comes first whenever work competes for the machine (D210). Models: M9a on Opus 5.5 at xhigh; M9b and M9c on Opus 5.5 at
 high; routine work (tests, contact sheets, docs, watching CI) on Sonnet 5 at medium.
@@ -170,7 +176,15 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   the landing; then release without another review unless it looks off. Known, older issue: where a Blockage raises the
   water floor, the 3D view draws water at ground level (a phantom small fall).
 - **Quake (#52)** is ready with both Lift and Slide (D219, at a293e41): merge it with the other forces.
-- **Codex tasks that may report:** `investigation/forces-core` (one core for the four forces) and `investigation/juice`
+- **`investigation/maplook3`** (Codex, D228: phase 1 of a higher-fidelity High look): when its PR is open and green,
+  merge it at a boundary as an investigation, proposals only, like #38; adopt nothing until Kyler has reviewed its demo
+  and said which effects to keep (then they join Map look 2's High mode). Not pushed yet (2026-09-26).
+- **`investigation/vegetation`** (Codex, D230: phase 2 of the higher-fidelity look): the same as maplook3: merge it as
+  proposals only when its PR is open and green; adopt nothing until Kyler has reviewed both demos. Not pushed yet.
+- **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
+  Balatro as the reference; D226): merge it as proposals when green, hook it into Live editing's juice, and show it on
+  the preview.
+- **Codex tasks that reported (merged 2026-09-26):** `investigation/forces-core` (one core for the four forces) and `investigation/juice`
   (synthesised editor sounds). Merge each at a boundary once green and adopt it as proposals (D220): build the forces on the
   forces core if it has landed; hook the sounds into Live editing (on by default, quiet, with an off switch) and show them on
   the preview.
@@ -210,8 +224,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D228), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #77. **Every review is measured against
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D239), and into the living docs in the same change
+  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #80. **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Agent definitions** for D210 are in `.claude/agents/`: `m9a-build` (Opus 5.5, xhigh), `m9-build` (Opus 5.5, high),

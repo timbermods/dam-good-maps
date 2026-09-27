@@ -350,7 +350,7 @@ are gone. Built after merging `dev` (Live editing, waterfalls, the forces' inves
 04e90ef; the merged tree still built all 150 maps as the index had them.
 
 - **The cap for each size** (`FLOW_CAP`, tools/places/convert.ts; a default the session chose,
-  docs/decisions-pending.md #77). The official maps' strongest water for the size, measured from
+  docs/decisions-pending.md #80). The official maps' strongest water for the size, measured from
   investigation/calibration.json as the resources step measured its baselines (by size class,
   Nomads and Oasis left out, joined in ln(area)): 6.7, 3.4 and 4.1 a second per 10,000 tiles at
   96², 128² and 256² (Thousand Islands is the strongest large map, 27 in all). As multiples of the
@@ -401,7 +401,7 @@ are gone. Built after merging `dev` (Live editing, waterfalls, the forces' inves
 - **Titles** (D214): a region's second map is named by its own part of the place: a real feature
   only where OpenStreetMap's named features in the map's square (queried for each square) and its
   heights make it sure, else a plain position or direction (tools/places/titles.ts `SECOND`; a
-  second map at a place's centre without one stops the tool). Pending check #78.
+  second map at a place's centre without one stops the tool). Pending check #81.
   - Colca Canyon Centre → **Colca Canyon South Rim** (the rim plateau, Cabanaconde, south of the
     canyon floor along the north edge);
   - Tagliamento River Centre → **San Daniele, Tagliamento River** (the river's wide bed, and San
@@ -474,7 +474,7 @@ it.
 - **Minimum starting wood** (within 20 tiles, D227) stays the validators' `start.wood` at the
   difficulty the places are built for (Normal), as before; M9a's new defaults reach the places when
   they land.
-- Default #79 (the stands, their trees, the tenth's margin).
+- Default #82 (the stands, their trees, the tenth's margin).
 
 ## The review sheet (Kyler, 2026-09-26)
 

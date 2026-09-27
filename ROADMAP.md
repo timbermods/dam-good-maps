@@ -82,8 +82,8 @@ differently, this file wins.
 | Weather | Weather view: the full cycle's timeline, after the 3D stages, before M10 | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186 | a probe batch (calibration) | xhigh |
 | M10 | Symmetry, and the brushes' extras (the brushes came with Live editing) | EDITOR_PLAN Part 1 §4, §9; Stamps and symmetry · D158, D182 | no | high |
 | M11 | Stamps painted as brushes, heightmap import, regenerate area, locks | EDITOR_PLAN: The map document (conflict rules), Stamps and symmetry · D182 | no | high |
-| Refine | Refinement phase, after M11, before the design pass | Kyler's refinement notes · decisions-pending #2, #12, #21, #29 (#13 is moot: D184 removed drawn rivers) | short (a dam at a new narrows holds) | xhigh |
-| Design | Design pass, after M11 and the refinement phase | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
+| Refine | Refinement phase, after M11 | Kyler's refinement notes · decisions-pending #2, #12, #21, #29 (#13 is moot: D184 removed drawn rivers) | short (a dam at a new narrows holds) | xhigh |
+| Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b and M9c | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
 | M13 | Usability, problem reports, versioned deploys | EDITOR_PLAN: Testing (usability tasks) · PLAN §2.3, §14, §15, old milestone 6 | yes (full journey) | high |
 | Later | See the end of this file | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
@@ -107,7 +107,8 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   public only after its probe batch passes, T7 included; D145); 3D-c: 3D editing (tagged
   `3d-c-done`);
 - the Weather view: tagged `weather-view-done`;
-- the refinement phase and the design pass: tagged `design-done`;
+- the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236); the refinement phase:
+  tagged `refinement-done` (D238);
 - after M12: Claude.
 
 M9 depends only on M2 and can run alongside M8. The 3D stages follow the M9 build and the Frame
@@ -997,7 +998,9 @@ they conflict):
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
    where it fits and red where it doesn't, with a quiet reason ("needs flat ground"). Click places,
-   R rotates, Esc puts it back. Trees and bushes: click places one, drag paints many, naturally
+   R rotates, Esc puts it back. Scatter-type items (trees, bushes, ruins, thorns) place like a brush (D235, after the
+   forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
+   trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
 4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Markers, and the overlays
    (moisture, contamination, drought). The legend appears only while an overlay is on.
@@ -1049,6 +1052,39 @@ it feels right.
 **Later:** every future editing tool is live and brush-first from the start (D179, D182): M10's
 symmetry mirrors strokes live, M11's stamps are painted onto the land, and the 3D terrain steps
 extend the same brushes to caves and tunnels.
+
+---
+
+## The page is the editor (D232–D234)
+
+After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
+automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
+after Generate, the essentials around it (brushes, Water source and Badwater source, the forces), an expand button to the
+full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser window elsewhere), Generate and settings
+changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
+way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
+exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
+his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
+M9b and M9c don't wait for this step: they run in parallel with it and take the machine first when the two compete
+(D236).
+
+**Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
+always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
+the page never freezes; the editor never slows for the history).
+
+## Design pass
+
+Straight after Kyler's editor UI audit of the combined page and editor, which follows "The page is the editor" on the
+preview (Kyler, 2026-09-26; PLAN §20 D236; before that it came after M11 and the refinement phase). It runs alongside
+M9b and M9c, which take the machine first. It is the Impeccable design pass with the timbermods design system, moved
+from M13 and then forward to here. It follows the impeccable-app-flow skill
+(timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
+MEANING.md behind: the design records every later interface follows (D176, D236).
+
+From the workshop study (D87): the panel gains Variety and a **Surprise me** button beside
+Generate (and Reservoir help, if Kyler adopts it: decisions-pending #31); the map card names the
+premise and its landmark. Copy uses the catalogue's words (M9's list).
 
 ---
 
@@ -1447,6 +1483,15 @@ D146).
 After the Map quality checkpoint and just before the Frame pass (Kyler, 2026-09-25; PLAN §20 D147,
 made smaller by Kyler the same day).
 
+**Map look 3's investigation** (D228): Codex's phase 1 of a higher-fidelity High look (`investigation/maplook3`:
+lighting and post-processing, terrain materials, a small vegetation sketch) is merged as proposals only, and so is its
+phase 2, `investigation/vegetation` (D230). The effects Kyler keeps after reviewing both demos join High mode here;
+nothing is adopted before his review.
+
+**Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
+pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
+than bubbly.
+
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).
@@ -1478,13 +1523,15 @@ it's chosen for (blocking: what a player feels).
 
 **Before and after it** (D176): until this step creates the design records, new interface is built
 with the existing shared styles and components, with no one-off styling, so the design pass
-restyles it rather than rebuilds it; after it, all new interface follows its records.
+restyles it rather than rebuilds it; after it, all new interface follows its records. Since D236 the design pass
+comes first and creates the records.
 
 After the M9 build (all its stages), the Map quality checkpoint and Map look 2, and before the
 3D stages and M10 (Kyler, 2026-09-25; PLAN §20 D113, D146, D147). It follows
 the impeccable-app-flow skill (timbermods/.github, `claude-skills/impeccable-app-flow/`) in
-redesign mode, scoped to the frame zone. This overrides the flow's gate, which waits for M11. The
-full design pass after M11 stays, and continues in update mode from the records this step creates.
+redesign mode, scoped to the frame zone. This overrides the flow's gate, which waits for M11. Since D236
+the full design pass comes earlier (straight after Kyler's editor UI audit) and creates the records; this step works
+from them in update mode, scoped to the frame zone (D238).
 
 **Why:** Dam Good Maps should catch the eye as soon as its new generator exists, for sharing with
 testers, without redesigning an interface that M10 and M11 are still adding to.
@@ -1683,7 +1730,7 @@ while water settles). Budgets and measures are information.
 ## Weather view
 
 After the 3D stages and before M10 (Kyler, 2026-09-25; PLAN §20 D133). The refinement phase stays
-before the design pass, M12 and M13.
+before M12 and M13 (the design pass now comes earlier, D236).
 
 **Why:** players should see how a map behaves through droughts and badtides before playing it, and
 what that means for their colony. The exact cycle model (`investigation/cycles/`, merged from PR
@@ -1872,7 +1919,7 @@ never a frozen wait.
 
 Right after M11 and before the refinement phase, as one of the final features (Kyler, 2026-09-25;
 PLAN §20 D160, D166, D175; this replaces the earlier placement right after Live editing). It reuses
-M11's heightmap import pipeline (D159), and the design pass later restyles it with everything else.
+M11's heightmap import pipeline (D159); it is built to the design pass's records (D176, D236).
 One smooth flow inside Dam Good Maps, from exploring the real world to a finished map in one click:
 
 1. **Explore:** a **Pick a place** page beside Generate and Real places, with a 3D map to fly, tilt
@@ -1921,7 +1968,7 @@ shown).
 
 ## Refinement phase
 
-After M11 and before the design pass. It works through Kyler's refinement notes: things to
+After M11 (the design pass now comes earlier, D236). It works through Kyler's refinement notes: things to
 improve once every tool exists. Each note is its own item, with its own tests.
 
 **Kyler's notes**
@@ -2051,21 +2098,8 @@ the basin fills without leaking round the spurs.
 
 **Effort:** xhigh.
 
-**Release:** CLAUDE.md names no tag for this phase. It reaches `main` with the design pass
-(`design-done`), which follows it.
-
----
-
-## Design pass
-
-After M11 and the refinement phase, and before M12. It is the Impeccable design pass with the
-timbermods design system, moved here from M13. It follows the impeccable-app-flow skill
-(timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
-MEANING.md behind.
-
-From the workshop study (D87): the panel gains Variety and a **Surprise me** button beside
-Generate (and Reservoir help, if Kyler adopts it: decisions-pending #31); the map card names the
-premise and its landmark. Copy uses the catalogue's words (M9's list).
+**Release:** tagged `refinement-done` once Kyler approves (D236, D238; it used to reach `main` with the design pass,
+`design-done`, which now comes earlier).
 
 ---
 
@@ -2285,7 +2319,7 @@ the new screens; no second full design pass.
 - The usability tasks (EDITOR_PLAN.md, Testing), a shortcuts reference, a help page, an
   accessibility pass and a final performance pass. The first-run hints came with Live editing
   (D184).
-- The rest of old PLAN milestone 6 (its design pass is now the Design pass step, before M12):
+- The rest of old PLAN milestone 6 (its design pass is now the Design pass step, straight after Kyler's editor UI audit, D236):
   - install help, including the extract step of the artifact edition;
   - a mobile layout for the generator page and the Real places gallery; the editor is
     desktop-first (D185);

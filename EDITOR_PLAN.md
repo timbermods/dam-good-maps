@@ -52,6 +52,15 @@ editor is desktop-first (D185).
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
+  **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
+  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
+  size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
+  naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
+  field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
+  trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
+  have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
+  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  relics and geothermal fields.
 - **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
@@ -181,12 +190,14 @@ Make a valley, drop a source, and there's a river.
     instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
-  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game.
+  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
+  slow drying is not the water still changing: the quiet dot settles once the rest of the water
+  has (D222).
   Built from `investigation/carve` (#47, D216), on the preview until Kyler has tried it (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
-(D180, D181, D184, D186, D194, D196, D212, D216.)
+(D180, D181, D184, D186, D194, D196, D212, D216, D222.)
 
 ## 6. The look
 
@@ -194,8 +205,8 @@ The clean game-like view (D135), contaminated ground as a layer over the ground 
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
 Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
-cascade (D201, D215).
+foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 
 ## 7. Controls
 
@@ -209,6 +220,26 @@ alone stay the brush shortcuts; bookmarks are saved with the project. Every tool
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 8. The generator, Claude and the first run
+
+**Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
+- **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
+  fallback for computers that can't run 3D well.
+- **The page is the editor** (D233): after Generate, the map on the landing page is already editable, with no separate
+  step or screen. Around it, compact and unobtrusive, only the essentials: the brushes, Water source and Badwater source,
+  and the forces. An expand button in the map's bottom-right corner opens the full editor (the whole shelf, the view
+  buttons, layers and the rest) in true full screen, with the same map and edits and no reload; with Keyboard Lock in
+  Chrome and Edge, Esc still cancels and holding Esc exits; elsewhere it fills the window so Esc keeps working; a button
+  returns to the page. Generating over edits is simply undoable, with a quiet note ("New map. Undo to get <map name>
+  back."); changing a setting regenerates, also undoable. The legend is a small Legend button, collapsed by default (a
+  one-time hint for first visitors; it opens by itself when an overlay is on). Save to Timberborn works from the page and
+  full screen; Real places open the same way; on phones the map is view-only.
+- **Your maps** (D234): every edited map is kept in this browser (settings, seed, edits and a small top-down thumbnail),
+  saved quietly after edits settle; a row of thumbnails on the landing page and the same list in the "…" menu reopen
+  each exactly as left; rename, copy, delete (undoable), a mark for maps already saved to Timberborn; the last 30 kept,
+  stars kept forever; running out of storage is said plainly; it says it lives in this browser, and Download project
+  file and Save to Timberborn stay the permanent ways. No folders, tags or search.
+
+**As built today:**
 
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
   what the player has painted, showing it grow, never a frozen wait.
@@ -351,7 +382,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
   - **Approximate under roofs** (imported caves, tunnels, overhang bridges, badtide drains). There the editor keeps the water the file stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. As built (M8, D100): the tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and **Show → Water under roofs** marks them; the roofed columns are never edited (D40), so they are not simulated again.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
-  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes.
+  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes. Its evaporation is not the water still changing (D222): while the lake is sealed (no running source and no map edge in its water), the tiles of it that only lost water are left out of the settle's test, so `water.settles` passes and the quiet dot settles once the rest of the water has; the preview's water stops then too. The canonical settle still runs on to its own test, so the water written is unchanged (`PLAN.md` §10, §11.3).
   - **Speed:** after an edit the preview re-settles from its previous state. The target is ≤ 2 s for a local edit on 256². A full re-settle runs in the background with progress. As built (M8, D99): 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node; the background check is debounced by 0.7 s and dropped when a newer edit arrives.
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes, and the worker runs the water on it at once (the simulation steps only wet tiles and their neighbours, about 0.7–1.6 ms a tick on 256², so the water nearest the edit is what moves first) and sends each frame as soon as the water has answered. On release, the stroke's operation carries that water on into the journey; Esc drops it. On 256² River Valley, the water in a new channel moves 25–36 ms after its ground changes (it moved 80–95 ms after the release before, and not at all while painting).
   - **The journey's speed** (D197): slower, normal (the default, three times the slowest: a small edit settles nearby in a second or two), faster, or instant (the latest water there is).

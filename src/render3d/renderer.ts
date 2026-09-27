@@ -682,7 +682,10 @@ export class MapRenderer {
     const pad = 4.5;
     const c = new Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     g.boundingSphere = new Sphere(c, Math.hypot((x1 - x0) / 2 + pad, (y1 - y0) / 2 + 0.1, (z1 - z0) / 2 + pad));
-    const mesh = new Mesh(g, this.fallMat);
+    // a layer at a time for every fall (the splashes, the crowns' backs, the ribbons, the crowns'
+    // fronts and the far sheets), so no fall's whitewater blends over its neighbour's ribbon (D222)
+    for (const [start, n] of this.fallShape.layers) g.addGroup(start, n, 0);
+    const mesh = new Mesh(g, [this.fallMat]);
     mesh.matrixAutoUpdate = false;
     // after the water's tops, so a fall draws over the pool it lands in
     mesh.renderOrder = 3;

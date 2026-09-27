@@ -9,10 +9,11 @@
 // emitters that are new or changed. Then the exact simulation runs until the edit's water has
 // found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
 // the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
-// drifts by thousandths for a long time), with a cap of one game day.
+// drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
+// evaporating is not the water still moving (D222): the preview stops once everything else has.
 
 import { prefill, type CanonicalWater } from "./prefill";
-import { SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
+import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
 /** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill. */
 export const WARM_MARGIN = 2;
@@ -87,7 +88,7 @@ export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater
   const { state, out } = warmStart(from, next);
   const sim = new WaterSim(next, state);
   if (out) sim.out.set(out);
-  const run = new PreviewRun(sim);
+  const run = new PreviewRun(sim, sealedTiles(next));
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice(), preview: true };
@@ -138,7 +139,7 @@ export class PreviewJob {
     const { state, out } = warmStart(from, model);
     this.sim = new WaterSim(model, state);
     if (out) this.sim.out.set(out);
-    this.run = new PreviewRun(this.sim);
+    this.run = new PreviewRun(this.sim, sealedTiles(model));
   }
 
   /** Run at most `ticks` more ticks; the settled preview water when it is done, else null. */
@@ -162,11 +163,12 @@ export class PreviewJob {
   }
 }
 
-/** The preview's stopping rule: `SettleRun`'s test with the stricter share and shorter period. */
+/** The preview's stopping rule: `SettleRun`'s test with the stricter share and shorter period; it
+ *  stops as soon as only sealed basins still change by evaporating (D222). */
 class PreviewRun {
   private readonly run: SettleRun;
-  constructor(sim: WaterSim) {
-    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL });
+  constructor(sim: WaterSim, sealed: readonly number[] | undefined) {
+    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed, untilSteady: true });
   }
   advance(ticks: number) {
     return this.run.advance(ticks);

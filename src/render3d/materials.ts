@@ -963,8 +963,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
  *  opacity comes from waterPalette.ts (`WATER_GLSL`, `WATER_FALL`, `CLEAR_WATER`). Where it lands,
  *  whitewater: a splash on the pool churning from the foot of the cliff out past the impact line,
  *  and a crown billowing up along the impact line (close up), more for stronger and taller falls, in
- *  the landing zone only. Clear water (D196, D212) turns a fall to a faint veil; the game's layers
- *  cut it at the slice. */
+ *  the landing zone only; soft white water, with no cells of dark water between patches of foam
+ *  (D222: they read as cracked tiles). Clear water (D196, D212) turns a fall to a faint veil; the
+ *  game's layers cut it at the slice. */
 export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial {
   const inset = FALL_SHAPE.inset;
   const S = FALL_SPLASH;
@@ -1164,7 +1165,8 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
             float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fine);
             float spray = mix(0.5, vnoise(vec2(along * 15.0 + 1.3, up * 2.2 - t * 2.4)), fine);
           #endif
-          float foam = smoothstep(0.1 + 0.4 * up, 0.24 + 0.42 * up, bil);
+          // (soft-edged billows, D222: never hard cells with the pool showing between them)
+          float foam = smoothstep(0.02 + 0.4 * up, 0.34 + 0.42 * up, bil);
           foam = max(foam, (1.0 - smoothstep(0.0, 0.4, up)) * (0.55 + 0.45 * bil));
           foam = max(foam, smoothstep(0.52, 0.78, spray) * (1.0 - smoothstep(0.35, 1.0, up)) * 0.85) * amount;
           // (ragged at a free end)
@@ -1173,7 +1175,9 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           alpha = foam * FALL_FOAM;
         } else if (kind > 3.5) {
           // the splash: white along the impact line (its edge ragged), churning back to the foot of
-          // the cliff, and broken foam drifting out past it in patches, fading at its edges
+          // the cliff, and soft white water drifting out past it, thinning as it goes and fading
+          // at its edges. Soft all through (D222): a milky froth, denser and thinner in soft
+          // patches, never cells with dark water between them (they read as cracked tiles)
           float d = vRib.y;
           float X = vEdge.w;
           float spread = vFall.z;
@@ -1186,18 +1190,13 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
             churn = mix(0.6, churn, fine);
             float blot = mix(0.6, vnoise(vec2(along * 1.7 + 4.0, d * 1.9 - t * 0.45)), fine);
             float ragged = mix(0.5, vnoise(vec2(along * 2.3, 3.7 + t * 0.25)), fine);
-            // a lace of foam between the bubbles, drifting out
-            float lace = cracks(vec2(along * 3.2 + 1.7, d * 3.2 - t * 0.55)).x * fine;
-          #endif
-          #if LITE
-            float lace = 0.0;
           #endif
           float cw = (0.4 + 0.35 * strength) * (0.7 + 0.6 * ragged);
           float core = 1.0 - smoothstep(0.4 * cw, cw, abs(d));
           float tail = d > 0.0 ? 1.0 - smoothstep(0.1 * spread, spread, d) : 1.0 - 0.35 * smoothstep(0.0, X + 0.05, -d);
-          float blobs = smoothstep(0.4, 0.52, 0.55 * blot + 0.45 * churn) * (0.75 + 0.25 * churn);
-          float broken = pow(tail, 0.7) * max(blobs, lace * 0.85);
-          float foam = (core * (0.8 + 0.2 * churn) + (1.0 - core) * broken) * amount;
+          float froth = smoothstep(${f(S.froth[0])}, ${f(S.froth[1])}, 0.55 * blot + 0.45 * churn);
+          float broken = pow(tail, 0.7) * mix(${f(S.frothFloor)}, 1.0, froth);
+          float foam = (core * (0.85 + 0.15 * churn) + (1.0 - core) * broken) * amount;
           // (fading at its edges: raggedly past a free end, toward the cliff, and at its outer edge)
           foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);
           c = foamColour;
