@@ -10,8 +10,8 @@
 //   a fall or dry ground), so a front is soft over a few tiles;
 // - rough water (#67 stage 2): below falls, in rapids (fast for their own river) and in fast wakes
 //   round small obstacles, never over a whole river.
+// Plain arrays, no three.js: bake.ts packs them into textures' data, in a worker.
 
-import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
 import type { SurfaceWater } from "../model";
 
 const WET = 0.001;
@@ -220,59 +220,4 @@ export function roughWater(W: number, H: number, heights: Uint8Array, sw: Surfac
     if (obstacles[i] > 0.05) counts.obstacles++;
   }
   return { field, counts };
-}
-
-/** The textures the High water reads: the flow (RG, compressed to at most 2 tiles a second, 128 still)
- *  with the smoothed contamination (B), and the rough water (R), one texel a tile, filtered. */
-export class FlowField {
-  readonly flow: DataTexture;
-  readonly rough: DataTexture;
-  counts: RoughCounts = { falls: 0, rapids: 0, obstacles: 0, wet: 0 };
-  ms = 0;
-
-  constructor(
-    readonly W: number,
-    readonly H: number,
-  ) {
-    const tex = () => {
-      const t = new DataTexture(new Uint8Array(W * H * 4), W, H, RGBAFormat, UnsignedByteType);
-      t.minFilter = t.magFilter = LinearFilter;
-      return t;
-    };
-    this.flow = tex();
-    this.rough = tex();
-  }
-
-  /** The water changed: everything again (a few milliseconds at 256²; the view calls it when idle). */
-  update(heights: Uint8Array, sw: SurfaceWater): Float32Array {
-    const t0 = performance.now();
-    const { W, H } = this;
-    const velocity = surfaceFlow(W, H, sw);
-    const cont = surfaceContamination(W, H, sw);
-    const rough = roughWater(W, H, heights, sw, velocity);
-    const f = this.flow.image.data as Uint8Array;
-    const r = this.rough.image.data as Uint8Array;
-    for (let i = 0; i < W * H; i++) {
-      const x = velocity[i * 2];
-      const y = velocity[i * 2 + 1];
-      const s = Math.hypot(x, y);
-      const k = s > 0 ? (2 * (1 - Math.exp(-s * 0.3))) / s : 0;
-      f[i * 4] = Math.round(128 + x * k * 63.5);
-      f[i * 4 + 1] = Math.round(128 + y * k * 63.5);
-      f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
-      f[i * 4 + 3] = 255;
-      r[i * 4] = Math.round(Math.max(0, Math.min(1, rough.field[i])) * 255);
-      r[i * 4 + 3] = 255;
-    }
-    this.flow.needsUpdate = true;
-    this.rough.needsUpdate = true;
-    this.counts = rough.counts;
-    this.ms = performance.now() - t0;
-    return velocity;
-  }
-
-  dispose(): void {
-    this.flow.dispose();
-    this.rough.dispose();
-  }
 }

@@ -9,9 +9,8 @@
 import { Color, Vector2, Vector3, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
-import { Ambient } from "./ambient";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
-import { FlowField } from "./flow";
+import { AmbientField, Baker, FlowField } from "./fields";
 import { Forest, replacedBatch } from "./forest";
 import { buildLandmarks, disposeLandmarks, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
@@ -81,7 +80,8 @@ export class HighLook {
   private vegTime = { value: 0 };
   private vegSway = { value: 1 };
   private shadows = new SunShadows();
-  private ambient: Ambient | null = null;
+  private baker = new Baker();
+  private ambient: AmbientField | null = null;
   private flow: FlowField | null = null;
   readonly mist: Mist;
   private forest: Forest | null = null;
@@ -190,6 +190,12 @@ export class HighLook {
     this.host.requestRender();
   }
 
+  /** Whether everything a map needs has arrived (the worker's fields, the water's): the captures
+   *  wait for it. */
+  get settled(): boolean {
+    return !this.waterTimer && (this.ambient?.ready ?? true) && (this.flow?.ready ?? true);
+  }
+
   /** Whether the look moves on its own (the wind in the trees): the renderer keeps drawing. */
   get animates(): boolean {
     return this.vegSway.value > 0 && !!this.forest?.meshes.length;
@@ -202,12 +208,16 @@ export class HighLook {
     this.map = { W, H, heights, surface };
     this.shadows.fit(W, H);
     this.ambient?.dispose();
-    this.ambient = new Ambient(W, H);
+    this.ambient = new AmbientField(W, H, this.baker, () => {
+      this.stats.ambientMs = this.ambient?.ms ?? 0;
+      this.host.requestRender();
+    });
     this.ambient.bake(heights, entities);
-    this.stats.ambientMs = this.ambient.ms;
-    this.materials.terrain.uniforms.hlAmbient.value = this.ambient.texture;
     this.flow?.dispose();
-    this.flow = new FlowField(W, H);
+    this.flow = new FlowField(W, H, this.baker, () => {
+      this.stats.flowMs = this.flow?.ms ?? 0;
+      this.host.requestRender();
+    });
     const size = this.materials.terrain.uniforms.hlFlowSize.value as Vector2;
     size.set(W, H);
     for (const m of this.allMaterials()) {
@@ -221,11 +231,19 @@ export class HighLook {
   /** The objects the renderer built for the map (buildEntities' group): the new trees and the
    *  landmarks go in beside today's, which hide while they show. */
   objectsBuilt(group: Group, entities: EntityView): void {
-    this.clearObjects();
+    // (the same plants as before: the forest stays, only the landmarks follow the new batches)
+    const sig = plantSignature(entities);
+    const keep = !!this.forest && sig === this.plants;
+    this.releaseObjects();
+    if (!keep) {
+      this.forest?.dispose();
+      this.forest = new Forest(entities, this.vegetation);
+      this.forest.setGroundOffset((x, y) => this.host.groundOffset(x, y));
+      this.plants = sig;
+    }
     this.objects = group;
-    this.forest = new Forest(entities, this.vegetation);
-    this.forest.setGroundOffset((x, y) => this.host.groundOffset(x, y));
-    for (const m of this.forest.meshes) {
+    const forest = this.forest!;
+    for (const m of forest.meshes) {
       m.renderOrder = 1;
       group.add(m);
     }
@@ -274,8 +292,18 @@ export class HighLook {
   }
 
   private clearObjects(): void {
+    this.releaseObjects();
     this.forest?.dispose();
     this.forest = null;
+    this.plants = "";
+  }
+
+  private plants = "";
+
+  /** The renderer is about to put its objects away (new ones follow): the High models leave its
+   *  group first, the forest kept for the next if its plants are the same. */
+  releaseObjects(): void {
+    for (const m of this.forest?.meshes ?? []) m.removeFromParent();
     disposeLandmarks(this.landmarks);
     this.landmarks = [];
     this.objects = null;
@@ -286,8 +314,7 @@ export class HighLook {
   terrainChanged(heights: Uint8Array, rect: { x0: number; y0: number; x1: number; y1: number } | null): void {
     if (!this.map) return;
     this.map.heights = heights;
-    if (rect) this.ambient?.terrainAround(heights, rect.x0, rect.y0, rect.x1, rect.y1);
-    else this.ambient?.terrainAround(heights, 0, 0, this.map.W - 1, this.map.H - 1);
+    this.ambient?.terrainAround(heights, rect ?? { x0: 0, y0: 0, x1: this.map.W - 1, y1: this.map.H - 1 });
     this.shadows.dirty = true;
   }
 
@@ -314,7 +341,6 @@ export class HighLook {
     const m = this.map;
     if (!m || !this.flow || this.disposed) return;
     this.flow.update(m.heights, m.surface);
-    this.stats.flowMs = this.flow.ms;
     this.mist.set(m.W, m.H, m.surface, this.host.falls());
     this.mist.show(this.effects.mist, this.effects.rings);
     this.stats.mist = this.mist.stats.mist;
@@ -357,8 +383,23 @@ export class HighLook {
     this.shadows.dispose();
     this.ambient?.dispose();
     this.flow?.dispose();
+    this.baker.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }
+}
+
+/** The plants of a view (and where each is in its list), as a string that changes when any of them
+ *  does. */
+function plantSignature(e: EntityView): string {
+  let h = 2166136261;
+  let n = 0;
+  for (let k = 0; k < e.count; k++) {
+    const t = e.templates[e.template[k]];
+    if (!replacedBatch(t)) continue;
+    n++;
+    for (const v of [k, t.length, t.charCodeAt(0), e.x[k], e.y[k], e.z[k], e.flags[k]]) h = Math.imul(h ^ v, 16777619);
+  }
+  return `${n}:${h >>> 0}`;
 }
 
 function hexColour(hex: string): Color {

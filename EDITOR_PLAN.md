@@ -271,12 +271,32 @@ Make a valley, drop a source, and there's a river.
 
 ## 6. The look
 
-The clean game-like view (D135), contaminated ground as a layer over the ground (D154), the mine
-sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
-mode with the water shader and soft shadows (Map look 2, D147).
-Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
-as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+Two looks (Map look 2, D147, D242, D250, D284):
+- **Standard**, the clean game-like view (D135): contaminated ground as a layer over the ground (D154),
+  the mine sites and ruins (D178), the approved badwater in one shared water palette (D177).
+  Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
+  foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+  as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+- **High**, the same view finished further: #38's water (colour by depth, clear shallows, fine crests
+  and flecks moving with the flow, crimson matte badwater over its poisoned bed) and soft shadows
+  from the real meshes; #65's warm sunlight, ambient occlusion, colour-preserving tone curve and
+  grade, distance haze, sky, rock strata, soil edges and colour variation; #66's trees and bushes
+  (pine, birch, oak, blue-berried bushes, bare dead forms) swaying in the wind, also on the shelf's
+  icons and the placement ghost (D241); and #67's finish: the map's edge cut through rock with a
+  soil cap and the water's section, continuous waterfall crowns, irregular landings with bubbly
+  froth, mist and splash rings, rough water below falls and in rapids, refreshed landmarks, and
+  poisoned soil stained dark instead of glowing. #67's visible seasons wait for the Drought and
+  Badtide day-by-day view (D286 (4)).
+
+High is the default where the computer draws it smoothly: it starts in High (or where it settled
+last time on that GPU at about that window size), watches what each frame costs the GPU, and steps
+down by itself to a lower-cost High (no soft shadows, mist, rings, wind or fine detail, far tree
+models, 85% of the pixels) and then to Standard when frames stay too slow; never back up in a
+session. The **Look** menu (on the 3D view; in the editor's header) chooses **Automatic**, **High**
+or **Standard**, and switches High's four parts; every single effect is switchable too (the
+renderer's `setHighEffect`). A browser drawing in software keeps the light look, with no choice.
+Standard is drawn exactly as before High existed. The camera never moves by itself in either look
+(D265).
 
 ## 6a. Alive, not mechanical (D240; after the forces round 2)
 
@@ -682,7 +702,19 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for
     under a second; a placed object's pop and wiggle scales its own instance. None of them play with
     reduced motion or in software rendering. The sounds are synthesized on the page (Web Audio), with
-    a volume and an off switch the player keeps.
+    a volume and an off switch the player keeps;
+  - the High look (Map look 2, D284; `src/render3d/high/`): the Standard shaders take the High
+    additions only at named points (`materials.ts` `ShaderHooks`), and only in High's own materials,
+    which the meshes swap to while the look is High: the Standard materials are never changed.
+    A 2048² sun depth map of the terrain and objects (redrawn only when they change, at most ten times
+    a second while a brush paints), ambient occlusion and the water's flow and rough water made in a
+    small worker (`bake.worker.ts`; the flow is estimated from the water's surface), the new trees
+    batched by species with a close-up and a far model (at most 32 draws), the landmarks beside
+    today's batches with the same bookkeeping (so highlight, removal and ground-following work), mist
+    and rings from the falls drawn. Each effect is a uniform switch; the tone curve and grade run at
+    the end of each High material, not as a second full-screen pass. The automatic choice
+    (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth frame
+    timed to its end) and a first quick reading a second after the first map.
 - The forces (D203, D206): one shared core in `src/core/forces/` (`force.ts`): a run on its own copy of
   the map, a step at a time (ten steps a second of the force, whatever the frame rate), its result
   stored literally; Carve's run in `carve/`, ported step for step from #47 and checked against it by

@@ -107,9 +107,12 @@ export class Mist {
       wet[i * 4] = sw.surface[i] === sw.surface[i] ? sw.surface[i] : -100;
       wet[i * 4 + 1] = sw.depth[i];
     }
-    this.wet?.dispose();
-    this.wet = new DataTexture(wet, W, H, RGBAFormat, FloatType);
-    this.wet.minFilter = this.wet.magFilter = NearestFilter;
+    if (this.wet && this.wet.image.width === W && this.wet.image.height === H) (this.wet.image.data as Float32Array).set(wet);
+    else {
+      this.wet?.dispose();
+      this.wet = new DataTexture(wet, W, H, RGBAFormat, FloatType);
+      this.wet.minFilter = this.wet.magFilter = NearestFilter;
+    }
     this.wet.needsUpdate = true;
     this.field.value = this.wet;
     this.size.value.set(W, H);

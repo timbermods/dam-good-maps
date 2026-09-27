@@ -595,6 +595,12 @@ export class MapRenderer {
     this.tellLook();
   }
 
+  /** Whether the High look has all it needs for the map drawn (its fields come from a worker a
+   *  moment after the map): true when not High. */
+  get highSettled(): boolean {
+    return this.high ? this.high.settled : true;
+  }
+
   /** The High look's numbers (the menu's details, the measurements), or null. */
   get highStats(): HighLook["stats"] | null {
     return this.high ? this.high.stats : null;
@@ -603,6 +609,14 @@ export class MapRenderer {
   /** The governor's last window of frame costs (ms, 95th percentile), or null. */
   get frameCost(): number | null {
     return this.governor ? this.governor.lastP95 : null;
+  }
+
+  /** Draw a tier as it is, held, whatever the frames cost (the measurements: tools/measure-high.ts). */
+  holdTier(tier: Tier): void {
+    if (this.software) return;
+    this.choice = tier === "standard" ? "standard" : "high";
+    this.governor = null;
+    this.applyLook(tier);
   }
 
   /** Report this frame cost instead of the measured one (the fallback's tests), or measure again. */
@@ -1061,6 +1075,7 @@ export class MapRenderer {
 
   private setEntitiesInner(e: EntityView): number {
     if (this.objects) {
+      this.high?.releaseObjects();
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
