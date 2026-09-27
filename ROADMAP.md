@@ -967,18 +967,18 @@ they conflict):
    - **Everything else emerges:** lakes fill hollows, waterfalls form at drops, rivers join where
      they meet, and branches form wherever the land is cut from water.
    - **How water behaves:** water near an edit moves within a frame or two, then the rest of the
-     map; a speed control (slower, normal, faster, instant; brisk by default: small edits settle
-     nearby in a second or two) (D197); the journey with pause, skip, replay and follow; the
-     Drought and Badtide buttons, each showing what that event looks like on this map (the game's
-     badtide rules, from `investigation/cycles`; the whole cycle's timeline is the separate
-     Weather view, D186); moisture spreading as the land greens; optional sounds of our own. The
+     map, at one brisk pace (small edits settle nearby in a second or two; D197, D268); the journey
+     with pause, skip and replay (no follow: the camera only moves when the player moves it, D265);
+     the Drought and Badtide buttons, day by day since D267 (the worst day at once, a day strip with
+     play and Speed, the start's-water marker; an edit ends the hazard view, D269; the game's rules,
+     from `investigation/cycles`); moisture spreading as the land greens; optional sounds of our own. The
      final water is always the game's settled result, at any speed.
    - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
      Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
      (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
      Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
-     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, a
-     following camera with carving effects, Space to pause, Stop, Esc or Ctrl+Z to undo it
+     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, carving
+     effects (no following camera, D265), Space to pause, Stop, Esc or Ctrl+Z to undo it
      instantly. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
@@ -1771,10 +1771,17 @@ what that means for their colony. The exact cycle model (`investigation/cycles/`
 catalogue (`investigation/mechanics/`: CATALOGUE.md, VERIFIED.md, AXES.md; PR #11) turns the weather
 into play consequences.
 
-**What it is, beside the editor's buttons** (D186): the editor's **Drought** and **Badtide**
-buttons (Live editing, D180, D181) each show one event: what a drought, or a badtide, looks like on
-this map. The Weather view is separate: a fuller timeline of the whole cycle, opened when wanted.
-It builds on the same water journey and the same cycle model, and replaces neither button.
+**What it builds on** (D267, folding in D186's separate view): the editor's **Drought** and
+**Badtide** buttons show each hazard day by day, with a day strip, Speed, the start's-water marker and
+hover notes, built before this step on a branch of its own. This step adds what D133 still plans on top
+of those buttons: the plain-language summary, the map card's lines and the strategy axes. Where a
+Delivers item below speaks of a separate view or timeline, it means the day strip.
+
+**Proposal (D269, to decide in this step; not built yet): a drought line in the normal view.** Every
+lake and river shows a faint line on its shore where its water will stand on the last day of a drought
+(of the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed; the
+start's water is marked a little more strongly. It updates in the background after each edit, like the
+checks, and never blocks: feedback from the land itself, not a readout (D184).
 
 **Delivers**
 1. A Weather view, opened when wanted from the generator's preview and from the editor: a

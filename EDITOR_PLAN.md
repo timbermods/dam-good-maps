@@ -226,13 +226,24 @@ Make a valley, drop a source, and there's a river.
   where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit
-  starts moving within a frame or two, the rest of the map follows. A speed control (slower, normal,
-  faster, instant) is brisk by default: small edits settle nearby in a second or two, big changes (a
-  new river, a breach) still flow visibly, and instant skips to the settled result. Time controls:
-  pause, replay and follow (D197).
-- **Drought and Badtide:** the Drought button shows what a drought looks like on this map, the
-  Badtide button what a badtide looks like. The Weather view is separate: a fuller timeline of the
-  whole cycle, opened when wanted (D186).
+  starts moving within a frame or two, the rest of the map follows, always at one brisk pace: small
+  edits settle nearby in a second or two, big changes (a new river, a breach) still flow visibly. The
+  water bar: the status, Pause, Skip (straight to where it settles), Replay, Drought and Badtide; no
+  speed control there (D197, D268).
+- **The camera only moves when the player moves it** (D265, an accessibility rule): no feature moves,
+  tilts, zooms or shakes it on its own (no follow, for the water or any force); effects on the land
+  are unaffected.
+- **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once
+  (with progress while it's worked out); clicking again returns to the map's own water. While a hazard
+  is shown, a day strip on the water bar runs from Day 0 to the last day: previous and next, a click on
+  any day, play, and **Speed** (slower, normal, faster, instant; it appears only here). Stepping animates
+  that day's water at that speed; Instant jumps and stays; nothing reverts on its own. A length of 1 to
+  30 days per hazard (defaults drought 9, badtide 8), remembered. The start's water is highlighted, and
+  the strip marks the day it leaves a pump's reach (or, in a badtide, the day badwater reaches it or its
+  farmland); hovering any water says when it dries or turns bad. Any edit while a hazard is shown ends
+  the view at once: the map's own water returns and the edit's water plays as usual; clicking the
+  button again shows the new worst day (D269). The game's weather rules, unchanged. The
+  Weather step's summary and map-card lines build on these buttons (D133).
 - **Carve, a force of nature** (D194, D199, D216): the first button of the forces group (key 7),
   with its full set:
   - **Unleash** (click a spot) and **Aim** (origin to end point), with **Defy gravity** for aimed
