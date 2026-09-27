@@ -2,10 +2,11 @@
 // passages beside its main river: pools at the foot of the falls and the side inflows, joined to it by
 // long channels across the floor or along the walls' feet. Here the river itself swings over to them:
 // it winds across the level floor from one fall's pool or inflow to the next (the biggest first), so
-// their water drops straight into it; what it can't reach (a fall facing another across the floor at
-// the same place) runs the nearest way to it (plan.ts `joinRiver`). Literal land throughout: the
-// river's course, its pools and its joins are carved, and the water is the game's own (no water is
-// masked or hidden: what you see is what you get).
+// their water drops straight into it; a fall it can't reach, nor pass near, stays a dry hanging
+// valley (plan.ts). Each finished floor is checked with the game's own water run a while on it
+// (`floodsOf`): a way of winding that would wet the dry floor gives way to the next (bending toward
+// the falls, then round 4's meander). Literal land throughout: the river's course, its pools and its
+// joins are carved, and the water is the game's own (nothing is masked: what you see is what you get).
 
 import { MinHeap, N8 } from "../../math/grid";
 import { WaterSim } from "../../sim/water";
