@@ -1,9 +1,10 @@
 # Glaciate: adopted onto the forces core, the floor's water as one river
 
-> **State (2026-09-27; where a fresh session resumes).** Branch `feature/glaciate` (from `feature/forces`, both merged in
-> at every stop; `dev` too). Built and tested; captures of the floor before and after in `docs/progress/glaciate/`. Waiting
-> for the preview with the forces and Kyler's sitting (checklist item 18 in `docs/STATUS.md`); nothing merges into `dev`
-> without his yes (D291). Open: Kyler's eye on the floor (D292), his listening check of the sounds with the others'.
+> **State (2026-09-27; where a fresh session resumes).** Branch `feature/glaciate` (PR #76, draft, held), with
+> `feature/forces` merged in at 73809c2 (the one ceiling, the lean editor) and `dev`. Built and tested; the floor's
+> before and after in `docs/progress/glaciate/`. The preview for Kyler's forces sitting is built from this branch
+> (checklist item 18 in `docs/STATUS.md`); nothing merges into `dev` without his yes (D291). Open: Kyler's eye on the
+> floor (D292) and his listening check of the sounds with the others'.
 
 Kyler's decisions: D246 (Glaciate), D257 (bound only by nature, the start carried), D258 (clean gestures), D265 (the
 camera never moves on its own), D266 (its own pace), D277 (no Claude step), D289 (its row), D291 (round 4 pre-approved,
