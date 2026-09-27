@@ -14,6 +14,7 @@ import { components, walkRegions } from "../analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
 import { leveeStorage, runningFlow, SECONDS_PER_DAY } from "../analysis/storage";
+import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
 import { isSapling, noWood, treeLogs, woodDetail, type WoodBySpecies, type WoodSpecies } from "../analysis/wood";
 import { footprintTiles, slopeHighSide, worldBlocks, FOOTPRINTS } from "../format/footprints";
 import { polygonMask } from "../features/geometry";
@@ -385,7 +386,7 @@ function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
 
 /** The checks that need the start, in report order. */
 const START_CHECKS = [
-  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.ruins_clear",
+  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_floor", "start.ruins_clear",
   "plants.survive", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
   "ruins.access", "extras.placement",
 ];
@@ -566,8 +567,9 @@ function checkStart(
   // requirement 3 (D85): living berry bushes within 20 tiles' walk of the start, slopes allowed;
   // living means alive and on soil where it survives at steady state. Requirement 2, starting wood
   // (D164): the logs of every grown tree within that walk, alive or dead (a tree keeps its logs when
-  // it dies), by its species' yield; a sapling's logs are wood still growing, shown apart
-  // (analysis/wood.ts)
+  // it dies), by its species' yield from the game's blueprints (data/log-floor.json); a sapling's
+  // logs are wood still growing, shown apart (analysis/wood.ts). The starting-logs floor (D224,
+  // D227) counts the same grown logs within a longer walk, 40 tiles, at every difficulty
   const dead = (o: MapObject) => {
     const lnr = o.components.LivingNaturalResource as { IsDead?: boolean } | undefined;
     return !!lnr && lnr.IsDead === true;
@@ -577,21 +579,29 @@ function checkStart(
   let trees = 0;
   let wood = 0;
   let growing = 0;
+  let floorWood = 0;
   const bySpecies = noWood();
+  const farthest = Math.max(NEAR, LOG_FLOOR_WALK);
   for (const o of objects) {
     const tree = (TREES as readonly string[]).includes(o.template);
-    if (!tree && o.template !== "BlueberryBush") continue;
+    const woody = LOGS_PER_TREE_SPECIES[o.template] !== undefined;
+    if (!tree && !woody && o.template !== "BlueberryBush") continue;
     if (o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
     const i = o.y * W + o.x;
-    if (reachAt(walk, W, H, i) > NEAR) continue;
-    if (tree) {
-      const logs = treeLogs(o.template, o.components);
-      if (isSapling(o.components)) growing += logs;
+    const d = reachAt(walk, W, H, i);
+    if (d > farthest) continue;
+    const logs = woody ? treeLogs(o.template, o.components) : 0;
+    const grown = woody && !isSapling(o.components);
+    if (grown && d <= LOG_FLOOR_WALK) floorWood += logs;
+    if (d > NEAR) continue;
+    if (woody) {
+      if (!grown) growing += logs;
       else {
         wood += logs;
-        bySpecies[o.template as WoodSpecies] += logs;
+        if (o.template in bySpecies) bySpecies[o.template as WoodSpecies] += logs;
       }
     }
+    if (!tree && woody) continue;
     if (dead(o) || !survives(i)) continue;
     if (tree) trees++;
     else bushes++;
@@ -616,6 +626,21 @@ function checkStart(
     value: wood,
     limit: rules.woodWithin20,
     message: `${wood} logs within 20 tiles' walk of the start${woodDetail(bySpecies, growing)} (at least ${rules.woodWithin20})`,
+  });
+  // the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to reach a
+  // Forester by the worst still-viable route, plus the first pump, dwelling and breeding pod;
+  // without a Forester the game is over ("can I survive"). It blocks a generated map at every
+  // difficulty, and shows on the editor's quiet dot without blocking export
+  c.add({
+    id: "start.wood_floor",
+    class: "playability",
+    ok: floorWood >= LOG_FLOOR,
+    value: floorWood,
+    limit: LOG_FLOOR,
+    message:
+      floorWood >= LOG_FLOOR
+        ? `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start: enough to build a Forester (the floor is ${LOG_FLOOR})`
+        : `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the floor of ${LOG_FLOOR}: not enough to build a Forester, and without one the game is over`,
   });
   const ruinsNear: string[] = [];
   let ruinsNearCount = 0;

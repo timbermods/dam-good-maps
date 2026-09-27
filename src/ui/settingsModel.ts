@@ -2,6 +2,7 @@
 // band from the official maps (investigation/calibration.json, official aggregates), and the
 // feasibility guards (PLAN §5.3). The share text for "Copy seed + settings" is built here too.
 
+import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { density, LAKES, OFFICIAL_BADWATER, officialPerMap, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
 import { badwaterBudget } from "../core/resources/badwater";
 import { resourceBudget } from "../core/resources/budget";
@@ -166,7 +167,7 @@ export function band(key: string, spec: MapSpec): string {
     case "waterWithin":
       return "The walk to clean water a pump reaches, using only the map's own slopes. Official maps: most 12 tiles.";
     case "woodWithin20":
-      return "Logs from grown trees within 20 tiles' walk: an oak gives 8, a pine 2, a birch 1. Saplings count once grown. Official maps: most 110.";
+      return `Logs from grown trees within 20 tiles' walk: an oak gives 8, a pine 2, a birch 1. Saplings count once grown. However it is set, every map has at least ${LOG_FLOOR} logs within ${LOG_FLOOR_WALK} tiles' walk, enough to build a Forester. Official maps: most 110.`;
     case "bushesWithin20":
       return "Living berry bushes within 20 tiles' walk. Official maps: most 57.";
     case "ruinsWithin":

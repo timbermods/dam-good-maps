@@ -35,7 +35,7 @@ START_AREA = {"small": 0.6, "normal": 1.0, "large": 1.8}      # PLAN §5.6 start
 DROUGHT_DAYS = {"easy": 4, "normal": 9, "hard": 30}
 COLONY = {"easy": 40, "normal": 50, "hard": 50}
 START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "start.food",
-                "start.wood", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
+                "start.wood", "start.wood_floor", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
                 "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access",
                 "extras.placement")
 # advisory from M8 (D85): generation targets with a warning, never a reason to reject a map; the
@@ -44,7 +44,7 @@ START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "st
 ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible", "plants.drought",
                   "resources.scrap", "resources.trees", "resources.bushes")
 
-TREE_LOGS = {"Pine": 2, "Birch": 1, "Oak": 8}      # logs a grown tree gives (the game's specs)
+TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's blueprints, src/core/data/log-floor.json)
 
 
 def _number(v):
@@ -70,11 +70,15 @@ def is_sapling(comps):
 
 
 def tree_logs(template, comps):
-    """The logs a lumberjack cuts from a Pine, Birch or Oak once it has grown (D164;
+    """The logs a lumberjack cuts from a tree that gives logs once it has grown (D164, D224;
     src/core/analysis/wood.ts treeLogs): what its Yielder:Cuttable holds when that is logs, else its
-    species' yield; anything else gives none."""
+    species' yield; anything else gives none, and so does a dead tree of a species that loses its
+    yield when it dies."""
     spec = TREE_LOGS.get(template)
     if spec is None:
+        return 0
+    lnr = comps.get("LivingNaturalResource")
+    if cal.DEAD_TREES_KEEP_LOGS.get(template) is False and isinstance(lnr, dict) and lnr.get("IsDead") is True:
         return 0
     y = comps.get("Yielder:Cuttable")
     if isinstance(y, dict) and isinstance(y.get("Yield"), dict) and y["Yield"].get("Good") == "Log":
@@ -451,20 +455,28 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # requirement 3 (D85): living berry bushes within 20 tiles' walk (slopes allowed); living: alive
     # and on soil where it survives at steady state. Requirement 2, starting wood (D164): the logs
     # of every grown tree within that walk, alive or dead, by its species' yield (tree_logs); a
-    # sapling's logs are still growing and do not count
-    bushes = wood = 0
+    # sapling's logs are still growing and do not count. The starting-logs floor (D224, D227) counts
+    # the same grown logs within a longer walk, 40 tiles, at every difficulty
+    bushes = wood = floor_wood = 0
     for e in m.entities:
         if "BlockObject" not in e.get("Components", {}):
             continue
         q = placement(e)
-        tree = q.template in TREES
+        tree = q.template in TREES or q.template in TREE_LOGS
         if not tree and q.template != "BlueberryBush":
             continue
-        if not (0 <= q.x < X and 0 <= q.y < Y) or reach_at(walk, q.y, q.x) > NEAR:
+        if not (0 <= q.x < X and 0 <= q.y < Y):
             continue
-        if tree:
-            if not is_sapling(e["Components"]):
-                wood += tree_logs(q.template, e["Components"])
+        d = reach_at(walk, q.y, q.x)
+        if d > max(NEAR, cal.LOG_FLOOR_WALK):
+            continue
+        if tree and not is_sapling(e["Components"]):
+            logs = tree_logs(q.template, e["Components"])
+            if d <= cal.LOG_FLOOR_WALK:
+                floor_wood += logs
+            if d <= NEAR:
+                wood += logs
+        if tree or d > NEAR:
             continue
         if is_dead(e) or not (M[q.y, q.x] > 0 and not D[q.y, q.x] > 0 and not SC[q.y, q.x] > 0):
             continue
@@ -473,6 +485,11 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             bushes, rules["bushes_within"])
     rep.add("start.wood", wood >= rules["wood_within"], f"{wood} logs within 20 tiles' walk", wood,
             rules["wood_within"])
+    # the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to build a
+    # Forester; exact, never approximate
+    rep.add("start.wood_floor", floor_wood >= cal.LOG_FLOOR,
+            f"{floor_wood} logs within {cal.LOG_FLOOR_WALK} tiles' walk (the floor is {cal.LOG_FLOOR})",
+            floor_wood, cal.LOG_FLOOR)
     ruins = [e for e in m.entities if e["Template"].startswith("RuinColumnH") and "BlockObject" in e.get("Components", {})]
     near_ruins = sum(1 for e in ruins if 0 <= placement(e).x < X and 0 <= placement(e).y < Y
                      and sd[placement(e).y, placement(e).x] < rules["ruins_within"])

@@ -511,7 +511,8 @@ start rules as reasons to reject a map:
 2. **Starting wood** (D164): at least 120 / 80 / 40 logs of grown trees within 20 tiles' walk of
    the start (slopes allowed), each tree by its species' yield (oak 8, pine 2, birch 1), alive or
    dead. A sapling's logs are shown apart, as wood still growing. (As built in M8: 60 / 40 / 20
-   living trees.)
+   living trees. From M9a, D224 and D227: 250 / 200 / none within 20 tiles, and the starting-logs
+   floor, 178 logs within 40 tiles' walk at every difficulty, which rejects every map below it.)
 3. **Starting bushes:** at least 40 / 30 / 20 living berry bushes within 20 tiles' walk of the
    start (slopes allowed), counted across any number of patches.
 

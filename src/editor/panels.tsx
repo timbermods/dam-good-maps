@@ -9,6 +9,7 @@ import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../plat
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo, WaterLayers } from "../worker/session";
 import type { FixOp } from "../core/validate/report";
+import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail } from "../core/analysis/wood";
 import type { StartCheck } from "./features";
 import { plain } from "./words";
@@ -66,7 +67,8 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
 // ------------------------------------------------------------------------------- the start
 
 /** The start's footprint check while it is dragged: whether it fits, the three start requirements
- *  (PLAN §5.6, D85, D164) with the map's numbers, and the targets it misses as warnings. */
+ *  (PLAN §5.6, D85, D164) with the map's numbers, the starting-logs floor (D224, D227), and the
+ *  targets it misses as warnings. */
 export function StartIndicators({ check, rules }: { check: StartCheck; rules: { waterWithin: number; woodWithin20: number; bushesWithin20: number } }) {
   const mark = (ok: boolean) => (ok ? "ok" : "low");
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
@@ -82,6 +84,9 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
         </li>
         <li class={mark(check.wood >= rules.woodWithin20)} data-need="wood">
           Starting wood: {check.wood} logs{woodDetail(check.woodBySpecies, check.woodGrowing)} (at least {rules.woodWithin20})
+        </li>
+        <li class={mark(check.woodFloor >= LOG_FLOOR)} data-need="wood-floor">
+          Logs for a Forester: {check.woodFloor} within {LOG_FLOOR_WALK} tiles' walk (at least {LOG_FLOOR})
         </li>
         <li class={mark(check.bushes >= rules.bushesWithin20)} data-need="bushes">
           Starting bushes: {check.bushes} (at least {rules.bushesWithin20})

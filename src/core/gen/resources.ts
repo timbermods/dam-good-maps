@@ -9,6 +9,7 @@
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
 import { reachAt, walkDistance } from "../analysis/walk";
+import { LOG_FLOOR, LOG_FLOOR_WALK } from "../data/logFloor";
 import { entityTiles } from "../features/edits";
 import { WALK_BLOCKERS } from "../validate/playability";
 import { TREE_LOGS, type EntitySpec } from "../format/entities";
@@ -136,9 +137,15 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const byWalk = (i: number) => (!walk || walk[i] <= NEAR_WALK ? 1 : 0.05);
   // near-start groves and patches grow only within the walk, so every plant of them counts
   let nearWalk: Uint8Array | null = null;
+  // and the starting-logs floor's longer walk (D224, D227: 40 tiles at every difficulty)
+  let floorWalk: Uint8Array | null = null;
   if (walk) {
     nearWalk = new Uint8Array(N);
-    for (let i = 0; i < N; i++) if (walk[i] <= NEAR_WALK) nearWalk[i] = 1;
+    floorWalk = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (walk[i] <= NEAR_WALK) nearWalk[i] = 1;
+      if (walk[i] <= LOG_FLOOR_WALK) floorWalk[i] = 1;
+    }
   }
   const out: Feature[] = [];
   const anchorRole = (prefix: string, tiles: number[]) => `${prefix}/${tiles[0]}`;
@@ -304,8 +311,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // the start requirements count them)
   const clearings = new Uint8Array(N);
   // the starting wood the last grove gives: its trees by its species' yield, but for the saplings
-  // the forest's rasterizer will make (the same tile hash; D164)
+  // the forest's rasterizer will make (the same tile hash; D164); and the logs it gives within the
+  // starting-logs floor's walk (D224, D227)
   let groveLogs = 0;
+  let groveFloorLogs = 0;
   const woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false): number => {
     const allowed = new Uint8Array(N);
@@ -334,14 +343,21 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     };
     out.push(f);
     treeCount += tiles.length;
-    // the starting wood it gives: grown trees within the colony's walk
+    // the starting wood it gives: grown trees within the colony's walk, and within the floor's
     groveLogs = 0;
+    groveFloorLogs = 0;
     if (sp !== "Succulent") {
       const sYoung = hash32(seed, f.id, "young");
-      for (const i of tiles) if ((!nearWalk || nearWalk[i]) && (!living || tileHash01(sYoung, i % W, (i - (i % W)) / W) >= FOREST.youngShare)) groveLogs += TREE_LOGS[sp];
+      for (const i of tiles) {
+        if (living && tileHash01(sYoung, i % W, (i - (i % W)) / W) < FOREST.youngShare) continue;
+        if (!nearWalk || nearWalk[i]) groveLogs += TREE_LOGS[sp];
+        if (!floorWalk || floorWalk[i]) groveFloorLogs += TREE_LOGS[sp];
+      }
     }
     return tiles.length;
   };
+  // the grown logs the start's groves give within the starting-logs floor's walk
+  let floorGot = 0;
   if (g.start) {
     const r = FOREST.nearStart.radius;
     let got = 0;
@@ -359,8 +375,31 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (nearHere && free[i] && moist[i]) w[i] = byWalk(i);
       }
       for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight)) got += groveLogs;
+        if (growGrove(s, each, true, within, dense ? 1 : nearFill.trees, tight)) {
+          got += groveLogs;
+          floorGot += groveFloorLogs;
+        }
         if (got >= nearWood) break;
+      }
+    }
+  }
+  // the starting-logs floor (D224, D227): every map has the floor's logs within 40 tiles' walk, at
+  // every difficulty. Groves within that walk until the start's groves give 1.2 × the floor there:
+  // on Hard beyond the 20 tiles' walk first ("trees that aren't easy to reach", docs/PERFECT.md),
+  // living on moist ground, then standing dead on dry ground (a dead tree keeps its logs)
+  if (g.start && floorWalk) {
+    const want = Math.ceil(1.2 * LOG_FLOOR);
+    const far = new Uint8Array(N);
+    for (let i = 0; i < N; i++) far[i] = floorWalk[i] && !nearWalk?.[i] ? 1 : 0;
+    const passes: [Uint8Array, boolean][] = spec.designedFor === "hard" ? [[far, true], [floorWalk, true], [far, false], [floorWalk, false]] : [[floorWalk, true], [floorWalk, false]];
+    const each = Math.floor(grove.median * 1.5);
+    for (const [within, living] of passes) {
+      if (floorGot >= want) break;
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (within[i] && free[i] && (living ? moist[i] : !moist[i])) w[i] = 1;
+      for (const s of pickSeeds(vegRng, w, W, Math.max(4, Math.ceil((want - floorGot) / Math.max(1, each)) + 3), 5)) {
+        if (growGrove(s, each, living, within, nearFill.trees)) floorGot += groveFloorLogs;
+        if (floorGot >= want) break;
       }
     }
   }

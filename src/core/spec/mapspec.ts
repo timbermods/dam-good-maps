@@ -142,19 +142,20 @@ export const VT_DEFAULT: Record<ThemeId, number> = { any: 25, riverValley: 20, c
  *  counted before, on seeds 1–30 of every theme at 128² with the default settings, gave 3.0 logs
  *  each (2.8–3.4 by theme, as the default species mix does: pine 2, birch 1, oak 8 logs), and 66%
  *  of those logs stood on grown trees (a third of the living trees are saplings): 2 logs of grown
- *  wood a tree. It turns the tree counts of old share links and project files into logs, and set
- *  the difficulties' defaults. */
+ *  wood a tree. It turns the tree counts of old share links and project files into logs (and set
+ *  the difficulties' defaults until D227). */
 export const LOGS_PER_TREE = 2;
 
 /** Start rules by difficulty (PLAN §5.6; D85, Kyler's start requirements): water without stairs
- *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 120 / 80 / 40 logs of grown trees (D164:
- *  the tree counts 60 / 40 / 20 at `LOGS_PER_TREE`), Minimum starting bushes 40 / 30 / 20, badwater
- *  distance 30 / 15 / 8 (a target). Berries near start never aims below Minimum starting bushes
- *  (Easy's 20 became 40). */
+ *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 250 / 200 / none of grown trees within 20
+ *  tiles' walk ("how comfortable is it"; D227, replacing D164's 120 / 80 / 40: Hard keeps no minimum
+ *  nearby beyond the starting-logs floor, which every map meets within 40 tiles' walk,
+ *  `start.wood_floor`), Minimum starting bushes 40 / 30 / 20, badwater distance 30 / 15 / 8 (a
+ *  target). Berries near start never aims below Minimum starting bushes (Easy's 20 became 40). */
 export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & { berriesTarget: number }> = {
-  easy: { waterWithin: 12, woodWithin20: 120, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
-  normal: { waterWithin: 20, woodWithin20: 80, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
-  hard: { waterWithin: 28, woodWithin20: 40, bushesWithin20: 20, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
+  easy: { waterWithin: 12, woodWithin20: 250, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
+  normal: { waterWithin: 20, woodWithin20: 200, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
+  hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 20, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
 };
 
 /** The wood a tree count of before D164 stands for: `LOGS_PER_TREE` logs a tree, within the

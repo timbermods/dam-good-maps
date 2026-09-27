@@ -6,7 +6,7 @@
 // succulent loses its yield). prototype/playability.py `growth_of` and `tree_logs` are the same
 // rules.
 
-import { TREE_LOGS } from "../format/entities";
+import { DEAD_TREES_KEEP_LOGS, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
 import { isObject, JsonFloat, num, type JsonObject, type JsonValue } from "../format/json";
 
 /** The species that give logs, most wood first. */
@@ -34,18 +34,27 @@ export function growthOf(components: JsonObject | undefined): number | null {
   return isObject(g) ? numberOf(g.GrowthProgress) : null;
 }
 
+/** Whether the object is dead: its `LivingNaturalResource.IsDead`. */
+export function isDead(components: JsonObject | undefined): boolean {
+  const l = components?.LivingNaturalResource;
+  return isObject(l) && l.IsDead === true;
+}
+
 /** Whether the tree is still a sapling: its growth is below 1. */
 export function isSapling(components: JsonObject | undefined): boolean {
   const g = growthOf(components);
   return g !== null && g < 1;
 }
 
-/** The logs a lumberjack cuts from this object once it has grown: a Pine, Birch or Oak gives what
- *  its `Yielder:Cuttable` holds when that is logs, else its species' yield (the game's default);
- *  anything else gives none. */
+/** The logs a lumberjack cuts from this object once it has grown: a tree that gives logs (Pine,
+ *  Birch, Oak, and Maple, ChestnutTree and Mangrove on imported maps; the game's blueprints, pinned
+ *  in data/log-floor.json, D224) gives what its `Yielder:Cuttable` holds when that is logs, else its
+ *  species' yield (the game's default); anything else gives none, and so does a dead tree of a
+ *  species that loses its yield when it dies (none of these in 1.1.2.4). */
 export function treeLogs(template: string, components: JsonObject): number {
-  const spec = TREE_LOGS[template];
+  const spec = LOGS_PER_TREE_SPECIES[template];
   if (spec === undefined) return 0;
+  if (DEAD_TREES_KEEP_LOGS[template] === false && isDead(components)) return 0;
   const y = components["Yielder:Cuttable"];
   if (isObject(y) && isObject(y.Yield) && y.Yield.Good === "Log") {
     const n = numberOf(y.Yield.Amount);
