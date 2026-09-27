@@ -5,7 +5,7 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-26, 12:45, after the takeover)
+## Summary for Kyler (updated 2026-09-26, 17:50)
 
 The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
 
@@ -35,9 +35,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
 
 ### 3. On the preview for you to try
 
-<https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**: the released editor plus **Carve** (key 7),
-from `feature/live-editing`. The four forces with the new juice sounds replace it on the preview once `feature/forces` is
-ready.
+**The four forces, with the new sounds** (D219, D220): <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this
+map** → the Forces group on the top bar: **Carve** (7), **Craterize** (8), **Quake** (9, Lift and Slide), **Erupt** (0). Built
+on Codex's shared forces core (#59) with #58's synthesised sounds (on, quiet, with the Sound switch). From `feature/forces`
+(a88d7d2, CI green); not on `dev` and not released until you've tried them. Captures: `docs/progress/forces/` on that branch;
+the full report: `docs/progress/forces.md`. I tried one Craterize strike there: at its default power the crater is 54 tiles
+wide on a 128² map and swallowed the river valley; one undo brought it all back. The defaults are pending #74.
 
 ### 4. Probe batches
 
@@ -76,8 +79,8 @@ frozen (D218 lets it run without asking on this machine).
 
 - **M9a** in `DamGoodMaps-m9a` (an Opus 5.5 agent; first on the machine): the settings and test fixes, full batches, the
   contact sheet, the Claude suite re-tune, docs, CI, then the frozen generator's probe maps. The `.claude/agents/`
-  definitions didn't load (this session started outside the repository folder), so it runs at this session's effort rather
-  than a set xhigh.
+  definitions didn't load (this session started outside the repository folder), so it follows this session's effort, which
+  is xhigh (checked).
 - **Live editing** in `DamGoodMaps-live` (an Opus 5.5 agent): the Carve re-port to #47's final commit, the forces hidden on
   the public site (#69), D212's two changes, docs, captures and CI. Then I release it as `live-editing-done`.
 - **Waiting their turn:** waterfalls (#53) after Live editing lands (both change the water renderer); Real places' D214

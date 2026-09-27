@@ -42,7 +42,7 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | done; **held**, M9a took it in (D213) |
 | Waterfalls (D201, D215) | `look/waterfalls` | #53 (merged, 70ce2a8) | `DamGoodMaps-waterfalls` | 84917c1 | released: `look-waterfalls-done` (#62, a73b4b8) |
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | a59c051 | 150 places rebuilt; needs D214 and badwater |
-| The four forces (Codex's #47, #51, #50, #52, #59; #58's sounds) | merged into `dev` 2026-09-26 | | | | built next on the forces core, for the preview (§4) |
+| The four forces and the juice sounds (D216, D219, D220) | `feature/forces` | none yet | `DamGoodMaps-forces` | a88d7d2 (CI green) | on the preview for Kyler to try; merged into `dev` and released only after he has (pending #74) |
 
 `main` is at 8995cee (`look-badwater-done`). The old machine's worktrees (`C:\Users\Kyler\code\…`) don't exist here.
 
