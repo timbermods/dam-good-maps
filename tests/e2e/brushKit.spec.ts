@@ -37,7 +37,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("the top bar and the brush kit: options, precise hold with a stop, straight lines, terraces, walkable, Select", async ({ page }) => {
+test("the top bar and the brush kit: options, precise hold with a stop, straight lines, terraces, Smooth with no walkable option, Level lines in the view bar, Select", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));

@@ -907,7 +907,9 @@ are built as the forces group's four buttons on one shared forces core (Codex's,
 Erupt kept to the demo (a peak within the room it has, new cones on the flanks, always complete),
 Power and size separate in every force (Carve's Depth), the brush size in its row, the shelf's order,
 and the editor's sounds on Codex's second round (#64: recorded CC0 foley, clearly audible by default).
-They go to the preview, and are released (and the branch merged) only after Kyler has tried them.
+Round 2b: Unleash on water sources (D239: a selected source's own water carves its river), Smooth's
+walkable option removed (D247) and Level lines a view switch (D248). They go to the preview, and are
+released (and the branch merged) only after Kyler has tried them.
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):

@@ -121,8 +121,16 @@ button[aria-pressed="true"] {
   position: absolute;
   top: 10px;
   left: 10px;
+  /* clear of the compass: the bar wraps to a second row before it reaches it */
+  right: 64px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  pointer-events: none;
+}
+
+.view3d-controls > * {
+  pointer-events: auto;
 }
 
 .view3d-controls button,
@@ -543,10 +551,10 @@ button[aria-pressed="true"] {
   --side-panel-width: 214px;
 }
 
-/* the brush bar's place over the map: below the camera's buttons */
+/* the brush bar's place over the map: below the camera's buttons (however many rows they take) */
 .brush-bar-wrap {
   position: absolute;
-  top: 52px;
+  top: calc(18px + var(--view-controls-h, 34px));
   left: 10px;
   display: flex;
   flex-direction: column;

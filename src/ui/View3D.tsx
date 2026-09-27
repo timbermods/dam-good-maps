@@ -107,6 +107,7 @@ function saveMarkers(on: boolean): void {
 export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const compass = useRef<HTMLDivElement>(null);
+  const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
@@ -118,6 +119,19 @@ export function View3D(props: View3DProps) {
   const [mapTick, setMapTick] = useState(0);
   const onHover = useRef(props.onHover);
   onHover.current = props.onHover;
+
+  // the view bar wraps before the compass; what sits under it (the editor's brush bar) reads its
+  // height from --view-controls-h
+  useEffect(() => {
+    const el = controls.current;
+    const frame = el?.parentElement;
+    if (!el || !frame || typeof ResizeObserver === "undefined") return;
+    const note = () => frame.style.setProperty("--view-controls-h", `${el.offsetHeight}px`);
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
 
   useEffect(() => {
     let r: MapRenderer;
@@ -274,7 +288,7 @@ export function View3D(props: View3DProps) {
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
-      <div class="view3d-controls" role="group" aria-label="View">
+      <div ref={controls} class="view3d-controls" role="group" aria-label="View">
         <button type="button" aria-pressed={mode === "orbit"} onClick={() => pick("orbit")} title="Drag to turn, right-drag to move, wheel to zoom">
           Orbit
         </button>

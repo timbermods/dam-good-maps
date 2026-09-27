@@ -302,7 +302,7 @@ Alt+scroll slices the visible layers from the top down, Alt+click jumps to a til
 the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
 Erupt, X Remove (with Quake picked, X flips the side of the fault that moves) and M Select.
-Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. Ctrl+Shift+1 to 9
+Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)

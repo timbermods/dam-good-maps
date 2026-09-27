@@ -1,14 +1,13 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **State (2026-09-26, round 2 done: Kyler's review, D226).** Branch `feature/forces`, `dev` merged in
-> (last at 3e19e3b). Round 2 is built and pushed: Erupt kept to the demo (the prototype's exactly where
-> it has room; a peak within the room it has near the ceiling, broader rather than taller; new cones
-> on the flanks; it always completes, at the demo's pace), Power and size separate in every force
-> (Carve's new Depth, Erupt's Size, one size control), the brush size in the row, the shelf's order,
-> and the editor's sounds on Codex's round two (#64, recorded CC0 foley, lazily loaded). Checked:
-> typecheck clean; `npm run test:quick` 667 passed, 13 skipped; `npx playwright test` 55 passed,
-> 1 skipped; the Claude reference suite 134 of 147. Next: round 2b, Unleash on water sources (D239),
-> on this branch. Round 1's forces build is below the round-2 section (D219).
+> **State (2026-09-26, round 2b done: D239, D247, D248).** Branch `feature/forces`, `dev` merged in
+> (last at eb3f103). Round 2 (Kyler's review, D226) and round 2b are built and pushed: Unleash on a
+> selected source (its own water carves its course), Smooth's walkable option retired (saved strokes
+> replay exactly; Flatten's ramped edges checked, decisions-pending #84), Level lines a view switch
+> beside Height colours. Checked: typecheck clean; `npm run test:quick` 671 passed, 13 skipped;
+> `npx playwright test` 55 passed, 1 skipped; the Claude reference suite 135 of 148. Next: D249
+> (sources: Clear sources, sources ride the ground, easier to hit, Delete, a Remove drag from a
+> source), on this branch. Round 1's forces build is below the round-2 section (D219).
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
 Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high power), D205 and D212
@@ -67,6 +66,9 @@ maps (River Valley 3, Highlands 7, Canyon 10) got 0 to 2 slopes each (five got n
 
 **Level lines** is in the view bar beside Height colours (the same words and tooltip), off by default
 and remembered as before, and works whatever tool is picked (or none): it only changes what shows.
+With it the view bar is wider than a laptop's view: it wraps to a second row before the compass now
+(CI caught the bar running under the compass), and the brush bar sits under however many rows it
+takes.
 
 ### The nightly's sweep
 
