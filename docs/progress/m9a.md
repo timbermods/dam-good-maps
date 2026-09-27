@@ -704,7 +704,36 @@ seed 6 it is Kyler's call on the wet-tile threshold.
   with the game), and item 2, Delta 128² seed 1's flats spreading a thin sheet over the plain in the
   badtide (`cal-timeline`, wet tiles 19.6%). These are the two checks the D297 recompare still fails.
 - **Item 4, the start's water in a sealed puddle:** counted over the batches before the release (the
-  next section).
+  section after next).
+
+### Tall maps' project files: a river's fall deeper than 15 (found by M9b, fixed 2026-09-28)
+
+M9b found, at Variety and Verticality 100, project files that did not reopen: on land above 16 a
+river's natural fall can drop more than 15 levels in one bed step, and the feature schema allowed a step
+15 (`bedProfile.steps[].drop`), its start 22. M9a unlocks land above 16 at Verticality 70 and above, so
+the same maps break here. **Before the fix** (`tools/batches.ts --set vt=100`, 128², seeds 1–40): 27 of
+118 accepted maps' project files were refused as damaged, every one with "/N/params/bedProfile/steps/K/drop
+must be <= 15" (Any 7 of 40, Highlands 10 of 39, Canyon 10 of 39). **The fix** is M9b's line (367e079a,
+not merged): a bed step may drop up to 22 levels, as the bed's start may stand; the waterfall set piece
+keeps its own 15 (PLAN §9.10). The generator, its maps and their bytes are unchanged (8f38d22).
+**Tests:** M9b's check (f9d6f554's content, `tests/contract/features.test.ts`: steps of 18 and 21
+accepted, 23 refused), and a real tall map in `tests/contract/projects.test.ts`: Highlands 128² seed 7
+at Verticality 100, whose river falls from 21 to 0 in one step, passes the runtime checker and Ajv, and
+its project file reopens and rebuilds the same .timber (it fails without the fix). **After the fix**,
+every accepted map reopens and rebuilds byte for byte (`tools/batches.ts --themes any,highlands,canyon
+--sizes 128,256 --seeds 128=1-40,256=1-20 --jobs 3 --set vt=N`; reports in
+`investigation/m9a/local/reopen-vt70`, `-vt85`, `-vt100`, the unfixed run in `reopen-vt100-unfixed`,
+out of git):
+
+| Verticality | Any 128² | Highlands 128² | Canyon 128² | Any 256² | Highlands 256² | Canyon 256² | Reopen |
+|---|---|---|---|---|---|---|---|
+| 70 | 40/40 | 40/40 | 40/40 | 18/18 | 20/20 | 20/20 | 178/178 |
+| 85 | 40/40 | 40/40 | 40/40 | 20/20 | 20/20 | 20/20 | 180/180 |
+| 100 | 40/40 | 39/39 | 39/39 | 19/19 | 20/20 | 20/20 | 177/177 |
+
+535 of the 540 seeds gave a map, and every one reopens; 5 found none within the attempts (Any 256² 2 at
+70 and 1 at 100, Highlands and Canyon 128² 1 each at 100): information, these settings are outside the
+gated batches.
 
 ### Found and parked
 
