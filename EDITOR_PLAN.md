@@ -129,7 +129,11 @@ editor is desktop-first (D185).
   Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
-- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
+- **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
+  checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
+  Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
+  description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
+  is unchanged.
 
 (D180, D182, D183, D184, D193, D202, D203, D206.)
 
