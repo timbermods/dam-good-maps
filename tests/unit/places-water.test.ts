@@ -4,8 +4,9 @@
 // spring fed with what the lake evaporates, and none for the sea or dry land.
 
 import { describe, expect, it } from "vitest";
-import { beginnings, LAKE_FEED } from "../../tools/places/convert";
-import { quantise } from "../../tools/places/hydro";
+import { beginnings, LAKE_FEED, lowerBeds } from "../../tools/places/convert";
+import { detrend, quantise, TILT_LEVELS } from "../../tools/places/hydro";
+import { SPRING_NOTES, springNotes } from "../../src/core/places/place";
 import { tileName } from "../../tools/places/worldcover";
 
 const SIZE = 48;
@@ -97,4 +98,58 @@ describe("the water follows the real place (D271)", () => {
     expect(tileName(-3.2, 35.5)).toBe("ESA_WorldCover_10m_2021_v200_S06E033_Map.tif");
     expect(tileName(62.1, 7.1)).toBe("ESA_WorldCover_10m_2021_v200_N60E006_Map.tif");
   });
+
+  it("the bed lies a level down under the real water (D300): a river's tiles each, a lake's below its median", () => {
+    const raw = patch({ valley: 20 });
+    const h = heights(raw);
+    const obs = observed((x) => Math.abs(x - 24) <= 1);
+    const found = beginnings(raw, obs, SIZE, h, 5);
+    const before = h.slice();
+    const lowered = lowerBeds(h, found.labels, found.kind, SIZE);
+    expect(lowered).toBeGreaterThan(SIZE);
+    for (let i = 0; i < h.length; i++) {
+      const onRiver = Math.abs((i % SIZE) - 24) <= 1;
+      expect(h[i], `tile ${i}`).toBe(onRiver && before[i] > 0 ? before[i] - 1 : before[i]);
+    }
+  });
 });
+
+describe("the land's tilt (D300)", () => {
+  it("an even slope keeps TILT_LEVELS of its tilt, so it is not made into even stripes", () => {
+    const W = SIZE + 2 * HALO;
+    const raw = new Float32Array(W * W);
+    // a fan: 200 m of fall across the map, and a channel 3 m deep down its middle
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) raw[y * W + x] = 500 + (y - HALO) * (200 / SIZE) - (Math.abs(x - HALO - 24) <= 1 ? 3 : 0);
+    const plain = heights(raw);
+    const { raw: flat, keep } = detrend(raw, W, SIZE, HALO, "normalised", 16);
+    const kept = heights(flat);
+    expect(keep).toBeLessThan(0.2);
+    // before: 16 steps down the slope; after: TILT_LEVELS of the fall, the channel still lower
+    const column = (h: Uint8Array, x: number) => Array.from({ length: SIZE }, (_, y) => h[y * SIZE + x]);
+    expect(new Set(column(plain, 5)).size).toBe(17);
+    expect(new Set(column(kept, 5)).size).toBeLessThanOrEqual(TILT_LEVELS + 2);
+    // the water still runs downhill along its course: the channel falls from north to south
+    const channel = column(kept, 24);
+    expect(channel[SIZE - 1]).toBeGreaterThan(channel[0]);
+    for (let y = 1; y < SIZE; y++) expect(channel[y]).toBeGreaterThanOrEqual(channel[y - 1]);
+    for (let y = 0; y < SIZE; y++) expect(kept[y * SIZE + 24]).toBeLessThan(kept[y * SIZE + 5]);
+  });
+
+  it("a land whose tilt spans few levels keeps all of it", () => {
+    // a valley between two ridges, falling gently: its relief is its own shape, not a tilt
+    const W = SIZE + 2 * HALO;
+    const raw = new Float32Array(W * W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) raw[y * W + x] = 300 + Math.abs(x - HALO - 24) * 6 + (y - HALO) * 0.2;
+    expect(detrend(raw, W, SIZE, HALO, "normalised", 16).keep).toBe(1);
+  });
+});
+
+describe("the water floor (D300)", () => {
+  it("a place given a spring says so on its card, in plain words", () => {
+    expect(springNotes({})).toEqual([]);
+    expect(springNotes({ spring: { at: [3, 4], why: "dry" } })).toEqual([SPRING_NOTES.dry]);
+    expect(SPRING_NOTES.dry).toBe("A spring added near the start: this place has no permanent water");
+    for (const w of Object.values(SPRING_NOTES)) expect(w, "no advice").not.toMatch(/(add|move|try|should|build|place)/i);
+  });
+});
+

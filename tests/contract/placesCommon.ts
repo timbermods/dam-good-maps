@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
-import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeNotes, placeProblems, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeNotes, placeProblems, placeTimber, springNotes, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { mapObjects } from "../../src/core/sim/model";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -82,7 +82,7 @@ export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], b
       expect(f.edgeWall).toBe(PLACES_HAVE_EDGE_WALLS);
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
       // the playability checks are information, and the place says what would sink a player
-      expect(entry.notes ?? [], entry.id).toEqual(placeNotes(v.report.checks));
+      expect(entry.notes ?? [], entry.id).toEqual([...springNotes(placeData(entry)), ...placeNotes(v.report.checks)]);
       // the starting-logs floor (Kyler, 2026-09-26, D224, D227), at every difficulty: the logs of the
       // written file's grown trees within the floor's walk of its start
       const p = placeData(entry);

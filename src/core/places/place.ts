@@ -102,6 +102,17 @@ export const PLACE_NOTES: readonly (readonly [string, string])[] = [
   ["water.settles", "The water keeps moving"],
 ];
 
+/** The card's note for the water floor's spring (D300), plain words, no advice. */
+export const SPRING_NOTES: Readonly<Record<"dry" | "far", string>> = {
+  dry: "A spring added near the start: this place has no permanent water",
+  far: "A spring added near the start: its real water is out of reach",
+};
+
+/** A place's own notes, before its checks' (`placeNotes`): the water floor's spring. */
+export function springNotes(p: Pick<PlaceData, "spring">): string[] {
+  return p.spring ? [SPRING_NOTES[p.spring.why]] : [];
+}
+
 /** The notes a place's checks give (see `PLACE_NOTES`), in that order. */
 export function placeNotes(checks: readonly CheckResult[]): string[] {
   const short = new Set(placeProblems(checks).shortOf);
@@ -141,6 +152,10 @@ export interface PlaceData {
   /** Water sources, [x, y, strength]: only where water begins (D171), a row across a river's
    *  mouth on the map edge or a spring at a valley's head. */
   sources: [number, number, number][];
+  /** The water floor's spring (Kyler, 2026-09-27, D300), when the place needed one: where it
+   *  stands (it is also among `sources`), and why: no permanent water in the place's square
+   *  ("dry"), or its real water out of the start's reach ("far"). Its card says so (`springNotes`). */
+  spring?: { at: [number, number]; why: "dry" | "far" };
   /** Badwater sources, [x, y, strength] (D200), when the place has them. */
   badwater?: [number, number, number][];
   /** The start's corner tile (the StartingLocation's coordinates). */

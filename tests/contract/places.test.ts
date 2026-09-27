@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { CREDITS_URL, fileNotices, PROVIDERS, RIVERS_LICENCE_URL, RIVERS_NOTICE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
-import { decodeHeights, PLACE_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
+import { decodeHeights, PLACE_NOTES, SPRING_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { checkPlaces, INDEX, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_MINE_SITES, PLACES_SOURCES_IN_FLOW, placeData, sha256 } from "./placesCommon";
@@ -144,8 +144,13 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       expect(Math.max(...walls.map((w) => w.share)), entry.id).toBeLessThan(EDGE_SHARE);
       // the place's own objects are its sources and its start: resources come when it is built
       expect(Object.keys(p).sort(), entry.id).toEqual(expect.arrayContaining(["format", "heights", "sources", "start", "survey"]));
-      // a place whose square has no observed water is dry (D271), and its note says so
-      if (!p.sources.length) expect(entry.notes, entry.id).toContain("No water a pump can reach from the start");
+      // every place has water (D300's water floor): a place with no real water in its square has the
+      // floor's spring, and its card says so
+      expect(p.sources.length, entry.id).toBeGreaterThan(0);
+      if (p.spring) {
+        expect(p.sources.some(([x, y]) => x === p.spring!.at[0] && y === p.spring!.at[1]), entry.id).toBe(true);
+        expect(entry.notes, entry.id).toContain(SPRING_NOTES[p.spring.why]);
+      }
       for (const [x, y, strength] of p.sources) {
         expect(x >= 0 && y >= 0 && x < p.W && y < p.H, entry.id).toBe(true);
         expect(strength, entry.id).toBeGreaterThan(0);
@@ -164,7 +169,8 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       expect(flows.get(p.id), p.id).toBeLessThanOrEqual(cap);
       // what the sources give: at most the cap, the generator's strength for the size times it
       // (each source rounded to a thousandth)
-      const total = p.sources.reduce((s, [, , v]) => s + v, 0);
+      // (the water floor's spring, D300, is on top: the smallest that gives the start water)
+      const total = p.sources.filter(([x, y]) => !p.spring || x !== p.spring.at[0] || y !== p.spring.at[1]).reduce((s, [, , v]) => s + v, 0);
       const area = p.W * p.H;
       expect(total, p.id).toBeLessThanOrEqual((cap * density("water_strength_per_10k", area) * area) / 1e4 + p.sources.length * 0.0005);
     }
@@ -406,14 +412,18 @@ describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
 
   it("notes only what would sink a player, in a few plain words", () => {
     expect(PLACE_NOTES.map(([id]) => id)).toEqual(["start.water", "start.wood", "water.settles"]);
-    const words = new Set(PLACE_NOTES.map(([, w]) => w));
+    const words = new Set([...PLACE_NOTES.map(([, w]) => w), ...Object.values(SPRING_NOTES)]);
     for (const p of INDEX.places) for (const n of p.notes ?? []) expect(words.has(n), `${p.id}: ${n}`).toBe(true);
     for (const w of words) {
-      expect(w.split(" ").length).toBeLessThanOrEqual(9);
+      expect(w.split(" ").length).toBeLessThanOrEqual(11);
       expect(w, "no advice").not.toMatch(/\b(add|move|try|should|build|place)\b/i);
     }
     // the everyday advisories get none
     expect(PLACE_NOTES.some(([id]) => /drought|reservoir|clean/.test(id))).toBe(false);
+  });
+
+  it("the water floor (Kyler, 2026-09-27, D300): every place has water a pump reaches from the start", () => {
+    for (const p of INDEX.places) expect(p.notes ?? [], p.id).not.toContain(PLACE_NOTES.find(([id]) => id === "start.water")![1]);
   });
 
   it("every place is on its own land: none dropped but the 15 Kyler dropped from the review sheet (D271)", () => {

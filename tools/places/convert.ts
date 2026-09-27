@@ -46,10 +46,10 @@ import { density } from "../../src/core/gen/calibrated";
 import { encodeHeights, buildPlace, logFloorProblem, placeNotes, placeProblems, type PlaceData } from "../../src/core/places/place";
 import { moistureBarrier, waterModel, type MapObject } from "../../src/core/sim/model";
 import { moisture } from "../../src/core/sim/moisture";
-import { canonicalSettle, prefill, type CanonicalWater } from "../../src/core/sim/prefill";
+import { canonicalSettle, prefill, spillLevels, type CanonicalWater } from "../../src/core/sim/prefill";
 import { DIFFICULTY_RULES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
-import { crop, quantise, rivers, type Edge, type Entry, type Head } from "./hydro";
+import { crop, detrend, quantise, rivers, type Edge, type Entry, type Head } from "./hydro";
 import { riverTiles } from "./osm";
 import { readWater } from "./worldcover";
 
@@ -131,6 +131,17 @@ export interface Converted {
    *  that got no source. */
   observed?: { water: number; recall: number | null; precision: number | null };
   sea?: number;
+  /** The land (D300): the share of its overall tilt kept, and the tiles of bed lowered under the
+   *  real water. */
+  tiltKept?: number;
+  beds?: number;
+  /** The land fitted to the levels above the lowest (its real water lay on the lowest, D300), and
+   *  smoothed (a 3×3 median) where its levels came only a few metres apart. */
+  lifted?: boolean;
+  smoothed?: boolean;
+  /** The water floor's spring (D300), when the place needed one: where, how strong, and why (no
+   *  water in its square, or its real water out of the start's reach). It is also in `sources`. */
+  spring?: { at: [number, number]; strength: number; why: "dry" | "far" };
   /** The start came from the shore-first ranking (D214): none of the first ranking's passed. */
   moved?: boolean;
   settled?: boolean;
@@ -156,7 +167,8 @@ export function rowHeights(row: string): { size: number; heights: Uint8Array } {
   if (!m) throw new Error(`not a survey row: ${row}`);
   const size = Number(m[2]);
   const raw = readPatch(`${m[1]}-${m[2]}-${m[3]}`);
-  return { size, heights: quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], Number(m[5])) };
+  const flat = detrend(raw, size + 2 * HALO, size, HALO, m[4], Number(m[5])).raw;
+  return { size, heights: quantise(crop(flat, size + 2 * HALO, size, HALO), m[4], Number(m[5])) };
 }
 
 /** A source group: its tiles and its flow. A lake's spring (`lake`) gives what the lake's surface
@@ -192,7 +204,7 @@ const EDGE_LAKE = 4;
  *  passes within a tile of it: a river WorldCover sees in pieces) gets none. The sea gets none.
  *  Each shares the flow by the square root of the area its water gathers from (the survey's
  *  routing, halo included). */
-export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h: Uint8Array, flow: number): { groups: Group[]; sea: number } {
+export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h: Uint8Array, flow: number, metres: Float32Array = raw): { groups: Group[]; sea: number; labels: Int32Array; kind: Uint8Array } {
   const W = size + 2 * HALO;
   const N = size * size;
   const found = rivers(raw, size, HALO);
@@ -215,7 +227,7 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
     const y = (i - x) / size;
     if (x === 0 || y === 0 || x === size - 1 || y === size - 1) onEdge[c] = 1;
     const r = raw[halo(i)];
-    lows[c].push(r);
+    lows[c].push(metres[halo(i)]);
     if (top[c] < 0 || r > raw[halo(top[c])]) top[c] = i;
   }
   /** A lake, not a river (Pick a place's test): its surface flat (the middle of its core within 8
@@ -334,9 +346,12 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
   const entries: Entry[] = [];
   const heads: Head[] = [];
   const lakes: Group[] = [];
+  // each stretch's kind, for its bed (`lowerBeds`): 1 a river, 2 a lake
+  const kind = new Uint8Array(sizes.length);
   for (const s of starts) {
     // a stretch a river comes in to is that river's; else a broad, flat one is a lake
     const lake = !s.entry && lakeLike(s.c);
+    kind[s.c] = lake ? 2 : 1;
     // a river coming in across the edge brings its own water: nothing on the map feeds it; a lake
     // gets its spring even so (its feed is small, and a river's water that does reach it takes the
     // spring away: water.source_in_flow's rule, below)
@@ -370,7 +385,33 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
     else heads.push({ x, y, area });
   }
   const groups = entries.length || heads.length ? groupsOf(entries, heads, size, h, flow) : [];
-  return { groups: [...groups, ...lakes.filter((l) => !groups.some((g) => g.tiles.includes(l.tiles[0])))], sea };
+  return { groups: [...groups, ...lakes.filter((l) => !groups.some((g) => g.tiles.includes(l.tiles[0])))], sea, labels, kind };
+}
+
+/** The bed under the real water, a level down (Kyler, 2026-09-27, D300; as Pick a place's signature
+ *  water lays it): a river's tiles each a level below their own, a lake's at a level below its
+ *  median, so the water stays in the real river's course and the real lake's basin instead of
+ *  spreading as a sheet over the flat the levels make of it. The sea's is left (it gets no water).
+ *  Returns the tiles lowered. */
+export function lowerBeds(h: Uint8Array, labels: Int32Array, kind: Uint8Array, size: number): number {
+  const N = size * size;
+  const lists: number[][] = Array.from(kind, () => []);
+  for (let i = 0; i < N; i++) if (labels[i] >= 0 && kind[labels[i]]) lists[labels[i]].push(i);
+  let lowered = 0;
+  lists.forEach((list, c) => {
+    if (!list.length) return;
+    const zs = list.map((i) => h[i]).sort((a, b) => a - b);
+    const level = zs[Math.floor(zs.length / 2)];
+    for (const i of list) {
+      const z = kind[c] === 2 ? Math.min(h[i], level - 1) : h[i] - 1;
+      const bed = Math.max(0, z);
+      if (bed < h[i]) {
+        h[i] = bed;
+        lowered++;
+      }
+    }
+  });
+  return lowered;
 }
 
 /** The source groups of rivers coming in and heads inside, with their share of the flow: each
@@ -533,7 +574,7 @@ export function walkToPumpShore(h: Uint8Array, W: number, H: number, depth: Arra
  *  to the water, as Pick a place's designed water chooses it, rather than the water being made to
  *  reach the start) puts first, in each block and among them, the starts with pumpable water within
  *  their walk (`walkToPumpShore`). Returns the StartingLocation's corner tile. */
-function starts(h: Uint8Array, W: number, H: number, water: CanonicalWater, M: ArrayLike<number>, shoreFirst = false): [number, number][] {
+function starts(h: Uint8Array, W: number, H: number, water: Pick<CanonicalWater, "depth" | "contamination">, M: ArrayLike<number>, shoreFirst = false): [number, number][] {
   const N = W * H;
   const D = water.depth;
   const rules = DIFFICULTY_RULES.normal;
@@ -613,11 +654,24 @@ export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number
   const m = /^(.+)-(\d+)-(\d+)-(\w+)-(\d+)$/.exec(row);
   if (!m) throw new Error(`not a survey row: ${row}`);
   const size = Number(m[2]);
-  const raw = readPatch(`${m[1]}-${m[2]}-${m[3]}`);
+  const metres = readPatch(`${m[1]}-${m[2]}-${m[3]}`);
+  // 1. most of the land's overall tilt out before its levels (D300), then the levels
+  const { raw, keep, smoothed } = detrend(metres, size + 2 * HALO, size, HALO, m[4], CAP);
   const h = quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], CAP);
   const fail = (reason: string, extra: Partial<Converted> = {}): Converted => ({ row, ok: false, reason, size, ms: Math.round(performance.now() - t0), ...extra });
 
   const obs = observed(`${m[1]}-${m[2]}-${m[3]}`, meta.lat, meta.lon);
+  // the bed a level down under the real water (D300); where real water lies on the lowest level,
+  // the land is fitted to the levels above it, so its bed has a level to go down to
+  const found = beginnings(raw, obs, size, h, 1, metres);
+  let lifted = false;
+  for (let i = 0; i < h.length && !lifted; i++) if (!h[i] && found.labels[i] >= 0 && found.kind[found.labels[i]]) lifted = true;
+  if (lifted) {
+    const up = quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], CAP - 1);
+    for (let i = 0; i < h.length; i++) h[i] = up[i] + 1;
+  }
+  const beds = lowerBeds(h, found.labels, found.kind, size);
+  const land = { tiltKept: Math.round(keep * 1000) / 1000, beds, ...(lifted ? { lifted } : {}), ...(smoothed ? { smoothed } : {}) };
 
   // 2 and 3 at each flow up to the size's cap (D214), the sources where the real place's water
   // begins (D271); where the water keeps moving, fewer and larger rivers at the same flow (D214,
@@ -630,7 +684,7 @@ export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number
     let r: Converted | null = null;
     for (const most of FEWER) {
       if (r && (r.settled !== false || (r.rivers ?? 0) <= most)) break;
-      r = attempt(row, meta, raw, obs, size, h, times, most, fail);
+      r = { ...attempt(row, meta, raw, metres, obs, size, h, times, most, fail), ...land };
       last = r;
       if (r.ok && !r.shortOf?.length) return { ...r, ms: Math.round(performance.now() - t0) };
       if (!r.ok && /^start: no flat/.test(r.reason ?? "")) break flows;
@@ -659,6 +713,13 @@ export function observed(patch: string, lat: number, lon: number): Float32Array 
   for (let i = 0; i < obs.length; i++) if (lines[i]) obs[i] = Math.max(obs[i], OSM_RIVER);
   return obs;
 }
+
+/** The water floor's spring (D300): the strengths tried, smallest first; the tiles tried at each;
+ *  the starts it is sought near, in turn; the starts tried with its water. */
+const SPRING_STRENGTHS = [0.1, 0.2, 0.4, 0.7, 1, 1.5, 2, 3, 5];
+const SPRING_CANDIDATES = 12;
+const SPRING_STARTS = 4;
+const SPRING_START_TRIES = 10;
 
 /** Rivers kept, at most, in turn, where the water keeps moving (D214, D271). */
 const FEWER = [GROUPS, 3, 1];
@@ -748,10 +809,10 @@ export function offWater(g: Group, obs: Float32Array, size: number, h: Uint8Arra
 
 /** One conversion at one flow, `times` the generator's water strength for the map's size, with at
  *  most `most` rivers (the largest). */
-function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Array, size: number, h: Uint8Array, times: number, most: number, fail: (reason: string, extra?: Partial<Converted>) => Converted): Converted {
+function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float32Array, obs: Float32Array, size: number, h: Uint8Array, times: number, most: number, fail: (reason: string, extra?: Partial<Converted>) => Converted): Converted {
   const N = size * size;
   const flow = (times * density("water_strength_per_10k", N) * N) / 1e4;
-  const found = beginnings(raw, obs, size, h, flow);
+  const found = beginnings(raw, obs, size, h, flow, metres);
   const land = found.groups.length;
   // the groups whose water would stand mostly off the real water go (D271)
   // (a river coming in across the edge is real water that runs on wherever the land takes it: it stays)
@@ -774,7 +835,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
   let sources = strengths(groups, size, flow);
   let model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
   let water = canonicalSettle(model);
-  for (let round = 0; round < 6 && groups.length; round++) {
+  for (let round = 0; round < 16 && groups.length; round++) {
     const objects = sourceEntities(sources, h, size).map(mapObject);
     const inFlow = new Set(sourcesInFlow(model, objects, water.depth).inFlow);
     const pools = noOutflow(model, water.depth);
@@ -789,18 +850,33 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
     });
     if (!gone.some(Boolean)) break;
     // a river coming in across the edge is where its water begins: when water from the map
-    // reaches it (spread over a flat floor the 16 levels give its valley), the smallest other
-    // source goes instead, one a round
+    // reaches it (spread over a flat floor the 16 levels give its valley), the source whose water
+    // does goes instead: of the others, the smallest whose leaving frees a river coming in (tried on
+    // the settle's starting state), one a round; else the smallest river coming in that is reached
     if (groups.some((g, k) => g.entry && gone[k] === "flow")) {
-      let least = -1;
-      groups.forEach((g, k) => {
-        if (!g.entry && (least < 0 || g.share < groups[least].share)) least = k;
-      });
+      const flowing = groups.map((_, k) => k).filter((k) => groups[k].entry && gone[k] === "flow");
       groups.forEach((g, k) => {
         if (g.entry && gone[k] === "flow") gone[k] = null;
       });
-      if (least >= 0) gone[least] = "flow";
-      if (!gone.some(Boolean)) break;
+      const reached = (list: Group[]) => {
+        const objs = sourceEntities(strengths(list, size, flow), h, size).map(mapObject);
+        const m = waterModel(size, size, h, objs);
+        const hit = new Set(sourcesInFlow(m, objs, prefill(m).depth).inFlow);
+        let at = 0;
+        return list.map((g) => g.tiles.map(() => at++).some((k) => hit.has(k)));
+      };
+      const others = groups.map((_, k) => k).filter((k) => !groups[k].entry && !gone[k]).sort((a, b) => groups[a].share - groups[b].share);
+      let culprit = -1;
+      for (const k of others) {
+        const without = groups.filter((_, j) => j !== k);
+        const still = reached(without);
+        if (flowing.some((f) => !still[f < k ? f : f - 1])) {
+          culprit = k;
+          break;
+        }
+      }
+      if (culprit < 0) culprit = flowing.sort((a, b) => groups[a].share - groups[b].share)[0];
+      gone[culprit] = "flow";
     }
     const keep = groups.filter((_, k) => !gone[k]);
     // keep the strongest where it is, if every one would go: it is where water begins, if
@@ -841,6 +917,10 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
   let best: Converted | null = null;
   let blocked: string[] | null = null;
   let count = 0;
+  // the water floor (D300) first: a start with water a pump reaches, then the fewest notes
+  const dry = (r: Converted) => (r.shortOf!.includes("start.water") ? 1 : 0);
+  const better = (r: Converted, b: Converted | null) => !b || dry(r) < dry(b) || (dry(r) === dry(b) && (r.notes!.length < b.notes!.length || (r.notes!.length === b.notes!.length && r.shortOf!.length < b.shortOf!.length)));
+  const passing: Converted[] = [];
   for (const moved of [false, true]) {
     for (const start of moved ? shore() : first) {
       count++;
@@ -858,8 +938,118 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, obs: Float32Ar
       const notes = placeNotes(v.report.checks);
       const r: Converted = { row, ok: true, size, ...base, start, shortOf, notes, advisories, ...(moved ? { moved } : {}), ms: 0 };
       if (!shortOf.length) return r;
-      if (!best || notes.length < best.notes!.length || (notes.length === best.notes!.length && shortOf.length < best.shortOf!.length)) best = r;
+      passing.push(r);
+      if (better(r, best)) best = r;
     }
   }
-  return best ?? fail(`the best of ${count} starts fails ${blocked!.join(", ")}`, base);
+  if (!best) return fail(`the best of ${count} starts fails ${blocked!.join(", ")}`, base);
+  if (!dry(best)) return best;
+  // no start reaches water a pump works from, even moved to it (D214): the water floor's spring
+  // near the start (D300), at the best starts in turn
+  const order = passing.filter((r) => dry(r)).sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0));
+  const why = groups.length ? "far" : "dry";
+  for (const r of order.slice(0, SPRING_STARTS)) {
+    const got = springNear(r, meta, raw, size, h, sources, water, why);
+    if (got) return got;
+  }
+  // none near those starts: a hollow anywhere, the start moved to it
+  return (order.length && springNear(order[0], meta, raw, size, h, sources, water, why, true)) || best;
+}
+
+/** The water floor (Kyler, 2026-09-27, D300), like the starting-logs floor: every place has water a
+ *  pump reaches from the start. Where no start reaches any (the place has no water in its square,
+ *  or its real water is out of reach even with the start moved to it, D214), one natural spring
+ *  stands where the land drains near the start: in a hollow the spring fills (a pond) first, then
+ *  on the tiles the most land drains to, within the rule's walk of the start (those whose water
+ *  would not run past it first); the smallest strength that works (SPRING_STRENGTHS). With the
+ *  spring's water the start is chosen again as D214 moves it, to the water (the shore-first
+ *  ranking), and the place is built and checked in full: nothing that blocks, and water a pump
+ *  reaches from the start. */
+function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: number, h: Uint8Array, sources: [number, number, number][], water: CanonicalWater, why: "dry" | "far", wide = false): Converted | null {
+  const N = size * size;
+  const W = size + 2 * HALO;
+  const rules = DIFFICULTY_RULES.normal;
+  const [sx, sy] = r.start!;
+  const centre = { x: sx + 1, y: sy + 1 };
+  const walk = walkDistance(h, size, size, null, [], centre, 24);
+  const { acc, to } = rivers(raw, size, HALO).drainage;
+  /** Whether a spring here would run past the start: the land's way down from it (the routing)
+   *  passes within 3 tiles of the start's middle. */
+  const pastStart = (i: number) => {
+    for (let p = ((i - (i % size)) / size + HALO) * W + (i % size) + HALO, n = 0; p >= 0 && n < 4 * W; p = to[p], n++) {
+      const x = (p % W) - HALO;
+      const y = Math.floor(p / W) - HALO;
+      if (Math.max(Math.abs(x - centre.x), Math.abs(y - centre.y)) <= 3) return true;
+    }
+    return false;
+  };
+  const hollow = spillLevels(waterModel(size, size, h, []));
+  // the candidates: within the walk, off the start's ground, dry now
+  const cands: { i: number; score: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    const x = i % size;
+    const y = (i - x) / size;
+    if (!h[i] || water.depth[i] > 0 || Math.max(Math.abs(x - centre.x), Math.abs(y - centre.y)) <= 3) continue;
+    const pond = hollow[i] - h[i] >= PUMP_DEPTH ? 2 : 0;
+    if (wide) {
+      // wide: a hollow anywhere on the map, nearest the start first (the start then moves to it)
+      if (pond && x > 3 && y > 3 && x < size - 4 && y < size - 4) cands.push({ i, score: -Math.hypot(x - centre.x, y - centre.y) });
+      continue;
+    }
+    if (reachAt(walk, size, size, i) > rules.waterWithin - 2) continue;
+    const clear = pastStart(i) ? 0 : 1;
+    cands.push({ i, score: (pond + clear) * 1e12 + acc[(y + HALO) * W + x + HALO] });
+  }
+  cands.sort((a, b) => b.score - a.score || a.i - b.i);
+  const dbg = process.env.DGM_SPRING_DEBUG ? (...a: unknown[]) => console.log(...a) : () => undefined;
+  dbg("spring", r.row, r.start, cands.length);
+  const picked: number[] = [];
+  for (const c of cands) {
+    if (picked.length >= SPRING_CANDIDATES) break;
+    if (picked.some((j) => Math.max(Math.abs((j % size) - (c.i % size)), Math.abs(Math.floor(j / size) - Math.floor(c.i / size))) < 4)) continue;
+    picked.push(c.i);
+  }
+  // water that settles first; then water that goes on moving, with its note (D245 (6))
+  for (const steady of [true, false])
+  for (const strength of SPRING_STRENGTHS)
+    for (const i of picked) {
+      const spring: [number, number, number] = [i % size, Math.floor(i / size), strength];
+      const all = [...sources, spring];
+      const objects = sourceEntities(all, h, size).map(mapObject);
+      const model = waterModel(size, size, h, objects);
+      // the settle's starting state first (quick): a start with a pump's water within its walk
+      const first = prefill(model);
+      const shoreOf = (w: Pick<CanonicalWater, "depth" | "contamination">, limit: number) => {
+        const M = moisture(h, w.depth, w.contamination, size, size, moistureBarrier(size, size, objects));
+        return starts(h, size, size, w, M, true)
+          .slice(0, limit)
+          .filter(([x, y]) => pumpShoreDistance(walkDistance(h, size, size, null, [], { x: x + 1, y: y + 1 }, 24), h, size, size, w.depth, w.contamination).distance <= rules.waterWithin);
+      };
+      const here = pumpShoreDistance(walk, h, size, size, first.depth, first.contamination).distance <= rules.waterWithin;
+      if (!here && !shoreOf(first, 1).length) {
+        dbg("no shore start", spring);
+        continue;
+      }
+      const settled = canonicalSettle(model);
+      if (steady && !settled.settled) continue;
+      // never inside another source's water (D171), nor any other inside the spring's
+      if (sourcesInFlow(model, objects, settled.depth).inFlow.length) continue;
+      // its own start first (it met the floors), then the start moved to the spring's water
+      const own = pumpShoreDistance(walk, h, size, size, settled.depth, settled.contamination).distance <= rules.waterWithin ? [[sx, sy] as [number, number]] : [];
+      for (const start of [...own, ...shoreOf(settled, SPRING_START_TRIES).filter(([x, y]) => x !== sx || y !== sy)]) {
+        const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: r.heights!, sources: all, start };
+        const built = buildPlace(place, settled);
+        const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+        const { blocking, shortOf } = placeProblems(v.report.checks);
+        if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
+        if (blocking.length || shortOf.includes("start.water")) {
+          dbg("checks", spring, start, blocking, shortOf);
+          continue;
+        }
+        const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
+        const moved = start[0] !== sx || start[1] !== sy;
+        return { ...r, sources: all, start, ...(moved ? { moved: true } : {}), spring: { at: [spring[0], spring[1]], strength, why }, settled: settled.settled, ticks: settled.ticks, cover: waterCover(settled.depth), shortOf, notes: placeNotes(v.report.checks), advisories };
+      }
+    }
+  return null;
 }

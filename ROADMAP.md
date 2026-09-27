@@ -862,21 +862,24 @@ region's second map is named by a real feature in its square or a direction, nev
 short of the starting-logs floor grows groves that read its own land within the walk: along its
 river, across a stream, on a plateau, in a side valley (D229). A place's water follows the real
 place (D271): sources only where ESA WorldCover shows permanent water or OpenStreetMap a permanent
-river, so dry places stay dry but for their real rivers; where the water keeps moving, fewer and
-larger rivers. Badwater on every map (D200) follows once M9a is on `dev` and Kyler has answered the
-D271 sheet.
+river; where the water keeps moving, fewer and larger rivers. The land (D300): most of its overall
+tilt taken out before its 16 levels (enough kept for the water to run downhill along its course),
+and the bed a level down under the real water. A water floor (D300), like the starting-logs floor:
+every place has water a pump reaches from the start; where it has none in reach even with the start
+moved to its water, one natural spring stands where the land drains near the start, and its card
+says so. Badwater on every map (D200) follows once M9a is on `dev`.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
-D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
+D151 (no edge walls), the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start), and the water floor (D300).
 Only those, and the file playing exactly as the editor shows it, gate a place (D245): a place is never dropped or moved to
-other land for a playability check; its card notes, in a few plain words, only what would sink a player (no water a
-pump can reach, too little wood near the start, water that keeps moving).
+other land for a playability check; its card notes, in a few plain words, only what would sink a player (too little
+wood near the start, water that keeps moving) and the water floor's spring where it has one.
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
-the rebuild, D214, the starting-logs floor, D245 and D271 done (136 places: Kyler's 15 drops; 73
-with a note, 7 of them for water that keeps moving, down from 37). Waiting on Kyler's answer on the
-D271 review sheet (#35) and on M9a for the badwater stage; released as `real-places-2-done` after
-both.
+the rebuild, D214, the starting-logs floor, D245, D271 and D300 done (136 places, Kyler's 15 drops;
+every place with water a pump reaches from the start). Kyler answered the D271 sheet with D300: no
+further sheet; the badwater stage follows once M9a is on `dev`, then `real-places-2-done`, and
+Kyler drops any place he dislikes later from the live gallery.
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round

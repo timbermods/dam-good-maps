@@ -51,7 +51,7 @@ import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 5;
+const VERSION = 7;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -126,7 +126,7 @@ interface Selection {
   /** `startMoved`: the start from the shore-first ranking (D214); `notes` and `shortOf`: what the
    *  place falls short of (D245: information); `rivers`: the source groups kept (rivers and lakes)
    *  and `observed`: how its water matches the real place's (D271, convert.ts `observedMatch`). */
-  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; startMoved?: true; notes?: string[]; shortOf?: string[]; sourcesDropped?: Converted["dropped"]; rivers: number; observed: NonNullable<Converted["observed"]>; advisories: string[] }[];
+  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; startMoved?: true; notes?: string[]; shortOf?: string[]; sourcesDropped?: Converted["dropped"]; rivers: number; observed: NonNullable<Converted["observed"]>; tiltKept: number; beds: number; spring?: Converted["spring"]; advisories: string[] }[];
   /** Places no row gives any more: the first round's (no status: Majuli), and those D214 or D224
    *  took (their status as they were). */
   dropped: { name: string; row: string; status?: Chosen["status"]; reason: string; tried: string[] }[];
@@ -196,7 +196,7 @@ async function main(): Promise<void> {
       results.set(r.row, r);
       writeFileSync(cachePath(r.row), JSON.stringify(r));
       ran++;
-      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"} rivers ${r.rivers ?? "-"}/${r.beginnings ?? "-"}${r.observed ? ` observed ${r.observed.water} found ${r.observed.recall} on it ${r.observed.precision}` : ""}${r.moved ? " start moved" : ""}${r.notes?.length ? ` notes: ${r.notes.join("; ")}` : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
+      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"} tilt ${r.tiltKept} beds ${r.beds}${r.spring ? ` spring ${r.spring.strength} (${r.spring.why})` : ""} rivers ${r.rivers ?? "-"}/${r.beginnings ?? "-"}${r.observed ? ` observed ${r.observed.water} found ${r.observed.recall} on it ${r.observed.precision}` : ""}${r.moved ? " start moved" : ""}${r.notes?.length ? ` notes: ${r.notes.join("; ")}` : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
     });
   }
 
@@ -348,16 +348,20 @@ async function main(): Promise<void> {
       heights: r.heights!,
       sources: r.sources!,
       start: r.start!,
+      ...(r.spring ? { spring: { at: r.spring.at, why: r.spring.why } } : {}),
     };
     writeFileSync(join(OUT, `${data.id}.json.gz`), gzipSync(strToU8(JSON.stringify(data)), { level: 9, mtime: 0 }));
   }
   const selection: Selection = {
     note: "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
-    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater || c.result.dropped.unheld) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, advisories: c.result.advisories ?? [] })),
+    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater || c.result.dropped.unheld) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, tiltKept: c.result.tiltKept!, beds: c.result.beds!, ...(c.result.spring ? { spring: c.result.spring } : {}), advisories: c.result.advisories ?? [] })),
     dropped,
   };
   writeFileSync(SELECTION, JSON.stringify(selection, null, 1) + "\n");
   const fam = (f: string) => chosen.filter((c) => c.row.family === f).length;
+  // the water floor (D300): every place has water a pump reaches from the start
+  const thirsty = chosen.filter((c) => c.result.shortOf?.includes("start.water")).map((c) => c.name);
+  if (thirsty.length) throw new Error(`the water floor (D300) is not met: ${thirsty.join(", ")}`);
   console.log(
     `${chosen.length} places (${chosen.filter((c) => c.status === "kept").length} kept, ${chosen.filter((c) => c.status === "replaced").length} replaced, ${chosen.filter((c) => c.status === "added").length} added; ${dropped.length} dropped) in ${Math.round((performance.now() - t0) / 1000)} s, ${ran} conversions run. ` +
       `By family: ${Object.keys(FAMILIES).map((f) => `${f} ${fam(f)}`).join(", ")}. Sizes: ${[96, 128, 256].map((s) => `${s}² ${chosen.filter((c) => c.row.size === s).length}`).join(", ")}.`,

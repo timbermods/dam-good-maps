@@ -22,7 +22,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";
 import { writeTimber } from "../src/core/format/timber";
-import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, placeNotes, placeProblems, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, placeNotes, placeProblems, springNotes, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { placeView, type PlaceView } from "../src/core/places/view";
 import { validateMap } from "../src/core/validate/checks";
 import { defaultThreads, runPool, serve } from "./places/pool";
@@ -66,7 +66,7 @@ serve<string, Built>(
       const advisories = strict.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
       const grown = built.floorWood?.groves ?? [];
       const floorTrees = grown.length ? { trees: grown.reduce((n, g) => n + g.trees, 0), dead: grown.reduce((n, g) => n + g.dead, 0) } : undefined;
-      return { id: p.id, bytes: writeTimber(built.file), view: placeView(built.heights, p.W, p.H), failing, shortOf, notes: placeNotes(strict.report.checks), ...(floorTrees ? { floorTrees } : {}), advisories, ms: performance.now() - t };
+      return { id: p.id, bytes: writeTimber(built.file), view: placeView(built.heights, p.W, p.H), failing, shortOf, notes: [...springNotes(p), ...placeNotes(strict.report.checks)], ...(floorTrees ? { floorTrees } : {}), advisories, ms: performance.now() - t };
     } catch (e) {
       return { id: p.id, failing: [String(e instanceof Error ? e.message : e)], shortOf: [], notes: [], advisories: [], ms: performance.now() - t };
     }
