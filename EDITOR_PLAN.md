@@ -147,7 +147,7 @@ editor is desktop-first (D185).
   **Size** (following Power, or set: D226); **Steep** or **Terraced** walls; **Centre** (Auto, Bowl,
   Peak, Ring, Flat); **Light** or **Heavy debris**, with or without **Rays**; **Try another**. A small
   cursor under the pointer, and Aim's thin arrow while dragging (D258). The impact moment: a streak falls, a flash, a shock
-  ring, dust and thrown blocks, a short shake, the bowl opening at once and the debris landing ring
+  ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, lying away from the
   blow). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
   aimed, the start's ground too (D257), and never adds water; one undo step, and Esc reverts. Built from
@@ -160,7 +160,7 @@ editor is desktop-first (D185).
   painted (D258: the stroke is the gesture). Lift shows its whole result as it is painted (the ground reacts behind
   the pointer) and is kept when let go; Slide shows the fault while it is painted, then its block
   slides along it tile by tile, 3 to 20 tiles, and a river that crossed the fault is joined again
-  along it. A crack runs along the fault, dust rises at its head and the view shakes a little.
+  along it. A crack runs along the fault and dust rises at its head (the view stays still, D265).
   Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall; a fault
   runs wherever it is painted, through the start too (D257: the start is carried to level ground when
   its own breaks); it never adds water; one undo step, and Esc reverts. Built from
@@ -252,7 +252,7 @@ Make a valley, drop a source, and there's a river.
   receding live.
 - **Unleash, on a source** (D239): select a placed water or badwater source and a small **Unleash** action sits beside it,
   next to its strength, with a quick **Power** (or press U). Clicked, the source's own water carves its course downhill
-  with Carve's engine (momentum, wander, waterfalls, the carving moment, the follow camera's effects); where it stands in
+  with Carve's engine (momentum, wander, waterfalls, the carving moment and its effects; the camera stays where the player left it, D265); where it stands in
   a pool or a lake (water half a level deep or more round it) it breaks out where the water would spill over, the lowest
   point of its rim (an outlet it already has, or its lowest bank), like a lake breaching, and carves on. Pressed and
   dragged out onto the land, it aims that way (only a thin arrow from the source to the pointer, D258; aimed from a pool, it breaks out
@@ -310,8 +310,8 @@ Make a valley, drop a source, and there's a river.
     source at the origin whose strength follows the river's Width, not its Power, so a slot canyon
     keeps a modest stream and a wide river a big one; Dry canyon leaves no source. The source is
     editable afterwards like any other;
-  - an optional camera that follows the river's head, with the visible carving effects (a surging
-    head, crumbling blocks, dust, muddy water);
+  - the visible carving effects (a surging head, crumbling blocks, dust, muddy water), the camera
+    staying where the player left it (D265: no Follow);
   - Space pauses it; **Stop** keeps what's carved; Esc or Ctrl+Z (or undo) reverts the whole carve
     instantly.
 
@@ -743,8 +743,8 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for
     under a second; a placed object's pop and wiggle scales its own instance; a force's moment
     (`forces.ts`: an impact's streak, flash, ring, dust and blocks; a fault's crack and dust; an
-    eruption's plume and its heat on the terrain shader; a render-only shake, added before a frame and
-    taken off after) plays on its own clock from fixed pools. None of them play with reduced motion or
+    eruption's plume and its heat on the terrain shader; no camera shake, D265) plays on its own clock
+    from fixed pools, at the force's own pace whatever the water's speed (D266). None of them play with reduced motion or
     in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
     `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 818,400 bytes, in

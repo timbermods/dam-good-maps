@@ -1466,8 +1466,7 @@ export class MapRenderer {
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
-    // a force's heat on the ground, and its render-only shake (added before the frame, taken off
-    // after, so the camera never drifts)
+    // a force's heat on the ground (the camera never shakes, D265)
     const fx = this.forceFx;
     const heat = fx && !this.reducedMotion ? fx.heat(t0) : null;
     const u = this.terrainMat.uniforms;
@@ -1476,12 +1475,9 @@ export class MapRenderer {
       u.coolingAge.value = heat ? heat.cooling : 0;
     }
     const cam = this.camera();
-    const shake = fx && this.motion ? fx.shakeOffset(t0) : null;
-    if (shake) cam.position.set(cam.position.x + shake[0], cam.position.y + shake[1], cam.position.z + shake[2]);
     const q = this.beginGpuTimer();
     this.gl.render(this.scene, cam);
     this.endGpuTimer(q);
-    if (shake) cam.position.set(cam.position.x - shake[0], cam.position.y - shake[1], cam.position.z - shake[2]);
     if (this.recording) this.cpuTimes.push(performance.now() - t0);
     // tell the page only when the view moved (the water's frames do not)
     const v = this.view;

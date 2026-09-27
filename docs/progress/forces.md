@@ -1,21 +1,22 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
-> last at 052aa69 (D252-D260). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> last at 1491523 (D261-D266). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):
 >
 > 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
 >    (5fbf586; run 36298701656 green). Its hover words go with D258 (below).
 > 2. **D249, brushes and sources: done** (the section below; captures linked there).
 > 3. **D257/D258: done** (the section below; `dev` merged at 052aa69 first).
-> 4. **D259 with the working area (D254), and D261** (next): Select's own button; Circle and Brush
->    shapes; Same level becomes Wand (a click on water selects that river's or lake's visible water);
->    Set level to the ceiling constant and Ctrl+click's level; Ctrl+drag with a brush out selects and
->    the brush keeps painting inside; one row at a time (a chip); every tool works only inside the
->    selection, feathered, locked land as unbreakable rock to the forces, water never locked.
-> 5. **D260**: water no source feeds recedes at once (stored lakes excepted), a removed source's
->    marker goes at once; the before/after table here.
-> 6. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
+> 5. **D260** (next): water no source feeds recedes at once (stored lakes excepted), a removed source's
+>    marker goes at once; the before/after table here. Then message the coordinator the sha.
+> 6. **D259 with the working area (D254), D261 Wand, D264**: work in progress in `git stash`
+>    ("d259-wip": the brush's `area`, the forces' feathered working area, the new Select tool with
+>    Circle, Brush and Wand, its button and chip, Ctrl+A, Set level's Set / Cut down / Fill up, Max
+>    water depth, `applySelection`); tests and docs still to write. Then **D263** (smart Lower's
+>    depth from strokes).
+> 7. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
 > Checked at D249's end: see its section. Parked: decisions-pending #84 (Ramped laying its own
 > slopes); Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's
@@ -26,6 +27,31 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## The camera still, the forces at their own pace (D265, D266)
+
+- **The camera moves only when the player moves it (D265).** Gone: the water bar's **Follow** (and
+  the camera drifting to where the water rose most), Carve's **Follow** toggle (and the force
+  driver's follow of a carve's head, which Unleash on a source had too; saved rows with it on are
+  ignored: the field is gone), and the camera shake an impact, a quake and a rising volcano gave the
+  view. The effects on the land (dust, flashes, the plume, the glow) play as before. What moves the
+  camera now is the player: dragging, the keys, the wheel, the minimap, a bookmark, Reset view, a
+  problem's "Show", and a new map framing itself.
+- **The forces keep their own pace (D266).** The force driver no longer reads the water's speed: every
+  force plays a step a call at its tuned pace (a carve at twenty steps a second, an eruption's 28
+  stages over about four seconds, as at the normal speed before); Esc and undo still take it back at
+  once. The Speed control stays on the water bar for the water (the weather branch moves it).
+
+Tests: `forces.spec` (the forces with motion welcome leave the view exactly where it was, frame by
+frame; no Follow on the water bar or Carve's row, and a running carve never moves the view; a
+Craterize takes the same time at Slower and Instant), `forceDriver.test` (a force's pace, its
+eruption's four seconds). **Changed to the decisions (D148):** `forceDriver.test`'s "paces by the
+water's speed" checks the one pace; its "ending by itself keeps it" expected the step Instant's
+ten-step calls reached (30), now the step it ended on (25); the reduced-motion test's name keeps
+"no camera moving", now checked with motion welcome too.
+
+For Kyler's forces sitting: no camera moves by itself anywhere (no Follow, no shake); a force looks
+the same at every water speed.
 
 ## The forces bound only by nature, with clean gestures (D257, D258)
 

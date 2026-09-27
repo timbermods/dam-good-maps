@@ -2,8 +2,8 @@
 // spot; Aim: its start, then where it ends), then Power (a creek to a catastrophe), Width and Depth
 // (each following Power, or set by hand: a slot canyon, a wide lazy river, a wide shallow one at high
 // Power), Wander (straight to winding), Walls
-// (steep or wide), Keep river or Dry canyon, Defy gravity (aimed, to cut uphill), Follow (the
-// camera after its head), and Try another path once a carve is kept. While it runs, the row is its
+// (steep or wide), Keep river or Dry canyon, Defy gravity (aimed, to cut uphill), and Try another
+// path once a carve is kept (no Follow: the camera moves only when the player moves it, D265). While it runs, the row is its
 // controls: Pause, Stop (keep what's carved) and Revert (Esc). Built from the shared bar styles
 // (D176).
 
@@ -27,10 +27,9 @@ export interface CarveUi {
   dry: boolean;
   defyGravity: boolean;
   /** The camera follows its head. */
-  follow: boolean;
 }
 
-export const DEFAULT_CARVE: CarveUi = { mode: "unleash", power: 65, width: null, depth: null, wander: 35, walls: "steep", dry: false, defyGravity: false, follow: false };
+export const DEFAULT_CARVE: CarveUi = { mode: "unleash", power: 65, width: null, depth: null, wander: 35, walls: "steep", dry: false, defyGravity: false };
 
 /** The run's settings for a new carve (a new series: seed 0; the rock's layers always on). */
 export function carveSettingsOf(u: CarveUi): CarveSettings {
@@ -127,7 +126,6 @@ export function CarveRow(p: CarveRowProps) {
         </button>
       </div>
       {u.mode === "aim" ? <Toggle label="Defy gravity" title="Cut through to an end point uphill, on a floor that never rises" on={u.defyGravity} onChange={(defyGravity) => set({ defyGravity })} /> : null}
-      <Toggle label="Follow" title="The camera follows the river's head" on={u.follow} onChange={(follow) => set({ follow })} />
       {p.canAgain ? (
         <button type="button" onClick={p.onAgain} title="The same carve from the same land, another way (it replaces the last one)">
           Try another path

@@ -230,9 +230,6 @@ export default function Editor(props: EditorProps) {
   /** Feedback for an action at tile (x, y). */
   const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false, what?: string) => juice.current?.play(kind, x, y, size, soft, what);
   const [, setPlayerTick] = useState(0);
-  const [follow, setFollow] = useState(false);
-  const followRef = useRef(follow);
-  followRef.current = follow;
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
@@ -240,8 +237,6 @@ export default function Editor(props: EditorProps) {
     weatherRef.current = on;
     setWeatherState(on);
   };
-  /** Where the water stood in the frame shown before (the camera follows where it rises most). */
-  const lastDepth = useRef<Float32Array | null>(null);
   player.current ??= new WaterPlayer({
     show: (f) => showWater(f.water),
     changed: () => {
@@ -343,8 +338,8 @@ export default function Editor(props: EditorProps) {
     return next;
   }
 
-  /** Put water on the map (a frame of its journey, a draft's): the renderer, the page's copy, and
-   *  with Follow on, the camera drifting to where the water rises most. */
+  /** Put water on the map (a frame of its journey, a draft's): the renderer and the page's copy (the
+   *  camera stays where the player left it, D265). */
   function showWater(w: WaterView) {
     const r = renderer.current;
     r?.updateWater(w);
@@ -352,26 +347,6 @@ export default function Editor(props: EditorProps) {
     const H = infoRef.current.H;
     mirror.current.water = r?.mapState()?.surface ?? surfaceWater(W, H, w);
     mirror.current.waterView = w;
-    const depth = new Float32Array(W * H);
-    for (let k = 0; k < w.count; k++) depth[w.tile[k]] = Math.max(depth[w.tile[k]], w.depth[k]);
-    const before = lastDepth.current;
-    lastDepth.current = depth;
-    if (!followRef.current || !r || !before || before.length !== depth.length) return;
-    let sx = 0;
-    let sy = 0;
-    let n = 0;
-    for (let i = 0; i < depth.length; i++) {
-      const rise = depth[i] - before[i];
-      if (rise < 0.05) continue;
-      sx += (i % W) * rise;
-      sy += Math.floor(i / W) * rise;
-      n += rise;
-    }
-    if (n < 0.5) return;
-    const v = r.getView();
-    const tx = sx / n + 0.5;
-    const tz = -(sy / n + 0.5);
-    r.setView({ target: [v.target[0] + (tx - v.target[0]) * 0.15, v.target[1], v.target[2] + (tz - v.target[2]) * 0.15] });
   }
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
@@ -1566,8 +1541,6 @@ export default function Editor(props: EditorProps) {
     keep: () => forceCalls.current!.keep(),
     drop: () => forceCalls.current!.drop(),
     renderer: () => renderer.current,
-    speed: () => player.current?.speedName ?? "normal",
-    follow: () => carveUiRef.current.follow,
     show: (f) => forceCalls.current!.show(f),
     changed: () => setForceTick((n) => n + 1),
     error: (text) => setMessage({ kind: "error", text: plain(text) }),
@@ -3108,7 +3081,7 @@ export default function Editor(props: EditorProps) {
               loading={!ready}
               selectRow={selectRow()}
             />
-            {player.current ? <WaterBar player={player.current} follow={follow} onFollow={setFollow} weather={weather} onWeather={toggleWeather} /> : null}
+            {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
             {sourceMarkers()}
             {startHintTag()}
             {minimap ? (

@@ -4,8 +4,9 @@
 // racing along it with dust at its head; a volcano's plume of soft rolling puffs, bigger and darker
 // the more powerful the eruption (D216), the lava's glow on the ground, cooling to a crust. Fixed
 // pools, no allocation in the frame loop; each plays on its own clock and leaves when it is done.
-// A render-only camera shake goes with the impact and the quake. None of them plays with reduced
-// motion or in software rendering (the renderer decides); the land's result never depends on them.
+// The camera never shakes or moves with them (D265: it moves only when the player moves it). None
+// of them plays with reduced motion or in software rendering (the renderer decides); the land's
+// result never depends on them.
 // A carve's surge is its own (effects.ts `Surge`).
 
 import {
@@ -380,16 +381,13 @@ class Plume {
 }
 
 /** The forces' moments together, on the renderer's scene. The renderer asks each frame for the
- *  eruption's heat (the terrain shader's) and the camera's shake. */
+ *  eruption's heat (the terrain shader's). */
 export class ForceEffects {
   private impact = new Impact();
   private rupture = new Rupture();
   private plume = new Plume();
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
-  /** The camera's shake, in world units, and until when. */
-  private shakeAmp = 0;
-  private shakeUntil = 0;
 
   constructor(
     private readonly scene: Scene,
@@ -404,17 +402,12 @@ export class ForceEffects {
     const now = performance.now();
     if (m.verb === "craterize") {
       if (this.verb !== "craterize" || !this.impact.active) this.impact.begin(m, now);
-      if (m.phase === "impact" || m.phase === "done") {
-        if (this.impact.struck === null) this.shake(Math.min(1.6, 0.25 + (m.crater?.radius ?? 10) * 0.02 + m.power * 0.006), 520);
-        this.impact.strike(now);
-      }
+      if (m.phase === "impact" || m.phase === "done") this.impact.strike(now);
     } else if (m.verb === "quake") {
       this.rupture.set(m, this.ground, now);
-      if (m.phase !== "done") this.shake(0.12 + m.power * 0.004, 220);
     } else if (m.verb === "erupt") {
       if (this.verb !== "erupt" || !this.plume.active) this.plume.begin(m, now);
       if (m.phase === "done") this.plume.finish(now);
-      else if (m.phase === "rise") this.shake(0.06 + m.power * 0.002, 180);
     }
     this.verb = m.verb;
     this.kick();
@@ -435,25 +428,7 @@ export class ForceEffects {
     this.rupture.clear();
     this.plume.clear();
     this.verb = null;
-    this.shakeAmp = 0;
     this.render();
-  }
-
-  /** A short render-only shake of the camera, `amp` world units for `ms`. */
-  shake(amp: number, ms: number): void {
-    const now = performance.now();
-    this.shakeAmp = Math.max(this.shakeUntil > now ? this.shakeAmp : 0, amp);
-    this.shakeUntil = Math.max(this.shakeUntil, now + ms);
-    this.kick();
-  }
-
-  /** The camera's offset now (render-only: added before the frame, taken off after). */
-  shakeOffset(now: number): [number, number, number] {
-    if (now >= this.shakeUntil || !this.shakeAmp) return [0, 0, 0];
-    const left = (this.shakeUntil - now) / 400;
-    const a = this.shakeAmp * Math.min(1, left);
-    const t = now / 1000;
-    return [Math.sin(t * 45) * a, Math.cos(t * 61) * a * 0.6, Math.sin(t * 53 + 1.3) * a];
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null. */
@@ -462,7 +437,7 @@ export class ForceEffects {
   }
 
   get active(): boolean {
-    return this.impact.active || this.rupture.active || this.plume.active || performance.now() < this.shakeUntil;
+    return this.impact.active || this.rupture.active || this.plume.active;
   }
 
   private kick(): void {

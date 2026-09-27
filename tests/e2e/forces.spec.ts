@@ -340,11 +340,64 @@ test("the forces with reduced motion: the same land, no camera moving", async ({
   expect((await labels(page)).at(-1)).toBe("Craterize");
   expect(await view()).toEqual(v0);
   const reduced = await heights(page);
-  // the same impact with motion welcome: the same land (the effects never change the result)
+  // the same impact with motion welcome: the same land (the effects never change the result), and
+  // the camera still never moves by itself: no shake, no follow (D265)
   await page.keyboard.press("Control+z");
   await idle(page);
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  const views = new Set<string>();
   await clickTile(page, far[0], far[1]);
+  for (let k = 0; k < 40 && (await status(page)); k++) {
+    views.add(JSON.stringify(await view()));
+    await page.waitForTimeout(40);
+  }
   await settled(page);
+  views.add(JSON.stringify(await view()));
+  expect([...views]).toEqual([JSON.stringify(v0)]);
   expect(await heights(page)).toEqual(reduced);
+});
+
+test("the camera moves only when the player moves it (D265): no Follow anywhere, and a carve leaves the view where it was", async ({ page }) => {
+  await refine(page);
+  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("button", { name: "Follow" })).toHaveCount(0);
+  await page.keyboard.press("7");
+  const row = page.getByRole("group", { name: "Carve options" });
+  await expect(row.getByLabel("Follow", { exact: true })).toHaveCount(0);
+  await row.getByRole("slider", { name: "Power" }).fill("50");
+  const { far } = await places(page);
+  const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
+  const v0 = await view();
+  await clickTile(page, far[0], far[1]);
+  const views = new Set<string>();
+  for (let k = 0; k < 60 && (await status(page)); k++) {
+    views.add(await view());
+    await page.waitForTimeout(50);
+  }
+  if (await status(page)) await page.getByRole("group", { name: "Carve at work" }).getByRole("button", { name: "Stop" }).click().catch(() => undefined);
+  await settled(page);
+  views.add(await view());
+  expect([...views]).toEqual([v0]);
+});
+
+test("a force keeps its own pace whatever the water's speed (D266)", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("8");
+  await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
+  const { far } = await places(page);
+  const timed = async (speed: string) => {
+    await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
+    const t0 = Date.now();
+    await clickTile(page, far[0], far[1]);
+    await expect.poll(() => status(page), { timeout: 30_000, intervals: [20] }).toBeNull();
+    const ms = Date.now() - t0;
+    await idle(page);
+    await page.keyboard.press("Control+z");
+    await idle(page);
+    return ms;
+  };
+  const slow = await timed("slower");
+  const quick = await timed("instant");
+  // the same moment either way (the water's speed is about the water only)
+  expect(quick / slow).toBeGreaterThan(0.6);
+  expect(quick / slow).toBeLessThan(1.6);
 });

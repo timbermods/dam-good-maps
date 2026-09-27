@@ -5,10 +5,9 @@
 // is kept when the pointer lets go.
 
 import { describe, expect, it } from "vitest";
-import { CARVE_PACE, ForceDriver, forcePowerWord, powerWord, type ForceHost } from "../../src/editor/forceDriver";
+import { CARVE_PACE, ForceDriver, forcePowerWord, paceOf, powerWord, type ForceHost } from "../../src/editor/forceDriver";
 import type { Verb } from "../../src/core/forces/op";
 import type { ForceFrame, ForceStarted } from "../../src/worker/session";
-import type { WaterSpeed } from "../../src/editor/waterPlayer";
 
 const head = { x: 5, y: 5, z: 3, dx: 1, dy: 0, width: 4, event: "surge" as const, cut: 3 };
 
@@ -18,7 +17,6 @@ function fakeHost(opts: { endAt?: number; refuse?: string; verb?: Verb; paintMs?
   const shown: number[] = [];
   const moments: string[] = [];
   const painted: number[] = [];
-  const speed: WaterSpeed = "instant";
   const verb = opts.verb ?? "carve";
   const frame = (): ForceFrame => ({
     verb,
@@ -47,8 +45,6 @@ function fakeHost(opts: { endAt?: number; refuse?: string; verb?: Verb; paintMs?
     keep: async () => void log.push(`keep@${steps}`),
     drop: async () => void log.push(`drop@${steps}`),
     renderer: () => null,
-    speed: () => speed,
-    follow: () => false,
     show: (f) => void shown.push(f.steps),
     changed: () => undefined,
     error: (t) => void log.push(`error:${t}`),
@@ -104,7 +100,8 @@ describe("the force driver", () => {
     const d = new ForceDriver(h.host);
     await d.start();
     await until(() => !d.running);
-    expect(h.log.filter((l) => l.startsWith("keep@")).at(-1)).toBe("keep@30");
+    // (a step a call at the force's own pace, D266: kept at the step it ended on)
+    expect(h.log.filter((l) => l.startsWith("keep@")).at(-1)).toBe("keep@25");
     await d.start(true);
     expect(d.status!.seed).toBe(1);
     d.cancel();
@@ -146,10 +143,12 @@ describe("the force driver", () => {
     expect(h.log).toContain("error:Start here");
   });
 
-  it("paces by the water's speed: ten steps a second at its slowest", () => {
-    expect((CARVE_PACE.slower.steps * 1000) / CARVE_PACE.slower.ms).toBe(10);
-    expect((CARVE_PACE.normal.steps * 1000) / CARVE_PACE.normal.ms).toBeGreaterThan(10);
-    expect(CARVE_PACE.instant.steps).toBeGreaterThan(CARVE_PACE.faster.steps);
+  it("keeps a force's own pace whatever the water's speed (D266): a carve at twice its ten steps a second, an eruption over about four seconds", () => {
+    expect((CARVE_PACE.steps * 1000) / CARVE_PACE.ms).toBe(20);
+    expect(paceOf("craterize")).toEqual(CARVE_PACE);
+    expect(paceOf("quake")).toEqual(CARVE_PACE);
+    // (an eruption's 28 stages over about four seconds)
+    expect((28 * paceOf("erupt").ms) / 1000).toBeCloseTo(3.9, 1);
     expect([0, 30, 60, 90].map(powerWord)).toEqual(["Creek", "Torrent", "River", "Catastrophe"]);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("craterize", p))).toEqual(["Pebble", "Meteor", "Asteroid", "Cataclysm"]);
   });
