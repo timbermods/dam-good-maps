@@ -1,19 +1,23 @@
-// Juice (PLAN §20 D205 (2), D212, D220): small, satisfying feedback on every action, like Townscaper's
-// and Dorfromantik's. The land's part is the renderer's (render3d/effects.ts, render3d/forces.ts): a
-// puff of dust when ground is lowered, rings when a source starts, a pop and a wiggle when something
-// is placed, the forces' moments; it leaves out with reduced motion. The sound's part is one engine
-// for the editor's lifetime (juice/engine.ts, Codex's synthesised sounds, #58): earth lifting or
-// crumbling under a brush for as long as the stroke lasts, a wooden pop for a tree, a gurgle for a
-// source, a poof for Remove, a soft rewind for undo, and each force's own (a torrent for Carve, a
-// whistle and an impact for Craterize, a rumble and a crack for Quake, grinding for its Slide, a
-// rumble, a rising plume and a cooling hiss for Erupt). On by default at a clearly audible level
-// (D226: louder than the first, quiet default), limited and never harsh, with a volume and an off
-// switch the player keeps; water ambience is off unless turned on. Nothing waits on any of it.
+// Juice (PLAN §20 D205 (2), D212, D220, D226): small, satisfying feedback on every action, like
+// Townscaper's and Dorfromantik's. The land's part is the renderer's (render3d/effects.ts,
+// render3d/forces.ts): a puff of dust when ground is lowered, rings when a source starts, a pop and
+// a wiggle when something is placed, the forces' moments; it leaves out with reduced motion. The
+// sound's part is one engine for the editor's lifetime (juice/engine.ts: Codex's second round, #64,
+// recorded CC0 foley with a crisp, musical reward): a brush's recorded bed for as long as its stroke
+// changes the land (packed earth, loose stone, a mineral scrape, leaves), an accent for each thing
+// placed by its material (hollow wood for a tree, damped metal for a ruin, a splash for a source),
+// an earth puff for Remove, a reversed wooden catch for undo, and each force's own, phase by phase
+// (a torrent for Carve; a breath, a crack, a boom and falling stone for Craterize; a fault's crack and
+// grind for Quake; pressure, a roaring plume and a cooling hiss for Erupt). Repeats climb a small
+// musical ladder and reset after a pause. On by default at the mix's own clearly audible level
+// (D226), limited and never harsh, with a volume and an off switch the player keeps; water ambience
+// is off unless turned on. Nothing waits on any of it: the bank loads on the first click or key.
 
 import type { MapRenderer } from "../render3d";
 import type { ForceCue } from "../core/forces/runs";
 import { JuiceEngine } from "./juice/engine";
-import type { SoundParams } from "./juice/synth";
+import type { SoundParams } from "./juice/palette";
+import { DEFAULTS as MIX_DEFAULTS } from "./juice/palette";
 
 export type JuiceKind = "raise" | "lower" | "shape" | "place" | "source" | "remove";
 
@@ -29,27 +33,19 @@ export interface SoundSettings {
 }
 
 const SOUND_KEY = "dgm.sound";
-/** The saved volume's scale: 2 since D226 (the volume is the engine's level); a choice saved before
- *  had the engine at 0.44 of it. */
-const SOUND_SCALE = 2;
-/** The volume before D226's (the player never moved it). */
-const OLD_DEFAULT_VOLUME = 0.5;
-/** On, at 0.7 of the engine's range (D226): about ten decibels over the first default (0.22), heard
- *  as roughly twice as loud, and clear on a laptop's speakers; the synthesiser's own limiter keeps
- *  every sound below full scale, soft at the top. */
-export const DEFAULT_SOUND: SoundSettings = { on: true, volume: 0.7, ambience: false };
+/** On, at the round-two mix's own clearly audible level (0.72: its everyday actions near −23 dBFS,
+ *  its forces near −16.5; D226), water ambience off. */
+export const DEFAULT_SOUND: SoundSettings = { on: MIX_DEFAULTS.enabled, volume: MIX_DEFAULTS.volume, ambience: MIX_DEFAULTS.ambience };
 
 const unit = (v: number) => Math.max(0, Math.min(1, v));
 
+/** The player's choice as saved (on or off, the volume), kept as it is; a fresh player gets the
+ *  default. */
 export function loadSound(): SoundSettings {
   try {
-    const s = JSON.parse(localStorage.getItem(SOUND_KEY) ?? "null") as (Partial<SoundSettings> & { scale?: number }) | null;
+    const s = JSON.parse(localStorage.getItem(SOUND_KEY) ?? "null") as Partial<SoundSettings> | null;
     if (!s) return DEFAULT_SOUND;
-    let volume = typeof s.volume === "number" && Number.isFinite(s.volume) ? unit(s.volume) : DEFAULT_SOUND.volume;
-    // saved before D226: a volume the player set keeps its loudness on the new scale; the first
-    // default (never moved) becomes the new one; off stays off
-    if (s.scale !== SOUND_SCALE) volume = volume === OLD_DEFAULT_VOLUME ? DEFAULT_SOUND.volume : Math.round(volume * 0.44 * 100) / 100;
-    return { on: s.on !== false, volume, ambience: s.ambience === true };
+    return { on: s.on !== false, volume: typeof s.volume === "number" && Number.isFinite(s.volume) ? unit(s.volume) : DEFAULT_SOUND.volume, ambience: s.ambience === true };
   } catch {
     return DEFAULT_SOUND;
   }
@@ -57,20 +53,24 @@ export function loadSound(): SoundSettings {
 
 export function saveSound(s: SoundSettings): void {
   try {
-    localStorage.setItem(SOUND_KEY, JSON.stringify({ ...s, scale: SOUND_SCALE }));
+    localStorage.setItem(SOUND_KEY, JSON.stringify(s));
   } catch {
     // kept for this visit only
   }
 }
 
-/** The engine's master volume for the player's (the same, 0–1, since D226). */
+/** The engine's master volume for the player's (the same, 0–1). */
 export const engineVolume = (volume: number) => unit(volume);
+
+/** A sound's distance for the engine (0–8) from where it is in the view (0–1: on screen, near;
+ *  far off it, 1): what is being edited plays at its full level at any zoom. */
+export const engineDistance = (view: number) => unit(view) * 3;
 
 /** A sound's size from a thing's width in tiles. */
 export const soundSize = (tiles: number) => Math.max(0, Math.min(1, Math.log2(1 + Math.max(0, tiles)) / 6));
 
 /** An accent of the same kind no sooner than this after the last one (ms). */
-const GAP: Record<JuiceKind, number> = { raise: 140, lower: 160, shape: 220, place: 60, source: 200, remove: 80 };
+const GAP: Record<JuiceKind, number> = { raise: 140, lower: 160, shape: 220, place: 120, source: 200, remove: 80 };
 
 /** The accent for a placed object. */
 export function placeSound(template: string | undefined): "tree" | "berry" | "ruin" | "mine" | "start" {
@@ -128,9 +128,10 @@ export class Juice {
     this.engine.setSettings({ enabled: s.on, volume: engineVolume(s.volume), ambience: s.ambience === true });
   }
 
-  /** Where tile (x, y) is from the camera, for a sound's distance and pan. */
+  /** Where tile (x, y) is in the view, for a sound's distance and pan. */
   private place(x: number, y: number): Partial<SoundParams> {
-    return this.renderer()?.soundPlace?.(x, y) ?? {};
+    const at = this.renderer()?.soundPlace?.(x, y);
+    return at ? { distance: engineDistance(at.distance), pan: at.pan } : {};
   }
 
   /** Feedback for an action at tile (x, y), `size` tiles across: its sound and its effect on the
@@ -158,8 +159,10 @@ export class Juice {
   /** A brush stroke's texture: from its first change of the land, for as long as it paints
    *  (`strength` 0–1). */
   strokeSound(sound: StrokeSound, x: number, y: number, size: number, strength = 0.4): void {
-    const p = { ...this.place(x, y), size: soundSize(size), strength, activity: 1 };
-    if (this.stroke === null) this.stroke = this.engine.start(sound, p, "stroke");
+    // (a grove or a patch painted: a quiet leaf bed while it paints, its accents one a batch)
+    const foliage = sound === "tree" || sound === "berry";
+    const p = { ...this.place(x, y), size: soundSize(size), strength: foliage ? 0.3 : strength, activity: 1 };
+    if (this.stroke === null) this.stroke = this.engine.start(foliage ? "naturalize" : sound, p, "stroke");
     else this.engine.update(this.stroke, p);
   }
 
@@ -169,8 +172,9 @@ export class Juice {
     this.stroke = null;
   }
 
-  /** Undo: a soft rewind (once, after the undo happened). */
+  /** Undo: a soft rewind (once, after the undo happened; a stroke's bed stops first). */
   undo(): void {
+    this.strokeEnd();
     this.engine.play("undo", { size: 0.3, strength: 0.4 });
   }
 
@@ -204,17 +208,28 @@ export class Juice {
         break;
       }
       case "craterize":
+        // the breath as it falls, the crack and the boom as it strikes, the stone as the debris lands
         once("incoming", () => this.engine.play("craterize", p, { id, phase: "incoming" }));
         if (cue.phase === "impact" || cue.phase === "done") once("impact", () => this.engine.play("craterize", p, { id, phase: "impact" }));
+        if ((cue.phase === "impact" && cue.progress >= 0.25) || cue.phase === "done") once("debris", () => this.engine.play("craterize", p, { id, phase: "debris" }));
         break;
       case "quake":
+        // a low bed while the fault is drawn and moves; the crack once as it opens; a Slide's grind
         if (cue.phase !== "done") hold("quake", "rumble", p);
         if (cue.phase === "crack" || cue.phase === "slide") once("crack", () => this.engine.play("quake", p, { id, phase: "crack" }));
-        if (cue.phase === "slide") hold("slide", "grind", { ...p, activity: 1 });
+        if (cue.phase === "slide") {
+          once("slide", () => this.engine.play("slide", p, { id: `${id}-slide` }));
+          hold("slide", "grind", { ...p, activity: 1 });
+        }
         break;
       case "erupt":
-        if (cue.phase !== "done") hold("erupt", "rumble", p);
-        if (cue.phase === "rise") once("plume", () => this.engine.play("erupt", p, { id, phase: "plume" }));
+        // pressure as the ground stirs; the plume as it rises, its roar held while the volcano
+        // swells, released for the cooling hiss when it is kept
+        once("rumble", () => this.engine.play("erupt", p, { id, phase: "rumble" }));
+        if (cue.phase === "rise") {
+          once("plume", () => this.engine.play("erupt", p, { id, phase: "plume" }));
+          hold("erupt", "plume", { ...p, activity: 0.55 + 0.45 * cue.progress });
+        }
         break;
     }
   }
@@ -226,8 +241,10 @@ export class Juice {
     this.force = null;
     if (!f) return;
     for (const k of f.ids) this.engine.stop(k);
-    if (!kept) this.engine.stop(`force-${f.run}`);
-    else if (f.verb === "erupt" && last) this.engine.play("erupt", { ...this.place(last.x, last.y), size: soundSize(last.size), strength: 0.3 + (0.7 * last.power) / 100 }, { id: `force-${f.run}-cool`, phase: "cool" });
+    if (!kept) {
+      this.engine.stop(`force-${f.run}`);
+      this.engine.stop(`force-${f.run}-slide`);
+    } else if (f.verb === "erupt" && last) this.engine.play("erupt", { ...this.place(last.x, last.y), size: soundSize(last.size), strength: 0.3 + (0.7 * last.power) / 100 }, { id: `force-${f.run}`, phase: "cool" });
   }
 
   dispose(): void {

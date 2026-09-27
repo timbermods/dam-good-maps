@@ -222,6 +222,8 @@ export const FLANK_ROOM = 4;
 export const NO_ROOM_REASON = "No room to rise here";
 /** How much broader it grows, at most, when it has to be lower (while Size follows Power). */
 const BROADEN_MAX = 1.6;
+/** A low volcano's peak stays a peak: its top level at most this far from its summit (tiles). */
+const SUMMIT_TOP = 3;
 
 /** The most the prototype's volcano rises above its datum on level ground (levels), whatever its
  *  flows do: its cone or rim, its apron, its ridges at their strongest. A bound, worked out along
@@ -392,12 +394,25 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; max
     if (fits(m, s, a, kept)) return a;
     room = ceiling - a.datum;
   }
-  const k = Math.min(1, room / riseBound(s, a));
+  let k = Math.min(1, room / riseBound(s, a));
   if (k >= 1) return a;
+  // with much less than its rise, Auto's summit is a peak (a crater or a caldera pressed into a few
+  // levels reads as a flat top); a summit picked by hand stays as it is
+  if (s.summit === "auto" && a.summit !== "peak" && k < 0.75) {
+    a.summit = "peak";
+    a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
+    k = Math.min(1, room / riseBound(s, a));
+  }
   a.scale = k;
   a.height *= k;
   if (s.size == null) {
-    a.radius *= Math.min(BROADEN_MAX, 1 / Math.sqrt(k));
+    let broad = Math.min(BROADEN_MAX, 1 / Math.sqrt(k));
+    // (never so broad that a low peak's top level spreads into a plateau)
+    if (a.summit === "peak") {
+      const top = 1 - (1 - 0.5 / Math.max(1, a.height)) ** (1 / (s.shape === "steep" ? 1.7 : 1.65));
+      broad = Math.max(1, Math.min(broad, SUMMIT_TOP / (a.radius * top)));
+    }
+    a.radius *= broad;
     a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
   }
   return a;
@@ -410,7 +425,8 @@ function fissureScale(a: EruptAnatomy, bound: number, local: number): number {
 }
 
 /** The ground the prototype raises at tile `i` (unrounded, before the ceiling), its rise scaled by
- *  `k` (1: the prototype's own, exactly). */
+ *  `k` (1: the prototype's own, exactly): a vent's apron and ridges (its cone's height is fitted in
+ *  its anatomy already), a fissure's whole rise at this point of its line. */
 function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: EruptAnatomy, flows: Float32Array, f: ReturnType<typeof eruptField>, i: number, h: number, k: number): number {
   const r = f.r;
   const local = m.heights[Math.round(f.cy) * m.W + Math.round(f.cx)];
@@ -423,7 +439,7 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
     profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
   }
   const shoulder = smooth((r - 0.48) / 0.7);
-  const cone = datum + (k === 1 ? a.height : a.height * k) * profile + (h - datum) * shoulder;
+  const cone = datum + (k === 1 || s.mode === "vent" ? a.height : a.height * k) * profile + (h - datum) * shoulder;
   const reach = s.flows === "heavy" ? 2.55 : 1.25;
   const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * k;
   const ridge = s.ridges
