@@ -7,7 +7,7 @@
 // and where.
 //
 //   npx tsx tools/start-sheet.ts [--themes any,riverValley,canyon,highlands] [--seeds 1-30] [--size 128]
-//                                [--difficulties normal,hard] [--out .scratch/sheets/start-areas.png] [--jobs 8]
+//                                [--difficulties normal,hard] [--out docs/sheets/m9a-start-areas.png] [--jobs 8]
 //
 // Each theme and difficulty is made in its own process (--part), several at a time.
 
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
   const [a, b] = arg("seeds", "1-30").split("-").map(Number);
   const seeds = Array.from({ length: (b ?? a) - a + 1 }, (_, k) => a + k);
   const size = Number(arg("size", "128"));
-  const out = arg("out", ".scratch/sheets/start-areas.png");
+  const out = arg("out", "docs/sheets/m9a-start-areas.png");
   const jobs = Number(arg("jobs", "8"));
   const tmp = resolve(".scratch", "start-sheet");
   mkdirSync(tmp, { recursive: true });
