@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D296), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D298), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your forty-five decisions since the restart are recorded (D252–D296, below) and in the living docs.
+Your forty-seven decisions since the restart are recorded (D252–D298, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -17,22 +17,11 @@ Your forty-five decisions since the restart are recorded (D252–D296, below) an
    9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
 2. **M9a: approved** (D294). Its probe batch runs when the machine is quiet, then `m9a-done` and the release. The review
    set's shortfalls are M9b's starting list; my read is on #56 and in the Progress log.
-3. **Two questions from the 3D engine** (`feature/terrain3d-a`; neither changes anything that runs today):
-   - **D295's line, one tile to read.** On 30 generated maps at 128², 29 have no tile changing wet/dry and volumes move 0.058% at
-     most. Highlands seed 3 has 94 such tiles (volume 0.016%); 93 have both depths inside 0.04–0.06. One tile, (105, 53), goes
-     from 0.000 today to 0.0512 under the game's rules. Does "within 0.01 of the wet line" mean the new depth (it passes) or both
-     depths (it fails by that tile)? My suggestion: the new depth, since the game's is the reference.
-   - **Soil: adopt the game's own soil rules?** A game-rule soil model now matches the 19 official maps' stored soil on
-     99.79–100% of slots, against 87–99.8% for today's. Today's leaks moisture through badwater: on generated maps (seeds 1–3)
-     it keeps 0–376 tiles a map moist that the game dries, and 114 of 36,453 plants on 18 maps stand on them, so the game would
-     dry them. Adopting it changes generated maps' stored soil and maybe where resources go. My suggestion: yes, as D293 did for
-     water, and in M9b (which changes generated maps anyway) rather than waiting for the 3D wiring, since it's a what-you-see
-     issue today.
-4. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+3. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+4. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+5. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
@@ -352,6 +341,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D298: the game's own soil rules adopted in M9b (with the Python moisture check); M9b reports plants moved or changed and generation times.
+- D297: D295's line reads on the new depth under the game's rules.
 - D296: the frame's touch-up to the High look is done in the design pass; the High look adoption changes no interface styling.
 - D295: thin-sheet flips are the game's result: a tile may change wet/dry only within 0.01 of the wet line, volume within 0.1%.
 - D294: yes to M9a (probe batch, then `m9a-done`); M9b starts from the review set's shortfalls; #90 accepted.
@@ -461,7 +452,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D296.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D298.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
