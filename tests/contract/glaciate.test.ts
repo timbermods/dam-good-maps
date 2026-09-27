@@ -20,6 +20,7 @@ import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
 import { makePlan } from "../../src/core/forces/glaciate/plan";
 import { floodAllowance } from "../../src/core/forces/glaciate/floor";
+import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
 import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
 import { modelOf } from "../../src/core/forces/runs";
 import { canonicalSettle } from "../../src/core/sim/prefill";
@@ -232,6 +233,72 @@ describe("Glaciate in the editor's worker", () => {
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     expect(ajv.compile(opsSchema)(op)).toBe(true);
     ed.undo();
+    ed.settleWater();
+  });
+});
+
+describe("Glaciate's details behind More, each on Auto until pinned (D309)", () => {
+  const W = 64;
+  const flat: ForceGround = { W, H: W, heights: new Uint8Array(W * W).fill(6), at: 32 * W + 32 };
+
+  it("nature draws only the details still on Auto, the same for the same place and seed, many across seeds; a pin stays", () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const g = glaciateNature({ ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS, seed }, flat);
+      expect(glaciateNature({ ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS, seed }, flat)).toEqual(g);
+      expect([g.power, g.size, g.meltwater, g.seed]).toEqual([GLACIATE_DEFAULTS.power, null, true, seed]);
+      seen.add(`${g.benches} ${g.steps} ${g.tarn} ${g.scree}`);
+      const pinned = glaciateNature({ ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS, tarn: false, steps: "many", seed }, flat);
+      expect([pinned.tarn, pinned.steps]).toEqual([false, "many"]);
+    }
+    expect(seen.size).toBeGreaterThan(6);
+  });
+
+  it("each detail shapes the land: no tarn keeps no lake, many steps drop the floor by more levels, sheer walls cut no benches; left out, round 4's", () => {
+    const m = fixture("canyon-128");
+    const at = { origin: 22 * m.W + 22 };
+    const plan = (d: object) => makePlan(snapshotMap(m), { ...GLACIATE_DEFAULTS, ...d }, at, undefined, false);
+    const r4 = plan({});
+    expect(Array.from(plan({ benches: "some", steps: "some", tarn: true, scree: true }).map.heights)).toEqual(Array.from(r4.map.heights));
+    expect(r4.retained.tiles.length).toBeGreaterThan(0);
+    expect(plan({ tarn: false }).retained.tiles.length).toBe(0);
+    const levels = (p: typeof r4) => new Set(p.path.map((q) => q.floor)).size;
+    expect(levels(plan({ steps: "many" }))).toBeGreaterThan(levels(plan({ steps: "few" })));
+    const benches = (p: typeof r4) => p.mask.filter((v) => v === 2).length;
+    expect(benches(plan({ benches: "none" }))).toBeLessThan(benches(r4));
+    expect(benches(plan({ benches: "many" }))).toBeGreaterThan(benches(r4));
+  });
+
+  it("the editor's glacier runs with the drawn details and keeps them; Try another re-rolls only the ones on Auto; a pin survives; the engine refuses a detail its row couldn't set", async () => {
+    const W2 = 96;
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W2, y: W2 } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const at = highGround(MapSession.open(decodeProject(ed.project().bytes)).built);
+    const st = ed.forceStart({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS } as never, origin: at, cut: null, natural: true });
+    expect(st.errors).toEqual([]);
+    const drawn = st.settings as unknown as Record<string, unknown>;
+    for (const k of ["benches", "steps", "tarn", "scree"]) expect(drawn[k], k).not.toBeNull();
+    for (let k = 0; k < 400 && !ed.forceAdvance(4)!.done; k++);
+    expect(ed.forceStop().kept).toBe(true);
+    const op = () => MapSession.open(decodeProject(ed.project().bytes)).logOps.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
+    expect(op().settings).toMatchObject({ benches: drawn.benches, steps: drawn.steps, tarn: drawn.tarn, scree: drawn.scree });
+    // pin the tarn to the opposite of what it drew; Try another keeps it, whatever the seed
+    const tarn = !drawn.tarn;
+    for (let k = 0; k < 3; k++) {
+      const again = ed.forceAgain({ benches: null, steps: null, tarn, scree: null });
+      expect(again.errors).toEqual([]);
+      expect((again.settings as unknown as Record<string, unknown>).tarn).toBe(tarn);
+      for (let j = 0; j < 400 && !ed.forceAdvance(4)!.done; j++);
+      expect(ed.forceStop().kept).toBe(true);
+      expect((op().settings as Record<string, unknown>).tarn).toBe(tarn);
+    }
+    // the operation replays exactly
+    const s = MapSession.open(decodeProject(ed.project().bytes));
+    expect(Array.from(MapSession.open(decodeProject(s.project())).built.heights)).toEqual(Array.from(s.built.heights));
+    // a detail the row couldn't set is refused
+    const bad = { ...op(), settings: { ...op().settings, steps: "lots" } } as unknown as ForceResultParams;
+    expect(s.apply({ op: "forceResult", params: { ...bad, replaces: undefined } }).errors.length).toBeGreaterThan(0);
     ed.settleWater();
   });
 });

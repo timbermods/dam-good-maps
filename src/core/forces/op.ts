@@ -15,6 +15,7 @@
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
 import type { CarveParams } from "./carve/op";
+import { glaciateDetailsProblem } from "./glaciate/model";
 
 export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
 export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
@@ -37,7 +38,7 @@ export type ForceSettingsRecord =
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number }
-  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number };
+  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean };
 
 export interface ForceResultParams {
   version: 1;
@@ -153,6 +154,8 @@ export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): s
   if (verb === "glaciate") {
     const size = s.size as number | null;
     if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 64)) return ["a glacier's size is 4 to 64 tiles, or null (it follows Power)"];
+    const why = glaciateDetailsProblem(s);
+    if (why) return [why];
   }
   if (verb === "craterize") {
     const size = s.size as number | null;

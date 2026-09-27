@@ -42,6 +42,18 @@ finish the floor's water during the adoption). The source: `investigation/glacia
   Trim 1 (the investigation measured −17.1 dBFS against the forces' −16.5): Kyler's listening check covers it.
 - **No Claude step** (D277).
 
+## Its details behind More (D309)
+
+Glaciate's equivalents of the other forces' details: **Benches** (none: sheer walls; some: round 4's, on some
+stretches of soft rock; many: most of it), **Steps** (the floor's drops: round 4's spacing, or 1.8 or 0.55 times it),
+**Tarn** (the cirque's lake) and **Scree** (the cones at the walls' feet; the pools under the falls keep theirs). Each
+starts on Auto: `glaciateNature` (core/forces/nature.ts) draws it from the ground's relief and the seed, round 4's
+the likeliest (benches and steps "some" three times in five, a tarn 85%, scree 60–90% as the ground gets rugged). A
+pin is kept through Try another and remembered in `dgm.forces`; the operation keeps the values the glacier ran with. A
+glacier without them (the investigation's, an older operation) is round 4's, and the planner is still byte for byte
+the investigation's there. The captures and the case table pin round 4's details, so they compare the floor's water
+alone; Kyler's default click on the preview draws its own.
+
 ## The floor's water (D292)
 
 Round 4's floor had several wet passages beside its main river: pools at the foot of the falls and side inflows, joined

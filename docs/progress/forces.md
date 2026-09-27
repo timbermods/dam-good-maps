@@ -16,6 +16,8 @@
 > 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2: done** (the section below), after the Ceiling batch ceiling-20260927 passed;
 >     `chore/ceiling-probe`'s tool merged.
+> 11. **D309, the details behind More: done** (the section below, added 2026-09-28, after the sitting
+>     was already queued): amends D289, so the forces-sitting checklist gets one more line.
 >
 > **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
 > each section).
@@ -33,6 +35,68 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## The forces' details come back behind More, each on Auto (D309, amends D289)
+
+Kyler, 2026-09-28: the magic stays on Auto; the player who wants to shape a result can pin what made
+it.
+
+- **Every force's row stays exactly as D289 left it** (Power, Size, its signature choice, Try
+  another), with a small **More** button at its end. More opens: Carve's wander, walls and depth;
+  Craterize's walls, centre, rays and debris; Erupt's summit, flows, ridges and shape; Quake's scarp.
+  (Carve's width stays the row's own Size, D226; it is not repeated behind More.) Closed by default;
+  `moreOpen` (an editor-only state, keyed by verb) remembers whether it was left open, alongside the
+  pins, in a new `dgm.forces` entry in the same local-storage prefs `dgm.brush` and `dgm.sound`
+  already use.
+- **The controls themselves are the ones from before D289** (`git show` on `ForceRows.tsx` and
+  `CarveRow.tsx` at `5e1a3e28`, the commit before D289's `2e330fac`), brought back rather than
+  rebuilt: Carve's Wander slider and Walls select; Craterize's Walls and Centre selects, Debris
+  segmented and Rays toggle; Erupt's Shape segmented, Summit select, Flows segmented and Ridges
+  toggle; Quake's Scarp segmented. Each now sits behind a small **Auto** button of its own (the same
+  idiom as Size's, D226), shared as `AutoDetail` in `TopBar.tsx` alongside a new `MoreButton` and
+  `MoreRow`; `Segmented` moved there too, so both rows share it.
+- **Every detail starts on Auto**: `core/forces/nature.ts`'s draw functions (`carveNature`,
+  `craterNature`, `eruptNature`, `quakeNature`) now fill in only the details still absent from the
+  settings they are given (`s.field ?? <drawn>`), leaving a pinned one exactly as it is; `depth` (Carve's,
+  already optional) and `centre`/`summit`'s own nested "auto" value are unaffected. Their input types
+  loosen the detail fields to `T | null | undefined` (`nature.ts`'s own `Draft` types, `CarveDraft`,
+  `CraterDraft`, `EruptDraft`, `QuakeDraft`); the force files under `core/forces/` themselves are
+  untouched, so this stayed on `build-light` (D309 (6); a change inside a force goes to `build`).
+- **Setting a detail pins it**, with the Auto button as its own way back (turning Auto back on sets
+  the pin to whatever was showing, exactly as Size's Auto already did). **A detail still on Auto shows
+  the value the last run actually drew** once one has run: `ForceDriver` keeps `lastSettings`, the
+  resolved settings from each verb's last successful start, past the run's own end, so the row can
+  read it and offer the one-click pin (D309 (3)).
+- **Try another re-rolls only the details still on Auto.** The row now sends its current pins with
+  every Try another (`carveDetails`/`craterDetails`/`eruptDetails`/`quakeDetails`, a small object of
+  `null` for Auto or the pinned value); the worker's `forceAgain(pins?)` resets every detail to Auto
+  first (`nature.ts`'s new `autoDetailsOf(verb)`) and then applies `pins` over that, so an unlisted
+  detail (no pins sent: Unleash, and any caller outside the row) fully re-rolls, matching the
+  behaviour from before D309. A force started without `natural` (a saved operation, or a caller with
+  already-exact settings) is untouched by any of this: nature.ts never ran for it, so `forceAgain`
+  leaves its settings exactly as they were, as before D309.
+- **The operation keeps what it ran with.** No change was needed here: `forceParamsOf`/`recordOf`
+  already read the run's own resolved `.settings` (concrete, post-nature), never the request's
+  drafts, so a project saved under D309 replays exactly, and one saved before it (with no pins at
+  all, since the row didn't exist) replays exactly too.
+- **Defy gravity and Carve's mid-carve Stop stay gone** (D309 (5)); Part 3's superseded row for the
+  forces' controls is corrected to say so (it wrongly still listed the detail controls it now brings
+  back).
+
+Tests changed to the decision (D148): `tests/e2e/carve.spec.ts` and `tests/e2e/forces.spec.ts`
+(three spots checking "the row shows only Power, Size, one choice, Try another" now expect the
+trailing **More** button too; the row itself is unchanged, its details live behind More).
+`tests/contract/forceNature.test.ts` (renamed in spirit to D289 **and** D309): its two nature-only
+tests pass drafts with the detail fields absent (`AUTO_CARVE_DETAILS` etc.) instead of full defaults,
+since a concrete default no longer gets overwritten; new tests cover a pin surviving every seed at
+the nature.ts level, a pin sent with Try another surviving through the worker while the rest still
+varies, and pinning every value a run drew (including its seed) reproducing that exact result.
+`tests/contract/forceOps.test.ts` and `tests/contract/unleash.test.ts` needed no change once
+`forceAgain`'s reset was made conditional on `natural`; both call it on a force built without
+`natural`, which must keep running exactly as asked.
+
+Docs: EDITOR_PLAN §3 (More, Auto, the pin, brought-back controls) and Part 3 (the superseded row
+corrected); this file.
 
 ## One ceiling in the editor (D244 step 2)
 

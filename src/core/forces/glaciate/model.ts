@@ -17,7 +17,26 @@ export interface GlaciateSettings {
   size: number | null;
   meltwater: boolean;
   seed: number;
+  /** Its details behind More (D309), each drawn from the land and the seed unless pinned
+   *  (nature.ts); each absent, round 4's (what the investigation built). */
+  benches?: GlaciateDetails["benches"];
+  steps?: GlaciateDetails["steps"];
+  tarn?: boolean;
+  scree?: boolean;
 }
+
+/** Glaciate's details (D309): the benches on its walls' soft rock (none, some stretches as round 4
+ *  had them, or most of it); the steps its floor drops by (few, round 4's, many); a tarn in its
+ *  cirque; scree cones at its walls' feet. */
+export interface GlaciateDetails {
+  benches: "none" | "some" | "many";
+  steps: "few" | "some" | "many";
+  tarn: boolean;
+  scree: boolean;
+}
+
+/** Round 4's details, the investigation's as it was built (what a glacier without details makes). */
+export const ROUND4_DETAILS: GlaciateDetails = { benches: "some", steps: "some", tarn: true, scree: true };
 
 /** Where it was asked to act: the head (a tile), and an Aim's end. */
 export interface GlaciateIntent {
@@ -101,6 +120,16 @@ export function glaciateProblem(W: number, H: number, s: GlaciateSettings, inten
   if (!(Number.isInteger(s.seed) && s.seed >= 0 && s.seed <= 0xffffffff)) return "a glacier's seed is a whole number from 0 to 4294967295";
   if (!(Number.isInteger(intent.origin) && intent.origin >= 0 && intent.origin < n)) return "the glacier's head is off the map";
   if (s.mode === "aim" && !(Number.isInteger(intent.end) && intent.end! >= 0 && intent.end! < n && intent.end !== intent.origin)) return "an aimed glacier needs its end on the map";
+  return glaciateDetailsProblem(s as unknown as Record<string, unknown>);
+}
+
+/** Why a glacier's details are not ones its More row could set (null when they are; each may be
+ *  absent: round 4's). */
+export function glaciateDetailsProblem(x: Record<string, unknown>): string | null {
+  if (x.benches != null && !["none", "some", "many"].includes(x.benches as string)) return "a glacier's benches are none, some or many";
+  if (x.steps != null && !["few", "some", "many"].includes(x.steps as string)) return "a glacier's steps are few, some or many";
+  if (x.tarn != null && typeof x.tarn !== "boolean") return "a glacier's tarn is true or false";
+  if (x.scree != null && typeof x.scree !== "boolean") return "a glacier's scree is true or false";
   return null;
 }
 

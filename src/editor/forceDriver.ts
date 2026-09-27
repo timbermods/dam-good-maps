@@ -11,7 +11,7 @@
 
 import type { Verb } from "../core/forces/op";
 import type { Point } from "../core/forces/quake";
-import type { ForceFrame, ForceStarted } from "../worker/session";
+import type { AnyForceSettings, ForceFrame, ForceStarted } from "../worker/session";
 import type { MapRenderer } from "../render3d";
 
 /** Steps a worker call runs, and the time a call's frame stays on screen (ms): a force's own pace,
@@ -72,6 +72,10 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class ForceDriver {
   status: ForceStatus | null = null;
+  /** The settings each force last actually ran with, by verb (D309): what a detail still on Auto
+   *  shows, with one click to pin it. Kept past the run's end (unlike `status`), so the row can show
+   *  it once the force is kept or dropped. */
+  lastSettings: Partial<Record<Verb, AnyForceSettings>> = {};
   private token = 0;
   /** A painted stroke waiting for the worker (the latest wins), and one in flight. */
   private stroke: { path: Point[]; side: 1 | -1 } | null = null;
@@ -105,6 +109,7 @@ export class ForceDriver {
     }
     this.status.verb = r.frame.verb;
     this.status.seed = r.settings?.seed ?? 0;
+    if (r.settings) this.lastSettings[r.frame.verb] = r.settings;
     this.show(r.frame);
     if (painting) {
       void this.pump(token);

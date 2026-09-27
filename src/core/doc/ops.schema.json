@@ -191,7 +191,11 @@
             "flows": { "enum": ["light", "heavy"] },
             "ridges": { "type": "boolean" },
             "scarp": { "enum": ["sheer", "stepped"] },
-            "meltwater": { "type": "boolean" }
+            "meltwater": { "type": "boolean" },
+            "benches": { "enum": ["none", "some", "many"] },
+            "steps": { "enum": ["few", "some", "many"] },
+            "tarn": { "type": "boolean" },
+            "scree": { "type": "boolean" }
           }
         },
         "where": {

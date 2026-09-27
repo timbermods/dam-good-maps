@@ -64,7 +64,7 @@ import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
-import { carveNature, craterNature, eruptNature, quakeNature, type ForceGround } from "../core/forces/nature";
+import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
@@ -2064,8 +2064,7 @@ function naturalRequest(req: ForceRequest, base: FullForceMap): ForceRequest {
       return { ...req, settings: quakeNature(req.settings, ground(clampTile(m.x, m.y))) };
     }
     case "glaciate":
-      // (its row is all it has; its planner draws the rest from the land and the seed)
-      return req;
+      return { ...req, settings: glaciateNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
   }
 }
 
@@ -2076,14 +2075,20 @@ export function forceStart(req: ForceRequest): ForceStarted {
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 
-/** Try another: the last kept force again, from its original land, with the next seed. Kept, it
- *  replaces that one (one undo step brings the earlier one back); every try takes a seed. */
-export function forceAgain(): ForceStarted {
+/** Try another: the last kept force again, from its original land, with the next seed. `pins`
+ *  (D309): for a force whose row drew its details from nature (`natural`), the row's current
+ *  per-detail state, `null` for a detail still on Auto (so nature draws it again) or its pinned value
+ *  (so it keeps it); left out, every detail resets to Auto (Unleash, and callers outside the row). A
+ *  force started without `natural` (a plain caller, its settings already exact) keeps them exactly,
+ *  as before D309: nature.ts never ran for it, so there is nothing to reset. Kept, it replaces that
+ *  one (one undo step brings the earlier one back); every try takes a seed. */
+export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
   const s = need();
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
   sr.nextSeed = sr.request.verb === "glaciate" ? glaciateNextSeed(sr.nextSeed) : nextSeed(sr.nextSeed);
-  const req = { ...sr.request, settings: { ...sr.request.settings, seed: sr.nextSeed }, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
+  const settings = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
+  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
 

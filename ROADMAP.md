@@ -926,7 +926,8 @@ they conflict):
 1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
    Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
    the left shelf (D212). Every force's row is Power, Size, at most one choice and Try another (D289); the gesture
-   is the mode (a click or a drag), and the rest of its character comes from the land and the seed. The forces go to
+   is the mode (a click or a drag), and the rest of its character comes from the land and the seed, behind a small
+   More button, each detail on Auto until pinned (D309). The forces go to
    the preview and are released only after Kyler has tried them (D219): until then the public site shows
    no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (a click vents, a drag opens a
    fissure; Power, Size, Try another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land
@@ -1695,7 +1696,7 @@ flow (search, frame, one click, share link, credits, D255's keep-the-land rule) 
 3. **Preview inside the square, built on release:** when the player lets go of the square (not live
    while dragging, D285 (3)), the land inside is shown turned into Timberborn blocks at Timberborn's
    levels, so the player sees the map, not just the place, before building.
-4. **Confirm with as little as possible:** map size (96, 128 or 256) and height (auto by default:
+4. **Confirm with as little as possible:** map size (96, 128 or 256; the square defaults to 256² at the scale that frames the place's signature, D306) and height (auto by default:
    tall when the relief deserves it, once the probe confirms tall maps). Scale, difficulty and
    water (designed by default) sit in an optional **More** drawer.
 5. **One click, "Build my map":** a short progress strip (terrain, rivers, start, forests, checks),

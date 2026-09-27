@@ -2,7 +2,8 @@
 // the editor can make (Canyon 10 at 128², click 22,22; Kyler's cross-valley Aim there, 24,80 to
 // 96,36; Highlands 7 at 256², click 150,20), made in the editor as a player makes it, from the same
 // camera: the land before, the glacier with the floor's water as round 4 left it, and the glacier with
-// the floor's water finished (the river led to its falls and inflows). Each case is one picture: an
+// the floor's water finished (the river led to its falls and inflows), both with round 4's details
+// pinned (D309). Each case is one picture: an
 // oblique view above and a top-down view below, the three side by side. Small files under
 // docs/progress/glaciate/ (D195: a few MB at most), and a GIF of the two acts from a still camera.
 //
@@ -51,6 +52,11 @@ const CASES: Case[] = [
 ];
 
 async function open(page: Page, base: string, fragment: string): Promise<void> {
+  await page.goto("about:blank");
+  // both builds with round 4's details pinned (D309: benches, steps, tarn and scree), so the pictures
+  // compare the floor's water alone; Auto may draw others on the preview
+  await page.goto(`${base}`);
+  await page.evaluate(() => localStorage.setItem("dgm.forces", JSON.stringify({ glaciate: { benches: "some", steps: "some", tarn: true, scree: true } })));
   await page.goto("about:blank");
   await page.goto(`${base}${fragment}`);
   await page.getByText(/All \d+ checks passed|checks? (to look at|failed)/).first().waitFor({ timeout: 400_000 });

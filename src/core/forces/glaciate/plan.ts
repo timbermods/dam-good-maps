@@ -24,7 +24,7 @@ import { isPlant } from "../objects";
 import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp, glaciateProblem, noise, ROUND4_DETAILS, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -143,6 +143,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const p = s.power / 100;
   const r = sizeOf(s) / 2;
   const phase = noise(s.seed, 7) * Math.PI * 2;
+  const detail: GlaciateDetails = { benches: s.benches ?? ROUND4_DETAILS.benches, steps: s.steps ?? ROUND4_DETAILS.steps, tarn: s.tarn ?? ROUND4_DETAILS.tarn, scree: s.scree ?? ROUND4_DETAILS.scree };
+  // (the floor's steps: round 4's spacing, or longer or shorter reaches between them)
+  const stepScale = detail.steps === "few" ? 1.8 : detail.steps === "many" ? 0.55 : 1;
   const entityTiles = (e: Pick<EntitySpec, "template" | "x" | "y" | "orientation" | "flipped">) => tilesOf(W, H, e);
   const tile = (q: Point) => clamp(Math.floor(q.y), 0, H - 1) * W + clamp(Math.floor(q.x), 0, W - 1);
   const sample = (x: number, y: number) => before.heights[tile({ x, y })];
@@ -159,14 +162,14 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const depth = Math.max(3, Math.round(relief * (0.28 + 0.48 * p)));
   const headFloor = Math.max(0, Math.min(sample(head.x, head.y) - 4, quantile(regional, 0.8) - depth - 1));
   let arc = 0;
-  let bar = 8 + noise(s.seed, 80) * 15;
+  let bar = (8 + noise(s.seed, 80) * 15) * stepScale;
   let level = headFloor;
   let barIndex = 0;
   const preliminary: Station[] = reference.map((q, k) => {
     if (k) arc += Math.hypot(q.x - reference[k - 1].x, q.y - reference[k - 1].y);
     if (arc >= bar && level > 0) {
       level--;
-      bar += 8 + noise(s.seed, 81 + barIndex++) * 17;
+      bar += (8 + noise(s.seed, 81 + barIndex++) * 17) * stepScale;
     }
     const a = reference[Math.max(0, k - 3)];
     const b = reference[Math.min(reference.length - 1, k + 3)];
@@ -267,7 +270,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     } else if (d < 1 + 3 / q.r) {
       const M = before.heights[i];
       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
-      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > 0.15 && !(style?.benches === "dry" && nearWater(i))) {
+      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
         m.heights[i] = Math.min(M, f + Math.round((M - f) * 0.58));
         mask[i] = 2;
         arrival[i] = q.s;
@@ -477,7 +480,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   for (let y = Math.max(0, Math.floor(tarn.y - 3)); y < Math.min(H, tarn.y + 3); y++)
     for (let x = Math.max(0, Math.floor(tarn.x - 4)); x < Math.min(W, tarn.x + 4); x++) {
       const i = y * W + x;
-      if (((x + 0.5 - tarn.x) / tarnX) ** 2 + ((y + 0.5 - tarn.y) / tarnY) ** 2 < 1 && mask[i] === 1) {
+      if (detail.tarn && ((x + 0.5 - tarn.x) / tarnX) ** 2 + ((y + 0.5 - tarn.y) / tarnY) ** 2 < 1 && mask[i] === 1) {
         m.heights[i] = Math.max(0, path[0].floor - 1);
         lakeSeeds.push(i);
         stream[i] = 2;
@@ -658,7 +661,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   yield;
   const scree = hanging.filter((h) => h.source !== null || before.water.depth[h.mouth] > 0.03).map((h) => h.landing);
   for (let k = 6; k < path.length; k += 7)
-    if (noise(s.seed, k + 550) > 0.68) {
+    if (detail.scree && noise(s.seed, k + 550) > 0.68) {
       const q = path[k];
       const a = path[k - 2];
       const b = path[Math.min(k + 2, path.length - 1)];
@@ -912,7 +915,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       outwash: 0,
       requestedWidth: sizeOf(s),
     },
-    finished: { style: style ? `${style.course}${style.benches === "all" ? ", benches" : ""}` : "round 4", visits: visits.length, reached: reached.length },
+    finished: { style: style ? `${style.course}${style.byWater === "cut" ? ", benches by water" : ""}` : "round 4", visits: visits.length, reached: reached.length },
     joins,
   };
   let removed = true;

@@ -124,8 +124,9 @@ const api = {
   // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
   // Esc drops it
   forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
-  /** Try another: the last kept force again, with the next seed. */
-  forceAgain: () => sendStarted(ed.forceAgain()),
+  /** Try another: the last kept force again, with the next seed. `pins`: the row's current
+   *  per-detail state (D309); left out, every detail re-rolls. */
+  forceAgain: (pins?: Record<string, unknown>) => sendStarted(ed.forceAgain(pins)),
   forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
   /** A painted Lift's fault as it is painted now. */
   forcePaint: (path: ed.ForcePoint[], side: 1 | -1) => sendFrame(ed.forcePaint(path, side)),

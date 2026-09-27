@@ -29,9 +29,9 @@ export interface Visit {
  *  bends may be; and how near the river a fall must land to keep its spring. */
 export interface FloorStyle {
   course: "visits" | "bends" | "meander";
-  /** Benches on the walls' feet: cut everywhere round 4 cut them, or not where water stands within
-   *  two tiles (its water would pond on them and spill over the floor). */
-  benches: "all" | "dry";
+  /** Benches beside standing water: cut there as elsewhere, or left out within two tiles of it (its
+   *  water would pond on them and spill over the floor). */
+  byWater: "cut" | "skip";
   slack: number;
   crossing: number;
   spacing: number;
@@ -40,7 +40,7 @@ export interface FloorStyle {
 
 /** The ways tried in turn, the first whose floor stays dry kept. */
 export const FLOOR_STYLES: FloorStyle[] = (["visits", "bends", "meander"] as const).flatMap((course) =>
-  (["dry", "all"] as const).map((benches) => ({ course, benches, slack: course === "visits" ? 2 : 0, crossing: course === "visits" ? 0.7 : 0, spacing: course === "bends" ? 10 : 0, reach: 6 })),
+  (["skip", "cut"] as const).map((byWater) => ({ course, byWater, slack: course === "visits" ? 2 : 0, crossing: course === "visits" ? 0.7 : 0, spacing: course === "bends" ? 10 : 0, reach: 6 })),
 );
 
 /** Ticks of the game's water run on a finished floor to see it stays dry: floods show within a few

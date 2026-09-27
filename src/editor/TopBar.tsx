@@ -8,8 +8,9 @@
 // shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206, D246: Carve, Craterize,
 // Quake, Erupt, Glaciate; keys 7, 8, 9, 0 and -) are a group of their own on one shared core, each row Power,
 // Size, at most one choice and Try another, the gesture deciding the rest (D289); all five are ready (D216, D219), and the public site shows none
-// until their release (release.ts, D219). While a force is at work the other tools wait. Built from
-// the shared bar and button styles (D176).
+// until their release (release.ts, D219). While a force is at work the other tools wait. A small
+// More button at each row's end opens its other settings, each on Auto until pinned (`AutoDetail`,
+// `MoreButton`, `MoreRow`, D309). Built from the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
@@ -218,6 +219,51 @@ export function SizeControl(p: {
         </button>
       ) : null}
     </span>
+  );
+}
+
+/** A switch between a few choices, side by side (a force's detail, D289's mode switches). */
+export function Segmented<T extends string>(p: { label: string; value: T; options: readonly [T, string, string][]; onChange(v: T): void }) {
+  return (
+    <div class="segmented" role="group" aria-label={p.label}>
+      {p.options.map(([v, word, title]) => (
+        <button type="button" key={v} aria-pressed={p.value === v} title={title} onClick={() => p.onChange(v)}>
+          {word}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A force's detail behind More (D309): on Auto until pinned, with a small way back, the same idiom
+ *  as Size's own Auto (D226) but for a choice drawn from the land instead of a number. */
+export function AutoDetail(p: { label: string; on: boolean; onAuto(on: boolean): void; children: ComponentChildren }) {
+  return (
+    <span class="size-control">
+      {p.children}
+      <button type="button" class="auto-button" aria-pressed={p.on} aria-label={`${p.label} follows the land`} title={p.on ? `${p.label}: drawn from the land; set it yourself to pin it` : `Let ${p.label.toLowerCase()} be drawn from the land again`} onClick={() => p.onAuto(!p.on)}>
+        Auto
+      </button>
+    </span>
+  );
+}
+
+/** A force's More button (D309): closed by default, at the end of its row; its details sit in a
+ *  second row of their own, the same shape as the first. */
+export function MoreButton(p: { open: boolean; onToggle(): void }) {
+  return (
+    <button type="button" aria-expanded={p.open} onClick={p.onToggle} title={p.open ? "Hide its other settings" : "Its other settings: how it looks, drawn from the land unless you set them"}>
+      {p.open ? "Less" : "More"}
+    </button>
+  );
+}
+
+/** A force's details row (D309): shown under its options row while More is open, the same shape. */
+export function MoreRow(p: { force: Force; children: ComponentChildren }) {
+  return (
+    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} details`}>
+      <div class="bar-group">{p.children}</div>
+    </div>
   );
 }
 

@@ -50,7 +50,7 @@ async function settled(page: Page) {
   await idle(page);
 }
 
-test("Glaciate's row is Power, Size, Meltwater and Try another, and nothing else (D289)", async ({ page }) => {
+test("Glaciate's row is Power, Size, Meltwater, Try another and More (D289, D309); its details closed by default", async ({ page }) => {
   await refine(page);
   await expect(page.getByRole("button", { name: /^Glaciate/ })).toBeVisible();
   await page.keyboard.press("-");
@@ -64,15 +64,48 @@ test("Glaciate's row is Power, Size, Meltwater and Try another, and nothing else
   await expect(row.getByRole("checkbox")).toHaveCount(1);
   await expect(row.getByLabel("Meltwater")).toBeChecked();
   await expect(row.getByRole("combobox")).toHaveCount(0);
-  await expect(row.getByRole("button")).toHaveCount(1);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "More"]);
+  await expect(page.getByRole("group", { name: "Glaciate details" })).toHaveCount(0);
   // once one is kept: Try another joins them
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);
   await settled(page);
   await expect(row.getByRole("button", { name: "Try another" })).toBeVisible();
-  await expect(row.getByRole("button")).toHaveCount(2);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "Try another", "More"]);
   await expect(row.getByRole("slider")).toHaveCount(2);
+});
+
+test("Glaciate's More (D309): its benches, steps, tarn and scree, each on Auto; after a run each shows what it drew; a pin survives Try another", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("-");
+  const row = page.getByRole("group", { name: "Glaciate options" });
+  await row.getByRole("button", { name: "More" }).click();
+  const details = page.getByRole("group", { name: "Glaciate details" });
+  await expect(details).toBeVisible();
+  expect(await details.getByRole("group", { name: "Benches" }).getByRole("button").allTextContents()).toEqual(["Sheer walls", "Some benches", "Many benches"]);
+  expect(await details.getByRole("group", { name: "Steps" }).getByRole("button").allTextContents()).toEqual(["Few steps", "Some steps", "Many steps"]);
+  await expect(details.getByRole("checkbox", { name: "Tarn" })).toBeVisible();
+  await expect(details.getByRole("checkbox", { name: "Scree" })).toBeVisible();
+  for (const name of ["Benches follows the land", "Steps follows the land", "Tarn follows the land", "Scree follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  const at = await high(page);
+  const p = await client(page, at[0], at[1]);
+  await page.mouse.click(p.x, p.y);
+  await settled(page);
+  const tarn = await details.getByRole("checkbox", { name: "Tarn" }).isChecked();
+  // pin the tarn to the opposite (setting it pins it); Try another keeps that pin
+  await details.getByRole("checkbox", { name: "Tarn" }).click();
+  await expect(details.getByRole("button", { name: "Tarn follows the land" })).toHaveAttribute("aria-pressed", "false");
+  await expect(details.getByRole("checkbox", { name: "Tarn" })).toBeChecked({ checked: !tarn });
+  await row.getByRole("button", { name: "Try another" }).click();
+  await settled(page);
+  expect((await labels(page)).at(-1)).toBe("Try another");
+  await expect(details.getByRole("checkbox", { name: "Tarn" })).toBeChecked({ checked: !tarn });
+  await expect(details.getByRole("button", { name: "Tarn follows the land" })).toHaveAttribute("aria-pressed", "false");
+  // and More stays open, remembered
+  await page.keyboard.press("-");
+  await page.keyboard.press("-");
+  await expect(page.getByRole("group", { name: "Glaciate details" })).toBeVisible();
 });
 
 test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Esc takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
