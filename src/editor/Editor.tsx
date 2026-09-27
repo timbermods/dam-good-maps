@@ -1659,7 +1659,10 @@ export default function Editor(props: EditorProps) {
     setAimArrow(null);
     setForceCursor(null);
     if (!painting) setForceStroke(null);
-    void forcer.current?.start(false, painting);
+    // (refused: the ice gathered under the pointer goes too)
+    void forcer.current?.start(false, painting).then((ok) => {
+      if (!ok) renderer.current?.clearForce();
+    });
   }
 
   function startCarve(origin: [number, number], end?: [number, number]) {
