@@ -1,5 +1,43 @@
 # Real places
 
+> **Where a fresh session resumes (2026-09-26, round 2 after D245; branch `feature/real-places-2`,
+> PR #35 into `dev`).** The D245 rebuild is finished, committed and pushed (last commit on the
+> branch; CI green on #35); nothing is running and nothing is uncommitted.
+>
+> - **Done:** D214 (the flow cap per size, default #80), the "Centre" titles (#81), the
+>   starting-logs floor with groves that read the land (D224, D227, D229, #82), and D245: every
+>   place kept on its own land; only the absolutes block (the checks that are not about
+>   playability, and the floor); notes for the three things that sink a player; 151 places, none
+>   dropped (Majuli back). The D245 audit (the 34 D214 changed, and every first map built from an
+>   off-centre sample, with the version chosen and why) is in "Kept on their own land" below and in
+>   #35's comment https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852892041
+>   (default #84): 35 first maps at their centre, 10 swapping names with a second map that already
+>   was their centre, 23 kept on their sample; the rest back to their own land and mapping. Notes
+>   and what blocks: default #85. The review sheet (6 pages, `docs/sheets/real-places-review/`) is
+>   posted: https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852893380 (the
+>   earlier sheet is marked out of date). The probe group for water that keeps moving is ready
+>   (`npx tsx tools/places-probe.ts`; nothing launched). The tall list (D172) is below.
+> - **Left:** (1) Kyler's drops, from the new review sheet: take each numbered place out of
+>   `tools/places/selection.json` (a first-round place goes to `dropped` with his reason), then the
+>   commands below. (2) Badwater on every map (D200, D213), once M9a is on `dev`: in `buildPlace`
+>   (src/core/places/place.ts) pass `badwater: { setting: "normal", within:
+>   DIFFICULTY_RULES.normal.badwaterWithin }` to `planMapResources` and write its resettled water
+>   (`resources.water`) into the file before the floor's groves are counted; take #54's changes to
+>   places.test.ts and placesCommon.ts; raise `VERSION` in tools/places-convert.ts to 5; then the
+>   commands below. (3) Kyler's answers to #80–#82, #84, #85 and #82's dead floor trees.
+> - **Commands** (from the worktree, at most 4 threads while M9a runs; the survey's patches must be
+>   in `investigation/landscapes/.cache/`: `npm ci --ignore-scripts --cache ./npm-cache` and `npm
+>   run sample` there, then `git checkout` the two data files it rewrites):
+>   `npx tsx tools/places-convert.ts --threads 4`; `npx tsx tools/real-places.ts --threads 4`;
+>   `npx tsx tools/places-thumbs.ts --all --port 4832 --threads 4` (the GPU, about 30 minutes);
+>   `npx tsx tools/real-places.ts --check --threads 4`; `python tools/places-sheet.py
+>   docs/sheets/real-places.png "Real places, second round" --html
+>   investigation/landscapes/local/places-sheet`; `python tools/places-review.py
+>   docs/sheets/real-places-review --changed-since <the commit Kyler reviewed> --per-page 26`; then
+>   `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run --project
+>   heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
+>   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`.
+
 **Built** on branch `feature/real-places` (PLAN §20 D136, ROADMAP "Real places"). It is released as
 `real-places-done`, right after `map-look-done`. No generated map changes: the generator stays
 0.6.0.
