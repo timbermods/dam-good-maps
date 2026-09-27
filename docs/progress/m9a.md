@@ -176,6 +176,39 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
   and size at once, reports in `investigation/m9a/local/batches/`, a summary table), and the batch
   report counts second-district sites and ruins on a rise (information).
 
+### The starting-logs floor (D224, D227, D229), built in the same session
+
+- **The floor** (`src/core/data/logFloor.ts` reads `log-floor.json`, nothing hard-coded: 178 logs
+  within 40 tiles' walk for 1.1.2.4): `start.wood_floor`, a new check in both validators (the
+  playability class: it rejects a generated map at every difficulty, and shows on the editor's quiet
+  dot without blocking export; never approximate, since its logs are counted over the ground and its
+  slopes, never the water). The same grown logs as `start.wood`, dead trees included, saplings apart,
+  within the longer walk. Every species in the pin counts (Maple, ChestnutTree and Mangrove on
+  imported maps); `TREE_LOGS` now comes from the pin. The map card and the editor's start indicators
+  show it ("Logs for a Forester").
+- **Minimum starting wood** stays `start.wood`, within 20 tiles' walk, with D227's defaults: Easy 250,
+  Normal 200, Hard none (0); its range stays 0–800 (D227 replaced D224's "never below the floor").
+  The generator's near-start groves aim at 1.35 × it, as before.
+- **The floor's wood** (D229): after every other tree is planted, the grown logs within 40 tiles'
+  walk are counted; where they come short of 1.15 × the floor, groves are added the way the land
+  offers them (`floorWood` in `gen/resources.ts`): a river's banks on the start's side, the far side
+  of water ("a forest across a stream"), a plateau two levels above the start (oaks), a side valley
+  (ground below its surroundings, away from the water: pines), open moist ground, and last dry ground
+  for standing dead wood (a dead tree keeps its logs). One kind is drawn by seed among those with
+  room, weighted by their room and how natural each is; its grove starts on that ground and grows up
+  to 3 tiles into the land beside it; its one species is drawn from the settings' mix weighted by
+  where it grows, and sized by the logs it gives (a few oaks, a forest of pines). On Hard the wood
+  goes beyond the 20 tiles' walk first ("trees that aren't easy to reach", PERFECT.md). A separate
+  random stream, so a map that needs no wood keeps every other draw. The groves' roles name their
+  kind (`forest/floor/<kind>/…`); the start's own groves are now `forest/start/…`.
+- **Seen and counted:** the batch report says on how many maps wood was added, and each grove's kind,
+  distance and direction from the start; `tools/start-sheet.ts` makes the start-area sheet (40 tiles
+  round each start, the floor's groves outlined orange, the start's groves cyan).
+- **The Real places** as converted plant their starts for the old 80 logs: 69 of the 85 fall short
+  of Normal's 200 within 20 tiles and 20 fall below the floor. Their files are unchanged; the tests
+  list them as known faults (`PLACES_SHORT_OF_WOOD`, `PLACES_BELOW_THE_FLOOR`) for Real places 2 to
+  plant for, as the edge walls and the missing mine sites are.
+
 ## Results
 
 ### The settings experiments (ROADMAP M6), CI's seeds 1–4 at 96²
@@ -272,6 +305,19 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
   - `carve.test.ts` (from Live editing), the oxbow lake kept with its carve: Canyon 96² seed 5, the
     carve from (20, 80) aimed at (76, 16), the same settings (seed 1's course cuts no bend off now;
     the search tried 10 aims on 25 maps).
+  - `tests/e2e/editor.spec.ts`: seed 4244 (0.7.0's 4242 start stands on a floodplain a level above
+    the river's outlet: the test's spring floods it, halving the land it walks to, and the checks
+    rightly warn of its berries and wood). The regeneration changes Grove size, which leaves the land
+    as it is: on M9a's maps Designed for reshapes the valley (a harder drought asks for more stored
+    water), so the lowered ground would have been compared across two lands. Every assertion kept,
+    "Checks: Ready to play" included.
+  - The starting-logs floor and D227's defaults: `start.test.ts` (the defaults 250 / 200 / 0; D164's
+    tree counts still convert at 2 logs a tree; the scene that meets every requirement at Normal has
+    210 logs, 150 before; the sapling and 20-tile-walk tests give their rule, which was Normal's old
+    default; a new test for the floor: the same logs within 40 tiles' walk, the same at every
+    difficulty, rejecting); `spec.test.ts` (a link's unreadable tree count keeps Normal's default,
+    whatever it is); `placesCommon.ts` and `places.test.ts` (the places' wood as known faults, above);
+    `look-mine-ruins.test.ts` (the live check's sha for the maps as they now are).
 
 ## API changes (for the Live editing merge)
 

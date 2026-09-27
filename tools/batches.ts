@@ -85,6 +85,7 @@ interface Row {
   failed: string;
   district: string;
   rise: string;
+  floor: string;
 }
 
 function parse(theme: string, size: number): Row | null {
@@ -113,6 +114,7 @@ function parse(theme: string, size: number): Row | null {
     failed: fc ? fc[1] : "?",
     district: sp ? sp[1] : "?",
     rise: sp ? sp[2] : "?",
+    floor: /the starting-logs floor's wood \(D229, information\): added on (\d+\/\d+)/.exec(s)?.[1] ?? "?",
   };
 }
 
@@ -133,8 +135,8 @@ async function main() {
   const lines = [
     `Batches designed for ${difficulty}${set ? ` with ${set}` : ""}; the straight channels are the accepted maps' longest straight bank and canal (tiles; limits 44 and 34.3, investigation/m9a/straight-reference.json).`,
     "",
-    "| Size | Theme | Final | First attempt | Time median / p90 (ms) | Longest straight bank | Longest canal | Second district / rise | Project round trip | Checks that failed an attempt |",
-    "|---|---|---|---|---|---|---|---|---|---|",
+    "| Size | Theme | Final | First attempt | Time median / p90 (ms) | Longest straight bank | Longest canal | Second district / rise | Floor wood added | Project round trip | Checks that failed an attempt |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
   ];
   let below = 0;
   for (const j of all) {
@@ -145,7 +147,7 @@ async function main() {
       continue;
     }
     if (!r.final[1] || r.final[0] / r.final[1] < 0.98) below++;
-    lines.push(`| ${r.size}² | ${r.theme} | ${pct(r.final)} | ${pct(r.first)} | ${r.median} / ${r.p90} | ${r.bank} | ${r.canal} | ${r.district} / ${r.rise} | ${r.reopen} | ${r.failed} |`);
+    lines.push(`| ${r.size}² | ${r.theme} | ${pct(r.final)} | ${pct(r.first)} | ${r.median} / ${r.p90} | ${r.bank} | ${r.canal} | ${r.district} / ${r.rise} | ${r.floor} | ${r.reopen} | ${r.failed} |`);
   }
   writeFileSync(join(out, "summary.md"), lines.join("\n") + "\n");
   console.log(lines.join("\n"));

@@ -3,7 +3,7 @@
 
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
-import { decodeSpecFragment, encodeSpecFragment, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -137,7 +137,7 @@ describe("URL codec (PLAN §14.5)", () => {
     expect(decodeSpecFragment("#s=5&t=canyon&st=25&sl=90")!.spec.settings.start.rules.woodWithin20).toBe(90);
     // a value that is not a count keeps the preset, and says so
     const bad = decodeSpecFragment("#s=5&t=canyon&st=x")!;
-    expect(bad.spec.settings.start.rules.woodWithin20).toBe(80);
+    expect(bad.spec.settings.start.rules.woodWithin20).toBe(DIFFICULTY_RULES.normal.woodWithin20);
     expect(bad.problems.length).toBe(1);
   });
 

@@ -68,6 +68,13 @@ const straight: { run: number; canal: number }[] = [];
 // information: accepted maps with a second district's site (D77: only where one fits) and ruins on a rise
 let districts = 0;
 let rises = 0;
+// the wood added to meet the starting-logs floor (D224, D227, D229): the maps that needed it, and
+// each grove's kind, distance and direction from the start
+let floorMaps = 0;
+const floorKinds = new Map<string, number>();
+const floorDist: number[] = [];
+const floorDirs = new Map<string, number>();
+const COMPASS = ["east", "northeast", "north", "northwest", "west", "southwest", "south", "southeast"];
 const lines: string[] = [];
 const log = (s: string) => {
   lines.push(s);
@@ -88,6 +95,32 @@ for (const seed of seeds) {
     if (r.info.straight) straight.push(r.info.straight);
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "secondDistrict")) districts++;
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "obstaclePayoff")) rises++;
+    const floor = r.features.filter((f) => f.kind === "forest" && !!f.role?.startsWith("forest/floor/"));
+    const st = r.features.find((f) => f.kind === "start");
+    if (floor.length) floorMaps++;
+    if (floor.length && st && st.kind === "start") {
+      const [sx, sy] = st.params.position;
+      for (const f of floor) {
+        if (f.kind !== "forest") continue;
+        const kind = (f.role ?? "").split("/")[2];
+        floorKinds.set(kind, (floorKinds.get(kind) ?? 0) + 1);
+        let cx = 0;
+        let cy = 0;
+        let n = 0;
+        for (const [y, a, b] of f.params.area)
+          for (let x = a; x <= b; x++) {
+            cx += x;
+            cy += y;
+            n++;
+          }
+        const dx = cx / n - sx;
+        const dy = cy / n - sy;
+        floorDist.push(Math.round(Math.hypot(dx, dy)));
+        // (y runs south to north: north is +y)
+        const dir = COMPASS[Math.round((Math.atan2(dy, dx) / (Math.PI / 4) + 8)) % 8];
+        floorDirs.set(dir, (floorDirs.get(dir) ?? 0) + 1);
+      }
+    }
   }
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
@@ -148,6 +181,14 @@ const spread = (v: number[]) => {
 };
 log(`- straight channels on the accepted maps (information; D209: past the limits a map is planned again): the longest straight bank ${spread(straight.map((x) => x.run))} tiles (limit ${STRAIGHT_LIMITS.run}), the longest canal ${spread(straight.map((x) => x.canal))} (limit ${STRAIGHT_LIMITS.canal})`);
 log(`- set pieces the land held (information): a second district's site on ${districts}/${final} accepted maps, ruins on a rise on ${rises}/${final}`);
+{
+  const q = (v: number[], p: number) => (v.length ? [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(p * (v.length - 1)))] : NaN);
+  const list = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ");
+  log(
+    `- the starting-logs floor's wood (D229, information): added on ${floorMaps}/${final} accepted maps` +
+      (floorDist.length ? `; ${floorDist.length} groves by kind: ${list(floorKinds)}; their middles ${q(floorDist, 0)}–${q(floorDist, 1)} tiles from the start (median ${q(floorDist, 0.5)}); by direction: ${list(floorDirs)}` : ""),
+  );
+}
 const rt = reopenTimes.slice().sort((a, b) => a - b);
 log(`- project round trip: ${reopened}/${final} accepted maps reopen from their project file and rebuild the same .timber${rt.length ? ` (median ${Math.round(rt[rt.length >> 1])} ms, max ${Math.round(rt[rt.length - 1])} ms)` : ""}`);
 for (const f of reopenFailures) log(`  - ${f}`);
