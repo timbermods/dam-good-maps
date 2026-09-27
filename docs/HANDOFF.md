@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D221) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D264) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -18,13 +18,19 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 Nothing is running: every agent stopped at a clean point with everything pushed. The summary for Kyler is at the top of
 `docs/STATUS.md`.
 
-1. **M9a** (`m9a-build`, `feature/m9a` at 0f70fcb, #56): finish the Normal batches (96²; 128² Any, Canyon, Highlands, Lake
-   Basin, Delta, Islands; 192² Lake Basin, Delta, Islands; about 1.5 hours; the commands are in the top note of
-   `docs/progress/m9a.md`), then the summary into its Results, CI green on #56 (0f70fcb's run was pending at the pause).
-   Then **run its DGM Probe batch yourself** (D218): group M9a, 15 maps on the frozen generator in
+1. **M9a** (`m9a-build`, `feature/m9a` at 0f70fcb, #56), now under D252: merge `dev` in; build the start planting
+   spread over the 20-tile walk, reading the land (D252 (1)); re-freeze the generator; finish the Normal batches (96²;
+   128² Any, Canyon, Highlands, Lake Basin, Delta, Islands; 192² Lake Basin, Delta, Islands; about 1.5 hours; the
+   commands are in the top note of `docs/progress/m9a.md`), then the summary into its Results, CI green on #56
+   (0f70fcb's run was pending at the pause); rebuild the probe maps from the re-frozen generator. Then post the review
+   set on #56 (D252 (2)): the contact sheet (every theme and Any, seeds 1–30 at 128²), the same seeds on 0.6.x beside
+   it (`npm run sheet --compare`), 12 random maps in 3D from the editor's default view with the start visible, and the
+   start-area sheet with added groves marked (dead ones distinct) and the count of starts with dead groves. **Wait for
+   Kyler's yes on the review set** (D252, blocking) before release. Then **run its DGM Probe batch yourself** (D218):
+   group M9a, 15 maps on the frozen generator in
    `C:\dgm-probe\maps\20260927-0424-batch`, about 93 minutes: `npm --prefix investigation/probe run batch -- --group M9a
    --keep-mods --run-id <id> --reference C:/dgm-probe/settings-backup/2026-09-26T19-19-16/Timberborn-settings.reg`, then the
-   same with `--confirmed-launch <code>`. Then tag `m9a-done`; **the release waits for Kyler's yes**. M9a takes the machine
+   same with `--confirmed-launch <code>`. Then tag `m9a-done`. M9a takes the machine
    first (D210).
 2. **Probe batches after M9a's** (D218): the **Ceiling** group (D244 step 1; `chore/ceiling-probe` at a0be2aa; maps in
    `C:\dgm-probe\ceiling\`; about 24 minutes; from `DamGoodMaps-ceiling`: `npm --prefix investigation/probe run batch
@@ -33,9 +39,12 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    places whose water keeps moving; commands in `docs/progress/real-places.md`). Report each in STATUS and #57. If either
    breaks play, stop and wait for Kyler.
 3. **The forces** (`build`, `feature/forces` at c1438df; CI was pending at the pause): done: rounds 2 and 2b (Unleash, D239),
-   D247 (Smooth without walkable), D248 (Level lines in the view bar), the `forceResult` draw. Left, in order: **D249**
-   (Clear sources, sources ride the ground, easy removal; it starts at `keptTiles()` in `src/editor/Editor.tsx`), then
-   **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
+   D247 (Smooth without walkable), D248 (Level lines in the view bar), the `forceResult` draw. Left, in order: CI green (c1438df's red `forces.spec.ts:183` checked
+   Erupt's fit words, which D258 removes); **D249** (Clear sources, sources ride the ground, easy removal; it starts at
+   `keptTiles()` in `src/editor/Editor.tsx`); **D257, D258** (bound only by nature: the start carried, not refused; clean
+   gestures: no drawn routes or previews, Aim an arrow); **D259** (Select findable; its selection is the working area,
+   D254; **D261** Wand selects water; **D264** Select all, Set / Cut down / Fill up, Max water depth); **D260** (unfed
+   water recedes at once); **D263** (smart Lower: depth from strokes, new channels about one tile deep); then **D244 step 2** once the Ceiling batch passes (lift the six caps at 16: `MAX_TERRAIN`, `BRUSH_MAX_LEVEL`, ops.schema.json's
    brush level and stop, brushes.ts's layer-cut raise and precise hold, `forceCeiling`; merge `chore/ceiling-probe`'s tool;
    the tall note in plain words). Then deploy the preview from `feature/forces` and tell Kyler: his checklist for the
    sitting is in STATUS. Not released until he has tried it. The top note of `docs/progress/forces.md` has the detail.
@@ -46,7 +55,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    `real-places-2-done`. The commands are in the top note of `docs/progress/real-places.md`.
 6. **The page is the editor** (`build`; D232–D234, D237), after the forces round 2 and M9a's release, on the preview; then
    Kyler's editor UI audit, then the design pass straight after it (D236, D238).
-7. **M9b and M9c** (`m9-build`) in parallel with 6, taking the machine first (D236); read `docs/PERFECT.md` first (D225).
+7. **M9b and M9c** (M9b on `m9b-build`, xhigh, D262; M9c on `m9-build`) in parallel with 6, taking the machine first (D236); read `docs/PERFECT.md` first (D225).
 8. **The Map look work** (`build`) when ROADMAP's order reaches Map look 2: the High look from #38, #65, #66 and #67 (D241,
    D242, D250). Then the rest of `ROADMAP.md`.
 
@@ -54,7 +63,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
 
 **Pending numbers across branches** (renumber at merge): `dev` has #69–#83; #80–#82, #84 and #85 belong to Real places (#35);
 the forces branch's #84 (Flatten's ramped edges) becomes **#86** when it merges; M9a's #77–#80 become **#87–#90** when it
-merges. The next free number is **#91**.
+merges, and its start planting (D252) is **#93**. The next free number is **#94**.
 
 ## 2. Work in flight (at the restart)
 
@@ -113,7 +122,9 @@ Its probe group is prepared: `investigation/probe` catalogue group `M9a`, 15 map
    re-express character requests as steering (D139, D187); never weaken a pass criterion; P01, F05, M02 and Z05 may recover
    once Live editing merges (its export profile skips `water.source_in_flow` for hand-placed sources, D184).
 6. **Docs, browser tests, final CI, 2–3 h:** the e2e determinism timeout and the Islands 256² preview timeout.
-7. **The probe batch** from the frozen generator (rebuild its maps first), about 1½ hours in the game, **only after Kyler's
+7. **D252 (before release):** the start planting spread over the 20-tile walk, reading the land (D252 (1)); then the
+   review set posted on #56 (D252 (2)) and **Kyler's yes on it**, blocking; full detail in §1 item 1.
+8. **The probe batch** from the frozen generator (rebuild its maps first), about 1½ hours in the game, **only after Kyler's
    yes in chat** (§7). Then tag `m9a-done` and release (§8).
 
 **Next concrete step:** in `DamGoodMaps-m9a`, run the settings experiments on seeds 1–4 at 96²; give Drought reserve
@@ -258,8 +269,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D257), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D265), and into the living docs in the same change
+  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,
@@ -268,7 +279,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   | Work | Definition | Model, effort |
   |---|---|---|
   | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
-  | M9b and M9c | `m9-build` | Opus 5.5, high |
+  | M9b, composition and variety (D262) | `m9b-build` | Opus 5.5, xhigh |
+  | M9c | `m9-build` | Opus 5.5, high |
   | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246) | `build` | Opus 5.5, high |
   | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps | `routine` | Sonnet 5, medium |
   | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |

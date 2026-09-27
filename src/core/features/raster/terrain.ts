@@ -366,7 +366,10 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
     const was = s.params.precise ? heights.slice() : null;
-    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) : (i) => t.inRegion(i));
+    // Naturalize roughens only open land: it leaves every protected tile as it is (a set piece's,
+    // the start's bench, a precise stroke's, a force's), so it never breaks what they hold (D253)
+    const open = s.params.tool === "naturalize" ? (i: number) => !t.protectedMask[i] : () => true;
+    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
     // a precise stroke's tiles stay as it left them: the integrity pass leaves them out (a one-tile
     // pit stays a pit, D193)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {

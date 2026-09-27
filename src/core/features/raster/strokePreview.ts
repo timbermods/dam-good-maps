@@ -63,7 +63,9 @@ export class StrokePreview {
       keep = new Uint8Array(W * H);
       for (const i of state.columns) keep[i] = 1;
     }
-    this.stroke = new BrushStroke(settings, this.pre, W, H, keep ? (i) => !keep![i] : () => true);
+    // Naturalize leaves protected tiles alone, as build step 6 does (D253)
+    const prot = settings.tool === "naturalize" ? state.protect : null;
+    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]));
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;

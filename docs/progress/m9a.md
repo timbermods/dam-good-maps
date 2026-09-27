@@ -222,7 +222,7 @@ generator **0.7.0**; share links made with 0.6.x open with the note that the map
 The start-area sheet showed the same ring of groves and berry patches within about 10 tiles of
 every start at Normal: the start rules' own planting for Minimum starting wood and Minimum starting
 bushes (D85), planted first and evenly on the moist land nearest the start, and larger since D227's
-200 logs. Now (`gen/resources.ts`; decisions-pending #91, a default):
+200 logs. Now (`gen/resources.ts`; decisions-pending #93, a default):
 
 - **The map's own groves and patches come first**, the start's share kept back; the start rules then
   add only what those leave short within 20 tiles' walk (1.35 × Minimum starting wood in grown logs
