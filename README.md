@@ -49,10 +49,9 @@ The editor:
 - A new source's water flows at once. The row under the brushes sets its strength.
 - Over a placed source, Shift+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
-- **Remove** (X) takes the object you click, or everything in the rectangle you drag. It never
-  changes the ground, and the start stays.
-- M selects an area, as does Ctrl+drag with a brush. Raise it, lower it, level it, dig it out or
-  clear its objects.
+- Point at an object or a source and press **Delete** to remove it. The start stays.
+- **Select** (M) marks an area, as does Ctrl+drag with a brush. Raise it, lower it, level it or dig
+  it out. **Delete** clears everything standing in it.
 - Drag the start to move it. Point at it to see its water, wood and berries.
 - The water flows as you edit. **Pause**, **Speed**, **Skip** and **Replay** control
   it. **Drought** and **Badtide** show what each does to the map.

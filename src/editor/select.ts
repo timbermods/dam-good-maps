@@ -6,7 +6,7 @@
 // plain Alt+click is the game's layer pick), in every mode; Ctrl+click on the land takes its level as
 // Set level's target. While dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What
 // it does to the selection (raise or lower by some levels, set to a level, cut down or fill up to
-// it, dig out, clear objects, water no deeper than a depth) is exact, one undo step each; while it
+// it, dig out, water no deeper than a depth; Delete clears what stands there, D288) is exact, one undo step each; while it
 // is open it is the working area (D254): the brushes and the forces work only inside it.
 
 import { polygonMask } from "../core/features/geometry";

@@ -37,9 +37,9 @@ editor is desktop-first (D185).
 
 ## 3. The screen
 
-- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group) | Remove, with a small options
-  row for the picked tool; every force's options row starts with its mode switch. The four forces
+- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
+  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group), with a small options
+  row for the picked tool (no Remove tool, D288: see **Delete** below); every force's options row starts with its mode switch. The four forces
   are built on one shared forces core (D203, D206, D220). While a force works its row is its status
   (Carve's with Pause and Stop) and Revert; the other tools wait. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
@@ -74,7 +74,7 @@ editor is desktop-first (D185).
   field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
   trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
   have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
-  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  is one undo step, and Select and Delete clear them (D288). Unique landmarks stay single-placement: the start, the mine site,
   relics and geothermal fields.
 - **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down, off for the usual
   orbit), Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin line wherever the ground
@@ -93,7 +93,7 @@ editor is desktop-first (D185).
   land (packed earth for Raise, loose stone for Lower, a mineral scrape for Flatten, leaves for Smooth
   and Naturalize); an accent for each thing placed by its material (hollow wood and leaves for a
   tree, damped metal for a ruin, heavy timber for the mine site, a splash and bubbles for a source,
-  murkier for badwater); an earth puff for Remove; a reversed wooden catch for undo; and each force's
+  murkier for badwater); an earth puff for a delete; a reversed wooden catch for undo; and each force's
   own, phase by phase (a torrent for Carve; a breath, a crack, a boom and falling stone for
   Craterize; a fault's crack and grind for Quake and its Slide; pressure, a roaring plume and a
   cooling hiss for Erupt). Repeating an action climbs a small pentatonic ladder (to a fifth) and
@@ -193,9 +193,10 @@ editor is desktop-first (D185).
   the valley as its lakes fill. Bound only by nature like the others (D257: through the start's ground, the start
   carried), with their clean gestures (D258), it respects the height ceiling (D244), and keeps and feeds
   its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
-- **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
-  changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
-  source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
+- **Delete** (D288; there is no Remove tool): with a selection open, the Delete key (or the Selection row's **Delete**)
+  removes everything standing inside it, objects and sources, as one undo step; the start always stays, and says so.
+  With no selection, Delete removes what the pointer is on: a source within its targeting range (D249) first, else the
+  object on the tile. It never changes terrain.
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
   checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
   Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
@@ -208,7 +209,7 @@ editor is desktop-first (D185).
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out, Clear objects) are exact, with hard edges: precision tools. **Select all** (D264): Ctrl+A selects the whole
+  Dig out) are exact, with hard edges: precision tools; **Delete** clears what stands in the selection (D288). **Select all** (D264): Ctrl+A selects the whole
   map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
   down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
@@ -252,7 +253,7 @@ Make a valley, drop a source, and there's a river.
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
   Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
   past the official range); drag to move. A click on a placed source selects it and shows its
-  strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
+  strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
@@ -374,7 +375,8 @@ Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
-Erupt, X Remove (with Quake picked, X flips the side of the fault that moves) and M Select.
+Erupt and M Select; with Quake picked, X flips the side of the fault that moves. Delete removes what the
+pointer is on, or everything in an open selection (D288).
 Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
@@ -495,7 +497,7 @@ Flatten's level (the ground where the stroke started, unless one was picked), it
 edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
-with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
+with the shelf's R, in one step; Delete is `deleteEntities`, with `removeSlope` for the slopes the
 build places, and never touches the ground or the start. A stroke with **Clear sources** on is one
 step of the `brush` and a `deleteEntities` of the sources it pressed on (D249). A force's run becomes one operation whose
 result is stored literally, so a replay assigns it and never runs the force again: `forceResult`,
@@ -734,7 +736,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - picking against the heightfield and the features for direct manipulation;
   - the shelf (D184): each object's picture is drawn once by the view itself (the object's model in
     the map's look, into a small render target), and the ghost under the pointer is the object's own
-    model, tinted green or red; Remove tints the objects under the pointer red;
+    model, tinted green or red; a source the pointer targets glows (D249);
   - the minimap (D205): the Real places top-down picture (`core/render/shade.ts`, one pixel a tile),
     drawn again when the page is idle after an edit or its water settles, never per frame; the
     outline is the view's four corners carried to the ground at the camera's target level;
@@ -896,6 +898,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
+| The Remove tool (X, its filters, its drag and its red hover); Select's Clear objects | D288: Select and Delete; Delete on what the pointer is on |
 | The Orbit and Top-down pair; the Dam sites view, the map card's best dam site and the preview's hatched dam site; the Moisture and Drought views | D287: one Top-down toggle; the land shows moisture; the water bar's Drought, day by day |
 | Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |

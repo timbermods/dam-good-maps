@@ -11,9 +11,9 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **The lean editor, D287-D289, with D290** (in progress): D287 done (the section below); D288
->    (Select and Delete instead of Remove), D289 (every force's row Power, Size, one choice, Try
->    another) and D290 (a badwater source cuts its own spring pool) next.
+> 7. **The lean editor, D287-D289, with D290** (in progress): D287 and D288 done (the section
+>    below); D289 (every force's row Power, Size, one choice, Try another) and D290 (a badwater
+>    source cuts its own spring pool) next.
 > 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
 > 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
@@ -63,6 +63,26 @@ sites, Moisture, Drought or Orbit button in the view bar, Badwater there); `look
 toggle, on and off, no Orbit); `water.spec` (no best dam site on the card); `look-readable.test`
 (the hatch's rim test kept as the general overlay's; the dam site's colour and swatch checks gone);
 `legend.test` (a generic label instead of "Dam sites").
+
+### D288: Select and Delete instead of Remove
+
+- **The Remove tool is gone**: its bar button, X, its filters row, its drag and its red hover
+  (`removeTool` in `placeTools.ts` and its unit tests). X now only flips Quake's side.
+- **Delete** does it all: with a selection open (Select, a Ctrl+drag, Ctrl+A), the Delete key or
+  the Selection row's **Delete** (which replaces **Clear objects**) removes everything standing
+  inside it, objects, slopes and sources, as one undo step ("Remove 23 objects"); the start stays
+  and says so. With no selection, Delete takes what the pointer is on: a source within its reach
+  first (D249), else the object on the tile ("Remove a tree"). Under a cut, only what stands on
+  the visible land. The worker's `removeAt` is the same call, with every kind.
+- Docs: EDITOR_PLAN §3 (the top bar; Delete where Remove was; the keys; the Select line), Part 3;
+  ROADMAP's Live editing items 1, 4, 8 and its Removed list; the README's lines. Retired: a
+  `Remove (X)` label, a `Clear objects` button.
+
+Tests changed to the decision (D148): `shelf.spec`'s Remove test became Delete's (pointed at a
+pine; a rectangle round a grove and a source, by key and by the row's button, one step, undone in
+one; the ground unchanged; the start stays, pointed at and under Ctrl+A); `brushSources.spec` lost
+its Remove-drag part (D249's "a drag from a source takes only sources" went with the tool);
+`brushKit.spec` and `publicSite.spec` look for Select where they looked for Remove.
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 

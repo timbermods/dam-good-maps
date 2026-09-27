@@ -913,9 +913,9 @@ they conflict):
   always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
   full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
-1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-   Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
-   left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
+1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
+   Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
+   the left shelf (D212). Every force's options row starts with its mode switch. The forces go to the
    preview and are released only after Kyler has tried them (D219): until then the public site shows
    no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
    Power, Steep or Broad, a summit, flows, Try
@@ -943,7 +943,7 @@ they conflict):
      to place, and water spreads at once; the row beneath sets the next one's strength.
      Shift+scroll over any source changes its strength live (a friendly note past the official
      range, never a block); drag to move it; a click selects it (its strength, clean or bad,
-     Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
+     Remove); Delete or that Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
    - **Glaciate** (D246), after the forces round 2: a fifth force that turns a valley into a glacial valley (a level floor
@@ -988,8 +988,10 @@ they conflict):
    forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
    trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
-4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Level lines (D248), Markers, and the overlays
-   (moisture, contamination, drought). The legend appears only while an overlay is on.
+4. **View buttons** (D287): one Top-down toggle, Reset view, Height colours, Level lines (D248), Markers, and the
+   overlays, Badwater and Under roofs. The legend appears only while an overlay is on. No dam site is drawn on the map
+   or named on the map card; no Moisture or Drought view (the land shows moisture; the water bar's Drought shows a
+   drought day by day).
    Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
    that hides everything above the level, the layer pick, and tools that act on the visible land.
    Also (D205): a corner minimap (on by default at 256², a toggle among the view buttons), small
@@ -1003,9 +1005,9 @@ they conflict):
    the map. Never a pop-up.
 7. **The start:** its water, wood and berry reach appears around it while hovered or dragged, then
    fades.
-8. **Remove:** click one, drag many; filters; a red highlight on hover; Delete removes a selection;
-   one undo step each; water re-flows live; never changes terrain; a removal that breaks a rule is
-   refused live; instant on 256².
+8. **Delete** (D288; no Remove tool): with a selection open, Delete removes everything standing inside it, objects
+   and sources, as one undo step; with none, Delete removes what the pointer is on (a source within its reach, else
+   the object on the tile). The start always stays; water re-flows live; never changes terrain; instant on 256².
 9. **Select, and the working area** (D254, D259; on `feature/forces` with the forces round 2, for Kyler's
    forces sitting): Select gets a small button on the bar beside the brushes (M and Ctrl+drag still open
    it), with Circle and Brush beside Rectangle and Freehand, and Same level becomes Wand, which also selects a river's or lake's visible water (D261); Set level reaches the map's
@@ -1032,13 +1034,14 @@ they conflict):
 **Removed:** the landform tools and their handles (D182); the river tool with its start and end
 rules, Natural or exact, width, depth and strength controls; the lake click-fill; the Channel tool;
 separate plant brushes; the cursor readouts (only the level number while flattening stays); the
-text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
+text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs; the Orbit button, the Dam sites view,
+the Moisture and Drought views (D287); the Remove tool and Select's Clear objects (D288).
 <!-- /retired-terms:allow -->
 
 **Kept:** the smooth camera (D180, approved by Kyler); every edit live, as one undo step, with
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
-out, clear trees and objects); Ctrl-click samples a level (on water, its bed); heavy operations
+out, Delete what stands there); Ctrl-click samples a level (on water, its bed); heavy operations
 ("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
 an operation that replays exactly and survives regeneration and format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any

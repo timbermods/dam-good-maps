@@ -18,7 +18,7 @@ test("the public site shows no forces before their release: no button, no key, n
   await page.evaluate(() => window.dgmEditor!.idle());
   const bar = page.getByRole("toolbar", { name: "Tools" });
   await expect(bar.getByRole("button", { name: "Raise brush (1)" })).toBeVisible();
-  await expect(bar.getByRole("button", { name: "Remove (X)" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Select (M)" })).toBeVisible();
   // no forces group, and none of the forces
   await expect(bar.getByRole("group", { name: "Forces" })).toHaveCount(0);
   for (const name of ["Carve", "Craterize", "Quake", "Erupt"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);

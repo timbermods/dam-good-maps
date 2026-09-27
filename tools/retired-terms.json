@@ -57,6 +57,8 @@
     { "pattern": ">\\s*best dam site\\s*<", "retired": "D287", "instead": "none: the map card and the map name no dam site", "example": "<dt>Best dam site</dt>" },
     { "pattern": "\\bshow dam sites\\b", "retired": "D287", "instead": "none: dam sites are never drawn", "example": "Show dam sites" },
     { "pattern": ">\\s*orbit\\s*<", "retired": "D287", "instead": "one Top-down toggle, off for the usual orbit", "example": "<button>Orbit</button>" },
+    { "pattern": "\\bremove \\(x\\)", "retired": "D288", "instead": "Select and Delete; Delete on what the pointer is on", "example": "<button aria-label=\"Remove (X)\">" },
+    { "pattern": ">\\s*clear objects\\s*<", "retired": "D288", "instead": "the Selection row's Delete (or the Delete key)", "example": "<button>Clear objects</button>" },
     { "pattern": "\\bpick source\\b", "retired": "D212", "instead": "the shelf's Water source and Badwater source", "example": "Add water: pick Source, then click where the water starts." }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],
