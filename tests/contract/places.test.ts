@@ -25,7 +25,7 @@ import { density } from "../../src/core/gen/calibrated";
 
 /** The choice tools/places-convert.ts made. */
 const SELECTION = JSON.parse(readFileSync("tools/places/selection.json", "utf8")) as {
-  places: { id: string; name: string; row: string; status: "kept" | "replaced" | "added"; was?: string }[];
+  places: { id: string; name: string; row: string; focus?: number; status: "kept" | "replaced" | "added"; was?: string }[];
   dropped: { name: string; row: string; status?: "kept" | "replaced" | "added"; reason: string }[];
 };
 
@@ -207,7 +207,10 @@ describe("titles (Kyler, 2026-09-25)", () => {
       const added = SELECTION.places.find((q) => q.id === p.id)!.status === "added";
       const second = regions.has(`${region}`) || (added && droppedRegions.has(`${region}`));
       regions.add(`${region}`);
-      expect(p.name, p.id).toBe(titleOf(p.surveyName, second, survey.replace(/-\w+-\d+$/, "")).name);
+      // (a map framed wider than its signature, D306, is titled by the signature's own patch)
+      const focus = SELECTION.places.find((q) => q.id === p.id)!.focus;
+      const patch = survey.replace(/-\w+-\d+$/, "").replace(/-\d+-(\d+)$/, (all, m) => (focus ? `-${focus}-${m}` : all));
+      expect(p.name, p.id).toBe(titleOf(p.surveyName, second, patch).name);
       expect(p.name, p.id).not.toMatch(/\bCentre\b/);
     }
     expect(new Set(INDEX.places.map((p) => p.name.toLowerCase())).size).toBe(INDEX.count);

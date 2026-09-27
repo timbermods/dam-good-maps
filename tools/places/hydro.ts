@@ -177,15 +177,18 @@ const TILT_ROUNDS = 4;
 export const SMOOTH_STEP = 10;
 
 /** The patch (its halo included, `W` a side) with most of its overall tilt taken out (D300): the
- *  plane that best fits the map's square (least squares) is found, and all of it is kept where it
+ *  plane that best fits the map's square (least squares; the signature's square, `focus` tiles a
+ *  side in the middle, when the map frames it wider, D306) is found, and all of it is kept where it
  *  spans at most TILT_LEVELS of the map's levels; else only the share `keep` of it that spans
  *  TILT_LEVELS once the land is fitted to its levels as `mode` fits it. The plane is centred on the
  *  map, and fitted to its main surface (a fan's slope, not the mountain beside it). */
-export function detrend(raw: Float32Array, W: number, size: number, halo: number, mode: string, cap: number): { raw: Float32Array; keep: number; tiltLevels: number; smoothed: boolean } {
+export function detrend(raw: Float32Array, W: number, size: number, halo: number, mode: string, cap: number, focus = size): { raw: Float32Array; keep: number; tiltLevels: number; smoothed: boolean } {
+  // the square the plane is fitted on and its levels judged by: the signature's, centred (D306)
+  const off = halo + (size - focus) / 2;
   // the plane z = a + b·(x - m) + c·(y - m) over the map's square, m its middle, fitted to the
   // land's main surface: a least-squares fit, then again without the tiles far off it (more than
   // twice the median distance: a mountain, a gorge), a few times
-  const m = (size - 1) / 2;
+  const m = (focus - 1) / 2;
   let a = 0;
   let b = 0;
   let c = 0;
@@ -201,9 +204,9 @@ export function detrend(raw: Float32Array, W: number, size: number, halo: number
     let sxz = 0;
     let syz = 0;
     const res: number[] = [];
-    for (let y = 0; y < size; y++)
-      for (let x = 0; x < size; x++) {
-        const z = raw[(y + halo) * W + x + halo];
+    for (let y = 0; y < focus; y++)
+      for (let x = 0; x < focus; x++) {
+        const z = raw[(y + off) * W + x + off];
         const r = Math.abs(z - (a + b * (x - m) + c * (y - m)));
         if (round && r > cut) continue;
         const u = x - m;
@@ -232,20 +235,20 @@ export function detrend(raw: Float32Array, W: number, size: number, halo: number
     b = (cuz * cvv - cvz * cuv) / det;
     c = (cvz * cuu - cuz * cuv) / det;
     a = mz - b * mu - c * mv;
-    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) res.push(Math.abs(raw[(y + halo) * W + x + halo] - (a + b * (x - m) + c * (y - m))));
+    for (let y = 0; y < focus; y++) for (let x = 0; x < focus; x++) res.push(Math.abs(raw[(y + off) * W + x + off] - (a + b * (x - m) + c * (y - m))));
     res.sort((p, q) => p - q);
     cut = 2 * res[res.length >> 1] + 1e-6;
   }
-  const plane = (x: number, y: number) => b * (x - halo - m) + c * (y - halo - m);
-  const drop = (Math.abs(b) + Math.abs(c)) * (size - 1);
+  const plane = (x: number, y: number) => b * (x - off - m) + c * (y - off - m);
+  const drop = (Math.abs(b) + Math.abs(c)) * (focus - 1);
   /** The kept plane's span in levels, once the land is fitted to its levels. */
   const levelsAt = (keep: number) => {
     if (mode === "linear") return (keep * drop) / 30;
     let lo = Infinity;
     let hi = -Infinity;
-    for (let y = 0; y < size; y++)
-      for (let x = 0; x < size; x++) {
-        const z = raw[(y + halo) * W + x + halo] - (1 - keep) * plane(x + halo, y + halo);
+    for (let y = 0; y < focus; y++)
+      for (let x = 0; x < focus; x++) {
+        const z = raw[(y + off) * W + x + off] - (1 - keep) * plane(x + halo, y + halo);
         if (z < lo) lo = z;
         if (z > hi) hi = z;
       }
@@ -269,9 +272,9 @@ export function detrend(raw: Float32Array, W: number, size: number, halo: number
   // single-tile bumps would become levels, so a 3×3 median takes them out first
   let lo = Infinity;
   let hi = -Infinity;
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const z = out[(y + halo) * W + x + halo];
+  for (let y = 0; y < focus; y++)
+    for (let x = 0; x < focus; x++) {
+      const z = out[(y + off) * W + x + off];
       if (z < lo) lo = z;
       if (z > hi) hi = z;
     }
@@ -297,5 +300,54 @@ export function median3(raw: Float32Array, W: number): Float32Array {
       v.sort();
       out[y * W + x] = v[4];
     }
+  return out;
+}
+
+/** Levels a map framed wider than its signature (D306) gives the land above the signature's range,
+ *  and below it, when there is such land: the signature keeps the rest. */
+export const MARGIN_LEVELS = 2;
+
+/** The heights of a map framed wider than its signature (Kyler, 2026-09-28, D306) as levels 0..cap:
+ *  the signature (the middle `focus` tiles a side) keeps its range across all the levels but the
+ *  margins, fitted as `mode` fits it (quantise's modes); land above or below the signature's range
+ *  toward the edges is compressed into MARGIN_LEVELS each (logarithmically: its first metres at the
+ *  signature's own rate); in the linear mode (30 m a level) the land above goes on at 30 m a level. The fit rises with the height everywhere, so water still runs its real
+ *  course. With `focus` the map's size it is `quantise`. */
+export function quantiseAround(h: Float32Array, size: number, focus: number, mode: string, cap: number): Uint8Array {
+  if (focus >= size) return quantise(h, mode, cap);
+  const o = (size - focus) / 2;
+  let lo = Infinity;
+  let hi = -Infinity;
+  let slo = Infinity;
+  let shi = -Infinity;
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const z = h[y * size + x];
+      lo = Math.min(lo, z);
+      hi = Math.max(hi, z);
+      if (x >= o && y >= o && x < o + focus && y < o + focus) {
+        slo = Math.min(slo, z);
+        shi = Math.max(shi, z);
+      }
+    }
+  const span = shi - slo || 1;
+  const level = span / cap;
+  const below = lo < slo - level / 2 ? MARGIN_LEVELS : 0;
+  const above = hi > shi + level / 2 ? MARGIN_LEVELS : 0;
+  const band = cap - below - above;
+  const rate = mode === "linear" ? 30 : span / band;
+  const out = new Uint8Array(h.length);
+  for (let i = 0; i < h.length; i++) {
+    const z = h[i];
+    let v: number;
+    if (z < slo) v = below - (below * Math.log1p((slo - z) / rate)) / Math.log1p((slo - lo) / rate);
+    else if (mode === "linear") v = below + (z - slo) / 30;
+    else if (z > shi) v = cap - above + (above * Math.log1p((z - shi) / rate)) / Math.log1p((hi - shi) / rate);
+    else {
+      const u = (z - slo) / span;
+      v = below + (mode === "compressed" ? (band * Math.log1p(4 * u)) / Math.log(5) : band * u);
+    }
+    out[i] = Math.max(0, Math.min(cap, Math.round(v)));
+  }
   return out;
 }

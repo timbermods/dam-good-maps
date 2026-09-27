@@ -49,7 +49,7 @@ import { moisture } from "../../src/core/sim/moisture";
 import { canonicalSettle, prefill, spillLevels, type CanonicalWater } from "../../src/core/sim/prefill";
 import { DIFFICULTY_RULES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
-import { crop, detrend, quantise, rivers, type Edge, type Entry, type Head } from "./hydro";
+import { crop, detrend, quantise, quantiseAround, rivers, type Edge, type Entry, type Head } from "./hydro";
 import { riverTiles } from "./osm";
 import { readWater } from "./worldcover";
 
@@ -131,6 +131,8 @@ export interface Converted {
    *  that got no source. */
   observed?: { water: number; recall: number | null; precision: number | null };
   sea?: number;
+  /** The signature's size in tiles, where the map frames it wider (D306: at 256²). */
+  focus?: number;
   /** The land (D300): the share of its overall tilt kept, and the tiles of bed lowered under the
    *  real water. */
   tiltKept?: number;
@@ -649,15 +651,18 @@ export function coverOf(r: Converted): number {
  *  start on the land meets the absolutes (D245: the checks that are not about playability, and the
  *  starting-logs floor) or the land has no river or start at all; a place short of a playability
  *  check is converted and says so (`shortOf`, `notes`). */
-export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number[]): Converted {
+export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number[], focus?: number): Converted {
   const t0 = performance.now();
   const m = /^(.+)-(\d+)-(\d+)-(\w+)-(\d+)$/.exec(row);
   if (!m) throw new Error(`not a survey row: ${row}`);
   const size = Number(m[2]);
   const metres = readPatch(`${m[1]}-${m[2]}-${m[3]}`);
   // 1. most of the land's overall tilt out before its levels (D300), then the levels
-  const { raw, keep, smoothed } = detrend(metres, size + 2 * HALO, size, HALO, m[4], CAP);
-  const h = quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], CAP);
+  // (a map framed wider than its signature, D306: the signature's square, `focus` tiles a side in
+  // the middle, sets the tilt and keeps its range of the levels)
+  const sig = focus ?? size;
+  const { raw, keep, smoothed } = detrend(metres, size + 2 * HALO, size, HALO, m[4], CAP, sig);
+  const h = quantiseAround(crop(raw, size + 2 * HALO, size, HALO), size, sig, m[4], CAP);
   const fail = (reason: string, extra: Partial<Converted> = {}): Converted => ({ row, ok: false, reason, size, ms: Math.round(performance.now() - t0), ...extra });
 
   const obs = observed(`${m[1]}-${m[2]}-${m[3]}`, meta.lat, meta.lon);
@@ -667,11 +672,11 @@ export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number
   let lifted = false;
   for (let i = 0; i < h.length && !lifted; i++) if (!h[i] && found.labels[i] >= 0 && found.kind[found.labels[i]]) lifted = true;
   if (lifted) {
-    const up = quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], CAP - 1);
+    const up = quantiseAround(crop(raw, size + 2 * HALO, size, HALO), size, sig, m[4], CAP - 1);
     for (let i = 0; i < h.length; i++) h[i] = up[i] + 1;
   }
   const beds = lowerBeds(h, found.labels, found.kind, size);
-  const land = { tiltKept: Math.round(keep * 1000) / 1000, beds, ...(lifted ? { lifted } : {}), ...(smoothed ? { smoothed } : {}) };
+  const land = { ...(sig < size ? { focus: sig } : {}), tiltKept: Math.round(keep * 1000) / 1000, beds, ...(lifted ? { lifted } : {}), ...(smoothed ? { smoothed } : {}) };
 
   // 2 and 3 at each flow up to the size's cap (D214), the sources where the real place's water
   // begins (D271); where the water keeps moving, fewer and larger rivers at the same flow (D214,

@@ -249,7 +249,8 @@ export function placeDescription(p: PlaceData): string {
 /** The places the quick checks build (tests/contract/places.test.ts, the browser tests): the first
  *  two at 96² and 128², and the first at 256². Every place is checked nightly and before a release. */
 export function placeSample(index: Pick<PlaceIndex, "places" | "sizes">): PlaceIndexEntry[] {
-  return index.sizes.flatMap((s) => index.places.filter((p) => p.size === s).slice(0, s < 256 ? 2 : 1));
+  // (a gallery of one size, D306, gives five of it)
+  return index.sizes.flatMap((s) => index.places.filter((p) => p.size === s).slice(0, index.sizes.length === 1 ? 5 : s < 256 ? 2 : 1));
 }
 
 /** The place's own objects as entities, in a fixed order: water sources, badwater sources, the

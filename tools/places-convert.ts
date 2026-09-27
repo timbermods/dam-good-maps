@@ -51,7 +51,7 @@ import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 7;
+const VERSION = 8;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -62,10 +62,14 @@ const FALLBACKS = 16;
 /** Maps of one region, at most: the gallery shows many places, not many views of a few. */
 const PER_REGION = 2;
 const SIZES = [128, 256, 96, 128];
+/** Every place's map size where the data and the land allow (Kyler, 2026-09-28, D306). */
+const WIDE = 256;
 
 interface Job {
   row: string;
   meta: PlaceMeta;
+  /** The signature's size in tiles, when the row frames it wider (D306). */
+  focus?: number;
   /** A conversion kept from before its water cover was recorded: measure it. */
   kept?: Converted;
 }
@@ -76,7 +80,7 @@ serve<Job, Converted>((job) => {
       const cover = coverOf(job.kept);
       return cover > MAX_COVER ? { ...job.kept, ok: false, cover, reason: `water covers ${Math.round(cover * 100)}% of the map (at most ${Math.round(MAX_COVER * 100)}%)` } : { ...job.kept, cover };
     }
-    return convertRow(job.row, job.meta);
+    return convertRow(job.row, job.meta, undefined, job.focus);
   } catch (e) {
     return { row: job.row, ok: false, reason: `error: ${String(e instanceof Error ? e.message : e)}`, size: 0, ms: 0 };
   }
@@ -126,7 +130,7 @@ interface Selection {
   /** `startMoved`: the start from the shore-first ranking (D214); `notes` and `shortOf`: what the
    *  place falls short of (D245: information); `rivers`: the source groups kept (rivers and lakes)
    *  and `observed`: how its water matches the real place's (D271, convert.ts `observedMatch`). */
-  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; startMoved?: true; notes?: string[]; shortOf?: string[]; sourcesDropped?: Converted["dropped"]; rivers: number; observed: NonNullable<Converted["observed"]>; tiltKept: number; beds: number; spring?: Converted["spring"]; advisories: string[] }[];
+  places: { id: string; name: string; row: string; focus?: number; status: Chosen["status"]; was?: string; flow: number; startMoved?: true; notes?: string[]; shortOf?: string[]; sourcesDropped?: Converted["dropped"]; rivers: number; observed: NonNullable<Converted["observed"]>; tiltKept: number; beds: number; spring?: Converted["spring"]; advisories: string[] }[];
   /** Places no row gives any more: the first round's (no status: Majuli), and those D214 or D224
    *  took (their status as they were). */
   dropped: { name: string; row: string; status?: Chosen["status"]; reason: string; tried: string[] }[];
@@ -180,21 +184,24 @@ async function main(): Promise<void> {
 
   // every conversion, from the kept ones or run now
   const results = new Map<string, Converted>();
-  const cachePath = (row: string) => join(CACHE, `${row}.json`);
+  const cachePath = (key: string) => join(CACHE, `${key.replace("@", "-f")}.json`);
   let ran = 0;
   const t0 = performance.now();
+  /** A conversion's key: its row, and `@<focus>` when it frames its signature wider (D306). */
   async function convert(list: string[]): Promise<void> {
     const todo: Job[] = [];
-    for (const row of new Set(list)) {
-      if (results.has(row)) continue;
-      const kept = existsSync(cachePath(row)) ? (JSON.parse(readFileSync(cachePath(row), "utf8")) as Converted) : null;
-      if (kept && (!kept.ok || kept.cover !== undefined)) results.set(row, kept);
-      else todo.push({ row, meta: meta(byRow.get(row)!), ...(kept ? { kept } : {}) });
+    for (const key of new Set(list)) {
+      if (results.has(key)) continue;
+      const [row, focus] = key.split("@");
+      const kept = existsSync(cachePath(key)) ? (JSON.parse(readFileSync(cachePath(key), "utf8")) as Converted) : null;
+      if (kept && (!kept.ok || kept.cover !== undefined)) results.set(key, kept);
+      else todo.push({ row, meta: meta(byRow.get(row)!), ...(focus ? { focus: Number(focus) } : {}), ...(kept ? { kept } : {}) });
     }
     if (!todo.length) return;
-    await runPool<Job, Converted>(new URL(import.meta.url), todo, threads, (r) => {
-      results.set(r.row, r);
-      writeFileSync(cachePath(r.row), JSON.stringify(r));
+    await runPool<Job, Converted>(new URL(import.meta.url), todo, threads, (r, job) => {
+      const key = job.focus ? `${job.row}@${job.focus}` : job.row;
+      results.set(key, r);
+      writeFileSync(cachePath(key), JSON.stringify(r));
       ran++;
       console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"} tilt ${r.tiltKept} beds ${r.beds}${r.spring ? ` spring ${r.spring.strength} (${r.spring.why})` : ""} rivers ${r.rivers ?? "-"}/${r.beginnings ?? "-"}${r.observed ? ` observed ${r.observed.water} found ${r.observed.recall} on it ${r.observed.precision}` : ""}${r.moved ? " start moved" : ""}${r.notes?.length ? ` notes: ${r.notes.join("; ")}` : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
     });
@@ -229,7 +236,20 @@ async function main(): Promise<void> {
   if (!reselect) {
     // the places as chosen before, converted again
     const sel = JSON.parse(readFileSync(SELECTION, "utf8")) as Selection;
-    await convert(sel.places.map((p) => p.row));
+    // Real places at 256², the signature as the focal point (Kyler, 2026-09-28, D306): each place
+    // is built at 256² at its own scale, its signature (the land it was chosen for, its own size)
+    // in the middle; where the data or the land will not take it, at its own size
+    const sizeOf = (row: string) => Number(row.split("-")[1]);
+    const withSize = (row: string, size: number) => row.replace(/^(n\d{3})-\d+-/, `$1-${size}-`);
+    const sigRow = (p: Selection["places"][number]) => withSize(p.row, p.focus ?? sizeOf(p.row));
+    const wide = (p: Selection["places"][number]) => {
+      const sig = sigRow(p);
+      const w = withSize(sig, WIDE);
+      return sizeOf(sig) < WIDE && byRow.has(w) && existsSync(`${PATCHES}/${patchOf(w)}.f32.gz`) ? `${w}@${sizeOf(sig)}` : null;
+    };
+    await convert(sel.places.map((p) => wide(p) ?? sigRow(p)));
+    const narrow = sel.places.filter((p) => wide(p) && !results.get(wide(p)!)!.ok);
+    await convert(narrow.map(sigRow));
     // Real places are kept on their own land (Kyler, 2026-09-26, D245): a place is never dropped,
     // moved to another part of its region, or given another height mapping or scale for a
     // playability check; it converts, and says what it falls short of. Only the absolutes fail a
@@ -237,18 +257,23 @@ async function main(): Promise<void> {
     // then the tool stops: the floor is met by planting (D229), never by moving land.
     const regions = new Set<string>();
     for (const p of sel.places) {
-      const r = byRow.get(p.row)!;
-      const res = results.get(p.row)!;
-      if (!res.ok) throw new Error(`${p.name} (${p.row}) does not convert: ${res.reason}`);
+      // the title's row is the signature's; the map's, the wider one where it converts
+      const r = byRow.get(sigRow(p))!;
+      const key = wide(p) && results.get(wide(p)!)!.ok ? wide(p)! : sigRow(p);
+      const built = byRow.get(key.split("@")[0])!;
+      const res = results.get(key)!;
+      if (!res.ok) throw new Error(`${p.name} (${key}) does not convert: ${res.reason}`);
       const second = regions.has(r.region);
       regions.add(r.region);
       // a first-round place keeps its title; an addition is named by its row (a region's second
       // map by its own part of the place, titles.ts; still so when Kyler dropped the region's
       // first, D271)
       const name = p.status === "added" ? titleOf(r, second || sel.dropped.some((d) => byRow.get(d.row)?.region === r.region)).name : p.name;
-      chosen.push({ row: r, loc: locs.get(r.location)!, name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status: p.status, was: p.was, result: res });
+      chosen.push({ row: built, loc: locs.get(r.location)!, name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status: p.status, was: p.was, result: res });
     }
     dropped.push(...sel.dropped);
+    const kept = sel.places.filter((p) => wide(p) && !results.get(wide(p)!)!.ok);
+    if (kept.length) console.log(`at their own size (D306: 256² did not convert): ${kept.map((p) => `${p.name} (${results.get(wide(p)!)!.reason})`).join("; ")}`);
   } else {
     // ---- the first round's places (`options`)
     const library = (JSON.parse(readFileSync(join(SURVEY, "library/index.json"), "utf8")) as { items: { id: string; family: string }[] }).items.filter((i) => i.family !== "random");
@@ -354,7 +379,7 @@ async function main(): Promise<void> {
   }
   const selection: Selection = {
     note: "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
-    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater || c.result.dropped.unheld) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, tiltKept: c.result.tiltKept!, beds: c.result.beds!, ...(c.result.spring ? { spring: c.result.spring } : {}), advisories: c.result.advisories ?? [] })),
+    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, ...(c.result.focus ? { focus: c.result.focus } : {}), status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow || c.result.dropped.offWater || c.result.dropped.unheld) ? { sourcesDropped: c.result.dropped } : {}), rivers: c.result.rivers ?? 0, observed: c.result.observed!, tiltKept: c.result.tiltKept!, beds: c.result.beds!, ...(c.result.spring ? { spring: c.result.spring } : {}), advisories: c.result.advisories ?? [] })),
     dropped,
   };
   writeFileSync(SELECTION, JSON.stringify(selection, null, 1) + "\n");
