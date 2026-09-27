@@ -16,34 +16,40 @@
 
 export type Rgb = readonly [number, number, number];
 
-/** Badwater's crimson body (calibrated to #38's targets). */
+/** Badwater's crimson body (calibrated to #38's targets). D310 looked at darkening this too (its
+ *  floor, alongside clean water), but it is left exactly as it was: darkening it at all erases the
+ *  mine pit's own margin under it (`look-mine-ruins.test.ts`, Kyler's review of D177/D178,
+ *  2026-09-26: the pit stays at least 5 L* darker than badwater; the two already clear it by only
+ *  0.4 L*, no room to spare) and its `WATER_CALIBRATION` targets are #38's approved measurement, not
+ *  ours to move. D310's darkening is clean water's alone. */
 const BAD_BODY: Rgb = [0.431, 0.204, 0.18];
 
 export const WATER = {
-  /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot): one
-   *  consistent teal-blue body, a slightly lighter teal in the shallows (never grey, still
-   *  see-through so the bed shows through) and a body only a little darker where deep, the hue
-   *  barely shifting with depth. Kept clearly lighter than badwater at every depth (a comfortable
-   *  margin, not a fragile one): the shallow end sits well above badwater's own shallow floor since
-   *  badwater's colours are unchanged by D304. Water reads as water by its shore foam, glints and
-   *  ripples too, not by a wide light-to-dark swing. */
-  shallow: [0.22, 0.562, 0.61] as Rgb,
+  /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
+   *  `navy` darkened further by D310, toward the game's own reading, while `shallow` and badwater
+   *  hold the readability tests at their strictness before D304, never loosened). One consistent
+   *  teal-blue body, a calmer surface with subtle ripples and glints, still see-through so the bed
+   *  shows through. `teal` and `navy` sit close to the game's own reading (D310: within about 3 L*
+   *  of the sampled #305965/#264A58 — `navy` almost exactly `#264A58`'s own lightness). `shallow`
+   *  stays well above that literal reading: badwater's colours don't move (see `BAD_BODY`), so
+   *  clearing `look-readable.test.ts`'s restored raw margin (0.3) and `look-waterfalls.test.ts`'s
+   *  colour-blind margin (D201, at least 20 L*, cleared by 32+ in every simulation) takes a lighter
+   *  shallow than the literal reading would. Water still reads as water by its shore foam, glints and
+   *  ripples, not by a wide light-to-dark swing across its own depths. */
+  shallow: [0.278, 0.682, 0.74] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
   crest: [0.26, 0.5, 0.62] as Rgb,
-  /** The body of water a level or so deep. */
-  teal: [0.213, 0.545, 0.593] as Rgb,
-  /** The body of deep water: only a little darker than `teal` (D304), not the old navy. Held
-   *  lighter than the game's own reading would give exactly, so badwater (unchanged) stays clearly
-   *  distinct in greyscale and every colour-blindness simulation by the tested margin
-   *  (look-waterfalls.test.ts, D201); the shape of the game's ramp (a small, near-constant-hue range)
-   *  is kept, anchored higher. */
-  navy: [0.189, 0.483, 0.525] as Rgb,
+  /** The body of water a level or so deep (D310: close to the game's own #305965). */
+  teal: [0.128, 0.328, 0.356] as Rgb,
+  /** The body of deep water: only a little darker than `teal` (D310, close to the game's own
+   *  #264A58), not the old navy. */
+  navy: [0.117, 0.298, 0.324] as Rgb,
   foam: [0.9, 0.94, 0.95] as Rgb,
   /** The sky the water reflects (clean water's pale flow streaks are this, a little darker). */
   sky: [0.6, 0.72, 0.84] as Rgb,
   /** Badwater's body in its usual shallow pools (`BADWATER.shallow` deep or less), crimson,
    *  matte and nearly opaque; deeper it darkens toward `badDeep` (Kyler's option A), so it stays
-   *  darker than clean water of the same depth. */
+   *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
   bad: BAD_BODY,
   badDeep: [0.14, 0.066, 0.058] as Rgb,
   /** Badwater's darker troughs, in the ripples' low parts (`BADWATER.trough` of the way), and
@@ -118,7 +124,10 @@ export const WATER_SURFACE = {
  *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
 export const HIGH_WATER = {
   /** Clean water by depth, fitted the same way as Standard's (D304): shallow only a little lighter
-   *  than body, deep only a little darker, kept clearly above badwater's own floor. */
+   *  than body, deep only a little darker, kept clearly above badwater's own floor. D310 checked
+   *  these against the game's own reading and found them already close (within half an L\* of the
+   *  sampled shallow/middle/deep), so they are unchanged; `bad` is unchanged too, for the same reason
+   *  Standard's `WATER.bad` is (the mine pit's margin under it, and #38's approved measurement). */
   shallow: [46.5 / 255, 91.5 / 255, 108.5 / 255] as Rgb,
   body: [44.5 / 255, 88 / 255, 104 / 255] as Rgb,
   deep: [37 / 255, 73.5 / 255, 87 / 255] as Rgb,
@@ -254,17 +263,18 @@ export const WATER_CALIBRATION = {
   /** On-screen targets (0–255): badwater's are #38's, as Kyler approved them (its check:colour
    *  at e63a3ff: the typical texture, the troughs and the streaks of pure badwater a quarter level
    *  deep over a poisoned bed); clean water's are the Standard look as approved, re-measured after
-   *  D304 fitted clean water's shades closer to the game's own (they hold it still, until the next
-   *  approved change). Measured with the Standard look held (`dgm.look` forced to `standard`
-   *  before opening the page): a capable GPU picks High by itself once it exists, and `tools/
-   *  capture-badwater.ts --measure` was found silently measuring High's water instead, drifting
-   *  from these targets by the two looks' own difference, not a real change to Standard (found
-   *  investigating the drift, D304's addition; the fix is in the tool, not here). */
+   *  D304 fitted clean water's shades closer to the game's own and again after D310 darkened `teal`
+   *  and `navy` further (they hold it still, until the next approved change). Measured with the
+   *  Standard look held (`dgm.look` forced to `standard` before opening the page): a capable GPU
+   *  picks High by itself once it exists, and `tools/capture-badwater.ts --measure` was found
+   *  silently measuring High's water instead, drifting from these targets by the two looks' own
+   *  difference, not a real change to Standard (found investigating the drift, D304's addition; the
+   *  fix is in the tool, not here). */
   targets: [
     { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [110, 52, 49], trough: [94, 46, 43], streak: [124, 69, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [67, 125, 140] } },
-    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [57, 130, 152] } },
-    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [53, 121, 141] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [62, 112, 124] } },
+    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [41, 89, 102] } },
+    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [39, 84, 97] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
   /** The ground level under a bed of water this deep (so the camera sees the same scene as #38's). */
   floor(depth: number): number {

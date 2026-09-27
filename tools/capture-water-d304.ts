@@ -1,11 +1,12 @@
-// D304 (PLAN §20): one before-and-after pair of editor captures, Standard and High, showing clean
-// water's shades fitted closer to the game's own, beside the sampled game colours as swatches (no
-// part of Kyler's screenshot: numbers and swatches only). A second sheet checks clean water and
-// badwater stay distinct in greyscale and every colour-blindness simulation.
+// D304 and D310 (PLAN §20): one before-and-after pair of editor captures, Standard and High, showing
+// clean water's shades fitted closer to the game's own (D304), then darkened further toward the
+// game's own reading while the readability tests were restored to their strictness before D304
+// (D310), beside the sampled game colours as swatches (no part of Kyler's screenshot: numbers and
+// swatches only). A second sheet checks clean water and badwater stay distinct in greyscale and
+// every colour-blindness simulation.
 //
-//   git archive --output=.scratch/before-water.tar HEAD index.html real-places src public vite.config.ts tsconfig.json package.json
+//   git archive --output=.scratch/before-water.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json
 //   mkdir -p .scratch/before-water && tar -xf .scratch/before-water.tar -C .scratch/before-water
-//   (run this BEFORE the palette edit is committed, so "before" is the last commit and "after" is the working tree)
 //   npx tsx tools/capture-water-d304.ts [--before .scratch/before-water] [--out docs/look/high]
 //
 // Lake Basin 3, 256², framed on where badwater meets clean water: it has shallow sheets near its
@@ -228,7 +229,7 @@ async function main() {
     ];
 
     const mainImages = [shots["before-standard"], shots["after-standard"], shots["before-high"], shots["after-high"]];
-    const mainLabels = ["Standard: before D304", "Standard: after D304", "High: before D304", "High: after D304"];
+    const mainLabels = ["Standard: before (dev)", "Standard: after (D304, D310)", "High: before (dev)", "High: after (D304, D310)"];
     const b64main = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: mainImages.map((b) => b.toString("base64")), labels: mainLabels, cols: 2, swatches })})`)) as string;
     writeFileSync(join(OUT, "d304-water.jpg"), Buffer.from(b64main, "base64"));
     console.log(`${join(OUT, "d304-water.jpg")}: ${Math.round(Buffer.from(b64main, "base64").length / 1024)} KB`);

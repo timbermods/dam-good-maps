@@ -27,10 +27,9 @@ describe("the meanings in lightness", () => {
     // clean water's body is lighter than badwater's at every depth (Kyler's rule: badwater stays
     // clearly darker than clean water; the body is the colour the shader draws before its light)
     for (const d of [0.05, 0.25, 0.5, 1, 2, 3, 5]) expect(lum(waterBody(d, false)) - lum(waterBody(d, true))).toBeGreaterThan(0.05);
-    // clean shallows over badwater (D304 fitted clean water's shades closer to the game's own,
-    // narrowing the old margin; look-waterfalls.test.ts keeps the stricter, perceptual CIE L* check
-    // with colour blindness, which is the one that bites)
-    expect(lum(WATER.shallow)).toBeGreaterThan(lum(WATER.bad) + 0.15);
+    // clean shallows over badwater: D304 narrowed this margin, but D310 restored it to its strictness
+    // before D304 (never loosened) by darkening clean water and badwater's floor together
+    expect(lum(WATER.shallow)).toBeGreaterThan(lum(WATER.bad) + 0.3);
     // living trees are dark, dead trees nearly white
     expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.55);
     // a dam site's stripes: light and dark

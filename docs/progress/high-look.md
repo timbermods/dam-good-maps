@@ -3,12 +3,11 @@
 > **Top note (2026-09-28, stop 2): ready for Kyler's eye; held on `feature/high-look`** (D286 (4): nothing merges into
 > `dev` without Kyler's yes; for the preview right after the forces' release). Built: #38, #65, #66 and #67's stages 1–3
 > with its poisoned soil, as a High look beside Standard; High is the default where the computer draws it smoothly, with an
-> automatic fallback to a lower-cost High and then to Standard. Standard is unchanged apart from D304's water and D305's
-> ruins (stop 2): dev's site and this branch draw every captured view to the same pixels for everything else (`terrain`
-> and `sky` shaders, and their `.lite` forms, are still byte for byte dev's; `water`, `fall` and `object` embed the
-> fitted water palette and the far ruin's lattice, so they and the views bearing water or ruins differ, by up to about
-> 85 codes, matching the size of the palette's own change; see
-> [docs/look/high/README.md](../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-and-ruins-d304-d305)).
+> automatic fallback to a lower-cost High and then to Standard. Standard is unchanged apart from D304 and D310's water and
+> D305's ruins (stop 2): dev's site and this branch draw every captured view to the same pixels for everything else
+> (`terrain` and `sky` shaders, and their `.lite` forms, are still byte for byte dev's; `water`, `fall` and `object`
+> embed the fitted water palette and the far ruin's lattice, so they and the views bearing water or ruins differ; see
+> [docs/look/high/README.md](../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-and-ruins-d304-d305-d310)).
 > The captures are in [docs/look/high/](../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are
 > below (High costs it about 1–2 ms a frame more than Standard; every configuration orbits at the display's 165 Hz).
 > **Left:** #67's visible seasons and D250's badtide withering (they wait for the Drought and Badtide branch, D286 (4));
@@ -17,12 +16,16 @@
 > glance":** from afar, High's poisoned soil (#67's approved proposal) is a dark olive stain where Standard's
 > contaminated ground glows red, so the ground round badwater reads less from a whole-map view (the badwater itself
 > stays crimson); it is its own switch (**Finishing touches**, `poison`). **Stop 2:** D304 fitted clean water's shades
-> closer to the game's own (sampled from Kyler's screenshot), in both looks; see "D304: clean water's shades" below and
+> closer to the game's own (sampled from Kyler's screenshot), in both looks; D310 then darkened `teal` and `navy`
+> further toward the game while restoring the two readability tests D304 had loosened (badwater's own colours are
+> unchanged — darkening them broke an earlier decision, the mine pit's margin under badwater, D177/D178); see "D304:
+> clean water's shades" and "D310: clean water and badwater's floor darken together" below and
 > [docs/look/high/d304-water.jpg](../look/high/d304-water.jpg) for the before-and-after. D305 fixed the far ruin block
 > to read as the same ruin seen from afar (the near skeleton's own muted colour and a lattice, not a bright orange
 > box); see "D305: a ruin seen from afar looks like the same ruin" below and
-> [docs/look/high/d305-ruins.jpg](../look/high/d305-ruins.jpg). The whole-look composites above still show stop 1's
-> water and ruins pending a full recapture; the dedicated D304 and D305 captures show the current look.
+> [docs/look/high/d305-ruins.jpg](../look/high/d305-ruins.jpg). Every capture in `docs/look/high/` was recaptured for
+> D310, so the whole-look composites above and the dedicated D304 and D305 captures all show the current water and
+> ruins together.
 
 Spec: `ROADMAP.md` "Map look 2: the High look"; PLAN §20 D147, D177, D201, D231, D232, D241–D243, D250, D265, D283, D284,
 D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook2`, #65 `investigation/maplook3`, #66
@@ -112,6 +115,39 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
   - Captures: `docs/look/high/d304-water.jpg` (Standard and High, before and after, on Lake Basin 3 256² — shallow
     edges and deep pools in one map — with the sampled game colours as swatches) and
     `docs/look/high/d304-water-checks.jpg` (the same, in greyscale and the three colour-blindness simulations).
+- **D310: clean water and badwater's floor darken together, toward the game.** Kyler's answer to the trade-off above:
+  darken clean water further, toward the measured game relationships, and darken badwater's floor too so the two keep
+  their gap, restoring `look-badwater.test.ts`'s corner-to-corner step (12 → 6 L\*, its strictness before D304) and
+  `look-readable.test.ts`'s shallow-over-badwater margin (0.15 → 0.3) to what they were, never loosened.
+  - **`teal` and `navy` darken to the game's own reading:** `WATER.teal` from L\* 53.5 to 32.4 (the game's own
+    `#305965` is L\* 35.1 — within 3 L\*) and `WATER.navy` from L\* 47.7 to 29.6 (the game's `#264A58` is L\* 29.2 —
+    within half an L\*). `HIGH_WATER.body`/`deep` turned out already this close (D310 checked: within half an L\* of
+    the game's own middle/deep), so they are unchanged.
+  - **Badwater's floor turned out not to move.** Tried darkening `WATER.bad` (the shallow/typical crimson) to make
+    room, and found it breaks a decision already on record: Kyler's review of D177/D178 (2026-09-26) fixed the mine
+    pit's earth at least 5 L\* darker than badwater, with both colours held ("it was lighter than the red-black
+    badwater before"); today's `WATER.bad` and `MINE.pit` clear that margin by only 0.4 L\*, so any darkening of
+    `WATER.bad` erases it (`look-mine-ruins.test.ts` catches this exactly). `WATER_CALIBRATION`'s badwater targets are
+    also #38's own approved measurement, not ours to move. So `WATER.bad`, `badDeep`, `badTrough` and `badStreak`
+    (and `HIGH_WATER.bad`) are unchanged; with badwater's floor fixed, restoring the two tests instead took
+    `WATER.shallow` up a little (L\* 55.0 to 62.3 — clean water's own lightest point stays a bright, clear teal, well
+    above badwater, and the readability tests are exactly what require this) while `teal`/`navy` did the darkening.
+    The faintest badwater question (bubbles and surface texture carrying the difference near black) didn't come up:
+    nothing about badwater got darker than it already was under D177, so nothing new needed the help.
+  - **New values** (`src/render3d/waterPalette.ts`): `WATER.shallow [0.278, 0.682, 0.74]` (from D304's
+    `[0.22, 0.562, 0.61]`), `WATER.teal [0.128, 0.328, 0.356]` (from `[0.213, 0.545, 0.593]`), `WATER.navy
+    [0.117, 0.298, 0.324]` (from `[0.189, 0.483, 0.525]`); badwater's own numbers unchanged throughout.
+  - **Margins, checked against the real mesh and shader math, not a proxy:** raw-lum shallow-over-bad 0.35 (needs
+    >0.3); colour-blind shallow-over-bad, worst simulation (deuteranopia) 32.7 L\* (needs >20, D201); the badwater
+    blend's worst real corner-to-corner step (the exact scenario in `look-badwater.test.ts`) 5.67 L\* (needs <6);
+    badwater's deep-vs-typical gap 22.1 L\* (needs ≥15); the mine pit's margin under badwater, unchanged, 5.39 L\*
+    (needs ≥5).
+  - `WATER_CALIBRATION`'s clean-water targets re-measured again (Standard held): quarter level `#3E707C`, 1.25 deep
+    `#295966`, 4.25 deep `#275461`; badwater's stay exact (`within 0`) since it didn't move.
+  - **Every capture in this folder recaptured** (`tools/capture-high.ts`, `tools/capture-water-d304.ts`,
+    `tools/capture-ruins-d305.ts`), so the whole-look composites, the greyscale and colour-blindness sheets and the
+    D304/D305 dedicated captures all show the current water and ruins together; the identity table below is
+    refreshed from this run.
 - **D305: a ruin seen from afar looks like the same ruin.** At a tilted camera the far version (a solid block per
   storey, `entities3d.ts` `farBlock`) used to read as a bright orange block beside the nearer ones' metal skeletons
   (`RUIN.rust` on its faces, the brighter `RUIN.top` on its roof); from directly above the difference barely showed.
@@ -233,6 +269,13 @@ forces' `besideHeight`), and EDITOR_PLAN's architecture list (the forces' juice 
   new palette, under the Standard look held (`tools/capture-badwater.ts` now pins `dgm.look` to `standard`: without
   it, a capable GPU measures High's water by itself, which is what drifted badwater's own untouched targets too — see
   "D304: clean water's shades" above).
+- **D148 (stop 2, D310):** the two numbers D304 changed are restored to their strictness before D304, never loosened
+  (Kyler's explicit instruction): `look-badwater.test.ts`'s corner-to-corner blend step bound back to 6 L\* (from 12;
+  the exact worst step in that test's own scenario is now 5.67, with headroom) and `look-readable.test.ts`'s one-off
+  shallow-over-badwater margin back to 0.3 (from 0.15; the new shallow clears it by 0.35). `WATER_CALIBRATION`'s
+  clean-water targets re-measured again to the darker `teal`/`navy`; badwater's targets untouched and still exact. See
+  "D310: clean water and badwater's floor darken together" above for the mine-pit finding that kept badwater's own
+  colours, and every other test, unchanged.
 - **D148 (stop 2, D305):** `look-mine-ruins.test.ts` and `look-water-slopes.test.ts` read `RUIN.far` wherever they
   used to read `RUIN.top` (retired: the far block's faces and its top now share one colour, the lattice being what
   tells it apart from a solid box); the far-triangle colour-share check (over 60% of the far block's area, near
