@@ -10,6 +10,8 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
+import type { Look } from "../render3d/renderer";
+import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
 import { presentEntries, type PresentEntry } from "./legendMap";
 
@@ -106,6 +108,9 @@ export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const compass = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
+  /** The renderer, for the look's menu, and the look it draws (High or Standard, D284). */
+  const [made, setMade] = useState<MapRenderer | null>(null);
+  const [look, setLook] = useState<Look>("standard");
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
   const [markers, setMarkers] = useState<boolean>(() => savedMarkers() || !!props.markersWanted);
@@ -127,6 +132,9 @@ export function View3D(props: View3DProps) {
       return;
     }
     renderer.current = r;
+    setMade(r);
+    setLook(r.look);
+    r.onLook = (l) => setLook(l);
     r.setGroundMode(ground);
     r.setMarkers(markers);
     r.onHover = (hit) => onHover.current?.(hit);
@@ -147,6 +155,7 @@ export function View3D(props: View3DProps) {
     };
     return () => {
       renderer.current = null;
+      setMade(null);
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
       r.dispose();
     };
@@ -267,7 +276,7 @@ export function View3D(props: View3DProps) {
   );
 
   return (
-    <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
+    <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} look-${look === "lower" ? "high" : look} ${props.class ?? ""}`}>
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
@@ -283,6 +292,7 @@ export function View3D(props: View3DProps) {
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
+        <LookMenu renderer={made} look={look} />
       </div>
       <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
         <div ref={compass} class="needle">
