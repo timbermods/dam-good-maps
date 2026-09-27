@@ -17,3 +17,10 @@ export function entityId(ownerFeatureId: string, template: string, localIndex: n
 
 /** Owner id for derived layers (slopes are rebuilt every time, never edited as features). */
 export const DERIVED_SLOPES = "derived:slopes";
+
+/** Owner id for the slopes a ramped Flatten stroke lays on its own rim (D270): kept in the stroke,
+ *  placed again by every build. */
+export const RIM_SLOPES = "derived:rim-slopes";
+
+/** Slopes the build places again from the map's own rules and strokes (a delete is a `removeSlope`). */
+export const rebuiltSlope = (owner: string) => owner === DERIVED_SLOPES || owner === RIM_SLOPES;

@@ -925,15 +925,15 @@ they conflict):
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
 1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
    Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
-   the left shelf (D212). Every force's options row starts with its mode switch. The forces go to the
-   preview and are released only after Kyler has tried them (D219): until then the public site shows
-   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
-   Power, Steep or Broad, a summit, flows, Try
-   another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land along a drawn fault (Lift
-   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` (#52, ready with Lift and
-   Slide, D219). All four forces share one forces core, built on `investigation/forces-core` (#59, D220).
-   Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
-   another); built from `investigation/craterize` (#51, ready, D216). A small row
+   the left shelf (D212). Every force's row is Power, Size, at most one choice and Try another (D289); the gesture
+   is the mode (a click or a drag), and the rest of its character comes from the land and the seed. The forces go to
+   the preview and are released only after Kyler has tried them (D219): until then the public site shows
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (a click vents, a drag opens a
+   fissure; Power, Size, Try another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land
+   along a drawn fault (Lift or Slide, its one choice; Power, Try another; X flips the side); built from
+   `investigation/quake` (#52, ready with Lift and Slide, D219). All four forces share one forces core, built on
+   `investigation/forces-core` (#59, D220). Craterize (D202) simulates a giant impact (a click strikes, a drag aims;
+   Power, Size, Try another); built from `investigation/craterize` (#51, ready, D216). A small row
    beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
    only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines (level lines moved
    to the view buttons, D248). Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
@@ -985,13 +985,12 @@ they conflict):
      from `investigation/cycles`; built on `feature/weather-days`, held for Kyler's sitting of its own);
      moisture spreading as the land greens; optional sounds of our own. The final water is always the
      game's settled result.
-   - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
-     Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
-     (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
-     Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
-     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, carving
-     effects (no following camera, D265), Space to pause, Stop, Esc or Ctrl+Z to undo it
-     instantly. On the preview until Kyler has tried it (D219).
+   - **Carve** (D194, D216, D289): a force of nature, the first of the forces group (key 7): a click unleashes it,
+     a drag aims it (cutting through rises on its way); Power from creek to catastrophe, Size (its width), Keep river
+     or Dry canyon, Try another path; it forms gorges and valleys (D181). Built from `investigation/carve` (#47): its
+     wander and walls drawn from the land and the seed, variation (bends wider and deeper on the outside, narrower on
+     the straights), oxbow lakes sealed by sediment, carving effects (no following camera, D265), Space to pause, Esc
+     or Ctrl+Z to undo it instantly; it keeps itself when it ends. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green

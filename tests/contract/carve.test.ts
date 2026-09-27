@@ -194,7 +194,7 @@ describe("the force: Aim, Defy gravity and Wander", () => {
   it("Defy gravity cuts to an uphill end, on a floor that never rises", () => {
     const uphill = study("uphill", 64);
     expect(uphill.heights[aim.end]).toBeGreaterThan(uphill.heights[aim.origin]);
-    expect(() => new CarveRun(uphill, { ...DEFAULTS, mode: "aim" }, aim)).toThrow(/Defy gravity/);
+    expect(() => new CarveRun(uphill, { ...DEFAULTS, mode: "aim" }, aim)).toThrow(/uphill/);
     const defy = complete(uphill, { power: 95, mode: "aim", defyGravity: true }, aim);
     expect(defy.reason).toBe("destination");
     let last = Infinity;

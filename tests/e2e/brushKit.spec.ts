@@ -1,5 +1,5 @@
 // The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205, D212): Raise … Naturalize |
-// the forces | Remove, and a row with only the picked tool's options (the sources are on the
+// Select | the forces, and a row with only the picked tool's options (the sources are on the
 // shelf); square, precise with a hold that digs a level more at a steady pace down to its stop
 // level, straight lines with their length, level lines (a view switch beside Height colours, with
 // any tool: D248), Flatten in steps and with ramped edges, "the start fits here" after a Flatten

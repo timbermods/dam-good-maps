@@ -400,7 +400,7 @@ function flankVent(m: { W: number; H: number; heights: Uint8Array }, s: EruptSet
 }
 
 /** The volcano an eruption raises here (D206, D226): the prototype's, where it has the room under
- *  the map's ceiling (`maxHeight`: 16, or the map's own top up to 22). Where it hasn't, it keeps a
+ *  the map's ceiling (`maxHeight`: the editor's one ceiling, D244). Where it hasn't, it keeps a
  *  peak within the room it has: every level it raises (cone, apron, ridges) scaled together, so
  *  its summit reaches the ceiling at most and is never pressed flat, and, while Size follows Power,
  *  broader rather than taller. With too little room at the vent itself (the top of an earlier

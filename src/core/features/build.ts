@@ -25,7 +25,7 @@ import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
-import { DERIVED_SLOPES, entityId } from "./ids";
+import { DERIVED_SLOPES, entityId, RIM_SLOPES } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
@@ -594,6 +594,28 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       entities.push(slope({ id: entityId(f.id, "Slope", i), owner: f.id, x: s.x, y: s.y, z: heights[i], orientation: orientationForHigh(s.high[0], s.high[1]) }));
     }
   }
+  // a ramped Flatten's own slopes (D270): each one that still fits (the ground may have changed
+  // since), as the stroke laid it
+  for (const sc of input.sculpts ?? []) {
+    const p = sc.params as BrushParams;
+    if (!("dabs" in p) || !p.slopes) continue;
+    for (const [x, y, o] of p.slopes) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const orientation = ORIENTATIONS[o & 3];
+      const [dx, dy] = slopeHighSide(orientation);
+      const i = y * W + x;
+      const hx = x + dx;
+      const hy = y + dy;
+      const bx = x - dx;
+      const by = y - dy;
+      if (hx < 0 || hy < 0 || hx >= W || hy >= H || bx < 0 || by < 0 || bx >= W || by >= H) continue;
+      const hi = hy * W + hx;
+      if (reserved[i] || heights[hi] !== heights[i] + 1 || heights[by * W + bx] !== heights[i]) continue;
+      reserved[i] = 1;
+      links.push([i, hi]);
+      entities.push(slope({ id: entityId(RIM_SLOPES, "Slope", i), owner: RIM_SLOPES, x, y, z: heights[i], orientation }));
+    }
+  }
   // an imported map's objects keep their tiles (derived slopes go round them)
   if (base) for (const e of base.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) reserved[y * W + x] = 1;
   const slopeStart = startInfo ?? (base ? importedStart(base, W, H) : undefined);
@@ -607,7 +629,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       const p = sc.params as BrushParams;
       if (!("dabs" in p)) continue;
       const walk = p.tool === "smooth" && p.walkable;
-      const ramp = p.tool === "flatten" && p.edges === "ramped";
+      // (a ramped stroke since D270 lays its own slopes, kept in it)
+      const ramp = p.tool === "flatten" && p.edges === "ramped" && !p.slopes;
       if (!walk && !ramp) continue;
       targets.mask ??= new Uint8Array(N);
       if (walk) markBrushTiles(p, W, H, targets.mask);

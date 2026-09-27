@@ -242,7 +242,7 @@ export class CarveRun implements ForceRun {
     this.heading = this.course.guide(x, y);
     this.head = { x, y, z: input.heights[intent.origin], dx: Math.cos(this.heading), dy: Math.sin(this.heading), width: this.character.width(0), event: "surge", cut: 0 };
     if (settings.mode === "aim" && !settings.defyGravity && input.heights[intent.end!] > input.heights[intent.origin]) {
-      throw new Error("The end point is uphill. Turn on Defy gravity to cut it down.");
+      throw new Error("The end point is uphill of the start");
     }
     this.stamp(x, y);
     if (!planning && this.character.wander >= 0.85 && (settings.power / 100) * this.character.intensity >= 0.6) {

@@ -94,12 +94,11 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await page.keyboard.press("8");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });
-  await expect(row.locator("button").first()).toHaveText("Strike");
-  await expect(row.locator("button").first()).toHaveAttribute("aria-pressed", "true");
-  for (const name of ["Power", "Size"]) await expect(row.getByRole("slider", { name })).toBeVisible();
-  for (const name of ["Walls", "Centre"]) await expect(row.getByRole("combobox", { name })).toBeVisible();
-  await expect(row.getByRole("group", { name: "Debris" })).toBeVisible();
-  await expect(row.getByText("Rays")).toBeVisible();
+  // its row: Power and Size, nothing more (D289: the click or drag is the mode; its walls, centre,
+  // debris and rays come from the land and the seed)
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto"]);
+  await expect(row.getByRole("combobox")).toHaveCount(0);
   // a smaller one, so the test map stays readable
   await row.getByRole("slider", { name: "Power" }).fill("30");
 
@@ -164,13 +163,14 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "false");
 });
 
-test("Erupt: a vent on a click, a fissure painted; each one step; undo takes it back", async ({ page }) => {
+test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mode); each one step; undo takes it back", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("0");
   const row = page.getByRole("group", { name: "Erupt options" });
-  await expect(row.locator("button").first()).toHaveText("Vent");
-  await expect(row.getByRole("combobox", { name: "Summit" })).toBeVisible();
-  await expect(row.getByRole("group", { name: "Flows" })).toBeVisible();
+  // its row: Power and Size, nothing more (its shape, summit, flows and ridges from the land and the seed)
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto"]);
+  await expect(row.getByRole("combobox")).toHaveCount(0);
   await row.getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
   const before = await heights(page);
@@ -185,8 +185,7 @@ test("Erupt: a vent on a click, a fissure painted; each one step; undo takes it 
   expect(vent[far[1] * W + far[0]]).toBeGreaterThan(before[far[1] * W + far[0]]);
   expect(await worker(page)).toEqual(vent);
 
-  // a fissure, painted
-  await row.getByRole("button", { name: "Fissure" }).click();
+  // a fissure: a drag, painted
   // (on whichever side of the vent the map takes the pointer, clear of the bars over it)
   const onMap = (x: number, y: number) =>
     page.evaluate(([a, b]) => {
@@ -204,21 +203,12 @@ test("Erupt: a vent on a click, a fissure painted; each one step; undo takes it 
   await expect.poll(() => heights(page)).toEqual(vent);
 });
 
-test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; again on its summit it rises on the flank, with no preview on the land (D258)", async ({ page }) => {
+test("Erupt near the ceiling (D226): it completes under it; again on its summit it rises on the flank, with no preview on the land (D258)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("0");
-  const row = page.getByRole("group", { name: "Erupt options" });
-  // a steep volcano with a peak, as Kyler made them
-  await row.getByRole("combobox", { name: "Summit" }).selectOption("peak");
+  // (its summit is the land's and the seed's now, D289)
   const { far } = await places(page);
   const W = (await info(page)).W;
-  const topAround = (h: number[], x: number, y: number, r: number) => {
-    let peak = 0;
-    let at = 0;
-    for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) peak = Math.max(peak, h[yy * W + xx]);
-    for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (h[yy * W + xx] === peak) at++;
-    return { peak, at };
-  };
   for (let k = 0; k < 2; k++) {
     const h = await heights(page);
     // the summit so far (the first time, where it is asked)
@@ -247,10 +237,11 @@ test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; a
     expect((await labels(page)).filter((l) => l === "Erupt").length).toBe(k + 1);
     const after = await heights(page);
     expect(await worker(page)).toEqual(after);
-    // under the ceiling, and a peak: a few tiles at its top, not a plateau
-    expect(Math.max(...after)).toBeLessThanOrEqual(16);
-    const t = topAround(after, far[0], far[1], 8);
-    expect(t.at, `eruption ${k + 1}`).toBeLessThanOrEqual(40);
+    // under the editor's one ceiling, 22 on every map (D244; its summit is the land's and the seed's
+    // now, D289: a crater or a caldera may crown it, so the peak's own count is the contract test's,
+    // eruptHeadroom.test, with each summit set)
+    expect(Math.max(...after)).toBeLessThanOrEqual(22);
+    expect(after).not.toEqual(h);
   }
 });
 
@@ -258,12 +249,17 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; X flips 
   await refine(page);
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
-  await expect(row.locator("button").first()).toHaveText("Lift");
-  const side = row.getByRole("group", { name: "Side that moves" });
-  await expect(side.getByRole("button", { name: "Left" })).toHaveAttribute("aria-pressed", "true");
+  // its row: its one choice, Lift or Slide, then Power (its line sets its length), nothing more
+  // (D289: its scarp from the land and the seed; X flips the side that moves)
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Lift", "Slide"]);
+  await expect(row.locator("button").first()).toHaveAttribute("aria-pressed", "true");
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power"]);
+  await expect(row.getByRole("group", { name: "Side that moves" })).toHaveCount(0);
+  expect((await gesture(page)).side).toBe(1);
   await page.keyboard.press("x");
-  await expect(side.getByRole("button", { name: "Right" })).toHaveAttribute("aria-pressed", "true");
+  expect((await gesture(page)).side).toBe(-1);
   await page.keyboard.press("x");
+  expect((await gesture(page)).side).toBe(1);
   await row.getByRole("slider", { name: "Power" }).fill("20");
 
   const { start, far } = await places(page);
@@ -303,11 +299,10 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; X flips 
   expect(await worker(page)).toEqual(await heights(page));
 });
 
-test("Craterize's Aim is a drag in a direction: only a thin arrow, no crater's outline; let go, a glancing blow (D258)", async ({ page }) => {
+test("Craterize's drag aims it (D258, D289): only a thin arrow, no crater's outline; let go, a glancing blow", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
-  await row.getByRole("button", { name: "Aim" }).click();
   await row.getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
   const a = await client(page, far[0], far[1]);
@@ -373,8 +368,9 @@ test("the camera moves only when the player moves it (D265): no Follow anywhere,
     views.add(await view());
     await page.waitForTimeout(50);
   }
-  if (await status(page)) await page.getByRole("group", { name: "Carve at work" }).getByRole("button", { name: "Stop" }).click().catch(() => undefined);
-  await settled(page);
+  // (it keeps itself when it ends: no Stop, D289)
+  await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
+  await idle(page);
   views.add(await view());
   expect([...views]).toEqual([v0]);
 });

@@ -1,7 +1,7 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
-> last at 1491523 (D261-D266). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> last at ea7cf14 (housekeeping's lock removal, #72; merge 5e1a3e2). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):
 >
 > 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
@@ -11,12 +11,14 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **The lean editor, D287-D289, with D290** (in progress): D287 and D288 done (the section
->    below); D289 (every force's row Power, Size, one choice, Try another) and D290 (a badwater
->    source cuts its own spring pool) next.
-> 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
-> 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
-> 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 7. **The lean editor, D287-D289, with D290: done** (the section below).
+> 8. **D263: done** (the section below): smart Lower's depth from strokes.
+> 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
+> 10. **D244 step 2: done** (the section below), after the Ceiling batch ceiling-20260927 passed;
+>     `chore/ceiling-probe`'s tool merged.
+>
+> **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
+> each section).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
 > here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
@@ -31,6 +33,150 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## One ceiling in the editor (D244 step 2)
+
+The Ceiling probe batch (run ceiling-20260927, `C:\dgm-probe\results\ceiling-20260927\summary.md`)
+confirmed the game keeps editor-made land above 16 on all three maps (tall-load, tall-terrain,
+tall-water, ceiling-watch, tall-objects, tall-sources, ceiling-build). Its one failure,
+ceiling-hazards on the waterfall map, was the cycle model contaminating one watched tile at the
+badtide's first instant (0.5 against the game's 0), not the ceiling. So:
+
+- **One ceiling, 22** (`CEILING` in `src/core/format/world.ts`, D172's tall maximum): the six caps at
+  16 are lifted: `MAX_TERRAIN` (the build's sculpts and integrity pass), `BRUSH_MAX_LEVEL`,
+  `ops.schema.json`'s brush `level`, `stop`, `levels` and `bed` and the sculpt's `amount` and `level`,
+  `brushes.ts`'s raise under a cut, its precise hold and smart Lower's bed, and `forceCeiling` (now
+  22 on every map, not the map's own top). The carve's limit reads the same constant. The brush row's
+  Flatten level and Stop level lists and Select's Set level list follow it (D259).
+- **Tall and standard by the land:** a map whose land goes above 16 exports with the note "Timberborn's
+  map editor opens and saves this map as it is, but can't raise land above level 16." at the end of
+  its description (both the generated and the imported export path); back at 16 or below, by an
+  edit or an undo, the note goes. A description that needs no change is kept byte for byte (an
+  unedited map, an import). The validators already took up to 22 (D172 (1)).
+- **Generation is unchanged:** the quick suite's byte checks passed with the caps lifted.
+- `chore/ceiling-probe` (a0be2aa: the ceiling maps and the Ceiling group, `tools/probe-ceiling.ts`) is
+  merged into this branch.
+- EDITOR_PLAN's Heights line says what is built.
+- Claude's step limits read `BRUSH_MAX_LEVEL`, so they rise with it, untested (D277).
+
+### Land near the ceiling at 256²: frame times and captures
+
+`npx tsx tools/measure-ceiling.ts`, the High look's method (`tools/measure-high.ts` on
+`feature/high-look`) on this machine's RTX 2070 SUPER (ANGLE, Direct3D 11), the installed Chrome
+headed at 1600×900 (the view 1425×833), the display's refresh about 170 Hz (5.9 ms a frame), the site
+built as the preview is (under `/preview/`, forces shown), Standard look. The map: the High look's
+first, River Valley 4242 at 256² with forests at twice the density and ruins ×3 (8,939 objects).
+**Drawn**: the view drawn 40 times back to back, each read back to its end (median / 95th); **GPU**:
+timer queries while orbiting 5 s, the whole map and close in; **painting**: frame intervals during a
+three-second Raise stroke (then undone). Then a 24 × 24 plateau set to 22 with Select (next to the
+river, on ground at 9) and a volcano erupted at full Power on ground at 7, twice on its summit, to 22
+(19 after the first). Three runs; the table is the last, the others agree within the noise below.
+
+| | Top | Drawn, whole / close (ms) | GPU whole p50 / p95 (ms) | GPU close p50 / p95 (ms) | Orbit | Painting frames p50 / p95 / max (ms) |
+|---|---|---|---|---|---|---|
+| Before | 16 | 1.8 / 1.7 | 0.97 / 4.2 | 1.05 / 1.2 | 170 fps | 5.9 / 6.0 / 35 |
+| After (plateau and volcano at 22) | 22 | 1.9 / 2.0 | 0.93 / 2.0 | 1.2 / 3.8 | 162–170 fps | 6.0 / 88 / 129 |
+
+- **Drawing land at the ceiling costs nothing measurable:** drawn, GPU and orbit are the same before
+  and after (the runs' spread is about 2 ms drawn and 1–3 ms at the GPU's 95th: 4.8 / 2.4 / 1.8 ms
+  drawn before in three runs).
+- **The eruptions at full Power:** about 5.1–5.4 s each, frames p50 5.9 ms, p95 about 23.5 ms, max
+  41–59 ms, one long task of 51 ms in one run of three.
+- **Painting after the edits has slow frames:** p95 71–106 ms and max about 124 ms in all three runs,
+  with no long task, wherever it paints: the same spot as before (low ground away from the new
+  land), across the volcano's flank, and on the plateau's top. Before the edits the same stroke paints
+  at the display's rate. So it isn't the height at the brush: something the edits left behind costs
+  each painted frame (candidates: the flooded water round the plateau's foot re-flowing with each
+  draft, the eruptions' cooling lava, the shadows' range over taller land). **Not investigated yet:**
+  the machine went back to M9a's probe re-run before a split could be measured. Worth a look before
+  the release, and on Kyler's checklist below.
+
+Captures (the editor's default view and a low view, before and after; this run):
+[before, default](forces/ceiling-before-default.png) · [after, default](forces/ceiling-after-default.png) ·
+[the plateau, before](forces/ceiling-plateau-before-low.png) · [the plateau at 22](forces/ceiling-plateau-after-low.png) ·
+[the volcano's ground, before](forces/ceiling-volcano-before-low.png) · [the volcano at 22](forces/ceiling-volcano-after-low.png).
+The plateau is Select's hard-edged block (a precision tool); set next to the river, its foot floods a
+little. The volcano stands in stepped rings with its cooling crust round it.
+
+Tests: `ceiling.test` (new: the one ceiling everywhere; every brush (raise, precise raise, flatten,
+ramped precise flatten) reaches 22 and never passes it; Set level to 22 makes the map tall, its export
+has the note after the old description and validates with no load problem, undo makes it standard and
+the description as it was; Erupt at full Power twice, a Lift and a crater on a highlands map pass 16
+and never 22; an unedited map's description byte for byte; the note added once and taken off).
+Changed (D148): the e2e Erupt ceiling test checks 22, not 16; `select.spec` checks the Level list ends
+at 22.
+
+For Kyler's forces sitting: Erupt on low ground at full Power: it can rise past 16 now; Set level to
+22; export such a map and open it in the game (and in Timberborn's own editor, which keeps it but
+can't raise land past 16); undo back under 16 and the note goes. After a tall volcano and plateau on
+a 256² map, paint with a brush: say if it stutters (the measurement found slow frames there).
+
+## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
+
+- A ramped Flatten stroke now keeps its own slopes, `slopes` in the stroke ([x, y, orientation]).
+  The worker works them out when the stroke is applied (`withRimSlopes`, `src/worker/session.ts`, on
+  `apply` and Clear sources' stroke): the stroke run on the map as it stands, then `rimSlopes`
+  (`src/core/features/slopes.ts`): every 1-level step between a tile the stroke pressed on and its
+  neighbour (the rim stepping down, and its last step onto the ground round it), a slope on the low
+  tile facing the step, with the tile behind at its own level; grouped by the way it faces and its
+  level, joined corner to corner into stretches; one in the middle of a stretch of up to six tiles,
+  else every six from the third; clear of objects (the rebuilt slopes aside), water, and the tiles
+  the build keeps free (the start's, the rivers' mouths and springs, the map objects').
+- The build places each one that still fits (build step 8, before the derived slopes, which go round
+  them and count them as joined), owned by `derived:rim-slopes`; Delete takes one as a
+  `removeSlope`, and a force doesn't list them as removed (both as for the derived slopes).
+- A ramped stroke without `slopes` (saved before D270) asks the slope planner as it always did, so
+  old projects replay unchanged. A cliff pad lays none. `ops.schema.json` and `brushProblems` know
+  `slopes`.
+- EDITOR_PLAN's Flatten line and map-document paragraph say so; decisions-pending #84 was already
+  marked accepted (D270).
+
+Tests: `rampedSlopes.test` (new: a ramped pad on uneven ground lays slopes at every way and level its
+rim steps down, each standing right, spaced along the rim, none where everything is blocked; through
+the worker the stroke keeps them, the build places every one, the page's preview equals the build,
+the project replays them exactly; a cliff pad lays none, and a ramped stroke without them (from
+before D270) lays none of its own). Changed (D148): `brush.test`'s "a ramped flatten gets the natural
+slopes on its rim" is now the test of a stroke saved before D270 (the planner's slopes), renamed.
+
+For Kyler's forces sitting: Flatten with Edges Ramped on uneven ground: slopes appear along the rim
+on every side that steps down, about every six tiles.
+
+## Smart Lower's depth from strokes (D263)
+
+- **A new channel** (a smart Lower stroke that leaves the water it starts in or beside) records its
+  `bed`: one level below that water's surface round the first dab (the page reads it: the highest
+  surface there, rounded, less one), never below the water's own bed; and `dry`, the first dab on
+  land. While its dabs are still in the water, the bed holds (no pit where it leaves; the water's own
+  tiles keep their ground); from `dry` on it steps down to a level below lower land and never rises,
+  as before; the brush's middle cuts to it (through a rise too), and **no tile the brush reaches is
+  cut below the bed**, however long it's held (`floorBed`: the lowest bed that reached each tile). A
+  one-deep river's branch is one level below the land; a three-deep river's branch has water about a
+  tile deep, its bed two above the river's.
+- **A deepening pass** (a stroke that never leaves the water it began in) records `deepen`: what the
+  brush's middle passes over goes down exactly one level, once, with the brush's soft edge; holding
+  adds nothing. A two-deep river is two passes.
+- **The page** starts a stroke from inside the water as a deepening pass and, the moment a dab's tile
+  was dry when the stroke began, paints the whole stroke again as a new channel (its `bed` and
+  `dry`), as `rideObjects` repaints a Flatten; a straight line starts again from its own start. A
+  stroke from beside the water is a new channel from its first dab.
+- **Plain Lower** is unchanged, and a stroke saved before D263 (`channel` alone) replays exactly as
+  before (its bytes pinned in the test, taken from the code before D263). `ops.schema.json` has
+  `bed`, `dry` and `deepen`; `brushProblems` checks them.
+- EDITOR_PLAN's map-document paragraph says how the stroke records it (the Smart Lower line was
+  already D263's, from `dev`).
+
+Tests: `smartLowerDepth.test` (new: from a one-deep river a stroke held 700 dabs leaves the channel
+exactly one below the land, nothing lower anywhere, the river untouched; from a three-deep river the
+channel is at land less one, the river keeps its bed (the old rule dug three deep); a deepening pass
+held 500 dabs makes it exactly two deep; across a rise the bed never rises and the rise is cut to it;
+plain Lower still digs deeper while held; the old rule's bytes pinned; the page's preview equals the
+build for both kinds, and the project replays). Changed (D148): `waterTools.spec`'s smart Lower
+check (the bed is now a level below the river's surface, not the river's bed: the stroke records that
+bed, nothing along it sits above it or below what the rule allows, and the river keeps its ground).
+
+For Kyler's forces sitting: draw a river out of a deep river with smart Lower, holding the mouse:
+about a tile of water all the way, and no deeper where you paused; draw along it again: one level
+deeper each pass.
 
 ## The lean editor (D287-D289, D290)
 
@@ -83,6 +229,82 @@ pine; a rectangle round a grove and a source, by key and by the row's button, on
 one; the ground unchanged; the start stays, pointed at and under Ctrl+A); `brushSources.spec` lost
 its Remove-drag part (D249's "a drag from a source takes only sources" went with the tool);
 `brushKit.spec` and `publicSite.spec` look for Select where they looked for Remove.
+
+### D289: every force's row takes Glaciate's shape
+
+- **The rows.** Carve: Power, **Size** (its width, following Power or set; its depth follows both),
+  Keep river or Dry canyon, Try another path. Craterize: Power, Size, Try another. Erupt: Power,
+  Size, Try another. Quake: Lift or Slide (its one choice), Power, Try another; X flips the side
+  that moves (the Side control is gone; the painting status says so). No mode switches, no Walls,
+  Centre, Debris, Rays, Shape, Summit, Flows, Ridges, Scarp, Wander, Width and Depth pair, and no
+  Defy gravity.
+- **The gesture is the mode.** Carve: a click unleashes, a drag (two tiles or more) aims, and an
+  aimed carve goes where it is dragged, uphill too (the page sends `defyGravity` with every aim; the
+  flag stays in the operation's data). Craterize: a click strikes, a drag aims a glancing blow.
+  Erupt: a click vents; a drag paints a fissure (shown once it leaves its tile; a drag too short for
+  a fissure vents where it began). Quake: painted, as before.
+- **Nature** (`src/core/forces/nature.ts`, new): the hidden choices are drawn from a stream of the
+  series' seed, the tile the force acts round and its height, leaned by the ground's ruggedness
+  (relief within 8 tiles, 8 levels = fully rugged): rugged ground carves straighter (wander about 25
+  instead of 55) between steep walls and raises steeper cones and sheer scarps; open ground lets a
+  river wander and shows an impact's rays; a harder impact throws heavy debris more often, a stronger
+  eruption runs heavy flows. Summits and crater centres keep Auto three times in four. The worker
+  draws them only for the editor's own requests (`natural: true`), before the run, so the run, the
+  frames and the kept `forceResult` all carry the drawn settings; Try another (the next seed) draws
+  again. Old projects replay exactly (their results are literal); another caller's settings run as
+  given.
+- **No Stop.** Carve's and Unleash's mid-carve Stop is gone: Pause (Space) and Revert (Esc) stay, and
+  a carve keeps itself when it ends. (The driver's own stop still keeps a painted Lift on release.)
+- The carve's own refusal for an uphill aim without the flag says only "The end point is uphill of
+  the start" (only another caller can meet it).
+- Docs: EDITOR_PLAN §3 (the top bar's forces, the gestures, the sizes), Craterize, Quake, Erupt,
+  Unleash and Carve, Part 3; ROADMAP's Live editing item 1 and its Carve line. Retired: a `Defy
+  gravity` toggle and "turn on Defy gravity", "keep what's carved so far", a "Side that moves" group.
+
+Tests: `forceNature.test` (new: the same place and seed draw the same; 24 seeds draw more than four
+characters for each force and both scarps; the land leans wander and walls; the editor's force runs
+with and keeps the drawn settings, five Try anothers re-roll them, the project replays to the same
+bytes, and a force without `natural` runs as asked). Changed to the decision (D148): `carve.spec`
+(the row is exactly Power, Size, Auto, Keep river, Dry canyon; the carve runs at a creek's Power and
+keeps itself when it ends, no Stop; the aim test drags without a mode switch or Defy gravity, and
+the "a click in Aim goes nowhere" check went with Aim's switch); `forces.spec` (each row's exact
+controls; Erupt's fissure is a drag; Craterize's aim a drag; Quake's side read from the page's hook,
+`gesture().side`, flipped by X; the ceiling test no longer counts the peak's tiles, since its summit
+is nature's now: `eruptHeadroom.test` keeps that check with each summit set; the camera test waits
+for the carve to end instead of Stop); `unleash.spec` (waits for the end, no Stop); `sizes.spec`
+(Carve's size is Size); `release.test` (only Quake has a switch); `carve.test` (the uphill refusal's
+words).
+
+For Kyler's forces sitting: each force's row (Power, Size, one choice at most, Try another); click
+or drag decides the mode (a Carve dragged uphill cuts through); Try another a few times on one spot:
+the walls, rays, summit or wander change with the land's lean; X flips Quake's side (say if you want
+the Left/Right control back).
+
+### D290: a badwater source cuts its own spring pool
+
+- Placed from the shelf, switched from clean (the row's Water: Badwater) or dragged, a badwater
+  source on uneven ground no longer refuses: `springPool` (`src/core/doc/placing.ts`) cuts its nine
+  tiles down to the lowest of them with an exact `sculpt` flatten (never filling) and removes what was
+  placed by hand on them (a generated tree makes room by itself, as before), before the source's own
+  operation, in the same undo step; the shelf's ghost is green there. The worker adds the pool to the
+  shelf's plan (`planEntity`) and to any group of edits that places or moves a badwater source
+  (`applyAll`: the switch and the drag). It still refuses at the map's edge ("it does not fit on the
+  map"), in a cave, and on the start ("the district center stands there").
+- One plain reason each: "it would stand inside the ground: the ground under it is not level" and
+  "it would float: …" are "the ground under it is not level"; the "it can't stand there: " prefix is
+  gone from placements and moves.
+- EDITOR_PLAN's sources paragraph says so.
+
+Tests: `springPool.test` (new: placed on uneven ground the nine tiles take the lowest level and
+nothing else changes, one step, undone in one, replayed from the project; switched from clean and
+dragged, the same, one step each; refused only at the edge and on the start, with one plain reason,
+and the hover agrees); `springPool.spec` (new: Kyler's case through the page: the shelf's ghost green
+on uneven ground, a clean source switched to Badwater cuts its pool, one step, one undo). Changed
+(D148): `objects.test` (a relic on uneven ground is refused with "the ground under it is not
+level" alone).
+
+For Kyler's forces sitting: switch a clean source in a riverbed to Badwater: it takes, with a small
+level pool under it; drag a badwater source up a slope: it cuts its pool there.
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 

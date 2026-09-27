@@ -1,9 +1,9 @@
-// Carve (PLAN §20 D194, D199), through the page: the button next to Source, its options row with
-// the mode switch first; a click unleashes a river that runs visibly, a frame at a time; Stop keeps
-// it as one undo step (the ground as it was shown), Esc or undo takes all of it back at once; Try
-// another path replaces the kept carve, and undoing it brings the first one back. Aim is a drag in
-// a direction (D258): only a thin arrow from where it began to the pointer, no route on the land; on
-// release it goes that way.
+// Carve (PLAN §20 D194, D199, D289), through the page: its row is Power, Size, Keep river or Dry
+// canyon and Try another path, nothing more; a click unleashes a river that runs visibly, a frame at
+// a time, and keeps itself as one undo step when it ends (the ground as it was shown; no Stop); Esc
+// or undo takes all of it back at once; Try another path replaces the kept carve, and undoing it
+// brings the first one back. A drag aims it (D258, D289: the gesture is the mode): only a thin arrow
+// from where it began to the pointer, no route on the land; on release it goes that way.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -57,18 +57,20 @@ async function highGround(page: Page): Promise<[number, number]> {
   );
 }
 
-test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try another path replaces it", async ({ page }) => {
+test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Esc takes it back, Try another path replaces it", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
-  // the button next to Source, its options row starting with its mode switch
+  // its row: Power, Size, Keep river or Dry canyon (D289), no mode switch and nothing more
   const carve = page.getByRole("button", { name: "Carve (7)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row).toBeVisible();
-  const first = row.locator("button").first();
-  await expect(first).toHaveText("Unleash");
-  await expect(first).toHaveAttribute("aria-pressed", "true");
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "Keep river", "Dry canyon"]);
+  await expect(row.getByRole("combobox")).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Keep river" })).toHaveAttribute("aria-pressed", "true");
+  // (a creek, so it ends by itself soon)
+  await row.getByRole("slider", { name: "Power" }).fill("15");
   // the other forces beside it, in the forces group (D216, D219)
   for (const name of ["Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(page.getByRole("button", { name })).toBeVisible();
 
@@ -86,13 +88,14 @@ test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try 
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
 
-  // again, and Stop: one undo step, the ground as the page showed it
+  // again, to its end: one undo step, the ground as the page showed it; its row while it works is
+  // Pause and Revert, no Stop
   await clickTile(page, at[0], at[1]);
-  await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 20, null, { timeout: 20_000 });
+  await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 4, null, { timeout: 20_000 });
   // the other tools wait while it works
   await expect(page.getByRole("button", { name: /^Raise brush/ })).toBeDisabled();
-  await page.getByRole("button", { name: "Stop", exact: true }).click();
-  await expect.poll(() => status(page)).toBeNull();
+  await expect(page.getByRole("group", { name: "Carve at work" }).getByRole("button", { name: "Stop" })).toHaveCount(0);
+  await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
   const l = await labels(page);
   expect(l.length).toBe(n0 + 1);
@@ -106,9 +109,8 @@ test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try 
   const again = page.getByRole("button", { name: "Try another path" });
   await expect(again).toBeVisible();
   await again.click();
-  await page.waitForFunction(() => (window.dgmEditor!.carve()?.seed ?? 0) === 1 && window.dgmEditor!.carve()!.steps >= 20, null, { timeout: 20_000 });
-  await page.getByRole("button", { name: "Stop", exact: true }).click();
-  await expect.poll(() => status(page)).toBeNull();
+  await page.waitForFunction(() => (window.dgmEditor!.carve()?.seed ?? 0) === 1, null, { timeout: 20_000 });
+  await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
   const labelsNow = await labels(page);
   expect(labelsNow.at(-1)).toBe("Try another path");
@@ -122,13 +124,12 @@ test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try 
   await expect.poll(() => heights(page)).toEqual(before);
 });
 
-test("Carve: Aim is a drag with only an arrow, and on release it runs that way; undo while it runs takes it back", async ({ page }) => {
+test("Carve: a drag aims it, with only an arrow, and on release it runs that way, uphill or not; undo while it runs takes it back", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Carve (7)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
-  await row.getByRole("button", { name: "Aim" }).click();
-  await expect(row.getByText("Defy gravity")).toBeVisible();
-  await row.getByText("Defy gravity").click();
+  await expect(row.getByRole("button", { name: "Aim" })).toHaveCount(0);
+  await expect(row.getByText("Defy gravity")).toHaveCount(0);
   const at = await highGround(page);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
@@ -138,11 +139,7 @@ test("Carve: Aim is a drag with only an arrow, and on release it runs that way; 
   await page.mouse.move(a.x + 3, a.y);
   await page.mouse.move(a.x, a.y);
   await expect.poll(async () => (await gesture()).cursor).toEqual(at);
-  // a click alone in Aim goes nowhere: it needs a direction
-  await page.mouse.click(a.x, a.y);
-  await page.waitForTimeout(300);
-  expect(await status(page)).toBeNull();
-  // pressed and dragged: only the arrow, from where it began to the pointer, and no route
+  // pressed and dragged (from the high ground, uphill or not: it cuts through rises on its way): only the arrow, from where it began to the pointer, and no route
   const endX = at[0] > 48 ? at[0] - 24 : at[0] + 24;
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [endX, at[1]] as [number, number]);
   await page.mouse.move(a.x, a.y);
