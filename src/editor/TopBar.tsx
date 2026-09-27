@@ -1,5 +1,5 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
-// the forces | Remove, and a small row beneath with only the picked tool's options (the sources are
+// the forces | Select (D259; with Delete it removes what stands in the selection, D288), and a small row beneath with only the picked tool's options (the sources are
 // on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
 // while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
 // slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
@@ -13,7 +13,6 @@
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
-import type { RemoveKind } from "../core/features/objects";
 import { BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import type { Verb } from "../core/forces/op";
@@ -22,8 +21,8 @@ const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
  *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano; a
- *  cross. */
-function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
+ *  dashed frame. */
+function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -79,12 +78,6 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
           <path d="M2 17l5-8h6l5 8M8 9l1-2h2l1 2M9 5c0-2 2-2 2-4M12 5c1-1 3-1 3-3" />
         </svg>
       );
-    case "remove":
-      return (
-        <svg {...ICON}>
-          <path d="M5 5l10 10M15 5L5 15" />
-        </svg>
-      );
     case "select":
       return (
         <svg {...ICON}>
@@ -95,17 +88,7 @@ function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | "remove" | Verb;
-
-/** What Remove takes (its filters), and their words. */
-export const REMOVE_KINDS: readonly [RemoveKind, string][] = [
-  ["trees", "Trees"],
-  ["bushes", "Bushes"],
-  ["ruins", "Ruins"],
-  ["objects", "Objects"],
-  ["slopes", "Slopes"],
-  ["sources", "Sources"],
-];
+export type TopTool = BrushTool | Verb;
 
 /** The forces (D203, D206): their slots in the bar, each hidden until it is ready. One shared core
  *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its modes:
@@ -153,10 +136,6 @@ export function ForceOptions(p: { force: Force; mode: string; onMode(mode: strin
 export interface TopBarProps {
   /** The brush out, or null. */
   active: BrushTool | null;
-  /** Remove is picked, and what it takes. */
-  remove: boolean;
-  removeKinds: readonly RemoveKind[];
-  onRemoveKinds(kinds: RemoveKind[]): void;
   settings: BrushSettings;
   onPick(tool: TopTool | null): void;
   /** The force picked (its id), its options row, and whether one is at work (the other tools wait). */
@@ -263,7 +242,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then set it to a level or work only inside it (Ctrl+A: the whole map)"}
+            title={off ? why : "Select (M): mark an area, then set it to a level, work only inside it, or press Delete to clear what stands there (Ctrl+A: the whole map)"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -293,19 +272,6 @@ export function TopBar(p: TopBarProps) {
             </span>
           </>
         ) : null}
-        <span class="bar-divider" aria-hidden="true" />
-        <button
-          type="button"
-          class="icon-button"
-          aria-pressed={p.remove}
-          aria-label="Remove (X)"
-          title={off ? why : "Remove (X): click an object, or drag over many. It never changes the ground; the start stays."}
-          disabled={off}
-          onClick={() => p.onPick(p.remove ? null : "remove")}
-        >
-          <Icon tool="remove" />
-          <span class="icon-word">Remove</span>
-        </button>
       </div>
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
@@ -374,21 +340,6 @@ export function TopBar(p: TopBarProps) {
         </div>
       ) : null}
       {p.force && p.forceRow ? p.forceRow : null}
-      {p.remove ? (
-        <div class="map-bar options-row" role="group" aria-label="Remove options">
-          <div class="bar-group">
-            {REMOVE_KINDS.map(([k, word]) => (
-              <Toggle
-                key={k}
-                label={word}
-                title={`Remove takes ${word.toLowerCase()}`}
-                on={p.removeKinds.includes(k)}
-                onChange={(on) => p.onRemoveKinds(on ? [...p.removeKinds, k] : p.removeKinds.filter((x) => x !== k))}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
       {p.row ? (
         <div class="map-bar options-row" role="group" aria-label={p.row.label}>
           <div class="bar-group">{p.row.content}</div>

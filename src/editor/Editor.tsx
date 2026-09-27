@@ -1,5 +1,5 @@
 // The editor (EDITOR_PLAN §3, PLAN §20 D184): the map fills the screen in the shared 3D view; the
-// top bar shapes the land and the water (the brushes, Source, the forces, Remove), the left shelf places the
+// top bar shapes the land and the water (the brushes, the forces, Select), the left shelf places the
 // game's objects (each with its ghost under the pointer), the view buttons show the overlays;
 // undo, redo, history, the map's health and export always visible. The document itself lives in
 // the worker (src/worker/session.ts): every edit is an operation sent there, and only what changed
@@ -20,24 +20,25 @@ import type { FixOp } from "../core/validate/report";
 import { rulesFor } from "../core/validate/playability";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "../render3d/model";
-import { damLegendSwatch } from "../render3d/palette";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
-import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
+import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { removeKindOf, type RemoveKind } from "../core/features/objects";
+
+/** Delete takes every kind (D288): objects and sources, the start aside. */
+const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources"];
 import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
-import { removeTool, shelfTool } from "./placeTools";
+import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
-import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
-import { eruptAnatomy, type EruptAnatomy } from "../core/forces/erupt";
+import { eruptAnatomy } from "../core/forces/erupt";
 import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
@@ -47,7 +48,7 @@ import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
-import { FORCES, forceShown, REMOVE_KINDS, TopBar, type TopTool } from "./TopBar";
+import { FORCES, forceShown, TopBar, type TopTool } from "./TopBar";
 import { depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
 import { WaterBar, type HazardBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
@@ -58,10 +59,10 @@ import { hazardNote, NOT_WATER } from "../core/sim/hazard";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
-import { isSource, sourceSpots, sourcesOn, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
+import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, START_WATER, START_WATER_FILL, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, START_WATER, START_WATER_FILL, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -179,10 +180,6 @@ export default function Editor(props: EditorProps) {
   const [turn, setTurn] = useState(0);
   /** Trees and bushes being painted by a drag: their tiles. */
   const [painted, setPainted] = useState<number[] | null>(null);
-  /** Remove, picked in the top bar, what it takes, and the rectangle being dragged. */
-  const [removing, setRemoving] = useState(false);
-  const [removeKinds, setRemoveKinds] = useState<RemoveKind[]>(REMOVE_KINDS.map(([k]) => k));
-  const [removeRect, setRemoveRect] = useState<number[] | null>(null);
   /** The shelf's icons, drawn by the view once it is ready. */
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
@@ -264,7 +261,6 @@ export default function Editor(props: EditorProps) {
     },
   });
   const [instant, setInstant] = useState<CheckItem[]>([]);
-  const [damSites, setDamSites] = useState<DamSiteView[] | null>(null);
   /** The first run's hints (D184): the steps done so far. */
   const [firstRun, setFirstRun] = useState<Set<FirstStep>>(loadFirstRun);
   const firstDone = (step: FirstStep) =>
@@ -306,8 +302,6 @@ export default function Editor(props: EditorProps) {
   shelfOptionsRef.current = shelfOptions;
   const turnRef = useRef(turn);
   turnRef.current = turn;
-  const removeKindsRef = useRef(removeKinds);
-  removeKindsRef.current = removeKinds;
   // the tools read the latest options when they act (an option changed just before a click counts)
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -653,25 +647,21 @@ export default function Editor(props: EditorProps) {
     sendTerrain(() => api.redo());
   };
 
-  /** The top bar: a brush, a force, Remove, or nothing; the shelf's object goes back. */
+  /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (forcer.current?.running) return;
     // a force this build doesn't show can't be picked (release.ts, D219)
     const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
     if (force && !forceShown(force)) return;
     setAimArrow(null);
-    if (t === "remove" || force) {
+    if (force) {
       pickBrush(null);
       pickShelf(null);
-      setTool(t === "remove" ? null : force);
-      setRemoving(t === "remove");
+      setTool(force);
       setPicked(null);
       return;
     }
-    if (t === null) {
-      setTool(null);
-      setRemoving(false);
-    }
+    if (t === null) setTool(null);
     pickBrush(t as BrushTool | null);
   }
 
@@ -681,7 +671,6 @@ export default function Editor(props: EditorProps) {
     setBrushTool(t);
     if (t) {
       setTool(null);
-      setRemoving(false);
       pickShelf(null);
       setPicked(null);
     }
@@ -700,7 +689,6 @@ export default function Editor(props: EditorProps) {
     painter.current?.end();
     setBrushTool(null);
     setTool(null);
-    setRemoving(false);
     setPicked(null);
   }
   const applyFix = (fix: FixOp[]) => run(() => api.applyAll(fix.map(({ label: _l, ...op }) => op as EditOp), fix[0]?.label || "Fix", "fix"));
@@ -751,13 +739,6 @@ export default function Editor(props: EditorProps) {
     };
   }, [layer, info.version, waterTick, check?.version]);
 
-  // the dam-site layer, measured again after each change while it is shown
-  const showDams = damSites !== null;
-  useEffect(() => {
-    if (!showDams) return;
-    // (a layer put away before its sites arrive stays away)
-    void enqueue(() => api.damSites()).then((d) => setDamSites((shown) => (shown === null ? null : d.sites)));
-  }, [showDams, info.version]);
 
   useEffect(() => props.onChange(info), []);
 
@@ -884,10 +865,8 @@ export default function Editor(props: EditorProps) {
     if (!r || !data) return;
     const layers: OverlayLayer[] = [];
     if (waterLayers && layer !== "none") layers.push(...layerOverlay(waterLayers, layer));
-    if (damSites) for (const d of damSites) layers.push({ tiles: d.tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: DAM });
     if (painted) layers.push({ tiles: painted, color: GOOD });
     else if (fit) layers.push({ tiles: fit.tiles, color: fit.problem ? BAD : GOOD });
-    if (removeRect) layers.push({ tiles: removeRect, color: BAD });
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
@@ -909,7 +888,7 @@ export default function Editor(props: EditorProps) {
     if (sw?.length) layers.unshift({ tiles: sw, color: START_WATER_FILL }, { tiles: sw, color: START_WATER, outline: true });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, forceStroke, forceCursor, hazardBar]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke, forceCursor, hazardBar]);
 
   /** The words for the tile under the pointer: while a hazard is shown, the day's water and soil,
    *  and when that water dries or turns bad (D267 (5)). */
@@ -964,7 +943,7 @@ export default function Editor(props: EditorProps) {
   const sourceGrab = useRef<{ cancel(): void } | null>(null);
   function grabSource(hit: TileHit | null): PointerTool | null {
     // (a force picked takes the map's clicks, a source's too: D257)
-    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || removingRef.current || toolRef.current) return null;
+    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || toolRef.current) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
@@ -1460,7 +1439,7 @@ export default function Editor(props: EditorProps) {
     };
   }, [ready]);
 
-  // ------------------------------------------------------------------------------ Remove
+  // ------------------------------------------------------------------------------ Delete (D288)
 
   /** Each object's tiles (its footprint), made when first asked for after the objects change. */
   const coverAt = (): Map<number, number[]> => {
@@ -1482,78 +1461,45 @@ export default function Editor(props: EditorProps) {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects on these tiles that Remove's filters take (never the start). */
-  function removableOn(tiles: readonly number[]): number[] {
+  /** The corner tiles of the objects standing on these tiles, the start's aside. */
+  function objectsOn(tiles: readonly number[]): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
-    const kinds = removeKindsRef.current;
     const out = new Set<number>();
-    for (const i of tiles)
-      for (const k of at.get(i) ?? []) {
-        const kind = removeKindOf(e.templates[e.template[k]]);
-        if (kind && kinds.includes(kind)) out.add(e.y[k] * info.W + e.x[k]);
-      }
+    for (const i of tiles) for (const k of at.get(i) ?? []) if (removeKindOf(e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
     return [...out];
   }
-  /** Remove's click or drag: what the filters take there goes, one step, with its whuff; the start
-   *  stays (a word beside the pointer says so). */
-  function removeOn(tiles: number[], sources = false) {
-    const W = info.W;
-    if (sources) {
-      // a drag that started on a source (D249): only the sources there, whatever the filters say
-      const on = sourcesOn(spots(), tiles);
-      if (!on.length) return;
-      void run(
-        () => api.removeAt(tiles, ["sources"]),
-        (u) => u.ok && feel("remove", on[0].x, on[0].y),
-      );
-      return;
-    }
-    const corners = removableOn(tiles);
+  /** Whether the start stands on one of these tiles. */
+  function startOn(tiles: readonly number[]): boolean {
+    const e = mirror.current.entities;
+    const at = coverAt();
+    return tiles.some((i) => (at.get(i) ?? []).some((k) => e.templates[e.template[k]] === "StartingLocation"));
+  }
+  /** Delete everything standing on these tiles, objects and sources (never the start), as one
+   *  step with its whuff; the start says it stays. `quiet`: nothing there says nothing. */
+  function deleteOn(tiles: number[], quiet = false): boolean {
+    const corners = objectsOn(tiles);
     if (!corners.length) {
-      const e = mirror.current.entities;
-      const start = tiles.some((i) => (coverAt().get(i) ?? []).some((k) => e.templates[e.template[k]] === "StartingLocation"));
-      if (start) flashNote("The start stays: pick it on the shelf to move it");
-      return;
+      if (startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
+      else if (!quiet) setMessage({ kind: "info", text: "Nothing stands there to delete." });
+      return startOn(tiles);
     }
+    const W = info.W;
     void run(
-      () => api.removeAt(tiles, removeKindsRef.current),
+      () => api.removeAt(tiles, ALL_KINDS),
       (u) => u.ok && feel("remove", corners[0] % W, Math.floor(corners[0] / W)),
     );
+    return true;
   }
-  const removeCalls = useRef({ removableOn, removeOn });
-  removeCalls.current = { removableOn, removeOn };
-  const removingRef = useRef(removing);
-  removingRef.current = removing;
-  // Remove takes the map's left button while it is picked
-  useEffect(() => {
-    const r = renderer.current;
-    if (!r || !removing) return;
-    const t = removeTool({
-      W: info.W,
-      H: info.H,
-      objectsOn: (tiles) => removeCalls.current.removableOn(tiles),
-      target: (x, y) => targetAt(x, y),
-      sourcesOn: (tiles) => sourcesOn(spots(), tiles).map((c) => c.corner),
-      highlight: (corners) => r.highlightObjects(corners),
-      drawing: (tiles, ev, sources) => {
-        setRemoveRect(tiles);
-        if (ev) notePointer(ev);
-        if (!tiles) return setShapeNote(null);
-        const n = sources ? sourcesOn(spots(), sources).length : removeCalls.current.removableOn(tiles).length;
-        const what = sources ? ["source", "sources"] : ["object", "objects"];
-        setShapeNote({ text: `${n} ${n === 1 ? what[0] : what[1]}`, ok: true, warn: false, ...pointerAt.current });
-      },
-      remove: (tiles, sources) => removeCalls.current.removeOn(tiles, sources),
-    });
-    r.tool = t;
-    if (r.hoverHit) r.highlightObjects(removeCalls.current.removableOn([r.hoverHit.y * info.W + r.hoverHit.x]));
-    return () => {
-      if (r.tool === t) r.tool = null;
-      r.highlightObjects(null);
-      setRemoveRect(null);
-    };
-  }, [removing, ready, info.W, info.H]);
+  /** Select and Delete (D288): everything inside the selection (under a cut, on the visible land). */
+  function deleteSelection() {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    if (tiles.length) deleteOn(tiles);
+  }
+  const deleteCalls = useRef({ deleteOn, deleteSelection });
+  deleteCalls.current = { deleteOn, deleteSelection };
 
   // ------------------------------------------------------------------------------ the forces
 
@@ -2559,28 +2505,13 @@ export default function Editor(props: EditorProps) {
   const depthCheck = useRef<{ tiles: number[]; depth: number } | null>(null);
   /** What the Select tool does to the selection: exact, one undo step each; the start is carried
    *  only if its own ground can no longer hold it (D264). */
-  function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "dig" | "clear" | "depth", level?: number) {
+  function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "dig" | "depth", level?: number) {
     const h = mirror.current.heights;
     const W = info.W;
     // under a cut (D207), only the visible land: the ground above the cut stays as it is
     const cut = renderer.current?.slice ?? null;
     let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (!tiles.length) return;
-    if (what === "clear") {
-      // everything standing there but the start and the sources (the water is theirs)
-      const at = entitiesAt();
-      const ids: string[] = [];
-      void (async () => {
-        for (const i of tiles) {
-          if (!at.get(i)?.length) continue;
-          const list = await enqueue(() => api.entitiesAt(i % W, Math.floor(i / W)));
-          for (const x of list) if (x.template !== "StartingLocation" && x.template !== "WaterSource" && x.template !== "BadwaterSource" && !ids.includes(x.id)) ids.push(x.id);
-        }
-        if (!ids.length) return setMessage({ kind: "info", text: "Nothing stands there to clear." });
-        void run(() => api.apply({ op: "deleteEntities", params: { entities: ids } }, "user", `Clear ${ids.length} object${ids.length > 1 ? "s" : ""}`));
-      })();
-      return;
-    }
     const count = (n: number) => n.toLocaleString("en-GB");
     let ops: EditOp[];
     let label: string;
@@ -2749,8 +2680,8 @@ export default function Editor(props: EditorProps) {
             <button type="button" title="Down to the selection's lowest ground" onClick={() => selectAction("dig")}>
               Dig out
             </button>
-            <button type="button" title="Trees, bushes, ruins and the other objects there (not the start or the sources)" onClick={() => selectAction("clear")}>
-              Clear objects
+            <button type="button" title="Everything standing there, objects and sources; the start stays (Delete)" onClick={deleteSelection}>
+              Delete
             </button>
             {deepest >= 1 ? (
               <>
@@ -2912,7 +2843,7 @@ export default function Editor(props: EditorProps) {
   function grabStart(hit: TileHit | null): PointerTool | null {
     const s = startHere;
     // (a force picked takes the map's clicks, the start's ground too: D257)
-    if (!hit || !s || brushToolRef.current || shelfRef.current || removingRef.current || toolRef.current) return null;
+    if (!hit || !s || brushToolRef.current || shelfRef.current || toolRef.current) return null;
     if (Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
     const from: [number, number] = [hit.x, hit.y];
     let d: [number, number] = [0, 0];
@@ -3089,7 +3020,7 @@ export default function Editor(props: EditorProps) {
         startGrab.current.cancel();
         return;
       }
-      // R turns the shelf's object (D184); X picks Remove
+      // R turns the shelf's object (D184)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "r" && shelfRef.current) {
         if (shelfRef.current.turns) {
           const next = (turnRef.current + 1) % 4;
@@ -3106,16 +3037,8 @@ export default function Editor(props: EditorProps) {
         else setQuakeUi({ ...quakeUiRef.current, side: quakeUiRef.current.side === 1 ? -1 : 1 });
         return;
       }
-      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x") {
-        pickTop(removingRef.current ? null : "remove");
-        return;
-      }
       if (ev.key === "Escape" && shelfRef.current) {
         pickShelf(null);
-        return;
-      }
-      if (ev.key === "Escape" && removingRef.current) {
-        setRemoving(false);
         return;
       }
       if (ev.key === "Escape" && (selectingRef.current || selection.current.count)) {
@@ -3135,6 +3058,10 @@ export default function Editor(props: EditorProps) {
       } else if (ev.key === "Escape") {
         setTool(null);
         setPicked(null);
+      } else if ((ev.key === "Delete" || ev.key === "Backspace") && selection.current.count && !painter.current?.painting) {
+        // Select and Delete (D288): everything inside the selection, the start aside, one step
+        ev.preventDefault();
+        deleteCalls.current.deleteSelection();
       } else if ((ev.key === "Delete" || ev.key === "Backspace") && pickedSources().length) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();
@@ -3145,6 +3072,10 @@ export default function Editor(props: EditorProps) {
         ev.preventDefault();
         const t = targetSpot.current;
         void sourceInfo(t.x, t.y).then((e) => e && removeSources([e]));
+      } else if ((ev.key === "Delete" || ev.key === "Backspace") && renderer.current?.hoverHit && !painter.current?.painting) {
+        // the object the pointer is on (D288): it goes, one step; the start stays
+        const hit = renderer.current.hoverHit;
+        if (deleteCalls.current.deleteOn([hit.y * infoRef.current.W + hit.x], true)) ev.preventDefault();
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "u" && pickedSources().length && !forcer.current?.running) {
         // U: a picked source carves its own course (D239)
         ev.preventDefault();
@@ -3239,11 +3170,6 @@ export default function Editor(props: EditorProps) {
     }
   }
 
-  // the dam sites' line in the legend, with their tiles (a click on it points to them)
-  const legendExtra = useMemo(
-    () => (damSites ? [{ swatch: damLegendSwatch(), label: "Dam sites", markers: true, tiles: damSites.flatMap((d) => d.tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x)) }] : []),
-    [damSites, info.W, info.H],
-  );
   const notices = [...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
@@ -3275,8 +3201,7 @@ export default function Editor(props: EditorProps) {
             class="editor-view"
             label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
             onReady={onReady}
-            legendExtra={legendExtra}
-            markersWanted={damSites !== null || shelf?.id === "Slope"}
+            markersWanted={shelf?.id === "Slope"}
             togglesInButtons
             besideHeight={
               // a view switch (D248): what shows, never how a brush works; whatever tool is picked
@@ -3284,25 +3209,17 @@ export default function Editor(props: EditorProps) {
                 Level lines
               </button>
             }
-            showLegend={layer !== "none" || damSites !== null}
+            showLegend={layer !== "none"}
             viewButtons={
               <>
                 <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
                   Clear water
                 </button>
-                {(["moisture", "badwater", "drought", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
+                {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
                   <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the map`}>
                     {OVERLAY_WORDS[k]}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  aria-pressed={damSites !== null}
-                  onClick={() => setDamSites(damSites === null ? [] : null)}
-                  title="Show the dam sites: where a short dam holds the most water"
-                >
-                  Dam sites
-                </button>
                 <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
                 <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
                   Minimap
@@ -3327,7 +3244,7 @@ export default function Editor(props: EditorProps) {
               setTargeted(t ? t.k : null);
               // a source, and the start, can be picked up and moved
               const canvas = renderer.current?.canvas;
-              const free = hit && !brushToolRef.current && !shelfRef.current && !removingRef.current && !toolRef.current && !selectingRef.current;
+              const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
               const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
               if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
               hoverStart(!!free && onStart);
@@ -3339,9 +3256,6 @@ export default function Editor(props: EditorProps) {
               force={tool}
               forceAtWork={!!forcer.current?.running}
               forceRow={forceRow()}
-              remove={removing}
-              removeKinds={removeKinds}
-              onRemoveKinds={setRemoveKinds}
               row={unleashRow() ?? shelfRow() ?? pickedRow()}
               hints={
                 <FirstRun
@@ -3439,7 +3353,7 @@ export default function Editor(props: EditorProps) {
 }
 
 /** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", moisture: "Moisture", badwater: "Badwater", drought: "Drought", roofed: "Under roofs" };
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
 
 const BRUSH_KEY = "dgm.brush";
 
@@ -3483,21 +3397,10 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
     return out;
   };
   switch (kind) {
-    case "moisture":
-      return [
-        { tiles: pick(l.moisture, 1), color: [120, 200, 110, 70] },
-        { tiles: pick(l.moisture, 2), color: [70, 180, 90, 120] },
-        { tiles: pick(l.moisture, 3), color: [30, 150, 70, 165] },
-      ];
     case "badwater":
       return [
         { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
         { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
-      ];
-    case "drought":
-      return [
-        { tiles: pick(l.drought, 1), color: [50, 110, 235, 170] },
-        { tiles: pick(l.drought, 2), color: [245, 150, 40, 170] },
       ];
     case "roofed":
       return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];

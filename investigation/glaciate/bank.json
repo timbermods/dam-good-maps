@@ -1,0 +1,128 @@
+[
+  {
+    "id": "wood-body",
+    "file": "audio/wood-body.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactWood_medium_001.ogg",
+        "sha256": "15271dbe8e2872dbb0ff1aeb7b12b2d2b92b7c1951c88532b9ab9158c36dfc73"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.4s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1663,
+    "gainDb": -4.66,
+    "bytes": 5228,
+    "sha256": "8e3c7ea0826ef2b92e34affe7bdfce43d7a5c4693de34ada34e98d7819945cf6",
+    "author": "Kenney",
+    "source": "https://kenney.nl/assets/impact-sounds",
+    "licence": "CC0-1.0",
+    "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "runtimeEdits": "Low groan stand-in: gain 0.8, rate 0.28, low-pass 1100 Hz, loop for 3 seconds.",
+    "copiedWithoutByteChanges": true
+  },
+  {
+    "id": "crack-a",
+    "file": "audio/crack-a.mp3",
+    "provenance": "independent",
+    "sources": [
+      {
+        "file": "crack01.mp3.flac",
+        "sha256": "a25993adc8c2bbfdd80490980d83c27a587f2d3452ee4e5bd784f02c082ec448"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 1.3512,
+    "gainDb": -9.79,
+    "bytes": 34028,
+    "sha256": "eff50120be08afb3286d4b29e2fc4bec43c6cb31d30e9a4fe494392f5ed6d4da",
+    "author": "Independent.nu",
+    "source": "https://opengameart.org/content/35-wooden-crackshitsdestructions",
+    "licence": "CC0-1.0",
+    "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "runtimeEdits": "Advance onset: gain 0.45, playbackRate 0.55, low-pass 1100 Hz; 2 seconds.",
+    "copiedWithoutByteChanges": true
+  },
+  {
+    "id": "crack-b",
+    "file": "audio/crack-b.mp3",
+    "provenance": "independent",
+    "sources": [
+      {
+        "file": "crack06.mp3.flac",
+        "sha256": "35fcccacbae84bb459957f5212f34daad7eafba6ef81e89ff112c2452d24b79a"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 1.6687,
+    "gainDb": -8.45,
+    "bytes": 41516,
+    "sha256": "e5b2dfccb0af9cd8a6a7c1cf7b8c69050bea5aeb0aa30f0dda9c5bff592addf1",
+    "author": "Independent.nu",
+    "source": "https://opengameart.org/content/35-wooden-crackshitsdestructions",
+    "licence": "CC0-1.0",
+    "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "runtimeEdits": "1.75 seconds: gain 0.30, rate 0.70, low-pass 7000 Hz; 1 second.",
+    "copiedWithoutByteChanges": true
+  },
+  {
+    "id": "waterfall",
+    "file": "audio/waterfall.mp3",
+    "provenance": "kaszuba",
+    "sources": [
+      {
+        "file": "waterfall.mp3",
+        "sha256": "cb2acc1348c4658e7c0d8c7e9e4ee9e0b0bfd76260fe7c57b16b3ed09ce25262"
+      }
+    ],
+    "edits": "Crop from 12s, at most 6s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 6,
+    "gainDb": -7.63,
+    "bytes": 145196,
+    "sha256": "6d6f26802a604c0ea46aed8fae8da4fecfc6d4c29fa873b7f3aa08e8dde50c1c",
+    "author": "Tom_Kaszuba",
+    "source": "https://freesound.org/people/Tom_Kaszuba/sounds/660255/",
+    "licence": "CC0-1.0",
+    "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "runtimeEdits": "Retreat: gain 0.8, rate 1.05, low-pass 7000 Hz; 2.2 seconds.",
+    "copiedWithoutByteChanges": true
+  },
+  {
+    "id": "stone-bed",
+    "file": "audio/stone-bed.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactMining_000.ogg",
+        "sha256": "36b4ea107222d073c67ca64dde26944975609202d5090b2f2021213c1a7e35cd"
+      },
+      {
+        "file": "impactMining_001.ogg",
+        "sha256": "61235a18de3f3d92118235398222dbf51d448f1be70b1c8bc962b10b86f2d9c6"
+      },
+      {
+        "file": "impactMining_002.ogg",
+        "sha256": "059558ec751115ca6b1441e00f0adc837c1a3eeb0a066b109e0fd879fc5d0b0c"
+      },
+      {
+        "file": "impactMining_003.ogg",
+        "sha256": "4237fa2cd80364ad81cd0af44f67d7497f1c5edcc7bdb02cd22be2ba4580c83d"
+      },
+      {
+        "file": "impactMining_004.ogg",
+        "sha256": "8ca3a99d85d845751ad8ce7b40509da58263a62e48cde70e5a30b5ccef4c9a3b"
+      }
+    ],
+    "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
+    "duration": 3,
+    "gainDb": 9.61,
+    "bytes": 73196,
+    "sha256": "945019cf000617c43353bd5436c299e897717d63f220fe7bf6689396b4a19eff",
+    "author": "Kenney",
+    "source": "https://kenney.nl/assets/impact-sounds",
+    "licence": "CC0-1.0",
+    "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "runtimeEdits": "Advance grind: gain 0.8, rate 0.42, low-pass 1100 Hz, loop for 3.1 seconds.",
+    "copiedWithoutByteChanges": true
+  }
+]

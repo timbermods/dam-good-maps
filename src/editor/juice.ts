@@ -6,7 +6,7 @@
 // recorded CC0 foley with a crisp, musical reward): a brush's recorded bed for as long as its stroke
 // changes the land (packed earth, loose stone, a mineral scrape, leaves), an accent for each thing
 // placed by its material (hollow wood for a tree, damped metal for a ruin, a splash for a source),
-// an earth puff for Remove, a reversed wooden catch for undo, and each force's own, phase by phase
+// an earth puff for a delete, a reversed wooden catch for undo, and each force's own, phase by phase
 // (a torrent for Carve; a breath, a crack, a boom and falling stone for Craterize; a fault's crack and
 // grind for Quake; pressure, a roaring plume and a cooling hiss for Erupt). Repeats climb a small
 // musical ladder and reset after a pause. On by default at the mix's own clearly audible level

@@ -90,9 +90,6 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     const lock = s.apply({ op: "updateFeature", params: { id: ring.id, patch: { locked: true } } });
     expect(lock.errors).toEqual([]);
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
-    // a region lock over it
-    const tiles: [number, number, number][] = [[10, 0, 20]];
-    expect(s.apply({ op: "setLock", params: { id: "8b8b8b8b-1111-4222-8333-444455556666", region: { runs: tiles } } }).errors).toEqual([]);
     // its height changes, and it moves, with its outline still past the edge
     expect(s.apply({ op: "updateFeature", params: { id: ring.id, patch: { params: { height: ring.params.height! - 1 } } } }).errors).toEqual([]);
     const moved = ring.params.outline!.map(([x, y]) => [x + 2, y + 1]);

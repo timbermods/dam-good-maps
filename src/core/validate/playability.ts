@@ -714,8 +714,7 @@ function checkStart(
     ok: held >= need,
     value: Math.round(held),
     limit: Math.round(need),
-    ...(best ? { where: { tiles: [[best.x, best.y]] as [number, number][] } } : {}),
-    message: `the best dam site within ${RESERVOIR_RADIUS} tiles${deep > 0 ? `, at least ${deep} deep on average,` : ""} holds ${Math.round(best ? best.volume : 0)} and natural pools keep ${Math.round(natural)}; ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`,
+    message: `a short dam within ${RESERVOIR_RADIUS} tiles of the start could hold ${Math.round(best ? best.volume : 0)}${deep > 0 ? ` (at least ${deep} deep on average)` : ""} and natural pools keep ${Math.round(natural)}; ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`,
   });
 
   // resource totals, information (never a reason to reject): a warning below half the official

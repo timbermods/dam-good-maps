@@ -617,8 +617,8 @@ async function captureMap(page: Page, tool: Page, m: MapSource, dir: string, bef
   if (MARKERS) await page.evaluate(() => (window.dgm3d!.renderer as unknown as { setMarkers?: (on: boolean) => void }).setMarkers?.(true));
   await page.waitForTimeout(300);
   await settle(page);
-  const sites = (await page.evaluate(() => window.dgmEditor!.worker.damSites())) as { sites: { tiles: Tile[] }[] };
-  const dam: Tile[] = sites.sites.flatMap((s) => s.tiles);
+  // (the dam-site layer is gone, D287: no dam site is drawn)
+  const dam: Tile[] = [];
   /** The dam sites the view shows (none in the clean view). */
   const shown: Tile[] = MARKERS || LABEL !== "clean" ? dam : [];
   // wait for the background check (it may replace the water once)
