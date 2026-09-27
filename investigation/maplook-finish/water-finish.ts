@@ -24,37 +24,15 @@ float ffBubbles(vec2 p,float t){
 }
 `;
 
-/** A continuous turbulence envelope from actual wet neighbours and simulated velocity.
- * It controls only decorative foam; it never moves water or changes its concentration. */
-export function riverField(map:MapView,velocity:Float32Array){
- const {W,H}=map,sw=surfaceWater(W,H,map.water),field=new Float32Array(W*H);
- for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-   const i=y*W+x;if(sw.depth[i]<.015)continue;
-   const vx=velocity[i*2],vy=velocity[i*2+1],speed=Math.hypot(vx,vy);
-   let edge=0,shear=0;
-   for(const j of [i-1,i+1,i-W,i+W]){
-     if(sw.depth[j]<=.001)edge++;
-     else if(Math.abs(sw.surface[j]-sw.surface[i])<.3)shear+=Math.hypot(vx-velocity[j*2],vy-velocity[j*2+1]);
-   }
-   field[i]=Math.min(.75,(1-Math.exp(-speed*.4))*(edge*.20+Math.min(.48,shear*.05)));
- }
- let result=field;
- for(let pass=0;pass<3;pass++){
-   const next=result.slice();
-   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(sw.depth[i]<=.001)continue;let sum=result[i]*4,n=4;
-     for(const j of [i-1,i+1,i-W,i+W])if(sw.depth[j]>.001&&Math.abs(sw.surface[j]-sw.surface[i])<.3){sum+=result[j];n++;}
-     next[i]=sum/n;
-   }result=next;
- }
- return result;
-}
+export {riverField} from './river';
+import {riverAnalysis} from './river';
 export class WaterFinish {
  crown={value:1};landing={value:1};bubbles={value:1};river={value:1};
  mist=true;rings=true;low=false;group=new Group();
  private flowTex?:DataTexture;private wetTex?:DataTexture;
  private size={value:new Vector2(1,1)};private foam={value:null as DataTexture|null};private wet={value:null as DataTexture|null};
  private mistMat:ShaderMaterial;private ringMat:ShaderMaterial;
- stats={buildMs:0,particles:0,rings:0,bytes:0};
+ stats={buildMs:0,particles:0,rings:0,bytes:0,rough:{falls:0,rapids:0,obstacles:0,wet:0}};
  constructor(private renderer:MapRenderer,private water:ShaderMaterial){
   const b=bridge(renderer),fall=b.fallMat;
   Object.assign(fall.uniforms,{ffCrown:this.crown,ffLanding:this.landing,ffBubbles:this.bubbles});
@@ -115,17 +93,15 @@ export class WaterFinish {
   fall.needsUpdate=true;
   Object.assign(water.uniforms,{ffRiver:this.river,ffField:this.foam,ffSize:this.size});
   water.fragmentShader='uniform float ffRiver;uniform sampler2D ffField;uniform vec2 ffSize;\n'+water.fragmentShader;
-  water.fragmentShader=replace(water.fragmentShader,'void main() {',bubblesGLSL.replaceAll('ffBubbles','ffBubblePattern')+'\nvoid main() {');
   water.fragmentShader=replace(water.fragmentShader,'  foam *= 1.0 - bad * 0.55;', /* glsl */ `
   if(ffRiver>0.5 && n.y>0.5){
-    // Replace the old per-tile shore/incoming-fall foam. The fall itself supplies
-    // its splash, and rivers read one smooth flow-derived turbulence field.
+    // Keep #38's shore and landing foam. Additional froth marks only localized
+    // rough water; ordinary current uses the approved surface without mottling.
     float strength=texture2D(ffField,g/ffSize).r;
     vec2 vel=(texture2D(mlFlow,g/mlFlowSize).rg*255.0-128.0)/63.5;
-    foam=0.0;
     if(strength>.005){
-      float frothPatch=smoothstep(.24,.69,detailNoise(g*1.71-vel*t*.23));
-      foam=min(.72,strength*2.7)*frothPatch*(.20+.80*ffBubblePattern(g-vel*t*.19,t));
+      float frothPatch=smoothstep(.40,.78,detailNoise(g*1.71-vel*t*.23));
+      foam=max(foam,strength*.68*frothPatch);
     }
   }
   if(ffRiver>0.5 && n.y<0.5 && vFlags<9.0){
@@ -159,7 +135,7 @@ export class WaterFinish {
  }
  setMap(map:MapView,velocity:Float32Array){
   const start=performance.now(),{W,H}=map,sw=surfaceWater(W,H,map.water);
-  const field=riverField(map,velocity),data=new Uint8Array(W*H*4),wet=new Float32Array(W*H*4);
+  const analysis=riverAnalysis(map,velocity),field=analysis.field,data=new Uint8Array(W*H*4),wet=new Float32Array(W*H*4);
   for(let i=0;i<W*H;i++){data[i*4]=Math.round(field[i]*255);wet[i*4]=Number.isFinite(sw.surface[i])?sw.surface[i]:-100;wet[i*4+1]=sw.depth[i];}
   this.flowTex?.dispose();this.flowTex=new DataTexture(data,W,H,RGBAFormat,UnsignedByteType);this.flowTex.minFilter=this.flowTex.magFilter=LinearFilter;this.flowTex.needsUpdate=true;this.foam.value=this.flowTex;
   this.wetTex?.dispose();this.wetTex=new DataTexture(wet,W,H,RGBAFormat,FloatType);this.wetTex.minFilter=this.wetTex.magFilter=NearestFilter;this.wetTex.needsUpdate=true;this.wet.value=this.wetTex;this.size.value.set(W,H);
@@ -186,7 +162,7 @@ export class WaterFinish {
   const rg=new BufferGeometry();rg.setAttribute('position',new Float32BufferAttribute(rp,3));rg.setAttribute('center',new Float32BufferAttribute(rc,3));rg.setAttribute('seed',new Float32BufferAttribute(rs,1));rg.setAttribute('radius',new Float32BufferAttribute(rr,1));rg.setAttribute('bad',new Float32BufferAttribute(rb,1));
   // Avoid incorrect bounds computed from the unit quad, rather than its centers.
   const rings=new MeshClass(rg,this.ringMat);rings.name='rings';rings.frustumCulled=false;rings.renderOrder=4;this.group.add(rings);
-  this.stats={buildMs:performance.now()-start,particles:seeds.length,rings:rs.length/6,bytes:data.byteLength+wet.byteLength};
+  this.stats={buildMs:performance.now()-start,particles:seeds.length,rings:rs.length/6,bytes:data.byteLength+wet.byteLength,rough:analysis.counts};
   this.apply();
  }
  apply(){for(const c of this.group.children)c.visible=c.name==='mist'?this.mist&&!this.low:this.rings&&!this.low;}
