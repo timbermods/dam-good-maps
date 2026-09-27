@@ -42,6 +42,18 @@ export function voxelMasks(W: number, H: number, voxels: Uint8Array, layers = TE
   return { W, H, mask };
 }
 
+/** A file's voxels (layer-major, as world.ts) from voxel masks. */
+export function masksToVoxels(t: VoxelMasks, layers = TERRAIN_LAYERS): Uint8Array {
+  const N = t.W * t.H;
+  const out = new Uint8Array(N * layers);
+  for (let i = 0; i < N; i++) {
+    const m = t.mask[i];
+    if (!m) continue;
+    for (let z = 0; z < layers; z++) if (m & (1 << z)) out[z * N + i] = 1;
+  }
+  return out;
+}
+
 /** Voxel masks of a heightfield: tile i solid from z = 0 to its height. */
 export function heightMasks(W: number, H: number, heights: ArrayLike<number>): VoxelMasks {
   const N = W * H;
