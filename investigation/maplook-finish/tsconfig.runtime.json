@@ -1,0 +1,1 @@
+{"extends":"./tsconfig.json","compilerOptions":{"baseUrl":"../..","paths":{"three":["investigation/maplook-finish/node_modules/three/build/three.module.js"],"three/*":["investigation/maplook-finish/node_modules/three/*"],"fflate":["investigation/maplook-finish/node_modules/fflate/esm/index.mjs"]}}}

@@ -1,0 +1,118 @@
+{
+  "phase": "after",
+  "threshold": 0.12,
+  "method": "Screen pixels of visible horizontal water; green records actual foam blend coefficient, not water brightness. Includes fall landing/crown coverage; excludes mist and rings. Clean river uses contamination < .05.",
+  "maps": [
+    {
+      "label": "riverValley · 128² · seed 4242",
+      "canvas": [
+        696,
+        559
+      ],
+      "water": 13378,
+      "foamy": 687,
+      "percent": 5.135296755867843,
+      "clean": 11734,
+      "cleanFoamy": 686,
+      "cleanPercent": 5.846258735299131,
+      "velocityQuantiles": [
+        [
+          0.1,
+          2.9778521603842485
+        ],
+        [
+          0.25,
+          4.9946352600079535
+        ],
+        [
+          0.5,
+          6.749259737476621
+        ],
+        [
+          0.75,
+          7.856458964936713
+        ],
+        [
+          0.9,
+          9.814471246126532
+        ],
+        [
+          0.95,
+          10.431221008334326
+        ],
+        [
+          0.99,
+          11.017806167098602
+        ]
+      ],
+      "field": {
+        "buildMs": 6.399999976158142,
+        "particles": 10,
+        "rings": 9,
+        "bytes": 327680,
+        "rough": {
+          "falls": 27,
+          "rapids": 9,
+          "obstacles": 0,
+          "wet": 1132
+        }
+      }
+    },
+    {
+      "label": "riverValley · 256² · seed 4242",
+      "canvas": [
+        696,
+        559
+      ],
+      "water": 12041,
+      "foamy": 320,
+      "percent": 2.6575865791877753,
+      "clean": 8995,
+      "cleanFoamy": 279,
+      "cleanPercent": 3.1017231795441913,
+      "velocityQuantiles": [
+        [
+          0.1,
+          3.123886433128126
+        ],
+        [
+          0.25,
+          5.563062193656712
+        ],
+        [
+          0.5,
+          6.288196455995829
+        ],
+        [
+          0.75,
+          7.273535105321119
+        ],
+        [
+          0.9,
+          8.215883966010269
+        ],
+        [
+          0.95,
+          9.0759514867595
+        ],
+        [
+          0.99,
+          10.703390121461641
+        ]
+      ],
+      "field": {
+        "buildMs": 17.899999976158142,
+        "particles": 29,
+        "rings": 21,
+        "bytes": 1310720,
+        "rough": {
+          "falls": 64,
+          "rapids": 98,
+          "obstacles": 18,
+          "wet": 3894
+        }
+      }
+    }
+  ],
+  "errors": []
+}
