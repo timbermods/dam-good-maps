@@ -141,6 +141,13 @@ editor is desktop-first (D185).
   another**; nothing more without Kyler's say. Two acts, about five seconds: the ice advances, then melts back and reveals
   the valley as its lakes fill. It refuses to run over the start, respects the height ceiling (D244), and keeps and feeds
   its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
+- **Erode, a force of nature** (PLAN §20 D279–D281; terrain above terrain, step 3, after the view): wind and water wear
+  rock into caves, alcoves, overhangs and arches; the land decides which; every shape obeys the support rule; a click or
+  a drawn sweep; **Power**, **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on
+  `investigation/erode` (held, like the other forces' investigations, until Kyler has tried it).
+- **The block tool** (PLAN §20 D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a
+  block's face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to
+  hollow a cave; sized like the brushes; shows at once any block the game's support rule would drop.
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
   source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
@@ -363,12 +370,12 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 9. The future
 
-3D carving is smarter Lower and Raise, not new buttons: Lower aimed at a cliff face digs into it;
-Raise with a layer selected builds in the air (D217).
-A time-lapse of how a map was built, near M13 with the sharing features: the edit history replayed
+3D carving is Erode (the magic) and the block tool (the precision), not smarter Lower and Raise
+(D217's plan is superseded by D279–D281; §5 above has both tools).
+A time-lapse of how a map was built (moved to ROADMAP's "Later", D285 (4)): the edit history replayed
 at speed from the generated map, a camera gliding to each edit, saved as a WebM video to share (D205).
 Every future editing tool is brush-first and follows these principles: cave carving is a brush (the
-3D stages). (D179, D182.)
+terrain-above-terrain steps). (D179, D182.)
 
 ## 10. What's gone, and must not come back
 
@@ -394,7 +401,7 @@ decision that replaced it. CI flags these names if they reappear anywhere else
 
 ## Non-goals
 
-- Voxel-level cave and overhang editing, until the 3D stages (`ROADMAP.md`, 3D-a–3D-c; `PLAN.md` §20, D118, D125 lift this non-goal in 3D-c).
+- Voxel-level cave and overhang editing, until terrain above terrain's steps (`ROADMAP.md`, "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281 lift this non-goal in step 3, "Creating them").
   - Until then, imported caves and overhangs must be preserved and exported unchanged, together with the water the file stores under them.
   - Until then, the tools edit surface height only.
   - The data model stores terrain as runs per tile from project format 3 (D119), so voxel editing needs no format change.
@@ -416,7 +423,6 @@ MapDocument {
   base              // built from spec, or parsed from an imported file; stored in the project file, never mutated
   features          // parametric feature objects (PLAN.md §19.2)
   edits             // ordered list of edit operations
-  locks             // regions protected from regeneration
   meta              // name, premise, designedFor, timestamps, app version, import report
 }
 ```
@@ -432,9 +438,9 @@ before D182 open with their land exactly as it was, as plain terrain.
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
-brush strokes, placements and moves, source changes, removals, the Select tool's actions,
-`regenerateRegion`, `setLock` and `specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke
-replays exactly and survives regeneration and format 3. A Lower stroke that starts in or beside
+brush strokes, placements and moves, source changes, removals, the Select tool's actions, and
+`specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke replays exactly and survives
+regeneration and format 3. A Lower stroke that starts in or beside
 water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
 strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
@@ -772,13 +778,15 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     - the workshop catalogue's requests (a spiral mountain or quarry, an island in a moat, a heart-shaped lake, a badwater volcano, twin waterfalls, a hanging lake on a mesa, a mesa field, a river split round an island, a less obvious dam site, a more surprising map), listed with their builders in `ROADMAP.md` M12 (`PLAN.md` §20, D87).
   - A request passes when the result validates, every feasible goal's expectations hold on the final map (measured by the app, never by Claude's own expectations), no guard broke, and the report accurately describes what changed, naming every goal not met with the nearest alternative offered. A compound request passes when every goal meets its expectations on the combined result, the map validates, and the report accurately names each trade-off. An optional judge model checks the report against the request's must-say list.
   - The artifact edition gets a manual smoke test on the same requests.
-- **Usability tasks,** timed, run by me or testers who haven't seen the editor, each with a target of under 2 minutes and no help:
+- **Usability tasks, dropped as a formal, timed M13 gate** (PLAN §20 D285 (1), 2026-09-27): M13 keeps only the Report a
+  problem link, a shortcuts reference and help, and a final performance pass. The tasks below stay useful as an informal
+  sanity check, without their timed targets:
   1. Add a river from the north edge that passes near the start.
   2. Add a lake that can be dammed, near the start.
   3. Move the start onto a plateau and make it playable.
   4. Add a ruin field on a hill.
   5. Export the map and fix any warnings first.
-  6. The full journey: generate a map from settings, refine it with at least one manual edit and one Claude request, export it and load it in Timberborn, in under 10 minutes.
+  6. The full journey: generate a map from settings, refine it with at least one manual edit and one Claude request, export it and load it in Timberborn.
 - **In-game checklist** for the IN-GAME CHECK milestones (deferred, logged as pending in `docs/ingame-log.md`, D11): the map loads, water settles as the preview showed, the district center places, beavers survive the first drought, and edited features behave as intended. Add the audit's checks in `PLAN.md` §18 F (waterfall visibility, sealed river mouths, halved pre-1.0 imports, roofed water in imported maps).
 
 ## Contract with the generator

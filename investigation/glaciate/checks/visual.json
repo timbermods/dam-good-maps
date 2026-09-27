@@ -1,0 +1,198 @@
+{
+  "round": 4,
+  "method": "Visual inspection of all published low valley views and overview panels; unchanged-ground old-water loss counted separately from the literal saved before/after fields. Duplicate start/performance cases share the identical hero geometry.",
+  "cases": [
+    {
+      "id": "hero-canyon",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 48,
+      "observation": "Tall left-wall falls and a dry broad floor. The foreground river is contained and has short bar cascades. Deep-looking banks and narrow lateral joins still read as excavated channels; the overview exposes branching side feeds."
+    },
+    {
+      "id": "hero-highlands",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 21,
+      "observation": "Several falls now frame a continuous central river. Most of the floor is dry. Straight local reaches and dark, sharp banks retain a canal appearance; joining feeds account for additional measured wet spans."
+    },
+    {
+      "id": "hero-tall",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "Three actual hanging falls, including the right-wall falls visible in the low view. The floor is broadly dry and enclosed. The river at left is contained; narrow transverse joins remain visible in the overview."
+    },
+    {
+      "id": "random-1",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 229,
+      "observation": "A short bowl with broad dry floor and a narrow edge outlet. Surviving outside badwater is visible in the foreground reach. The one-tile sampled width and separate inlet prevent a clean single-river success."
+    },
+    {
+      "id": "random-2",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 1105,
+      "observation": "One contained foreground river crosses a short bar cascade. Wide dry floor; no long parallel ditch is visible in the low view. The dark banks still look sharply excavated."
+    },
+    {
+      "id": "random-3",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 38,
+      "observation": "Many tall falls and a mostly dry-looking low view. The tall foreground banks hide some water; the saved field still measures 16.4% wet with a shallow floor film. The overview and side cuts expose a branching network, so the attractive falls do not pass the one-river goal."
+    },
+    {
+      "id": "random-4",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "A small gently bending river with dry green banks. No parallel ditch network visible. One-block banks still make a shallow channel, but this is one of the clearer single-river results."
+    },
+    {
+      "id": "random-5",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 305,
+      "observation": "The short bowl has a dry floor and narrow paths between blocky banks at the right. The overview shows its compact edge location; the low view does not establish one clear continuous river. Two wet passages are measured."
+    },
+    {
+      "id": "random-6",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 1567,
+      "observation": "The new floor river is the contained reach on the right. Broad pre-existing water remains beside it on the left, with terrace fragments between them. The trough metric now passes, but the whole low view still contains much more water than a simple dry U-valley composition."
+    },
+    {
+      "id": "modest-1",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 29,
+      "observation": "Broad dry green floor and several falls. A main river curves along the left bank; a small joining reach remains. No long parallel ditch is prominent from this low camera."
+    },
+    {
+      "id": "modest-2",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 61,
+      "observation": "Many tall side falls over a dry floor. Several narrow transverse joins and dark banks are visible, with branching especially clear in the overview. It still reads partly as a ditch network."
+    },
+    {
+      "id": "modest-3",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "Small contained river or pool in a short low-walled bowl. No parallel ditch network visible. This is a modest cut rather than a grand mountain valley."
+    },
+    {
+      "id": "power-low",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 89,
+      "observation": "Tall falls and substantially dry banks. Foreground joining cuts remain narrow and angular. The one-tile measured narrowing and multiple wet spans are not resolved."
+    },
+    {
+      "id": "power-high",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 30,
+      "observation": "Tall enclosing walls, several falls and broad dry floor. The main river is readable, but thin side joins and dark bank cuts remain. Lower wet share alone does not establish a natural floor-level river."
+    },
+    {
+      "id": "another-1",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 29,
+      "observation": "Several visible falls with a contained foreground river. Narrow joining reaches and long bank edges still read as engineered cuts."
+    },
+    {
+      "id": "another-2",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 58,
+      "observation": "Strong left-wall falls, dry floor, and a river partly hidden by tall sharp banks. Thin transverse joins remain visible."
+    },
+    {
+      "id": "another-3",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 35,
+      "observation": "Tall falls and dry foreground. The main river and side feeds remain separate visible cuts between raised-looking banks; the previous broad pool is gone from this view, but the network appearance remains."
+    },
+    {
+      "id": "aim",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 41,
+      "observation": "Many tall side falls frame a contained foreground river and broad dry terraces. Dark banks and some lateral cuts remain, although the floor no longer presents broad water sheets in this view."
+    },
+    {
+      "id": "kyler-aim",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 107,
+      "observation": "Falls on both walls and a mostly dry floor. The foreground river is partly hidden by a long bank; the overview shows several side joins and narrow branches. Wet share passes, but the one-river and natural-join picture is incomplete."
+    },
+    {
+      "id": "through-start",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 48,
+      "observation": "Tall left-wall falls and a dry broad floor. The foreground river is contained and has short bar cascades. Deep-looking banks and narrow lateral joins still read as excavated channels; the overview exposes branching side feeds."
+    },
+    {
+      "id": "performance-256",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 21,
+      "observation": "Several falls now frame a continuous central river. Most of the floor is dry. Straight local reaches and dark, sharp banks retain a canal appearance; joining feeds account for additional measured wet spans."
+    },
+    {
+      "id": "flat",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 622,
+      "observation": "A broad level cut with low outer walls and contained water along the left. The overview still exposes drying of the former downstream river. Source strength is preserved, but its previous course is not."
+    },
+    {
+      "id": "spring",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 719,
+      "observation": "One broad foreground reach within distinct banks. The overview shows the source moved into the new cirque while the downstream course continues beyond the moraine. A side feed produces a second measured wet span."
+    },
+    {
+      "id": "spring-dry",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 1202,
+      "observation": "The new trough is visibly dry and brown. Outside rivers still run elsewhere in the overview. The dry carved channel is visible, without replacement sources."
+    }
+  ]
+}

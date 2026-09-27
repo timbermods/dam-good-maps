@@ -139,9 +139,8 @@
     "constraints": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["locks", "keepOut", "keep"],
+      "required": ["keepOut", "keep"],
       "properties": {
-        "locks": { "type": "array", "items": { "$ref": "#/$defs/region" } },
         "keepOut": { "type": "array", "items": { "$ref": "#/$defs/region" } },
         "keep": { "type": "array", "items": { "type": "string" } }
       }
