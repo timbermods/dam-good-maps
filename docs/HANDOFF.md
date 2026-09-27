@@ -241,12 +241,21 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D251), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D252), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
-- **Agent definitions** for D210 are in `.claude/agents/`: `m9a-build` (Opus 5.5, xhigh), `m9-build` (Opus 5.5, high),
-  `routine` (Sonnet 5, medium). A session only loads them at its start, and only when it starts in the repository folder.
+- **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,
+  and only when it starts in `C:\Users\krams\code\DamGoodMaps`; start the milestone session there, at Opus 5.5, high.
+
+  | Work | Definition | Model, effort |
+  |---|---|---|
+  | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
+  | M9b and M9c | `m9-build` | Opus 5.5, high |
+  | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246) | `build` | Opus 5.5, high |
+  | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps | `routine` | Sonnet 5, medium |
+  | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
+
 
 ## 8. Lessons from the last sessions
 
