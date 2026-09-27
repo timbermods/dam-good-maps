@@ -1424,6 +1424,10 @@ lighting and post-processing, terrain materials, a small vegetation sketch) is m
 phase 2, `investigation/vegetation` (D230). The effects Kyler keeps after reviewing both demos join High mode here;
 nothing is adopted before his review.
 
+**Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
+pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
+than bubbly.
+
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).

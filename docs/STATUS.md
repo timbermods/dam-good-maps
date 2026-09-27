@@ -39,7 +39,7 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
   disagreements), and the waterfalls' foam is soft white water (the crack-pattern lace gone; also the glassy panes at the
   foot of wide falls). Captures: `docs/look/waterfalls/d222-foam-*.jpg`. Honest read: up close the froth is a little milky
   rather than bubbly. They reach the public site with the next release you approve; the forces preview gets them first.
-  Defaults #77 and #78.
+  #77 and #78 accepted; the three remaining foam issues are queued for the next waterfall look pass (D231).
 - **Merged into `dev`:** [#53](https://github.com/timbermods/dam-good-maps/pull/53) waterfalls (D201, D215): the V-shaped gap is
   gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
   crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
@@ -270,6 +270,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D231: #63 accepted (#77, #78); the crown's per-tile curls, the fall's straight edge at the pool and the milky froth are queued for the next waterfall look pass (Map look 2 or 3).
 - D230: Codex's `investigation/vegetation` (the higher-fidelity look's phase 2) is merged as proposals only when green, like maplook3; nothing adopted until Kyler reviews both demos.
 - D229: the floor's wood is met in varied, natural ways within the 40-tile walk (groves along a river, a forest across a stream, oaks on a plateau, pines in a side valley), never the same forest beside every start; M9a's sheets are checked for converging starts.
 - D228: Codex's `investigation/maplook3` (a higher-fidelity High look, phase 1) is merged as proposals only when green; nothing adopted until Kyler reviews its demo.
