@@ -237,10 +237,10 @@ test("Erupt near the ceiling (D226): it completes under it; again on its summit 
     expect((await labels(page)).filter((l) => l === "Erupt").length).toBe(k + 1);
     const after = await heights(page);
     expect(await worker(page)).toEqual(after);
-    // under the ceiling (its summit is the land's and the seed's now, D289: a crater or a caldera
-    // may crown it, so the peak's own count is the contract test's, eruptHeadroom.test, with each
-    // summit set)
-    expect(Math.max(...after)).toBeLessThanOrEqual(16);
+    // under the editor's one ceiling, 22 on every map (D244; its summit is the land's and the seed's
+    // now, D289: a crater or a caldera may crown it, so the peak's own count is the contract test's,
+    // eruptHeadroom.test, with each summit set)
+    expect(Math.max(...after)).toBeLessThanOrEqual(22);
     expect(after).not.toEqual(h);
   }
 });

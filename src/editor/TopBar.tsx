@@ -13,7 +13,7 @@
 
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
-import { BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
+import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import type { Verb } from "../core/forces/op";
 
@@ -321,7 +321,7 @@ export function TopBar(p: TopBarProps) {
                     set({ level: v === "start" ? null : Number(v) });
                   }}>
                     <option value="start">Where I start</option>
-                    {Array.from({ length: 17 }, (_, k) => k).map((k) => (
+                    {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
                       <option key={k} value={String(k)}>
                         {k}
                       </option>
@@ -337,7 +337,7 @@ export function TopBar(p: TopBarProps) {
                   <label>
                     level
                     <select aria-label="Stop level" value={String(s.stop)} onChange={(e) => set({ stop: Number((e.target as HTMLSelectElement).value) })}>
-                      {Array.from({ length: 17 }, (_, k) => k).map((k) => (
+                      {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
                         <option key={k} value={String(k)}>
                           {k}
                         </option>

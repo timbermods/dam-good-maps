@@ -2,8 +2,9 @@
 // lists: the in-game checks of docs/ingame-log.md that concern the map itself (their files and the numbers
 // in each milestone's checks.txt), the cycle model's calibration points (investigation/cycles/CALIBRATION.md
 // on branch investigation/cycles-exact), the Map look captures (docs/map-look/after/after.json), the high
-// terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), and any .timber files given on the
-// command line (the M9 prototypes, for example).
+// terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), the ceiling maps made in the editor
+// (tools/probe-ceiling.ts, PLAN §20 D244), and any .timber files given on the command line (the M9 prototypes,
+// for example).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -12,7 +13,7 @@ import type { Action, Cycle, Pose } from './job';
 import { NEW_GAME_DAY } from './job';
 import { generated, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
-import { REPO, tallDir } from './paths';
+import { ceilingDir, REPO, tallDir } from './paths';
 
 export type Verdict = 'passed' | 'failed' | 'not measurable' | 'recorded';
 
@@ -53,6 +54,8 @@ export interface GameDef {
   pairs?: string[];
   /** A tall map's entry in tall.json (tools/probe-tall.ts). */
   tall?: TallEntry;
+  /** A ceiling map's entry in ceiling.json (tools/probe-ceiling.ts). */
+  ceiling?: CeilingEntry;
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -87,6 +90,47 @@ export function tallMaps(): TallEntry[] {
 function tallBytes(t: TallEntry): Uint8Array {
   const b = new Uint8Array(readFileSync(join(tallDir(), t.file)));
   if (createHash('sha256').update(b).digest('hex') !== t.sha256) throw new Error(`${t.file} is not the file tall.json describes: run npx tsx tools/probe-tall.ts again`);
+  return b;
+}
+
+/** One map of ceiling.json, the manifest tools/probe-ceiling.ts writes beside the ceiling maps (PLAN §20
+ *  D244): a tall map edited in the editor as a player would, with land raised up to 22. */
+export interface CeilingEntry {
+  id: string;
+  title: string;
+  tests: string;
+  file: string;
+  sha256: string;
+  size: [number, number];
+  maxHeight: number;
+  tilesAbove16: number;
+  tilesAt22: number;
+  /** The tiles the editor raised above 16, and how many of them reach 22. */
+  raised: [number, number][];
+  raisedAt22: number;
+  /** Objects standing on the land the editor raised above 16. */
+  objectsOnRaised: number;
+  wetAbove16: number;
+  objectsAbove16: number;
+  sourcesAbove16: { template: string; x: number; y: number; z: number; strength: number }[];
+  start: { x: number; y: number; z: number } | null;
+  focus: [number, number];
+  /** The editor's settled water the probe watches, nearest its edits: flowing tiles and standing ones. */
+  flowTiles: [number, number][];
+  poolTiles: [number, number][];
+}
+
+/** The ceiling maps tools/probe-ceiling.ts wrote (none until it has run). */
+export function ceilingMaps(): CeilingEntry[] {
+  const f = join(ceilingDir(), 'ceiling.json');
+  if (!existsSync(f)) return [];
+  return (JSON.parse(readFileSync(f, 'utf8')) as { maps: CeilingEntry[] }).maps;
+}
+
+/** A ceiling map's bytes, exactly the file both validators checked (its sha256 in ceiling.json). */
+function ceilingBytes(t: CeilingEntry): Uint8Array {
+  const b = new Uint8Array(readFileSync(join(ceilingDir(), t.file)));
+  if (createHash('sha256').update(b).digest('hex') !== t.sha256) throw new Error(`${t.file} is not the file ceiling.json describes: run npx tsx tools/probe-ceiling.ts again`);
   return b;
 }
 
@@ -199,6 +243,28 @@ export const TALL = {
   flow: { id: 'tall-flow', title: 'Water above 16 keeps flowing and standing: the sampled stream tiles stay wet all day and the pools keep their level (within 0.1)', how: 'measure' },
   shots: { id: 'tall-shots', title: 'The screenshots show nothing visibly broken', how: 'partial', why: 'judged by eye from the contact sheet' },
 } satisfies Record<string, CheckDef>;
+
+/** The ceiling maps' own checks (PLAN §20 D244 step 1: play near the top before the one ceiling is built);
+ *  with them the tall checks above for the load, the terrain, the stored water, the objects, the sources
+ *  above 16 and the screenshots. compare.ts states each one's tolerance in its verdict. */
+export const CEILING = {
+  watch: { id: 'ceiling-watch', title: "The water settles as the editor showed: before the first hazard the editor's flowing water near its edits stays wet in every sample and after a day is within 0.1 deep of the file (1 tile in 8 may differ); its standing water keeps its surface within 0.1", how: 'measure' },
+  hazards: { id: 'ceiling-hazards', title: "A 2-day drought and a 2-day badtide behave as modelled: the whole map day by day against the cycle model (water and wet tiles within 5%), and the watched water at each hazard's start, first day and end (depth within 0.1 on every watched tile, contamination within 0.15 in the badtide)", how: 'measure' },
+  build: {
+    id: 'ceiling-build',
+    title: 'Building on the upper slopes, as far as the probe can: the land the editor raised above 16 keeps its exact ground (one column, its top as written) at the load and at the end, and every object standing on it is at its tile and level',
+    how: 'partial',
+    why: "the probe cannot place buildings: the mod has no construction (INTEGRATION.md §5, the bot colony); building on the slopes and the summit is on Kyler's hands-on checklist",
+  },
+} satisfies Record<string, CheckDef>;
+
+/** The ceiling maps' weather: two temperate days (the water checks), a 2-day drought, two temperate days,
+ *  a 2-day badtide, then calm. */
+export const CEILING_CYCLES: Cycle[] = [
+  { temperateDays: 2, hazard: 'drought', hazardDays: 2 },
+  { temperateDays: 2, hazard: 'badtide', hazardDays: 2 },
+  { temperateDays: 60, hazard: 'drought', hazardDays: 0 },
+];
 
 const none = (id: string, title: string, why: string): CheckDef => ({ id, title, how: 'none', why });
 const BUILD = 'needs a building placed and built by beavers (a dam, levee, water wheel or pump); the probe does not play a colony yet (INTEGRATION.md: the bot colony)';
@@ -412,6 +478,32 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
       poses: (m) => [
         { id: 'tall', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW, pitch: deg(45), distance: 50, fovY: 40, width: 1280, height: 800 },
         { id: 'tall-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 70, fovY: 40, width: 1280, height: 800 },
+      ],
+      checks,
+    });
+  }
+
+  // Ceiling (PLAN §20 D244, step 1): tall maps edited in the editor as a player would, land raised up to 22,
+  // written and checked by both validators' export profile with tools/probe-ceiling.ts into
+  // C:\dgm-probe\ceiling. Normal, 8.5 days: two temperate days, a 2-day drought, two temperate days, a 2-day
+  // badtide, then calm; the whole map every day (against the cycle model) and the watched water every hour.
+  for (const t of ceilingMaps()) {
+    const checks: CheckDef[] = [TALL.load, TALL.terrain, TALL.water];
+    if (t.flowTiles.length || t.poolTiles.length) checks.push(CEILING.watch);
+    checks.push(TALL.objects);
+    if (t.sourcesAbove16.length) checks.push(TALL.sources);
+    if (t.start && t.start.z > 16) checks.push(TALL.start);
+    checks.push(CEILING.hazards, CEILING.build, TALL.shots);
+    const seen = new Set<string>();
+    const tiles = [...t.flowTiles, ...t.poolTiles, ...t.sourcesAbove16.map((s) => [s.x, s.y] as [number, number]), ...(t.start ? [[t.start.x + 1, t.start.y + 1] as [number, number]] : [])].filter(([x, y]) => !seen.has(`${x},${y}`) && !!seen.add(`${x},${y}`));
+    const far = Math.max(t.size[0], t.size[1]) > 128 ? 1.6 : 1;
+    games.push({
+      id: t.id, title: t.title, group: 'Ceiling', ceiling: t, bytes: memo(() => ceilingBytes(t)), faction: 'Folktails', mode: 'Normal',
+      cycles: CEILING_CYCLES, days: 8.5, tiles: () => tiles.slice(0, 20), sampleHours: 1, snapshotsAt: [0.5, 1], daily: true, model: true,
+      poses: (m) => [
+        { id: 'ceiling', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW, pitch: deg(45), distance: 50 * far, fovY: 40, width: 1280, height: 800 },
+        { id: 'ceiling-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 70 * far, fovY: 40, width: 1280, height: 800 },
+        { id: 'ceiling-close', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW - Math.PI / 3, pitch: deg(30), distance: 22, fovY: 40, width: 1280, height: 800 },
       ],
       checks,
     });

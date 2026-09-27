@@ -13,6 +13,7 @@
 // - Documents opened by a newer generator open from their stored base, exactly, until
 //   `rebuildWithCurrentGenerator` (PLAN §19.7).
 
+import { isTall, withTallNote } from "../format/world";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { storedWetMask } from "../analysis/mechanics";
@@ -826,7 +827,7 @@ export class MapSession {
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
-    if (this.mode === "live") return toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") return tallNoted(toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {}), built.heights);
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
@@ -841,13 +842,13 @@ export class MapSession {
     const world: WorldModel = { ...w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), singletons, entities: built.entities.map(entityJson) };
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
-    return {
+    return tallNoted({
       metadata: parse(this.gen.base.metadata) as JsonObject,
       thumbnail: blank ?? (redraw ? thumbnailJpeg(built.heights, W, H, built.waterFromFile ? null : built.water) : b.file.thumbnail),
       versionTxt: this.gen.base.versionTxt,
       world,
       extraFiles: [],
-    };
+    }, built.heights);
   }
 
   /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
@@ -1074,3 +1075,13 @@ export function labelOf(op: AppliedOp): string {
   }
 }
 
+/** A map whose land goes above 16 is tall, with the tall note in its description; back at 16 or
+ *  below, a standard map again, without it (D172 (4), D244). A description that needs no change
+ *  stays byte for byte. */
+function tallNoted(file: TimberFile, heights: ArrayLike<number>): TimberFile {
+  const md = file.metadata;
+  if (!md) return file;
+  const text = typeof md.MapDescription === "string" ? md.MapDescription : "";
+  const described = withTallNote(text, isTall(heights));
+  return described === text ? file : { ...file, metadata: { ...md, MapDescription: described } };
+}

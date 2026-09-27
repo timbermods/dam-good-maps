@@ -368,6 +368,95 @@ const EVALS: Record<string, Eval> = {
     };
   },
 
+  // ---- ceiling maps (PLAN §20 D244, step 1)
+  'ceiling-watch'(c) {
+    const e = c.L.prepared.game.ceiling!;
+    const info = c.L.info;
+    const until = firstHazard(c);
+    const rows = c.L.samples().filter((r) => r.day < until - 1e-6);
+    if (!rows.length) throw new NotMeasurable('no samples before the first hazard');
+    const row1 = c.L.sampleAt(Math.min(D0 + 1, until - 0.05))!;
+    const dry: string[] = [], off: string[] = [], pools: string[] = [];
+    let high = 0;
+    for (const [x, y] of e.flowTiles) {
+      const i = y * info.W + x;
+      if (info.heights[i] > 16) high++;
+      const low = Math.min(...rows.map((r) => Loaded.topWater(r, x, y).depth));
+      const d1 = Loaded.topWater(row1, x, y).depth, f = info.depth[i];
+      if (!(low > 0.01)) dry.push(`(${x}, ${y}) down to ${f3(low)}`);
+      if (Math.abs(d1 - f) > 0.1) off.push(`(${x}, ${y}) ${f3(f)} → ${f3(d1)}`);
+    }
+    for (const [x, y] of e.poolTiles) {
+      const i = y * info.W + x;
+      const want = info.floor[i] + info.depth[i], got = Loaded.topWater(row1, x, y).surface;
+      if (!(Math.abs(got - want) <= 0.1)) pools.push(`(${x}, ${y}) surface ${f3(want)} → ${f3(got)}`);
+    }
+    const n = e.flowTiles.length;
+    const ok = dry.length === 0 && off.length <= Math.floor(n / 8) && pools.length === 0;
+    return {
+      verdict: ok ? 'passed' : 'failed',
+      detail: `${rows.length} samples over the ${f2(until - rows[0].day)} days before the first hazard. The editor's flowing water near its edits: ${n} tiles (${high} above 16), ${n - dry.length} wet in every sample${dry.length ? ` (dried: ${dry.slice(0, 4).join(', ')})` : ''}, ${n - off.length} within 0.1 deep of the file after ${f2(row1.day - D0)} days${off.length ? ` (${off.slice(0, 4).join(', ')})` : ''}. Its standing water: ${e.poolTiles.length} tiles, ${e.poolTiles.length - pools.length} with the file's surface within 0.1${pools.length ? ` (${pools.slice(0, 4).join(', ')})` : ''}`,
+    };
+  },
+  'ceiling-hazards'(c) {
+    if (!c.model) throw new NotMeasurable(`the model did not run${c.modelError ? ': ' + c.modelError : ''}`);
+    const e = c.L.prepared.game.ceiling!;
+    const t = timeline(c);
+    const tiles = c.L.prepared.map.tiles;
+    const watched = [...e.flowTiles, ...e.poolTiles].map(([x, y]) => ({ x, y, k: tiles.findIndex(([a, b]) => a === x && b === y) })).filter((w) => w.k >= 0);
+    const moments = c.L.prepared.map.moments.filter((m) => /^(drought|badtide)\d+-(start|day1|end)$/.test(m.id)).sort((a, b) => a.day - b.day);
+    let worstD = 0, worstC = 0;
+    const rows: string[] = [];
+    for (const m of moments) {
+      const g = c.L.sampleAt(m.day);
+      if (!g || !watched.length) continue;
+      const badtide = m.id.startsWith('badtide');
+      let gd = 0, md = 0, gc = 0, mc = 0;
+      for (const w of watched) {
+        const gw = Loaded.topWater(g, w.x, w.y), mw = modelSample(c.model, g.day, w.k);
+        gd += gw.depth;
+        md += mw.depth;
+        gc += gw.contamination;
+        mc += mw.contamination;
+        worstD = Math.max(worstD, Math.abs(gw.depth - mw.depth));
+        if (badtide) worstC = Math.max(worstC, Math.abs(gw.contamination - mw.contamination));
+      }
+      const n = watched.length;
+      rows.push(`${m.id} (day ${f2(g.day - D0)}): depth ${f3(gd / n)} / ${f3(md / n)}${badtide ? `, contamination ${f3(gc / n)} / ${f3(mc / n)}` : ''}`);
+    }
+    if (t.verdict === 'not measurable' && !rows.length) throw new NotMeasurable('no snapshots or samples at the hazards');
+    const ok = t.verdict === 'passed' && worstD <= 0.1 && worstC <= 0.15;
+    return {
+      verdict: ok ? 'passed' : 'failed',
+      detail: `${t.detail}. The watched water at each hazard's start, first day and end (game / model, the mean of ${watched.length} watched tiles): ${rows.join('; ') || 'none'}; the largest difference on one watched tile: depth ${f3(worstD)}, contamination ${f3(worstC)}`,
+    };
+  },
+  'ceiling-build'(c) {
+    const e = c.L.prepared.game.ceiling!;
+    const info = c.L.info, r = c.L.result!, W = info.W;
+    const at = [need(c.L.snapshot('start'), 'start'), need(c.L.snapshot('end'), 'end')];
+    if (at.some((s) => !s.terrain || !s.terrainColumns)) throw new NotMeasurable('the snapshots have no terrain columns');
+    const f = fileColumns(info);
+    const bad = at.map((s) => e.raised.filter(([x, y]) => s.terrainColumns[y * W + x] !== f.count[y * W + x] || s.terrain[y * W + x] !== f.top[y * W + x]).map(([x, y]) => `(${x}, ${y}) ${f.top[y * W + x]} → ${s.terrain[y * W + x]}`));
+    const onRaised = new Set(e.raised.map(([x, y]) => y * W + x));
+    const objs = info.entities.filter((o) => o.template !== 'StartingLocation' && onRaised.has(o.y * W + o.x));
+    const kept = (list: MapResult['entitiesAtStart']) => {
+      const g = new Map((list ?? []).map((x) => [x.id, x]));
+      return objs.filter((o) => {
+        const x = g.get(o.id);
+        return !!x && x.x === o.x && x.y === o.y && x.z === o.z;
+      }).length;
+    };
+    const k0 = kept(r.entitiesAtStart), k1 = kept(r.entitiesAtEnd);
+    const kinds = new Map<string, number>();
+    for (const o of objs) kinds.set(o.template, (kinds.get(o.template) ?? 0) + 1);
+    const ok = bad.every((b) => b.length === 0) && k0 === objs.length;
+    return {
+      verdict: ok ? 'passed' : 'failed',
+      detail: `${e.raised.length} tiles the editor raised above 16 (${e.raisedAt22} at 22): ground exact at the load ${bad[0].length ? `but on ${bad[0].length} (${bad[0].slice(0, 4).join(', ')})` : 'on every one'}, and after ${f2(at[1].day - D0)} days ${bad[1].length ? `but on ${bad[1].length} (${bad[1].slice(0, 4).join(', ')})` : 'on every one'}; ${objs.length} objects stand on them (${[...kinds].map(([k, n]) => `${n} ${k}`).join(', ') || 'none'}): ${k0} at their tile and level at the load, ${k1} at the end`,
+    };
+  },
+
   A1(c) {
     const v = loadVerdict(c);
     return { verdict: v.verdict, detail: `measured part (the game loads the map from its file): ${v.detail}` };
@@ -612,6 +701,12 @@ const EVALS: Record<string, Eval> = {
 };
 
 // ------------------------------------------------------------------------------ model comparisons
+
+/** The first hazard's start (game day), or the end of the game when it has none. */
+function firstHazard(c: Ctx): number {
+  const m = c.L.prepared.map.moments.filter((x) => /^(drought|badtide)\d+-start$/.test(x.id)).sort((a, b) => a.day - b.day)[0];
+  return m ? m.day : c.L.prepared.map.endDay;
+}
 
 function modelSample(m: ModelRun, day: number, tile: number): { depth: number; contamination: number } {
   let best = m.samples[0];

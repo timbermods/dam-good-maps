@@ -1753,7 +1753,7 @@ export default function Editor(props: EditorProps) {
   }, [tool, ready]);
 
   /** The page's map's ceiling for the forces (the worker's rule), worked out once per map state. */
-  const ceilingOf = useRef<{ heights: Uint8Array | null; top: number }>({ heights: null, top: 16 });
+  const ceilingOf = useRef<{ heights: Uint8Array | null; top: number }>({ heights: null, top: BRUSH_MAX_LEVEL });
 
   /** Why a vent clicked at (x, y) would not erupt at all (D258: the one word Erupt shows: no room to
    *  rise, even on its flank), from the worker's own fit on the same ground; null when it will. */
