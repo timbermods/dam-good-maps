@@ -33,3 +33,5 @@ port and prints it. This is an isolated experiment from dev `7360e32`; nothing i
 2. Added cached horizon/canopy ambient occlusion, a low-strength neutral tone shoulder and linear-light grade, distance haze and a procedural sky. Reused calibrated maplook2 water; cached static shadows and excluded the current renderer's transparent falls from shadow casting.
 
 3. Added stratified rock, narrow level accents, smoother grass/earth/contamination transitions and low-frequency colour variation. Built the synchronized comparison UI, worker-backed generated/Real-place loading and on-device measurement. TypeScript and Vite compilation pass.
+
+4. Added original pine, birch and oak specimens in a separate corner, with root-anchored wind and independent sketch/wind switches. Existing map vegetation is untouched. Visual QA caught a reserved GLSL identifier and a duplicate HTML id; both were corrected. Disabled High matches Standard across 1,832,012 framebuffer channels.

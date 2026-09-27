@@ -9,6 +9,7 @@ import { badwaterBed } from '../maplook2/badwater-bed';
 import { Lighting } from './lighting';
 import { Terrain } from './terrain';
 import { Post } from './post';
+import { Vegetation } from './vegetation';
 import { pose } from './poses';
 import type { MapRequest } from './maps.worker';
 
@@ -22,7 +23,9 @@ const bed = badwaterBed(bridge(high).terrainMat, bridge(high).waterMat);
 const lighting = new Lighting(high, base);
 const terrain = new Terrain(bridge(high).terrainMat);
 const post = new Post(high);
-const labels = { water: 'Water', shadows: 'Soft shadows', ao: 'Ambient occlusion', tone: 'Tone mapping', grade: 'Colour grade', haze: 'Distance haze', sky: 'Sky', strata: 'Rock strata', blend: 'Soil edges', variation: 'Colour variation' };
+const vegetation = new Vegetation($<HTMLCanvasElement>('trees'));
+$('specimen-panel').hidden = false;
+const labels = { water: 'Water', shadows: 'Soft shadows', ao: 'Ambient occlusion', tone: 'Tone mapping', grade: 'Colour grade', haze: 'Distance haze', sky: 'Sky', strata: 'Rock strata', blend: 'Soil edges', variation: 'Colour variation', specimens: 'Tree sketch', wind: 'Wind' };
 type Effect = keyof typeof labels;
 const flags = Object.fromEntries(Object.keys(labels).map(k => [k, true])) as Record<Effect, boolean>;
 for (const [key, label] of Object.entries(labels)) {
@@ -39,6 +42,8 @@ function setEffects(change: Partial<Record<Effect, boolean>>) {
   lighting.unclamp.value = +(flags.tone || flags.grade);
   terrain.strata.value = +flags.strata; terrain.blend.value = +flags.blend; terrain.variation.value = +flags.variation;
   post.tone = flags.tone; post.grade = flags.grade;
+  vegetation.enabled = flags.specimens; vegetation.wind = flags.wind;
+  $('specimen-panel').hidden = !flags.specimens;
   $('all').textContent = Object.values(flags).some(Boolean) ? 'All off' : 'All on';
   high.requestRender();
 }
@@ -106,7 +111,10 @@ for (const [i, r] of [standard, high].entries()) {
   const b = bridge(r), draw = b.gl.render.bind(b.gl);
   b.gl.render = (scene, camera) => {
     if (measuring && !permitted) return;
-    draw(scene, camera); if (scene === b.scene) { counts[i]++; totals[i]++; }
+    draw(scene, camera); if (scene === b.scene) {
+      counts[i]++; totals[i]++;
+      if (i === 1) vegetation.render(b.uniforms.time.value);
+    }
   };
 }
 let clock = 8, previous = performance.now(), last = previous;
@@ -140,7 +148,7 @@ async function measure(mode: 'standard' | 'high' | 'both', milliseconds = 2200) 
       const v = { ...view, yaw: view.yaw + elapsed / 10000 * Math.PI * 2 };
       for (const r of renderers) { r.setView(v); r.setClock(8 + elapsed / 1000); }
       const begin = performance.now(); permitted = true;
-      for (const r of renderers) { r.renderNow(); bridge(r).gl.getContext().finish(); }
+      for (const r of renderers) { r.renderNow(); bridge(r).gl.getContext().finish(); if (r === high && vegetation.enabled) vegetation.finish(); }
       permitted = false;
       if (elapsed > 700) { deltas.push(now - lastFrame); renderTimes.push(performance.now() - begin); }
       lastFrame = now;
@@ -168,12 +176,12 @@ $('download').onclick = () => { const url = URL.createObjectURL(new Blob([JSON.s
 
 const api = {
   get ready() { return ready; }, get map() { return map; }, get label() { return label; }, get totals() { return totals; },
-  standard, high, base, lighting, terrain, post, options, flags, load, setPose, setEffects, all, measure,
+  standard, high, base, lighting, terrain, post, vegetation, options, flags, load, setPose, setEffects, all, measure,
   freeze(t = 8) { $<HTMLInputElement>('pause').checked = true; clock = t; standard.setClock(t); high.setClock(t); standard.renderNow(); high.renderNow(); },
   camera(v: Partial<ViewState>) { standard.setView(v); high.setView(v); },
 };
 declare global { interface Window { maplook3: typeof api } }
 window.maplook3 = api;
 for (const r of [standard, high]) r.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; $('status').textContent = 'WebGL context lost. Reload to restore the comparison.'; });
-window.addEventListener('pagehide', () => { worker?.terminate(); post.dispose(); lighting.dispose(); flow.dispose(); base.dispose(); standard.dispose(); high.dispose(); });
+window.addEventListener('pagehide', () => { worker?.terminate(); vegetation.dispose(); post.dispose(); lighting.dispose(); flow.dispose(); base.dispose(); standard.dispose(); high.dispose(); });
 void load().catch(console.warn);
