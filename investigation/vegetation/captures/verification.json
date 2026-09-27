@@ -1,0 +1,1119 @@
+{
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "maps": [
+    {
+      "label": "riverValley · 128² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 1829,
+          "near": 132,
+          "far": 1697,
+          "triangles": 102922,
+          "draws": 20,
+          "lodMs": 0.5999999642372131
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 56,
+            "triangles": 212772,
+            "submitMs": 0.30000001192092896
+          },
+          {
+            "frames": 3,
+            "draws": 137,
+            "triangles": 472190,
+            "submitMs": 0.5999999642372131
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.2029999941587448,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "riverValley · 256² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 3689,
+          "near": 86,
+          "far": 3603,
+          "triangles": 162492,
+          "draws": 16,
+          "lodMs": 0.5
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 57,
+            "triangles": 334627,
+            "submitMs": 0.699999988079071
+          },
+          {
+            "frames": 3,
+            "draws": 179,
+            "triangles": 683970,
+            "submitMs": 1.2000000476837158
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20200000703334808,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "highlands · 128² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 1622,
+          "near": 170,
+          "far": 1452,
+          "triangles": 96178,
+          "draws": 22,
+          "lodMs": 0.19999998807907104
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 75,
+            "triangles": 208967,
+            "submitMs": 0.40000003576278687
+          },
+          {
+            "frames": 3,
+            "draws": 180,
+            "triangles": 467916,
+            "submitMs": 0.5999999642372131
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20499999821186066,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "highlands · 256² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 3409,
+          "near": 178,
+          "far": 3231,
+          "triangles": 165512,
+          "draws": 19,
+          "lodMs": 0.30000001192092896
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 54,
+            "triangles": 327133,
+            "submitMs": 0.800000011920929
+          },
+          {
+            "frames": 3,
+            "draws": 182,
+            "triangles": 690168,
+            "submitMs": 1.5
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20100000500679016,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "lakeBasin · 128² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 1791,
+          "near": 84,
+          "far": 1707,
+          "triangles": 90054,
+          "draws": 13,
+          "lodMs": 0.19999998807907104
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 51,
+            "triangles": 204790,
+            "submitMs": 0.40000003576278687
+          },
+          {
+            "frames": 3,
+            "draws": 118,
+            "triangles": 430916,
+            "submitMs": 2
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.21400000154972076,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "lakeBasin · 256² · seed 4242",
+      "stats": {
+        "vegetation": {
+          "plants": 3674,
+          "near": 130,
+          "far": 3544,
+          "triangles": 171104,
+          "draws": 16,
+          "lodMs": 1.5999999642372131
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 55,
+            "triangles": 335021,
+            "submitMs": 0.6000000238418579
+          },
+          {
+            "frames": 3,
+            "draws": 177,
+            "triangles": 704644,
+            "submitMs": 0.9000000357627869
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20200000703334808,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "near victoria falls",
+      "stats": {
+        "vegetation": {
+          "plants": 1890,
+          "near": 164,
+          "far": 1726,
+          "triangles": 97794,
+          "draws": 20,
+          "lodMs": 0.19999998807907104
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 28,
+            "triangles": 189692,
+            "submitMs": 0.19999998807907104
+          },
+          {
+            "frames": 3,
+            "draws": 87,
+            "triangles": 402068,
+            "submitMs": 0.30000001192092896
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "near yosemite valley",
+      "stats": {
+        "vegetation": {
+          "plants": 1360,
+          "near": 77,
+          "far": 1283,
+          "triangles": 65402,
+          "draws": 15,
+          "lodMs": 0.10000002384185791
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 38,
+            "triangles": 144144,
+            "submitMs": 0.20000004768371582
+          },
+          {
+            "frames": 3,
+            "draws": 80,
+            "triangles": 278084,
+            "submitMs": 0.3999999761581421
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "near danube delta",
+      "stats": {
+        "vegetation": {
+          "plants": 1360,
+          "near": 204,
+          "far": 1156,
+          "triangles": 75688,
+          "draws": 20,
+          "lodMs": 0.20000004768371582
+        },
+        "observations": [
+          {
+            "frames": 3,
+            "draws": 31,
+            "triangles": 148642,
+            "submitMs": 0.5
+          },
+          {
+            "frames": 3,
+            "draws": 83,
+            "triangles": 309632,
+            "submitMs": 0.30000001192092896
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "riverValley · 128² · seed 17",
+      "stats": {
+        "vegetation": {
+          "plants": 1781,
+          "near": 134,
+          "far": 1647,
+          "triangles": 92616,
+          "draws": 13,
+          "lodMs": 0.19999998807907104
+        },
+        "observations": [
+          {
+            "frames": 2,
+            "draws": 113,
+            "triangles": 396346,
+            "submitMs": 0.6000000238418579
+          },
+          {
+            "frames": 2,
+            "draws": 125,
+            "triangles": 426782,
+            "submitMs": 0.6000000238418579
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20200000703334808,
+          "max": 1
+        }
+      }
+    },
+    {
+      "label": "riverValley · 256² · seed 73",
+      "stats": {
+        "vegetation": {
+          "plants": 4039,
+          "near": 160,
+          "far": 3879,
+          "triangles": 197916,
+          "draws": 13,
+          "lodMs": 0.3999999761581421
+        },
+        "observations": [
+          {
+            "frames": 2,
+            "draws": 163,
+            "triangles": 694476,
+            "submitMs": 0.9000000357627869
+          },
+          {
+            "frames": 2,
+            "draws": 175,
+            "triangles": 731748,
+            "submitMs": 1.699999988079071
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20100000500679016,
+          "max": 1
+        }
+      }
+    }
+  ],
+  "captures": [
+    {
+      "file": "variants.jpg",
+      "label": "Specimen garden · original diagnostic layout",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.18,
+        "pitch": 0.87,
+        "distance": 26,
+        "target": [
+          11,
+          2.5,
+          -9
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 28,
+          "near": 28,
+          "far": 0,
+          "triangles": 5956,
+          "draws": 16,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 7,
+            "draws": 11,
+            "triangles": 1158,
+            "submitMs": 0.19999998807907104
+          },
+          {
+            "frames": 7,
+            "draws": 37,
+            "triangles": 11954,
+            "submitMs": 0.40000003576278687
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.07999999821186066,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "growth-and-dead.jpg",
+      "label": "Specimen garden · original diagnostic layout",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.18,
+        "pitch": 0.87,
+        "distance": 15,
+        "target": [
+          11,
+          2.5,
+          -12.3
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 28,
+          "near": 21,
+          "far": 7,
+          "triangles": 4548,
+          "draws": 20,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 8,
+            "draws": 11,
+            "triangles": 1158,
+            "submitMs": 0.19999998807907104
+          },
+          {
+            "frames": 8,
+            "draws": 45,
+            "triangles": 9138,
+            "submitMs": 0.8999999761581421
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.07999999821186066,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "types-top-down.jpg",
+      "label": "Type lineup · columns pine / birch / oak / berries · rows mature / young / dead",
+      "camera": {
+        "mode": "top",
+        "yaw": 0,
+        "pitch": 0.9,
+        "distance": 9,
+        "target": [
+          11.5,
+          2.5,
+          -6.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 12,
+          "near": 12,
+          "far": 0,
+          "triangles": 2340,
+          "draws": 10,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 16,
+            "draws": 11,
+            "triangles": 510,
+            "submitMs": 0
+          },
+          {
+            "frames": 12,
+            "draws": 25,
+            "triangles": 4722,
+            "submitMs": 0.30000001192092896
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.3199999928474426,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "types-side.jpg",
+      "label": "Type lineup · columns pine / birch / oak / berries · rows mature / young / dead",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 0,
+        "pitch": 0.24,
+        "distance": 9,
+        "target": [
+          11.5,
+          2.65,
+          -4.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 12,
+          "near": 12,
+          "far": 0,
+          "triangles": 2340,
+          "draws": 10,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 1,
+            "draws": 11,
+            "triangles": 510,
+            "submitMs": 0.10000002384185791
+          },
+          {
+            "frames": 1,
+            "draws": 25,
+            "triangles": 4722,
+            "submitMs": 0.19999998807907104
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.3199999928474426,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "types-top-down-laptop.jpg",
+      "label": "Type lineup · columns pine / birch / oak / berries · rows mature / young / dead",
+      "camera": {
+        "mode": "top",
+        "yaw": 0,
+        "pitch": 0.9,
+        "distance": 9,
+        "target": [
+          11.5,
+          2.5,
+          -6.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 12,
+          "near": 0,
+          "far": 12,
+          "triangles": 464,
+          "draws": 8,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 4,
+            "draws": 11,
+            "triangles": 510,
+            "submitMs": 0.10000002384185791
+          },
+          {
+            "frames": 3,
+            "draws": 11,
+            "triangles": 486,
+            "submitMs": 0.10000002384185791
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.3199999928474426,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "types-side-laptop.jpg",
+      "label": "Type lineup · columns pine / birch / oak / berries · rows mature / young / dead",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 0,
+        "pitch": 0.24,
+        "distance": 9,
+        "target": [
+          11.5,
+          2.65,
+          -4.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 12,
+          "near": 0,
+          "far": 12,
+          "triangles": 464,
+          "draws": 8,
+          "lodMs": 0
+        },
+        "observations": [
+          {
+            "frames": 6,
+            "draws": 11,
+            "triangles": 510,
+            "submitMs": 0.19999998807907104
+          },
+          {
+            "frames": 4,
+            "draws": 11,
+            "triangles": 486,
+            "submitMs": 0.19999998807907104
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.3199999928474426,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "forest-edge.jpg",
+      "label": "riverValley · 128² · seed 4242",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 26,
+        "target": [
+          60.5,
+          7.5,
+          -66.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1829,
+          "near": 132,
+          "far": 1697,
+          "triangles": 102922,
+          "draws": 20,
+          "lodMs": 0.5999999642372131
+        },
+        "observations": [
+          {
+            "frames": 1,
+            "draws": 56,
+            "triangles": 212772,
+            "submitMs": 0.30000001192092896
+          },
+          {
+            "frames": 1,
+            "draws": 137,
+            "triangles": 472190,
+            "submitMs": 5.199999988079071
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.2029999941587448,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "grove.jpg",
+      "label": "riverValley · 128² · seed 4242",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.6,
+        "distance": 13,
+        "target": [
+          11.5,
+          9.5,
+          -42.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1829,
+          "near": 196,
+          "far": 1633,
+          "triangles": 100944,
+          "draws": 16,
+          "lodMs": 0.30000001192092896
+        },
+        "observations": [
+          {
+            "frames": 2,
+            "draws": 57,
+            "triangles": 214242,
+            "submitMs": 0.3999999761581421
+          },
+          {
+            "frames": 2,
+            "draws": 130,
+            "triangles": 469704,
+            "submitMs": 1
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.2029999941587448,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "map-growth-and-dead.jpg",
+      "label": "riverValley · 128² · seed 4242",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.6,
+        "distance": 13,
+        "target": [
+          108.5,
+          5.5,
+          -112.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1829,
+          "near": 66,
+          "far": 1763,
+          "triangles": 83406,
+          "draws": 13,
+          "lodMs": 0.20000004768371582
+        },
+        "observations": [
+          {
+            "frames": 4,
+            "draws": 43,
+            "triangles": 208736,
+            "submitMs": 0.19999998807907104
+          },
+          {
+            "frames": 3,
+            "draws": 110,
+            "triangles": 429122,
+            "submitMs": 0.699999988079071
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.2029999941587448,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "whole-map-top-down.jpg",
+      "label": "riverValley · 256² · seed 4242",
+      "camera": {
+        "mode": "top",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 384,
+        "target": [
+          128,
+          5,
+          -128
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 3689,
+          "near": 0,
+          "far": 3689,
+          "triangles": 150030,
+          "draws": 7,
+          "lodMs": 0.3999999761581421
+        },
+        "observations": [
+          {
+            "frames": 1,
+            "draws": 133,
+            "triangles": 354689,
+            "submitMs": 2.099999964237213
+          },
+          {
+            "frames": 1,
+            "draws": 237,
+            "triangles": 679108,
+            "submitMs": 1.300000011920929
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 0.20200000703334808,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "real-victoria-falls.jpg",
+      "label": "near victoria falls",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 26,
+        "target": [
+          95.5,
+          6.5,
+          -74.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1890,
+          "near": 164,
+          "far": 1726,
+          "triangles": 97794,
+          "draws": 20,
+          "lodMs": 0.19999998807907104
+        },
+        "observations": [
+          {
+            "frames": 4,
+            "draws": 28,
+            "triangles": 189692,
+            "submitMs": 0.5
+          },
+          {
+            "frames": 4,
+            "draws": 87,
+            "triangles": 402068,
+            "submitMs": 1
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "real-yosemite.jpg",
+      "label": "near yosemite valley",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 26,
+        "target": [
+          8.5,
+          8.5,
+          -3.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1360,
+          "near": 77,
+          "far": 1283,
+          "triangles": 65402,
+          "draws": 15,
+          "lodMs": 0.10000002384185791
+        },
+        "observations": [
+          {
+            "frames": 4,
+            "draws": 38,
+            "triangles": 144144,
+            "submitMs": 0.30000001192092896
+          },
+          {
+            "frames": 4,
+            "draws": 80,
+            "triangles": 278084,
+            "submitMs": 0.40000003576278687
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "real-danube-delta.jpg",
+      "label": "near danube delta",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 26,
+        "target": [
+          31.5,
+          6.5,
+          -24.5
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 1360,
+          "near": 204,
+          "far": 1156,
+          "triangles": 75688,
+          "draws": 20,
+          "lodMs": 0.20000004768371582
+        },
+        "observations": [
+          {
+            "frames": 1,
+            "draws": 31,
+            "triangles": 148642,
+            "submitMs": 5.5
+          },
+          {
+            "frames": 1,
+            "draws": 83,
+            "triangles": 309632,
+            "submitMs": 0.40000003576278687
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    {
+      "file": "dense-forest-256.jpg",
+      "label": "riverValley · 256² · seed 4242 · dense stress overlay (52,214 trees; placement is synthetic)",
+      "camera": {
+        "mode": "top",
+        "yaw": -0.55,
+        "pitch": 0.85,
+        "distance": 384,
+        "target": [
+          128,
+          5,
+          -128
+        ]
+      },
+      "stats": {
+        "vegetation": {
+          "plants": 52214,
+          "near": 0,
+          "far": 52214,
+          "triangles": 1636838,
+          "draws": 3,
+          "lodMs": 23
+        },
+        "observations": [
+          {
+            "frames": 2,
+            "draws": 97,
+            "triangles": 1942866,
+            "submitMs": 0.30000001192092896
+          },
+          {
+            "frames": 1,
+            "draws": 165,
+            "triangles": 3315054,
+            "submitMs": 0.699999988079071
+          }
+        ],
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "growth": {
+          "min": 1,
+          "max": 1
+        }
+      }
+    }
+  ],
+  "checks": {
+    "rendering": {
+      "movingChannels": 71325,
+      "oldMovingChannels": 0,
+      "movingDepthChannels": 405,
+      "stillChannels": 0,
+      "stationaryUploads": true,
+      "stillDepthCached": true,
+      "low": {
+        "near": 0,
+        "far": 28,
+        "shadows": false,
+        "wind": 0
+      }
+    },
+    "cameraSync": "pointer drag in both directions",
+    "ghost": true
+  },
+  "errors": [],
+  "benchmark": {
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "label": "riverValley · 256² · seed 4242 · dense stress overlay (52,214 trees; placement is synthetic)",
+    "viewport": [
+      1500,
+      1080
+    ],
+    "shadows": true,
+    "cases": [
+      {
+        "mode": "today",
+        "frames": 10,
+        "fps": 2.020814388198444,
+        "frameP50": 479.09999999999854,
+        "frameP95": 1588.800000000003,
+        "submitP50": 0.30000001192092896,
+        "submitP95": 0.5,
+        "draws": 29,
+        "triangles": 1925542,
+        "plants": null,
+        "pixelSize": [
+          1500,
+          530
+        ]
+      },
+      {
+        "mode": "still",
+        "frames": 6,
+        "fps": 1.1518304505576782,
+        "frameP50": 752,
+        "frameP95": 1473.5,
+        "submitP50": 738.8999999761581,
+        "submitP95": 744.1000000238419,
+        "draws": 116,
+        "triangles": 3738170,
+        "plants": {
+          "plants": 52214,
+          "near": 1011,
+          "far": 51203,
+          "triangles": 1857230,
+          "draws": 12,
+          "lodMs": 7.199999988079071
+        },
+        "pixelSize": [
+          1500,
+          530
+        ]
+      },
+      {
+        "mode": "sway",
+        "frames": 6,
+        "fps": 1.1372467256771368,
+        "frameP50": 757.8999999999942,
+        "frameP95": 1515.8999999999942,
+        "submitP50": 744.5,
+        "submitP95": 746.8000000119209,
+        "draws": 115,
+        "triangles": 3741942,
+        "plants": {
+          "plants": 52214,
+          "near": 1017,
+          "far": 51197,
+          "triangles": 1858944,
+          "draws": 12,
+          "lodMs": 5.600000023841858
+        },
+        "pixelSize": [
+          1500,
+          530
+        ]
+      },
+      {
+        "mode": "laptop",
+        "frames": 11,
+        "fps": 2.60620276257493,
+        "frameP50": 382,
+        "frameP95": 400.1999999999971,
+        "submitP50": 0.30000001192092896,
+        "submitP95": 2.399999976158142,
+        "draws": 28,
+        "triangles": 1645246,
+        "plants": {
+          "plants": 52214,
+          "near": 0,
+          "far": 52214,
+          "triangles": 1636838,
+          "draws": 3,
+          "lodMs": 0.3999999761581421
+        },
+        "pixelSize": [
+          1500,
+          530
+        ]
+      }
+    ]
+  },
+  "final": {
+    "vegetation": {
+      "plants": 4039,
+      "near": 160,
+      "far": 3879,
+      "triangles": 197916,
+      "draws": 13,
+      "lodMs": 0.3999999761581421
+    },
+    "observations": [
+      {
+        "frames": 3,
+        "draws": 59,
+        "triangles": 341805,
+        "submitMs": 0.40000003576278687
+      },
+      {
+        "frames": 2,
+        "draws": 175,
+        "triangles": 731748,
+        "submitMs": 1.699999988079071
+      }
+    ],
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "growth": {
+      "min": 0.20100000500679016,
+      "max": 1
+    }
+  }
+}
