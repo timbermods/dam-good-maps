@@ -29,14 +29,14 @@ Palette regions are pine, birch, oak, bush, bark, birch bark, dead wood, berries
 Tune in this order:
 
 1. Fix phase 1's sun, exposure, tone mapping and terrain first. Use the same camera in both comparisons.
-2. Set pine darkest/coolest, birch lightest/yellower, oak between them and bush dark with visible blue fruit. Keep dead wood pale and all living crowns separate from moist grass.
-3. Judge the type lineup from directly above, then steep views and the forest edge. Silhouette must carry meaning even in greyscale; colour is a second cue.
+2. Keep pine a dark, saturated pointed cone; birch a light yellow-green cluster on white bark; oak a broad, round rich-green crown; and bushes low with prominent blue fruit. The revised defaults deliberately brighten the foliage relative to the first proposal. Preserve that separation and judge brightness against today's trees under the same lighting, not isolated colour swatches. Keep dead wood pale and living crowns separate from moist grass.
+3. Judge the type lineup from directly above, then the low side preset, steep views and the forest edge. Repeat with laptop mode. The broad oak crown, narrow birch clusters and radial pine tiers must stay distinct; blue fruit must remain visible above and outside the bush leaves. Silhouette must carry meaning even in greyscale; colour is a second cue.
 4. Keep foliage matte (initial roughness 0.92, specular 0.045). Adjust wrap and ambient fill before increasing shine. There are no alpha cards or leaf textures to hide a lighting mismatch.
 5. Check saplings, dead wood, shaded valleys, dry terrain and the three Real places. Save the palette JSON and regenerate captures under the chosen phase-1 settings.
 
 ## Performance and rollout gates
 
-The far models are 30/28/36/28 triangles for pine/birch/oak/berries. Near models are 144/328/308/320. There are three near variants per species and one far silhouette. Instances choose near above 23 pixels per world unit and stay near down to 18, reducing threshold flicker. Offscreen casters use far geometry; they stay present for their shadows. Transitions are discrete, not a dither fade; check for visible pops on hardware. Variant identity, tint and transform stay stable across LOD changes.
+The far models are 30/28/36/48 triangles for pine/birch/oak/berries. Near models are 144/328/268/164. The clarity revision reduces near oak and bush geometry; far bushes spend 20 more triangles on visible fruit but remain below today's 52. There are three near variants per species and one far silhouette. Instances choose near above 23 pixels per world unit and stay near down to 18, reducing threshold flicker. Offscreen casters use far geometry; they stay present for their shadows. Transitions are discrete, not a dither fade; check for visible pops on hardware. Variant identity, tint and transform stay stable across LOD changes.
 
 The CPU loops over plants only when the camera/mode changes and uploads only when membership changes. Whole-species batching bounds draw calls independently of map size (up to 32 with near/far living/dead variants; eight far-only). It does not individually cull far offscreen trees. Four matrix/colour/wind/grow capacities per plant cost roughly 21 MiB at 52k trees, excluding the CPU entry objects, geometry and driver overhead. A static 2048² colour/depth shadow target adds roughly 32 MiB per pane. The paired demo owns two renderers; the product should own one.
 

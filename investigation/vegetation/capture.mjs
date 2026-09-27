@@ -18,6 +18,8 @@ const report = { renderer: '', maps: [], captures: [], checks: {}, errors };
 async function snap(file, pose) {
   await page.mouse.move(10, 10);
   const info = await page.evaluate(pose => { const a = window.vegetation; a.setPose(pose); a.freeze(); return { label: a.label, camera: a.old.getView(), stats: a.stats() }; }, pose);
+  // Let the normal UI readout catch up after LOD changes before recording its draw counts.
+  await page.waitForFunction(() => window.vegetation.stats().observations.every((o, i) => document.getElementById(`${i ? 'new' : 'old'}-fps`).textContent === `Paused · ${o.draws} draws`));
   await page.locator('#comparison').screenshot({ path: `captures/${file}.jpg`, type: 'jpeg', quality: 83 });
   report.captures.push({ file: `${file}.jpg`, ...info }); console.log('Captured', file);
 }
