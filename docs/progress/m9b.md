@@ -101,7 +101,15 @@ its islands scattered where the water is deep).
   the lakes along it into one body, and each counted as one before).
 - Emergence, forced on Any seeds 1–6 at 128² (`tools/intention-rates.ts`), first round: the long
   cliff 6/6, badwater through rich land 3/6, the split island, two ways and the relic 2/6, twin
-  falls, the oxbow and stepped lakes 1/6, hanging valleys and the plug 0/6. Being worked on.
+  falls, the oxbow and stepped lakes 1/6, hanging valleys and the plug 0/6. Since: the oxbow tries
+  any river where its bed has room below it; two ways and badwater through rich land steer the
+  start (its preference reads the farmland one way and higher ground the other, and the low land
+  beside badwater within 60 tiles) and are re-steered once like the other start intentions (two
+  ways 3/3 on seeds 1–3).
+- **A map's own intention** (D138: failure allowed, many realizations): when none of the
+  intentions a map was steered toward emerged, the set is checked on the finished map in an order
+  drawn from its seed, and the first that holds is its standout ("found", not steered). Every map
+  of seeds 1–10 of every theme then had a standout (58 of 70 had one before it).
 
 ### Candidates by the outcomes (D278 (1a))
 
@@ -112,19 +120,43 @@ K = 3 and the score (dropped with M9c, D278 (3)). Each candidate is announced (`
 page shows the first one found, its water settled, and "Found a map. Looking for a better one (2 of
 4)" while it looks on.
 
+Where the outcomes stand (seeds 1–10 of every theme at 128², `tools/look.ts`; three rounds, the
+last after the course, sea, Canyon, badwater and found-intention changes). Times are medians on this
+machine while other sessions' tests and conversions ran (four maps at a time), so they are high:
+
+| Theme | Promise | Water reads | Standout | All three | Attempts | Time | First candidate |
+|---|---|---|---|---|---|---|---|
+| Any | — | 8 | 10 | 8 | 3 | 12.6 s | 8.8 s |
+| River Valley | 10 | 6 | 10 | 6 | 5 | 23.2 s | 4.7 s |
+| Canyon | 10 | 10 | 10 | 10 | 5 | 17.7 s | 5.6 s |
+| Highlands | 10 | 10 | 10 | 10 | 3 | 11.2 s | 4.7 s |
+| Lake Basin | 7 | 10 | 10 | 7 | 5 | 11.9 s | 5.3 s |
+| Delta | 9 | 10 | 10 | 9 | 2 | 10.3 s | 7.2 s |
+| Islands | 8 | 10 | 10 | 8 | 3 | 32.9 s | 15.5 s |
+
+(The first round: 30 of 70 met all three; Canyon's water read on 4, Islands kept its promise on 3.)
+Most of the time is the water's settle, once or twice an attempt (about 0.6 s at 128², a broad sea
+2–2.5 s: Islands' first candidate is slow for that). What still misses: River Valley's water on 4 of
+10 (a separate spring lake larger than the river's own water, a tributary dry most of its course,
+dry uplands), Lake Basin's lakes on 3.
+
 ### Nothing stamped (D273 (5), D294 (5))
 
 - Crater rims (the caldera part) and round lakes are lobed by two waves round them (on a
   pseudo-angle, the deterministic sine) and stretched along a drawn axis; cone craters noisier.
 - The badwater pit is 1.5–2.1 times as long as wide, along the fall of the ground, so its stain
   runs down toward its ditch instead of a round disc; a ditch joins only a channel whose water
-  leaves the map without passing a lake (it poisoned whole seas and lakes), else it runs to the edge.
+  leaves the map without passing a lake (it poisoned whole seas and lakes), and only in the last
+  12% of the side before it leaves (joined higher up, it turned the main river's whole lower course
+  purple), else it runs to the edge; on its way it never crosses or runs beside other water.
 
 ### The 8 orientations (D275 (2))
 
 `land/orient.ts`: each map's land is turned or mirrored into one of its 8 orientations right after
 it is made, from a stream of its own, and the water's way with it; the rivers, the start and the
 objects are then found on the turned land. A map that is not square takes the 4 that keep its sides.
+Measured on the draw (seeds 1–100; it does not depend on the theme): all 8 appear, the most common
+18% (genome 0), 17% (genomes 1 and 2).
 
 ### Names, how it plays, Another like this, Variety
 
