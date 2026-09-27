@@ -40,8 +40,12 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant") return [];
-  return viewBuffers(e.kind === "water" || e.kind === "weather" ? { water: e.water } : e.view) as Transferable[];
+  if (e.kind === "instant" || e.kind === "hazard") return [];
+  return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
+}
+
+function dayBuffers(d: ed.HazardDay): Transferable[] {
+  return viewBuffers({ water: d.water, soil: d.soil }) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
@@ -105,9 +109,25 @@ const api = {
   // the tools: plan (a preview), then apply; move and delete with planning again
   planTool: (req: ed.ToolRequest, id: string) => ed.planTool(req, id),
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
-  /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
-  startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
-  stopWeather: () => ed.stopWeather(),
+  /** A drought or a badtide of so many days on the map as it is (D267): its last day, the notes
+   *  for its water and the start's marker (how far it has come: hazard events); null when an edit
+   *  or another hazard came first. */
+  async showHazard(hazard: "drought" | "badtide", days: number, framesCap?: number) {
+    const r = await ed.showHazard(hazard, days, framesCap);
+    return r ? transfer(r, [r.change.buffer, r.startWater.buffer, ...dayBuffers(r.last)] as Transferable[]) : null;
+  },
+  /** A day of the hazard shown (0: the map as it is), or null once it has ended. */
+  hazardDay(day: number) {
+    const d = ed.hazardDay(day);
+    return d ? transfer(d, dayBuffers(d)) : null;
+  },
+  /** The water within a day of the hazard shown, for the step to it (its last frame is the day). */
+  hazardSteps(day: number) {
+    const f = ed.hazardSteps(day);
+    return f ? transfer(f, f.flatMap((w) => viewBuffers({ water: w }) as Transferable[])) : null;
+  },
+  /** The hazard view ends (an edit, D269; or its button again). */
+  endHazard: () => ed.endHazard(),
   moveFeature: (id: string, dx: number, dy: number) => sendUpdate(ed.moveFeature(id, dx, dy)),
   deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),

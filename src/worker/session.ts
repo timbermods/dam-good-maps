@@ -51,7 +51,9 @@ import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { bakeLandforms } from "../core/doc/bake";
-import { badtideContamination, hazardDays, type Hazard } from "../core/sim/weather";
+import type { Hazard } from "../core/sim/weather";
+import { framesPerDay, HazardRun } from "../core/sim/hazard";
+import { badtideReaches, startHasWater, startMiddle as startMiddleOf, startWalk, startWater } from "../core/analysis/startWater";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
 import { patchFeature } from "../core/doc/ops";
@@ -63,7 +65,7 @@ import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { droughtStorage } from "../core/sim/drought";
 import { rulesFor } from "../core/validate/playability";
-import { mapObjects, waterModel } from "../core/sim/model";
+import { mapObjects, moistureBarrier, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
@@ -82,7 +84,7 @@ import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
-import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, WET as WET_VIEW, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
@@ -279,7 +281,8 @@ function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination
   if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
   const w = s.storedWater();
   const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
-  if (s.showsStoredWater) return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
+  // (a hazard's water on an unedited import: its own days, with the file's water under roofs)
+  if (s.showsStoredWater && !live) return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
   // an edited import with caves: the settled water off the roofs, the file's own under them
   // (EDITOR_PLAN §6: the preview is approximate there, and the export keeps the file's water)
   const settled = waterFromDepth(b.heights, b.water, b.contamination);
@@ -534,9 +537,8 @@ export type EditorEvent =
    *  ticks of the game (close together at first, where the water moves most), for the page to play
    *  at a pace the eye can follow. `done` is how far the settle has come (0–1). */
   | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean }
-  /** A weather run (a drought, then the water coming back): its frames, the day, and the end (the
-   *  map's own water, exactly). */
-  | { kind: "weather"; version: number; water: WaterView; phase: "drought" | "badtide" | "return" | "end"; day: number; days: number; soil?: SoilView }
+  /** A drought or a badtide being worked out (D267 (1)): how far it has come (0–1). */
+  | { kind: "hazard"; version: number; hazard: Hazard; done: number }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | { kind: "settled"; version: number; view: ViewUpdate; info: SessionInfo }
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
@@ -592,8 +594,9 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
-    // the edit's own settle waits: the stroke's water takes over from it
+    // the edit's own settle waits: the stroke's water takes over from it (a hazard shown ends, D269)
     stopWater();
+    endHazard();
     draft = { session: s, job: new PreviewJob(from, model), model, ground: s.built.heights.slice(), fresh: true };
     const token = ++draftToken;
     setTimeout(() => void runDraft(token), 0);
@@ -721,72 +724,166 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
   listener?.({ kind: "settled", version, view, info: sessionInfo(s) });
 }
 
-// ------------------------------------------------------------------------------------ weather
+// ------------------------------------------------------------------- Drought and Badtide, day by day
 
-/** A hazard to watch (D180 (8), D181 (3)), the map's own length by its difficulty
- *  (core/sim/weather.ts). A drought: every source stops, the rivers drain, the pools evaporate. A
- *  badtide: the clean sources give badwater along the game's curve, and it spreads through the
- *  water and poisons the ground. Then the sources run as before and the water comes back. A frame
- *  every 12 ticks the first day, every 96 after; the soil each day; the end is the map's own water
- *  and soil, exactly. The map never changes. */
-let weatherToken = 0;
-export function startWeather(hazard: Hazard): void {
-  const s = need();
-  const token = ++weatherToken;
-  const days = hazardDays(s.meta.designedFor ?? "normal", hazard);
-  const base = s.built.waterModel;
-  // the sources' own copies: a badtide changes what the clean ones give
-  const model: WaterModel = { ...base, emitters: base.emitters.map((e) => ({ ...e })) };
-  const clean = model.emitters.filter((e) => e.contamination === 0);
-  const sim = new WaterSim(model, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) });
-  const v = version;
-  const { x: W, y: H } = s.size;
-  const total = days * TICKS_PER_DAY;
-  const send = (phase: "drought" | "badtide" | "return" | "end", water: WaterView, day: number, soil?: SoilView) => listener?.({ kind: "weather", version: v, water, phase, day, days, ...(soil ? { soil } : {}) });
-  const soilNow = (depth: Float64Array, contamination: Float64Array) => soilView(moisture(s.built.heights, depth, contamination, W, H, null), soilContamination(s.built.heights, depth, contamination, W, H, null));
-  void (async () => {
-    let nextSoil = TICKS_PER_DAY;
-    for (let t = 0; t < total; ) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
-        // closer frames the first day, while the rivers drain or the badwater surges
-        const gap = t < TICKS_PER_DAY ? 12 : 96;
-        if (hazard === "badtide") for (const e of clean) e.contamination = badtideContamination(t / TICKS_PER_DAY, days);
-        sim.run(gap, hazard === "drought" ? 0 : 1);
-        t += gap;
-        const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
-        if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C }), Math.min(days, t / TICKS_PER_DAY), soil);
-      }
-      await breathe();
-    }
-    // then the sources run as the map has them, and the water comes back to the settled water
-    const back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
-    let last = 0;
-    for (;;) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      let r: CanonicalWater | null = null;
-      while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-        r = back.advance(4);
-        if (!r && back.ticks - last >= frameGap(back.ticks)) {
-          last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C }), days);
-        }
-      }
-      if (r) break;
-      await breathe();
-    }
-    if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
-  })();
+/** What the day strip shows of a hazard (D267, D268): the last day at once, the notes for hovering
+ *  water, the start's water and its marker. */
+export interface HazardSummary {
+  hazard: Hazard;
+  days: number;
+  version: number;
+  /** Per tile: the day its water dries (a drought) or turns bad (a badtide), core/sim/hazard.ts
+   *  `change`. */
+  change: Uint8Array;
+  /** The start's lakes and rivers (the water its pumps would draw from), for the highlight. */
+  startWater: Int32Array;
+  /** The day the start's water is gone (a drought) or badwater reaches it or its farmland (a
+   *  badtide), with its words; null when it doesn't within the hazard. */
+  marker: { day: number; words: string } | null;
+  /** Words for the strip when there is no marker ("Your start's water lasts"), or null. */
+  note: string | null;
+  /** The last day: its water and soil. */
+  last: HazardDay;
 }
 
-/** Stop a weather run: the map's own water. */
-export function stopWeather(): ViewUpdate {
-  weatherToken++;
-  const s = session;
-  return s ? { water: waterOf(s) } : {};
+export interface HazardDay {
+  day: number;
+  water: WaterView;
+  soil: SoilView;
+}
+
+/** The hazard worked out for the map as it is: each day's water and soil (0 is the map's own),
+ *  and the frames within each day, for the step from the day before. An edit ends it (D269). */
+let hazard: {
+  token: number;
+  session: MapSession;
+  version: number;
+  hazard: Hazard;
+  days: number;
+  day: HazardDay[];
+  frames: WaterView[][];
+} | null = null;
+let hazardToken = 0;
+/** How often the page hears how far the working-out has come. */
+const HAZARD_PROGRESS_MS = 100;
+
+/** The map's water as it is, for a hazard to start from (an unedited import's: the background
+ *  check's settle when it has run, else the file's own water on the surface). */
+function dayZero(s: MapSession): { model: WaterModel; depth: Float64Array; contamination: Float64Array } | null {
+  const b = s.built;
+  if (!b.waterFromFile) return { model: b.waterModel, depth: b.water, contamination: b.contamination };
+  if (lastWater && lastWater.version === version) return { model: lastWater.model, depth: lastWater.depth, contamination: lastWater.contamination };
+  const ls = s.lastSettled();
+  return ls ? { model: b.waterModel, depth: ls.water.depth, contamination: ls.water.contamination } : null;
+}
+
+/** Work out a drought or a badtide of `days` on the map as it is (D267 (1)): its last day, the
+ *  notes for the water and the start's marker. Waits for the water to settle after the last
+ *  edit first. Tells the page how far it has come (`hazard` events); null when an edit or another
+ *  hazard came first. */
+export async function showHazard(h: Hazard, days: number, framesCap?: number): Promise<HazardSummary | null> {
+  const s = need();
+  const token = ++hazardToken;
+  hazard = null;
+  const current = () => token === hazardToken && session === s;
+  // the water after the last edit settles first: the hazard starts from the map's own water
+  if (waterJob && waterJob.session === s && !autoWater) settleWater();
+  let lastTell = 0;
+  const tell = (done: number, force = false) => {
+    if (!force && performance.now() - lastTell < HAZARD_PROGRESS_MS) return;
+    lastTell = performance.now();
+    listener?.({ kind: "hazard", version, hazard: h, done });
+  };
+  tell(0, true);
+  while (waterJob && waterJob.session === s) {
+    await breathe();
+    if (!current()) return null;
+  }
+  const v = version;
+  const zero = dayZero(s);
+  if (!zero) return null;
+  const b = s.built;
+  const { W, H } = b;
+  const N = W * H;
+  const world = s.exportFile(b, { thumbnail: false }).world;
+  const objects = mapObjects(world);
+  const barrier = moistureBarrier(W, H, objects);
+  const soilNow = (D: ArrayLike<number>, C: ArrayLike<number>) => {
+    const D64 = D instanceof Float64Array ? D : Float64Array.from(D);
+    const C64 = C instanceof Float64Array ? C : Float64Array.from(C);
+    const sc = soilContamination(b.heights, D64, C64, W, H, barrier);
+    return { view: soilView(moisture(b.heights, D64, C64, W, H, barrier), sc), contamination: sc };
+  };
+  // the start's water: the lakes and rivers its pumps would draw from, and its farmland
+  const mid = startMiddleOf(objects);
+  const within = rulesFor(s.spec, s.meta.designedFor).waterWithin;
+  const sw = mid ? startWater({ W, H, heights: b.heights, walk: startWalk(objects, b.heights, W, H, mid), within, depth: zero.depth, contamination: zero.contamination, moisture: moisture(b.heights, zero.depth, zero.contamination, W, H, barrier) }) : null;
+  let wet = 0;
+  for (let i = 0; i < N; i++) if (zero.depth[i] > WET_VIEW) wet++;
+  const run = new HazardRun({ model: zero.model, depth: zero.depth, contamination: zero.contamination, hazard: h, days, framesPerDay: framesCap ? Math.min(framesCap, framesPerDay(days, wet)) : framesPerDay(days, wet) });
+  const dayViews: HazardDay[] = [{ day: 0, water: waterOf(s), soil: soilOf(s) }];
+  const frames: WaterView[][] = [[]];
+  // the marker: a drought's day the start's water leaves a pump's reach; a badtide's day badwater
+  // reaches the start's water or its farmland
+  const hadWater = sw ? startHasWater(sw, b.heights, W, H, zero.depth, zero.contamination) : false;
+  let marker: { day: number; words: string } | null = null;
+  while (!run.done) {
+    const t0 = performance.now();
+    while (!run.done && performance.now() - t0 < WATER_SLICE_MS) {
+      const at = run.step()!;
+      const view = waterOf(s, { depth: run.sim.D, contamination: run.sim.C });
+      (frames[at.day] ??= []).push(view);
+      if (at.frame !== run.framesPerDay - 1) continue;
+      const soil = soilNow(run.sim.D, run.sim.C);
+      dayViews.push({ day: at.day, water: view, soil: soil.view });
+      if (!sw || marker) continue;
+      if (h === "drought") {
+        if (hadWater && !startHasWater(sw, b.heights, W, H, run.sim.D, run.sim.C)) marker = { day: at.day, words: `Day ${at.day}: your start's water is gone` };
+      } else {
+        const reached = badtideReaches(sw, run.sim.C, soil.contamination);
+        if (reached) marker = { day: at.day, words: reached === "water" ? `Day ${at.day}: badwater reaches your start's water` : `Day ${at.day}: badwater reaches your start's farmland` };
+      }
+    }
+    tell(run.progress);
+    await breathe();
+    if (!current() || version !== v) return null;
+  }
+  hazard = { token, session: s, version: v, hazard: h, days: run.days, day: dayViews, frames };
+  tell(1, true);
+  const note = marker ? null : !sw ? null : h === "drought" ? (hadWater ? "Your start's water lasts the drought" : "No water a pump reaches near your start") : "Badwater doesn't reach your start";
+  const last = dayViews[run.days];
+  return { hazard: h, days: run.days, version: v, change: run.change.slice(), startWater: Int32Array.from(sw?.body ?? []), marker, note, last: { day: last.day, water: copyWater(last.water), soil: copySoil(last.soil) } };
+}
+
+/** A day of the hazard shown (0 is the map as it is), or null when it has ended. */
+export function hazardDay(day: number): HazardDay | null {
+  const z = hazard;
+  if (!z || z.session !== session || z.version !== version) return null;
+  const d = z.day[Math.max(0, Math.min(z.days, Math.round(day)))];
+  return { day: d.day, water: copyWater(d.water), soil: copySoil(d.soil) };
+}
+
+/** The water within a day of the hazard, from the day before to its end (the last frame is the day
+ *  itself), for the step to it; null when the hazard has ended. */
+export function hazardSteps(day: number): WaterView[] | null {
+  const z = hazard;
+  if (!z || z.session !== session || z.version !== version || day < 1 || day > z.days) return null;
+  return z.frames[day].map(copyWater);
+}
+
+/** The hazard view ends (an edit, or the button again): its days are dropped, and a run still
+ *  being worked out stops. */
+export function endHazard(): void {
+  hazardToken++;
+  hazard = null;
+}
+
+function copyWater(w: WaterView): WaterView {
+  return { count: w.count, tile: w.tile.slice(), floor: w.floor.slice(), depth: w.depth.slice(), contamination: w.contamination.slice() };
+}
+
+function copySoil(s: SoilView): SoilView {
+  return { moisture: s.moisture.slice(), contamination: s.contamination.slice() };
 }
 
 /** Settle the open map's water now (Node tests, and anything that must not wait for the
@@ -1990,9 +2087,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   } catch (e) {
     return refuse(refusal(e));
   }
-  // the map's own water waits: the force's water takes over from it (a weather run ends)
+  // the map's own water waits: the force's water takes over from it (a hazard shown ends, D269)
   stopWater();
-  weatherToken++;
+  endHazard();
   draft = null;
   draftToken++;
   force = {

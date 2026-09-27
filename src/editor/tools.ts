@@ -64,6 +64,10 @@ export const BAD: Rgba = [230, 60, 50, 180];
  *  show on any ground or water in any colours (Map look, D114). */
 export const DAM: Rgba = [...DAM_OVERLAY];
 export const PROBLEM: Rgba = [230, 60, 50, 150];
+/** The start's lakes and rivers while a drought or a badtide is shown (D267 (4)): a clear white
+ *  edge and a faint white tint, on water and on its drying bed alike, in any colours. */
+export const START_WATER: Rgba = [255, 255, 255, 200];
+export const START_WATER_FILL: Rgba = [255, 255, 255, 40];
 
 export interface OverlayLayer {
   tiles: ArrayLike<number>;

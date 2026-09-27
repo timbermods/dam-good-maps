@@ -49,16 +49,19 @@ import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
 import { FORCES, forceShown, REMOVE_KINDS, TopBar, type TopTool } from "./TopBar";
 import { SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
-import { WaterBar } from "./WaterBar";
+import { WaterBar, type HazardBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
+import { DayPlayer, type DaySpeed } from "./dayPlayer";
+import { loadDaySpeed, loadLengths, saveDaySpeed, saveLengths, type HazardLengths } from "./hazardPrefs";
 import type { Hazard } from "../core/sim/weather";
+import { hazardNote, NOT_WATER } from "../core/sim/hazard";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesOn, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, START_WATER, START_WATER_FILL, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -79,6 +82,10 @@ interface Mirror {
   waterView: WaterView;
   /** The map's water: the last the worker put in place (a journey's frames pass over it). */
   mapWater: WaterView;
+  /** While a drought or a badtide is shown (D267): the day's water on screen, and its soil (the map's
+   *  own stay in `water` and `soil`, for the tools). */
+  hazardWater?: SurfaceWater | null;
+  hazardSoil?: SoilView | null;
   entities: EntityView;
   /** The objects on each tile, made when first asked for after the objects change. */
   entitiesAt: Map<number, number[]> | null;
@@ -230,13 +237,22 @@ export default function Editor(props: EditorProps) {
   /** Feedback for an action at tile (x, y). */
   const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false, what?: string) => juice.current?.play(kind, x, y, size, soft, what);
   const [, setPlayerTick] = useState(0);
-  /** A hazard playing (a drought or a badtide to watch), or null. */
-  const [weather, setWeatherState] = useState<Hazard | null>(null);
-  const weatherRef = useRef<Hazard | null>(null);
-  const setWeather = (on: Hazard | null) => {
-    weatherRef.current = on;
-    setWeatherState(on);
+  /** A drought or a badtide shown day by day (D267), or being worked out; null: the map's own
+   *  water. `change` and `startWater` come with its days (the notes for hovering water, and the
+   *  start's lakes and rivers). */
+  const [hazardBar, setHazardBarState] = useState<HazardBar | null>(null);
+  const hazardRef = useRef<{ bar: HazardBar; token: number; change: Uint8Array | null; startWater: Int32Array | null } | null>(null);
+  const hazardToken = useRef(0);
+  const setHazardBar = (bar: HazardBar | null, extra?: { change: Uint8Array; startWater: Int32Array }) => {
+    if (!bar) hazardRef.current = null;
+    else hazardRef.current = { bar, token: hazardToken.current, change: extra?.change ?? hazardRef.current?.change ?? null, startWater: extra?.startWater ?? hazardRef.current?.startWater ?? null };
+    setHazardBarState(bar);
   };
+  /** The day strip's Speed and each hazard's length, remembered (D267 (3), D268). */
+  const [daySpeed, setDaySpeedState] = useState<DaySpeed>(loadDaySpeed);
+  const daySpeedRef = useRef(daySpeed);
+  const [lengths, setLengthsState] = useState<HazardLengths>(loadLengths);
+  const lengthsRef = useRef(lengths);
   player.current ??= new WaterPlayer({
     show: (f) => showWater(f.water),
     changed: () => {
@@ -379,31 +395,92 @@ export default function Editor(props: EditorProps) {
     step();
   }
 
-  /** A drought or a badtide to watch, or the map's own water back at once. */
-  function toggleWeather(hazard: Hazard) {
-    if (weatherRef.current !== hazard) {
-      setWeather(hazard);
-      player.current?.begin(null, true);
-      void api.startWeather(hazard);
-    } else {
-      setWeather(null);
-      void api.stopWeather().then((v) => {
-        player.current?.clear();
-        applyView(v);
-        if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
-      });
-    }
+  // ------------------------------------------------------------ Drought and Badtide, day by day
+
+  /** Drought or Badtide pressed (D267 (1)): the hazard's last day at once (with how far it has been
+   *  worked out meanwhile), or, pressed again, the map's own water at once. */
+  function toggleHazard(h: Hazard) {
+    if (hazardRef.current?.bar.hazard === h) return endHazardView();
+    showHazard(h, lengthsRef.current[h]);
   }
-  /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
-  function showSoil(soil: SoilView) {
-    renderer.current?.updateSoil(soil);
+
+  /** Work out a hazard of `days` on the map as it is, and show its last day. */
+  function showHazard(h: Hazard, days: number) {
+    hazardRef.current?.bar.player?.end();
+    const token = ++hazardToken.current;
+    // the edit's journey gives way (its settled water still comes, and is kept quietly)
+    player.current?.clear();
+    setHazardBar({ hazard: h, working: 0, days, player: null, marker: null, note: null });
+    const at = infoRef.current.version;
+    void api.showHazard(h, days).then((sum) => {
+      if (!mounted.current || token !== hazardToken.current || !hazardRef.current) return;
+      if (!sum || sum.version !== at || at !== infoRef.current.version) return endHazardView();
+      const dp = new DayPlayer(
+        {
+          day: (d) => api.hazardDay(d),
+          steps: (d) => api.hazardSteps(d),
+          show: (w, soil) => token === hazardToken.current && showHazardWater(w, soil),
+          changed: () => token === hazardToken.current && setPlayerTick((n) => n + 1),
+        },
+        sum.days,
+        daySpeedRef.current,
+        { day: sum.days, water: sum.last.water },
+      );
+      showHazardWater(sum.last.water, sum.last.soil);
+      setHazardBar({ hazard: h, working: null, days, player: dp, marker: sum.marker, note: sum.note }, { change: sum.change, startWater: sum.startWater });
+    });
+  }
+
+  /** The hazard view ends (the button again, or any edit, D269): the map's own water and soil at
+   *  once. */
+  function endHazardView() {
+    const z = hazardRef.current;
+    if (!z) return;
+    hazardToken.current++;
+    z.bar.player?.end();
+    setHazardBar(null);
+    void api.endHazard();
+    mirror.current.hazardWater = null;
+    mirror.current.hazardSoil = null;
+    showWater(mirror.current.mapWater);
+    if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
+    setWaterTick((t) => t + 1);
+  }
+
+  /** A day of the hazard on screen (the map's own water and soil stay the page's copy). */
+  function showHazardWater(w: WaterView, soil?: SoilView) {
+    const r = renderer.current;
+    r?.updateWater(w);
+    mirror.current.hazardWater = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, w);
+    if (soil) {
+      mirror.current.hazardSoil = soil;
+      r?.updateSoil(soil);
+    }
+    setWaterTick((t) => t + 1);
+  }
+
+  function setDaySpeed(sp: DaySpeed) {
+    daySpeedRef.current = sp;
+    setDaySpeedState(sp);
+    saveDaySpeed(sp);
+    hazardRef.current?.bar.player?.setSpeed(sp);
+  }
+
+  /** A hazard's length (D267 (3)): remembered, and the view shows the new last day. */
+  function setLength(h: Hazard, days: number) {
+    const next = { ...lengthsRef.current, [h]: days };
+    lengthsRef.current = next;
+    setLengthsState(next);
+    saveLengths(next);
+    if (hazardRef.current?.bar.hazard === h) showHazard(h, days);
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // an edit ends a hazard shown (D269): the map's own water, and the edit's plays as usual
+    if (u.ok) endHazardView();
     applyView(u.view);
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
-      if (weatherRef.current) setWeather(null);
       player.current?.begin(u.view.water ? { water: u.view.water, done: 0 } : null);
     }
     // the instant checks: the problems this edit made, in the region it changed (with the checks
@@ -423,6 +500,17 @@ export default function Editor(props: EditorProps) {
   function applyView(v: ViewUpdate): void {
     const r = renderer.current;
     const m = mirror.current;
+    // while a hazard is shown, the map's own water and soil are kept, not shown (D267)
+    if (hazardRef.current && (v.water || v.soil)) {
+      if (v.water) {
+        m.water = surfaceWater(infoRef.current.W, infoRef.current.H, v.water);
+        m.waterView = v.water;
+        m.mapWater = v.water;
+      }
+      if (v.soil) m.soil = v.soil;
+      v = { ...v, water: undefined, soil: undefined };
+      setWaterTick((t) => t + 1);
+    }
     if (v.heights && pendingTerrain.current === 0) {
       if (checkStroke.current) {
         checkStroke.current = false;
@@ -540,6 +628,7 @@ export default function Editor(props: EditorProps) {
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
     if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    endHazardView();
     juice.current?.undo();
     showStroke(s, "before");
     localRedo.current.push(s);
@@ -549,6 +638,7 @@ export default function Editor(props: EditorProps) {
     if (painter.current?.painting || forcer.current?.running) return;
     const s = localRedo.current.pop();
     if (!s) return run(() => api.redo());
+    endHazardView();
     showStroke(s, "after");
     localUndo.current.push(s);
     sendTerrain(() => api.redo());
@@ -678,21 +768,19 @@ export default function Editor(props: EditorProps) {
           if (player.current?.hasJourney) player.current.clear();
           showWater(e.water);
         } else if (e.kind === "water") {
-          // an edit's water plays at a pace the eye can follow
-          player.current?.push({ water: e.water, done: e.done });
+          // an edit's water plays at a pace the eye can follow (while a hazard is shown, it waits)
+          if (!hazardRef.current) player.current?.push({ water: e.water, done: e.done });
+        } else if (e.kind === "settled" && hazardRef.current) {
+          // the map's settled water while a hazard is shown: kept, not shown
+          applyView(e.view);
         } else if (e.kind === "settled") {
           // (no water in it: the map's water was sent before, so it is the last put in place, not the
           // frame on screen)
           player.current?.push({ water: e.view.water ?? mirror.current.mapWater, done: 1, final: () => applyView(e.view) });
-        } else if (e.kind === "weather") {
-          const w = weatherRef.current;
-          if (!w) return;
-          const day = `day ${Math.max(1, Math.ceil(e.day))} of ${e.days}`;
-          const words = e.phase === "drought" ? `Drought: ${day}` : e.phase === "badtide" ? `Badtide: ${day}` : e.phase === "return" ? (w === "badtide" ? "The water runs clean again" : "The water comes back") : undefined;
-          const soil = e.soil;
-          const show = soil ? () => showSoil(soil) : undefined;
-          const final = e.phase === "end" ? () => (soil && showSoil(soil), setWeather(null)) : show;
-          player.current?.push({ water: e.water, done: e.phase === "return" || e.phase === "end" ? 0.5 : e.day / e.days / 2, ...(words ? { words } : {}), ...(final ? { final } : {}) });
+        } else if (e.kind === "hazard") {
+          // how far the hazard has been worked out
+          const z = hazardRef.current;
+          if (z && z.bar.hazard === e.hazard && z.bar.working !== null && e.done < 1) setHazardBar({ ...z.bar, working: e.done });
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );
@@ -785,9 +873,24 @@ export default function Editor(props: EditorProps) {
     if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
     if (forceCursor) layers.push({ tiles: rimTiles(forceCursor[0], forceCursor[1], 1.5, 1.5, 0), color: DRAWING });
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
+    // the start's lakes and rivers while a hazard is shown (D267 (4)): a faint tint, a clear edge
+    const sw = hazardBar?.player ? hazardRef.current?.startWater : null;
+    if (sw?.length) layers.unshift({ tiles: sw, color: START_WATER_FILL }, { tiles: sw, color: START_WATER, outline: true });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, forceStroke, forceCursor]);
+  }, [fit, picked, startDrag, damSites, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, removeRect, forceStroke, forceCursor, hazardBar]);
+
+  /** The words for the tile under the pointer: while a hazard is shown, the day's water and soil,
+   *  and when that water dries or turns bad (D267 (5)). */
+  function hoverWords(x: number, y: number): string {
+    const z = hazardRef.current;
+    const m = mirror.current;
+    if (!z || !z.bar.player || !m.hazardWater) return describeTile(ctx(), x, y);
+    const text = describeTile({ ...ctx(), water: m.hazardWater, soil: m.hazardSoil ?? m.soil }, x, y);
+    const c = z.change?.[y * infoRef.current.W + x] ?? NOT_WATER;
+    const note = hazardNote(z.bar.hazard, c);
+    return note ? `${text}. ${note}` : text;
+  }
 
   // ------------------------------------------------------------------------------ the pointer
 
@@ -1669,10 +1772,10 @@ export default function Editor(props: EditorProps) {
     };
   }
 
-  /** The water's journey and a weather run give way to the force's own water. */
+  /** The water's journey gives way to the force's own water, and a hazard shown ends (D269). */
   function clearForForce() {
+    endHazardView();
     player.current?.clear();
-    if (weatherRef.current) setWeather(null);
     setPicked(null);
     setShapeNote(null);
     setMessage(null);
@@ -2308,6 +2411,8 @@ export default function Editor(props: EditorProps) {
         }
         hintJob.current++;
         setStartHint(null);
+        // an edit ends a hazard shown (D269)
+        endHazardView();
       },
       note: (text, ev) => {
         if (!text) return setShapeNote(null);
@@ -3054,7 +3159,7 @@ export default function Editor(props: EditorProps) {
             }
 
             onHover={(hit: TileHit | null) => {
-              setHover(hit ? describeTile(ctx(), hit.x, hit.y) : null);
+              setHover(hit ? hoverWords(hit.x, hit.y) : null);
               hoverSources(hit);
               // the source the pointer targets, whatever tool is picked (D249)
               const t = hit ? targetAt(hit.x, hit.y) : null;
@@ -3094,7 +3199,7 @@ export default function Editor(props: EditorProps) {
               loading={!ready}
               selectRow={selectRow()}
             />
-            {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
+            {player.current ? <WaterBar player={player.current} hazard={hazardBar} onHazard={toggleHazard} onLength={setLength} speed={daySpeed} onSpeed={setDaySpeed} /> : null}
             {sourceMarkers()}
             {startHintTag()}
             {minimap ? (
@@ -3103,7 +3208,7 @@ export default function Editor(props: EditorProps) {
                 H={info.H}
                 renderer={renderer.current}
                 heights={() => mirror.current.heights}
-                depth={() => mirror.current.water?.depth ?? null}
+                depth={() => (mirror.current.hazardWater ?? mirror.current.water)?.depth ?? null}
                 stamp={`${info.version}:${waterTick}`}
                 viewTick={viewTick}
               />
