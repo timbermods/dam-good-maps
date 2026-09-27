@@ -255,12 +255,16 @@ export const WATER_CALIBRATION = {
    *  at e63a3ff: the typical texture, the troughs and the streaks of pure badwater a quarter level
    *  deep over a poisoned bed); clean water's are the Standard look as approved, re-measured after
    *  D304 fitted clean water's shades closer to the game's own (they hold it still, until the next
-   *  approved change). */
+   *  approved change). Measured with the Standard look held (`dgm.look` forced to `standard`
+   *  before opening the page): a capable GPU picks High by itself once it exists, and `tools/
+   *  capture-badwater.ts --measure` was found silently measuring High's water instead, drifting
+   *  from these targets by the two looks' own difference, not a real change to Standard (found
+   *  investigating the drift, D304's addition; the fix is in the tool, not here). */
   targets: [
     { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [110, 52, 49], trough: [94, 46, 43], streak: [124, 69, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [58, 100, 112] } },
-    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [48, 94, 108] } },
-    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [39, 81, 95] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [67, 125, 140] } },
+    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [57, 130, 152] } },
+    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [53, 121, 141] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
   /** The ground level under a bed of water this deep (so the camera sees the same scene as #38's). */
   floor(depth: number): number {

@@ -3,11 +3,12 @@
 > **Top note (2026-09-28, stop 2): ready for Kyler's eye; held on `feature/high-look`** (D286 (4): nothing merges into
 > `dev` without Kyler's yes; for the preview right after the forces' release). Built: #38, #65, #66 and #67's stages 1–3
 > with its poisoned soil, as a High look beside Standard; High is the default where the computer draws it smoothly, with an
-> automatic fallback to a lower-cost High and then to Standard. Standard is unchanged apart from its water (D304, stop
-> 2): dev's site and this branch draw every captured view to the same pixels for everything but water (`terrain`,
-> `object` and `sky` shaders are still byte for byte dev's; `water` and `fall` embed the fitted palette, so they and the
-> water-bearing views differ, by up to about 85 codes, matching the size of the palette's own change; see
-> [docs/look/high/README.md](../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-d304)).
+> automatic fallback to a lower-cost High and then to Standard. Standard is unchanged apart from D304's water and D305's
+> ruins (stop 2): dev's site and this branch draw every captured view to the same pixels for everything else (`terrain`
+> and `sky` shaders, and their `.lite` forms, are still byte for byte dev's; `water`, `fall` and `object` embed the
+> fitted water palette and the far ruin's lattice, so they and the views bearing water or ruins differ, by up to about
+> 85 codes, matching the size of the palette's own change; see
+> [docs/look/high/README.md](../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-and-ruins-d304-d305)).
 > The captures are in [docs/look/high/](../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are
 > below (High costs it about 1–2 ms a frame more than Standard; every configuration orbits at the display's 165 Hz).
 > **Left:** #67's visible seasons and D250's badtide withering (they wait for the Drought and Badtide branch, D286 (4));
@@ -17,8 +18,11 @@
 > contaminated ground glows red, so the ground round badwater reads less from a whole-map view (the badwater itself
 > stays crimson); it is its own switch (**Finishing touches**, `poison`). **Stop 2:** D304 fitted clean water's shades
 > closer to the game's own (sampled from Kyler's screenshot), in both looks; see "D304: clean water's shades" below and
-> [docs/look/high/d304-water.jpg](../look/high/d304-water.jpg) for the before-and-after. The whole-look captures above
-> still show stop 1's water pending a full recapture; the dedicated D304 captures show the current water.
+> [docs/look/high/d304-water.jpg](../look/high/d304-water.jpg) for the before-and-after. D305 fixed the far ruin block
+> to read as the same ruin seen from afar (the near skeleton's own muted colour and a lattice, not a bright orange
+> box); see "D305: a ruin seen from afar looks like the same ruin" below and
+> [docs/look/high/d305-ruins.jpg](../look/high/d305-ruins.jpg). The whole-look composites above still show stop 1's
+> water and ruins pending a full recapture; the dedicated D304 and D305 captures show the current look.
 
 Spec: `ROADMAP.md` "Map look 2: the High look"; PLAN §20 D147, D177, D201, D231, D232, D241–D243, D250, D265, D283, D284,
 D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook2`, #65 `investigation/maplook3`, #66
@@ -26,16 +30,19 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
 
 ## What was built
 
-- **The Standard look, untouched but for its water (D304).** The Standard shaders take the High additions only at named
-  points (`src/render3d/materials.ts` `ShaderHooks`); without them each point is empty or holds the Standard code
-  itself. Before D304 the Standard and light shaders were byte for byte dev's; D304 fitted clean water's shades closer
-  to the game's own, and since the shaders embed the palette's numbers as GLSL `#define`s, that changes the `water` and
-  `fall` shader sources (`npx tsx tools/shader-sources.ts`: `water`, `water.lite`, `fall` and `fall.lite` differ from
-  `origin/dev`; `terrain`, `object`, `sky` and their `.lite` forms are still byte for byte identical). High draws with
-  its own materials, which the meshes swap to while the look is High; the Standard materials are never changed apart
-  from that shared palette. `tools/capture-high.ts` draws every captured view in Standard with dev's site and with this
-  branch and compares them pixel for pixel: since D304, views with water differ by up to about 85 codes (the size of
-  the palette's own change; see the identity table in `docs/look/high/README.md`), everything else stays within the
+- **The Standard look, untouched but for its water (D304) and its far ruins (D305).** The Standard shaders take the High
+  additions only at named points (`src/render3d/materials.ts` `ShaderHooks`); without them each point is empty or holds
+  the Standard code itself. Before D304 the Standard and light shaders were byte for byte dev's; D304 fitted clean
+  water's shades closer to the game's own (the shaders embed the palette's numbers as GLSL `#define`s), and D305 gave
+  the far ruin block the near skeleton's own muted colour and a lattice pattern (a `vLod` varying and a discard test in
+  the shared `objectMaterial`), so together they change the `water`, `fall` and `object` shader sources (`npx tsx
+  tools/shader-sources.ts`: `water`, `water.lite`, `fall`, `fall.lite`, `object` and `object.lite` differ from
+  `origin/dev`; `terrain`, `sky` and `terrain.lite` are still byte for byte identical). High draws with its own
+  materials, which the meshes swap to while the look is High; the Standard materials are never changed apart from that
+  shared palette and the ruin fix. `tools/capture-high.ts` draws every captured view in Standard with dev's site and
+  with this branch and compares them pixel for pixel: since D304 and D305, views with water or ruins differ by up to
+  about 85 codes (the size of the palette's own change; see the identity table in `docs/look/high/README.md`),
+  everything else stays within the
   noise of two page loads; `look-high.spec.ts` checks Standard is the same after High as before it (a self-comparison,
   unaffected by the absolute palette).
 - **High** (`src/render3d/high/`), each effect a switch (a uniform: switching never recompiles):
@@ -90,13 +97,52 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
     tied to the old, much paler shallow) became "by 0.15" (the new shallow clears it by about 0.24; the per-depth,
     same-depth comparison right above it, and the perceptual colour-blind check in `look-waterfalls.test.ts`, are the
     checks that actually carry the accessibility requirement now).
-  - `WATER_CALIBRATION`'s clean-water targets (`tools/capture-badwater.ts --measure`) are re-measured to match: quarter
-    level `#3A6470`, 1.25 deep `#305E6C`, 4.25 deep `#27515F`. That run also shows three of badwater's own targets
-    already off by 6–11 codes on this checkout of `origin/dev`, unrelated to D304 (badwater's colours are untouched) —
-    a pre-existing drift, flagged separately rather than fixed here.
+  - **Kyler's addition, folded in:** re-measuring found badwater's own targets off by 6–11 codes too, though badwater's
+    colours are untouched. Bisected it (`git worktree`, `tools/capture-badwater.ts --measure` at each point back to
+    e63a3ff, where the targets were set): still exact at the High look's merge-base, already off at its very first
+    commit (2c3cea88), even though that commit leaves the Standard shaders byte for byte identical (their hashes
+    match). The cause isn't the shaders: `tools/capture-badwater.ts` predates the High look and never holds a look, so
+    once "Automatic" could pick High by itself on a capable GPU (which this machine's is), `--measure` silently
+    started measuring High's water instead of Standard's, drifting from the Standard-only targets by the two looks'
+    own difference — a tool bug, not a rendering regression. Fixed by holding `dgm.look` to `standard` before opening
+    the page in both of `capture-badwater.ts`'s modes (`--measure` and its before-and-after captures), matching
+    `capture-high.ts`'s own pattern; with that, badwater's three targets are exact again (`within 0`). Clean water's
+    targets, correctly re-measured under Standard this time: quarter level `#437D8C`, 1.25 deep `#398298`, 4.25 deep
+    `#35798D` (the very close values across depth match D304's own narrow ramp).
   - Captures: `docs/look/high/d304-water.jpg` (Standard and High, before and after, on Lake Basin 3 256² — shallow
     edges and deep pools in one map — with the sampled game colours as swatches) and
     `docs/look/high/d304-water-checks.jpg` (the same, in greyscale and the three colour-blindness simulations).
+- **D305: a ruin seen from afar looks like the same ruin.** At a tilted camera the far version (a solid block per
+  storey, `entities3d.ts` `farBlock`) used to read as a bright orange block beside the nearer ones' metal skeletons
+  (`RUIN.rust` on its faces, the brighter `RUIN.top` on its roof); from directly above the difference barely showed.
+  (1) **The colour:** measured the near skeleton's own weighted-by-visible-area average from its actual triangle data
+  (`modelOf`'s near-lod triangles, weighted by area and how much each faces the default camera direction, across
+  every variant, storey kind and ivy level) — about `#886B43`, close to `RUIN.rust` itself once panels and ivy are
+  mixed in. Muted it further (less saturated) and darkened it a little (Kyler's "darker, muted rust"), while keeping
+  it comfortably apart from contaminated ground in lightness (`look-water-slopes.test.ts`'s existing margin): the new
+  `RUIN.far` is `[0.47, 0.39, 0.28]` (raw lum 0.40, between the old `rust`'s 0.37 and `top`'s 0.42), replacing both
+  `RUIN.rust` and `RUIN.top` on the far block's faces and its top alike — one colour, not two, since the lattice is
+  what now tells it apart from a solid box, not a colour split. (2) **The lattice:** a cheap discard pattern in
+  `objectMaterial`'s shared fragment shader (`materials.ts`), gated on the `lod` attribute alone (`vLod > 1.5`, true
+  only for a ruin's far triangles, so nothing else is touched): the two world axes across whichever face is showing
+  (picked from the normal, so it works on every face without UVs) are each turned into a repeating band
+  (`RUIN_LATTICE_SCALE = 3.2` cells per world unit); a fragment survives only within a band's edge (a strut), and is
+  discarded elsewhere, leaving an open lattice. Lives in the base shader, not a High-only hook, so it applies to
+  Standard and High alike. (3) **The switch point:** `RUIN_NEAR_PX` (9) is unchanged — checked by eye on a capture
+  sequence of one ruin orbited from 90 to 165 world units out at the default camera angle (40° vertical field of
+  view; the swap actually falls around 116–118 units here); the far version's new colour and texture already read
+  close enough to the near skeleton's that the swap isn't noticeable at the sequence's own resolution, so no retuning
+  was needed. (4) **Frame time**, `tools/measure-high.ts` on River Valley 4242 256² with dense forest and ruins
+  (`&fd=200&gs=b&ru=300`, 8939 objects), this machine's RTX 2070 SUPER, before (`git stash` of this change) against
+  after: Standard whole GPU p50 1.18 → 1.28 ms, p95 4.82 → 4.57 ms; Standard close p50 1.10 → 1.11 ms, p95 4.44 → 4.05
+  ms; High whole p50 3.90 → 3.88 ms, p95 5.00 → 4.62 ms; High close p50 2.41 → 2.36 ms, p95 4.36 → 3.86 ms — within
+  the run-to-run noise, no regression (expected: the block's triangle count doesn't change, only which colour its
+  triangles reference, plus one cheap per-fragment discard test that's false for every non-ruin, non-far fragment).
+  Tests (D148): `look-mine-ruins.test.ts` and `look-water-slopes.test.ts` read `RUIN.far` where they read `RUIN.top`
+  before, and a new assertion checks the object shader's fragment code for the lattice's discard test and
+  `RUIN_LATTICE_SCALE`. Captures: `docs/look/high/d305-ruins.jpg` (Standard and High, before and after, a ruin close
+  up beside one pulled back past the switch distance, at the same low, tilted angle), made with the new
+  `tools/capture-ruins-d305.ts`.
 - **The flow** is estimated from the water's surface (pending #111), in the worker, a moment after the water changes.
 - **The look** (`fallback.ts`, the renderer's `setLookChoice`): **Automatic** starts in High (or where it settled last
   time on this GPU at about this window size), reads each frame's GPU time and steps down when frames stay too slow:
@@ -184,8 +230,15 @@ forces' `besideHeight`), and EDITOR_PLAN's architecture list (the forces' juice 
   and `look-readable.test.ts`'s one-off shallow-over-badwater margin (0.3 → 0.15); every other margin (the per-depth
   clean-over-bad checks, the colour-blind checks in `look-waterfalls.test.ts` and `look.test.ts`, `WATER_CALIBRATION`'s
   structural tests) held without change, and `WATER_CALIBRATION`'s clean-water target numbers were re-measured to the
-  new palette (its badwater targets, untouched, already drift a little on this checkout of `origin/dev`; unrelated to
-  D304, not fixed here).
+  new palette, under the Standard look held (`tools/capture-badwater.ts` now pins `dgm.look` to `standard`: without
+  it, a capable GPU measures High's water by itself, which is what drifted badwater's own untouched targets too — see
+  "D304: clean water's shades" above).
+- **D148 (stop 2, D305):** `look-mine-ruins.test.ts` and `look-water-slopes.test.ts` read `RUIN.far` wherever they
+  used to read `RUIN.top` (retired: the far block's faces and its top now share one colour, the lattice being what
+  tells it apart from a solid box); the far-triangle colour-share check (over 60% of the far block's area, near
+  `look-mine-ruins.test.ts`'s line ~257) still holds, now against `RUIN.far`. A new assertion checks the object
+  shader's fragment code carries the lattice's discard test and `RUIN_LATTICE_SCALE`, since the lattice itself lives
+  in the shader, not in the CPU-side triangle data the rest of that test reads.
 - **Frame touch-up:** dropped from this branch (D296): the frame is styled once, in the design pass. An earlier commit
   here had a CSS touch-up; it was reverted, and the branch changes no interface styling.
 - **Left for later:** #67's visible seasons (dry ground and straw, withering plants, heat shimmer, the badtide's sky) and

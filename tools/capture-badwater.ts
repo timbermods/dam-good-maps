@@ -253,7 +253,13 @@ async function measure() {
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   let missed = 0;
   try {
-    const page = await browser.newPage({ viewport: { width: M.viewport[0], height: M.viewport[1] }, deviceScaleFactor: 1, colorScheme: "light" });
+    // the calibration's targets are the Standard look's (badwater from #38's approval before the
+    // High look existed; clean water from D304's own approval): held here, or a GPU capable of the
+    // High look would pick it by itself and measure the wrong look entirely (found investigating
+    // the badwater targets' drift, PLAN §20 D304's addition)
+    const context = await browser.newContext({ viewport: { width: M.viewport[0], height: M.viewport[1] }, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     await open(page, 4194, { id: "", name: "", fragment: "#s=1&z=96&d=n&t=riverValley", top: 0, angled: 0 });
     // the view's canvas the method's size, over the whole page
     await page.addStyleTag({ content: `.editor-view canvas { position: fixed !important; left: 0 !important; top: 0 !important; width: ${M.viewport[0]}px !important; height: ${M.viewport[1]}px !important; z-index: 9999 !important; }` });
@@ -301,7 +307,11 @@ async function main() {
   let browser: Browser | null = null;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: the "before" site has no High look, but the "after" one might pick it by
+    // itself on a capable GPU, and this capture is of the Standard look's badwater blend (D177)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     const tool = await browser.newPage();

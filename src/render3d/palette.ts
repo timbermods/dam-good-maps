@@ -188,8 +188,13 @@ export const RUIN = {
   ivy: [0.251, 0.337, 0.204] as Rgb,
   /** The ivy's brighter leaves, on its clusters' edges. */
   leaf: [0.36, 0.5, 0.24] as Rgb,
-  /** From afar: the top of a storey (its beams, lit from above), a brighter rust. */
-  top: [0.6, 0.38, 0.22] as Rgb,
+  /** The far block's own colour (D305, amends D178): a darker, muted rust, the weighted average of
+   *  the near skeleton's rust, panels and ivy as seen from afar (`.scratch/ruin-avg-color.ts`'s
+   *  measurement: about #886B43, close to `rust` itself), muted (less saturated) and darker than
+   *  `top` was, while staying apart from contaminated ground in lightness (`look-water-slopes.test.ts`).
+   *  Both the far block's four faces and its top use it; the lattice pattern (materials.ts,
+   *  `RUIN_LATTICE_SCALE`) is what tells it apart from a solid box, not a colour split between faces. */
+  far: [0.47, 0.39, 0.28] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */

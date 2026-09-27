@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
 import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
-import { objectMaterial, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
+import { objectMaterial, RUIN_LATTICE_SCALE, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
 import { cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
@@ -227,7 +227,7 @@ describe("ruins", () => {
     expect(FOOTPRINTS.RuinColumnH3.size).toEqual([1, 1, 3]);
   });
 
-  it("are a rusty skeleton with beige panels close up (Kyler's colours), and from afar solid blocks in the scaffolding's rust", () => {
+  it("are a rusty skeleton with beige panels close up (Kyler's colours), and from afar a lattice block in the skeleton's own muted rust (D305)", () => {
     expect(cssColor(RUIN.rust)).toBe("#8d5631");
     expect(cssColor(RUIN.panel)).toBe("#b8a775");
     expect(cssColor(RUIN.ivy)).toBe("#405634");
@@ -254,15 +254,17 @@ describe("ruins", () => {
             const w = v[2].map((q, i) => q - v[0][i]);
             const area = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
             farArea += area;
-            if (c === cssColor(RUIN.rust) || c === cssColor(RUIN.top)) rustArea += area;
+            if (c === cssColor(RUIN.far)) rustArea += area;
           }
         }
         expect(near).toContain(cssColor(RUIN.rust));
         // panels on every layout (shaded a little one from another)
         expect(near.some((c) => c !== cssColor(RUIN.rust) && /^#[a-c]/.test(c))).toBe(true);
         // from afar: four sides and a top, the storey's height (a partial top storey lower), with
-        // a panel set into each face that has one; mostly the scaffolding's rust (Kyler: plain tan
-        // reads as sandstone), the panels under two fifths of it
+        // a panel set into each face that has one; mostly RUIN.far (D305: the near skeleton's own
+        // muted look, not the old brighter top), the panels under two fifths of it. The lattice that
+        // tells it apart from a solid box is the object shader's own (materials.ts), not this CPU
+        // geometry, which the object shader's own test below checks for.
         expect(farTris).toBeGreaterThanOrEqual(10);
         expect(farTris).toBeLessThanOrEqual(20);
         expect(farTop).toBeCloseTo(kind < 2 ? 1 : 0.72, 5);
@@ -276,7 +278,7 @@ describe("ruins", () => {
   });
 
   it("from afar stand apart from rusty contaminated ground, in greyscale too", () => {
-    for (const c of [RUIN.panel, RUIN.top, RUIN.rust]) expect(lum(c) - lum(GROUND.contaminated), cssColor(c)).toBeGreaterThan(0.12);
+    for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(GROUND.contaminated), cssColor(c)).toBeGreaterThan(0.12);
     // the rust is orange, the contaminated ground's red-brown: more yellow in it
     expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(GROUND.contaminated[1] / GROUND.contaminated[0] + 0.05);
     expect(lum(RUIN.panel) - lum(GROUND.contaminated)).toBeGreaterThan(0.35);
@@ -284,10 +286,18 @@ describe("ruins", () => {
 
   it("the object shader draws a model's parts for close up or from afar by its size on screen", () => {
     const u = sceneUniforms(1, 1, overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1));
-    const shader = objectMaterial(u).vertexShader;
+    const mat = objectMaterial(u);
+    const shader = mat.vertexShader;
     expect(shader).toContain("attribute float lod");
     expect(shader).toContain(`perUnit >= ${RUIN_NEAR_PX}`);
     expect(RUIN_NEAR_PX).toBeGreaterThanOrEqual(6);
+    // the far ruin block's lattice (D305): a cheap discard pattern in the fragment shader, gated on
+    // the far lod alone (so it never touches any other object), the same in Standard and High since
+    // it lives in the shared shader, not behind a hook
+    expect(mat.vertexShader).toContain("vLod = lod;");
+    expect(mat.fragmentShader).toContain("if (vLod > 1.5)");
+    expect(mat.fragmentShader).toContain(`${RUIN_LATTICE_SCALE}`);
+    expect(RUIN_LATTICE_SCALE).toBeGreaterThan(1);
     // every model carries the attribute; the light look (software rendering) draws a block per ruin
     for (const m of meshesOf([column(1, 1, 3, "B"), { template: "Pine", x: 3, y: 3, z: 2, orientation: "Cw0", owner: "f" }])) expect(m.geometry.getAttribute("lod")).toBeDefined();
     const lite = meshesOf([column(1, 1, 3, "B")], null, 0, true);
@@ -418,7 +428,7 @@ describe("ruins", () => {
           if (md.lod[t * 3] === LOD_FAR) {
             farArea += a;
             if (isIvy) farIvy += a;
-            if (c === cssColor(RUIN.rust) || c === cssColor(RUIN.top)) farRust += a;
+            if (c === cssColor(RUIN.far)) farRust += a;
             continue;
           }
           if (!isIvy) continue;

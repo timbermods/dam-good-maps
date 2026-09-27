@@ -821,16 +821,16 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number): 
   }
 }
 
-/** A storey from afar: a block over its tile in the rust of its scaffolding (what makes ruins
- *  read from afar, Kyler), a pale panel set into each face that has one, a band of ivy low on the
- *  faces (all four at a column's foot, two above it, none on the highest ivy; `variant` picks the
- *  two), and a rusty top. */
+/** A storey from afar (D305): a block over its tile in the near skeleton's own muted rust
+ *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a pale panel
+ *  set into each face that has one, a band of ivy low on the faces (all four at a column's foot,
+ *  two above it, none on the highest ivy; `variant` picks the two), and the same colour on top. */
 function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0): void {
   const w = 0.86;
   for (let f = 0; f < 4; f++) {
     const panels = layout.panels.filter(([g]) => g === f).map(([, p]) => p);
     onFace(m, f, () => {
-      m.add(plane(w, height), RUIN.rust, { ry: Math.PI, y: height / 2, z: -w / 2 });
+      m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 });
       if (panels.length) {
         // (a half or broken panel is smaller)
         const p = panels[0];
@@ -843,7 +843,7 @@ function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, vari
       else if (ivy === IVY_MEDIUM && (f + variant) % 4 >= 2) m.add(plane(0.6, 0.3 * height), RUIN.leaf, { ry: Math.PI, y: 0.15 * height, z: -w / 2 - 0.008 });
     });
   }
-  m.add(plane(w, w), RUIN.top, { rx: -Math.PI / 2, y: height });
+  m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height });
 }
 
 /** A column's quarter turns: one more than its west neighbour and two more than its south one, so

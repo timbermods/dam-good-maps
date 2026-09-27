@@ -1372,8 +1372,13 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
 }
 
 /** Where a model's parts for close up give way to its parts for afar (`lod`, entities3d.ts): at this
- *  many pixels a unit of the model takes on screen (a ruin's storey from afar is a solid block). */
+ *  many pixels a unit of the model takes on screen (a ruin's storey from afar is a lattice of open
+ *  cells in the near skeleton's own muted colour, D305, not a solid painted block). */
 export const RUIN_NEAR_PX = 9;
+
+/** The far ruin block's lattice (D305): cells this many to a world unit, on whichever two axes
+ *  aren't the face's normal (so it reads consistently on every face, without UVs). */
+export const RUIN_LATTICE_SCALE = 3.2;
 
 /** Instanced objects: each vertex's own colour times the instance's tint, lit like the terrain,
  *  darker toward the model's foot, and in the terrain's shadow where it stands in one. An
@@ -1396,8 +1401,10 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFoot;
+      varying float vLod;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
+        vLod = lod;
 ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objectNormal", "normal")});
         vColor = ${hook(h, "objectColor", "pcolor")};
         #ifdef USE_INSTANCING_COLOR
@@ -1431,10 +1438,21 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFoot;
+      varying float vLod;
       ${common(h)}
       void main() {
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
+        // a ruin's far block (D305): a lattice of open cells so it reads as a framework, not a
+        // solid box, from any face (the two world axes across the face, whichever the normal
+        // isn't closest to; cheap, no extra geometry or UVs)
+        if (vLod > 1.5) {
+          vec3 an = abs(normalize(vNormal));
+          vec2 uv = an.x >= an.y && an.x >= an.z ? vWorld.yz : (an.y >= an.z ? vWorld.xz : vWorld.xy);
+          float strut = 0.16;
+          bool onStrut = fract(uv.x * ${f(RUIN_LATTICE_SCALE)}) < strut || fract(uv.y * ${f(RUIN_LATTICE_SCALE)}) < strut;
+          if (!onStrut) discard;
+        }
         vec3 n = normalize(vNormal);
         float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
