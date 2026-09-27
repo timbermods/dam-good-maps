@@ -82,14 +82,67 @@ river, on ground at 9) and a volcano erupted at full Power on ground at 7, twice
   drawn before in three runs).
 - **The eruptions at full Power:** about 5.1–5.4 s each, frames p50 5.9 ms, p95 about 23.5 ms, max
   41–59 ms, one long task of 51 ms in one run of three.
-- **Painting after the edits has slow frames:** p95 71–106 ms and max about 124 ms in all three runs,
-  with no long task, wherever it paints: the same spot as before (low ground away from the new
-  land), across the volcano's flank, and on the plateau's top. Before the edits the same stroke paints
-  at the display's rate. So it isn't the height at the brush: something the edits left behind costs
-  each painted frame (candidates: the flooded water round the plateau's foot re-flowing with each
-  draft, the eruptions' cooling lava, the shadows' range over taller land). **Not investigated yet:**
-  the machine went back to M9a's probe re-run before a split could be measured. Worth a look before
-  the release, and on Kyler's checklist below.
+- **Painting after the edits had slow frames:** p95 71–106 ms and max about 124 ms in all three runs,
+  wherever it painted. **Found and fixed** (the section below): the water, not the height.
+
+### The painting stutter after a force: cause and fix
+
+Split one variable at a time with `tools/measure-ceiling.ts` (`--no-plateau`, `--no-volcano`,
+`--plateau-level`, `--power`, `--eruptions`, `--paint-now`, and `--debug`: an unminified build that
+counts the page's water updates and names their callers and the tiles that moved):
+
+- **The plateau alone** (at 22 or at 16, next to the river): no stutter. **The volcano alone**: the
+  stutter. Shadows and the lava's heat never showed in a stroke's frames; the renderer's own drawing
+  was unchanged (the table above).
+- **The page:** every slow frame was `updateWater` with a whole map's water from the worker's
+  stroke water ("draft", D197), 500–5,000 times in one three-second stroke, about 25 ms each, 90% of
+  it remeshing about 47 water chunks. They came faster than the page could draw them, queued behind
+  the stroke (the stroke's own release waited behind them).
+- **The worker** (a Node repro: two eruptions, the water settled, then a stroke far from any water):
+  the draft's water moved on 400–1,100 tiles every two ticks, all far from the stroke. Two reasons:
+  1. The editor's background settle stops at one game day. After the eruptions the river filling the
+     lake behind the lava needs about 2,100 ticks (768 a day): it stopped at the cap, unsettled, and
+     the page said "Water settled". Every stroke's draft then carried the settle on, all over the map.
+  2. D260's warm start drained 202–411 wet tiles the new ground's canonical start (the walk from the
+     sources) didn't reach, though the old ground's didn't reach them either: water the settle itself
+     spread past that walk, the filling lake. Each stroke drained it and the draft refilled it.
+- **Not the ceiling:** with the fix undone, one eruption to 14 (under 16) gives the same kind of
+  stutter, smaller (a stroke's p95 17.7 ms, max 100 ms, 533 whole-map water updates); two to 19, p95
+  70–100 ms. It predates D244: any force or edit that leaves a lot of water moving did it.
+
+The fix (the forces' look unchanged):
+- `PreviewJob` (sim/preview.ts) runs on past its first day while the water still moves (not only
+  sealed basins evaporating), up to the canonical settle's four days (`PREVIEW_JOB_DAYS`); "Water
+  settled" then means it.
+- `unfedTiles` drains only water that lost its feed: a tile the old ground's canonical start (or a
+  tile round it) reached, and the new one's doesn't; water past both walks keeps its water. D260's
+  tests pass unchanged (a removed source's water still drains in its journey).
+- The worker sends a stroke's water every frame only once the stroke's ground touches water; until
+  then (only water still settling elsewhere moving) at the journey's pace, 150 ms.
+- The page takes a stroke's water once a frame at most (the latest wins; a newer journey or settle
+  drops a waiting one), and meshes it, and the journey's frames but its last, a few chunks a frame
+  (`updateWaterSoon`, about 2 ms a frame, nearest the view's middle first, with the ground's tile data
+  under each); `updateWater` (the settled water, an applied view) meshes whatever still waits.
+
+Before and after (the same tool, 256² River Valley 4242 dense, the RTX 2070 SUPER at 170 Hz, a
+three-second Raise stroke's frames p50 / p95 / max):
+
+| Stroke | Before the fix | After the fix |
+|---|---|---|
+| Before any edit | 5.9 / 6.0 / 35 ms | 5.9 / 6.0 / 29 ms |
+| At once after two eruptions (water still flowing) | 29–35 / 118–124 / 141 ms (debug build) | 5.9 / 6.0 / 71 ms (the release's own update) |
+| After the edits, low ground | 6.0 / 88 / 129 ms | 5.9 / 6.0 / 18 ms |
+| On the volcano's flank | 6.0 / 106 / 124 ms | 5.9 / 6.0 / 18 ms |
+| On the plateau's top | 6.0 / 88 / 124 ms | 5.9 / 6.0 / 18 ms |
+| Orbiting while the water still settles | (not measured) | 169–170 fps |
+
+The regression check: `tools/measure-ceiling.ts` ends with "regression check: painting p95 before …,
+after the edits at most … (limit 1.5 × before): pass", and exits with an error when it fails (the fix
+undone, one eruption to 14: 17.7 ms against 9.0, FAIL). And `tests/contract/draftWaterQuiet.test.ts`
+(new, in the quick suite): the background settle runs past its first day and ends settled; the warm
+start keeps water past both walks and still drains a removed source's; while the water still settles,
+a stroke touching no water gets its water at the journey's pace. Each of the three fails with its part
+of the fix undone.
 
 Captures (the editor's default view and a low view, before and after; this run):
 [before, default](forces/ceiling-before-default.png) · [after, default](forces/ceiling-after-default.png) ·
@@ -108,8 +161,8 @@ at 22.
 
 For Kyler's forces sitting: Erupt on low ground at full Power: it can rise past 16 now; Set level to
 22; export such a map and open it in the game (and in Timberborn's own editor, which keeps it but
-can't raise land past 16); undo back under 16 and the note goes. After a tall volcano and plateau on
-a 256² map, paint with a brush: say if it stutters (the measurement found slow frames there).
+can't raise land past 16); undo back under 16 and the note goes. Paint right after an eruption on a
+256² map: the brush keeps the display's rate while the water still flows (fixed, the section above).
 
 ## Flatten's Ramped lays its own slopes (D270, Kyler's answer to #84)
 

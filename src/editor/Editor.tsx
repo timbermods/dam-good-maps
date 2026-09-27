@@ -256,7 +256,8 @@ export default function Editor(props: EditorProps) {
   const [lengths, setLengthsState] = useState<HazardLengths>(loadLengths);
   const lengthsRef = useRef(lengths);
   player.current ??= new WaterPlayer({
-    show: (f) => showWater(f.water),
+    // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once)
+    show: (f) => showWater(f.water, !f.final),
     changed: () => {
       setPlayerTick((n) => n + 1);
       setFlowing(player.current!.progress);
@@ -355,9 +356,14 @@ export default function Editor(props: EditorProps) {
 
   /** Put water on the map (a frame of its journey, a draft's): the renderer and the page's copy (the
    *  camera stays where the player left it, D265). */
-  function showWater(w: WaterView) {
+  /** A stroke's water waiting for the next frame (the latest wins). */
+  const draftWater = useRef<WaterView | null>(null);
+  function showWater(w: WaterView, soon = false) {
     const r = renderer.current;
-    r?.updateWater(w);
+    // (water on its way, a stroke's or the journey's: its chunks meshed a few a frame, so painting
+    // and turning the view keep the display's rate)
+    if (soon) r?.updateWaterSoon(w);
+    else r?.updateWater(w);
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     mirror.current.water = r?.mapState()?.surface ?? surfaceWater(W, H, w);
@@ -415,7 +421,7 @@ export default function Editor(props: EditorProps) {
       {
         day: (d) => api.hazardDay(d),
         steps: (d) => api.hazardSteps(d),
-        show: (w, soil) => token === hazardToken.current && showHazardWater(w, soil),
+        show: (w, soil, moving) => token === hazardToken.current && showHazardWater(w, soil, moving),
         changed: () => token === hazardToken.current && setPlayerTick((n) => n + 1),
       },
       days,
@@ -453,9 +459,11 @@ export default function Editor(props: EditorProps) {
   }
 
   /** A day of the hazard on screen (the map's own water and soil stay the page's copy). */
-  function showHazardWater(w: WaterView, soil?: SoilView) {
+  function showHazardWater(w: WaterView, soil?: SoilView, moving = false) {
     const r = renderer.current;
-    r?.updateWater(w);
+    // (a step's water between days: meshed a few chunks a frame, as the journey's is; a day whole)
+    if (moving) r?.updateWaterSoon(w);
+    else r?.updateWater(w);
     mirror.current.hazardWater = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, w);
     if (soil) {
       mirror.current.hazardSoil = soil;
@@ -756,10 +764,21 @@ export default function Editor(props: EditorProps) {
           return;
         }
         if (e.kind === "water" && e.draft) {
-          // the water on a stroke being painted: shown as it comes (D197)
+          // the water on a stroke being painted: shown as it comes (D197), the latest once a frame at
+          // most (each is a whole map's water: frames that come faster than the page draws are
+          // dropped, never queued behind the stroke)
           if (player.current?.hasJourney) player.current.clear();
-          showWater(e.water);
+          const first = !draftWater.current;
+          draftWater.current = e.water;
+          if (first)
+            requestAnimationFrame(() => {
+              const w = draftWater.current;
+              draftWater.current = null;
+              if (w) showWater(w, true);
+            });
         } else if (e.kind === "water") {
+          // (a stroke's frame still waiting is older than the edit's water)
+          draftWater.current = null;
           // an edit's water plays at a pace the eye can follow (while a hazard is shown, it waits)
           if (!hazardRef.current) player.current?.push({ water: e.water, done: e.done });
         } else if (e.kind === "settled" && hazardRef.current) {
@@ -767,6 +786,7 @@ export default function Editor(props: EditorProps) {
           applyView(e.view);
           checkDepthRef.current();
         } else if (e.kind === "settled") {
+          draftWater.current = null;
           // (no water in it: the map's water was sent before, so it is the last put in place, not the
           // frame on screen)
           player.current?.push({

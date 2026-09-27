@@ -168,6 +168,12 @@ source against the same run eased by hand, the outflows (set, and read from a fi
 edge threshold; its continuous-run check now runs with the edge rule. The quick suite and the water
 e2e specs pass.
 
+After merging `feature/forces`' stutter fix (ea35ae0: the editor's background settle runs up to
+four days while the water moves, D260's drain only takes water that lost its feed, stroke water
+paced, water meshed on a budget), `tools/verify-hazard-probe.ts` gives exactly the same numbers on
+the three maps; the step between days now meshes its moving water on the same budget
+(`updateWaterSoon`), each day whole.
+
 ## For Kyler's sitting
 
 1. Refine a map (a 256² one too), press **Drought**: progress, then day 9 with the dried ground; the

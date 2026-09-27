@@ -27,8 +27,9 @@ export interface DayHost {
   day(day: number): Promise<{ water: WaterView; soil: SoilView } | null>;
   /** The frames within a day (its last is the day's end), or null once the hazard has ended. */
   steps(day: number): Promise<WaterView[] | null>;
-  /** Put water (and, at a day, its soil) on screen. */
-  show(water: WaterView, soil?: SoilView): void;
+  /** Put water (and, at a day, its soil) on screen; `moving`: a step's water between days, which
+   *  the view may mesh a few chunks a frame (the day itself comes whole). */
+  show(water: WaterView, soil?: SoilView, moving?: boolean): void;
   /** The player's state changed (for the strip). */
   changed(): void;
 }
@@ -232,7 +233,7 @@ export class DayPlayer {
     }
     const x = t * n;
     const k = Math.floor(x);
-    this.host.show(blendWater(s.frames[k], s.frames[k + 1], x - k));
+    this.host.show(blendWater(s.frames[k], s.frames[k + 1], x - k), undefined, true);
     this.host.changed();
     this.timer = setTimeout(() => {
       this.timer = 0;
