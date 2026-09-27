@@ -1,0 +1,18 @@
+{
+  "checks": 12,
+  "passed": true,
+  "cases": [
+    "invalid size",
+    "invalid seed",
+    "invalid water",
+    "unsorted terrain",
+    "invalid lake floor",
+    "invalid lake depth",
+    "duplicate lake tile",
+    "wrong endpoint",
+    "valid schema",
+    "invalid import is atomic",
+    "objects follow physical sweep policy",
+    "schema compiles"
+  ]
+}
