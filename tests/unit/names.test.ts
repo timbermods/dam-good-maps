@@ -33,7 +33,8 @@ describe("names and how it plays (D278 (1b))", () => {
 
   it("the play hint reads the map: the first drought, a dam site, the badwater, the woods", () => {
     expect(playHint({ ...facts, startDrought: false })).toMatch(/runs low in the first drought/);
-    expect(playHint({ ...facts, bestDam: { x: 60, y: 80, volume: 1234, length: 5 } })).toBe("A 5-tile dam 20 tiles north of the start holds 1200 water.");
+    expect(playHint({ ...facts, bestDam: { x: 60, y: 80, volume: 1234, length: 5 } })).toBe("A 5-tile dam 20 tiles north of the start holds 1,200 water.");
+    expect(playHint({ ...facts, bestDam: { x: 40, y: 40, volume: 21834, length: 8 } })).toBe("An 8-tile dam 28 tiles south-west of the start holds 21,800 water.");
     expect(playHint({ ...facts, badwater: null, woods: "oak" })).toMatch(/mostly oak/);
   });
 });

@@ -16,6 +16,9 @@ export interface IntentionResult {
   id: IntentionId;
   ok: boolean;
   note: string;
+  /** What the map shows, in a player's words, when it emerged (the how-it-plays line uses the
+   *  standout's). */
+  say?: string;
   /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped"; "found" for one
    *  the map was not steered toward but shows of its own accord (M9b). */
   outcome: "emerged" | "re-steered" | "dropped" | "found";
@@ -197,11 +200,11 @@ export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy:
       if (res3.filter((r) => r.ok).length > res.filter((r) => r.ok).length) {
         const before = new Set(res.filter((r) => r.ok).map((r) => r.id));
         alt.commit();
-        return res3.map((r) => ({ id: r.id, ok: r.ok, note: r.note, outcome: r.ok ? (before.has(r.id) ? "emerged" : "re-steered") : "dropped" }));
+        return res3.map((r) => ({ id: r.id, ok: r.ok, note: r.note, ...(r.ok && r.say ? { say: r.say } : {}), outcome: r.ok ? (before.has(r.id) ? "emerged" : "re-steered") : "dropped" }));
       }
     }
   }
-  return res.map((r) => ({ id: r.id, ok: r.ok, note: r.note, outcome: r.ok ? "emerged" : "dropped" }));
+  return res.map((r) => ({ id: r.id, ok: r.ok, note: r.note, ...(r.ok && r.say ? { say: r.say } : {}), outcome: r.ok ? "emerged" : "dropped" }));
 }
 
 /** M9b (D273 (3): a standout on every map; D138: failure allowed, many realizations): when none of
@@ -217,7 +220,7 @@ export function foundIntention(built: BuildResult, hy: Pick<Hydro, "rivers"> & {
   }
   for (const id of order) {
     const r = checkIntention(id, ctx);
-    if (r.ok) return { id, ok: true, note: r.note, outcome: "found" };
+    if (r.ok) return { id, ok: true, note: r.note, ...(r.say ? { say: r.say } : {}), outcome: "found" };
   }
   return null;
 }

@@ -118,7 +118,10 @@ export function playHint(f: PlayFacts): string {
   if (f.start && f.startDrought === false) return "The start's water runs low in the first drought: store some early.";
   if (f.start && f.bestDam && f.bestDam.volume >= 300) {
     const d = Math.round(Math.sqrt((f.bestDam.x - f.start.x) ** 2 + (f.bestDam.y - f.start.y) ** 2));
-    return `A ${f.bestDam.length}-tile dam ${d} tiles ${compass(f.start.x, f.start.y, f.bestDam.x, f.bestDam.y)} of the start holds ${Math.round(f.bestDam.volume / 100) * 100} water.`;
+    const len = f.bestDam.length;
+    const article = String(len).startsWith("8") || len === 11 || len === 18 ? "An" : "A";
+    const held = String(Math.round(f.bestDam.volume / 100) * 100).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${article} ${len}-tile dam ${d} tiles ${compass(f.start.x, f.start.y, f.bestDam.x, f.bestDam.y)} of the start holds ${held} water.`;
   }
   if (f.start && f.badwater) return `Badwater lies ${Math.round(f.badwater.distance)} tiles ${compass(f.start.x, f.start.y, f.badwater.x, f.badwater.y)} of the start.`;
   if (f.woods === "oak") return "Its woods are mostly oak: plenty of logs, slow to regrow.";
@@ -131,7 +134,7 @@ export interface MapWords {
   description: string;
 }
 
-export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts }): MapWords {
+export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts; say?: string }): MapWords {
   const land = landNoun(o.theme, o.signature, o.seaLayout);
   const pool = o.standout ? TITLES[o.standout] : FALLBACK;
   const k0 = hash32(o.seed, "name", o.standout ?? "none") % pool.length;
@@ -142,6 +145,7 @@ export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionI
   }
   // (never a seed or an invented word: the land alone)
   if (!name) name = `The ${land}`;
-  const sentence = o.standout ? INTENTION_TEXT[o.standout] : "";
+  // (the standout in the map's own numbers where its check gave them, else in general words)
+  const sentence = o.standout ? (o.say ?? INTENTION_TEXT[o.standout]) : "";
   return { name, description: [sentence, playHint(o.facts)].filter(Boolean).join(" ") };
 }

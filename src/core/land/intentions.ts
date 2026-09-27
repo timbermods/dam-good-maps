@@ -536,7 +536,19 @@ function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
 export interface CheckResult {
   ok: boolean;
   note: string;
+  /** When it holds: what the map shows, in a player's words, with its own numbers (M9b: the
+   *  how-it-plays line says something specific about the standout, D273 (3), D278 (1b)). */
+  say?: string;
 }
+
+/** "a" or "an" before a number said aloud (an 8, an 11, an 18, an 80, an 800, an 11,000). */
+function an(n: number): string {
+  const t = String(Math.round(n));
+  if (t.startsWith("8")) return "an";
+  return (t.length === 2 || t.length === 5) && (t.startsWith("11") || t.startsWith("18")) ? "an" : "a";
+}
+
+const levels = (n: number) => `${Math.round(n)} level${Math.round(n) === 1 ? "" : "s"}`;
 
 /** A course resampled every tile of arc, inside the map. */
 function resample(path: [number, number][], W: number, H: number): [number, number][] {
@@ -853,7 +865,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
       }
       const ok = high >= 8 && cliff && water <= 12;
-      return { ok, note: `${high} tiles 2+ levels above within 7, cliff ${cliff ? "yes" : "no"}, water ${Number.isFinite(water) ? Math.round(water) : "none"} tiles' walk` };
+      return { ok, note: `${high} tiles 2+ levels above within 7, cliff ${cliff ? "yes" : "no"}, water ${Number.isFinite(water) ? Math.round(water) : "none"} tiles' walk`, ...(ok ? { say: `The start sits under a cliff, its water ${Math.round(water)} tiles' walk below.` } : {}) };
     }
     case "landmark": {
       // a stack, butte, mesa or peak standing 5+ levels above the ground 6–8 tiles round it, on
@@ -909,7 +921,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       const fall = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
       const ok = standout >= 8 || fall >= 6;
       void best;
-      return { ok, note: `${forms} standing form${forms === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring), tallest fall ${Math.round(fall * 10) / 10}` };
+      return { ok, note: `${forms} standing form${forms === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring), tallest fall ${Math.round(fall * 10) / 10}`, ...(ok ? { say: standout >= fall ? `A lone height stands ${levels(standout)} over the land round it.` : `A waterfall drops ${levels(fall)}.` } : {}) };
     }
     case "farmland-past-gorge": {
       // farmland: moist, dry, level land; the start's own within 20 tiles' walk, and the largest
@@ -980,7 +992,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (gorge && sizes[k] >= 1.5 * Math.max(200, own) && (best < 0 || sizes[k] > sizes[best])) best = k;
       }
-      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)` };
+      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland, ${sizes[best]} tiles of it, lies past the gorge; ${own} by the start.` } : {}) };
     }
     case "safe-water-uphill": {
       const b = bodies(c);
@@ -1052,7 +1064,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         w = Math.min(w, c.walk[yy * W + xx]);
       }
       const ok = !(w <= 2 * td);
-      return { ok, note: `a fall ${Math.round(Math.min(...near.map((f) => eu(f.i))))} tiles away; the threat ${Math.round(td)} tiles off is ${Number.isFinite(w) ? `${Math.round(w)} tiles' walk` : "out of reach on foot"}` };
+      return { ok, note: `a fall ${Math.round(Math.min(...near.map((f) => eu(f.i))))} tiles away; the threat ${Math.round(td)} tiles off is ${Number.isFinite(w) ? `${Math.round(w)} tiles' walk` : "out of reach on foot"}`, ...(ok ? { say: `A waterfall ${Math.round(Math.min(...near.map((f) => eu(f.i))))} tiles from the start stands between it and the nearest threat.` } : {}) };
     }
     case "hidden-valley": {
       // stairs-only dry land within 60 tiles of the start, in regions of 400+ tiles holding ruins,
@@ -1109,13 +1121,14 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           bestSize = Math.max(bestSize, q.length);
         }
       }
-      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles" };
+      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles", ...(found ? { say: `${an(bestSize) === "an" ? "An" : "A"} ${bestSize}-tile valley up the cliffs, reached only by stairs, holds riches.` } : {}) };
     }
     case "high-lake": {
       const b = bodies(c);
       const sorted = Array.from(h).sort((p, q) => p - q);
       const med = sorted[N >> 1];
       let found = "";
+      let said = "";
       for (let id = 0; id < b.tiles.length && !found; id++) {
         const t = b.tiles[id];
         if (t.length < 60) continue;
@@ -1133,18 +1146,22 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (inBody.has((fy + dy) * W + fx + dx)) return true;
           return false;
         });
-        if (spill) found = `a ${t.length}-tile lake ${Math.round(surf - med)} levels above the map's middle spills over a fall`;
+        if (spill) {
+          found = `a ${t.length}-tile lake ${Math.round(surf - med)} levels above the map's middle spills over a fall`;
+          said = `A lake ${levels(surf - med)} above the middle of the map spills over a fall.`;
+        }
       }
-      return { ok: !!found, note: found || "no lake on the heights with a fall" };
+      return { ok: !!found, note: found || "no lake on the heights with a fall", ...(found ? { say: said } : {}) };
     }
     case "meeting-waters": {
       const j = c.joins.filter((i) => eu(i) <= 18 && D[i] >= 0.1);
-      return { ok: j.length > 0, note: j.length ? `a confluence ${Math.round(Math.min(...j.map(eu)))} tiles from the start` : "no confluence within 18 tiles" };
+      return { ok: j.length > 0, note: j.length ? `a confluence ${Math.round(Math.min(...j.map(eu)))} tiles from the start` : "no confluence within 18 tiles", ...(j.length ? { say: `Two rivers meet ${Math.round(Math.min(...j.map(eu)))} tiles from the start.` } : {}) };
     }
     case "snaking-river": {
       // a river whose course turns three times or more, back and forth, while its bed descends 3+
       // levels, with a level dropped at two bends or more; the stretch holds water
       let best = "no river winds down a slope";
+      let said = "";
       let ok = false;
       let bestTurns = 0;
       for (const path of c.rivers) {
@@ -1194,6 +1211,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
             if (alt && drop >= 3 && steps >= 2 && w >= 0.7 * (to - from + 1)) {
               ok = true;
               best = `a river turns ${turns} times, back and forth, over ${to - from} tiles while its bed drops ${drop} levels (a level dropped at ${steps} bends)`;
+              said = `A river winds back and forth ${turns} times down the hill, dropping ${levels(drop)} at its bends.`;
             } else if (turns > bestTurns && alt) {
               bestTurns = turns;
               best = `the most winding stretch turns ${turns} times but drops ${drop} levels (${steps} at bends)`;
@@ -1201,13 +1219,14 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           }
         if (ok) break;
       }
-      return { ok, note: best };
+      return { ok, note: best, ...(ok ? { say: said } : {}) };
     }
     case "crater-rivers": {
       // a large lake in a closed rim (the ground 2+ levels over the lake on 12 of 16 rays, and
       // falling again outside the crest on 8 or more), two or more rivers flowing in, one way out
       const lakes = levelLakes(c, (250 * N) / 16384);
       let note = "no large lake";
+      let said = "";
       let ok = false;
       for (const L of lakes) {
         const R = Math.sqrt(L.tiles.length / 3.14159);
@@ -1272,10 +1291,11 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (here || !ok) note = `a ${L.tiles.length}-tile lake: rim on ${high} of 16 rays (falling again outside on ${ring}), ${inflows} river${inflows === 1 ? "" : "s"} in, ${exits.length} way${exits.length === 1 ? "" : "s"} out`;
         if (here) {
           ok = true;
+          said = `${inflows === 2 ? "Two" : inflows === 3 ? "Three" : `${inflows}`} rivers gather in a crater's lake, which leaves through one gap in its rim.`;
           break;
         }
       }
-      return { ok, note };
+      return { ok, note, ...(ok ? { say: said } : {}) };
     }
     case "cliff-falls-lake": {
       // a fall of 3+ levels plunging into a lake whose open water (the lake without its thin arms)
@@ -1283,6 +1303,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       // and filling 40% of its widest circle
       const lakes = levelLakes(c, (200 * N) / 16384);
       let note = "no large lake";
+      let said = "";
       let ok = false;
       let bestFall = -1;
       for (const L of lakes) {
@@ -1335,10 +1356,11 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (here) {
           ok = true;
+          said = `A waterfall plunges ${levels(fall)} off a cliff into a broad, rounded lake.`;
           break;
         }
       }
-      return { ok, note };
+      return { ok, note, ...(ok ? { say: said } : {}) };
     }
     case "oxbow": {
       // a curved lake of 60+ tiles (at 128²) beside a river (within 6 tiles) but off its course,
@@ -1389,7 +1411,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         const { axes } = shapeOf(q, W);
         const curved = axes <= 0.6 || !inQ[Math.round(cy / q.length) * W + Math.round(cx / q.length)];
-        if (curved) return { ok: true, note: `a ${q.length}-tile curved lake ${Math.round(closest)} tiles off the river keeps ${Math.round((100 * k9) / v)}% through a 9-day drought` };
+        if (curved) return { ok: true, note: `a ${q.length}-tile curved lake ${Math.round(closest)} tiles off the river keeps ${Math.round((100 * k9) / v)}% through a 9-day drought`, say: `An oxbow lake curves beside the river and keeps ${Math.round((100 * k9) / v)}% of its water through a 9-day drought.` };
       }
       return { ok: false, note: "no curved lake beside a river that keeps its water" };
     }
@@ -1411,7 +1433,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (run > best) best = run;
       }
-      return { ok: best >= 3, note: best >= 3 ? `${best} lakes step down one river, each a level or more below the last` : `at most ${best} lakes stepping down one river` };
+      return { ok: best >= 3, note: best >= 3 ? `${best} lakes step down one river, each a level or more below the last` : `at most ${best} lakes stepping down one river`, ...(best >= 3 ? { say: `${["", "", "", "Three", "Four", "Five", "Six"][best] ?? String(best)} lakes step down the river, each spilling into the next.` } : {}) };
     }
     case "split-island": {
       // dry land of 150+ tiles (at 128²) ringed by flowing water (not an island in a lake)
@@ -1445,7 +1467,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
             }
           }
         }
-        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms` };
+        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms`, say: `The river splits round ${an(q.length)} ${q.length}-tile island and joins again below it.` };
       }
       return { ok: false, note: "no island of 150+ tiles in a river" };
     }
@@ -1473,7 +1495,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const d = Math.sqrt((tall[a].x - tall[b].x) ** 2 + (tall[a].y - tall[b].y) ** 2);
           if (d < 4 || d > 15 || Math.abs(tall[a].top - tall[b].top) > 1) continue;
           if (nearestCourse(tall[a].x, tall[a].y) === nearestCourse(tall[b].x, tall[b].y)) continue;
-          return { ok: true, note: `two falls of ${Math.round(tall[a].drop)} and ${Math.round(tall[b].drop)} levels, ${Math.round(d)} tiles apart` };
+          return { ok: true, note: `two falls of ${Math.round(tall[a].drop)} and ${Math.round(tall[b].drop)} levels, ${Math.round(d)} tiles apart`, say: `Two waterfalls of ${Math.round(tall[a].drop)} and ${levels(tall[b].drop)} pour side by side, ${Math.round(d)} tiles apart.` };
         }
       return { ok: false, note: `${tall.length} falls of 3+ levels, none side by side` };
     }
@@ -1521,7 +1543,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         best = Math.max(best, (x1 - x0 + 1) / W, (y1 - y0 + 1) / H);
       }
-      return { ok: best >= 0.5, note: `the longest cliff of 3+ levels spans ${Math.round(best * 100)}% of the map` };
+      return { ok: best >= 0.5, note: `the longest cliff of 3+ levels spans ${Math.round(best * 100)}% of the map`, ...(best >= 0.5 ? { say: `A cliff across ${best >= 0.9 ? "the whole" : best >= 0.7 ? "three quarters of the" : "half the"} map splits it into an upper and a lower world.` } : {}) };
     }
     case "hanging-valleys": {
       // two tributaries or more fall 2+ levels into the river they join, whose valley floor is
@@ -1546,7 +1568,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       const main = info.findIndex((r) => r.role === "river/main");
       const floor = main >= 0 ? valleyWidth(c, c.rivers[main]) : 0;
       const want = (20 * Math.min(W, H)) / 128;
-      return { ok: hanging >= 2 && floor >= want, note: `${hanging} tributar${hanging === 1 ? "y falls" : "ies fall"} 2+ levels into the river; its valley floor ${Math.round(floor)} tiles wide` };
+      return { ok: hanging >= 2 && floor >= want, note: `${hanging} tributar${hanging === 1 ? "y falls" : "ies fall"} 2+ levels into the river; its valley floor ${Math.round(floor)} tiles wide`, ...(hanging >= 2 && floor >= want ? { say: `${hanging === 2 ? "Two" : hanging === 3 ? "Three" : String(hanging)} side valleys hang above a valley floor ${Math.round(floor)} tiles wide, their streams falling in.` } : {}) };
     }
     case "two-ways": {
       // from the start (12–60 tiles out), one side holds twice the other's open farmland and the
@@ -1589,7 +1611,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (!a.n || !b.n) continue;
         const richer = b.wood >= 2 * a.wood && b.wood >= 60 ? "wood" : b.ruins >= 2 * a.ruins && b.ruins >= 10 ? "ruins" : null;
         if (a.farm >= 2 * b.farm && a.farm >= (200 * N) / 16384 && richer && b.h / b.n >= a.h / a.n + 1.5)
-          return { ok: true, note: `${a.farm} tiles of farmland one way; ${richer === "wood" ? `${Math.round(b.wood)} logs` : `${b.ruins} ruins`} up high the other` };
+          return { ok: true, note: `${a.farm} tiles of farmland one way; ${richer === "wood" ? `${Math.round(b.wood)} logs` : `${b.ruins} ruins`} up high the other`, say: `Two ways to grow: open farmland one way, ${richer === "wood" ? "wood" : "ruins"} up high the other.` };
       }
       return { ok: false, note: "no two directions that offer different riches" };
     }
@@ -1613,7 +1635,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let clean = false;
       for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
       const want = (400 * N) / 16384;
-      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}` };
+      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: `Badwater runs beside ${land} tiles of the richest low land near the start: tame it and the land is yours.` } : {}) };
     }
     case "relic-pinnacle": {
       // a medium or large relic within 60 tiles on dry land no one walks to from the start
@@ -1622,7 +1644,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (o.x < 0 || o.y < 0 || o.x >= W || o.y >= H) continue;
         const i = o.y * W + o.x;
         if (eu(i) > 60 || Number.isFinite(c.walk[i])) continue;
-        return { ok: true, note: `a ${o.template === "LargeRelic" ? "large" : "medium"} relic ${Math.round(eu(i))} tiles away, reached only by building up to it` };
+        return { ok: true, note: `a ${o.template === "LargeRelic" ? "large" : "medium"} relic ${Math.round(eu(i))} tiles away, reached only by building up to it`, say: `A ${o.template === "LargeRelic" ? "large" : "medium"} relic waits on a pinnacle ${Math.round(eu(i))} tiles from the start, reached only by building up to it.` };
       }
       return { ok: false, note: "no relic out of reach on foot within 60 tiles" };
     }
@@ -1645,7 +1667,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           let held = 0;
           for (const i of L.tiles) held += Math.max(0, L.surf - Math.max(h[i], base));
           const clear = z >= L.surf || Math.sqrt((o.x - sx) ** 2 + (o.y - sy) ** 2) > 25;
-          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water` };
+          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: `A plug holds back ${an(L.tiles.length)} ${L.tiles.length}-tile lake: open it when you are ready.` };
         }
       }
       return { ok: false, note: "no plug holding back a lake" };
@@ -1656,7 +1678,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let lo = 99;
       for (let i = 0; i < N; i++) if (cheb(i) <= 15) lo = Math.min(lo, h[i]);
       const ok = z >= p75 && z - lo >= 4;
-      return { ok, note: `start at level ${z} (map's 75th percentile ${p75}), ${z - lo} levels above the lowest ground within 15 tiles` };
+      return { ok, note: `start at level ${z} (map's 75th percentile ${p75}), ${z - lo} levels above the lowest ground within 15 tiles`, ...(ok ? { say: `The start looks out from ${levels(z - lo)} over the land below.` } : {}) };
     }
   }
 }

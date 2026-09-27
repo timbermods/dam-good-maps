@@ -263,7 +263,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const o = outcomesOf(a.result);
       a.result.outcomes = o;
       // its name and how it plays (D278 (1b)), from its standout and what the map holds
-      const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result) });
+      const said = a.result.intentions.find((x) => x.ok && x.id === o.standout)?.say;
+      const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
       a.result.name = words.name;
       a.result.description = words.description;
       const score = rank(a, o);
