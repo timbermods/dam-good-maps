@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D290), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D291), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your thirty-nine decisions since the restart are recorded (D252–D290, below) and in the living docs.
+Your forty decisions since the restart are recorded (D252–D291, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -25,7 +25,8 @@ Your thirty-nine decisions since the restart are recorded (D252–D290, below) a
      practice one rule: evaporation on a dry tile that receives water) or the two stop agreeing bit for bit. Options: add that rule to the
      Python check, or keep today's rules on heightfields and use the game's only under roofs. It only matters when the engine is wired in
      (after the forces and M9b merge); until then heightfield water is unchanged.
-4. **Glaciate (#69)** is held while you and Codex do another round (D246).
+4. **Glaciate (#69):** pre-approved for round 4 (D291). Round 3 (405e7e4) is what's there now; when round 4 lands I check its report
+   (one river on the floor, no camera motion; round 3's camera still follows the ice) and merge or hold it for your look.
 5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
 6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
@@ -76,8 +77,10 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     choice (Carve: river or dry canyon) and Try another, which varies the rest; Carve aimed through a rise.
 17. **Badwater on a riverbed** (D290): switch a source in an uneven river to badwater: it cuts a small level pool and stands; undo brings back
     the ground and the clean source.
-18. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
-19. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
+18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
+    Meltwater, Try another; one river on the floor; the camera stays put.
+19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
+20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
 13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
     water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 
@@ -342,6 +345,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D291: Glaciate's round 4 pre-approved: merged when its report shows one river on the floor (wet share under 15%, one wet passage) and no camera motion, with CI green; then adopted on its own branch from the forces, for your sitting.
 - D290: a badwater source on uneven ground cuts its 3×3 down to the lowest tile (a small spring pool) instead of refusing; refusals give one plain reason. On feature/forces.
 - D289: every force's row is Power, Size, at most one signature choice, Try another; Carve's Defy gravity and keep-carved button gone. On feature/forces.
 - D288: the Remove tool goes; Select and Delete remove a selection's objects and sources (never the start). On feature/forces.
@@ -445,7 +449,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D290.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D291.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
