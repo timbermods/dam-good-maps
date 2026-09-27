@@ -173,6 +173,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **`investigation/maplook3`** (Codex, D228: phase 1 of a higher-fidelity High look): when its PR is open and green,
   merge it at a boundary as an investigation, proposals only, like #38; adopt nothing until Kyler has reviewed its demo
   and said which effects to keep (then they join Map look 2's High mode). Not pushed yet (2026-09-26).
+- **`investigation/vegetation`** (Codex, D230: phase 2 of the higher-fidelity look): the same as maplook3: merge it as
+  proposals only when its PR is open and green; adopt nothing until Kyler has reviewed both demos. Not pushed yet.
 - **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
   Balatro as the reference; D226): merge it as proposals when green, hook it into Live editing's juice, and show it on
   the preview.
@@ -216,7 +218,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D230), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D231), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #79. **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
