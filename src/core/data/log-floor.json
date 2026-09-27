@@ -1,9 +1,10 @@
 {
   "gameVersion": "1.1.2.4-52e959e-sw",
-  "floor": 167,
+  "floor": 178,
+  "withinWalk": 40,
   "minimum": 120,
   "margin": 0.1,
-  "computed": 167,
+  "computed": 178,
   "worst": {
     "faction": "IronTeeth",
     "route": {
@@ -41,9 +42,14 @@
         "what": "dwelling",
         "building": "Barrack.IronTeeth",
         "logs": 40
+      },
+      {
+        "what": "breeding pod (the faction grows only through one)",
+        "building": "BreedingPod.IronTeeth",
+        "logs": 10
       }
     ],
-    "total": 151
+    "total": 161
   },
   "byFaction": {
     "Folktails": {
@@ -55,8 +61,8 @@
     "IronTeeth": {
       "worstRoute": 99,
       "cheapestRoute": 74,
-      "essentials": 52,
-      "total": 151
+      "essentials": 62,
+      "total": 161
     }
   },
   "logsPerPlank": 1,

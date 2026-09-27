@@ -34,6 +34,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
   - Codex's investigations #58 (juice sounds), #59 (the forces core), #47 (Carve), #51 (Craterize), #50 (Erupt) and #52
     (Quake). Together they add about 30 MB, mostly the GIF captures you reviewed (each under the few-MB line of D195).
+- **Merged into `dev`:** [#63](https://github.com/timbermods/dam-good-maps/pull/63), your D222 changes: a drying oxbow lake no
+  longer counts as "water still changing" (#72; every generated map and the live-check pin byte-identical, the oracle 0
+  disagreements), and the waterfalls' foam is soft white water (the crack-pattern lace gone; also the glassy panes at the
+  foot of wide falls). Captures: `docs/look/waterfalls/d222-foam-*.jpg`. Honest read: up close the froth is a little milky
+  rather than bubbly. They reach the public site with the next release you approve; the forces preview gets them first.
+  #77 and #78 accepted; the three remaining foam issues are queued for the next waterfall look pass (D231).
 - **Merged into `dev`:** [#53](https://github.com/timbermods/dam-good-maps/pull/53) waterfalls (D201, D215): the V-shaped gap is
   gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
   crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
@@ -62,12 +68,7 @@ frozen (D218 lets it run without asking on this machine).
 
 ### 5. Defaults I chose (your answers: D222)
 
-#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). Still pending: #74, and two new ones for
-D224:
-
-- **#75:** Minimum starting wood's defaults above the floor: Easy 250, Normal 200, Hard 167 (the floor itself).
-- **#76:** the floor counts within 20 tiles' walk at every difficulty, over the start water's walk (ground and natural
-  slopes); in the editor it shows on the quiet dot and never blocks export.
+#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). #74, #75 and #76 are answered too (D226, D227). New: #77 and #78 (the #72 and foam details, #63).
 
 - **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
   the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
@@ -269,6 +270,11 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D231: #63 accepted (#77, #78); the crown's per-tile curls, the fall's straight edge at the pool and the milky froth are queued for the next waterfall look pass (Map look 2 or 3).
+- D230: Codex's `investigation/vegetation` (the higher-fidelity look's phase 2) is merged as proposals only when green, like maplook3; nothing adopted until Kyler reviews both demos.
+- D229: the floor's wood is met in varied, natural ways within the 40-tile walk (groves along a river, a forest across a stream, oaks on a plateau, pines in a side valley), never the same forest beside every start; M9a's sheets are checked for converging starts.
+- D228: Codex's `investigation/maplook3` (a higher-fidelity High look, phase 1) is merged as proposals only when green; nothing adopted until Kyler reviews its demo.
+- D227: the floor, amended: the Breeding Pod joins the essentials (**178 logs** for 1.1.2.4), counted within about 40 tiles' walk ("can I survive"); Minimum starting wood within 20 tiles ("how comfortable"): Easy 250, Normal 200, Hard none beyond the floor.
 - D226: the forces' review: Erupt fixed to the demo (a peak within its headroom, cones on the flanks, it always completes); Power and size separate in every force (Carve's Depth, Craterize's and Erupt's Size); the brush size in the options row; the shelf reads Water source, Badwater source, Start, Pine; sounds louder; #74 accepted.
 - D223: a seed's candidates: the best wins by the quality score; variety breaks near ties only; only true near-duplicates are rejected, resemblance is information (replaces #53's default).
 

@@ -206,14 +206,15 @@ Make a valley, drop a source, and there's a river.
     instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
-  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Fresh
-  volcanic rock (Erupt's) is hard for it: it bends round a lava field. Built from
+  water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
+  slow drying is not the water still changing: the quiet dot settles once the rest of the water
+  has (D222). Fresh volcanic rock (Erupt's) is hard for it: it bends round a lava field. Built from
   `investigation/carve` (#47, D216) on the forces core (#59), on the preview until Kyler has tried it
   (D219).
 - **Optional water sounds,** our own.
 - **What you watch is what you'll play:** the final water always matches the game's settled result.
 
-(D180, D181, D184, D186, D194, D196, D212, D216.)
+(D180, D181, D184, D186, D194, D196, D212, D216, D222.)
 
 ## 6. The look
 
@@ -221,8 +222,8 @@ The clean game-like view (D135), contaminated ground as a layer over the ground 
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
 Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
-cascade (D201, D215).
+foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 
 ## 7. Controls
 
@@ -383,7 +384,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
   - **Approximate under roofs** (imported caves, tunnels, overhang bridges, badtide drains). There the editor keeps the water the file stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. As built (M8, D100): the tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and **Show → Water under roofs** marks them; the roofed columns are never edited (D40), so they are not simulated again.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
-  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes.
+  - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes. Its evaporation is not the water still changing (D222): while the lake is sealed (no running source and no map edge in its water), the tiles of it that only lost water are left out of the settle's test, so `water.settles` passes and the quiet dot settles once the rest of the water has; the preview's water stops then too. The canonical settle still runs on to its own test, so the water written is unchanged (`PLAN.md` §10, §11.3).
   - **Speed:** after an edit the preview re-settles from its previous state. The target is ≤ 2 s for a local edit on 256². A full re-settle runs in the background with progress. As built (M8, D99): 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node; the background check is debounced by 0.7 s and dropped when a newer edit arrives.
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes, and the worker runs the water on it at once (the simulation steps only wet tiles and their neighbours, about 0.7–1.6 ms a tick on 256², so the water nearest the edit is what moves first) and sends each frame as soon as the water has answered. On release, the stroke's operation carries that water on into the journey; Esc drops it. On 256² River Valley, the water in a new channel moves 25–36 ms after its ground changes (it moved 80–95 ms after the release before, and not at all while painting).
   - **The journey's speed** (D197): slower, normal (the default, three times the slowest: a small edit settles nearby in a second or two), faster, or instant (the latest water there is).
