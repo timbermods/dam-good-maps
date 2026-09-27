@@ -706,7 +706,8 @@ into the same core later.
     it evaporates over time, as an unfed oxbow does in the game (D216). The same document still
     always settles to the same bytes. On a small map an evaporating lake can keep the water from
     passing the settle test within four game days (the dot's "water is still changing" note), as the
-    prototype also reports; on bigger maps it settles. The pre-closure settle runs once, when the
+    prototype also reports; on bigger maps it settles. *(Changed by D222, below: a sealed lake's
+    evaporation is no longer the water changing.)* The pre-closure settle runs once, when the
     carve is kept (about a map's canonical settle: a second or two at 256², in the worker).
   - **Step for step:** `tools/carve-equiv.ts` runs #47's prototype and the port side by side on #47's
     scenarios (the mountain, ridge and uphill studies, straight and winding, slot and lazy, another
@@ -812,6 +813,57 @@ public site and as the preview); the browser tests also build the public configu
 13 skipped; `npx playwright test` (installed Chrome, two workers): 47 passed, 1 skipped (the
 investigation maps, local only); the Claude reference suite: 128 of 141; `tools/carve-equiv.ts`: 16
 of 16.
+
+## Kyler's return: a drying oxbow lake has settled (#72, D222)
+
+Kyler changed #72: slow evaporation from sealed basins (a drying oxbow lake, say) doesn't count as
+"water still changing"; only real flow does, so the quiet dot settles once the water has.
+
+- **Where it was decided:** the quiet dot lists the export check's problems, and "the water is
+  still changing after 4 game days" is `water.settles` (`core/validate/playability.ts`), which read
+  the canonical settle's own test (`SettleRun` in `core/sim/water.ts`: between 128-tick checks the
+  volume moves under 0.2% and at most 0.5% of tiles by more than 0.005). The Python validator
+  (`prototype/playability.py`, `watersim.py`) has the same check, and the generator rejects a
+  candidate that fails it, so the judgement is shared by both validators and the generator.
+- **The change: the judgement, not the water.** At a check that fails that test, `SettleRun` now
+  asks whether all that still changed was sealed basins evaporating (`steadyApartFromSealed`): the
+  water round each sealed basin's kept tiles (4-connected tiles wet at either check), while no
+  running source's tile and no map-edge tile is in it, has only one way to lose water, evaporation;
+  its tiles that lost water are left out of the test, its tiles that rose (water still running
+  inside it) and every other tile count as before. The first check that passes is the settle's
+  `steadyTicks`; `water.settles` passes on `settled` or `steadyTicks` (`waterSteady`), saying "the
+  water is steady after N ticks …; a sealed lake keeps slowly evaporating". The canonical settle
+  still stops only on its own test, so its ticks and its water are exactly what they were. The
+  editor's preview stops at that check too (its water is never written).
+- **Only sealed basins the model records:** the rule runs only for a water model with `retained`
+  water (a carve's oxbow lakes, D216), the one kind of basin the canonical settle starts full with
+  nothing feeding it. Every other model, so every generated map, settles exactly as before, and a
+  `.timber` alone records no sealed basin. The Python oracle got the same rule (`settle(sealed=)`,
+  `steady_apart_from_sealed`) and the kept water in its pre-fill (`prefill(retained=)`,
+  `canonical_settle(retained=)`), so a model with a lake settles on the same ticks there.
+- **The bytes, checked** (a one-off script, not kept, run on dev's `src` at 2a8c490 and on this
+  branch's): seed 4242 (River Valley, 128², Normal) is `b358b4f8…` on both (the live check's pin),
+  five other generated maps (Canyon 1 96², Lake Basin 7 128², Highlands 18 128², Delta 3 96²,
+  Islands 5 96²), the carve study's oxbow (its canonical water, 3,072 ticks, and the preview from
+  it), and Canyon 1 96² with the carve test's oxbow (its settled water and its exported `.timber`,
+  `1c8e381e…`) are byte for byte the same. What changed is the verdict: that Canyon document was
+  "still changing after 4 game days" and is now steady after 1,792 ticks (2.3 days), the tick its
+  river settled. So a player who exports it no longer confirms a warning, and its description no
+  longer carries the note "Exported with a warning: the water is still changing…".
+- **The wait:** for a map with a drying lake the background check still runs the canonical settle
+  to its four days (the file's water is the water at that tick), about a second at 96² and a few at
+  256²; then the dot turns green.
+- Tests: `tests/unit/sealedBasins.test.ts`: the judgement (a sealed lake only evaporating is
+  steady where the settle's own test is not; flow elsewhere still counts; a lake a running source
+  feeds, one joined to its river, one reaching the map edge, and water still running inside a
+  sealed basin all count); the canonical settle (an evaporating lake settles by the judgement on the
+  same ticks and exactly the same water as without it; a basin a source is filling, a lake opened
+  to its river and a river still advancing are still changing; a map without sealed basins settles
+  as before; the preview stops once only the lake changes); and the Python oracle's same pre-fill,
+  ticks, steady check and water (skipped without Python). `tests/contract/carve.test.ts`'s oxbow
+  document test now also checks its settle and `water.settles` (steady, with the lake's note).
+- `npm run oracle -- --seeds 1,5,9,10,14,18 --sizes 96,128,256` (CI's): 18 maps, every theme at
+  every size, 276 checks compared, 0 disagreements.
 
 ## Try it
 
