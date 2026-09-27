@@ -226,8 +226,9 @@ on both (`investigation/m9b/cycle-check.ts`: 3 temperate days, a 3-day drought, 
   file and more than 2 tiles from its water. Delta on M9b: 0–7 tiles (seeds 1–5). River Valley:
   284 and 491 tiles on seeds 1 and 4 (none on 3); Any 4 and 5: 65–77. It is the floodplain: the
   valley floor one level over the bed (PLAN §7.4), the channel running about 0.7 deep; after the
-  drought the refill overtops onto the floor and leaves a film. Asked of Kyler through the milestone
-  session (a floor two over the bed, wider channels, or accepted as a floodplain that floods).
+  drought the refill overtops onto the floor and leaves a film. **Kyler's answer (D307):** a floor
+  one level over its bed that floods when the river refills or in a badtide is a floodplain, as the
+  game plays it; the floor rule and the channels' depth stay (decisions-pending #112).
 
 ### Chaos (D273 (6))
 

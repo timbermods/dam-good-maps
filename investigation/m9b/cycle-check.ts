@@ -17,6 +17,7 @@
 import { generate } from '../../src/core/gen/generate';
 import { makeSpec, type ThemeId } from '../../src/core/spec/mapspec';
 import { runModel } from '../probe/runner/model';
+import { signatureOf } from '../../src/core/analysis/signature';
 
 const CYCLES = [
   { temperateDays: 3, hazard: 'drought' as const, hazardDays: 3 },
@@ -82,5 +83,9 @@ for (const m of maps) {
       y0 = Math.min(y0, y);
       y1 = Math.max(y1, y);
     }
-  console.log(`${theme} ${seedS} ${size}²: ${r.name} | badwater before the badtide: ${bad} tiles, ${outside} outside its way down${ex.length ? ` (${ex.join(', ')})` : ''} ${ok1 ? 'ok' : 'FAIL'} | a sheet a day into the badtide: ${sheet} tiles${sheet ? ` (x ${x0}–${x1}, y ${y0}–${y1})` : ''} | model ${Math.round(run.cpuSeconds)} s`);
+  // what a wider channel costs: moist dry land (the rivers' moisture reach) and the valley floor
+  let moist = 0;
+  for (let i = 0; i < W * H; i++) if (!(b.water[i] > 0.05) && b.moisture[i] > 0) moist++;
+  const valley = signatureOf(W, H, b.heights, b.water, r.features).valley;
+  console.log(`${theme} ${seedS} ${size}²: ${r.name} | moist dry land ${moist} tiles, valley floor ${Math.round(valley * Math.min(W, H))} tiles wide | badwater before the badtide: ${bad} tiles, ${outside} outside its way down${ex.length ? ` (${ex.join(', ')})` : ''} ${ok1 ? 'ok' : 'FAIL'} | a sheet a day into the badtide: ${sheet} tiles${sheet ? ` (x ${x0}–${x1}, y ${y0}–${y1})` : ''} | model ${Math.round(run.cpuSeconds)} s`);
 }
