@@ -3,40 +3,28 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D269), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D271), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your eighteen decisions since the restart are recorded (D252–D269, below) and in the living docs.
+Your twenty decisions since the restart are recorded (D252–D271, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35): pick the drops from the new review sheet**, judging whether each place is interesting enough to
-   play: [the new sheet](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852893380) (six pages; each card
-   shows its note in amber and its floor groves, dead trees apart). The D245 rebuild is done (33f7050, green): 151 places,
-   none dropped; 68 carry a note ("The water keeps moving" 44, "No water a pump can reach from the start" 28, "Too little
-   wood near the start" 1). Also on #35:
-   - [every version choice](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852892041) for the 34 and the
-     off-centre samples (35 moved to their centre, 10 swapped names with a second map that was their centre, 23 kept on a
-     sample that shows the place as well or better, Death Valley kept: its centre drains inward), one line each;
-   - 7 regions whose two maps overlap by more than 25% (Aso Caldera, Lake Toba and Samosir, Ngorongoro, Mount Roraima,
-     Hooker Valley, Monument Valley, Fish River Canyon): drop one of each if you like;
-   - the floor's dead trees: 67 of 1,693 grove trees, on 9 places;
-   - defaults #80–#82, #84 (the versions) and #85 (what blocks, the note wording, where notes show).
-2. **M9a's review set is coming to you on #56** (D252): the contact sheet at the frozen generator beside 0.6.x, 12
-   random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. First,
-   M9a spreads the start planting over the 20-tile walk (your yes to the starts looking alike), merges `dev`, re-freezes
-   and re-runs every batch. My honest read against PERFECT's "Maps" and "Water" follows here once the set exists.
-3. **Flatten's Ramped edges lay almost no slopes** (found while removing Smooth's walkable, D247): 0–2 slopes per pad
-   against 17–62 one-level steps, because the slope planner places them by its own rules. The cause and one recommendation
-   are pending #84 on `feature/forces` (#86 once merged). Flatten is unchanged.
-4. **Glaciate (#69)** is held while you and Codex do another round (D246).
-5. **A default I chose, #91:** locks and regrowing part of a map are gone from the plan (D253), but their operations
-   (`setLock`, `regenerateRegion`) and the stamp origin value still sit in the code, unused by any interface. I've left
-   them and scheduled their removal for the refinement phase; say "remove it now" if you'd rather.
-6. **Coming to you:** the forces sitting (your checklist below) once D249, D257–D260 and the ceiling are built; M9a's review
-   set, then its release. **Later:** #83 (the new trees in Standard, at the Map look work).
+1. **Real places (#35):** your D271 is being built: the 15 drops, then the water made to follow each real place (observed
+   rivers and lakes, dry places dry, D214's fewer, larger rivers where it keeps moving). Then a new sheet on #35 with the
+   9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
+2. **M9a's review set is coming to you on #56** (D252): the contact sheet at the frozen generator (ca63a56) beside 0.6.2,
+   14 random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. The
+   start planting is spread over the 20-tile walk (starts with a full ring within 10 tiles: 14 of 112 → 3). My honest read
+   against PERFECT's "Maps" and "Water" follows here once the set exists. #90 (dead groves) waits for it.
+3. **Glaciate (#69)** is held while you and Codex do another round (D246).
+4. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+   line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
+5. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+   Drought and Badtide day by day, a sitting of its own; M9a's review set, then its release. **Later:** #83 (the new trees
+   in Standard, at the Map look work).
 
 ### Your checklist for the forces sitting (on the preview once D249, D257–D260 and the ceiling are built)
 
@@ -333,6 +321,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D271: Real places: 15 places dropped; the water follows the real place (observed rivers and lakes; dry places stay dry; D214's fewer, larger rivers where it keeps moving), then a new sheet with 9 held places and 5 for your eye; badwater after your answer.
+- D270: your answers: #84 taken (Ramped lays its own slopes); #81, #82, #87, #88, #91, #92, #93 accepted; #85 except its last line (D271); #89 only for the generator and Claude, never the brushes, forces or Select; #90 held for the review set's dead groves.
 - D269: an edit while a hazard is shown ends the hazard view (D267's live update dropped); a drought line on the shores is proposed for the Weather step.
 - D268: Speed belongs to the day strip alone; the water bar has no speed control, and water after an edit plays at the normal pace.
 - D267: Drought and Badtide day by day (the worst day at once, a day strip, the start's-water marker); the Weather view folded into them. On its own branch, for a sitting of its own.
@@ -415,7 +405,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D269.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D271.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
