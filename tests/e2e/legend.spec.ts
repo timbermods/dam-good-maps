@@ -83,7 +83,11 @@ test("while another map is open in the editor, the generator's page says which m
   const g = generate(makeSpec({ seed: 7, size: { x: 48, y: 48 } }));
   await page.goto("./#s=4242&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await expect(page.locator(".view-caption")).toContainText("This map: River Valley");
+  // (a generated map's name is its own since M9b, from its standout, D278: the caption repeats the
+  // card's)
+  const name = (await page.locator(".card header h2").textContent())?.trim() ?? "";
+  expect(name).not.toBe("");
+  await expect(page.locator(".view-caption")).toContainText(`This map: ${name}`);
   await page.getByLabel("Open a map or a project file in the editor").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
   // back on the generator's page: the banner names the map being edited, the preview says it is a

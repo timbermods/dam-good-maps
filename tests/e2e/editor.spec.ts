@@ -25,11 +25,14 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   // warn of its berries and wood, rightly)
   await page.goto("./#s=4244&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
+  // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
+  const name = (await page.locator(".card header h2").textContent())?.trim() ?? "";
+  expect(name).not.toBe("");
 
   // refine: the editor opens the generated map in 3D
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await expect(page.getByRole("heading", { name: "River Valley" })).toBeVisible();
+  await expect(page.getByRole("heading", { name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Top-down" }).click();
 
