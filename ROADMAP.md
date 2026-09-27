@@ -108,7 +108,7 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   `3d-c-done`);
 - the Weather view: tagged `weather-view-done`;
 - the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236); the refinement phase:
-  tagged `refinement-done` (pending #79's default);
+  tagged `refinement-done` (D238);
 - after M12: Claude.
 
 M9 depends only on M2 and can run alongside M8. The 3D stages follow the M9 build and the Frame
@@ -1503,7 +1503,7 @@ After the M9 build (all its stages), the Map quality checkpoint and Map look 2, 
 the impeccable-app-flow skill (timbermods/.github, `claude-skills/impeccable-app-flow/`) in
 redesign mode, scoped to the frame zone. This overrides the flow's gate, which waits for M11. Since D236
 the full design pass comes earlier (straight after Kyler's editor UI audit) and creates the records; this step works
-from them in update mode, scoped to the frame zone (pending #79's default).
+from them in update mode, scoped to the frame zone (D238).
 
 **Why:** Dam Good Maps should catch the eye as soon as its new generator exists, for sharing with
 testers, without redesigning an interface that M10 and M11 are still adding to.
@@ -2070,7 +2070,7 @@ the basin fills without leaking round the spurs.
 
 **Effort:** xhigh.
 
-**Release:** tagged `refinement-done` once Kyler approves (pending #79's default, D236; it used to reach `main` with the design pass,
+**Release:** tagged `refinement-done` once Kyler approves (D236, D238; it used to reach `main` with the design pass,
 `design-done`, which now comes earlier).
 
 ---

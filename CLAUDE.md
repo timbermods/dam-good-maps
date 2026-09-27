@@ -93,7 +93,7 @@ text.
   - Live editing is tagged `live-editing-done` once Kyler says it feels right; its preview is built from its
     branch into `/preview/` (noindex) by the deploy workflow;
   - Save to Timberborn is tagged `save-to-timberborn-done`, and Pick a place `pick-a-place-done`;
-  - the refinement phase is tagged `refinement-done` (pending #79's default, D236);
+  - the refinement phase is tagged `refinement-done` (D236, D238);
   - the start and edge rules are tagged `start-edge-rules-done`; the Real places second round
     `real-places-2-done`; contaminated ground as a layer `look-contamination-done`, once Kyler approves it;
   - the Map look fixes, once Kyler approves each: badwater blending `look-badwater-done`; mine sites and ruins
