@@ -30,6 +30,7 @@ import type { ExportDialogProps } from "../editor/panels";
 import { fetchIndex, fetchPlace, placeFromHash, PLACES_URL } from "../places/data";
 import { Preview2D, type Layers } from "./Preview2D";
 import { FirstLook, type Progress } from "./FirstLook";
+import { sameLand } from "../core/analysis/story";
 import { proxy } from "comlink";
 import type { GenProgress } from "../worker/api";
 import { MapCard } from "./MapCard";
@@ -127,6 +128,8 @@ export function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>(init.spec.designedFor);
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
+  /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
+  const [sibling, setSibling] = useState<{ variation: number; intentions: string[] } | null>(init.spec.variation ? { variation: init.spec.variation, intentions: init.spec.intentions ?? [] } : null);
   const [copied, setCopied] = useState("");
   const [result, setResult] = useState<GenerateResponse | null>(null);
   /** The settings page shows the open document's map (its edits included). */
@@ -159,8 +162,12 @@ export function App() {
   const Dialog = useLazy(() => import("../editor/panels").then((m) => m.ExportDialog as ComponentType<ExportDialogProps>), exporting);
 
   const spec = useMemo(
-    () => ({ ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }), settings }),
-    [seedText, size, difficulty, theme, settings],
+    (): MapSpec => ({
+      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }),
+      settings,
+      ...(sibling ? { variation: sibling.variation, ...(sibling.intentions.length ? { intentions: sibling.intentions } : {}) } : {}),
+    }),
+    [seedText, size, difficulty, theme, settings, sibling],
   );
   const stale = !!result && encodeSpecFragment(result.spec) !== encodeSpecFragment(spec);
   const edited = fromSession && !!session && session.kind === "generated" && session.edits > 0;
@@ -171,15 +178,18 @@ export function App() {
     setDifficulty(s.designedFor);
     setTheme(s.theme);
     setSettings(s.settings);
+    setSibling(s.variation ? { variation: s.variation, intentions: s.intentions ?? [] } : null);
   }
 
   // a theme pre-fills every setting (PLAN §6); a difficulty sets the start rules and its badwater
   // distance and berry target (PLAN §5.6); a size sets the default number of mine sites
   function chooseTheme(t: ThemeId) {
+    setSibling(null);
     setTheme(t);
     setSettings(defaultSettings(t, difficulty, size));
   }
   function chooseDifficulty(d: Difficulty) {
+    setSibling(null);
     setDifficulty(d);
     const r = DIFFICULTY_RULES[d];
     setSettings((s) => ({
@@ -190,6 +200,7 @@ export function App() {
     }));
   }
   function chooseSize(z: { x: number; y: number }) {
+    setSibling(null);
     setSize(z);
     setSettings((s) => ({ ...s, resources: { ...s.resources, mineSites: mineSitesForSize(z.x, z.y) } }));
   }
@@ -216,7 +227,8 @@ export function App() {
 
   // ------------------------------------------------------------------------------ generating
 
-  async function run(s: MapSpec) {
+  async function run(s: MapSpec): Promise<GenerateResponse | null> {
+    let made: GenerateResponse | null = null;
     setBusy(true);
     setError(null);
     setDownloaded(false);
@@ -228,14 +240,14 @@ export function App() {
         setSession(r.info);
         if (!r.ok || !r.response) {
           setError(`The map was not changed: ${r.errors.join("; ")}`);
-          return;
+          return null;
         }
         setResult(r.response);
         scheduleSave();
         history.replaceState(null, "", "#" + encodeSpecFragment(r.response.spec));
         if (r.editProblems.length) setNote(editProblemsNote(r.editProblems.length));
         else if (!r.response.passed) setError(`No layout passed every check after ${r.response.attempts} attempts; this is the last one. Try another seed.`);
-        return;
+        return r.response;
       }
       if (session && session.kind === "generated" && session.edits === 0) {
         // nothing to keep: the open document was the unedited map
@@ -246,9 +258,18 @@ export function App() {
       setProgress({ attempt: 0, stage: "land", land: null });
       const r = await generator.generate(
         s,
-        proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+        proxy((p: GenProgress) =>
+          setProgress((q) =>
+            p.kind === "stage"
+              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null }
+              : p.kind === "candidate"
+                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p }
+                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null },
+          ),
+        ),
       );
       setResult(r);
+      made = r;
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
       if (!r.passed) setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
@@ -258,6 +279,41 @@ export function App() {
       setBusy(false);
       setProgress(null);
     }
+    return made;
+  }
+
+  /** Another like this (D278 (1c)): a sibling of the map shown, the same theme, settings and
+   *  intentions on different land, with its own share link; never a clone of the map it came from
+   *  (a sibling whose land matches it is passed over for the next). */
+  async function anotherLikeThis(): Promise<GenerateResponse | null> {
+    if (!result) return null;
+    const from = result;
+    let variation = (from.spec.variation ?? 0) + 1;
+    for (let tries = 0; tries < 3; tries++) {
+      const next = { variation, intentions: from.spec.intentions ?? from.intentions };
+      setSibling(next);
+      const s: MapSpec = { ...from.spec, variation: next.variation, ...(next.intentions.length ? { intentions: next.intentions } : {}) };
+      delete s.accepted;
+      const r = await run(s);
+      if (!r || !sameLand(from.heights, r.heights)) return r;
+      variation++;
+    }
+    return null;
+  }
+
+  /** From the editor: close the map (asking first when it has edits), make its sibling, open it. */
+  function anotherFromEditor() {
+    guard(
+      () =>
+        void (async () => {
+          await generator.closeSession();
+          setSession(null);
+          setScreen("settings");
+          const r = await anotherLikeThis();
+          if (r?.passed) enterEditor(await generator.refine());
+        })(),
+      "Another like this",
+    );
   }
 
   useEffect(() => {
@@ -476,7 +532,7 @@ export function App() {
     return (
       <>
         {EditorMod ? (
-          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} saveState={saveState} />
+          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} onAnother={() => anotherFromEditor()} saveState={saveState} />
         ) : (
           <div class="placeholder">Opening the editor…</div>
         )}
@@ -554,13 +610,25 @@ export function App() {
           <SettingsPanel
             spec={spec}
             seedText={seedText}
-            onSeed={setSeedText}
-            onDice={() => setSeedText(String(randomSeed()))}
+            onSeed={(t) => {
+              setSibling(null);
+              setSeedText(t);
+            }}
+            onDice={() => {
+              setSibling(null);
+              setSeedText(String(randomSeed()));
+            }}
             onSize={chooseSize}
             onTheme={chooseTheme}
             onDifficulty={chooseDifficulty}
-            onSettings={setSettings}
-            onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
+            onSettings={(x) => {
+              setSibling(null);
+              setSettings(x);
+            }}
+            onReset={() => {
+              setSibling(null);
+              setSettings(defaultSettings(theme, difficulty, size));
+            }}
           />
           <div class="generate-bar">
             <button type="button" class="primary" disabled={busy || !!opening} onClick={() => run(spec)}>
@@ -655,6 +723,11 @@ export function App() {
                 <button type="button" class="primary" disabled={!result.passed && !fromSession} onClick={() => void refine()}>
                   Refine this map
                 </button>
+                {!fromSession ? (
+                  <button type="button" class="ghost" disabled={busy || !result.passed} onClick={() => void anotherLikeThis()} title="A new map with the same theme, settings and intentions, on different land">
+                    Another like this
+                  </button>
+                ) : null}
                 {fromSession ? (
                   <>
                     <button type="button" class="ghost" onClick={() => setExporting(true)}>

@@ -1,4 +1,5 @@
-// The map card (PLAN §14.3): name, premise, key facts, the three start requirements (PLAN §5.6,
+// The map card (PLAN §14.3): name (a generated map's own, from its standout, D278), how it plays,
+// key facts, the three start requirements (PLAN §5.6,
 // D85) and the validation report, grouped as File, Terrain and objects, Water, and Start and
 // resources (PLAN §11.6). Failures open their group; advisory warnings (the start targets,
 // water.reservoir, the clean water targets, plants.drought) show as warnings and never block the
@@ -8,6 +9,7 @@ import { LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail, type WoodBySpecies } from "../core/analysis/wood";
 import { groupOf, type CheckGroup, type CheckResult } from "../core/validate/report";
 import type { GenerateResponse } from "../worker/api";
+import { THEME_NAMES } from "../core/spec/mapspec";
 
 const GROUPS: CheckGroup[] = ["File", "Terrain and objects", "Water", "Start and resources"];
 
@@ -75,7 +77,8 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
       <header>
         <h2>{r.name}</h2>
         <span class="muted">
-          {r.W}×{r.H} · seed {r.spec.seed} · designed for {r.spec.designedFor}
+          {THEME_NAMES[r.spec.theme]} · {r.W}×{r.H} · seed {r.spec.seed}
+          {r.spec.variation ? ` · another like it (${r.spec.variation})` : ""} · designed for {r.spec.designedFor}
         </span>
       </header>
       <p class="premise">{r.premise}</p>

@@ -91,7 +91,18 @@ export interface Genome {
      *  clears beside its channel. */
     incise: number;
     floor: number;
+    /** M9b intentions' steering (D274): a crescent lake left beside a bend (the oxbow), a chain of
+     *  valley lakes stepping down the main river (how many), and a wider, longer island in a split. */
+    oxbow?: boolean;
+    chainLakes?: number;
+    bigSplit?: boolean;
+    /** Twin falls: the split goes round the main river's biggest drop. */
+    splitAtFall?: boolean;
   };
+  /** M9b intentions' steering (D274): a relic on ground the start cannot walk to; a plug across a
+   *  big lake's outlet. */
+  relicHigh?: boolean;
+  plugLake?: boolean;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -144,6 +155,8 @@ export interface Genome {
   intentions: IntentionId[];
   /** A variation index (D143): 0 for the map itself. */
   variation: number;
+  /** The orientation the map's land was turned into (M9b, D275 (2); land/orient.ts). */
+  orientation?: number;
   /** The woods (D164): the grove species weights the resources planner draws. */
   woods: { kind: "oak" | "mixed" | "birch"; pine: number; birch: number; oak: number; succulent: number };
 }
@@ -219,7 +232,7 @@ const P: Record<Leaning, Prior> = {
     erosion: { iterations: { lo: 8, hi: 22 }, k: { lo: 0.01, hi: 0.035 }, diffusion: { lo: 0.02, hi: 0.1 } },
     terrace: { step: [1, 2, 2, 3, 3], share: { lo: 0.15, hi: 0.65 } },
     inflows: [0, 1, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 0.9, hi: 2.4 }, lakeBudget: { lo: 0.04, hi: 0.25 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
-    split: 0.5, delta: 0.12, incise: { lo: 0, hi: 1.5 }, floor: { lo: 0, hi: 5 }, cap: { lo: 0, hi: 0.25 },
+    split: 0.5, delta: 0.12, incise: { lo: 0, hi: 1.5 }, floor: { lo: 7, hi: 13 }, cap: { lo: 0, hi: 0.25 },
     badwater: [0.2, 0.55, 0.25], thorns: 0.5, recipes: { "island-in-a-river": 0.08, "great-scarp": 0.06 },
     troughs: 0.8, sea: 0, woods: [0.3, 0.25],
   },
@@ -232,20 +245,20 @@ const P: Record<Leaning, Prior> = {
     erosion: { iterations: { lo: 14, hi: 30 }, k: { lo: 0.025, hi: 0.06 }, diffusion: { lo: 0, hi: 0.04 } },
     terrace: { step: [2, 2, 3, 3, 4], share: { lo: 0.35, hi: 0.9 } },
     inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 0, hi: 3 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
-    split: 0.45, delta: 0.03, incise: { lo: 2, hi: 5 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0.1, hi: 0.5 },
+    split: 0.45, delta: 0.03, incise: { lo: 3, hi: 6 }, floor: { lo: 0, hi: 2.5 }, cap: { lo: 0.1, hi: 0.5 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.2, recipes: { "mesa-field": 0.1, "great-scarp": 0.08 },
     troughs: 0.5, sea: 0, woods: [0.35, 0.2],
   },
   highlands: {
-    base: { lo: 0.3, hi: 1.3 }, top: { lo: 13.8, hi: 18.6 }, eq: { lo: 0.45, hi: 0.9 }, lean: { lo: 0.7, hi: 1.25 },
+    base: { lo: 0.3, hi: 1.3 }, top: { lo: 13.8, hi: 18.6 }, eq: { lo: 0.45, hi: 0.9 }, lean: { lo: 0.55, hi: 0.9 },
     tilt: { lo: 0.3, hi: 2.4 }, linear: 0.3, radial: 0.15, regional: { lo: 3, hi: 7.5 },
     amp: { lo: 3.5, hi: 7 }, cell: { lo: 20, hi: 44 }, warp: { lo: 6, hi: 18 }, ridged: { lo: 0.1, hi: 0.6 },
-    parts: { plateau: 3, mesa: 2, ridge: 2, escarpment: 1.2, cone: 0.8, caldera: 0.6, knolls: 1.5, basin: 0.7, spiral: 0.1 },
-    partCount: { lo: 2, hi: 7 }, knollsPer128: { lo: 6, hi: 18 },
+    parts: { plateau: 4, mesa: 2.5, ridge: 2, escarpment: 1.2, cone: 0.8, caldera: 0.6, knolls: 1.2, basin: 0.7, spiral: 0.1 },
+    partCount: { lo: 4, hi: 8 }, knollsPer128: { lo: 6, hi: 18 },
     erosion: { iterations: { lo: 8, hi: 20 }, k: { lo: 0.012, hi: 0.035 }, diffusion: { lo: 0.01, hi: 0.08 } },
-    terrace: { step: [1, 2, 2, 3, 3], share: { lo: 0.25, hi: 0.75 } },
+    terrace: { step: [2, 2, 3, 3], share: { lo: 0.4, hi: 0.8 } },
     inflows: [0, 0, 1, 1, 2, 3], springs: { lo: 1, hi: 6 }, flowMul: { lo: 0.9, hi: 2.2 }, lakeBudget: { lo: 0.03, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.55,
-    split: 0.3, delta: 0.02, incise: { lo: 0, hi: 2.5 }, floor: { lo: 0, hi: 4 }, cap: { lo: 0.05, hi: 0.4 },
+    split: 0.3, delta: 0.02, incise: { lo: 1.5, hi: 3.5 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0.05, hi: 0.4 },
     badwater: [0.35, 0.45, 0.2], thorns: 0.5, recipes: { "badwater-volcano": 0.08, "hanging-lake": 0.08 },
     troughs: 1, sea: 0, woods: [0.4, 0.2],
   },
@@ -271,7 +284,7 @@ const P: Record<Leaning, Prior> = {
     erosion: { iterations: { lo: 6, hi: 14 }, k: { lo: 0.008, hi: 0.02 }, diffusion: { lo: 0.05, hi: 0.15 } },
     terrace: { step: [1, 1, 2, 2], share: { lo: 0.05, hi: 0.4 } },
     inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.05, hi: 0.3 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
-    split: 0.65, delta: 0.8, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
+    split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.1, recipes: { "island-in-a-river": 0.12 },
     troughs: 0.3, sea: 0, woods: [0.2, 0.4],
   },
@@ -414,41 +427,6 @@ export function randomPart(rng: Rng, kind: PartKind, W: number, H: number, vy: n
       return { kind, at, size: w(18, 40), height: w(1, 2.5), turn, extra: Math.round(w(4, 10)), soft: 0 };
     case "spiral":
       return { kind, at: [0.3 + 0.4 * rng.float(), 0.3 + 0.4 * rng.float()], size: w(14, 22), height: w(5, 8), turn, extra: w(1.25, 2.25), soft: 0 };
-  }
-}
-
-export const RECIPES = ["island-in-a-river", "great-scarp", "mesa-field", "badwater-volcano", "hanging-lake", "caldera", "chain-of-lakes", "volcano-island"] as const;
-
-function applyRecipe(g: Genome, recipe: string, rng: Rng, W: number, H: number, tall: number): void {
-  const vy = g.variety;
-  const add = (kind: PartKind, over: Partial<Part> = {}) => g.parts.push({ ...randomPart(rng, kind, W, H, vy, tall), ...over });
-  switch (recipe) {
-    case "island-in-a-river":
-      g.hydro.split = 1;
-      break;
-    case "great-scarp":
-      add("escarpment", { size: 3 * Math.max(W, H), height: (4 + 2 * rng.float()) * tall, soft: 1 / tall });
-      break;
-    case "mesa-field":
-      add("mesaField", { extra: 8 + Math.floor(6 * rng.float()) });
-      break;
-    case "badwater-volcano":
-      add("cone", { height: (6 + 2 * rng.float()) * tall, extra: 3 });
-      g.hazards.badwater = "pit";
-      break;
-    case "hanging-lake":
-      add("mesa", { size: 16 + 6 * rng.float(), height: (5 + 2 * rng.float()) * tall, soft: 0.8 / tall });
-      g.hydro.springs = Math.max(1, g.hydro.springs);
-      break;
-    case "caldera":
-      add("caldera", { extra: 4 + 2 * rng.float() });
-      break;
-    case "chain-of-lakes":
-      for (let k = 0; k < 3; k++) add("basin", { size: 10 + 8 * rng.float(), height: -(2.5 + 2 * rng.float()) });
-      break;
-    case "volcano-island":
-      add("cone", { at: [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()], height: 7 * tall, extra: 2.5 });
-      break;
   }
 }
 
@@ -606,15 +584,11 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   if (sea) addSea(g, stream(seed, "sea-layout", theme, attempt), W, H, attempt, areaK, tallK);
   const knolls = Math.round(d(p.knollsPer128) * areaK);
   if (knolls > 0) g.parts.push({ kind: "knolls", at: [0.5, 0.5], size: 0, height: 1.5 + rng.float(), turn: 0, extra: knolls, soft: 0 });
-  // a recipe, sometimes (at most a forced part)
-  const rec = Object.entries(p.recipes) as [string, number][];
-  const pool = vy >= 85 ? RECIPES.map((r) => [r, 0.03] as [string, number]).concat(rec) : rec;
-  for (const [name, chance] of pool) {
-    if (!g.recipe && rng.float() < chance * (vy / 70)) {
-      g.recipe = name;
-      applyRecipe(g, name, rng, W, H, tallK);
-    }
-  }
+  // (M9b, D275 (1): the recipes are folded into intentions, one concept checked by outcome: the
+  // island in a river is "the river splits around a big island", the great scarp "a long cliff
+  // splits the map", the chain of lakes "lakes step down the valley", the hanging lake "a lake high on
+  // the heights", the caldera Kyler's crater, the mesa field a landmark; the badwater volcano and
+  // the volcano island are dropped, the Islands layouts standing for the second)
   g.woods = drawWoods(theme, seed, attempt, vy);
   // intentions: outcomes the processes are steered toward, never built (D138)
   g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng) : o.intentions.slice();

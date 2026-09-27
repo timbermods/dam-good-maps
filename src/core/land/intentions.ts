@@ -13,6 +13,14 @@
 // "The only safe water is uphill" (`safe-water-uphill`) left the set: in design version 2's first
 // run it emerged on 4 of 86 draws. Its check stays for the record; it is never drawn.
 //
+// M9b (PLAN §20 D274, settling #66): Kyler's pick of design version 2's candidates joins the set:
+// the oxbow lake, lakes stepping down the valley, the river splitting round a big island, two falls
+// side by side, a long cliff splitting the map, hanging side valleys, two ways to grow, badwater
+// through the richest land, a relic on a pinnacle, and a plug holding back a lake. Every map draws
+// one or two (D273 (3): at least one standout on every map; none is no longer drawn). The recipes
+// fold in (D275 (1)): the great scarp, the island in a river and the chain of lakes are three of
+// these, the mesa field a landmark.
+//
 // Ported from the design version 2 prototype (investigation/generative/v2/intentions.ts). "Any"
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
@@ -35,6 +43,16 @@ export const INTENTIONS = [
   "snaking-river",
   "crater-rivers",
   "cliff-falls-lake",
+  "oxbow",
+  "stepped-lakes",
+  "split-island",
+  "twin-falls",
+  "upper-lower",
+  "hanging-valleys",
+  "two-ways",
+  "badwater-rich",
+  "relic-pinnacle",
+  "plug-lake",
 ] as const;
 export type IntentionId = (typeof INTENTIONS)[number];
 /** The intentions a map may draw (the set). */
@@ -58,6 +76,16 @@ export const INTENTION_TEXT: Record<IntentionId, string> = {
   "snaking-river": "A snaking river winds down a hill, dropping a level at its bends.",
   "crater-rivers": "A large crater gathers two or more rivers into its lake, which leaves through a gap in the rim.",
   "cliff-falls-lake": "A waterfall plunges off a cliff into a large, roughly round lake.",
+  oxbow: "The river loops back on itself and leaves an oxbow lake that keeps its water when the river runs low.",
+  "stepped-lakes": "Lakes step down the valley, each spilling into the next.",
+  "split-island": "The river splits around a big island and joins again below it.",
+  "twin-falls": "Two waterfalls pour side by side over the same cliff.",
+  "upper-lower": "A long cliff splits the map into an upper and a lower world.",
+  "hanging-valleys": "Side valleys hang above a wide valley floor, their streams falling in.",
+  "two-ways": "Two ways to grow: open farmland one way, wood and ruins up the cliffs the other.",
+  "badwater-rich": "Badwater spills through the richest land: tame it and the land is yours.",
+  "relic-pinnacle": "A relic waits on a pinnacle, reached only by building up to it.",
+  "plug-lake": "A plug holds back a lake: open it when you are ready.",
 };
 
 type ThemeWeights = Record<Exclude<ThemeId, "any">, number>;
@@ -76,6 +104,16 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "snaking-river": { riverValley: 1.2, canyon: 0.8, highlands: 1.2, lakeBasin: 0.8, delta: 0.6, islands: 0.5 },
   "crater-rivers": { riverValley: 0.8, canyon: 0.6, highlands: 0.9, lakeBasin: 1.3, delta: 0.6, islands: 0.6 },
   "cliff-falls-lake": { riverValley: 0.8, canyon: 1.2, highlands: 1.2, lakeBasin: 1, delta: 0.4, islands: 0.7 },
+  oxbow: { riverValley: 1.3, canyon: 0.3, highlands: 0.6, lakeBasin: 0.8, delta: 1.3, islands: 0.3 },
+  "stepped-lakes": { riverValley: 1, canyon: 0.8, highlands: 1.2, lakeBasin: 1.4, delta: 0.3, islands: 0.3 },
+  "split-island": { riverValley: 1.2, canyon: 0.6, highlands: 0.6, lakeBasin: 0.7, delta: 1.3, islands: 0.4 },
+  "twin-falls": { riverValley: 0.6, canyon: 1.3, highlands: 1.3, lakeBasin: 0.7, delta: 0.2, islands: 0.5 },
+  "upper-lower": { riverValley: 0.8, canyon: 1.2, highlands: 1.3, lakeBasin: 0.6, delta: 0.4, islands: 0.3 },
+  "hanging-valleys": { riverValley: 1.2, canyon: 1.2, highlands: 1, lakeBasin: 0.6, delta: 0.3, islands: 0.3 },
+  "two-ways": { riverValley: 1, canyon: 1, highlands: 1, lakeBasin: 0.8, delta: 0.8, islands: 0.6 },
+  "badwater-rich": { riverValley: 1, canyon: 0.7, highlands: 0.7, lakeBasin: 0.9, delta: 1.1, islands: 0.6 },
+  "relic-pinnacle": { riverValley: 0.6, canyon: 1.3, highlands: 1.2, lakeBasin: 0.6, delta: 0.3, islands: 0.8 },
+  "plug-lake": { riverValley: 0.9, canyon: 0.8, highlands: 1, lakeBasin: 1.3, delta: 0.5, islands: 0.4 },
 };
 
 /** "Any" weighs each intention by its mean over the six themes. */
@@ -86,7 +124,7 @@ function weightOf(id: IntentionId, theme: ThemeId): number {
   return vs.reduce((a, b) => a + b, 0) / vs.length;
 }
 
-const VERTICAL = new Set<IntentionId>(["under-cliff", "falls-shield", "hidden-valley", "high-lake", "long-view", "snaking-river", "cliff-falls-lake"]);
+const VERTICAL = new Set<IntentionId>(["under-cliff", "falls-shield", "hidden-valley", "high-lake", "long-view", "snaking-river", "cliff-falls-lake", "twin-falls", "upper-lower", "hanging-valleys", "relic-pinnacle"]);
 /** Pairs that pull the start two ways. */
 const CLASH: [IntentionId, IntentionId][] = [
   ["safe-water-uphill", "long-view"],
@@ -94,9 +132,10 @@ const CLASH: [IntentionId, IntentionId][] = [
 ];
 
 export function drawIntentions(theme: ThemeId, vt: number, rng: Rng): IntentionId[] {
-  // some maps have none, most one, some two (the mix is never a template)
+  // most maps one, some two (the mix is never a template); M9b: never none, every map has a
+  // character (D273 (3)); the draw keeps its one number, so the rest of the genome keeps its draws
   const r = rng.float();
-  const n = r < 0.25 ? 0 : r < 0.75 ? 1 : 2;
+  const n = r < 0.6 ? 1 : 2;
   const out: IntentionId[] = [];
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
@@ -131,9 +170,14 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
         if (rng.float() < 0.5) part(g, rng, "escarpment");
       };
     case "landmark":
-      return (g, rng) => {
+      return (g, rng, W, H) => {
         if (rng.float() < 0.75) part(g, rng, (["cone", "mesa", "caldera", "escarpment"] as const)[rng.int(0, 4)], 1.3);
         g.cap.share = Math.min(0.75, g.cap.share + 0.1);
+        // (a field of mesas now and then: the mesa-field recipe, folded in, D275)
+        if (rng.float() < 0.2) {
+          const side = Math.min(W, H);
+          g.parts.push({ kind: "mesaField", at: [0.25 + 0.5 * rng.float(), 0.25 + 0.5 * rng.float()], size: side * (0.13 + 0.1 * rng.float()), height: (2.5 + 2.5 * rng.float()) * tall(g), turn: 0, extra: 8 + Math.floor(6 * rng.float()), soft: 0.8 / tall(g) });
+        }
       };
     case "farmland-past-gorge":
       return (g) => {
@@ -191,6 +235,79 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
         g.hydro.springs += 1 + (rng.float() < 0.5 ? 1 : 0);
         if (g.hydro.inflows === 0) g.hydro.inflows = 1;
         g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, (3.3 * size * size) / (W * H));
+      };
+    case "oxbow":
+      // wider bends, and a crescent lake left beside one of them (the hydrology's oxbow)
+      return (g) => {
+        g.wander = Math.max(g.wander, 1.6);
+        g.hydro.oxbow = true;
+      };
+    case "stepped-lakes":
+      // a chain of valley lakes down the main river (the chain-of-lakes recipe, folded in)
+      return (g, rng) => {
+        g.hydro.chainLakes = 3 + (rng.float() < 0.4 ? 1 : 0);
+        g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.1);
+      };
+    case "split-island":
+      // the island-in-a-river recipe, folded in: a split, drawn wider and longer
+      return (g) => {
+        g.hydro.split = 1;
+        g.hydro.bigSplit = true;
+      };
+    case "twin-falls":
+      // a long, tall scarp across the water's way, more heads above it, drops gathered into falls
+      return (g, rng, W, H) => {
+        const side = Math.min(W, H);
+        g.parts.push({ kind: "escarpment", at: [0.35 + 0.3 * rng.float(), 0.35 + 0.3 * rng.float()], size: side * (0.7 + 0.4 * rng.float()), height: (4 + 2 * rng.float()) * tall(g), turn: rng.float(), extra: 4 + 5 * rng.float(), soft: (0.6 + 0.6 * rng.float()) / tall(g) });
+        g.hydro.springs += 2;
+        g.knick = Math.max(g.knick, 8 + 6 * rng.float());
+        g.hydro.split = 1;
+        g.hydro.splitAtFall = true;
+      };
+    case "upper-lower":
+      // the great-scarp recipe, folded in: an escarpment across the whole map
+      return (g, rng, W, H) => {
+        g.parts.push({ kind: "escarpment", at: [0.3 + 0.4 * rng.float(), 0.3 + 0.4 * rng.float()], size: 3 * Math.max(W, H), height: (4.5 + 2 * rng.float()) * tall(g), turn: rng.float(), extra: 4 + 6 * rng.float(), soft: 1 / tall(g) });
+        g.ramps = Math.max(0.1, g.ramps - 0.2);
+      };
+    case "hanging-valleys":
+      // the main river cuts well below its tributaries and clears a wide floor
+      // (the land lifted, so the main river can cut well below its side valleys without reaching the
+      // bottom of the map)
+      return (g, rng) => {
+        g.hanging = Math.max(g.hanging, 2.5 + 1.2 * rng.float());
+        g.hydro.incise += 1.5;
+        g.base = Math.min(3, g.base + 2.5);
+        g.hydro.floor = Math.max(g.hydro.floor, 7 + 4 * rng.float());
+        g.hydro.springs += 2;
+      };
+    case "two-ways":
+      // a plateau for the wood and ruins, more ruins, benched ground
+      return (g, rng) => {
+        part(g, rng, "plateau", 1.2);
+        g.resources.ruins = Math.min(300, g.resources.ruins + 60);
+        g.terrace.share = Math.min(1, g.terrace.share + 0.1);
+      };
+    case "badwater-rich":
+      // a stronger badwater stream, and a broad floor along the rivers
+      return (g) => {
+        if (g.hazards.badwater === "none") g.hazards.badwater = "stream";
+        g.hazards.ratio = Math.min(1.8, g.hazards.ratio * 1.3);
+        g.hydro.floor += 3;
+      };
+    case "relic-pinnacle":
+      // stacks from hard rock, a tall mesa, and the relic put where no one walks
+      return (g, rng) => {
+        g.cap.share = Math.min(0.75, g.cap.share + 0.15);
+        part(g, rng, "mesa", 1.4);
+        g.relicHigh = true;
+      };
+    case "plug-lake":
+      // lakes along the rivers, and a plug across a big one's way out
+      return (g) => {
+        g.troughs += 1;
+        g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.12);
+        g.plugLake = true;
       };
     case "cliff-falls-lake":
       // cliffs and gathered drops (knickpoints), more hard rock, a scarp and a hollow, room for lakes
@@ -320,13 +437,18 @@ export interface FinalCtx {
   walk: Float64Array;
   /** Water left after the Normal difficulty's longest drought (9 days, analytic). */
   kept9: Float64Array;
-  objects: { template: string; x: number; y: number }[];
+  objects: { template: string; x: number; y: number; z?: number }[];
   /** Tiles where the water falls 2 levels or more to a wet neighbour, with the drop. */
   falls: { i: number; drop: number }[];
   /** Planned confluences (river ends that join another river). */
   joins: number[];
   /** The rivers' courses (the planned paths the build carved), head to mouth, in tile units. */
   rivers: [number, number][][];
+  /** Per river (in `rivers`' order): its role, and the index of the river it joins (−1: it leaves
+   *  by an edge). */
+  riverInfo?: { role: string; joins: number }[];
+  /** The courses of the arms a river split into (round an island, or a delta's mouths). */
+  arms?: [number, number][][];
 }
 
 const D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -431,17 +553,23 @@ interface LevelLake {
 /** Lakes: level water (the surface within a quarter level of the body's deepest tile), 4-connected,
  *  of `min` tiles or more. */
 function levelLakes(c: FinalCtx, min: number): LevelLake[] {
+  // M9b: every level body within the water, not one per connected body: a river joins the lakes
+  // along it into one body of water, and each lake is the level water round its deepest tile. Seeds
+  // are taken deepest first (a lake's middle before its shallows or the river between lakes)
   const { W, H, h, D } = c;
-  const b = bodies(c);
+  const N = W * H;
+  const seeds: number[] = [];
+  for (let i = 0; i < N; i++) if (D[i] >= 0.1) seeds.push(i);
+  seeds.sort((a, b) => D[b] - D[a] || a - b);
+  const taken = new Uint8Array(N);
   const out: LevelLake[] = [];
-  for (const t of b.tiles) {
-    if (t.length < min) continue;
-    let deep = t[0];
-    for (const i of t) if (D[i] > D[deep] || (D[i] === D[deep] && i < deep)) deep = i;
-    const surf = h[deep] + D[deep];
-    const inLake = new Uint8Array(W * H);
-    const q = [deep];
-    inLake[deep] = 1;
+  for (const s0 of seeds) {
+    if (taken[s0]) continue;
+    const surf = h[s0] + D[s0];
+    const inLake = new Uint8Array(N);
+    const q = [s0];
+    inLake[s0] = 1;
+    taken[s0] = 1;
     for (let k = 0; k < q.length; k++) {
       const i = q[k];
       const x = i % W;
@@ -451,8 +579,9 @@ function levelLakes(c: FinalCtx, min: number): LevelLake[] {
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
-        if (inLake[j] || !(D[j] >= 0.1) || Math.abs(h[j] + D[j] - surf) > 0.25) continue;
+        if (inLake[j] || taken[j] || !(D[j] >= 0.1) || Math.abs(h[j] + D[j] - surf) > 0.25) continue;
         inLake[j] = 1;
+        taken[j] = 1;
         q.push(j);
       }
     }
@@ -514,6 +643,117 @@ const RAYS: [number, number][] = (() => {
   const b = [0, 0.383, 0.707, 0.924, 1, 0.924, 0.707, 0.383, 0, -0.383, -0.707, -0.924, -1, -0.924, -0.707, -0.383];
   return a.map((v, k) => [v, b[k]] as [number, number]);
 })();
+
+/** Chamfer distance to the marked tiles (Infinity where none). */
+function distanceTo(mask: Uint8Array, W: number, H: number): Float64Array {
+  const N = W * H;
+  const d = new Float64Array(N);
+  for (let i = 0; i < N; i++) d[i] = mask[i] ? 0 : Infinity;
+  const R2 = Math.SQRT2;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      let v = d[i];
+      if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
+      if (y > 0) {
+        if (d[i - W] + 1 < v) v = d[i - W] + 1;
+        if (x > 0 && d[i - W - 1] + R2 < v) v = d[i - W - 1] + R2;
+        if (x < W - 1 && d[i - W + 1] + R2 < v) v = d[i - W + 1] + R2;
+      }
+      d[i] = v;
+    }
+  for (let y = H - 1; y >= 0; y--)
+    for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      let v = d[i];
+      if (x < W - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
+      if (y < H - 1) {
+        if (d[i + W] + 1 < v) v = d[i + W] + 1;
+        if (x < W - 1 && d[i + W + 1] + R2 < v) v = d[i + W + 1] + R2;
+        if (x > 0 && d[i + W - 1] + R2 < v) v = d[i + W - 1] + R2;
+      }
+      d[i] = v;
+    }
+  return d;
+}
+
+/** A body's second moments: the ratio of its minor to its major axis (1 round, near 0 long). */
+function shapeOf(tiles: readonly number[], W: number): { axes: number } {
+  let cx = 0;
+  let cy = 0;
+  for (const i of tiles) {
+    cx += i % W;
+    cy += Math.floor(i / W);
+  }
+  cx /= tiles.length;
+  cy /= tiles.length;
+  let a = 0;
+  let d = 0;
+  let b = 0;
+  for (const i of tiles) {
+    const dx = (i % W) - cx;
+    const dy = Math.floor(i / W) - cy;
+    a += dx * dx;
+    d += dy * dy;
+    b += dx * dy;
+  }
+  a /= tiles.length;
+  d /= tiles.length;
+  b /= tiles.length;
+  const tr = (a + d) / 2;
+  const disc = Math.sqrt(((a - d) * (a - d)) / 4 + b * b);
+  return { axes: tr + disc > 0 ? Math.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 1 };
+}
+
+/** The falls of the settled water, grouped (tiles within 2 of each other): each group's tallest
+ *  drop, the surface at its top, and its middle. */
+function fallGroups(c: FinalCtx): { drop: number; top: number; x: number; y: number }[] {
+  const { W, h, D } = c;
+  const out: { drop: number; top: number; x: number; y: number; n: number }[] = [];
+  for (const f of c.falls) {
+    const x = f.i % W;
+    const y = (f.i - x) / W;
+    const g = out.find((q) => Math.abs(q.x / q.n - x) <= 2.5 + q.n / 4 && Math.abs(q.y / q.n - y) <= 2.5 + q.n / 4);
+    const top = h[f.i] + D[f.i];
+    if (g) {
+      g.x += x;
+      g.y += y;
+      g.n++;
+      g.drop = Math.max(g.drop, f.drop);
+      g.top = Math.max(g.top, top);
+    } else out.push({ drop: f.drop, top, x, y, n: 1 });
+  }
+  return out.map((g) => ({ drop: g.drop, top: g.top, x: g.x / g.n, y: g.y / g.n }));
+}
+
+/** The median width of the low ground across a course (within a level of its water). */
+function valleyWidth(c: FinalCtx, path: [number, number][]): number {
+  const { W, H, h, D } = c;
+  const pts = resample(path, W, H);
+  const widths: number[] = [];
+  for (let k = 3; k + 3 < pts.length; k += 3) {
+    const [x, y] = pts[k];
+    const dx = pts[k + 3][0] - pts[k - 3][0];
+    const dy = pts[k + 3][1] - pts[k - 3][1];
+    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const i0 = Math.round(y) * W + Math.round(x);
+    const surf = h[i0] + D[i0];
+    let w = 0;
+    for (const sgn of [-1, 1])
+      for (let t = 1; t <= 40; t++) {
+        const xx = Math.round(x - (sgn * dy * t) / l);
+        const yy = Math.round(y + (sgn * dx * t) / l);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+        const i = yy * W + xx;
+        if (!(D[i] >= 0.05) && h[i] > surf + 1) break;
+        w++;
+      }
+    widths.push(w);
+  }
+  if (!widths.length) return 0;
+  widths.sort((p, q) => p - q);
+  return widths[widths.length >> 1];
+}
 
 export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
   const { W, H, h, D, C, start } = c;
@@ -1049,6 +1289,316 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
       }
       return { ok, note };
+    }
+    case "oxbow": {
+      // a curved lake of 60+ tiles (at 128²) beside a river (within 6 tiles) but off its course,
+      // keeping half its water through a 9-day drought
+      // (the water off the channels: 3+ tiles from every course; a joined oxbow and its river are
+      // one body of water, so the lake is what stands apart from the channel)
+      const onCourse = new Uint8Array(N);
+      for (const path of [...c.rivers, ...(c.arms ?? [])]) for (const [x, y] of resample(path, W, H)) onCourse[Math.round(y) * W + Math.round(x)] = 1;
+      const near = distanceTo(onCourse, W, H);
+      const off = new Uint8Array(N);
+      for (let i = 0; i < N; i++) off[i] = D[i] >= 0.3 && near[i] >= 3 ? 1 : 0;
+      const seenO = new Uint8Array(N);
+      for (let s0 = 0; s0 < N; s0++) {
+        if (!off[s0] || seenO[s0]) continue;
+        const q = [s0];
+        seenO[s0] = 1;
+        for (let k = 0; k < q.length; k++) {
+          const i = q[k];
+          const x = i % W;
+          const y = (i - x) / W;
+          for (const [dx, dy] of D4) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+            const j = yy * W + xx;
+            if (!off[j] || seenO[j]) continue;
+            seenO[j] = 1;
+            q.push(j);
+          }
+        }
+        if (q.length < (60 * N) / 16384 || q.length > (900 * N) / 16384) continue;
+        let closest = Infinity;
+        let v = 0;
+        let k9 = 0;
+        for (const i of q) {
+          if (near[i] < closest) closest = near[i];
+          v += D[i];
+          k9 += c.kept9[i];
+        }
+        if (closest > 6 || !(v > 0) || k9 / v < 0.5) continue;
+        const inQ = new Uint8Array(N);
+        for (const i of q) inQ[i] = 1;
+        let cx = 0;
+        let cy = 0;
+        for (const i of q) {
+          cx += i % W;
+          cy += Math.floor(i / W);
+        }
+        const { axes } = shapeOf(q, W);
+        const curved = axes <= 0.6 || !inQ[Math.round(cy / q.length) * W + Math.round(cx / q.length)];
+        if (curved) return { ok: true, note: `a ${q.length}-tile curved lake ${Math.round(closest)} tiles off the river keeps ${Math.round((100 * k9) / v)}% through a 9-day drought` };
+      }
+      return { ok: false, note: "no curved lake beside a river that keeps its water" };
+    }
+    case "stepped-lakes": {
+      // three lakes or more of 60+ tiles (at 128²) on one course, each 1+ level below the last
+      const lakes = levelLakes(c, (60 * N) / 16384);
+      let best = 0;
+      for (const path of c.rivers) {
+        const seq: number[] = [];
+        for (const [x, y] of resample(path, W, H)) {
+          const i = Math.round(y) * W + Math.round(x);
+          const k = lakes.findIndex((L) => L.inLake[i]);
+          if (k >= 0 && seq[seq.length - 1] !== k && !seq.includes(k)) seq.push(k);
+        }
+        let run = seq.length ? 1 : 0;
+        for (let m = 1; m < seq.length; m++) {
+          run = lakes[seq[m - 1]].surf - lakes[seq[m]].surf >= 1 ? run + 1 : 1;
+          if (run > best) best = run;
+        }
+        if (run > best) best = run;
+      }
+      return { ok: best >= 3, note: best >= 3 ? `${best} lakes step down one river, each a level or more below the last` : `at most ${best} lakes stepping down one river` };
+    }
+    case "split-island": {
+      // dry land of 150+ tiles (at 128²) ringed by flowing water (not an island in a lake)
+      const lakes = levelLakes(c, (150 * N) / 16384);
+      const inLake = new Uint8Array(N);
+      for (const L of lakes) for (const i of L.tiles) inLake[i] = 1;
+      const seen = new Uint8Array(N);
+      for (let s = 0; s < N; s++) {
+        if (seen[s] || D[s] >= 0.05) continue;
+        const q = [s];
+        seen[s] = 1;
+        let edge = false;
+        let ring = 0;
+        let ringLake = 0;
+        for (let k = 0; k < q.length; k++) {
+          const i = q[k];
+          const x = i % W;
+          const y = (i - x) / W;
+          if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
+          for (const [dx, dy] of D4) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+            const j = yy * W + xx;
+            if (D[j] >= 0.05) {
+              ring++;
+              if (inLake[j]) ringLake++;
+            } else if (!seen[j]) {
+              seen[j] = 1;
+              q.push(j);
+            }
+          }
+        }
+        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms` };
+      }
+      return { ok: false, note: "no island of 150+ tiles in a river" };
+    }
+    case "twin-falls": {
+      // two falls of 3+ levels, 4–15 tiles apart, from about the same height, on different courses
+      const courses = [...c.rivers, ...(c.arms ?? [])].map((p) => resample(p, W, H));
+      const nearestCourse = (x: number, y: number) => {
+        let best = -1;
+        let bd = Infinity;
+        courses.forEach((pts, k) => {
+          for (const [px, py] of pts) {
+            const d = (px - x) * (px - x) + (py - y) * (py - y);
+            if (d < bd) {
+              bd = d;
+              best = k;
+            }
+          }
+        });
+        return best;
+      };
+      const groups = fallGroups(c);
+      const tall = groups.filter((g) => g.drop >= 3);
+      for (let a = 0; a < tall.length; a++)
+        for (let b = a + 1; b < tall.length; b++) {
+          const d = Math.sqrt((tall[a].x - tall[b].x) ** 2 + (tall[a].y - tall[b].y) ** 2);
+          if (d < 4 || d > 15 || Math.abs(tall[a].top - tall[b].top) > 1) continue;
+          if (nearestCourse(tall[a].x, tall[a].y) === nearestCourse(tall[b].x, tall[b].y)) continue;
+          return { ok: true, note: `two falls of ${Math.round(tall[a].drop)} and ${Math.round(tall[b].drop)} levels, ${Math.round(d)} tiles apart` };
+        }
+      return { ok: false, note: `${tall.length} falls of 3+ levels, none side by side` };
+    }
+    case "upper-lower": {
+      // a line of steps of 3+ levels spanning half the map (gaps of a tile or two bridged)
+      const top = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (const [dx, dy] of D4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          if (h[i] - h[yy * W + xx] >= 3) top[i] = 1;
+        }
+      }
+      const seen = new Uint8Array(N);
+      let best = 0;
+      for (let s = 0; s < N; s++) {
+        if (!top[s] || seen[s]) continue;
+        const q = [s];
+        seen[s] = 1;
+        let x0 = W;
+        let x1 = 0;
+        let y0 = H;
+        let y1 = 0;
+        for (let k = 0; k < q.length; k++) {
+          const i = q[k];
+          const x = i % W;
+          const y = (i - x) / W;
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+              const j = yy * W + xx;
+              if (!top[j] || seen[j]) continue;
+              seen[j] = 1;
+              q.push(j);
+            }
+        }
+        best = Math.max(best, (x1 - x0 + 1) / W, (y1 - y0 + 1) / H);
+      }
+      return { ok: best >= 0.5, note: `the longest cliff of 3+ levels spans ${Math.round(best * 100)}% of the map` };
+    }
+    case "hanging-valleys": {
+      // two tributaries or more fall 2+ levels into the river they join, whose valley floor is
+      // 20+ tiles wide (at 128²)
+      const info = c.riverInfo ?? [];
+      const fallAt = new Float64Array(N);
+      for (const f of c.falls) if (f.drop > fallAt[f.i]) fallAt[f.i] = f.drop;
+      let hanging = 0;
+      c.rivers.forEach((path, k) => {
+        if (!info[k] || info[k].joins < 0) return;
+        const pts = resample(path, W, H);
+        let drop = 0;
+        for (const [x, y] of pts.slice(Math.max(0, pts.length - 22)))
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const xx = Math.round(x) + dx;
+              const yy = Math.round(y) + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H) drop = Math.max(drop, fallAt[yy * W + xx]);
+            }
+        if (drop >= 2) hanging++;
+      });
+      const main = info.findIndex((r) => r.role === "river/main");
+      const floor = main >= 0 ? valleyWidth(c, c.rivers[main]) : 0;
+      const want = (20 * Math.min(W, H)) / 128;
+      return { ok: hanging >= 2 && floor >= want, note: `${hanging} tributar${hanging === 1 ? "y falls" : "ies fall"} 2+ levels into the river; its valley floor ${Math.round(floor)} tiles wide` };
+    }
+    case "two-ways": {
+      // from the start (12–60 tiles out), one side holds twice the other's open farmland and the
+      // other, higher, twice its wood or ruins
+      const logs: Record<string, number> = { Oak: 8, Pine: 2, Birch: 1 };
+      const trees: { x: number; y: number; w: number; ruin: boolean }[] = [];
+      for (const o of c.objects) {
+        const w = logs[o.template] ?? 0;
+        const ruin = /Ruin/.test(o.template) && o.template !== "UndergroundRuins";
+        if (w || ruin) trees.push({ x: o.x, y: o.y, w, ruin });
+      }
+      for (let d = 0; d < 8; d++) {
+        const ux = [1, 0.707, 0, -0.707, -1, -0.707, 0, 0.707][d];
+        const uy = [0, 0.707, 1, 0.707, 0, -0.707, -1, -0.707][d];
+        const side = [
+          { farm: 0, wood: 0, ruins: 0, h: 0, n: 0 },
+          { farm: 0, wood: 0, ruins: 0, h: 0, n: 0 },
+        ];
+        for (let i = 0; i < N; i++) {
+          if (D[i] >= 0.05) continue;
+          const e = eu(i);
+          if (e < 12 || e > 60) continue;
+          const dot = ((i % W) - sx) * ux + (Math.floor(i / W) - sy) * uy;
+          if (Math.abs(dot) < 3) continue;
+          const s = side[dot > 0 ? 0 : 1];
+          s.n++;
+          s.h += h[i];
+          if (c.moist[i] > 0 && C[i] < 0.05) s.farm++;
+        }
+        for (const t of trees) {
+          const e = Math.sqrt((t.x - sx) ** 2 + (t.y - sy) ** 2);
+          if (e < 12 || e > 60) continue;
+          const dot = (t.x - sx) * ux + (t.y - sy) * uy;
+          if (Math.abs(dot) < 3) continue;
+          const s = side[dot > 0 ? 0 : 1];
+          s.wood += t.w;
+          if (t.ruin) s.ruins++;
+        }
+        const [a, b] = side;
+        if (!a.n || !b.n) continue;
+        const richer = b.wood >= 2 * a.wood && b.wood >= 60 ? "wood" : b.ruins >= 2 * a.ruins && b.ruins >= 10 ? "ruins" : null;
+        if (a.farm >= 2 * b.farm && a.farm >= (200 * N) / 16384 && richer && b.h / b.n >= a.h / a.n + 1.5)
+          return { ok: true, note: `${a.farm} tiles of farmland one way; ${richer === "wood" ? `${Math.round(b.wood)} logs` : `${b.ruins} ruins`} up high the other` };
+      }
+      return { ok: false, note: "no two directions that offer different riches" };
+    }
+    case "badwater-rich": {
+      // 400+ tiles (at 128²) of low land beside badwater within 60 tiles of the start, the start's
+      // own water clean
+      const bad = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05 && eu(i) <= 60) bad[i] = 1;
+      const dist = distanceTo(bad, W, H);
+      let surf = 0;
+      let n = 0;
+      for (let i = 0; i < N; i++)
+        if (bad[i]) {
+          surf += h[i] + D[i];
+          n++;
+        }
+      if (!n) return { ok: false, note: "no badwater within 60 tiles" };
+      const level = surf / n;
+      let land = 0;
+      for (let i = 0; i < N; i++) if (!(D[i] >= 0.05) && dist[i] <= 5 && eu(i) <= 60 && h[i] <= level + 1.5) land++;
+      let clean = false;
+      for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
+      const want = (400 * N) / 16384;
+      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}` };
+    }
+    case "relic-pinnacle": {
+      // a medium or large relic within 60 tiles on dry land no one walks to from the start
+      for (const o of c.objects) {
+        if (o.template !== "MediumRelic" && o.template !== "LargeRelic") continue;
+        if (o.x < 0 || o.y < 0 || o.x >= W || o.y >= H) continue;
+        const i = o.y * W + o.x;
+        if (eu(i) > 60 || Number.isFinite(c.walk[i])) continue;
+        return { ok: true, note: `a ${o.template === "LargeRelic" ? "large" : "medium"} relic ${Math.round(eu(i))} tiles away, reached only by building up to it` };
+      }
+      return { ok: false, note: "no relic out of reach on foot within 60 tiles" };
+    }
+    case "plug-lake": {
+      // a plug (Blockage) holding back a lake, 500+ tiles' worth of water (at 128²) above it, the
+      // start out of its way
+      const lakes = levelLakes(c, (100 * N) / 16384);
+      for (const o of c.objects) {
+        if (o.template !== "Blockage" || o.x < 0 || o.y < 0 || o.x >= W || o.y >= H) continue;
+        const base = o.z ?? h[o.y * W + o.x];
+        for (const L of lakes) {
+          let touches = false;
+          for (let dy = -2; dy <= 2 && !touches; dy++)
+            for (let dx = -2; dx <= 2 && !touches; dx++) {
+              const xx = o.x + dx;
+              const yy = o.y + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H && L.inLake[yy * W + xx]) touches = true;
+            }
+          if (!touches || L.surf < base + 0.5) continue;
+          let held = 0;
+          for (const i of L.tiles) held += Math.max(0, L.surf - Math.max(h[i], base));
+          const clear = z >= L.surf || Math.sqrt((o.x - sx) ** 2 + (o.y - sy) ** 2) > 25;
+          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water` };
+        }
+      }
+      return { ok: false, note: "no plug holding back a lake" };
     }
     case "long-view": {
       const sorted = Array.from(h).sort((p, q) => p - q);

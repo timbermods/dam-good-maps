@@ -209,23 +209,53 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // the pit: the 3×3 source and an irregular blob round it, radius 2.5–4
     const pit = new Uint8Array(N);
     const r0 = 2.6 + 1.2 * rng.float();
+    // the fall of the ground round the pit (from its high side to its low), else east
+    let gx = 0;
+    let gy = 0;
     for (let dy = -4; dy <= 4; dy++)
       for (let dx = -4; dx <= 4; dx++) {
         const x = cx + dx;
         const y = cy + dy;
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        gx -= dx * hh[y * W + x];
+        gy -= dy * hh[y * W + x];
+      }
+    const gl = Math.sqrt(gx * gx + gy * gy);
+    const fx = gl > 0 ? gx / gl : 1;
+    const fy = gl > 0 ? gy / gl : 0;
+    const elong = 1.5 + 0.6 * rng.float();
+    for (let dy = -8; dy <= 8; dy++)
+      for (let dx = -8; dx <= 8; dx++) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
         const inCore = Math.abs(dx) <= 1 && Math.abs(dy) <= 1;
-        if (inCore || dist(x, y, cx, cy) < r0 * (1 + 0.35 * fbm(s, x, y, 4, 2))) pit[y * W + x] = 1;
+        // (M9b, D294: the hollows read as round red discs: the pit is long along the fall of the
+        // ground, 1.5–2.1 times as long as wide, so the soil it stains runs down toward its ditch)
+        const along = (x - cx) * fx + (y - cy) * fy;
+        const across = -(x - cx) * fy + (y - cy) * fx;
+        const e = Math.sqrt((along / elong) * (along / elong) + across * across * elong * 0.5);
+        if (inCore || e < r0 * (1 + 0.35 * fbm(s, x, y, 4, 2))) pit[y * W + x] = 1;
       }
     // the ditch: from the pit's edge to a river channel (not the start's reach) or the map edge
     const edge: number[] = [];
-    for (let y = cy - 5; y <= cy + 5; y++)
-      for (let x = cx - 5; x <= cx + 5; x++) {
+    for (let y = Math.max(1, cy - 9); y <= Math.min(H - 2, cy + 9); y++)
+      for (let x = Math.max(1, cx - 9); x <= Math.min(W - 2, cx + 9); x++) {
         const j = y * W + x;
         if (pit[j]) continue;
         if (N4.some(([dx, dy]) => pit[(y + dy) * W + x + dx])) edge.push(j);
       }
+    // (M9b, D294: a ditch into a stream that feeds a lake or a sea turned the whole of it to
+    // badwater: it joins only a channel whose water leaves the map without passing a lake, else it
+    // runs to the map edge by itself)
+    const lakeFree = new Uint8Array(N);
+    for (let q = 0; q < dn.order.length; q++) {
+      const j = dn.order[q];
+      const r = dn.rcv[j];
+      lakeFree[j] = hy.water[j] !== 2 && (r < 0 || lakeFree[r]) ? 1 : 0;
+    }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if (hy.water[j] === 1 && !startWater[j] && sd[j] > D + 6) goal[j] = 1;
+    for (let j = 0; j < N; j++) if (hy.water[j] === 1 && lakeFree[j] && !startWater[j] && sd[j] > D + 6) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j]) keepOff[j] = 1;
     let clear = true;

@@ -11,6 +11,10 @@ import { heightMasks, waterColumns } from "./columns";
 import { columnSaturation, soil3d } from "./soil3d";
 import type { MapObject } from "./model";
 
+/** "port" gives sim/moisture.ts's and sim/contamination.ts's numbers (bit for bit), for comparing
+ *  maps before and after D298 in one process (tools and tests only). */
+export const SOIL_MODE: { mode: "game" | "port" } = { mode: "game" };
+
 export interface Soil {
   moisture: Float64Array;
   contamination: Float64Array;
@@ -43,7 +47,7 @@ export function gameSoil(W: number, H: number, heights: ArrayLike<number>, depth
     ss.set(s.subarray(0, N));
     s = ss;
   }
-  const out = soil3d(masks, wc, { depth: d, contamination: c, sat: s ?? columnSaturation(wc, d) }, objects, "game");
+  const out = soil3d(masks, wc, { depth: d, contamination: c, sat: s ?? columnSaturation(wc, d) }, objects, SOIL_MODE.mode);
   // one run per tile: the first N values are the tiles'
   return { moisture: out.moisture.length === N ? out.moisture : out.moisture.slice(0, N), contamination: out.contamination.length === N ? out.contamination : out.contamination.slice(0, N) };
 }

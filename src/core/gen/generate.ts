@@ -41,8 +41,9 @@ import { makeField } from "../land/field";
 import { drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses } from "../land/courses";
+import { orientationOf, orientDir, orientField } from "../land/orient";
 import { planHydro, type Hydro } from "../land/hydro";
-import type { IntentionId } from "../land/intentions";
+import { ACTIVE, type IntentionId } from "../land/intentions";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
 import { distanceFrom } from "../math/grid";
 import { hash32 } from "../math/hash";
@@ -61,9 +62,12 @@ import { planSetPiece } from "../features/setpieces";
 import { districtCandidates, planExtras, riseSpots, riseStands } from "./extras";
 import { lakeFeatures } from "./readback";
 import { planWeir } from "./weir";
+import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, settlerView, type IntentionResult } from "./intentions";
 import { toTimberFile } from "./pack";
+import { outcomesOf, type Outcomes } from "./outcomes";
+import { mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { ruinColumns } from "../resources/baseline";
@@ -75,6 +79,8 @@ import { pickStart, type DroughtPolicy, type StartPick } from "./settler";
 export type { IntentionResult };
 
 export const MAX_ATTEMPTS = 12;
+/** The most candidates (passing maps) made before the best of them stands (D278 (1a)). */
+export const CANDIDATES = 4;
 /** Plans on one field before a new genome is drawn. */
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
@@ -132,6 +138,11 @@ export interface GenerateResult {
   /** The intentions the map was steered toward, and whether each emerged (D138). */
   intentions: IntentionResult[];
   info: GenerationInfo;
+  /** What the map was chosen by (D273, D278): its water story, its theme's promise, its standout. */
+  outcomes?: Outcomes;
+  /** Its name, and a line on how it plays (D278 (1b); gen/names.ts). */
+  name?: string;
+  description?: string;
   /** Milliseconds from the call: the first look (land and planned water), the first settled
    *  water, the finished map. Information only: nothing depends on them. */
   timings: { firstLook: number; firstWater: number; final: number };
@@ -148,6 +159,8 @@ export interface GenerateOptions {
   context?: PlanContext | null;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
+  /** Each candidate as it is found (D278: the first shown at once, progress after it). */
+  onCandidate?: (c: { attempt: number; candidate: number; of: number; result: GenerateResult; outcomes: Outcomes }) => void;
   /** The drought-aware start (#59): by default Easy requires water that lasts the first drought,
    *  Normal and Hard prefer it. */
   drought?: DroughtPolicy;
@@ -198,7 +211,6 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   const failures: GenerateResult["failures"] = [];
   const max = opts.maxAttempts ?? MAX_ATTEMPTS;
   let last: Attempt | null = null;
-  let fallback: Attempt | null = null;
   let land: Land | null = null;
   let genomes = 0;
   let replans = 0;
@@ -212,16 +224,31 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   let tried = 0;
   // a field that passed twice without storage near the start has none to offer: new land
   let fresh = false;
+  // M9b (D278 (1a)): every passing map is a candidate, judged by the outcomes (a readable water
+  // story, the theme's promise, a standout intention; gen/outcomes.ts). The first that meets them
+  // is the map; else the next candidate grows on new land, and after `CANDIDATES` the best stands
+  // (the most outcomes met, then stored water near the start where the player asked for more).
+  let best: { a: Attempt; score: number } | null = null;
+  let candidates = 0;
+  const rank = (a: Attempt, o: Outcomes) => 2 * o.score + (a.noStorage ? 0 : 1);
   for (let attempt = 0; attempt < max; attempt++) {
     if (fresh || !land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
       fresh = false;
       opts.onProgress?.({ attempt, stage: "land" });
-      const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: opts.intentions, ...(opts.variety !== undefined ? { variety: opts.variety } : {}) });
+      // (Variety is a setting since M9b; Another like this draws a sibling, keeping its intentions)
+      const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
+      const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: keep, variety: opts.variety ?? specIn.settings.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
       leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
       genomes++;
       replans = 0;
       const F = makeField(g, seed, W, H);
-      land = { g, E: F.E, h0: snapLevels(F.E, g, seed, W, H), settles: 0 };
+      // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
+      // way with it; everything after is found on the turned land
+      const o = orientationOf(seed, genomes - 1, W, H);
+      g.orientation = o;
+      g.flowDir = orientDir(g.flowDir, o);
+      const E = orientField(F.E, W, H, o);
+      land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
     } else replans++;
     const a = attemptOnce(specIn, land, attempt, opts, t0);
     land.settles += a.result.info.settles;
@@ -231,19 +258,64 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     a.result.attempts = attempt + 1;
     a.result.failures = failures;
     last = a;
-    if (a.passed && !a.noStorage) return a.result;
-    if (a.passed && !fallback) fallback = a;
-    if (fallback && tried++ >= storageTries) {
-      // (the attempts the map took, the later ones included)
-      fallback.result.attempts = attempt + 1;
-      return fallback.result;
+    if (a.passed) {
+      candidates++;
+      const o = outcomesOf(a.result);
+      a.result.outcomes = o;
+      // its name and how it plays (D278 (1b)), from its standout and what the map holds
+      const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result) });
+      a.result.name = words.name;
+      a.result.description = words.description;
+      const score = rank(a, o);
+      if (!best || score > best.score) best = { a, score };
+      opts.onCandidate?.({ attempt, candidate: candidates, of: CANDIDATES, result: a.result, outcomes: o });
+      const done = o.met && (!a.noStorage || tried++ >= storageTries);
+      if (done || candidates >= CANDIDATES) {
+        // (the attempts the map took, the later ones included)
+        best.a.result.attempts = attempt + 1;
+        return best.a.result;
+      }
+      // a map that meets the outcomes but lacks storage is planned again on its field once; one that
+      // misses an outcome grows new land
+      if (!o.met || replans > 0) fresh = true;
+      failures.push({ attempt, failed: o.met ? ["water.storage_possible (preferred)"] : [`outcomes: ${o.summary}`] });
+      continue;
     }
-    if (a.passed && replans > 0) fresh = true;
-    failures.push({ attempt, failed: a.passed ? ["water.storage_possible (preferred)"] : failedIds(a.result) });
+    failures.push({ attempt, failed: failedIds(a.result) });
   }
-  const out = (fallback ?? last!).result;
+  const out = (best?.a ?? last!).result;
   out.attempts = max;
   return out;
+}
+
+/** What the finished map says about how it plays, for its description (gen/names.ts). */
+function playFacts(r: GenerateResult): PlayFacts {
+  const b = r.built;
+  const { W, H } = b;
+  let badwater: PlayFacts["badwater"] = null;
+  if (b.start) {
+    let best = Infinity;
+    for (let i = 0; i < W * H; i++) {
+      if (!(b.soilContamination[i] > 0 || (b.water[i] > 0.05 && b.contamination[i] >= 0.05))) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      const d = Math.sqrt((x - b.start.x) ** 2 + (y - b.start.y) ** 2);
+      if (d < best) {
+        best = d;
+        badwater = { x, y, distance: d };
+      }
+    }
+  }
+  const dam = r.analysis?.bestDam ?? null;
+  return {
+    W,
+    H,
+    start: b.start ? { x: b.start.x, y: b.start.y } : null,
+    startDrought: r.info.startDrought,
+    bestDam: dam ? { x: dam.x, y: dam.y, volume: dam.volume, length: dam.length } : null,
+    badwater,
+    woods: r.info.genome?.woods.kind ?? null,
+  };
 }
 
 /** Why an attempt failed: the stage it stopped at (no map was planned), else the blocking checks. */
@@ -580,7 +652,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const weir = planWeir(h, W, H, hy, seed, attempt, protect);
   const pool = new Uint8Array(N);
   if (weir) for (const i of weir.pool) pool[i] = 1;
-  let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(ctx?.features ?? [])];
+  // M9b ("a plug holds back a lake", D274): on a map steered toward it, a plug across a big lake's
+  // way out; the start and the badwater keep off it and its lake
+  const plug = g.plugLake ? planPlug(h, W, H, hy, seed, protect) : null;
+  if (plug) for (const i of plug.pool) pool[i] = 1;
+  let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(plug ? [plug.feature] : []), ...(ctx?.features ?? [])];
   const fail = (stage: string, b: BuildResult | null, replannable: boolean): Attempt => {
     info.stage = stage;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
@@ -831,7 +907,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   opts.onProgress?.({ attempt, stage: "objects" });
   const avoid = avoidOf(bad);
   const walked = startWalkable(base);
-  const objects = planExtras({ spec, base, features: layout, protect, avoid, candidate: 0, attempt });
+  const objects = planExtras({ spec, base, features: layout, protect, avoid, candidate: 0, attempt, relicHigh: !!g.relicHigh });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
     const own = (f: MapObjectFeature) => objectTiles(f, W, H).length;

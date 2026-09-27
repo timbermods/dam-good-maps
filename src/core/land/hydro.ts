@@ -669,18 +669,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const tr = stream(seed, "trough", attempt);
     let n = Math.floor(g.troughs + tr.float());
     const scale = side / 128;
-    const byLength = traced.slice().sort((a, b) => b.cells.length - a.cells.length || a.k - b.k);
-    for (const t of byLength) {
-      if (n <= 0) break;
+    /** Deepen the stretch a0–a1 of a traced river's valley, `reach` tiles either side. */
+    const deepen = (t: (typeof traced)[number], a0: number, a1: number, reach: number, level: number): void => {
       const cells = t.cells;
-      const len = Math.round((20 + 25 * tr.float()) * scale);
-      if (cells.length < len + 16) continue;
-      const a0 = Math.floor((cells.length - len - 8) * (0.15 + 0.6 * tr.float()));
-      const a1 = a0 + len;
-      if (cells.slice(a0, a1 + 1).some((c) => borderDist(c) < 8)) continue;
-      const level = h[cells[a1]];
-      if (level < 2) continue;
-      const reach = (5 + 7 * tr.float()) * scale;
       // the stretch along the river's course (its wandering line, M9a), else along its cells
       let pts = cells.slice(a0, a1 + 1).map((c) => [c % W, Math.floor(c / W)] as [number, number]);
       if (natural) {
@@ -737,6 +728,44 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
           const target = level - depth;
           if (depth > 0 && target >= 0 && h[i] > target) h[i] = target;
         }
+    };
+    // M9b ("lakes step down the valley", D274): a chain of valley lakes down the main river, each
+    // stretch ending a level or more below the last, from its own random stream
+    const chain = natural ? (g.hydro.chainLakes ?? 0) : 0;
+    const main = traced.find((t) => t.k === mainK);
+    if (chain > 0 && main) {
+      const cr = stream(seed, "chain-lakes", attempt);
+      const cells = main.cells;
+      let a0 = Math.floor(cells.length * (0.1 + 0.08 * cr.float()));
+      let prev = Infinity;
+      let placed = 0;
+      while (placed < chain && a0 < cells.length - 8) {
+        const len = Math.round((14 + 8 * cr.float()) * scale);
+        const a1 = a0 + len;
+        if (a1 >= cells.length - 6) break;
+        const level = h[cells[a1]];
+        if (level >= 2 && level <= prev - 1 && !cells.slice(a0, a1 + 1).some((c) => borderDist(c) < 8)) {
+          deepen(main, a0, a1, (5 + 4 * cr.float()) * scale, level);
+          prev = level;
+          placed++;
+          a0 = a1 + Math.round((5 + 4 * cr.float()) * scale);
+        } else a0 += 3;
+      }
+      n = Math.max(0, n - placed);
+    }
+    const byLength = traced.slice().sort((a, b) => b.cells.length - a.cells.length || a.k - b.k);
+    for (const t of byLength) {
+      if (n <= 0) break;
+      const cells = t.cells;
+      const len = Math.round((20 + 25 * tr.float()) * scale);
+      if (cells.length < len + 16) continue;
+      const a0 = Math.floor((cells.length - len - 8) * (0.15 + 0.6 * tr.float()));
+      const a1 = a0 + len;
+      if (cells.slice(a0, a1 + 1).some((c) => borderDist(c) < 8)) continue;
+      const level = h[cells[a1]];
+      if (level < 2) continue;
+      const reach = (5 + 7 * tr.float()) * scale;
+      deepen(t, a0, a1, reach, level);
       n--;
     }
   }
@@ -792,7 +821,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
 
   /** The bed along a path, sampled every tile of arc: never rising, `cut` levels below the lowest
    *  ground round it, and at a lake's outlet level where it leaves a lake. */
-  const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity) => {
+  const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity, floorOthers = false) => {
     const st = stamp(path, W, H, Math.ceil(width / 2 + g.hydro.floor * 1.5 + 3 + (natural ? width * 0.15 : 0)));
     const L = arcLength(path);
     const n = Math.max(2, Math.ceil(L));
@@ -812,7 +841,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
         for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
           const i = y * W + x;
-          if (water[i] === 1 || water[i] === 2 || st.d[i] < r) continue;
+          if (water[i] === 1 || water[i] === 2 || (floorOthers && water[i] === 3) || st.d[i] < r) continue;
           const dx = x - px;
           const dy = y - py;
           if (dx * dx + dy * dy > R * R) continue;
@@ -915,7 +944,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     // (M9b: a lake on the course stands below where the river begins, the mouth's banks or the
     // spring: its water reaches back up the channel, and above that it would run out by the edge
     // beside the mouth, or drown the spring)
-    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, natural ? h[hd.cell] : Infinity);
+    // (M9b: a tributary measures its banks without the floor a bigger river cleared: its valley then
+    // hangs above that floor and its water falls where it meets it, as design version 2's hanging
+    // valleys have it)
+    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, natural ? h[hd.cell] : Infinity, natural && tr.joins >= 0);
     // knickpoints: a steep reach's drops gather at its head; the reach below is cut to its foot
     const win = Math.round(g.knick);
     if (win > 0)
@@ -973,13 +1005,133 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     });
   }
 
+  // ---- M9b ("the river loops back and leaves an oxbow lake", D274): outside the main river's
+  //      strongest bend, a crescent hollow where an older loop of the river ran, its floor a level
+  //      below the river's bed, joined to the channel at its downstream end: the river fills it, and
+  //      in a drought it keeps the water below that join. Only ground is taken away (D111).
+  const mainRiverId = (): string => (rivers.find((r) => r.role === "river/main") ?? rivers[0]).id;
+  const oxbow = (m: { path: Point[]; prof: Float64Array; L: number; n: number; width: number }): void => {
+    const pts = resample(m.path, 1);
+    const n = pts.length;
+    if (n < 40) return;
+    // the turning over twelve tiles at each point of the course (the cross product of the ways in
+    // and out), strongest first, in its middle stretch, off the map's border and any lake
+    const bends: { k: number; turn: number }[] = [];
+    for (let k = Math.floor(0.15 * n); k < Math.floor(0.85 * n); k++) {
+      const a = pts[k - 6];
+      const b = pts[k];
+      const c = pts[k + 6];
+      if (!a || !c) continue;
+      const ux = b[0] - a[0];
+      const uy = b[1] - a[1];
+      const vx = c[0] - b[0];
+      const vy = c[1] - b[1];
+      const lu = Math.sqrt(ux * ux + uy * uy) || 1;
+      const lv = Math.sqrt(vx * vx + vy * vy) || 1;
+      bends.push({ k, turn: (ux * vy - uy * vx) / (lu * lv) });
+    }
+    bends.sort((p, q) => Math.abs(q.turn) - Math.abs(p.turn) || p.k - q.k);
+    const halfW = m.width / 2;
+    for (const bend of bends.slice(0, 12)) {
+      if (Math.abs(bend.turn) < 0.2) return;
+      // the outside of the bend: away from the side it turns to
+      const out = bend.turn > 0 ? -1 : 1;
+      const span = 9 + Math.round(3 * Math.abs(bend.turn));
+      const j = Math.min(m.n, Math.max(0, Math.round((bend.k / (n - 1)) * m.n)));
+      const bed = m.prof[j];
+      if (bed < 2) continue;
+      const floor = bed - 1;
+      const crescent: number[] = [];
+      let ok = true;
+      const mark = new Uint8Array(N);
+      for (let t = -span; t <= span && ok; t++) {
+        const k = bend.k + t;
+        if (k < 3 || k >= n - 3) {
+          ok = false;
+          break;
+        }
+        const [px, py] = pts[k];
+        const dx = pts[k + 3][0] - pts[k - 3][0];
+        const dy = pts[k + 3][1] - pts[k - 3][1];
+        const l = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = (-dy / l) * out;
+        const ny = (dx / l) * out;
+        // its middle stands off the channel by its bank and a little more, its ends closer
+        const u = t / span;
+        const off = halfW * 1.35 + 3 + 3.5 * (1 - u * u);
+        const cx = px + nx * off;
+        const cy = py + ny * off;
+        for (let yy = Math.floor(cy - 2); yy <= Math.ceil(cy + 2); yy++)
+          for (let xx = Math.floor(cx - 2); xx <= Math.ceil(cx + 2); xx++) {
+            if (xx < 3 || yy < 3 || xx > W - 4 || yy > H - 4) {
+              ok = false;
+              continue;
+            }
+            if ((xx - cx) * (xx - cx) + (yy - cy) * (yy - cy) > 1.7 * 1.7) continue;
+            const i = yy * W + xx;
+            if (mark[i]) continue;
+            if (water[i] === 1 || water[i] === 2 || protect?.[i] || h[i] <= floor) {
+              if (water[i] === 1 || water[i] === 2 || protect?.[i]) ok = false;
+              continue;
+            }
+            mark[i] = 1;
+            crescent.push(i);
+          }
+      }
+      if (!ok || crescent.length < 40) continue;
+      // the join: from the crescent's downstream end straight to the channel, at the river's bed
+      const kEnd = bend.k + span;
+      const [ex, ey] = pts[kEnd];
+      const tail = crescent[crescent.length - 1];
+      const tx = tail % W;
+      const ty = (tail - tx) / W;
+      const steps = Math.ceil(Math.max(Math.abs(ex - tx), Math.abs(ey - ty)) * 2) || 1;
+      const neck: number[] = [];
+      for (let q = 0; q <= steps; q++) {
+        const x = Math.round(tx + ((ex - tx) * q) / steps);
+        const y = Math.round(ty + ((ey - ty) * q) / steps);
+        const i = y * W + x;
+        if (water[i] === 1) break;
+        if (!mark[i]) neck.push(i);
+      }
+      for (const i of crescent) {
+        h[i] = floor;
+        water[i] = 2;
+      }
+      for (const i of neck) {
+        if (h[i] > bed) h[i] = bed;
+        if (!water[i]) water[i] = 1;
+      }
+      lakes.push({ tiles: crescent.slice().sort((a, b) => a - b), outletBed: bed, river: mainRiverId() });
+      return;
+    }
+  };
+  if (natural && g.hydro.oxbow && rivers.length) {
+    const m = exits.get(mainRiverId());
+    if (m) oxbow(m);
+  }
+
   // ---- a river splits round an island: a second arm leaves it and rejoins it downstream
   const main = rivers[0];
   if (main && rng.float() < g.hydro.split) {
     const m = exits.get(main.id)!;
     for (let tries = 0; tries < 6; tries++) {
-      const len = 26 + 20 * rng.float();
-      const s0 = m.L * (0.2 + 0.45 * rng.float());
+      // (M9b, "the river splits around a big island", D274: wider and longer)
+      const len = (g.hydro.bigSplit ? 42 : 26) + (g.hydro.bigSplit ? 24 : 20) * rng.float();
+      let s0 = m.L * (0.2 + 0.45 * rng.float());
+      // (M9b, two falls side by side: round the main river's biggest drop, so both arms fall over it)
+      if (g.hydro.splitAtFall && tries < 3) {
+        let bestDrop = 0;
+        let at = -1;
+        for (let j = 1; j <= m.n; j++) {
+          const d = m.prof[j - 1] - m.prof[j];
+          if (d > bestDrop) {
+            bestDrop = d;
+            at = j;
+          }
+        }
+        if (at >= 0 && bestDrop >= 2) s0 = Math.max(4, ((at / m.n) * m.L) - len * (0.35 + 0.3 * rng.float()));
+      }
       const s1 = s0 + len;
       if (s1 > m.L - 6) continue;
       const j0 = Math.round((s0 / m.L) * m.n);
@@ -993,7 +1145,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       }
       if (!ok) continue;
       const sideSign = rng.float() < 0.5 ? 1 : -1;
-      const off = sideSign * (m.width / 2 + 5 + 7 * rng.float());
+      const off = sideSign * (m.width / 2 + (g.hydro.bigSplit ? 9 : 5) + (g.hydro.bigSplit ? 6 : 7) * rng.float());
       const pts: Point[] = [];
       for (let k = 0; k <= 12; k++) {
         const t = k / 12;
@@ -1023,7 +1175,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const { p: p0 } = pointAt(m.path, s0);
     const end = m.path[m.path.length - 2];
     // (River style Braided: two or three more mouths, PLAN §5.3's 2–4 channels)
-    const k = 1 + (rng.float() < 0.5 ? 1 : 0) + (g.hydro.braided ? 1 : 0);
+    // (M9b: Delta's promise is several channels, D273 (2): its river fans into two or three more)
+    const more = rng.float() < 0.5 ? 1 : 0;
+    const k = (g.theme === "delta" ? 2 : 1) + more + (g.hydro.braided ? 1 : 0);
     const alongEdge = e === "west" || e === "east" ? 1 : 0;
     for (let a = 0; a < k; a++) {
       const sgn = a % 2 === 0 ? 1 : -1;

@@ -61,6 +61,8 @@ export interface EditorProps {
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
+  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
+  onAnother?(info: SessionInfo): void;
   saveState: string;
 }
 
@@ -2402,6 +2404,7 @@ export default function Editor(props: EditorProps) {
         historyOpen={showHistory}
         onHistory={() => setShowHistory(!showHistory)}
         onBack={() => props.onBack(info)}
+        onAnother={props.onAnother ? () => props.onAnother!(info) : undefined}
       />
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!carver.current?.running} />

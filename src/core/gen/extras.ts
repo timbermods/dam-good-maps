@@ -40,6 +40,8 @@ export interface ExtrasInput {
   avoid?: Uint8Array | null;
   candidate: number;
   attempt: number;
+  /** M9b: the first medium or large relic tries ground the start cannot walk to (D274). */
+  relicHigh?: boolean;
 }
 
 /** How many of each object the settings ask for on this map (PLAN §5.4–5.5). */
@@ -191,6 +193,24 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
           cands.push(y * W + x);
         }
       let done = false;
+      // M9b ("a relic waits on a pinnacle", D274): on a map steered toward it, the first medium or
+      // large relic tries ground the start cannot walk to, two levels or more above it, first
+      const high = inp.relicHigh && k === 0 && (kind === "relicMedium" || kind === "relicLarge") ? cands.filter((i) => regions[i] !== root && h[i] >= h[sy * W + sx] + 2) : [];
+      for (let tries = 0; tries < 40 && high.length && !done; tries++) {
+        const pick = high[rng.int(0, high.length)];
+        const x = pick % W;
+        const y = (pick - x) / W;
+        const tiles = footprintAt(kind, x, y, orientation);
+        let d = Infinity;
+        for (const [tx, ty] of tiles) d = Math.min(d, sd[ty * W + tx]);
+        if (d < lo || d > hi) continue;
+        if (fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length) continue;
+        const { id: fid, role } = id(kind, k);
+        out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x, y, orientation } } });
+        placed.push({ kind, tiles });
+        take(tiles, 3);
+        done = true;
+      }
       for (let tries = 0; tries < 40 && cands.length && !done; tries++) {
         const pick = cands[rng.int(0, cands.length)];
         const x = pick % W;

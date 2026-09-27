@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel, the
 // URL codec, the editor's SpecPatch and Claude all produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.7.0";
+export const GENERATOR_VERSION = "0.8.0";
 export const SPEC_VERSION = 1;
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
@@ -38,6 +38,9 @@ export interface Settings {
     buildableLand: "tight" | "normal" | "generous";
     /** Verticality (`vt`, D132): how vertical the land is, 0–100. Heights above 16 from 70 (D172). */
     verticality: number; // 0–100
+    /** Variety (`vy`, M9b, D276): how far the land strays from its theme's ranges, 0–100 (70 the
+     *  default; at 100 anything goes). */
+    variety: number; // 0–100
   };
   water: {
     rivers: number; // 0–3
@@ -96,6 +99,11 @@ export interface MapSpec {
   theme: ThemeId;
   archetype: ArchetypeId;
   premise?: string;
+  /** Another like this (M9b, D278 (1c)): a sibling's index (1, 2, …; absent for the map itself):
+   *  the same theme, settings and intentions, different land. */
+  variation?: number;
+  /** The intentions a sibling keeps (D278 (1c)); absent when the map draws its own. */
+  intentions?: string[];
   designedFor: Difficulty;
   settings: Settings;
   /** Room for Timber Together multi-colony maps (PLAN §20, D5). The generator builds only
@@ -185,6 +193,17 @@ export function upgradeVerticality(spec: unknown): void {
   t.verticality = VT_DEFAULT[theme];
 }
 
+/** Variety's default (M9b, D276; design version 2's 70). */
+export const VARIETY_DEFAULT = 70;
+
+/** A spec stored before M9b has no Variety: it takes the default. Changes the spec in place;
+ *  anything else is left for the schema to judge. */
+export function upgradeVariety(spec: unknown): void {
+  const t = (spec as { settings?: { terrain?: Record<string, unknown> } } | null)?.settings?.terrain;
+  if (!t || typeof t !== "object" || "variety" in t) return;
+  t.variety = VARIETY_DEFAULT;
+}
+
 /** A spec stored before every map had a mine site (Kyler, 2026-09-25) may ask for none: it asks for
  *  one. Changes the spec in place; anything else is left for the schema to judge. */
 export function upgradeMineSites(spec: unknown): void {
@@ -201,7 +220,7 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
   const p = THEME_PRESETS[theme];
   const d = DIFFICULTY_RULES[designedFor];
   return {
-    terrain: { relief: p.relief, highestTerrain: 16, terracing: p.terracing, buildableLand: p.buildableLand, verticality: VT_DEFAULT[theme] },
+    terrain: { relief: p.relief, highestTerrain: 16, terracing: p.terracing, buildableLand: p.buildableLand, verticality: VT_DEFAULT[theme], variety: VARIETY_DEFAULT },
     water: {
       rivers: p.rivers,
       riverStyle: p.riverStyle,

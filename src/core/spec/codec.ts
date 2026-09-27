@@ -69,6 +69,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "tr", path: ["terrain", "terracing"], kind: "int" },
   { key: "bl", path: ["terrain", "buildableLand"], kind: "enum", codes: { tight: "t", normal: "n", generous: "g" } },
   { key: "vt", path: ["terrain", "verticality"], kind: "int" },
+  { key: "vy", path: ["terrain", "variety"], kind: "int" },
   { key: "rv", path: ["water", "rivers"], kind: "int" },
   { key: "rs", path: ["water", "riverStyle"], kind: "enum", codes: { straight: "s", meandering: "m", braided: "b" } },
   { key: "fl", path: ["water", "riverFlow"], kind: "enum", codes: { trickle: "t", normal: "n", strong: "s", lush: "l" } },
@@ -100,7 +101,7 @@ const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
 /** Keys that are not settings, and `st`: Minimum starting trees before D164 (read as wood). */
-const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st"]);
+const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
   let o: unknown = s;
@@ -187,6 +188,9 @@ export function encodeSpecFragment(spec: MapSpec): string {
   }
   if (spec.archetype !== spec.theme) put("a", spec.archetype);
   if (spec.premise !== undefined) put("p", spec.premise);
+  // Another like this (D278 (1c)): the sibling's index and the intentions it keeps
+  if (spec.variation) put("vr", String(spec.variation));
+  if (spec.intentions?.length) put("in", spec.intentions.join("."));
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
   if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
   const k = spec.constraints;
@@ -288,6 +292,20 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
   }
   const p = params.get("p");
   if (p !== undefined) spec.premise = p;
+  const vr = params.get("vr");
+  if (vr !== undefined) {
+    if (/^\d{1,3}$/.test(vr) && Number(vr) > 0) spec.variation = Number(vr);
+    else problems.push(`variation "${vr}" is not valid`);
+  }
+  const ins = params.get("in");
+  if (ins !== undefined) {
+    const ids = ins.split(".").filter(Boolean);
+    spec.intentions = ids;
+    if (!ids.length || validateSpec(spec).length) {
+      delete spec.intentions;
+      problems.push(`intentions "${ins}" are not valid`);
+    }
+  }
   const c = params.get("c");
   if (c !== undefined) {
     const cm = /^([1-4])([nt])$/.exec(c);

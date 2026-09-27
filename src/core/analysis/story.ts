@@ -40,7 +40,7 @@ export interface WaterStory {
 }
 
 /** Limits a readable story keeps (information; the candidate choice prefers maps within them). */
-export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6, reach: 0.5 } as const;
+export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6, reach: 0.35 } as const;
 /** How far from clean water land counts as within reach of it, as a share of the map's side. */
 export const REACH = 0.14;
 
@@ -210,4 +210,13 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
 
 function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
+}
+
+/** Whether two maps' land is the same map (Another like this never gives a clone, D278 (1c)): 85%
+ *  or more of the tiles within a level of each other. Two different lands share far less. */
+export function sameLand(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  if (a.length !== b.length || !a.length) return false;
+  let same = 0;
+  for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) <= 1) same++;
+  return same >= 0.85 * a.length;
 }

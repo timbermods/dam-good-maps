@@ -1,6 +1,8 @@
 // While a map is made (ROADMAP M9a: generating shows its progress and never feels stalled): the
 // stage of the attempt under way, and the first look at its land, drawn as soon as the land and its
-// planned water exist, before the water is settled. North is up.
+// planned water exist, before the water is settled. North is up. M9b (D278): once a map has passed
+// its checks it stays in view, its water settled, while the generator looks on for one that meets
+// every outcome (a readable water story, the theme's promise, a standout), up to a few more.
 
 import { useEffect, useRef } from "preact/hooks";
 import type { GenProgress } from "../worker/api";
@@ -9,6 +11,8 @@ export interface Progress {
   attempt: number;
   stage: string;
   land: Extract<GenProgress, { kind: "land" }> | null;
+  /** The first map found, shown while the generator looks for a better one. */
+  candidate?: Extract<GenProgress, { kind: "candidate" }> | null;
 }
 
 const STAGES: Record<string, string> = {
@@ -24,11 +28,12 @@ const STAGES: Record<string, string> = {
 export function progressText(p: Progress | null): string {
   if (!p) return "Generating…";
   const what = STAGES[p.stage] ?? "Generating";
+  if (p.candidate) return `Found a map. Looking for a better one (${Math.min(p.candidate.candidate + 1, p.candidate.of)} of ${p.candidate.of}): ${what.toLowerCase()}…`;
   return p.attempt > 0 ? `${what} (layout ${p.attempt + 1})…` : `${what}…`;
 }
 
 /** The land shaded by height, the planned water blue. */
-function draw(canvas: HTMLCanvasElement, l: NonNullable<Progress["land"]>): void {
+function draw(canvas: HTMLCanvasElement, l: { W: number; H: number; heights: Uint8Array; water: Uint8Array }): void {
   const { W, H, heights, water } = l;
   canvas.width = W;
   canvas.height = H;
@@ -61,13 +66,13 @@ function draw(canvas: HTMLCanvasElement, l: NonNullable<Progress["land"]>): void
 
 export function FirstLook({ progress }: { progress: Progress | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const land = progress?.land ?? null;
+  const shown = progress?.candidate ?? progress?.land ?? null;
   useEffect(() => {
-    if (ref.current && land) draw(ref.current, land);
-  }, [land]);
+    if (ref.current && shown) draw(ref.current, shown);
+  }, [shown]);
   return (
     <div class="first-look">
-      {land ? <canvas ref={ref} class="first-look-map" aria-label="The land so far, before its water is settled" /> : null}
+      {shown ? <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "The first map found, while a better one is looked for" : "The land so far, before its water is settled"} /> : null}
       <p role="status" class="first-look-stage">
         {progressText(progress)}
       </p>

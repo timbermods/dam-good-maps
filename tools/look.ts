@@ -29,6 +29,7 @@ interface Job {
   scale: number;
   systems: boolean;
   paths: boolean;
+  intention: string | null;
   designedFor: string;
 }
 
@@ -39,6 +40,7 @@ import { parentPort } from "node:worker_threads";
 import { generate } from ${u("src/core/gen/generate.ts")};
 import { shadeTiles } from ${u("src/core/render/shade.ts")};
 import { waterStory, wetSystems } from ${u("src/core/analysis/story.ts")};
+import { signatureOf } from ${u("src/core/analysis/signature.ts")};
 import * as mapspec from ${u("src/core/spec/mapspec.ts")};
 import { encodePng } from ${u("tools/png.ts")};
 let extra = null;
@@ -50,7 +52,7 @@ parentPort.on("message", (job) => {
     const spec = mapspec.makeSpec({ seed: job.seed, theme: job.theme, size: { x: job.size, y: job.size }, designedFor: job.designedFor });
     if (job.vt !== null) spec.settings.terrain.verticality = job.vt;
     if (job.variety !== null && "variety" in spec.settings.terrain) spec.settings.terrain.variety = job.variety;
-    const r = generate(spec, job.variety === null ? {} : { variety: job.variety });
+    const r = generate(spec, { ...(job.variety === null ? {} : { variety: job.variety }), ...(job.intention ? { intentions: [job.intention] } : {}) });
     const b = r.built, W = b.W, H = b.H, S = job.scale;
     const rgb = shadeTiles(b.heights, W, H, b.water);
     const sys = wetSystems(W, H, b.water);
@@ -98,7 +100,7 @@ parentPort.on("message", (job) => {
       intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })),
       drawn: r.info.genome ? r.info.genome.intentions : [],
       recipe: r.info.genome ? (r.info.genome.seaLayout ? "sea " + r.info.genome.seaLayout : r.info.genome.recipe) : null,
-      hydro: r.info.hydro, story, outcomes: out,
+      hydro: r.info.hydro, story, outcomes: out, sig: signatureOf(W, H, b.heights, b.water, r.features),
       name: r.name ?? null, description: r.description ?? null,
       failures: r.failures.map((f) => f.failed.join("+")),
     });
@@ -130,6 +132,7 @@ async function main(): Promise<void> {
   const scale = Number(arg("scale", size > 160 ? "2" : "4"));
   const systems = process.argv.includes("--systems");
   const paths = process.argv.includes("--paths");
+  const intention = process.argv.includes("--intention") ? arg("intention", "") : null;
   const designedFor = arg("designed-for", "normal");
   const pairs: [string, number][] = process.argv.includes("--maps")
     ? arg("maps", "").split(",").map((p) => {
@@ -137,7 +140,7 @@ async function main(): Promise<void> {
         return [t, Number(s)] as [string, number];
       })
     : arg("themes", "any").split(",").flatMap((t) => range(arg("seeds", "1-6")).map((s) => [t, s] as [string, number]));
-  const jobs: Job[] = pairs.map(([theme, seed]) => ({ theme, seed, size, variety, vt, scale, systems, paths, designedFor }));
+  const jobs: Job[] = pairs.map(([theme, seed]) => ({ theme, seed, size, variety, vt, scale, systems, paths, intention, designedFor }));
   const outDir = resolve(ROOT, arg("out", join(".scratch", "look", new Date().toISOString().replace(/[:.]/g, "-"))));
   mkdirSync(outDir, { recursive: true });
   const n = Math.max(1, Math.min(Number(arg("jobs", String(Math.max(1, Math.min(4, cpus().length - 2))))), jobs.length));

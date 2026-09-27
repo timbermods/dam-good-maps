@@ -7,10 +7,11 @@
 // stands dry: the map's water can no longer be read from where it starts to where it leaves.
 //
 // The check: a priority flood over the side-to-side neighbours from every edge tile that drains
-// (all but the tiles round an inflow's mouth, which its sources seal) gives each tile the edge
-// tile its water leaves by. Every tile of a river's course must lead to its system's way out: the
-// main river's exit (or a delta mouth), within a few tiles along its edge; a tributary's water
-// leaves with the river it joins; a river of its own by its own exit.
+// (all but the tiles round an inflow's mouth, which its sources seal) gives each tile the level its
+// water spills out at; a second, from the stretch of edge the river's system leaves by (35% of the
+// side either way of its exit, and a delta's mouths), the level it would spill out at there. Where
+// the first is lower, by a level or more, anywhere along a river's course, its water leaves by that
+// lower way. A tributary's water leaves with the river it joins.
 
 import { drainage } from "./drainage";
 import type { Point, RiverFeature } from "../features/schema";
@@ -50,8 +51,11 @@ export interface Blocked {
   leaves: [number, number];
 }
 
-/** The rivers whose water leaves the map somewhere other than where their system does. `mouths`
- *  are extra ways out of the main river (a delta's arms, their paths ending on the edge). */
+/** The rivers whose water leaves the map somewhere other than where their system does: some way
+ *  out is strictly lower (a level or more) than the best way out by the stretch of edge the system
+ *  leaves by. A way out at the same level is a tie, not a leak (the water leaves the lower way); the
+ *  exit's stretch is 35% of the side either way along its edge (a river on a coastal plain spreads
+ *  before it leaves). `mouths` are the main river's other ways out (a delta's arms). */
 export function blockedCourses(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = []): Blocked[] {
   const N = W * H;
   const sealed = new Uint8Array(N);
@@ -65,12 +69,11 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
       if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && Math.abs(x - px) <= reach && Math.abs(y - py) <= reach) sealed[i] = 1;
     }
   }
-  const d = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
-  // the edge tile each tile's water leaves by
+  const all = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
   const out = new Int32Array(N).fill(-1);
-  for (let q = 0; q < d.order.length; q++) {
-    const i = d.order[q];
-    const r = d.rcv[i];
+  for (let q = 0; q < all.order.length; q++) {
+    const i = all.order[q];
+    const r = all.rcv[i];
     out[i] = r < 0 ? i : out[r];
   }
   // each river's system's ways out: follow joins to a river that leaves by an edge
@@ -87,18 +90,36 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
     if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
     return tiles;
   };
-  const near = (a: number, b: number, tol: number) => Math.abs((a % W) - (b % W)) + Math.abs(Math.floor(a / W) - Math.floor(b / W)) <= tol;
+  const tol = Math.max(12, Math.round(0.35 * Math.min(W, H)));
+  const onStretch = (i: number, exits: readonly number[]) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return exits.some((e) => {
+      const ex = e % W;
+      const ey = (e - ex) / W;
+      // the same edge, within the stretch along it
+      if ((ex === 0 || ex === W - 1) && x === ex && Math.abs(y - ey) <= tol) return true;
+      if ((ey === 0 || ey === H - 1) && y === ey && Math.abs(x - ex) <= tol) return true;
+      return false;
+    });
+  };
+  // the spill levels with only the system's exit stretch draining, once per system
+  const byExits = new Map<string, Float64Array>();
   const blocked: Blocked[] = [];
   for (const r of rivers) {
     if (r.params.badwater) continue;
     const exits = exitsOf(r);
     if (!exits.length) continue;
-    const tol = Math.max(12, Math.ceil(r.params.width) + 6);
-    const cells = courseCells(r.params.path, W, H);
-    for (const c of cells) {
+    const key = exits.join(",");
+    let viaExit = byExits.get(key);
+    if (!viaExit) {
+      viaExit = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] && onStretch(i, exits) }).filled;
+      byExits.set(key, viaExit);
+    }
+    for (const c of courseCells(r.params.path, W, H)) {
+      if (!(all.filled[c] < viaExit[c])) continue;
       const e = out[c];
-      if (e < 0 || exits.some((x) => near(e, x, tol))) continue;
-      blocked.push({ id: r.id, at: [c % W, (c - (c % W)) / W], leaves: [e % W, (e - (e % W)) / W] });
+      blocked.push({ id: r.id, at: [c % W, (c - (c % W)) / W], leaves: e >= 0 ? [e % W, (e - (e % W)) / W] : [-1, -1] });
       break;
     }
   }

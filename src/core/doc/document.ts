@@ -17,7 +17,7 @@ import type { BuildResult } from "../features/build";
 import { readTimber, type TimberFile } from "../format/timber";
 import { normalizeImport, type ImportReport } from "../format/normalize";
 import type { Runs } from "../math/grid";
-import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, mapName, toTimberFile } from "../gen/pack";
@@ -205,6 +205,8 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   upgradeMineSites((raw as { spec?: unknown }).spec);
   // a spec saved before M9a has no Verticality: it opens with its theme's default
   upgradeVerticality((raw as { spec?: unknown }).spec);
+  // a spec saved before M9b has no Variety: it opens with the default
+  upgradeVariety((raw as { spec?: unknown }).spec);
   if (raw.formatVersion === 1) return fromV1(raw as unknown as DocumentV1);
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);

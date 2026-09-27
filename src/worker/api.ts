@@ -83,6 +83,8 @@ export interface GenerateResponse {
   ms: number;
   /** The player's edits on this map (0 for a freshly generated map). */
   edits: number;
+  /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
+  intentions: string[];
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -127,6 +129,11 @@ export interface ResponseInput {
   timber: Uint8Array;
   project: Uint8Array;
   edits: number;
+  /** A generated map's own name and how it plays (D278 (1b)); else the theme's name and the map's
+   *  description. */
+  name?: string;
+  premise?: string;
+  intentions?: string[];
 }
 
 /** The page's view of a built map (a fresh generation, or an editor document's current map). */
@@ -177,18 +184,24 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     timberName: fileName(r.spec),
     project: r.project,
     projectName: projectFileName(r.spec),
-    name: mapName(r.spec),
-    premise: description(r.spec),
+    name: r.name ?? mapName(r.spec),
+    premise: r.premise ?? description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",
     ms: r.ms,
     edits: r.edits,
+    intentions: r.intentions ?? [],
   };
 }
 
 /** What the page hears while a map is made (ROADMAP M9a: generating shows its progress): each
  *  attempt's stage, and its first look, the land and the water the hydrology planned (channels 1,
  *  lakes 2, floors 3), before the water is settled. */
-export type GenProgress = { kind: "stage"; attempt: number; stage: string } | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array };
+export type GenProgress =
+  | { kind: "stage"; attempt: number; stage: string }
+  | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array }
+  /** A map that passed its checks (D278: the first is shown at once, while the generator looks on
+   *  for one that meets every outcome): its land and its settled water (1 where wet). */
+  | { kind: "candidate"; attempt: number; candidate: number; of: number; met: boolean; W: number; H: number; heights: Uint8Array; water: Uint8Array };
 
 export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
   const t0 = performance.now();
@@ -198,6 +211,12 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
       ? {
           onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage }),
           onLand: (l) => onProgress({ kind: "land", attempt: l.attempt, W: spec.size.x, H: spec.size.y, heights: l.heights, water: l.water }),
+          onCandidate: (c) => {
+            const b = c.result.built;
+            const wet = new Uint8Array(b.W * b.H);
+            for (let i = 0; i < wet.length; i++) wet[i] = b.water[i] > 0.05 ? 1 : 0;
+            onProgress({ kind: "candidate", attempt: c.attempt, candidate: c.candidate, of: c.of, met: c.outcomes.met, W: b.W, H: b.H, heights: b.heights.slice(), water: wet });
+          },
         }
       : {},
   );
@@ -216,6 +235,9 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     timber: r.bytes,
     project,
     edits: 0,
+    ...(r.name ? { name: r.name } : {}),
+    ...(r.description ? { premise: r.description } : {}),
+    intentions: r.info.genome?.intentions ?? [],
   });
 }
 

@@ -118,6 +118,8 @@ export function band(key: string, spec: MapSpec): string {
       return s.terrain.verticality >= 70
         ? "Sheer cliffs, spires and deep gorges. From 70 the land may rise above level 16, where the game's map editor can't edit it."
         : "How tall and sheer the land grows: higher brings cliffs, spires and deep gorges.";
+    case "variety":
+      return s.terrain.variety >= 85 ? "Anything goes: any landform, lake or cliff can turn up, whatever the theme." : "How far the land strays from its theme. Higher brings the unexpected.";
     case "highestTerrain":
       return "Official maps all top out at 16, the map editor's limit.";
     case "terracing":

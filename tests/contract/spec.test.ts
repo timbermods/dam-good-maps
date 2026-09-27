@@ -84,7 +84,7 @@ describe("URL codec (PLAN §14.5)", () => {
     for (let k = 0; k < 200; k++) {
       const spec = makeSpec({ seed: int(0, 4294967295), theme: pick(THEMES), designedFor: pick(["easy", "normal", "hard"] as const), size: { x: int(48, 256), y: int(48, 256) } });
       const st = spec.settings;
-      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100) };
+      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100), variety: int(0, 100) };
       st.water = {
         rivers: int(0, 3),
         riverStyle: pick(["straight", "meandering", "braided"] as const),

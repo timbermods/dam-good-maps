@@ -120,7 +120,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
 }
 
 /** The finished map as the intention checks read it. */
-export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
+export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }): FinalCtx {
   const { W, H } = b;
   const start = b.start ?? { x: 0, y: 0, z: 0 };
   const objs = b.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
@@ -146,6 +146,8 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
     falls: fallsOf(b.heights, b.water, W, H, 1.5),
     joins,
     rivers: hy.rivers.map((r) => r.params.path.map((p) => [p[0], p[1]] as [number, number])),
+    riverInfo: hy.rivers.map((r) => ({ role: r.role ?? "", joins: "river" in r.params.exit ? hy.rivers.findIndex((o) => o.id === (r.params.exit as { river: string }).river) : -1 })),
+    arms: (hy.arms ?? []).map((a) => a.path.map((p) => [p[0], p[1]] as [number, number])),
   };
 }
 
@@ -155,7 +157,7 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
  * (the land is kept, so the settle is reused); it is taken when more intentions emerge there, and
  * `commit` makes it the map. Every absent intention is dropped, never forced (D138).
  */
-export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy: Pick<Hydro, "rivers">, resteer: () => { built: BuildResult; commit: () => void } | null): IntentionResult[] {
+export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }, resteer: () => { built: BuildResult; commit: () => void } | null): IntentionResult[] {
   let res = ids.map((id) => ({ id, ...checkIntention(id, finalCtx(built, hy)) }));
   if (res.some((r) => !r.ok && START_SIDE.has(r.id))) {
     const alt = resteer();
