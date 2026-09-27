@@ -5,6 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { startMarker, startNote, startWalk, startWater } from "../../src/core/analysis/startWater";
 import { ALREADY_BAD, framesPerDay, HazardRun, hazardNote, LASTS, NOT_WATER } from "../../src/core/sim/hazard";
+import { droughtStrength, droughtTransitionDays } from "../../src/core/sim/weather";
+import { storedOutflows } from "../../src/core/format/world";
 import { waterModel } from "../../src/core/sim/model";
 import { TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
 import { soilContamination } from "../../src/core/sim/contamination";
@@ -31,13 +33,15 @@ describe("a hazard, day by day", () => {
   it("a length of 3 is three days, each with its frames, and its last day is one continuous run's water", () => {
     const m = pondMap(0.8);
     const run = new HazardRun({ model: m.model, depth: m.depth, contamination: m.contamination, hazard: "drought", days: 3, framesPerDay: 6 });
-    const seen: { day: number; frame: number }[] = [];
+    const seen: { day: number; frame: number; end: boolean }[] = [];
     for (let f = run.step(); f; f = run.step()) seen.push(f);
     expect(run.days).toBe(3);
+    // (no source: nothing to ease down, the drought starts at once)
+    expect(run.lead).toBe(0);
     expect(seen).toHaveLength(18);
-    expect(seen.at(-1)).toEqual({ day: 3, frame: 5 });
-    expect(seen.filter((f) => f.frame === 5).map((f) => f.day)).toEqual([1, 2, 3]);
-    const sim = new WaterSim(m.model, { depth: Float64Array.from(m.depth), contamination: Float64Array.from(m.contamination) });
+    expect(seen.at(-1)).toMatchObject({ day: 3, frame: 5, end: true });
+    expect(seen.filter((f) => f.end).map((f) => f.day)).toEqual([1, 2, 3]);
+    const sim = new WaterSim(m.model, { depth: Float64Array.from(m.depth), contamination: Float64Array.from(m.contamination) }, { edgeSpill: true });
     sim.run(3 * TICKS_PER_DAY, 0);
     expect(Array.from(run.sim.D)).toEqual(Array.from(sim.D));
   });
@@ -107,7 +111,7 @@ describe("a hazard, day by day", () => {
     let marker: string | null = null;
     let day = 0;
     for (let f = run.step(); f && !marker; f = run.step()) {
-      if (f.frame !== 3) continue;
+      if (!f.end) continue;
       marker = startMarker("drought", sw, true, f.day, m.heights, W, H, run.sim.D, run.sim.C, soilContamination(m.heights, run.sim.D, run.sim.C, W, H));
       day = f.day;
     }
@@ -124,5 +128,86 @@ describe("a hazard, day by day", () => {
     expect(startMarker("badtide", sw, true, 2, m.heights, W, H, m.depth, bad, new Float64Array(W * H))).toBeNull();
     bad[sw.pumped[0]] = 0.4;
     expect(startMarker("badtide", sw, true, 2, m.heights, W, H, m.depth, bad, new Float64Array(W * H))).toBe("Day 2: badwater reaches your start's water");
+  });
+
+  it("before a drought each source eases down over its own transition, as the game does (DroughtWaterStrengthModifier)", () => {
+    // about S / 2.67 days: a strength of 8 takes three days
+    expect(droughtTransitionDays(8)).toBeCloseTo(8 / (Math.fround(768 * Math.fround(0.6)) * Math.fround(0.0058)), 9);
+    expect(droughtTransitionDays(8)).toBeCloseTo(2.993, 3);
+    const T = droughtTransitionDays(2);
+    // full strength before its ease, 1 − p(0.85p + 0.15) of it p of the way through, none in the drought
+    expect(droughtStrength(-T - 0.01, 2)).toBe(1);
+    expect(droughtStrength(-T, 2)).toBeCloseTo(1, 9);
+    expect(droughtStrength(-T / 2, 2)).toBeCloseTo(1 - 0.5 * (0.85 * 0.5 + Math.fround(0.15)), 5);
+    expect(droughtStrength(-1e-9, 2)).toBeCloseTo(0, 6);
+    expect(droughtStrength(0, 2)).toBe(0);
+    expect(droughtStrength(5, 2)).toBe(0);
+  });
+
+  it("a drought's run starts a source's ease before its day 1; the water at the drought's start is what the ease left", () => {
+    const m = pondMap(0.8);
+    const cell = 11 * W + 5;
+    const model = { ...m.model, emitters: [{ cells: [cell], strength: 2, contamination: 0 }] };
+    const run = new HazardRun({ model, depth: m.depth, contamination: m.contamination, hazard: "drought", days: 2, framesPerDay: 4 });
+    expect(run.lead).toBe(Math.round(droughtTransitionDays(2) * TICKS_PER_DAY));
+    expect(run.leadFrames).toBe(4);
+    const frames = [];
+    for (let f = run.step(); f; f = run.step()) frames.push(f);
+    // the ease is day 1's first frames (the step from Day 0), its last the drought's start
+    expect(frames.slice(0, 4).map((f) => [f.day, f.start])).toEqual([[1, false], [1, false], [1, false], [1, true]]);
+    expect(frames.filter((f) => f.day === 1)).toHaveLength(8);
+    expect(frames.filter((f) => f.end).map((f) => f.day)).toEqual([1, 2]);
+    // the same water as a run with the source eased tick by tick by hand
+    const sim = new WaterSim({ ...model, emitters: [{ ...model.emitters[0] }] }, { depth: Float64Array.from(m.depth), contamination: Float64Array.from(m.contamination) }, { edgeSpill: true });
+    for (let t = 0; t < run.lead + 2 * TICKS_PER_DAY; t++) {
+      sim.emitters[0].strength = 2 * droughtStrength((t + 1 - run.lead) / TICKS_PER_DAY, 2);
+      sim.run(1);
+    }
+    expect(Array.from(run.sim.D)).toEqual(Array.from(sim.D));
+    // the map's own source is untouched
+    expect(model.emitters[0].strength).toBe(2);
+    // a badtide starts at once
+    expect(new HazardRun({ model, depth: m.depth, contamination: m.contamination, hazard: "badtide", days: 2, framesPerDay: 4 }).lead).toBe(0);
+    // a lead given (the probe's three temperate days from 04:00) is kept whole
+    expect(new HazardRun({ model, depth: m.depth, contamination: m.contamination, hazard: "drought", days: 2, framesPerDay: 4, lead: 3 - 128 / 768 }).lead).toBe(3 * 768 - 128);
+  });
+
+  it("the run starts from the water's outflows, as the file stores them and the game loads them", () => {
+    const m = pondMap(0.8);
+    const out = new Float64Array(4 * W * H);
+    out[4 * (11 * W + 5) + 3] = 0.25;
+    const a = new HazardRun({ model: m.model, depth: m.depth, contamination: m.contamination, out, hazard: "drought", days: 1, framesPerDay: 4 });
+    expect(a.sim.out[4 * (11 * W + 5) + 3]).toBe(0.25);
+    const b = new HazardRun({ model: m.model, depth: m.depth, contamination: m.contamination, hazard: "drought", days: 1, framesPerDay: 4 });
+    a.step();
+    b.step();
+    expect(Array.from(a.sim.D)).not.toEqual(Array.from(b.sim.D));
+    // the file's ColumnOutflows (FORMAT.md §4.3): Bottom:Left:Top:Right, each targetIndex|flow in the
+    // game's grid padded by one tile
+    const X = 3;
+    const tokens = Array.from({ length: 9 }, () => "0");
+    // tile (1, 1): 0.5 toward +x (its neighbour (2, 1), padded index (1 + 1)·5 + 2 + 1 = 13), 0.25 toward −y ((1, 0): 1·5 + 2 = 7)
+    tokens[4] = "7|0.25:0:0:13|0.5";
+    // a flow to a tile that isn't its neighbour is left out
+    tokens[0] = "0:0:0:99|1";
+    const read = storedOutflows({ WaterMapNew: { ColumnOutflows: { Array: tokens.join(" ") } } }, X, X)!;
+    expect(Array.from(read.slice(16, 20))).toEqual([0.25, 0, 0, 0.5]);
+    expect(Array.from(read.slice(0, 4))).toEqual([0, 0, 0, 0]);
+    expect(storedOutflows({ WaterMapNew: {} }, X, X)).toBeNull();
+  });
+
+  it("a hazard's water keeps the game's spill threshold at the map's edge: a trickle on floor 0 stands a tenth deep there", () => {
+    // a floor-0 channel running off the map's edge, fed by a trickle at its head
+    const W2 = 8;
+    const H2 = 5;
+    const h = new Uint8Array(W2 * H2).fill(3);
+    for (let x = 1; x < W2; x++) h[2 * W2 + x] = 0;
+    const model = { ...waterModel(W2, H2, h, []), emitters: [{ cells: [2 * W2 + 1], strength: 0.02, contamination: 0 }] };
+    const row = (edgeSpill: boolean) => Array.from(new WaterSim(model, undefined, { edgeSpill }).run(3000).D.slice(2 * W2 + 1, 3 * W2));
+    // the heightfield port's settle (no threshold at the edge): a thin film, under the wet line
+    expect(Math.max(...row(false))).toBeLessThan(0.05);
+    // the game's: the water stands at the threshold all along the channel
+    for (const d of row(true)) expect(d).toBeCloseTo(0.1, 3);
+    expect(new HazardRun({ model, depth: new Float64Array(W2 * H2), contamination: new Float64Array(W2 * H2), hazard: "drought", days: 1, framesPerDay: 4 }).sim.edgeSpill).toBe(true);
   });
 });

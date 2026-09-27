@@ -108,6 +108,66 @@ in the first day of a drought ("Day 1: your start's water is gone") and turn bad
 a badtide; Lake Basin and Islands starts keep their lake through a 9-day drought ("Your start's water
 lasts the drought"), and badwater reaches their water or farmland on days 1–3.
 
+## The game's drought, checked against the probe (the M9a probe diagnosis, 2026-09-27)
+
+M9a's probe diagnosis (`docs/progress/m9a.md` on `feature/m9a`, "The DGM Probe re-run
+20260927-1443-batch") found the strip's drought about a day late at its start: the run took the
+sources off at once, from the water at rest, while the game eases them down before a drought. Fixed
+on this branch, each against the game's own code and the probe run's snapshots
+(`C:\dgm-probe\results\20260927-1443-batch\`, out of git), with `tools/verify-hazard-probe.ts`:
+
+- **The sources' ease before a drought** (`DroughtWaterStrengthModifier`, as
+  `investigation/cycles/weather.ts` has it): each source eases down over S/2.67 days by 1 − p(0.85p +
+  0.15), tick by tick, then stops for the drought (`droughtStrength`, `core/sim/weather.ts`). The
+  ease is part of the step from Day 0 (the map as it is) to Day 1 (#125). A badtide has no ease.
+- **The water the game loads**: the run starts from the settled water with its outflows (the
+  settle's own, which M9a's 0d9e473 writes into the file); an unedited import from its own water and
+  the outflows the file stores (`storedOutflows`, `core/format/world.ts`, new).
+- **The game's spill threshold at the map's edge**: found by splitting the cycles model's rule
+  groups (`legacy`) on these maps. With the ease and the outflows the strip still drained a day
+  early on Canyon and No badwater; the one rule that made the difference is the game's spill
+  threshold on flow off the map (its padding is an open floor-0 column, never wet), which the
+  heightfield port leaves out: a draining river's last tenth stays on floor-0 edge tiles. The hazard
+  run uses it (`WaterSim`'s `edgeSpill`, off by default); the settle and the generator don't, so no
+  map's water or bytes move (D293: the heightfield water stays as it is until the one-model change;
+  #125 asks whether it joins that change).
+
+The game against the strip, after and before (water blocks and wet tiles, over 0.05 deep; the
+probe's tolerance is 5% of the larger on each):
+
+| Map, drought | Game | Now | Before |
+|---|---|---|---|
+| Canyon 128² s1, start | 324 / 793 | 321 / 778 | 509 / 973 |
+| … +128 ticks | 162 / 448 | 162 / 437 | 261 / 699 |
+| … day 1 | 53 / 55 | 54 / 56 | 50 / 56 |
+| … day 3 | 35 / 55 | 36 / 56 | 40 / 56 |
+| No badwater s6, start | 765 / 1,401 | 760 / 1,386 | 1,788 / 3,935 |
+| … +128 ticks | 493 / 1,168 | 490 / 1,168 | 1,319 / 2,252 |
+| … day 1 | 116 / 449 | 116 / 419 | 184 / 1,150 |
+| … day 1 + 128 ticks | 104 / 70 | 104 / 70 | 126 / 1,076 |
+| … day 3 | 53 / 70 | 53 / 70 | 54 / 70 |
+| Delta 128² s1, start | 2,250 / 2,166 | 2,244 / 2,161 | 2,582 / 2,222 |
+| … +128 ticks | 2,062 / 1,755 | 2,061 / 1,755 | 2,185 / 2,004 |
+| … day 1 | 1,907 / 1,381 | 1,907 / 1,381 | 1,885 / 1,081 |
+| … day 3 | 1,738 / 1,081 | 1,738 / 1,081 | 1,749 / 1,081 |
+
+"Before" is the first build's run (the sources off at once at the drought's start, the water at
+rest). Every drought moment is within the tolerance but one: No badwater's day 1, 419 wet tiles
+against 449 (water 116 against 116): the river draining through the wet line at that moment, the
+same 420 the cycles model gives (the probe's item 4). Moist tiles match at the day ends where the
+game's soil has caught up (Canyon day 1: 1,516 against 1,516); the editor's soil is the steady
+state, so for a few hours after a change it runs ahead of the game's.
+
+Badtides were within the tolerance on Canyon and No badwater (1.4–3.0%). On Delta the probe's badtide
+follows its drought and the refill (the strip's badtide starts from the map as it is), and the
+refill's thin films on Delta's flats go their own way in the game (the probe's item 3): 2,085 wet
+tiles in the game at the badtide's start against 2,222 in the file; not like for like.
+
+Tests (D148): `tests/unit/hazard.test.ts` gains the ease's curve and timing, a drought run with a
+source against the same run eased by hand, the outflows (set, and read from a file's tokens) and the
+edge threshold; its continuous-run check now runs with the edge rule. The quick suite and the water
+e2e specs pass.
+
 ## For Kyler's sitting
 
 1. Refine a map (a 256² one too), press **Drought**: progress, then day 9 with the dried ground; the

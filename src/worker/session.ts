@@ -65,7 +65,7 @@ import type { TerrainState } from "../core/features/raster/strokePreview";
 import { rulesFor } from "../core/validate/playability";
 import { mapObjects, moistureBarrier, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
-import { surfaceOf } from "../core/format/world";
+import { storedOutflows, storedWater, surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
@@ -732,6 +732,9 @@ export interface HazardSummary {
   hazard: Hazard;
   days: number;
   version: number;
+  /** Frames of day 1 (`hazardSteps(1)`) before the hazard starts: the sources' ease down before a
+   *  drought (the last of them is the drought's start). */
+  leadFrames: number;
   /** Per tile: the day its water dries (a drought) or turns bad (a badtide), core/sim/hazard.ts
    *  `change`. */
   change: Uint8Array;
@@ -767,22 +770,32 @@ let hazardToken = 0;
 /** How often the page hears how far the working-out has come. */
 const HAZARD_PROGRESS_MS = 100;
 
-/** The map's water as it is, for a hazard to start from (an unedited import's: the background
- *  check's settle when it has run, else the file's own water on the surface). */
-function dayZero(s: MapSession): { model: WaterModel; depth: Float64Array; contamination: Float64Array } | null {
+/** The map's water as the game would load it, for a hazard to start from: the settled water with
+ *  its outflows (what the export writes); an unedited import's, the file's own water on the surface
+ *  with the outflows it stores. */
+function dayZero(s: MapSession): { model: WaterModel; depth: Float64Array; contamination: Float64Array; out: Float64Array | null } | null {
   const b = s.built;
-  if (!b.waterFromFile) return { model: b.waterModel, depth: b.water, contamination: b.contamination };
-  if (lastWater && lastWater.version === version) return { model: lastWater.model, depth: lastWater.depth, contamination: lastWater.contamination };
-  const ls = s.lastSettled();
-  return ls ? { model: b.waterModel, depth: ls.water.depth, contamination: ls.water.contamination } : null;
+  const N = b.W * b.H;
+  if (!b.waterFromFile) return { model: b.waterModel, depth: b.water, contamination: b.contamination, out: b.settle.out?.length === 4 * N ? b.settle.out : null };
+  const singletons = s.openedFile().world.singletons;
+  const w = storedWater(singletons, b.W, b.H);
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let k = 0; k < w.tile.length; k++) {
+    const i = w.tile[k];
+    if (w.floor[k] >= 0 && Math.abs(w.floor[k] - b.heights[i]) > 0.01) continue;
+    depth[i] = w.depth[k];
+    contamination[i] = w.contamination[k];
+  }
+  return { model: b.waterModel, depth, contamination, out: storedOutflows(singletons, b.W, b.H) };
 }
 
 /** Work out a drought or a badtide of `days` on the map as it is (D267 (1)): its last day, the
  *  notes for the water and the start's marker. Waits for the water to settle after the last
  *  edit first. Tells the page how far it has come (`hazard` events); null when an edit or another
  *  hazard came first. */
-export async function showHazard(h: Hazard, days: number, opts: { id?: number; framesCap?: number } = {}): Promise<HazardSummary | null> {
-  const { id = 0, framesCap } = opts;
+export async function showHazard(h: Hazard, days: number, opts: { id?: number; framesCap?: number; lead?: number } = {}): Promise<HazardSummary | null> {
+  const { id = 0, framesCap, lead } = opts;
   const s = need();
   const token = ++hazardToken;
   hazard = null;
@@ -822,7 +835,7 @@ export async function showHazard(h: Hazard, days: number, opts: { id?: number; f
   const sw = mid ? startWater({ W, H, heights: b.heights, walk: startWalk(objects, b.heights, W, H, mid), within, depth: zero.depth, contamination: zero.contamination, moisture: moisture(b.heights, zero.depth, zero.contamination, W, H, barrier) }) : null;
   let wet = 0;
   for (let i = 0; i < N; i++) if (zero.depth[i] > WET_VIEW) wet++;
-  const run = new HazardRun({ model: zero.model, depth: zero.depth, contamination: zero.contamination, hazard: h, days, framesPerDay: framesCap ? Math.min(framesCap, framesPerDay(days, wet)) : framesPerDay(days, wet) });
+  const run = new HazardRun({ model: zero.model, depth: zero.depth, contamination: zero.contamination, ...(zero.out ? { out: zero.out } : {}), hazard: h, days, framesPerDay: framesCap ? Math.min(framesCap, framesPerDay(days + 1, wet)) : framesPerDay(days + 1, wet), ...(lead !== undefined ? { lead } : {}) });
   const dayViews: HazardDay[] = [{ day: 0, water: waterOf(s), soil: soilOf(s) }];
   const frames: WaterView[][] = [[]];
   // each day can be shown as soon as it has been worked out (the page may look at the first days
@@ -838,7 +851,7 @@ export async function showHazard(h: Hazard, days: number, opts: { id?: number; f
       const at = run.step()!;
       const view = waterOf(s, { depth: run.sim.D, contamination: run.sim.C });
       (frames[at.day] ??= []).push(view);
-      if (at.frame !== run.framesPerDay - 1) continue;
+      if (!at.end) continue;
       const soil = soilNow(run.sim.D, run.sim.C);
       dayViews.push({ day: at.day, water: view, soil: soil.view });
       ready = at.day;
@@ -854,7 +867,7 @@ export async function showHazard(h: Hazard, days: number, opts: { id?: number; f
   tell(1, true);
   const note = marker || !sw ? null : startNote(h, hadWater);
   const last = dayViews[run.days];
-  return { hazard: h, days: run.days, version: v, change: run.change.slice(), startWater: Int32Array.from(sw?.body ?? []), marker, note, last: { day: last.day, water: copyWater(last.water), soil: copySoil(last.soil) } };
+  return { hazard: h, days: run.days, version: v, leadFrames: run.leadFrames, change: run.change.slice(), startWater: Int32Array.from(sw?.body ?? []), marker, note, last: { day: last.day, water: copyWater(last.water), soil: copySoil(last.soil) } };
 }
 
 /** A day of the hazard shown (0 is the map as it is), or null when it has ended. */

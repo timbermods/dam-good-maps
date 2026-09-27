@@ -314,3 +314,37 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
   }
   return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
 }
+
+/** The outflows a file stores for the water on each tile's first column (`WaterMapNew.ColumnOutflows`,
+ *  FORMAT.md §4.3: `"0"` or `Bottom:Left:Top:Right`, each part `"0"` or `targetIndex|flow` with the
+ *  target in the game's grid padded by one tile), four per tile in the simulation's order (−y, −x,
+ *  +y, +x, as `WaterSim.out` holds them); a flow to anywhere but the tile's own neighbour on the
+ *  same column is left out. Null when the file stores none. */
+export function storedOutflows(singletons: JsonObject, W: number, H: number): Float64Array | null {
+  const wm = singletons.WaterMapNew;
+  if (!isObject(wm) || !isObject(wm.ColumnOutflows)) return null;
+  const tokens = String(wm.ColumnOutflows.Array).split(" ");
+  const plane = W * H;
+  if (tokens.length < plane) return null;
+  const out = new Float64Array(4 * plane);
+  const stride = W + 2;
+  let any = false;
+  for (let i = 0; i < plane; i++) {
+    const t = tokens[i];
+    if (t === "0") continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const want = [(y - 1 + 1) * stride + x + 1, (y + 1) * stride + x, (y + 2) * stride + x + 1, (y + 1) * stride + x + 2];
+    const parts = t.split(":");
+    for (let k = 0; k < 4 && k < parts.length; k++) {
+      const p = parts[k];
+      if (p === "0") continue;
+      const [target, flow] = p.split("|");
+      const v = Number(flow);
+      if (Number(target) !== want[k] || !(v > 0)) continue;
+      out[4 * i + k] = v;
+      any = true;
+    }
+  }
+  return any ? out : null;
+}
