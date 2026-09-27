@@ -1,6 +1,6 @@
 import { BoxGeometry, BufferGeometry, CylinderGeometry, ConeGeometry, IcosahedronGeometry, TorusGeometry, Float32BufferAttribute, InstancedBufferAttribute, InstancedMesh, Group, Matrix4, Quaternion, Vector3, ShaderMaterial, type BufferAttribute } from 'three';
 import type { MapView } from '../../src/render3d/model';
-import { START, RUIN, MINE, RELIC_STONE, GEOTHERMAL_ROCK, GEOTHERMAL, THORNS, type Rgb } from '../../src/render3d/palette';
+import { START, RUIN, MINE, RELIC_STONE, GEOTHERMAL_ROCK, GEOTHERMAL, THORNS, badwaterBody,type Rgb } from '../../src/render3d/palette';
 import { replace } from './lighting';
 
 const shade=(c:Rgb,k:number):Rgb=>[c[0]*k,c[1]*k,c[2]*k];
@@ -54,17 +54,34 @@ function district(){
 }
 function relic(type:string){
  const m=new Parts(),large=type==='LargeRelic',medium=type==='MediumRelic',w=type==='SmallRelic'?1.86:2.86,d=large?2.86:medium?1.86:.86;
- m.box(w,.16,d,shade(RELIC_STONE,.77),0,.08);m.box(w-.10,.06,d-.10,shade(RELIC_STONE,1.06),0,.19);
- const columns=large?[[-.8,-.8,1.85],[.8,-.8,1.45],[-.8,.8,1.18],[.8,.8,.62],[0,-.8,.42]]:medium?[[-.8,-.4,1.16],[0,-.4,.5],[.8,-.4,.9],[-.8,.4,.34],[.8,.4,1.37]]:[[-.4,0,.87],[.4,0,.43]];
- for(const [x,z,h]of columns){
-   m.box(.48,.10,.48,shade(RELIC_STONE,.9),x,.27,z);
-   m.add(new CylinderGeometry(.155,.205,h,8),RELIC_STONE,x,.32+h/2,z);
-   m.add(new CylinderGeometry(.14,.17,.13,7),shade(RELIC_STONE,1.12),x+.02,.33+h,z,0,.1,.22);
-   for(let k=0;k<8;k++){const a=k*Math.PI/4; m.beam([x+Math.sin(a)*.181,.35,z+Math.cos(a)*.181],[x+Math.sin(a)*.156,.26+h,z+Math.cos(a)*.156],.009,shade(RELIC_STONE,.79),1);}
-   m.add(new TorusGeometry(.197,.019,3,8),shade(RELIC_STONE,1.05),x,.42,z,Math.PI/2,0,0,1);
+ // The same simple stumps and footprint as Standard, with no classical trim.
+ m.box(w,.13,d,shade(RELIC_STONE,.77),0,.065);
+ const columns=large?[[-1,-1,1.9],[1,-1,1.5],[-1,1,1.2],[1,1,.7],[0,-1,.4]]:medium?[[-1,-.5,1.2],[0,-.5,.5],[1,-.5,.95],[-1,.5,.35],[1,.5,1.4]]:[[-.5,0,.9],[.5,0,.45]];
+ for(const [index,[x,z,h]]of columns.entries()){
+   const g=new CylinderGeometry(.17,.20,h,7,2),p=g.getAttribute('position');
+   for(let i=0;i<p.count;i++){
+     const angle=Math.atan2(p.getZ(i),p.getX(i)),chip=.90+.10*hash(Math.round(angle*100)+index*31);
+     const y=p.getY(i);p.setXYZ(i,p.getX(i)*chip,y+(y>h*.48?(hash(Math.round(angle*100)+index*19)-.5)*.16:0),p.getZ(i)*chip);
+   }
+   g.computeVertexNormals();m.add(g,shade(RELIC_STONE,.94+hash(index)*.10),x,.13+h/2,z);
  }
- if(medium||large)m.add(new CylinderGeometry(.18,.2,.67,8),shade(RELIC_STONE,.91),.15,.43,.42,0,.7,Math.PI/2);
- for(let k=0;k<7;k++)rock(m,(hash(k)-.5)*w,.26,(hash(k+71)-.5)*d,.05+hash(k+4)*.10,shade(RELIC_STONE,.9),k,1);
+ for(let k=0;k<(large?4:2);k++)rock(m,(hash(k+37)-.5)*w,.15,(hash(k+73)-.5)*d,.045+hash(k+4)*.065,shade(RELIC_STONE,.86),k,1);
+ return m.geometry();
+}
+function badSource(){
+ const m=new Parts();
+ // A low, broken lip around a murky red-brown seep, not an orange fire ring.
+ m.add(new CylinderGeometry(1.19,1.28,.11,11),[.22,.235,.205],0,.055);
+ m.add(new CylinderGeometry(1.08,1.08,.025,15),badwaterBody(.8),0,.12);
+ for(let k=0;k<7;k++){
+  const a=k*2.4,r=.17+hash(k+33)*.69;
+  m.add(new CylinderGeometry(.14+hash(k)*.11,.14,.009,7),[.30,.285,.16],Math.sin(a)*r,.136,Math.cos(a)*r,0,k);
+ }
+ for(let k=0;k<6;k++){
+  const x=(hash(k+94)-.5)*1.40,z=(hash(k+43)-.5)*1.40,r=.035+hash(k+5)*.055;
+  m.add(new TorusGeometry(r,.012,3,9),[.38,.34,.20],x,.146,z,Math.PI/2,0,0,1);
+ }
+ for(let k=0;k<4;k++)rock(m,Math.sin(k*2.7)*1.14,.10,Math.cos(k*2.7)*1.14,.12,[.25,.26,.215],k,1);
  return m.geometry();
 }
 function bramble(){
@@ -77,6 +94,7 @@ function bramble(){
  rock(m,0,.12,0,.22,shade(THORNS,.67),11);return m.geometry();
 }
 function source(bad:boolean){
+ if(bad)return badSource();
  const m=new Parts(),r=bad?1.26:.43,c:Rgb=bad?[.34,.27,.25]:[.48,.49,.43];
  for(let k=0;k<(bad?11:8);k++){const a=k*Math.PI*2/(bad?11:8);rock(m,Math.cos(a)*r*.77,.12,Math.sin(a)*r*.77,r*.26,shade(c,.8+hash(k)*.4),k);}
  m.add(new CylinderGeometry(r*.65,r*.69,.08,12),bad?[.40,.12,.075]:[.22,.56,.71],0,.09);
@@ -116,8 +134,8 @@ function augment(key:string,base:BufferGeometry){
    for(const x of [-2.37,2.37])for(const z of [-2.37,2.37])m.add(new CylinderGeometry(.065,.065,.025,6),[.62,.52,.35],x,.185,z,0,0,0,1);
    for(const z of [-2.25,2.25])for(let k=0;k<11;k++)m.box(.026,.014,.18,shade(MINE.wood,.7),-2+k*.4,.20,z,0,0,0,1);
  }else if(key==='Slope'){
-   // Worn steps sit on the correct inclined face. Markers retain the old arrow.
-   for(let k=0;k<6;k++){const z=-.41+k*.155;m.box(.76,.026,.034,[.60,.55,.45],0,z+.52,z,Math.PI/4,0,0,1);}
+   // Keep the terrain ramp itself. Its material carries soil, stone and grass;
+   // no planks, cleats or other manufactured detail.
  }
  return m.geometry();
 }
@@ -126,7 +144,7 @@ export function category(template:string){
  return ({UndergroundRuins:'mine',SmallRelic:'relics',MediumRelic:'relics',LargeRelic:'relics',StartingLocation:'start',GeothermalField:'geothermal',Thorns:'thorns',Slope:'slopes',NaturalDam:'dams',Blockage:'blocks',WaterSource:'sources',BadwaterSource:'sources'} as Record<string,string>)[template];
 }
 export class Landmarks {
- group=new Group();detail={value:1};private material:ShaderMaterial;private pairs:{old:InstancedMesh;fresh:InstancedMesh;category:string}[]=[];
+ group=new Group();detail={value:1};private material:ShaderMaterial;private slopeMaterial:ShaderMaterial;private pairs:{old:InstancedMesh;fresh:InstancedMesh;category:string}[]=[];
  stats={buildMs:0,draws:0,triangles:0,instances:0};
  constructor(base:ShaderMaterial){
   this.material=new ShaderMaterial({defines:{...base.defines},uniforms:{...base.uniforms,finishObjectDetail:this.detail},vertexShader:'uniform float finishObjectDetail;varying vec3 finishLocal;\n'+base.vertexShader,fragmentShader:'uniform float finishObjectDetail;varying vec3 finishLocal;\n'+base.fragmentShader});
@@ -141,6 +159,19 @@ export class Landmarks {
           color*=1.0+(grain-.5)*.12*close+(patina-.5)*.07;
         }
         gl_FragColor=vec4(finish(color*light,vWorld),1.0);`);
+  this.slopeMaterial=this.material.clone();this.slopeMaterial.uniforms=this.material.uniforms;
+  this.slopeMaterial.fragmentShader=replace(this.material.fragmentShader,'vec3 color=vColor;',`
+        vec2 g=vec2(vWorld.x,-vWorld.z);
+        float grain=vnoise(g*5.7),earthPatch=vnoise(g*.8+13.1);
+        vec3 color=mix(vec3(.34,.36,.33),vec3(.43,.445,.405),grain);
+        if(n.y>.5){
+          color=mix(vec3(.39,.38,.37),vec3(.47,.43,.36),earthPatch)*( .90+.16*grain);
+          float packed=floor(texture2D(tileTex,(floor(g)+.5)/mapSize).g*255.0+.5);
+          float moist=step(1.0,floor(packed/16.0));
+          float grass=smoothstep(.66,.96,finishLocal.z+.5+(grain-.5)*.15)*moist;
+          color=mix(color,mix(vec3(.60,.66,.31),vec3(.56,.66,.26),earthPatch)*(.87+.14*grain),grass);
+        }
+        `);
  }
  setMap(map:MapView,original:Group){
    const t=performance.now();this.clear();
@@ -187,7 +218,7 @@ export class Landmarks {
   for(const old of oldMeshes){
    const entries=this.pairs.filter(p=>p.old===old),any=entries.some(p=>enabled&&flags[p.category]);
    old.visible=!any;
-   for(const p of entries){p.fresh.visible=any;const chosen=enabled&&flags[p.category];p.fresh.material=chosen?this.material:old.material;
+   for(const p of entries){p.fresh.visible=any;const chosen=enabled&&flags[p.category];p.fresh.material=chosen?(p.category==='slopes'?this.slopeMaterial:this.material):old.material;
      p.fresh.instanceColor=chosen?p.fresh.userData.proposalColors:p.fresh.userData.baselineColors;
      // Category-off entries in a mixed batch use a baseline-geometry clone.
      if(!p.fresh.userData.proposal)p.fresh.userData.proposal=p.fresh.geometry;
@@ -199,5 +230,5 @@ export class Landmarks {
   }
  }
  clear(){for(const p of this.pairs){p.old.visible=true;(p.fresh.userData.proposal??p.fresh.geometry).dispose();p.fresh.userData.baseline?.dispose();p.fresh.dispose();}this.group.clear();this.pairs=[];}
- dispose(){this.clear();this.material.dispose();this.group.removeFromParent();}
+ dispose(){this.clear();this.material.dispose();this.slopeMaterial.dispose();this.group.removeFromParent();}
 }
