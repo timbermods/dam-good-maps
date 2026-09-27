@@ -433,6 +433,16 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
     // (M9b: an inflow heads inland from its mouth, never along its edge first)
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+    // (M9b: nor where the land along its edge lies as low as its mouth: the game drains every edge
+    // tile but the mouth's own, and the water at the mouth would run back out beside it; the
+    // Rivers setting's relaxed search may still take one)
+    if (natural && hd.kind === "edge" && !alongUp) {
+      const e = hd.edge!;
+      const alongOf = (i: number) => (e === "west" || e === "east" ? Math.floor(i / W) : i % W);
+      const a0 = alongOf(hd.cell);
+      const back = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && Math.abs(alongOf(i) - a0) > 5 });
+      if (back.filled[hd.cell] <= h[hd.cell]) return false;
+    }
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
     traced.push({ k, head: hd, cells, joins });
@@ -948,6 +958,28 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // the main river cuts deeper than its tributaries: their valleys hang above it
   const hanging = Math.round(g.hanging);
   const exits = new Map<string, { path: Point[]; prof: Float64Array; L: number; n: number; width: number; half: (s: number, L: number) => number }>();
+  // (M9b) how high the water at each inflow's mouth may stand before it runs back out by the same
+  // edge beside the mouth (the game drains every edge tile but the mouth's own); a lake on a river
+  // stands no higher than that for any inflow whose water reaches it, its own and its tributaries'
+  const edgeSpill = new Map<number, number>();
+  if (natural)
+    for (const t of traced) {
+      const hd = t.head;
+      if (hd.kind !== "edge") continue;
+      const e = hd.edge!;
+      const alongOf = (i: number) => (e === "west" || e === "east" ? Math.floor(i / W) : i % W);
+      const a0 = alongOf(hd.cell);
+      const reach = Math.ceil(widthFor(hd.flow) / 2) + 2;
+      const back = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && Math.abs(alongOf(i) - a0) > reach });
+      edgeSpill.set(t.k, back.filled[hd.cell]);
+    }
+  const upSpill = (k: number, seen = new Set<number>()): number => {
+    if (seen.has(k)) return Infinity;
+    seen.add(k);
+    let v = edgeSpill.get(k) ?? Infinity;
+    for (const t of traced) if (t.joins === k) v = Math.min(v, upSpill(t.k, seen));
+    return v;
+  };
   for (const tr of traced) {
     const hd = tr.head;
     const role = roleOf(tr.k);
@@ -971,7 +1003,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     // (M9b: a tributary measures its banks without the floor a bigger river cleared: its valley then
     // hangs above that floor and its water falls where it meets it, as design version 2's hanging
     // valleys have it)
-    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, natural ? h[hd.cell] : Infinity, natural && tr.joins >= 0);
+    // (M9b: an inflow's lake, or a lake its water reaches, stands no higher than the water at its
+    // mouth could before it ran back out by the same edge beside the mouth)
+    const maxSill = natural ? Math.min(h[hd.cell], upSpill(tr.k)) : Infinity;
+    const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, maxSill, natural && tr.joins >= 0);
     // knickpoints: a steep reach's drops gather at its head; the reach below is cut to its foot
     const win = Math.round(g.knick);
     if (win > 0)

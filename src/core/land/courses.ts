@@ -57,9 +57,10 @@ export interface Blocked {
 /** Closes an inflow's own edge where its standing water would run back out (`blocked`'s `back`):
  *  the edge row's tiles at or below the water's level, joined along the edge to the tile it leaves
  *  by, are raised a level over it (the game drains every edge tile; a lip on the edge row holds
- *  the water as the land beyond the map would). A run longer than a quarter of the side is left:
- *  that land is planned again. Returns whether it changed anything. */
-export function closeBackEdges(h: Uint8Array, W: number, H: number, blocked: readonly Blocked[], rivers: readonly RiverFeature[]): boolean {
+ *  the water as the land beyond the map would). A run longer than a quarter of the side, or one
+ *  that would rise more than `maxRise` levels, is left: that land is planned again. Returns whether
+ *  it changed anything. */
+export function closeBackEdges(h: Uint8Array, W: number, H: number, blocked: readonly Blocked[], rivers: readonly RiverFeature[], maxRise = 2): boolean {
   const sealed = sealedMouths(rivers, W, H);
   let changed = false;
   for (const b of blocked) {
@@ -75,10 +76,10 @@ export function closeBackEdges(h: Uint8Array, W: number, H: number, blocked: rea
     // (never the mouth's own tiles, which hold its sources)
     while (k0 > 0 && h[at(k0 - 1)] <= top && !sealed[at(k0 - 1)]) k0--;
     while (k1 < len - 1 && h[at(k1 + 1)] <= top && !sealed[at(k1 + 1)]) k1++;
-    // (a lip, not a wall: a run that would rise more than two levels is planned again)
+    // (a lip, not a wall: a run that would rise more than `maxRise` levels is planned again)
     let low = Infinity;
     for (let k = k0; k <= k1; k++) low = Math.min(low, h[at(k)]);
-    if (k1 - k0 + 1 > 0.25 * len || top + 1 - low > 2 || sealed[at(vertical ? ly : lx)]) continue;
+    if (k1 - k0 + 1 > 0.25 * len || top + 1 - low > maxRise || sealed[at(vertical ? ly : lx)]) continue;
     for (let k = k0; k <= k1; k++) if (h[at(k)] <= top) h[at(k)] = top + 1;
     changed = true;
   }

@@ -613,10 +613,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal, hy.lakes.map((l) => l.tiles));
   }
   // the courses checked on the finished land (M9b, D273 (1)): an inflow's water running back out by
-  // its own edge is held by a lip on the edge row; anything else is planned again below
+  // its own edge is held by a lip on the edge row (up to two levels, four where the player set the
+  // Rivers count, whose mouths may lie low on their edge); anything else is planned again below
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
-  for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
+  for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   const hLand = h.slice();
   const firstLook = Math.round(performance.now() - t0);
   opts.onLand?.({ attempt, heights: hLand, water: hy.water });
