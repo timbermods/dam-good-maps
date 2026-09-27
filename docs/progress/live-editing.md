@@ -1,12 +1,11 @@
 # Live editing
 
-> **State (2026-09-26, the milestone session's Live editing build).** Ready for Kyler's look and
-> the release (D212): the Carve port is finished against #47's final commit (6b9d4e6), the forces
-> stay off the public site until Kyler has tried them (D219), D212's two changes are in and its
-> confirmed defaults checked, and the docs are current. Next: CI on the last push, the preview
-> (the milestone session runs the deploy with `preview_ref=feature/live-editing`), Kyler's look,
-> then `live-editing-done`. The WIP note of the pause (the Carve port mid-way at b4d7c27) is done:
-> see "The forces: Carve" below.
+> **Released on 2026-09-26 as `live-editing-done`** (Kyler approved it with D212's changes): merged
+> into `dev` in #60 (aad8401), tagged at 985e1cf, released into `main` in #61 (a7e0a9b); the deploy
+> and the live check passed, and the public site's editor was checked in a browser (the shelf's
+> sources, no forces). The preview (from `feature/live-editing`) shows the same editor with Carve.
+> The forces continue on `feature/forces` (the four forces on Codex's core, #59; the juice sounds,
+> #58), shown on the preview and released after Kyler has tried them (D219).
 
 **Built** on branch `feature/live-editing` (from `dev` at 761a1d2). Kyler's spec is in the brief;
 Kyler judges it by trying it. No generated map changes: the generator stays 0.6.0, and every

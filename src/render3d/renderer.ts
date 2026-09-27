@@ -2,7 +2,8 @@
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit), a voxel mesher for columns with caves or overhangs, translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up), picks tiles against
-// the heightfield, and renders when something changed, and while water moves.
+// the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
+// instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
 // baked when the mesh is built (light.ts: sky visibility, soft sun shadows) into two textures the
@@ -21,12 +22,16 @@ import {
   BufferGeometry,
   BufferAttribute,
   Color,
+  InstancedBufferGeometry,
+  InstancedInterleavedBuffer,
+  InterleavedBufferAttribute,
   Mesh,
   OrthographicCamera,
   PerspectiveCamera,
   PlaneGeometry,
   Raycaster,
   Scene,
+  Sphere,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -45,7 +50,8 @@ import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
-import { contaminationEdges, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { FALL_STRIDE, fallTemplate } from "./falls";
+import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { columnMap, NO_VARIANT, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -73,6 +79,8 @@ export interface BuildStats {
   chunks: number;
   terrainQuads: number;
   waterQuads: number;
+  /** Waterfalls (falls.ts): one instance each. */
+  falls: number;
   instances: number;
 }
 
@@ -168,6 +176,9 @@ export class MapRenderer {
   private map: MapState | null = null;
   private terrain = new Map<string, Mesh>();
   private water = new Map<string, Mesh>();
+  /** Each chunk's falls: instances of the fall template (falls.ts). */
+  private falls = new Map<string, Mesh>();
+  private readonly fallShape = fallTemplate();
   private objects: Group | null = null;
   /** The ground the objects stand on as built (the map's last heights from the worker); plants
    *  and ruins follow the ground painted or dragged over theirs (live editing). */
@@ -189,6 +200,7 @@ export class MapRenderer {
   private patterns: WebGLRenderTarget;
   private terrainMat: ShaderMaterial;
   private waterMat: ShaderMaterial;
+  private fallMat: ShaderMaterial;
   private objectMat: ShaderMaterial;
   private skyMat: ShaderMaterial;
   private sky: Mesh;
@@ -266,6 +278,7 @@ export class MapRenderer {
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
     this.waterMat = waterMaterial(this.uniforms, this.software);
+    this.fallMat = fallMaterial(this.uniforms, this.software);
     this.objectMat = objectMaterial(this.uniforms, this.software);
     this.skyMat = skyMaterial();
     this.sky = new Mesh(new PlaneGeometry(2, 2), this.skyMat);
@@ -505,6 +518,7 @@ export class MapRenderer {
     let terrainQuads = 0;
     for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) terrainQuads += this.meshTerrain(cx, cy);
     const waterQuads = this.meshAllWater();
+    const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
     const instances = this.setEntitiesInner(v.entities);
     const meshMs = performance.now() - t0;
@@ -514,7 +528,7 @@ export class MapRenderer {
     const ctx = this.gl.getContext();
     ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
     const ms = performance.now() - t0;
-    this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, instances };
+    this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
     this.highlight = null;
     this.pageOverlay = null;
     this.onMapChange?.();
@@ -564,8 +578,10 @@ export class MapRenderer {
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
     for (const m of this.water.values()) this.dropMesh(m);
+    for (const m of this.falls.values()) this.dropMesh(m);
     this.terrain.clear();
     this.water.clear();
+    this.falls.clear();
     if (this.objects) {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
@@ -616,6 +632,7 @@ export class MapRenderer {
     this.water.delete(key);
     const m = this.map!;
     const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
+    this.meshFalls(key, d.falls, d.fallCount);
     if (!d.quads) return 0;
     const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(d.positions, 3));
@@ -630,6 +647,57 @@ export class MapRenderer {
     this.scene.add(mesh);
     this.water.set(key, mesh);
     return d.quads;
+  }
+
+  /** A chunk's falls: one instance each of the shared template, its 16 floats in one buffer. */
+  private meshFalls(key: string, data: Float32Array, count: number): void {
+    const old = this.falls.get(key);
+    if (old) this.dropMesh(old);
+    this.falls.delete(key);
+    if (!count) return;
+    const g = new InstancedBufferGeometry();
+    // (the template's arrays are shared; each chunk has its own buffers of them, so dropping one
+    // chunk's falls never frees another's)
+    g.setAttribute("rib", new BufferAttribute(this.fallShape.rib, 4));
+    g.setIndex(new BufferAttribute(this.fallShape.index, 1));
+    const buf = new InstancedInterleavedBuffer(data, FALL_STRIDE);
+    g.setAttribute("fA", new InterleavedBufferAttribute(buf, 4, 0));
+    g.setAttribute("fTop", new InterleavedBufferAttribute(buf, 4, 4));
+    g.setAttribute("fShape", new InterleavedBufferAttribute(buf, 4, 8));
+    g.setAttribute("fMore", new InterleavedBufferAttribute(buf, 4, 12));
+    g.instanceCount = count;
+    // the bounds: every lip's corner, from its landing to its top, and as far out as a fall reaches
+    // (and runs on round a corner, D215)
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (let k = 0; k < count; k++) {
+      const o = k * FALL_STRIDE;
+      x0 = Math.min(x0, data[o]);
+      x1 = Math.max(x1, data[o]);
+      z0 = Math.min(z0, data[o + 1]);
+      z1 = Math.max(z1, data[o + 1]);
+      y0 = Math.min(y0, data[o + 6], data[o + 7]);
+      y1 = Math.max(y1, data[o + 4], data[o + 5]);
+    }
+    const pad = 4.5;
+    const c = new Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    g.boundingSphere = new Sphere(c, Math.hypot((x1 - x0) / 2 + pad, (y1 - y0) / 2 + 0.1, (z1 - z0) / 2 + pad));
+    const mesh = new Mesh(g, this.fallMat);
+    mesh.matrixAutoUpdate = false;
+    // after the water's tops, so a fall draws over the pool it lands in
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.falls.set(key, mesh);
+  }
+
+  private fallCount(): number {
+    let n = 0;
+    for (const m of this.falls.values()) n += (m.geometry as InstancedBufferGeometry).instanceCount;
+    return n;
   }
 
   private meshAllWater(): number {
@@ -737,8 +805,9 @@ export class MapRenderer {
       this.lightTex.needsUpdate = true;
     } else this.bakeShadows();
     if (m.water.count) {
+      // (a fall reads the ground two tiles round its lip: the chunks a tile further)
       const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of chunks) this.meshWater(cx, cy, lower);
+      for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy, lower);
     }
     this.requestRender();
     this.onMapChange?.();
@@ -1803,8 +1872,8 @@ export class MapRenderer {
   }
 
   /** Triangles and draw calls of the last frame. */
-  info(): { triangles: number; calls: number; chunks: number; waterChunks: number } {
-    return { triangles: this.gl.info.render.triangles, calls: this.gl.info.render.calls, chunks: this.terrain.size, waterChunks: this.water.size };
+  info(): { triangles: number; calls: number; chunks: number; waterChunks: number; falls: number } {
+    return { triangles: this.gl.info.render.triangles, calls: this.gl.info.render.calls, chunks: this.terrain.size, waterChunks: this.water.size, falls: this.fallCount() };
   }
 
   dispose(): void {
@@ -1822,6 +1891,7 @@ export class MapRenderer {
     this.forceFx?.dispose();
     this.terrainMat.dispose();
     this.waterMat.dispose();
+    this.fallMat.dispose();
     this.objectMat.dispose();
     this.skyMat.dispose();
     this.sky.geometry.dispose();

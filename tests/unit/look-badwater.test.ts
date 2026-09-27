@@ -146,7 +146,6 @@ describe("badwater meeting clean water", () => {
     const sw = surfaceWater(6, 1, view);
     expect([...blendedBadwater(6, 1, sw)]).toEqual([1, 1, 1, 0, 0, 0]);
     const m = meshWaterChunk(6, 1, heights, sw, view, lowerByTile(sw, view), 0, 0);
-    let fall = 0;
     for (let q = 0; q < m.quads; q++) {
       const top = m.normals[q * 12 + 1] > 0;
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
@@ -154,12 +153,11 @@ describe("badwater meeting clean water", () => {
         const c = m.data[(q * 4 + v) * 2 + 1];
         if (top) expect(c).toBe(x < 2.5 ? 1 : 0);
       }
-      if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.1) {
-        fall++;
-        for (let v = 0; v < 4; v++) expect(m.data[(q * 4 + v) * 2 + 1]).toBe(1);
-      }
     }
-    expect(fall).toBe(1);
+    // (D148: the fall was a curtain; since D201 it pours from the lip, and carries its badwater
+    // share at both corners)
+    expect(m.fallCount).toBe(1);
+    expect([m.falls[12], m.falls[13]]).toEqual([1, 1]);
   });
 
   it("remeshes every chunk the blend reaches when the badwater changes", () => {

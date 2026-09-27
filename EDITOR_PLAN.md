@@ -1,5 +1,7 @@
 # Dam Good Maps: the map editor
 
+> **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
+
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision, taken from Kyler's
 decisions (`PLAN.md` §20: D158, D172, D179–D187). Part 2 is the technical reference that still holds.
 Part 3 lists what was superseded: it must not come back. Where anything here conflicts with Part 1
@@ -42,8 +44,13 @@ editor is desktop-first (D185).
   (Carve's with Pause and Stop) and Revert; the other tools wait. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
   no forces group at all.
-- **The left shelf:** a clean grid of placeable objects: the start, then the **Water source** and
-  the **Badwater source** (two separate items, D212), then **Pine**, **Birch**, **Oak**, **Berry
+  **Power and size are separate in every force** (D226): each size control follows Power by default, or is
+  set by hand: Carve's **Width** and **Depth** (how deep it cuts, in levels below the land around it, so high
+  Power can carve a wide, shallow river), Craterize's **Size**, Erupt's **Size** (breadth); Quake's drawn line
+  sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
+  resize (D226).
+- **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
+  source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
@@ -57,9 +64,10 @@ editor is desktop-first (D185).
   source starts, each force's own moment). The sounds are synthesised as they play (Codex's engine,
   #58): a brush's texture for as long as its stroke lasts, a pop for a tree, a gurgle for a source,
   a soft rewind for undo, and each force's (a torrent, a whistle and an impact, a rumble and a crack,
-  grinding earth, a rising plume and a cooling hiss). They are on by default but quiet, with a
-  volume and an off switch the player keeps (D212); water ambience is off unless turned on.
-  Micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in use.
+  grinding earth, a rising plume and a cooling hiss). They are on by default at a clearly audible
+  level (D226 raised it), with a volume and an off switch the player keeps (D212); water ambience is
+  off unless turned on. Micro-animations follow the reduced-motion setting. Nothing new stays on
+  screen unless in use.
 - **Visible layers, identical to Timberborn** (D207): a compact layer widget with the view buttons,
   showing the visible level (∞ when everything shows) with up and down arrows, quiet at ∞ until used.
   Everything above the chosen level is hidden (terrain, water, objects) and the cut surfaces show as
@@ -99,38 +107,42 @@ editor is desktop-first (D185).
 - **Craterize, a force of nature** (D202): its own top-bar button next to Carve (key 8), simulating a
   giant impact. **Strike** (a click) or **Aim** (press on the impact and drag the way the impactor
   travels: a glancing blow, an oval crater thrown forward); **Power** (a pebble to a cataclysm);
-  **Size** (following Power, or set); **Steep** or **Terraced** walls; **Centre** (Auto, Bowl, Peak,
-  Ring, Flat); **Light** or **Heavy debris**, with or without **Rays**; **Try another**. Its
+  **Size** (following Power, or set: D226); **Steep** or **Terraced** walls; **Centre** (Auto, Bowl,
+  Peak, Ring, Flat); **Light** or **Heavy debris**, with or without **Rays**; **Try another**. Its
   footprint shows on the land under the pointer. The impact moment: a streak falls, a flash, a shock
   ring, dust and thrown blocks, a short shake, the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, lying away from the
   blow). Newer impacts overprint older ones; heavy debris can dam a river; it refuses to strike where
   the start sits (red, "Start here") and never adds water; one undo step, and Esc reverts. Built from
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
-  (D219).
+  (D219; ready: D216, D226).
 - **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
   painted fault: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; the side that moves
   (**Left** or **Right** of the stroke; **X** flips it, even while painting); **Try another** (another
-  tilt and crack). The fault and the side that moves show on the land as it is painted. Lift shows its
-  whole result as it is painted (the ground reacts behind the pointer) and is kept when let go; Slide
-  shows the fault while it is painted, then its block slides along it tile by tile, 3 to 20 tiles,
-  and a river that crossed the fault is joined again along it. A crack runs along the fault, dust
-  rises at its head and the view shakes a little. Objects ride with the land (a rigid one on flat
-  ground of its own; the start with its ground), trees on the fault fall; it refuses a fault through
-  the start, and a slide that would carry the start (X flips the side), and keeps the start flat and
-  dry (a painted Lift that would flood it says so, and is taken back if let go); it never adds water;
-  one undo step, and Esc reverts. Built from `investigation/quake` (#52, with both Lift and Slide) on
-  the forces core (#59), on the preview until Kyler has tried it (D219).
-- **Erupt, a force of nature** (D206, D216): in the forces group (key 0). It raises a volcano: its mode
-  (**Vent**, a click, or **Fissure**, painted); **Power**; **Steep** or **Broad**; **Summit** (Auto,
-  Peak, Crater, Caldera); **Light** or **Heavy flows**, with or without **Ridges**; **Try another**.
-  The ground stirs, then the volcano swells level by level; its plume billows bigger and darker the
-  more powerful the eruption (D216), the lava glows along its flows, then cools to a dark crust and
-  fades into the ground. Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride
-  the rising ground (a rigid one on a terrace of its own), trees near a vent fall and what stands in
-  it goes; overlapping eruptions build volcanic fields; it refuses to erupt where the start sits and
-  never adds water; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the
-  forces core (#59), on the preview until Kyler has tried it (D219).
+  tilt and crack). The drawn line sets its length (D226). The fault and the side that moves show on
+  the land as it is painted. Lift shows its whole result as it is painted (the ground reacts behind
+  the pointer) and is kept when let go; Slide shows the fault while it is painted, then its block
+  slides along it tile by tile, 3 to 20 tiles, and a river that crossed the fault is joined again
+  along it. A crack runs along the fault, dust rises at its head and the view shakes a little.
+  Objects ride with the land (a rigid one on flat ground of its own; the start with its ground), trees
+  on the fault fall; it refuses a fault through the start, and a slide that would carry the start (X
+  flips the side), and keeps the start flat and dry (a painted Lift that would flood it says so, and
+  is taken back if let go); it never adds water; one undo step, and Esc reverts. Built from
+  `investigation/quake` (#52, with both Lift and Slide) on the forces core (#59), on the preview until
+  Kyler has tried it (D219; ready: D226).
+- **Erupt, a force of nature** (D206, D216, D226): in the forces group (key 0). It raises a volcano:
+  its mode (**Vent**, a click, or **Fissure**, painted); **Power**; **Size** (breadth: following Power,
+  or set: D226); **Steep** or **Broad**; **Summit** (Auto, Peak, Crater, Caldera); **Light** or
+  **Heavy flows**, with or without **Ridges**; **Try another**. The ground stirs, then the volcano
+  swells level by level; its plume billows bigger and darker the more powerful the eruption (D216),
+  the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
+  always keeps a peak within the headroom it has: near the height ceiling it grows broader rather
+  than taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
+  always completes, as in the demo Kyler approved (D226). Fresh volcanic rock is hard for Carve; flows
+  can dam rivers; objects ride the rising ground (a rigid one on a terrace of its own), trees near a
+  vent fall and what stands in it goes; it refuses to erupt where the start sits and never adds
+  water; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the forces core
+  (#59), on the preview until Kyler has tried it (D219).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
@@ -178,8 +190,9 @@ Make a valley, drop a source, and there's a river.
   with its full set:
   - **Unleash** (click a spot) and **Aim** (origin to end point), with **Defy gravity** for aimed
     carves that climb uphill;
-  - **Power** (creek to catastrophe), and **Width** (following Power by default, or set by hand for
-    slot canyons or wide lazy rivers);
+  - **Power** (creek to catastrophe), **Width** (following Power by default, or set by hand for
+    slot canyons or wide lazy rivers) and **Depth** (following Power, or capped by hand: how many levels
+    below the land around it the carve may cut, so high Power can carve a wide, shallow river; D226);
   - **Wander** (straight to winding), natural variation within each carve (at high Wander too: bends
     wider and deeper on the outside, narrower on the straights, never a uniform tube), and **Try another
     path**; a bend cut off becomes an oxbow lake, sealed by sediment at both ends;
@@ -207,6 +220,9 @@ Make a valley, drop a source, and there's a river.
 The clean game-like view (D135), contaminated ground as a layer over the ground (D154), the mine
 sites and ruins (D178), the approved badwater in one shared water palette (D177), and later a High
 mode with the water shader and soft shadows (Map look 2, D147).
+Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
+foam at the lip, whitewater and a splash where they land, and a small fall at each step of a
+cascade (D201, D215).
 
 ## 7. Controls
 
