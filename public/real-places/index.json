@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 151,
+ "count": 136,
  "families": [
   {
    "id": "fan",
@@ -102,14 +102,17 @@
    "image": "cards/thousand-islands.webp",
    "topImage": "cards/thousand-islands-top.webp",
    "view": "N",
-   "imageFrom": "cb741fc793a85f8c9373f59a4725fadf78026b18b8b2c39756af8107691d7922",
+   "imageFrom": "7b3a0f9d536a27a99b478f9e293fdd820f266cfae5993f63b6160a4eda428ebb",
+   "notes": [
+    "The water keeps moving"
+   ],
    "floorTrees": {
-    "trees": 70,
+    "trees": 16,
     "dead": 0
    },
    "file": "maps/thousand-islands.timber",
-   "bytes": 178063,
-   "sha256": "cb741fc793a85f8c9373f59a4725fadf78026b18b8b2c39756af8107691d7922"
+   "bytes": 165107,
+   "sha256": "7b3a0f9d536a27a99b478f9e293fdd820f266cfae5993f63b6160a4eda428ebb"
   },
   {
    "id": "badlands-national-park",
@@ -125,13 +128,13 @@
    "image": "cards/badlands-national-park.webp",
    "topImage": "cards/badlands-national-park-top.webp",
    "view": "E",
-   "imageFrom": "9581a768e569310d5a73abf8d317f16f1055c46b8cc0a649a7c5f88835405f8d",
+   "imageFrom": "abe24921d081ef48f896956af76525ae191074a59ea927e625ad32241f5cfade",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/badlands-national-park.timber",
-   "bytes": 134354,
-   "sha256": "9581a768e569310d5a73abf8d317f16f1055c46b8cc0a649a7c5f88835405f8d"
+   "bytes": 101884,
+   "sha256": "abe24921d081ef48f896956af76525ae191074a59ea927e625ad32241f5cfade"
   },
   {
    "id": "toklat-river",
@@ -146,13 +149,13 @@
    "image": "cards/toklat-river.webp",
    "topImage": "cards/toklat-river-top.webp",
    "view": "W",
-   "imageFrom": "e02922b94ae0abecd91c7575dea8d38f5deefb005294efc840f5fcad101d910c",
+   "imageFrom": "dbd3b3649f73f045f39e7213d1c4ee788dd2929df82f3f020256ddc7fd933dfe",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "file": "maps/toklat-river.timber",
-   "bytes": 162416,
-   "sha256": "e02922b94ae0abecd91c7575dea8d38f5deefb005294efc840f5fcad101d910c"
+   "bytes": 157739,
+   "sha256": "dbd3b3649f73f045f39e7213d1c4ee788dd2929df82f3f020256ddc7fd933dfe"
   },
   {
    "id": "crater-lake",
@@ -167,17 +170,17 @@
    "image": "cards/crater-lake.webp",
    "topImage": "cards/crater-lake-top.webp",
    "view": "W",
-   "imageFrom": "27e19c2c70ab3a17388f2f6eac8835a12fc7c9a6d3c7647b04d1af55c87d9a6b",
+   "imageFrom": "b46e4754845a41b4e0baf6ed7ac2bf375359cb68cb8d4e675e5f12d10310ab7f",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "floorTrees": {
-    "trees": 24,
-    "dead": 0
+    "trees": 23,
+    "dead": 23
    },
    "file": "maps/crater-lake.timber",
-   "bytes": 138540,
-   "sha256": "27e19c2c70ab3a17388f2f6eac8835a12fc7c9a6d3c7647b04d1af55c87d9a6b"
+   "bytes": 151020,
+   "sha256": "b46e4754845a41b4e0baf6ed7ac2bf375359cb68cb8d4e675e5f12d10310ab7f"
   },
   {
    "id": "colca-canyon",
@@ -192,14 +195,10 @@
    "image": "cards/colca-canyon.webp",
    "topImage": "cards/colca-canyon-top.webp",
    "view": "S",
-   "imageFrom": "02e38d6d00821a901a886e566dec4ca526809479aae8d9af5dcddeba54c05ff5",
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
+   "imageFrom": "e3fe8d1cc8d24f666a82e32e9507717b1aecf3b13de77832ca937e69d0bc99da",
    "file": "maps/colca-canyon.timber",
-   "bytes": 352297,
-   "sha256": "02e38d6d00821a901a886e566dec4ca526809479aae8d9af5dcddeba54c05ff5"
+   "bytes": 268962,
+   "sha256": "e3fe8d1cc8d24f666a82e32e9507717b1aecf3b13de77832ca937e69d0bc99da"
   },
   {
    "id": "twelve-apostles",
@@ -214,13 +213,14 @@
    "image": "cards/twelve-apostles.webp",
    "topImage": "cards/twelve-apostles-top.webp",
    "view": "N",
-   "imageFrom": "aee17711631a1409c72616ccd006b36b3da09433a7dd2864540ca624a4115853",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "56637bc8e5f9b571eea68d4804a9533c51d3688e634640acbbe68534e495aa87",
+   "floorTrees": {
+    "trees": 39,
+    "dead": 0
+   },
    "file": "maps/twelve-apostles.timber",
-   "bytes": 159196,
-   "sha256": "aee17711631a1409c72616ccd006b36b3da09433a7dd2864540ca624a4115853"
+   "bytes": 132454,
+   "sha256": "56637bc8e5f9b571eea68d4804a9533c51d3688e634640acbbe68534e495aa87"
   },
   {
    "id": "mount-mayon",
@@ -235,17 +235,13 @@
    "image": "cards/mount-mayon.webp",
    "topImage": "cards/mount-mayon-top.webp",
    "view": "N",
-   "imageFrom": "39f0529901b839825b62fd6aa6d9e78e6db6311c3253b52b9f25df18139e6769",
+   "imageFrom": "ba558c6a543ccfa664f027add5c7a6aab52fd6a6e0d0d70395d3c3e3e6491e7a",
    "notes": [
     "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 5,
-    "dead": 0
-   },
    "file": "maps/mount-mayon.timber",
-   "bytes": 159045,
-   "sha256": "39f0529901b839825b62fd6aa6d9e78e6db6311c3253b52b9f25df18139e6769"
+   "bytes": 103071,
+   "sha256": "ba558c6a543ccfa664f027add5c7a6aab52fd6a6e0d0d70395d3c3e3e6491e7a"
   },
   {
    "id": "rhine-and-moselle",
@@ -260,10 +256,13 @@
    "image": "cards/rhine-and-moselle.webp",
    "topImage": "cards/rhine-and-moselle-top.webp",
    "view": "E",
-   "imageFrom": "fe0eea7d848ee447e6daa9c30ad9094a64d3be37865ef7b0070d756ac9b38762",
+   "imageFrom": "734a8857a80e06a477568fb3edb5bcfe31f787c8359ea74f85f5f3a307064cc8",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/rhine-and-moselle.timber",
-   "bytes": 159043,
-   "sha256": "fe0eea7d848ee447e6daa9c30ad9094a64d3be37865ef7b0070d756ac9b38762"
+   "bytes": 140165,
+   "sha256": "734a8857a80e06a477568fb3edb5bcfe31f787c8359ea74f85f5f3a307064cc8"
   },
   {
    "id": "lena-delta",
@@ -279,17 +278,14 @@
    "image": "cards/lena-delta.webp",
    "topImage": "cards/lena-delta-top.webp",
    "view": "N",
-   "imageFrom": "c672f4131a5356ecca3f77e5754ec6e3417fc2f37a29a68700d41d3e681cc51c",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "3026a1ad374e7dce835b9f7e6aebbc6a05111392de2dab31cfd9a7c427b842be",
    "floorTrees": {
-    "trees": 24,
+    "trees": 54,
     "dead": 0
    },
    "file": "maps/lena-delta.timber",
-   "bytes": 155528,
-   "sha256": "c672f4131a5356ecca3f77e5754ec6e3417fc2f37a29a68700d41d3e681cc51c"
+   "bytes": 178346,
+   "sha256": "3026a1ad374e7dce835b9f7e6aebbc6a05111392de2dab31cfd9a7c427b842be"
   },
   {
    "id": "drakensberg-amphitheatre",
@@ -304,13 +300,10 @@
    "image": "cards/drakensberg-amphitheatre.webp",
    "topImage": "cards/drakensberg-amphitheatre-top.webp",
    "view": "S",
-   "imageFrom": "00d74bbe668948ed997472898b291e8a7df4423a7961fa320d05dc02ba3ee172",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "c1682bba6da4542c523c2e20418cb51859ff9aa84df8121569257adebdf1a613",
    "file": "maps/drakensberg-amphitheatre.timber",
-   "bytes": 168232,
-   "sha256": "00d74bbe668948ed997472898b291e8a7df4423a7961fa320d05dc02ba3ee172"
+   "bytes": 123025,
+   "sha256": "c1682bba6da4542c523c2e20418cb51859ff9aa84df8121569257adebdf1a613"
   },
   {
    "id": "kaieteur-falls",
@@ -325,10 +318,10 @@
    "image": "cards/kaieteur-falls.webp",
    "topImage": "cards/kaieteur-falls-top.webp",
    "view": "W",
-   "imageFrom": "2351d2fc2ce5766d4ca8d66c8f90e461451d5dfd32f924fbca42498bbede8077",
+   "imageFrom": "cf41b4b4a1ec658fe14f3586dc824e69d7dbec16dd3f4f58c9c46675de7445c4",
    "file": "maps/kaieteur-falls.timber",
-   "bytes": 159099,
-   "sha256": "2351d2fc2ce5766d4ca8d66c8f90e461451d5dfd32f924fbca42498bbede8077"
+   "bytes": 154774,
+   "sha256": "cf41b4b4a1ec658fe14f3586dc824e69d7dbec16dd3f4f58c9c46675de7445c4"
   },
   {
    "id": "death-valley",
@@ -344,17 +337,13 @@
    "image": "cards/death-valley.webp",
    "topImage": "cards/death-valley-top.webp",
    "view": "E",
-   "imageFrom": "6c0d15d1e6ae931977b6e5143720c8b6b6a58ba2ebecb7a7ba2e804241a3b1a0",
+   "imageFrom": "7d61db0e50f21309bbdefcf638834607e9b6b02f01c877df0edc63514fece942",
    "notes": [
     "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 13,
-    "dead": 0
-   },
    "file": "maps/death-valley.timber",
-   "bytes": 161772,
-   "sha256": "6c0d15d1e6ae931977b6e5143720c8b6b6a58ba2ebecb7a7ba2e804241a3b1a0"
+   "bytes": 116371,
+   "sha256": "7d61db0e50f21309bbdefcf638834607e9b6b02f01c877df0edc63514fece942"
   },
   {
    "id": "geirangerfjord",
@@ -369,13 +358,14 @@
    "image": "cards/geirangerfjord.webp",
    "topImage": "cards/geirangerfjord-top.webp",
    "view": "S",
-   "imageFrom": "3e4560ecc9bed407c24d88b56f41a2652349932fbe79df6607140d9164921c48",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "3992bc8ce3492d7b315e2ae482011aadd3c4a607ab9de62b309d7fc46d65630f",
+   "floorTrees": {
+    "trees": 41,
+    "dead": 0
+   },
    "file": "maps/geirangerfjord.timber",
-   "bytes": 184814,
-   "sha256": "3e4560ecc9bed407c24d88b56f41a2652349932fbe79df6607140d9164921c48"
+   "bytes": 160784,
+   "sha256": "3992bc8ce3492d7b315e2ae482011aadd3c4a607ab9de62b309d7fc46d65630f"
   },
   {
    "id": "torres-del-paine",
@@ -390,14 +380,14 @@
    "image": "cards/torres-del-paine.webp",
    "topImage": "cards/torres-del-paine-top.webp",
    "view": "N",
-   "imageFrom": "d6c2608c1717bb9ca6fb7bb6abe9cae338f7208998655009038fe889aa3193ad",
+   "imageFrom": "18e0d8b52a5e39ea10b663f5f4fb635d6cefcc4b6df9710f2cff34d781734dbb",
    "floorTrees": {
-    "trees": 12,
-    "dead": 3
+    "trees": 49,
+    "dead": 0
    },
    "file": "maps/torres-del-paine.timber",
-   "bytes": 126137,
-   "sha256": "d6c2608c1717bb9ca6fb7bb6abe9cae338f7208998655009038fe889aa3193ad"
+   "bytes": 122913,
+   "sha256": "18e0d8b52a5e39ea10b663f5f4fb635d6cefcc4b6df9710f2cff34d781734dbb"
   },
   {
    "id": "tiger-leaping-gorge",
@@ -412,14 +402,13 @@
    "image": "cards/tiger-leaping-gorge.webp",
    "topImage": "cards/tiger-leaping-gorge-top.webp",
    "view": "E",
-   "imageFrom": "41860876a4bb47613c062f26446c524a7ab15bd69d7574672984856e25d63eb0",
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
+   "imageFrom": "952a7229bb08715b2de4753d8cf36df74cdcdab8cfc233c3fd8c1f45c150b272",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/tiger-leaping-gorge.timber",
-   "bytes": 161928,
-   "sha256": "41860876a4bb47613c062f26446c524a7ab15bd69d7574672984856e25d63eb0"
+   "bytes": 129963,
+   "sha256": "952a7229bb08715b2de4753d8cf36df74cdcdab8cfc233c3fd8c1f45c150b272"
   },
   {
    "id": "phong-nha",
@@ -434,17 +423,17 @@
    "image": "cards/phong-nha.webp",
    "topImage": "cards/phong-nha-top.webp",
    "view": "S",
-   "imageFrom": "d282efb7d9254668d06430cb2676a72a1df9da5ef9888ea2cbc495ed85e2ed18",
+   "imageFrom": "a1e331477567f05ac636e6735a1cbe586a1ac1d7949c530506a85212aba33139",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "floorTrees": {
-    "trees": 23,
-    "dead": 4
+    "trees": 10,
+    "dead": 5
    },
    "file": "maps/phong-nha.timber",
-   "bytes": 169232,
-   "sha256": "d282efb7d9254668d06430cb2676a72a1df9da5ef9888ea2cbc495ed85e2ed18"
+   "bytes": 165145,
+   "sha256": "a1e331477567f05ac636e6735a1cbe586a1ac1d7949c530506a85212aba33139"
   },
   {
    "id": "lake-district",
@@ -459,10 +448,17 @@
    "image": "cards/lake-district.webp",
    "topImage": "cards/lake-district-top.webp",
    "view": "S",
-   "imageFrom": "5310a9def00a0dd00c937c2d97114d7a75d6b1750c87ba21421cbe764f8559c3",
+   "imageFrom": "c8933696c30f1af46ce960f63090e9a753759b5af31da27878b7bda23bfe77dd",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "floorTrees": {
+    "trees": 5,
+    "dead": 0
+   },
    "file": "maps/lake-district.timber",
-   "bytes": 159931,
-   "sha256": "5310a9def00a0dd00c937c2d97114d7a75d6b1750c87ba21421cbe764f8559c3"
+   "bytes": 147330,
+   "sha256": "c8933696c30f1af46ce960f63090e9a753759b5af31da27878b7bda23bfe77dd"
   },
   {
    "id": "uvac-river",
@@ -477,10 +473,13 @@
    "image": "cards/uvac-river.webp",
    "topImage": "cards/uvac-river-top.webp",
    "view": "W",
-   "imageFrom": "16f8f0d0cb49b2634643659e3e6d59783140da936a167be60f4eac4ae992b57f",
+   "imageFrom": "3e4d34d8e5f5a189ea8b22d1046010b5f8272230be5a182920f3926ec1858681",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/uvac-river.timber",
-   "bytes": 125467,
-   "sha256": "16f8f0d0cb49b2634643659e3e6d59783140da936a167be60f4eac4ae992b57f"
+   "bytes": 115295,
+   "sha256": "3e4d34d8e5f5a189ea8b22d1046010b5f8272230be5a182920f3926ec1858681"
   },
   {
    "id": "mount-roraima",
@@ -495,13 +494,13 @@
    "image": "cards/mount-roraima.webp",
    "topImage": "cards/mount-roraima-top.webp",
    "view": "N",
-   "imageFrom": "f185006aeae81af85bec6fa67820fd4f037d5d530e3050674a51ae1e31286ac6",
+   "imageFrom": "68e114f83fe0102507218f979e00f4efc2068bf932509a1960671430c172f8ce",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/mount-roraima.timber",
-   "bytes": 163000,
-   "sha256": "f185006aeae81af85bec6fa67820fd4f037d5d530e3050674a51ae1e31286ac6"
+   "bytes": 112270,
+   "sha256": "68e114f83fe0102507218f979e00f4efc2068bf932509a1960671430c172f8ce"
   },
   {
    "id": "ethiopian-highlands",
@@ -517,14 +516,10 @@
    "image": "cards/ethiopian-highlands.webp",
    "topImage": "cards/ethiopian-highlands-top.webp",
    "view": "S",
-   "imageFrom": "6b79fb47d9284bac8bd1fa9e8f80190d13cb9d708ee09ed3df641068c8fe598a",
-   "floorTrees": {
-    "trees": 33,
-    "dead": 0
-   },
+   "imageFrom": "aeccea98260a54f8a0ddddf628477e7049074f05c056ec6276cf49df28aa0339",
    "file": "maps/ethiopian-highlands.timber",
-   "bytes": 170295,
-   "sha256": "6b79fb47d9284bac8bd1fa9e8f80190d13cb9d708ee09ed3df641068c8fe598a"
+   "bytes": 150150,
+   "sha256": "aeccea98260a54f8a0ddddf628477e7049074f05c056ec6276cf49df28aa0339"
   },
   {
    "id": "lofoten",
@@ -539,17 +534,10 @@
    "image": "cards/lofoten.webp",
    "topImage": "cards/lofoten-top.webp",
    "view": "W",
-   "imageFrom": "abcd44594bafb6cc3eae5c5ae8670b9d9af2660003401fd81ef5f724a06f62b3",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
-   "floorTrees": {
-    "trees": 41,
-    "dead": 0
-   },
+   "imageFrom": "17f84c2f8cb525c5566234b92c17718a13ab936bf6a40a12e1b83b9235f187ca",
    "file": "maps/lofoten.timber",
-   "bytes": 149982,
-   "sha256": "abcd44594bafb6cc3eae5c5ae8670b9d9af2660003401fd81ef5f724a06f62b3"
+   "bytes": 160797,
+   "sha256": "17f84c2f8cb525c5566234b92c17718a13ab936bf6a40a12e1b83b9235f187ca"
   },
   {
    "id": "drumheller",
@@ -564,14 +552,13 @@
    "image": "cards/drumheller.webp",
    "topImage": "cards/drumheller-top.webp",
    "view": "N",
-   "imageFrom": "ed34f9296f3f54c9bca45986d7d319054b98eaee44bea123f1ce1241d48a38ca",
-   "floorTrees": {
-    "trees": 29,
-    "dead": 0
-   },
+   "imageFrom": "4505d2617476385ab227c477b29f729208a170317e33b20a23d66160fb198b44",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/drumheller.timber",
-   "bytes": 127156,
-   "sha256": "ed34f9296f3f54c9bca45986d7d319054b98eaee44bea123f1ce1241d48a38ca"
+   "bytes": 123549,
+   "sha256": "4505d2617476385ab227c477b29f729208a170317e33b20a23d66160fb198b44"
   },
   {
    "id": "tagliamento-river",
@@ -587,13 +574,14 @@
    "image": "cards/tagliamento-river.webp",
    "topImage": "cards/tagliamento-river-top.webp",
    "view": "N",
-   "imageFrom": "e4a933c4f1d6ada0a125723b71c237d41cdf90246b0f5e10d36f6ea71d0c9873",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "371491df2af2b96af19b6a94c7b9a546bb7df9200b0755375fff9d6269bee193",
+   "floorTrees": {
+    "trees": 47,
+    "dead": 0
+   },
    "file": "maps/tagliamento-river.timber",
-   "bytes": 118228,
-   "sha256": "e4a933c4f1d6ada0a125723b71c237d41cdf90246b0f5e10d36f6ea71d0c9873"
+   "bytes": 115838,
+   "sha256": "371491df2af2b96af19b6a94c7b9a546bb7df9200b0755375fff9d6269bee193"
   },
   {
    "id": "aso-caldera",
@@ -608,10 +596,10 @@
    "image": "cards/aso-caldera.webp",
    "topImage": "cards/aso-caldera-top.webp",
    "view": "E",
-   "imageFrom": "7a1d77e5c68cdb1898e01a96c0d7f54d28e3512050ec3ce7c0503d4172751f8c",
+   "imageFrom": "30d817184978aef5936b47a241bbc0baa4915dce9657dd91d1529e03c58b42a8",
    "file": "maps/aso-caldera.timber",
-   "bytes": 333278,
-   "sha256": "7a1d77e5c68cdb1898e01a96c0d7f54d28e3512050ec3ce7c0503d4172751f8c"
+   "bytes": 283003,
+   "sha256": "30d817184978aef5936b47a241bbc0baa4915dce9657dd91d1529e03c58b42a8"
   },
   {
    "id": "blyde-river-canyon",
@@ -626,13 +614,13 @@
    "image": "cards/blyde-river-canyon.webp",
    "topImage": "cards/blyde-river-canyon-top.webp",
    "view": "W",
-   "imageFrom": "6350145bc342bfa96f3c3155b0612f076cf00424ad72250285f7bba2bba07005",
+   "imageFrom": "fb6dab71b5c7f440978904f0c5d1fdbf49264802d83a77749fcf72e6fb5f86f2",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "file": "maps/blyde-river-canyon.timber",
-   "bytes": 149696,
-   "sha256": "6350145bc342bfa96f3c3155b0612f076cf00424ad72250285f7bba2bba07005"
+   "bytes": 151779,
+   "sha256": "fb6dab71b5c7f440978904f0c5d1fdbf49264802d83a77749fcf72e6fb5f86f2"
   },
   {
    "id": "cliffs-of-moher",
@@ -647,13 +635,17 @@
    "image": "cards/cliffs-of-moher.webp",
    "topImage": "cards/cliffs-of-moher-top.webp",
    "view": "E",
-   "imageFrom": "51b5ebc47767ce8028d68c6bfa77098c84bb40d758650cfb0918c92f8833fc3d",
+   "imageFrom": "07047b82dc47b9d2a7d2dae5e00c2c5cd8e223d37f49133fac6f53ee57f513e5",
    "notes": [
     "The water keeps moving"
    ],
+   "floorTrees": {
+    "trees": 38,
+    "dead": 0
+   },
    "file": "maps/cliffs-of-moher.timber",
-   "bytes": 138768,
-   "sha256": "51b5ebc47767ce8028d68c6bfa77098c84bb40d758650cfb0918c92f8833fc3d"
+   "bytes": 132099,
+   "sha256": "07047b82dc47b9d2a7d2dae5e00c2c5cd8e223d37f49133fac6f53ee57f513e5"
   },
   {
    "id": "paricutin",
@@ -668,13 +660,10 @@
    "image": "cards/paricutin.webp",
    "topImage": "cards/paricutin-top.webp",
    "view": "S",
-   "imageFrom": "5775c441b32b34929682ebd41e39cda30d2c366d871257f6d40fb254f7cdb75a",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "f5c05074055770a0ad2d7bb3e4cfa893549c07d4c554f526a4c99e2eb8ce8c81",
    "file": "maps/paricutin.timber",
-   "bytes": 115072,
-   "sha256": "5775c441b32b34929682ebd41e39cda30d2c366d871257f6d40fb254f7cdb75a"
+   "bytes": 120560,
+   "sha256": "f5c05074055770a0ad2d7bb3e4cfa893549c07d4c554f526a4c99e2eb8ce8c81"
   },
   {
    "id": "alaknanda-and-bhagirathi",
@@ -689,17 +678,14 @@
    "image": "cards/alaknanda-and-bhagirathi.webp",
    "topImage": "cards/alaknanda-and-bhagirathi-top.webp",
    "view": "W",
-   "imageFrom": "cac6d445d013f416db5508216628ce57f88324ec8afc0ce4636501b60c1e7ca5",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "34cba3a30517a44cc3f384571188ad129e210affe8243fc21f1d638e15f918eb",
    "floorTrees": {
-    "trees": 84,
+    "trees": 95,
     "dead": 0
    },
    "file": "maps/alaknanda-and-bhagirathi.timber",
-   "bytes": 177906,
-   "sha256": "cac6d445d013f416db5508216628ce57f88324ec8afc0ce4636501b60c1e7ca5"
+   "bytes": 153331,
+   "sha256": "34cba3a30517a44cc3f384571188ad129e210affe8243fc21f1d638e15f918eb"
   },
   {
    "id": "danube-delta",
@@ -715,13 +701,14 @@
    "image": "cards/danube-delta.webp",
    "topImage": "cards/danube-delta-top.webp",
    "view": "N",
-   "imageFrom": "94e1af67c8746d0ea5c3dc670adc46c6a27fa0362ddb8241341b08203b020f04",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "9b92281d1e46e04d404e9c15e4a2e5f6a0bb9b978cc01839a4460a1ee40b9c55",
+   "floorTrees": {
+    "trees": 49,
+    "dead": 14
+   },
    "file": "maps/danube-delta.timber",
-   "bytes": 125831,
-   "sha256": "94e1af67c8746d0ea5c3dc670adc46c6a27fa0362ddb8241341b08203b020f04"
+   "bytes": 115931,
+   "sha256": "9b92281d1e46e04d404e9c15e4a2e5f6a0bb9b978cc01839a4460a1ee40b9c55"
   },
   {
    "id": "mahabaleshwar-western-ghats",
@@ -737,10 +724,17 @@
    "image": "cards/mahabaleshwar-western-ghats.webp",
    "topImage": "cards/mahabaleshwar-western-ghats-top.webp",
    "view": "N",
-   "imageFrom": "d5a171acc5a4c422fd2298240c1de760dba466292a31737ef36fcd7d21a565f4",
+   "imageFrom": "10111efe451873b0b7635392e86ebc7a775bdf1f06a8289707ed10544e172656",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "floorTrees": {
+    "trees": 5,
+    "dead": 5
+   },
    "file": "maps/mahabaleshwar-western-ghats.timber",
-   "bytes": 125480,
-   "sha256": "d5a171acc5a4c422fd2298240c1de760dba466292a31737ef36fcd7d21a565f4"
+   "bytes": 121506,
+   "sha256": "10111efe451873b0b7635392e86ebc7a775bdf1f06a8289707ed10544e172656"
   },
   {
    "id": "niagara-falls",
@@ -755,13 +749,10 @@
    "image": "cards/niagara-falls.webp",
    "topImage": "cards/niagara-falls-top.webp",
    "view": "W",
-   "imageFrom": "70c4424d0c642b01a4029a2653f5597b5d1884dcae3f85e19859707996c30dee",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "7eca78e812d194f47723193db4be47b56b51dc8141ffb804ccda377a1df5212d",
    "file": "maps/niagara-falls.timber",
-   "bytes": 142745,
-   "sha256": "70c4424d0c642b01a4029a2653f5597b5d1884dcae3f85e19859707996c30dee"
+   "bytes": 120090,
+   "sha256": "7eca78e812d194f47723193db4be47b56b51dc8141ffb804ccda377a1df5212d"
   },
   {
    "id": "roaring-river-fan",
@@ -777,10 +768,10 @@
    "image": "cards/roaring-river-fan.webp",
    "topImage": "cards/roaring-river-fan-top.webp",
    "view": "W",
-   "imageFrom": "16d18561b42bf782ba77b1a6a899bd0acdbf2fffb3bd67ec855844c1b75e7533",
+   "imageFrom": "67d333300e7889fc37ad0c9fbe80c22bc3b16f43ca5f30006c881cea89501b01",
    "file": "maps/roaring-river-fan.timber",
-   "bytes": 107523,
-   "sha256": "16d18561b42bf782ba77b1a6a899bd0acdbf2fffb3bd67ec855844c1b75e7533"
+   "bytes": 99314,
+   "sha256": "67d333300e7889fc37ad0c9fbe80c22bc3b16f43ca5f30006c881cea89501b01"
   },
   {
    "id": "aysen-fjord",
@@ -795,17 +786,14 @@
    "image": "cards/aysen-fjord.webp",
    "topImage": "cards/aysen-fjord-top.webp",
    "view": "E",
-   "imageFrom": "559283a35482a7bcb5741cbb70e0e75b0e09ff47e24a77d0e32ecccb1d2cd003",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "fcee378bac3539aefaa815b8a6e28969cf798aa0bd1a75da0c23ccecd5ed828b",
    "floorTrees": {
-    "trees": 22,
+    "trees": 12,
     "dead": 0
    },
    "file": "maps/aysen-fjord.timber",
-   "bytes": 122538,
-   "sha256": "559283a35482a7bcb5741cbb70e0e75b0e09ff47e24a77d0e32ecccb1d2cd003"
+   "bytes": 108843,
+   "sha256": "fcee378bac3539aefaa815b8a6e28969cf798aa0bd1a75da0c23ccecd5ed828b"
   },
   {
    "id": "glencoe",
@@ -820,14 +808,10 @@
    "image": "cards/glencoe.webp",
    "topImage": "cards/glencoe-top.webp",
    "view": "E",
-   "imageFrom": "552ada57a6d08a026f515ca6aaa4edcb50b4828ed4f6d9af6cbd4a6f33ed7384",
-   "floorTrees": {
-    "trees": 24,
-    "dead": 6
-   },
+   "imageFrom": "d62e1704acb3054a36b0718e0f2e59e5055455eb1f8814e29ffcfc267dfb75b6",
    "file": "maps/glencoe.timber",
-   "bytes": 170978,
-   "sha256": "552ada57a6d08a026f515ca6aaa4edcb50b4828ed4f6d9af6cbd4a6f33ed7384"
+   "bytes": 163965,
+   "sha256": "d62e1704acb3054a36b0718e0f2e59e5055455eb1f8814e29ffcfc267dfb75b6"
   },
   {
    "id": "verdon-gorge",
@@ -842,17 +826,14 @@
    "image": "cards/verdon-gorge.webp",
    "topImage": "cards/verdon-gorge-top.webp",
    "view": "W",
-   "imageFrom": "80a18a3bbd7473a02bf7da20c433dc76911fc2d1e9ac8d998bd28718c6677e63",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "2ef9d8b4eb9247fa37c6759670df7fe04c7679e98df6cfc958ede52de65ca2e8",
    "floorTrees": {
-    "trees": 14,
+    "trees": 28,
     "dead": 0
    },
    "file": "maps/verdon-gorge.timber",
-   "bytes": 121291,
-   "sha256": "80a18a3bbd7473a02bf7da20c433dc76911fc2d1e9ac8d998bd28718c6677e63"
+   "bytes": 115760,
+   "sha256": "2ef9d8b4eb9247fa37c6759670df7fe04c7679e98df6cfc958ede52de65ca2e8"
   },
   {
    "id": "chocolate-hills",
@@ -867,13 +848,13 @@
    "image": "cards/chocolate-hills.webp",
    "topImage": "cards/chocolate-hills-top.webp",
    "view": "S",
-   "imageFrom": "45ae07591e970b40e88f52c42c6074350c291921a435886645bfea7a81f96e39",
+   "imageFrom": "045908b1469a833d84d8007c38903614c9391256e61007d799caa20f1b32d7c1",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/chocolate-hills.timber",
-   "bytes": 127598,
-   "sha256": "45ae07591e970b40e88f52c42c6074350c291921a435886645bfea7a81f96e39"
+   "bytes": 118362,
+   "sha256": "045908b1469a833d84d8007c38903614c9391256e61007d799caa20f1b32d7c1"
   },
   {
    "id": "lake-saimaa",
@@ -888,13 +869,17 @@
    "image": "cards/lake-saimaa.webp",
    "topImage": "cards/lake-saimaa-top.webp",
    "view": "E",
-   "imageFrom": "511cfd567805cd4947884fb8ce58a360cecc8fae7471973639231d38be9876a4",
+   "imageFrom": "f0b64616dfd583843bc681a50d6c29f82838a08321de17d5e0e59021dcd296d2",
    "notes": [
     "No water a pump can reach from the start"
    ],
+   "floorTrees": {
+    "trees": 47,
+    "dead": 32
+   },
    "file": "maps/lake-saimaa.timber",
-   "bytes": 130253,
-   "sha256": "511cfd567805cd4947884fb8ce58a360cecc8fae7471973639231d38be9876a4"
+   "bytes": 123211,
+   "sha256": "f0b64616dfd583843bc681a50d6c29f82838a08321de17d5e0e59021dcd296d2"
   },
   {
    "id": "kinabatangan-river",
@@ -910,17 +895,13 @@
    "image": "cards/kinabatangan-river.webp",
    "topImage": "cards/kinabatangan-river-top.webp",
    "view": "S",
-   "imageFrom": "3e362179637eb26d79966935ae6f6c26f7226c4c6c3c73cae7755e78a94d1ba9",
+   "imageFrom": "3365d5384be80fe2cc850104dc7b41502696a6251cbd2fa24a3145c4c297e9f0",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 39,
-    "dead": 0
-   },
    "file": "maps/kinabatangan-river.timber",
-   "bytes": 119684,
-   "sha256": "3e362179637eb26d79966935ae6f6c26f7226c4c6c3c73cae7755e78a94d1ba9"
+   "bytes": 85467,
+   "sha256": "3365d5384be80fe2cc850104dc7b41502696a6251cbd2fa24a3145c4c297e9f0"
   },
   {
    "id": "ennedi-plateau",
@@ -936,13 +917,13 @@
    "image": "cards/ennedi-plateau.webp",
    "topImage": "cards/ennedi-plateau-top.webp",
    "view": "E",
-   "imageFrom": "7af43b4c8751e55adf75de5ae20942578424b85866c152e103618a3093962fe6",
+   "imageFrom": "88389642fcffae135c5db3cda17a9a27f0277b52e697a179928cd700360b575d",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/ennedi-plateau.timber",
-   "bytes": 103831,
-   "sha256": "7af43b4c8751e55adf75de5ae20942578424b85866c152e103618a3093962fe6"
+   "bytes": 73105,
+   "sha256": "88389642fcffae135c5db3cda17a9a27f0277b52e697a179928cd700360b575d"
   },
   {
    "id": "deccan-plateau",
@@ -958,10 +939,13 @@
    "image": "cards/deccan-plateau.webp",
    "topImage": "cards/deccan-plateau-top.webp",
    "view": "W",
-   "imageFrom": "84952247ccf8eee7d8365a04b4739534869e5b41c303528b0f671fb97da22825",
+   "imageFrom": "4480976a8223d9f5943b00854fae1ea0524b306e771ae191725f3454d5fdc353",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/deccan-plateau.timber",
-   "bytes": 126466,
-   "sha256": "84952247ccf8eee7d8365a04b4739534869e5b41c303528b0f671fb97da22825"
+   "bytes": 100712,
+   "sha256": "4480976a8223d9f5943b00854fae1ea0524b306e771ae191725f3454d5fdc353"
   },
   {
    "id": "bardenas-reales",
@@ -977,10 +961,10 @@
    "image": "cards/bardenas-reales.webp",
    "topImage": "cards/bardenas-reales-top.webp",
    "view": "N",
-   "imageFrom": "f7b4a3fd4b331fdaa5c6913da03bfc95fa54c12d031e4259a2b5b5f85ebcd61b",
+   "imageFrom": "a6097632d5f44878fcb4e6910613b030d90c317364e814811ddd3512a4d62c8f",
    "file": "maps/bardenas-reales.timber",
-   "bytes": 355648,
-   "sha256": "f7b4a3fd4b331fdaa5c6913da03bfc95fa54c12d031e4259a2b5b5f85ebcd61b"
+   "bytes": 225761,
+   "sha256": "a6097632d5f44878fcb4e6910613b030d90c317364e814811ddd3512a4d62c8f"
   },
   {
    "id": "waimakariri-river",
@@ -995,35 +979,14 @@
    "image": "cards/waimakariri-river.webp",
    "topImage": "cards/waimakariri-river-top.webp",
    "view": "W",
-   "imageFrom": "f159b746c049f07cd003eb20e1fb818fd9d6397879608a9507fb549f65e955b5",
+   "imageFrom": "d62cc870fc4a087eea09c3e92942c33a857682d7b747fac5cb66116358aacdc5",
    "floorTrees": {
-    "trees": 45,
+    "trees": 5,
     "dead": 0
    },
    "file": "maps/waimakariri-river.timber",
-   "bytes": 393079,
-   "sha256": "f159b746c049f07cd003eb20e1fb818fd9d6397879608a9507fb549f65e955b5"
-  },
-  {
-   "id": "lake-toba",
-   "name": "Lake Toba",
-   "surveyName": "Near Lake Toba, 30 m per tile",
-   "family": "caldera",
-   "familyName": "Caldera",
-   "plays": "A volcanic bowl; a dam on its outlet can hold a large lake.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/lake-toba.json.gz",
-   "image": "cards/lake-toba.webp",
-   "topImage": "cards/lake-toba-top.webp",
-   "view": "W",
-   "imageFrom": "0e5ca4cab45d5a13b7d9af9ba191a62a5c1231b7c5e457a5b54d403df6348889",
-   "notes": [
-    "The water keeps moving"
-   ],
-   "file": "maps/lake-toba.timber",
-   "bytes": 250703,
-   "sha256": "0e5ca4cab45d5a13b7d9af9ba191a62a5c1231b7c5e457a5b54d403df6348889"
+   "bytes": 254581,
+   "sha256": "d62cc870fc4a087eea09c3e92942c33a857682d7b747fac5cb66116358aacdc5"
   },
   {
    "id": "grand-canyon",
@@ -1038,14 +1001,10 @@
    "image": "cards/grand-canyon.webp",
    "topImage": "cards/grand-canyon-top.webp",
    "view": "S",
-   "imageFrom": "6165aed0ffbd1a6b12bf2962b5b6264d3e97612cac0e733f39cb116d22b711d8",
-   "floorTrees": {
-    "trees": 38,
-    "dead": 0
-   },
+   "imageFrom": "772f047ff7a250528ac02a2d7e46cf2c804d73388ea08500db34bb77d350513a",
    "file": "maps/grand-canyon.timber",
-   "bytes": 325216,
-   "sha256": "6165aed0ffbd1a6b12bf2962b5b6264d3e97612cac0e733f39cb116d22b711d8"
+   "bytes": 278133,
+   "sha256": "772f047ff7a250528ac02a2d7e46cf2c804d73388ea08500db34bb77d350513a"
   },
   {
    "id": "na-pali-coast",
@@ -1060,13 +1019,17 @@
    "image": "cards/na-pali-coast.webp",
    "topImage": "cards/na-pali-coast-top.webp",
    "view": "S",
-   "imageFrom": "64eb5cf5cf317df04ced0362e1fa60fb7a592076b8f9cbc3513fa98bdeb32ee3",
+   "imageFrom": "00f9495016e1a77216da8102c2d6149c8cbb5ec48bd635c4df57625345215c0a",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
+   "floorTrees": {
+    "trees": 21,
+    "dead": 21
+   },
    "file": "maps/na-pali-coast.timber",
-   "bytes": 145814,
-   "sha256": "64eb5cf5cf317df04ced0362e1fa60fb7a592076b8f9cbc3513fa98bdeb32ee3"
+   "bytes": 112314,
+   "sha256": "00f9495016e1a77216da8102c2d6149c8cbb5ec48bd635c4df57625345215c0a"
   },
   {
    "id": "mount-etna",
@@ -1081,39 +1044,14 @@
    "image": "cards/mount-etna.webp",
    "topImage": "cards/mount-etna-top.webp",
    "view": "W",
-   "imageFrom": "34185ccb87d8e65b907e4e0cea94ecdcbbf9d5875bc17a9c0fcfbf6c89577f58",
+   "imageFrom": "6b11356758468c239c73e4fa7b38be2c2133afa71facbaaec737f7d8fa2be051",
    "floorTrees": {
-    "trees": 72,
+    "trees": 36,
     "dead": 0
    },
    "file": "maps/mount-etna.timber",
-   "bytes": 247027,
-   "sha256": "34185ccb87d8e65b907e4e0cea94ecdcbbf9d5875bc17a9c0fcfbf6c89577f58"
-  },
-  {
-   "id": "godavari-delta",
-   "name": "Godavari Delta",
-   "surveyName": "Near Godavari delta, 30 m per tile",
-   "family": "delta",
-   "familyName": "Delta",
-   "plays": "Many small channels and islands; storage is shallow and flooding is a risk.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/godavari-delta.json.gz",
-   "image": "cards/godavari-delta.webp",
-   "topImage": "cards/godavari-delta-top.webp",
-   "view": "N",
-   "imageFrom": "b63a06fc7d5d5e6f98adb227d6b579160dad571eba08427ffa714380eff76c20",
-   "notes": [
-    "The water keeps moving"
-   ],
-   "floorTrees": {
-    "trees": 5,
-    "dead": 0
-   },
-   "file": "maps/godavari-delta.timber",
-   "bytes": 506320,
-   "sha256": "b63a06fc7d5d5e6f98adb227d6b579160dad571eba08427ffa714380eff76c20"
+   "bytes": 244999,
+   "sha256": "6b11356758468c239c73e4fa7b38be2c2133afa71facbaaec737f7d8fa2be051"
   },
   {
    "id": "niagara-escarpment",
@@ -1128,10 +1066,10 @@
    "image": "cards/niagara-escarpment.webp",
    "topImage": "cards/niagara-escarpment-top.webp",
    "view": "S",
-   "imageFrom": "fc2154880b9b1f716755f400f2ad7b8a5e773cbc610f88653970425b6cd5ec9e",
+   "imageFrom": "7b053a7b406ddc5d1f047e5335dc3d4b6f61252a334052908ffd89f622db7785",
    "file": "maps/niagara-escarpment.timber",
-   "bytes": 304965,
-   "sha256": "fc2154880b9b1f716755f400f2ad7b8a5e773cbc610f88653970425b6cd5ec9e"
+   "bytes": 268809,
+   "sha256": "7b053a7b406ddc5d1f047e5335dc3d4b6f61252a334052908ffd89f622db7785"
   },
   {
    "id": "gullfoss",
@@ -1146,10 +1084,10 @@
    "image": "cards/gullfoss.webp",
    "topImage": "cards/gullfoss-top.webp",
    "view": "E",
-   "imageFrom": "7b76f86d9a41ecd08359d03fa1ff663c7393ee3eeb461981a2f35a0df869aff0",
+   "imageFrom": "fd25b0fdf4c22d4c299a664205bb1c64753eb9ab440c64c0da1cf74b3fd948a6",
    "file": "maps/gullfoss.timber",
-   "bytes": 164361,
-   "sha256": "7b76f86d9a41ecd08359d03fa1ff663c7393ee3eeb461981a2f35a0df869aff0"
+   "bytes": 146967,
+   "sha256": "fd25b0fdf4c22d4c299a664205bb1c64753eb9ab440c64c0da1cf74b3fd948a6"
   },
   {
    "id": "kunlun-alluvial-fan",
@@ -1165,14 +1103,13 @@
    "image": "cards/kunlun-alluvial-fan.webp",
    "topImage": "cards/kunlun-alluvial-fan-top.webp",
    "view": "S",
-   "imageFrom": "a3f8bab5a3e42b2dce275ebf028d3be1a60b0f86a0695a1a17bfeec33cbf89f0",
-   "floorTrees": {
-    "trees": 14,
-    "dead": 0
-   },
+   "imageFrom": "08c41ebcceaf9238e136a991525255b24bf7a089f8e112951b20504224f8cd70",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/kunlun-alluvial-fan.timber",
-   "bytes": 386285,
-   "sha256": "a3f8bab5a3e42b2dce275ebf028d3be1a60b0f86a0695a1a17bfeec33cbf89f0"
+   "bytes": 163362,
+   "sha256": "08c41ebcceaf9238e136a991525255b24bf7a089f8e112951b20504224f8cd70"
   },
   {
    "id": "milford-sound",
@@ -1187,10 +1124,14 @@
    "image": "cards/milford-sound.webp",
    "topImage": "cards/milford-sound-top.webp",
    "view": "E",
-   "imageFrom": "7094482dccf1ab63e4908c11463669279f4765cd3d0c64ec322910e5906ea37f",
+   "imageFrom": "7ec0c6b8bd9cdd42b0cdef7fb77e6ea3ea2b0375c00339d1c9b6706fd9d06822",
+   "floorTrees": {
+    "trees": 44,
+    "dead": 0
+   },
    "file": "maps/milford-sound.timber",
-   "bytes": 348665,
-   "sha256": "7094482dccf1ab63e4908c11463669279f4765cd3d0c64ec322910e5906ea37f"
+   "bytes": 382386,
+   "sha256": "7ec0c6b8bd9cdd42b0cdef7fb77e6ea3ea2b0375c00339d1c9b6706fd9d06822"
   },
   {
    "id": "lauterbrunnen",
@@ -1205,14 +1146,14 @@
    "image": "cards/lauterbrunnen.webp",
    "topImage": "cards/lauterbrunnen-top.webp",
    "view": "S",
-   "imageFrom": "b1113c774175290061f1a705c91652a92482c91886673c4b4759ff9e6982c1cd",
+   "imageFrom": "735bd5e946e0c62f6694229555ae676958cc02ec7da03effb9ce83e33824a33c",
    "floorTrees": {
-    "trees": 27,
+    "trees": 10,
     "dead": 0
    },
    "file": "maps/lauterbrunnen.timber",
-   "bytes": 312606,
-   "sha256": "b1113c774175290061f1a705c91652a92482c91886673c4b4759ff9e6982c1cd"
+   "bytes": 296161,
+   "sha256": "735bd5e946e0c62f6694229555ae676958cc02ec7da03effb9ce83e33824a33c"
   },
   {
    "id": "katherine-gorge",
@@ -1227,10 +1168,13 @@
    "image": "cards/katherine-gorge.webp",
    "topImage": "cards/katherine-gorge-top.webp",
    "view": "N",
-   "imageFrom": "6e934f8348949f8813052336e75c7619e89b457c3c28f507ee102245463417e6",
+   "imageFrom": "469059e5c26f0aaa11d05b4eb4c80bea39c49807330227cd7367fda4d8b993d4",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/katherine-gorge.timber",
-   "bytes": 415150,
-   "sha256": "6e934f8348949f8813052336e75c7619e89b457c3c28f507ee102245463417e6"
+   "bytes": 248179,
+   "sha256": "469059e5c26f0aaa11d05b4eb4c80bea39c49807330227cd7367fda4d8b993d4"
   },
   {
    "id": "plitvice-lakes",
@@ -1245,10 +1189,10 @@
    "image": "cards/plitvice-lakes.webp",
    "topImage": "cards/plitvice-lakes-top.webp",
    "view": "W",
-   "imageFrom": "f30a53ac06053d3c4a959919762bc5242bfb981dc9b2b27edc3e3c70b5756a1b",
+   "imageFrom": "56424a8f0b072d08b6cefe219bfefb4c11dd770241b6cde2bd8204971fe5a605",
    "file": "maps/plitvice-lakes.timber",
-   "bytes": 305959,
-   "sha256": "f30a53ac06053d3c4a959919762bc5242bfb981dc9b2b27edc3e3c70b5756a1b"
+   "bytes": 280924,
+   "sha256": "56424a8f0b072d08b6cefe219bfefb4c11dd770241b6cde2bd8204971fe5a605"
   },
   {
    "id": "mississippi-oxbows",
@@ -1264,10 +1208,14 @@
    "image": "cards/mississippi-oxbows.webp",
    "topImage": "cards/mississippi-oxbows-top.webp",
    "view": "N",
-   "imageFrom": "838dfc2d3d1904d1ab85c3ed37143e4e242a36267d13bec6e6630e3baeaa73d4",
+   "imageFrom": "e339ff843b350d0b8955265e9156675131984fa4228ee81791d7dc71bcd4c6ea",
+   "floorTrees": {
+    "trees": 43,
+    "dead": 0
+   },
    "file": "maps/mississippi-oxbows.timber",
-   "bytes": 397555,
-   "sha256": "838dfc2d3d1904d1ab85c3ed37143e4e242a36267d13bec6e6630e3baeaa73d4"
+   "bytes": 405398,
+   "sha256": "e339ff843b350d0b8955265e9156675131984fa4228ee81791d7dc71bcd4c6ea"
   },
   {
    "id": "bungle-bungle",
@@ -1282,14 +1230,17 @@
    "image": "cards/bungle-bungle.webp",
    "topImage": "cards/bungle-bungle-top.webp",
    "view": "N",
-   "imageFrom": "4287da6712a9ec3d056cc5d85e5077452ffb304f4125cce773db7fe73da32d98",
+   "imageFrom": "f024b331c0f0d1e5f550c796962a9171562daed2afa47577fcd7c8701c118398",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "floorTrees": {
-    "trees": 24,
-    "dead": 0
+    "trees": 68,
+    "dead": 68
    },
    "file": "maps/bungle-bungle.timber",
-   "bytes": 137469,
-   "sha256": "4287da6712a9ec3d056cc5d85e5077452ffb304f4125cce773db7fe73da32d98"
+   "bytes": 99504,
+   "sha256": "f024b331c0f0d1e5f550c796962a9171562daed2afa47577fcd7c8701c118398"
   },
   {
    "id": "tibetan-plateau",
@@ -1305,10 +1256,10 @@
    "image": "cards/tibetan-plateau.webp",
    "topImage": "cards/tibetan-plateau-top.webp",
    "view": "N",
-   "imageFrom": "5d6b3930d198f8e973232059ea88e1b663c6f4177209a78321419ac25fc712d0",
+   "imageFrom": "0f5fcbd27e037c09bfb620545207b0d6702da2f5887d7582f75edb04db1146c5",
    "file": "maps/tibetan-plateau.timber",
-   "bytes": 339113,
-   "sha256": "5d6b3930d198f8e973232059ea88e1b663c6f4177209a78321419ac25fc712d0"
+   "bytes": 299944,
+   "sha256": "0f5fcbd27e037c09bfb620545207b0d6702da2f5887d7582f75edb04db1146c5"
   },
   {
    "id": "painted-desert",
@@ -1324,18 +1275,13 @@
    "image": "cards/painted-desert.webp",
    "topImage": "cards/painted-desert-top.webp",
    "view": "N",
-   "imageFrom": "10e02188d7a99fe5a1581315602e11b2edd9c9d54cf2ee69de83bb1d1ba8d237",
+   "imageFrom": "780f851677e307de472c6f35186a09cf11a8cee696f438cdefaca998cd674b79",
    "notes": [
-    "No water a pump can reach from the start",
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 5,
-    "dead": 0
-   },
    "file": "maps/painted-desert.timber",
-   "bytes": 170296,
-   "sha256": "10e02188d7a99fe5a1581315602e11b2edd9c9d54cf2ee69de83bb1d1ba8d237"
+   "bytes": 121521,
+   "sha256": "780f851677e307de472c6f35186a09cf11a8cee696f438cdefaca998cd674b79"
   },
   {
    "id": "skeidara-outwash",
@@ -1350,17 +1296,17 @@
    "image": "cards/skeidara-outwash.webp",
    "topImage": "cards/skeidara-outwash-top.webp",
    "view": "N",
-   "imageFrom": "3dff51d9317b0c088e0e4bc65fae4e78c465a7910ebaea1511df19ff36c6edfb",
+   "imageFrom": "9cc828f6c20c93dce6f54ea0cea70b05d2a6271cfd36ead1f2e55a261b4a469c",
    "notes": [
     "The water keeps moving"
    ],
    "floorTrees": {
-    "trees": 5,
-    "dead": 1
+    "trees": 28,
+    "dead": 0
    },
    "file": "maps/skeidara-outwash.timber",
-   "bytes": 152121,
-   "sha256": "3dff51d9317b0c088e0e4bc65fae4e78c465a7910ebaea1511df19ff36c6edfb"
+   "bytes": 163095,
+   "sha256": "9cc828f6c20c93dce6f54ea0cea70b05d2a6271cfd36ead1f2e55a261b4a469c"
   },
   {
    "id": "ngorongoro",
@@ -1375,10 +1321,10 @@
    "image": "cards/ngorongoro.webp",
    "topImage": "cards/ngorongoro-top.webp",
    "view": "E",
-   "imageFrom": "3829b05acfc592a50fe01b4fb7066fdbb54d9c0280ce2da4c4725c138e2b5066",
+   "imageFrom": "58ff04a6c976f3761340b69fc00ca04e05db5eae7c1239ccc2ceed964558b04f",
    "file": "maps/ngorongoro.timber",
-   "bytes": 521655,
-   "sha256": "3829b05acfc592a50fe01b4fb7066fdbb54d9c0280ce2da4c4725c138e2b5066"
+   "bytes": 196654,
+   "sha256": "58ff04a6c976f3761340b69fc00ca04e05db5eae7c1239ccc2ceed964558b04f"
   },
   {
    "id": "fish-river-canyon",
@@ -1393,10 +1339,13 @@
    "image": "cards/fish-river-canyon.webp",
    "topImage": "cards/fish-river-canyon-top.webp",
    "view": "E",
-   "imageFrom": "2cd7d5123e54567aa4b393e7413d676cbdeac95d29a03d43f34838495a5fe169",
+   "imageFrom": "b43e06cea2343d5f5175a9ac5c04be8f2dce58ddc683dd0e4b6d51d14fddcede",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/fish-river-canyon.timber",
-   "bytes": 163721,
-   "sha256": "2cd7d5123e54567aa4b393e7413d676cbdeac95d29a03d43f34838495a5fe169"
+   "bytes": 146441,
+   "sha256": "b43e06cea2343d5f5175a9ac5c04be8f2dce58ddc683dd0e4b6d51d14fddcede"
   },
   {
    "id": "mount-fuji",
@@ -1411,13 +1360,13 @@
    "image": "cards/mount-fuji.webp",
    "topImage": "cards/mount-fuji-top.webp",
    "view": "N",
-   "imageFrom": "9b6e6502d0b074774361bf08caf78901b763fcbb762aa69ef011a08bd4ab9aee",
+   "imageFrom": "3350623478fd99900a4709a2fbe6035a34c1014cb3f2bc05d90938cbd17a494b",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "file": "maps/mount-fuji.timber",
-   "bytes": 141464,
-   "sha256": "9b6e6502d0b074774361bf08caf78901b763fcbb762aa69ef011a08bd4ab9aee"
+   "bytes": 94254,
+   "sha256": "3350623478fd99900a4709a2fbe6035a34c1014cb3f2bc05d90938cbd17a494b"
   },
   {
    "id": "blue-mountains",
@@ -1432,13 +1381,10 @@
    "image": "cards/blue-mountains.webp",
    "topImage": "cards/blue-mountains-top.webp",
    "view": "W",
-   "imageFrom": "6cdd7ce1ab0d6ec18f781c6c4aeaae784c1045eb319e53b093c51df3a51977e1",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "f2c52f0ef2a62664cc262732b9c6b6690ebebdbd54de234135a01d441501e88d",
    "file": "maps/blue-mountains.timber",
-   "bytes": 145910,
-   "sha256": "6cdd7ce1ab0d6ec18f781c6c4aeaae784c1045eb319e53b093c51df3a51977e1"
+   "bytes": 147911,
+   "sha256": "f2c52f0ef2a62664cc262732b9c6b6690ebebdbd54de234135a01d441501e88d"
   },
   {
    "id": "victoria-falls",
@@ -1453,13 +1399,10 @@
    "image": "cards/victoria-falls.webp",
    "topImage": "cards/victoria-falls-top.webp",
    "view": "N",
-   "imageFrom": "1a1c8412105649d9cb6c0b0e0f7d638512edfde950b20cf5c626eeba3669e94b",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "1d34c22cb20b7a4cf436ede5eb953dbbfa3b3517f089fba759d2ccad2ec96e49",
    "file": "maps/victoria-falls.timber",
-   "bytes": 138488,
-   "sha256": "1a1c8412105649d9cb6c0b0e0f7d638512edfde950b20cf5c626eeba3669e94b"
+   "bytes": 144105,
+   "sha256": "1d34c22cb20b7a4cf436ede5eb953dbbfa3b3517f089fba759d2ccad2ec96e49"
   },
   {
    "id": "atacama-fan",
@@ -1475,10 +1418,13 @@
    "image": "cards/atacama-fan.webp",
    "topImage": "cards/atacama-fan-top.webp",
    "view": "E",
-   "imageFrom": "7f73a9104b50d8e61a8b833b8197982b8d691fdf256f78df24ad8081c1818196",
+   "imageFrom": "ff0b2aa6cbb07bcd6ff24af232f0cebbff571dc117c078689228a21e084f4ba6",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/atacama-fan.timber",
-   "bytes": 157021,
-   "sha256": "7f73a9104b50d8e61a8b833b8197982b8d691fdf256f78df24ad8081c1818196"
+   "bytes": 107868,
+   "sha256": "ff0b2aa6cbb07bcd6ff24af232f0cebbff571dc117c078689228a21e084f4ba6"
   },
   {
    "id": "aialik-bay",
@@ -1493,14 +1439,10 @@
    "image": "cards/aialik-bay.webp",
    "topImage": "cards/aialik-bay-top.webp",
    "view": "W",
-   "imageFrom": "3e88477a0b509e6f80074c7da1eb662b86b75bee3f364076d25a72e9c6dafe6a",
-   "floorTrees": {
-    "trees": 18,
-    "dead": 0
-   },
+   "imageFrom": "278017694a2248ec91654bebf40ab43bb826184db96033605a97a26608e4a7f2",
    "file": "maps/aialik-bay.timber",
-   "bytes": 171549,
-   "sha256": "3e88477a0b509e6f80074c7da1eb662b86b75bee3f364076d25a72e9c6dafe6a"
+   "bytes": 166705,
+   "sha256": "278017694a2248ec91654bebf40ab43bb826184db96033605a97a26608e4a7f2"
   },
   {
    "id": "hooker-valley",
@@ -1515,14 +1457,10 @@
    "image": "cards/hooker-valley.webp",
    "topImage": "cards/hooker-valley-top.webp",
    "view": "W",
-   "imageFrom": "cd4b24df6ca2f2e568eecdc9802dffd62b93576a6856735d59a46fd584f74afc",
-   "floorTrees": {
-    "trees": 19,
-    "dead": 0
-   },
+   "imageFrom": "027a6a1fdaedae717a0c66efb2e737b679d1090f854934eff83ea9bafd77f1ef",
    "file": "maps/hooker-valley.timber",
-   "bytes": 169897,
-   "sha256": "cd4b24df6ca2f2e568eecdc9802dffd62b93576a6856735d59a46fd584f74afc"
+   "bytes": 170845,
+   "sha256": "027a6a1fdaedae717a0c66efb2e737b679d1090f854934eff83ea9bafd77f1ef"
   },
   {
    "id": "todgha-gorge",
@@ -1537,10 +1475,13 @@
    "image": "cards/todgha-gorge.webp",
    "topImage": "cards/todgha-gorge-top.webp",
    "view": "W",
-   "imageFrom": "8c07e1d54513fa9ce9e1fe934962f67bc9f7d43d9f363b32f721136087a0a6cf",
+   "imageFrom": "0815cf922b6c8b2819aaba93be0fc2909d3b5cd3718146a22fb77dccedea507d",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/todgha-gorge.timber",
-   "bytes": 163271,
-   "sha256": "8c07e1d54513fa9ce9e1fe934962f67bc9f7d43d9f363b32f721136087a0a6cf"
+   "bytes": 118006,
+   "sha256": "0815cf922b6c8b2819aaba93be0fc2909d3b5cd3718146a22fb77dccedea507d"
   },
   {
    "id": "li-river",
@@ -1555,10 +1496,10 @@
    "image": "cards/li-river.webp",
    "topImage": "cards/li-river-top.webp",
    "view": "W",
-   "imageFrom": "6a4b01e2ae447416de6dc0a76b09029474983ace2f60fbdcd04785e4258a6b49",
+   "imageFrom": "9f78ddf4aa0389c8feca32db19b70cc736eb912e92f9521028affe1a8469be8f",
    "file": "maps/li-river.timber",
-   "bytes": 376267,
-   "sha256": "6a4b01e2ae447416de6dc0a76b09029474983ace2f60fbdcd04785e4258a6b49"
+   "bytes": 349283,
+   "sha256": "9f78ddf4aa0389c8feca32db19b70cc736eb912e92f9521028affe1a8469be8f"
   },
   {
    "id": "goosenecks-of-the-san-juan",
@@ -1573,14 +1514,17 @@
    "image": "cards/goosenecks-of-the-san-juan.webp",
    "topImage": "cards/goosenecks-of-the-san-juan-top.webp",
    "view": "W",
-   "imageFrom": "46cf2c333e7ee3a9e7fece66a153ad410b8e0d28812df7defdb8b69d9e76a96a",
+   "imageFrom": "ffc24648c31bb8ff7728849f2d0397608493f80f1a2b7964b354f6abf32be8d9",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "floorTrees": {
-    "trees": 11,
-    "dead": 4
+    "trees": 15,
+    "dead": 15
    },
    "file": "maps/goosenecks-of-the-san-juan.timber",
-   "bytes": 163607,
-   "sha256": "46cf2c333e7ee3a9e7fece66a153ad410b8e0d28812df7defdb8b69d9e76a96a"
+   "bytes": 155209,
+   "sha256": "ffc24648c31bb8ff7728849f2d0397608493f80f1a2b7964b354f6abf32be8d9"
   },
   {
    "id": "monument-valley",
@@ -1595,14 +1539,17 @@
    "image": "cards/monument-valley.webp",
    "topImage": "cards/monument-valley-top.webp",
    "view": "W",
-   "imageFrom": "807f463665ab566c337dd3c3f133be66de24ffaf3353cc7b9d3fbd476d309279",
+   "imageFrom": "fabc48a71af6f6b02fead168a21846ebdc526cf11abe21d2a6874f6ea642e806",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "floorTrees": {
-    "trees": 15,
-    "dead": 0
+    "trees": 14,
+    "dead": 14
    },
    "file": "maps/monument-valley.timber",
-   "bytes": 168492,
-   "sha256": "807f463665ab566c337dd3c3f133be66de24ffaf3353cc7b9d3fbd476d309279"
+   "bytes": 114750,
+   "sha256": "fabc48a71af6f6b02fead168a21846ebdc526cf11abe21d2a6874f6ea642e806"
   },
   {
    "id": "colorado-plateau",
@@ -1617,39 +1564,13 @@
    "image": "cards/colorado-plateau.webp",
    "topImage": "cards/colorado-plateau-top.webp",
    "view": "S",
-   "imageFrom": "cce3cb6b59bb0312c69d4ced033dd6b69fa9cd41cba9c702aaf07e2add7773f0",
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
-   "file": "maps/colorado-plateau.timber",
-   "bytes": 161128,
-   "sha256": "cce3cb6b59bb0312c69d4ced033dd6b69fa9cd41cba9c702aaf07e2add7773f0"
-  },
-  {
-   "id": "majuli-brahmaputra",
-   "name": "Majuli, Brahmaputra",
-   "surveyName": "Near Brahmaputra near Majuli, 30 m per tile",
-   "family": "braided",
-   "familyName": "Braided river",
-   "plays": "Channels split around gravel islands, so you have several places to dam.",
-   "size": 128,
-   "metres": 30,
-   "data": "data/majuli-brahmaputra.json.gz",
-   "image": "cards/majuli-brahmaputra.webp",
-   "topImage": "cards/majuli-brahmaputra-top.webp",
-   "view": "N",
-   "imageFrom": "fee700e89badbe618b843e127bc7191f0334c0b620dfe4854c165b6bc11add39",
+   "imageFrom": "24e2f67a7a5612403fbc7788de45fb478bcd8af2bbc0cf57fde73901984e061a",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 27,
-    "dead": 0
-   },
-   "file": "maps/majuli-brahmaputra.timber",
-   "bytes": 201001,
-   "sha256": "fee700e89badbe618b843e127bc7191f0334c0b620dfe4854c165b6bc11add39"
+   "file": "maps/colorado-plateau.timber",
+   "bytes": 127900,
+   "sha256": "24e2f67a7a5612403fbc7788de45fb478bcd8af2bbc0cf57fde73901984e061a"
   },
   {
    "id": "sete-cidades",
@@ -1664,14 +1585,14 @@
    "image": "cards/sete-cidades.webp",
    "topImage": "cards/sete-cidades-top.webp",
    "view": "E",
-   "imageFrom": "1e652b65aa84e16920ad7a84749fbe5ae6dff24186f85116914ad38288deb579",
+   "imageFrom": "1d9deed82a8cbdea0a29a1ad82a17bb9470e503cdae92be114a9cdaf53a0f180",
    "floorTrees": {
-    "trees": 35,
+    "trees": 25,
     "dead": 0
    },
    "file": "maps/sete-cidades.timber",
-   "bytes": 117187,
-   "sha256": "1e652b65aa84e16920ad7a84749fbe5ae6dff24186f85116914ad38288deb579"
+   "bytes": 119574,
+   "sha256": "1d9deed82a8cbdea0a29a1ad82a17bb9470e503cdae92be114a9cdaf53a0f180"
   },
   {
    "id": "copper-canyon",
@@ -1686,13 +1607,13 @@
    "image": "cards/copper-canyon.webp",
    "topImage": "cards/copper-canyon-top.webp",
    "view": "W",
-   "imageFrom": "e3fa768ec974c9866f4d3bbb099764891246f0cce1c80b51533532130ec8df85",
+   "imageFrom": "6792cdc1737023a8f2168555dff09447a8a7b50a98ef00211ccd595445f4ccac",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "file": "maps/copper-canyon.timber",
-   "bytes": 114304,
-   "sha256": "e3fa768ec974c9866f4d3bbb099764891246f0cce1c80b51533532130ec8df85"
+   "bytes": 108754,
+   "sha256": "6792cdc1737023a8f2168555dff09447a8a7b50a98ef00211ccd595445f4ccac"
   },
   {
    "id": "mount-taranaki",
@@ -1707,14 +1628,13 @@
    "image": "cards/mount-taranaki.webp",
    "topImage": "cards/mount-taranaki-top.webp",
    "view": "E",
-   "imageFrom": "bc615c3df8ce538361c646803109b2c765a672fc619965a196eadacc8a1bed75",
-   "floorTrees": {
-    "trees": 30,
-    "dead": 0
-   },
+   "imageFrom": "98da15e28ff3a691be03233311dee754ebb954516abcc0a66830fe371ebb5b6b",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/mount-taranaki.timber",
-   "bytes": 281234,
-   "sha256": "bc615c3df8ce538361c646803109b2c765a672fc619965a196eadacc8a1bed75"
+   "bytes": 177807,
+   "sha256": "98da15e28ff3a691be03233311dee754ebb954516abcc0a66830fe371ebb5b6b"
   },
   {
    "id": "bandiagara",
@@ -1729,13 +1649,17 @@
    "image": "cards/bandiagara.webp",
    "topImage": "cards/bandiagara-top.webp",
    "view": "W",
-   "imageFrom": "d886aaa2af06cd53197aeeff1e193555c6115336ec6c8d4bb6cf4b48e5c82007",
+   "imageFrom": "0f6f53e0cef705867577c4a13068cd45db81cbeb036ad7a85d9b9447796ddcad",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
+   "floorTrees": {
+    "trees": 26,
+    "dead": 26
+   },
    "file": "maps/bandiagara.timber",
-   "bytes": 127795,
-   "sha256": "d886aaa2af06cd53197aeeff1e193555c6115336ec6c8d4bb6cf4b48e5c82007"
+   "bytes": 95032,
+   "sha256": "0f6f53e0cef705867577c4a13068cd45db81cbeb036ad7a85d9b9447796ddcad"
   },
   {
    "id": "iguazu-falls",
@@ -1750,13 +1674,13 @@
    "image": "cards/iguazu-falls.webp",
    "topImage": "cards/iguazu-falls-top.webp",
    "view": "S",
-   "imageFrom": "9e6f484b8ce42bcf5747e6c3484d167ba34f2bf02261e78f380262655b05fb4c",
+   "imageFrom": "1b0be62be658337478e90d7f20674059596d3026f57d28cbc72dff044e5effd2",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/iguazu-falls.timber",
-   "bytes": 147170,
-   "sha256": "9e6f484b8ce42bcf5747e6c3484d167ba34f2bf02261e78f380262655b05fb4c"
+   "bytes": 159395,
+   "sha256": "1b0be62be658337478e90d7f20674059596d3026f57d28cbc72dff044e5effd2"
   },
   {
    "id": "ilulissat-icefjord",
@@ -1771,17 +1695,13 @@
    "image": "cards/ilulissat-icefjord.webp",
    "topImage": "cards/ilulissat-icefjord-top.webp",
    "view": "N",
-   "imageFrom": "b47193c02dd42d2bd67e623190d167ac67b5586da465efc47c54f7fe653c83b8",
+   "imageFrom": "a7338a4256cf2d924aa8d699b42b008be6ecbe2a4176ef41b01031bca8682bbc",
    "notes": [
     "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 41,
-    "dead": 0
-   },
    "file": "maps/ilulissat-icefjord.timber",
-   "bytes": 110793,
-   "sha256": "b47193c02dd42d2bd67e623190d167ac67b5586da465efc47c54f7fe653c83b8"
+   "bytes": 120936,
+   "sha256": "a7338a4256cf2d924aa8d699b42b008be6ecbe2a4176ef41b01031bca8682bbc"
   },
   {
    "id": "yosemite-valley",
@@ -1796,18 +1716,13 @@
    "image": "cards/yosemite-valley.webp",
    "topImage": "cards/yosemite-valley-top.webp",
    "view": "N",
-   "imageFrom": "cf6364d74b28027c3012b3a0e5562d83882af731aad62a20ff872e4f11ac639e",
+   "imageFrom": "c38ad6b99c12a8976b9fa41ea47ac689a0d67af7eca89b7e07a790439e1597c0",
    "notes": [
-    "No water a pump can reach from the start",
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 17,
-    "dead": 10
-   },
    "file": "maps/yosemite-valley.timber",
-   "bytes": 129411,
-   "sha256": "cf6364d74b28027c3012b3a0e5562d83882af731aad62a20ff872e4f11ac639e"
+   "bytes": 122796,
+   "sha256": "c38ad6b99c12a8976b9fa41ea47ac689a0d67af7eca89b7e07a790439e1597c0"
   },
   {
    "id": "tara-gorge",
@@ -1822,38 +1737,17 @@
    "image": "cards/tara-gorge.webp",
    "topImage": "cards/tara-gorge-top.webp",
    "view": "N",
-   "imageFrom": "0374a667ceac8a7b83768b1476082391e2aa3dc61893a9fca712fc3e49c8ffcf",
+   "imageFrom": "1ad313a6bbce20e5f41d8e532eaec0a7b1f15f5751c30e1d9d9d1c2af74d17ce",
    "notes": [
     "No water a pump can reach from the start"
    ],
    "floorTrees": {
-    "trees": 10,
+    "trees": 16,
     "dead": 0
    },
    "file": "maps/tara-gorge.timber",
-   "bytes": 120913,
-   "sha256": "0374a667ceac8a7b83768b1476082391e2aa3dc61893a9fca712fc3e49c8ffcf"
-  },
-  {
-   "id": "tsingy-de-bemaraha",
-   "name": "Tsingy de Bemaraha",
-   "surveyName": "Near Tsingy Bemaraha, 30 m per tile",
-   "family": "karst",
-   "familyName": "Karst",
-   "plays": "Steep hills around separate basins; routes between them take planning.",
-   "size": 96,
-   "metres": 30,
-   "data": "data/tsingy-de-bemaraha.json.gz",
-   "image": "cards/tsingy-de-bemaraha.webp",
-   "topImage": "cards/tsingy-de-bemaraha-top.webp",
-   "view": "E",
-   "imageFrom": "4eafd8d154cc114ece7200f0443b15c93e5239b35b0e725bd5e738f5d50ca640",
-   "notes": [
-    "The water keeps moving"
-   ],
-   "file": "maps/tsingy-de-bemaraha.timber",
-   "bytes": 94008,
-   "sha256": "4eafd8d154cc114ece7200f0443b15c93e5239b35b0e725bd5e738f5d50ca640"
+   "bytes": 109265,
+   "sha256": "1ad313a6bbce20e5f41d8e532eaec0a7b1f15f5751c30e1d9d9d1c2af74d17ce"
   },
   {
    "id": "mamore-river",
@@ -1868,10 +1762,10 @@
    "image": "cards/mamore-river.webp",
    "topImage": "cards/mamore-river-top.webp",
    "view": "N",
-   "imageFrom": "e6b77f00abc189cebc13e9faaee921e13c142585b7014d5301332940cf08b4af",
+   "imageFrom": "d5dde431d484ce5f6699f69e12f282651bd7a2b7b1e2e45b8e71f502ad5dec84",
    "file": "maps/mamore-river.timber",
-   "bytes": 119422,
-   "sha256": "e6b77f00abc189cebc13e9faaee921e13c142585b7014d5301332940cf08b4af"
+   "bytes": 129154,
+   "sha256": "d5dde431d484ce5f6699f69e12f282651bd7a2b7b1e2e45b8e71f502ad5dec84"
   },
   {
    "id": "capitol-reef",
@@ -1886,10 +1780,10 @@
    "image": "cards/capitol-reef.webp",
    "topImage": "cards/capitol-reef-top.webp",
    "view": "S",
-   "imageFrom": "4d937219c2e9aaed4e131e14249de3116acb614e25620c8d2622e1cff96433dd",
+   "imageFrom": "22311317b007121c385f4cabc580ebbf88b701870975f0be2c8d112e61b15c20",
    "file": "maps/capitol-reef.timber",
-   "bytes": 118612,
-   "sha256": "4d937219c2e9aaed4e131e14249de3116acb614e25620c8d2622e1cff96433dd"
+   "bytes": 110602,
+   "sha256": "22311317b007121c385f4cabc580ebbf88b701870975f0be2c8d112e61b15c20"
   },
   {
    "id": "altiplano",
@@ -1905,13 +1799,13 @@
    "image": "cards/altiplano.webp",
    "topImage": "cards/altiplano-top.webp",
    "view": "N",
-   "imageFrom": "3e6cad1d8af989e7f1d992f61734c4ab9a5ab4f78deaf7a0812eda598d9ee736",
+   "imageFrom": "7ad91083e2bcf36103e519cd24e56d5c85332cd36459d715112a12b7b0978c21",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/altiplano.timber",
-   "bytes": 98315,
-   "sha256": "3e6cad1d8af989e7f1d992f61734c4ab9a5ab4f78deaf7a0812eda598d9ee736"
+   "bytes": 71626,
+   "sha256": "7ad91083e2bcf36103e519cd24e56d5c85332cd36459d715112a12b7b0978c21"
   },
   {
    "id": "raja-ampat",
@@ -1927,17 +1821,13 @@
    "image": "cards/raja-ampat.webp",
    "topImage": "cards/raja-ampat-top.webp",
    "view": "W",
-   "imageFrom": "6222c280fba1991cee6e4bd1c4c0d95ca04b02d4254d23d3abb49ee9bd2f42cd",
+   "imageFrom": "a300a2c49876187ca1a8e8b7c727f0e0fcf6be8162eba75fa732365cecd5651f",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
    "file": "maps/raja-ampat.timber",
-   "bytes": 154167,
-   "sha256": "6222c280fba1991cee6e4bd1c4c0d95ca04b02d4254d23d3abb49ee9bd2f42cd"
+   "bytes": 118906,
+   "sha256": "a300a2c49876187ca1a8e8b7c727f0e0fcf6be8162eba75fa732365cecd5651f"
   },
   {
    "id": "kawarau-and-shotover",
@@ -1952,14 +1842,14 @@
    "image": "cards/kawarau-and-shotover.webp",
    "topImage": "cards/kawarau-and-shotover-top.webp",
    "view": "E",
-   "imageFrom": "bac6e3151613e9c69ba2bb212935555532424df9a93264664f6b7315865f6c3d",
+   "imageFrom": "5cf62df45128fc72e61a02e05ee4a5c76ad105d0aa9c1fa76327ca1ff2db8b59",
    "floorTrees": {
-    "trees": 22,
+    "trees": 27,
     "dead": 0
    },
    "file": "maps/kawarau-and-shotover.timber",
-   "bytes": 160152,
-   "sha256": "bac6e3151613e9c69ba2bb212935555532424df9a93264664f6b7315865f6c3d"
+   "bytes": 160555,
+   "sha256": "5cf62df45128fc72e61a02e05ee4a5c76ad105d0aa9c1fa76327ca1ff2db8b59"
   },
   {
    "id": "temagami",
@@ -1975,13 +1865,14 @@
    "image": "cards/temagami.webp",
    "topImage": "cards/temagami-top.webp",
    "view": "N",
-   "imageFrom": "4426780166611b265888ac1dd142f379e74432acc5f1808c52510ed6ad804243",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "7a08f7aa7b4e2335a99072363387760571c8103f078aeef3337d6a36bb412287",
+   "floorTrees": {
+    "trees": 10,
+    "dead": 0
+   },
    "file": "maps/temagami.timber",
-   "bytes": 147118,
-   "sha256": "4426780166611b265888ac1dd142f379e74432acc5f1808c52510ed6ad804243"
+   "bytes": 150493,
+   "sha256": "7a08f7aa7b4e2335a99072363387760571c8103f078aeef3337d6a36bb412287"
   },
   {
    "id": "etretat-cliffs",
@@ -1996,10 +1887,13 @@
    "image": "cards/etretat-cliffs.webp",
    "topImage": "cards/etretat-cliffs-top.webp",
    "view": "S",
-   "imageFrom": "f78012723a895e92715fc11f56bb3c592198fdb9b35d00b75caf952af210136e",
+   "imageFrom": "ce0498d9922b7d5885c077e97c620388eff489e5a1790294225dfa34554c3535",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/etretat-cliffs.timber",
-   "bytes": 168277,
-   "sha256": "f78012723a895e92715fc11f56bb3c592198fdb9b35d00b75caf952af210136e"
+   "bytes": 119864,
+   "sha256": "ce0498d9922b7d5885c077e97c620388eff489e5a1790294225dfa34554c3535"
   },
   {
    "id": "bardenas-reales-southwest",
@@ -2015,14 +1909,14 @@
    "image": "cards/bardenas-reales-southwest.webp",
    "topImage": "cards/bardenas-reales-southwest-top.webp",
    "view": "E",
-   "imageFrom": "a9aa78524d568d3fd53dd9415aa38492a837b55e7fedd1a8864e542a7930eec1",
+   "imageFrom": "450d831cefb333c54390732ca2d2ee716d742004bc18d6b1bf097e1e01225f08",
    "floorTrees": {
-    "trees": 53,
-    "dead": 0
+    "trees": 5,
+    "dead": 5
    },
    "file": "maps/bardenas-reales-southwest.timber",
-   "bytes": 174576,
-   "sha256": "a9aa78524d568d3fd53dd9415aa38492a837b55e7fedd1a8864e542a7930eec1"
+   "bytes": 149598,
+   "sha256": "450d831cefb333c54390732ca2d2ee716d742004bc18d6b1bf097e1e01225f08"
   },
   {
    "id": "crater-lake-east",
@@ -2038,10 +1932,17 @@
    "image": "cards/crater-lake-east.webp",
    "topImage": "cards/crater-lake-east-top.webp",
    "view": "S",
-   "imageFrom": "1cda958bf296ffc39843147cb2ff9f63c12d1f7d1f93c2a4d1fda6ea4b8bcecf",
+   "imageFrom": "5c94ae2db26bed937577a37d7ad5a942e2a97bf36c27c653de5fe94355d7bbd0",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "floorTrees": {
+    "trees": 5,
+    "dead": 5
+   },
    "file": "maps/crater-lake-east.timber",
-   "bytes": 159318,
-   "sha256": "1cda958bf296ffc39843147cb2ff9f63c12d1f7d1f93c2a4d1fda6ea4b8bcecf"
+   "bytes": 106159,
+   "sha256": "5c94ae2db26bed937577a37d7ad5a942e2a97bf36c27c653de5fe94355d7bbd0"
   },
   {
    "id": "blyde-river-canyon-north",
@@ -2057,40 +1958,14 @@
    "image": "cards/blyde-river-canyon-north.webp",
    "topImage": "cards/blyde-river-canyon-north-top.webp",
    "view": "N",
-   "imageFrom": "c0fe4a37c0476fb5426904ee1c5a55872afb6ed25fbc16101c271408a4c38428",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "375e6769d85637547244bdf08e04a88c5bcfdf1d4480f977a76ab9be6b218efa",
    "floorTrees": {
-    "trees": 5,
-    "dead": 0
+    "trees": 70,
+    "dead": 27
    },
    "file": "maps/blyde-river-canyon-north.timber",
-   "bytes": 119077,
-   "sha256": "c0fe4a37c0476fb5426904ee1c5a55872afb6ed25fbc16101c271408a4c38428"
-  },
-  {
-   "id": "mount-mayon-north",
-   "name": "Mount Mayon North",
-   "surveyName": "Near Mount Mayon (north sample), 30 m per tile",
-   "sample": "north",
-   "family": "cone",
-   "familyName": "Volcano",
-   "plays": "Land falls away from a peak on every side, so you build upward.",
-   "size": 128,
-   "metres": 30,
-   "data": "data/mount-mayon-north.json.gz",
-   "image": "cards/mount-mayon-north.webp",
-   "topImage": "cards/mount-mayon-north-top.webp",
-   "view": "S",
-   "imageFrom": "d438adb44ed71d46bf74c368ad7479737a6ffa087e8e404573d57705991edf85",
-   "notes": [
-    "No water a pump can reach from the start",
-    "The water keeps moving"
-   ],
-   "file": "maps/mount-mayon-north.timber",
-   "bytes": 143234,
-   "sha256": "d438adb44ed71d46bf74c368ad7479737a6ffa087e8e404573d57705991edf85"
+   "bytes": 99517,
+   "sha256": "375e6769d85637547244bdf08e04a88c5bcfdf1d4480f977a76ab9be6b218efa"
   },
   {
    "id": "blue-mountains-southwest",
@@ -2106,10 +1981,13 @@
    "image": "cards/blue-mountains-southwest.webp",
    "topImage": "cards/blue-mountains-southwest-top.webp",
    "view": "E",
-   "imageFrom": "3e9cd6650d7640e44899ec0ec3901216c3bbff8f3a42e578793bf6a0e806cfd4",
+   "imageFrom": "01f1c8eb73ee0d38a42e2b760f58379458834fc4f5afa16961321da68c27204b",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/blue-mountains-southwest.timber",
-   "bytes": 157671,
-   "sha256": "3e9cd6650d7640e44899ec0ec3901216c3bbff8f3a42e578793bf6a0e806cfd4"
+   "bytes": 113293,
+   "sha256": "01f1c8eb73ee0d38a42e2b760f58379458834fc4f5afa16961321da68c27204b"
   },
   {
    "id": "victoria-falls-southwest",
@@ -2125,13 +2003,13 @@
    "image": "cards/victoria-falls-southwest.webp",
    "topImage": "cards/victoria-falls-southwest-top.webp",
    "view": "S",
-   "imageFrom": "937859a8fcfe9cb068242fc035214ba1b499bb75d7a51978cbc88f8ff62c203a",
+   "imageFrom": "61ae9cccf4af24e0d0b8d38fa137dc09e416bd31babdf473b628b5a3ce619bc3",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/victoria-falls-southwest.timber",
-   "bytes": 170531,
-   "sha256": "937859a8fcfe9cb068242fc035214ba1b499bb75d7a51978cbc88f8ff62c203a"
+   "bytes": 124967,
+   "sha256": "61ae9cccf4af24e0d0b8d38fa137dc09e416bd31babdf473b628b5a3ce619bc3"
   },
   {
    "id": "aysen-fjord-southwest",
@@ -2147,14 +2025,17 @@
    "image": "cards/aysen-fjord-southwest.webp",
    "topImage": "cards/aysen-fjord-southwest-top.webp",
    "view": "E",
-   "imageFrom": "b4f243e68cc19f1f1d260dbc4539896daf4c289e809c24292778d1c21a2a1596",
+   "imageFrom": "5d1100480af4bb8e8e4b3da7f2e75039ed508856bb7bb0fb035a185ca3f4ad71",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "floorTrees": {
-    "trees": 64,
+    "trees": 5,
     "dead": 0
    },
    "file": "maps/aysen-fjord-southwest.timber",
-   "bytes": 169231,
-   "sha256": "b4f243e68cc19f1f1d260dbc4539896daf4c289e809c24292778d1c21a2a1596"
+   "bytes": 135155,
+   "sha256": "5d1100480af4bb8e8e4b3da7f2e75039ed508856bb7bb0fb035a185ca3f4ad71"
   },
   {
    "id": "glencoe-north",
@@ -2170,13 +2051,14 @@
    "image": "cards/glencoe-north.webp",
    "topImage": "cards/glencoe-north-top.webp",
    "view": "N",
-   "imageFrom": "508a56528d86adb89d06e733c1b55a6b27448d58e9f556a1b6f01871c1e5983d",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "a821a05a3b48f531a17a64386e7a4059143aeabff240d8c9e090f6fcbe709afa",
+   "floorTrees": {
+    "trees": 66,
+    "dead": 0
+   },
    "file": "maps/glencoe-north.timber",
-   "bytes": 119328,
-   "sha256": "508a56528d86adb89d06e733c1b55a6b27448d58e9f556a1b6f01871c1e5983d"
+   "bytes": 118444,
+   "sha256": "a821a05a3b48f531a17a64386e7a4059143aeabff240d8c9e090f6fcbe709afa"
   },
   {
    "id": "todgha-gorge-southwest",
@@ -2192,14 +2074,13 @@
    "image": "cards/todgha-gorge-southwest.webp",
    "topImage": "cards/todgha-gorge-southwest-top.webp",
    "view": "W",
-   "imageFrom": "df12826e53774788a09bebdf55b06bd2e7fb53e7e49286306f3912748a27120d",
+   "imageFrom": "af57d4fb480c8ee4bf063458e1ccb7e4f1d6fc192e847110e39a581540cfd1cf",
    "notes": [
-    "No water a pump can reach from the start",
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/todgha-gorge-southwest.timber",
-   "bytes": 153464,
-   "sha256": "df12826e53774788a09bebdf55b06bd2e7fb53e7e49286306f3912748a27120d"
+   "bytes": 111453,
+   "sha256": "af57d4fb480c8ee4bf063458e1ccb7e4f1d6fc192e847110e39a581540cfd1cf"
   },
   {
    "id": "phong-nha-southwest",
@@ -2215,32 +2096,14 @@
    "image": "cards/phong-nha-southwest.webp",
    "topImage": "cards/phong-nha-southwest-top.webp",
    "view": "S",
-   "imageFrom": "1f3e6296e1cb9891e5d215e4ab62216c39d856e8057b037150670b04e4e953f2",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "8eaf99552642127fa506ad4ede2f986cf4d079b1f5ca9234f9c9e66d1618d1fe",
+   "floorTrees": {
+    "trees": 41,
+    "dead": 5
+   },
    "file": "maps/phong-nha-southwest.timber",
-   "bytes": 160711,
-   "sha256": "1f3e6296e1cb9891e5d215e4ab62216c39d856e8057b037150670b04e4e953f2"
-  },
-  {
-   "id": "kinabatangan-river-east",
-   "name": "Kinabatangan River East",
-   "surveyName": "Near Kinabatangan River (east sample), 120 m per tile",
-   "sample": "east",
-   "family": "meander",
-   "familyName": "Winding river",
-   "plays": "A winding river; cut-off bends can keep water through a drought.",
-   "size": 128,
-   "metres": 120,
-   "data": "data/kinabatangan-river-east.json.gz",
-   "image": "cards/kinabatangan-river-east.webp",
-   "topImage": "cards/kinabatangan-river-east-top.webp",
-   "view": "S",
-   "imageFrom": "839cd1b39a51f8f544543ff6ae0f5cd25c23716137604ea7b8fc2d88bb5c2762",
-   "file": "maps/kinabatangan-river-east.timber",
-   "bytes": 149539,
-   "sha256": "839cd1b39a51f8f544543ff6ae0f5cd25c23716137604ea7b8fc2d88bb5c2762"
+   "bytes": 132752,
+   "sha256": "8eaf99552642127fa506ad4ede2f986cf4d079b1f5ca9234f9c9e66d1618d1fe"
   },
   {
    "id": "monument-valley-east",
@@ -2256,17 +2119,13 @@
    "image": "cards/monument-valley-east.webp",
    "topImage": "cards/monument-valley-east-top.webp",
    "view": "W",
-   "imageFrom": "4754a39a48bd830b19475f152c7ddffc110717c777e6eaa65282485e1d359e24",
+   "imageFrom": "934d2ecda3502d3fb2a379a806b004c3dea34048e264c3eb72d612069d6daab0",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 27,
-    "dead": 0
-   },
    "file": "maps/monument-valley-east.timber",
-   "bytes": 147555,
-   "sha256": "4754a39a48bd830b19475f152c7ddffc110717c777e6eaa65282485e1d359e24"
+   "bytes": 111973,
+   "sha256": "934d2ecda3502d3fb2a379a806b004c3dea34048e264c3eb72d612069d6daab0"
   },
   {
    "id": "colorado-plateau-east",
@@ -2282,14 +2141,13 @@
    "image": "cards/colorado-plateau-east.webp",
    "topImage": "cards/colorado-plateau-east-top.webp",
    "view": "W",
-   "imageFrom": "77ada6c32ed3d7c81a67dd248b06e771f3ceff3db1ec947f6d52966bd44000d2",
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
+   "imageFrom": "19282aa1b96b4eefb11aeb887eef2564839fb813b9d606e3ac987abf23d237c5",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/colorado-plateau-east.timber",
-   "bytes": 144389,
-   "sha256": "77ada6c32ed3d7c81a67dd248b06e771f3ceff3db1ec947f6d52966bd44000d2"
+   "bytes": 112676,
+   "sha256": "19282aa1b96b4eefb11aeb887eef2564839fb813b9d606e3ac987abf23d237c5"
   },
   {
    "id": "mississippi-delta",
@@ -2305,13 +2163,10 @@
    "image": "cards/mississippi-delta.webp",
    "topImage": "cards/mississippi-delta-top.webp",
    "view": "E",
-   "imageFrom": "1e3a30dc0bd5453c7fe9768c196ba52b9ed9ebcdf39451db59f01adf75389bf2",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "0d0c25ee7bc934e6b8a6a5f3455ee3ccb21015f110314a73d75e85831247476d",
    "file": "maps/mississippi-delta.timber",
-   "bytes": 129878,
-   "sha256": "1e3a30dc0bd5453c7fe9768c196ba52b9ed9ebcdf39451db59f01adf75389bf2"
+   "bytes": 136597,
+   "sha256": "0d0c25ee7bc934e6b8a6a5f3455ee3ccb21015f110314a73d75e85831247476d"
   },
   {
    "id": "kosi-fan",
@@ -2327,10 +2182,17 @@
    "image": "cards/kosi-fan.webp",
    "topImage": "cards/kosi-fan-top.webp",
    "view": "N",
-   "imageFrom": "2e8e844f3fe5818c00faf6046a33692b27ba93af344515ba95a4e374535e5ec5",
+   "imageFrom": "fefadec011f80013ade49ae92c6c365995b0f99b0db151eb7b59ba91659ae1cf",
+   "notes": [
+    "The water keeps moving"
+   ],
+   "floorTrees": {
+    "trees": 5,
+    "dead": 0
+   },
    "file": "maps/kosi-fan.timber",
-   "bytes": 126132,
-   "sha256": "2e8e844f3fe5818c00faf6046a33692b27ba93af344515ba95a4e374535e5ec5"
+   "bytes": 146068,
+   "sha256": "fefadec011f80013ade49ae92c6c365995b0f99b0db151eb7b59ba91659ae1cf"
   },
   {
    "id": "toklat-river-north",
@@ -2346,32 +2208,13 @@
    "image": "cards/toklat-river-north.webp",
    "topImage": "cards/toklat-river-north-top.webp",
    "view": "W",
-   "imageFrom": "95214c982f4d8f1df5f379635b4a986ba1581be3249f6f9993d9e32dc685e46e",
-   "floorTrees": {
-    "trees": 46,
-    "dead": 0
-   },
+   "imageFrom": "3066d9848cbed59e24ccba84d05fc3bd14eb024bfd82f3e143f7a95e57d1449b",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/toklat-river-north.timber",
-   "bytes": 165361,
-   "sha256": "95214c982f4d8f1df5f379635b4a986ba1581be3249f6f9993d9e32dc685e46e"
-  },
-  {
-   "id": "kornati",
-   "name": "Kornati",
-   "surveyName": "Near Dalmatian Kornati, 30 m per tile",
-   "family": "archipelago",
-   "familyName": "Archipelago",
-   "plays": "Islands split the land into many routes; plan how you cross.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/kornati.json.gz",
-   "image": "cards/kornati.webp",
-   "topImage": "cards/kornati-top.webp",
-   "view": "N",
-   "imageFrom": "c71c0f31121197a4b0ed458356d2b387a11596b6a7ff18e040e7cadaf40aee78",
-   "file": "maps/kornati.timber",
-   "bytes": 287774,
-   "sha256": "c71c0f31121197a4b0ed458356d2b387a11596b6a7ff18e040e7cadaf40aee78"
+   "bytes": 152682,
+   "sha256": "3066d9848cbed59e24ccba84d05fc3bd14eb024bfd82f3e143f7a95e57d1449b"
   },
   {
    "id": "green-and-colorado",
@@ -2386,32 +2229,14 @@
    "image": "cards/green-and-colorado.webp",
    "topImage": "cards/green-and-colorado-top.webp",
    "view": "E",
-   "imageFrom": "5c94543b534ab302c6867e94d18381cfd6304e4059de7591f045601df7f11481",
+   "imageFrom": "7f8abf92427d9fc4ee094a2876972288da3a3b7053d6c450b3f76dbea6301e2d",
    "floorTrees": {
-    "trees": 40,
-    "dead": 16
+    "trees": 82,
+    "dead": 45
    },
    "file": "maps/green-and-colorado.timber",
-   "bytes": 307670,
-   "sha256": "5c94543b534ab302c6867e94d18381cfd6304e4059de7591f045601df7f11481"
-  },
-  {
-   "id": "masurian-lakes",
-   "name": "Masurian Lakes",
-   "surveyName": "Near Mazurian lakes, 30 m per tile",
-   "family": "lakes",
-   "familyName": "Lakes",
-   "plays": "Chains of lakes store water; their outlets decide how far each can grow.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/masurian-lakes.json.gz",
-   "image": "cards/masurian-lakes.webp",
-   "topImage": "cards/masurian-lakes-top.webp",
-   "view": "W",
-   "imageFrom": "c803fc0efb7739a7001c4958ebe08042449b1fbc5178e33c02b6aa4bab04c65c",
-   "file": "maps/masurian-lakes.timber",
-   "bytes": 305518,
-   "sha256": "c803fc0efb7739a7001c4958ebe08042449b1fbc5178e33c02b6aa4bab04c65c"
+   "bytes": 304294,
+   "sha256": "7f8abf92427d9fc4ee094a2876972288da3a3b7053d6c450b3f76dbea6301e2d"
   },
   {
    "id": "badlands-national-park-southwest",
@@ -2427,47 +2252,13 @@
    "image": "cards/badlands-national-park-southwest.webp",
    "topImage": "cards/badlands-national-park-southwest-top.webp",
    "view": "S",
-   "imageFrom": "9ad94a88511aa8f09c988699abae1790cb6a530697c1f7b5ded3b30bd85ac1dc",
+   "imageFrom": "aef195b25368f48916525e66ce398a09e2598b921d2452424983ad956f6f0b9b",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/badlands-national-park-southwest.timber",
-   "bytes": 341317,
-   "sha256": "9ad94a88511aa8f09c988699abae1790cb6a530697c1f7b5ded3b30bd85ac1dc"
-  },
-  {
-   "id": "san-daniele-tagliamento-river",
-   "name": "San Daniele, Tagliamento River",
-   "surveyName": "Near Tagliamento River, 30 m per tile",
-   "family": "braided",
-   "familyName": "Braided river",
-   "plays": "Channels split around gravel islands, so you have several places to dam.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/san-daniele-tagliamento-river.json.gz",
-   "image": "cards/san-daniele-tagliamento-river.webp",
-   "topImage": "cards/san-daniele-tagliamento-river-top.webp",
-   "view": "N",
-   "imageFrom": "530b14da68087b914564911f9474063fe62a4c4f7ce7a424944c546f14803f5b",
-   "file": "maps/san-daniele-tagliamento-river.timber",
-   "bytes": 215405,
-   "sha256": "530b14da68087b914564911f9474063fe62a4c4f7ce7a424944c546f14803f5b"
-  },
-  {
-   "id": "roaring-river-fan-east",
-   "name": "Roaring River Fan East",
-   "surveyName": "Near Roaring River fan (east sample), 60 m per tile",
-   "sample": "east",
-   "family": "fan",
-   "familyName": "Alluvial fan",
-   "plays": "Dry land fans out from a valley mouth; irrigation decides where you grow.",
-   "size": 256,
-   "metres": 60,
-   "data": "data/roaring-river-fan-east.json.gz",
-   "image": "cards/roaring-river-fan-east.webp",
-   "topImage": "cards/roaring-river-fan-east-top.webp",
-   "view": "W",
-   "imageFrom": "6e3ba9cb8cca443565b8dbd61e25a613c81feb4fbe02547c9faf14f960f40b76",
-   "file": "maps/roaring-river-fan-east.timber",
-   "bytes": 273345,
-   "sha256": "6e3ba9cb8cca443565b8dbd61e25a613c81feb4fbe02547c9faf14f960f40b76"
+   "bytes": 223801,
+   "sha256": "aef195b25368f48916525e66ce398a09e2598b921d2452424983ad956f6f0b9b"
   },
   {
    "id": "aso-caldera-east",
@@ -2483,10 +2274,13 @@
    "image": "cards/aso-caldera-east.webp",
    "topImage": "cards/aso-caldera-east-top.webp",
    "view": "S",
-   "imageFrom": "ea5720b9bcdfab6537fd59842d5cc80b18aa1af177e3fe386360236095d071db",
+   "imageFrom": "fd0bf12a3cf358ecf5d66b5c40cde72316ce7ac9bad76afbe6c5e7171d317ab1",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/aso-caldera-east.timber",
-   "bytes": 323970,
-   "sha256": "ea5720b9bcdfab6537fd59842d5cc80b18aa1af177e3fe386360236095d071db"
+   "bytes": 187755,
+   "sha256": "fd0bf12a3cf358ecf5d66b5c40cde72316ce7ac9bad76afbe6c5e7171d317ab1"
   },
   {
    "id": "colca-canyon-southwest",
@@ -2502,13 +2296,13 @@
    "image": "cards/colca-canyon-southwest.webp",
    "topImage": "cards/colca-canyon-southwest-top.webp",
    "view": "S",
-   "imageFrom": "d90761cdf77b80a07e567680afb3ab8ba4964ec9e26ba577509aec927a45eaa1",
+   "imageFrom": "087b585d96716e966347b90f359dee44459b8b223703e5dc82f2bb0987e16b90",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
    "file": "maps/colca-canyon-southwest.timber",
-   "bytes": 149697,
-   "sha256": "d90761cdf77b80a07e567680afb3ab8ba4964ec9e26ba577509aec927a45eaa1"
+   "bytes": 111936,
+   "sha256": "087b585d96716e966347b90f359dee44459b8b223703e5dc82f2bb0987e16b90"
   },
   {
    "id": "paricutin-southwest",
@@ -2524,14 +2318,17 @@
    "image": "cards/paricutin-southwest.webp",
    "topImage": "cards/paricutin-southwest-top.webp",
    "view": "S",
-   "imageFrom": "477b6be7b2dbb9564921149c9c7b796eeabbaba30adbd1acdcfb80573ad650ac",
+   "imageFrom": "eeec8e38f4bba49d68cc4582c8c053cc9b337f39e486d82ceb63630946731f22",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "floorTrees": {
-    "trees": 43,
-    "dead": 0
+    "trees": 5,
+    "dead": 5
    },
    "file": "maps/paricutin-southwest.timber",
-   "bytes": 371243,
-   "sha256": "477b6be7b2dbb9564921149c9c7b796eeabbaba30adbd1acdcfb80573ad650ac"
+   "bytes": 200437,
+   "sha256": "eeec8e38f4bba49d68cc4582c8c053cc9b337f39e486d82ceb63630946731f22"
   },
   {
    "id": "kate-s-point-western-ghats",
@@ -2547,10 +2344,10 @@
    "image": "cards/kate-s-point-western-ghats.webp",
    "topImage": "cards/kate-s-point-western-ghats-top.webp",
    "view": "S",
-   "imageFrom": "ce49d015a8f7df6a0af5dff462d03e746db6f566c76efcc1c844bcb7d0d85926",
+   "imageFrom": "d234e51da48c703801f4344119865bc9cb6cfa367d61e85c1685295075d74432",
    "file": "maps/kate-s-point-western-ghats.timber",
-   "bytes": 319294,
-   "sha256": "ce49d015a8f7df6a0af5dff462d03e746db6f566c76efcc1c844bcb7d0d85926"
+   "bytes": 264019,
+   "sha256": "d234e51da48c703801f4344119865bc9cb6cfa367d61e85c1685295075d74432"
   },
   {
    "id": "niagara-falls-north",
@@ -2566,14 +2363,10 @@
    "image": "cards/niagara-falls-north.webp",
    "topImage": "cards/niagara-falls-north-top.webp",
    "view": "S",
-   "imageFrom": "726fac479eea68be86bc5f770afa361afe14a179abbd8f0a0e6a105ae748e79f",
-   "floorTrees": {
-    "trees": 4,
-    "dead": 0
-   },
+   "imageFrom": "0107552f93c0d491ef0b20093f0ae8732274cdcb770b63db6e3041150a90de30",
    "file": "maps/niagara-falls-north.timber",
-   "bytes": 308451,
-   "sha256": "726fac479eea68be86bc5f770afa361afe14a179abbd8f0a0e6a105ae748e79f"
+   "bytes": 276963,
+   "sha256": "0107552f93c0d491ef0b20093f0ae8732274cdcb770b63db6e3041150a90de30"
   },
   {
    "id": "geirangerfjord-east",
@@ -2589,13 +2382,14 @@
    "image": "cards/geirangerfjord-east.webp",
    "topImage": "cards/geirangerfjord-east-top.webp",
    "view": "E",
-   "imageFrom": "9c7de0d6dd6ee8bafae7a60c8035abb629f97308055e63ac7d30bbc0800e045a",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
+   "imageFrom": "80048744f5fc1e6cac7f16cdb0b3e9c6cc0c6ee0b75e75b6c64ebb6f24549ffe",
+   "floorTrees": {
+    "trees": 25,
+    "dead": 0
+   },
    "file": "maps/geirangerfjord-east.timber",
-   "bytes": 344941,
-   "sha256": "9c7de0d6dd6ee8bafae7a60c8035abb629f97308055e63ac7d30bbc0800e045a"
+   "bytes": 296146,
+   "sha256": "80048744f5fc1e6cac7f16cdb0b3e9c6cc0c6ee0b75e75b6c64ebb6f24549ffe"
   },
   {
    "id": "hooker-valley-east",
@@ -2611,33 +2405,14 @@
    "image": "cards/hooker-valley-east.webp",
    "topImage": "cards/hooker-valley-east-top.webp",
    "view": "E",
-   "imageFrom": "2b48f1789c7717ec8b132cd378dfe0c4f2333ac468aeeb18dbc9f0bf41e69573",
+   "imageFrom": "dfc662375f827572b1f75cab061fc1d1c98488da63505ba68d9c334a194dcab7",
    "floorTrees": {
-    "trees": 12,
+    "trees": 57,
     "dead": 0
    },
    "file": "maps/hooker-valley-east.timber",
-   "bytes": 403019,
-   "sha256": "2b48f1789c7717ec8b132cd378dfe0c4f2333ac468aeeb18dbc9f0bf41e69573"
-  },
-  {
-   "id": "tiger-leaping-gorge-north",
-   "name": "Tiger Leaping Gorge North",
-   "surveyName": "Near Tiger Leaping Gorge (north sample), 30 m per tile",
-   "sample": "north",
-   "family": "gorge",
-   "familyName": "Gorge",
-   "plays": "Short dams and falls; room beside the water is tight.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/tiger-leaping-gorge-north.json.gz",
-   "image": "cards/tiger-leaping-gorge-north.webp",
-   "topImage": "cards/tiger-leaping-gorge-north-top.webp",
-   "view": "W",
-   "imageFrom": "963d7efb78497f9dcf718545b01bb820f9f9595f2db8f54daf44bb158e4da280",
-   "file": "maps/tiger-leaping-gorge-north.timber",
-   "bytes": 266257,
-   "sha256": "963d7efb78497f9dcf718545b01bb820f9f9595f2db8f54daf44bb158e4da280"
+   "bytes": 387710,
+   "sha256": "dfc662375f827572b1f75cab061fc1d1c98488da63505ba68d9c334a194dcab7"
   },
   {
    "id": "goosenecks-of-the-san-juan-southwest",
@@ -2653,14 +2428,13 @@
    "image": "cards/goosenecks-of-the-san-juan-southwest.webp",
    "topImage": "cards/goosenecks-of-the-san-juan-southwest-top.webp",
    "view": "N",
-   "imageFrom": "1377ffe371f4681a28d181728ffa42333baae2d79828d65653f875ac8886f425",
-   "floorTrees": {
-    "trees": 58,
-    "dead": 0
-   },
+   "imageFrom": "9462138096c5fba95e02bec55e236b519b33bc931e2b64c846a1c9bd6cec8944",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/goosenecks-of-the-san-juan-southwest.timber",
-   "bytes": 314459,
-   "sha256": "1377ffe371f4681a28d181728ffa42333baae2d79828d65653f875ac8886f425"
+   "bytes": 183982,
+   "sha256": "9462138096c5fba95e02bec55e236b519b33bc931e2b64c846a1c9bd6cec8944"
   },
   {
    "id": "mount-roraima-east",
@@ -2676,10 +2450,10 @@
    "image": "cards/mount-roraima-east.webp",
    "topImage": "cards/mount-roraima-east-top.webp",
    "view": "W",
-   "imageFrom": "1461ad980c7d7ef8997501c988de08a28a93152803a5e2f3256d5dc855d7036d",
+   "imageFrom": "2006b848a68838ff57afb8d6c754b1125bc8d3f8d3eb0c24e77353e5ab87f161",
    "file": "maps/mount-roraima-east.timber",
-   "bytes": 330080,
-   "sha256": "1461ad980c7d7ef8997501c988de08a28a93152803a5e2f3256d5dc855d7036d"
+   "bytes": 213810,
+   "sha256": "2006b848a68838ff57afb8d6c754b1125bc8d3f8d3eb0c24e77353e5ab87f161"
   },
   {
    "id": "ethiopian-highlands-southwest",
@@ -2695,28 +2469,10 @@
    "image": "cards/ethiopian-highlands-southwest.webp",
    "topImage": "cards/ethiopian-highlands-southwest-top.webp",
    "view": "E",
-   "imageFrom": "2c8140e2c6aab76fc7074a107e5d82850b04e4d6fe8e09c2bdc211ff03ba06eb",
+   "imageFrom": "15472df3b0a0c92af7f8016d23635a640c0ed555f0af1c8e6fa65d8c071040c7",
    "file": "maps/ethiopian-highlands-southwest.timber",
-   "bytes": 309558,
-   "sha256": "2c8140e2c6aab76fc7074a107e5d82850b04e4d6fe8e09c2bdc211ff03ba06eb"
-  },
-  {
-   "id": "cape-of-good-hope",
-   "name": "Cape of Good Hope",
-   "surveyName": "Near Cape of Good Hope, 120 m per tile",
-   "family": "coast",
-   "familyName": "Coast",
-   "plays": "Cliffs and small basins along the shore.",
-   "size": 256,
-   "metres": 120,
-   "data": "data/cape-of-good-hope.json.gz",
-   "image": "cards/cape-of-good-hope.webp",
-   "topImage": "cards/cape-of-good-hope-top.webp",
-   "view": "N",
-   "imageFrom": "57572df1f925729d5eed9cb28735b69ad9237e1569f4a79440ceb40c01813749",
-   "file": "maps/cape-of-good-hope.timber",
-   "bytes": 210713,
-   "sha256": "57572df1f925729d5eed9cb28735b69ad9237e1569f4a79440ceb40c01813749"
+   "bytes": 236154,
+   "sha256": "15472df3b0a0c92af7f8016d23635a640c0ed555f0af1c8e6fa65d8c071040c7"
   },
   {
    "id": "li-river-east",
@@ -2732,17 +2488,10 @@
    "image": "cards/li-river-east.webp",
    "topImage": "cards/li-river-east-top.webp",
    "view": "E",
-   "imageFrom": "aba6ca7ae47d3509c5e4eba9bed19496fcdb861e179137887fb7cec6fefdb22f",
-   "notes": [
-    "The water keeps moving"
-   ],
-   "floorTrees": {
-    "trees": 31,
-    "dead": 0
-   },
+   "imageFrom": "f1669f435b76471d5271ee74ed3d2f99e39ed7a86d8282223edc2ca79610d12d",
    "file": "maps/li-river-east.timber",
-   "bytes": 191281,
-   "sha256": "aba6ca7ae47d3509c5e4eba9bed19496fcdb861e179137887fb7cec6fefdb22f"
+   "bytes": 187080,
+   "sha256": "f1669f435b76471d5271ee74ed3d2f99e39ed7a86d8282223edc2ca79610d12d"
   },
   {
    "id": "lena-delta-east",
@@ -2758,10 +2507,17 @@
    "image": "cards/lena-delta-east.webp",
    "topImage": "cards/lena-delta-east-top.webp",
    "view": "E",
-   "imageFrom": "8d51f85591acaa9cfab8e69a1be30fe75d83f1a1ac52b407d36674aeac677390",
+   "imageFrom": "7ab89343c0f0b836db04fbdb39b7d000757e6eb08e60eb70bfd97f567a3f782d",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "floorTrees": {
+    "trees": 18,
+    "dead": 18
+   },
    "file": "maps/lena-delta-east.timber",
-   "bytes": 380146,
-   "sha256": "8d51f85591acaa9cfab8e69a1be30fe75d83f1a1ac52b407d36674aeac677390"
+   "bytes": 249817,
+   "sha256": "7ab89343c0f0b836db04fbdb39b7d000757e6eb08e60eb70bfd97f567a3f782d"
   },
   {
    "id": "stockholm-archipelago",
@@ -2777,14 +2533,14 @@
    "image": "cards/stockholm-archipelago.webp",
    "topImage": "cards/stockholm-archipelago-top.webp",
    "view": "W",
-   "imageFrom": "19e6591c7c164454d7a71713e021be9ad83befe6c8d52dda2970eefac978059d",
+   "imageFrom": "638275f789f781f03195ac9da54c153747b7a6694afb9b0e930ad23d6fd2465e",
    "floorTrees": {
-    "trees": 13,
+    "trees": 8,
     "dead": 0
    },
    "file": "maps/stockholm-archipelago.timber",
-   "bytes": 126332,
-   "sha256": "19e6591c7c164454d7a71713e021be9ad83befe6c8d52dda2970eefac978059d"
+   "bytes": 113183,
+   "sha256": "638275f789f781f03195ac9da54c153747b7a6694afb9b0e930ad23d6fd2465e"
   },
   {
    "id": "nahuel-huapi",
@@ -2799,10 +2555,10 @@
    "image": "cards/nahuel-huapi.webp",
    "topImage": "cards/nahuel-huapi-top.webp",
    "view": "E",
-   "imageFrom": "ee30f0ed057272c6cd4d0774ed4177f9e0fa756fa824155a2c9afd5142feba82",
+   "imageFrom": "7f2c97888a1c5a3e8f65d21b883325ee029098910db960fa6aa07fe4e20b0a7b",
    "file": "maps/nahuel-huapi.timber",
-   "bytes": 95073,
-   "sha256": "ee30f0ed057272c6cd4d0774ed4177f9e0fa756fa824155a2c9afd5142feba82"
+   "bytes": 86541,
+   "sha256": "7f2c97888a1c5a3e8f65d21b883325ee029098910db960fa6aa07fe4e20b0a7b"
   },
   {
    "id": "cliffs-of-moher-east",
@@ -2818,36 +2574,14 @@
    "image": "cards/cliffs-of-moher-east.webp",
    "topImage": "cards/cliffs-of-moher-east-top.webp",
    "view": "N",
-   "imageFrom": "f00287ef06d8b23cc278410b3859f040c0591e63d0b81d6cbc2732a297be3992",
+   "imageFrom": "38a59d419e0cfd5de2deed1c12d8b7a2da59ea9c324c45478169f3e5d4ab99e4",
    "floorTrees": {
-    "trees": 49,
+    "trees": 47,
     "dead": 0
    },
    "file": "maps/cliffs-of-moher-east.timber",
-   "bytes": 120104,
-   "sha256": "f00287ef06d8b23cc278410b3859f040c0591e63d0b81d6cbc2732a297be3992"
-  },
-  {
-   "id": "danube-delta-southwest",
-   "name": "Danube Delta Southwest",
-   "surveyName": "Near Danube delta (southwest sample), 60 m per tile",
-   "sample": "southwest",
-   "family": "delta",
-   "familyName": "Delta",
-   "plays": "Many small channels and islands; storage is shallow and flooding is a risk.",
-   "size": 96,
-   "metres": 60,
-   "data": "data/danube-delta-southwest.json.gz",
-   "image": "cards/danube-delta-southwest.webp",
-   "topImage": "cards/danube-delta-southwest-top.webp",
-   "view": "N",
-   "imageFrom": "c9fa4757c876b02e4f0bfd68748957d82d6e25f1705f0561e49aea5f53280047",
-   "notes": [
-    "No water a pump can reach from the start"
-   ],
-   "file": "maps/danube-delta-southwest.timber",
-   "bytes": 116103,
-   "sha256": "c9fa4757c876b02e4f0bfd68748957d82d6e25f1705f0561e49aea5f53280047"
+   "bytes": 108771,
+   "sha256": "38a59d419e0cfd5de2deed1c12d8b7a2da59ea9c324c45478169f3e5d4ab99e4"
   },
   {
    "id": "drumheller-east",
@@ -2863,13 +2597,10 @@
    "image": "cards/drumheller-east.webp",
    "topImage": "cards/drumheller-east-top.webp",
    "view": "E",
-   "imageFrom": "12922f54341ac23d2d3881bf07b0bb45bfb6d8169ec17615ef5c6d4aa5b955ce",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "8b2a140e96a64de3d1b5ef4843be50e45c203eb3d9711547f718b6103298332e",
    "file": "maps/drumheller-east.timber",
-   "bytes": 105393,
-   "sha256": "12922f54341ac23d2d3881bf07b0bb45bfb6d8169ec17615ef5c6d4aa5b955ce"
+   "bytes": 90880,
+   "sha256": "8b2a140e96a64de3d1b5ef4843be50e45c203eb3d9711547f718b6103298332e"
   },
   {
    "id": "atacama-fan-north",
@@ -2885,14 +2616,13 @@
    "image": "cards/atacama-fan-north.webp",
    "topImage": "cards/atacama-fan-north-top.webp",
    "view": "E",
-   "imageFrom": "5c6f6d6c96799b9b72f7e7b706a848a6f366f9a4bc97b69afeba90b2d7bd8dcf",
-   "floorTrees": {
-    "trees": 17,
-    "dead": 0
-   },
+   "imageFrom": "50eb5bd74b18efd04c49dc435ea2c107f0329a5ec631fcd07d5fe8df463819dd",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/atacama-fan-north.timber",
-   "bytes": 115521,
-   "sha256": "5c6f6d6c96799b9b72f7e7b706a848a6f366f9a4bc97b69afeba90b2d7bd8dcf"
+   "bytes": 79618,
+   "sha256": "50eb5bd74b18efd04c49dc435ea2c107f0329a5ec631fcd07d5fe8df463819dd"
   },
   {
    "id": "samosir-lake-toba",
@@ -2907,10 +2637,13 @@
    "image": "cards/samosir-lake-toba.webp",
    "topImage": "cards/samosir-lake-toba-top.webp",
    "view": "W",
-   "imageFrom": "a14d501099e7de543359592a5569498552b200846a9fa9f1372c07ffd1891323",
+   "imageFrom": "75582dbbed236b9e44d4005235c0a8a1d3588e771d1c88cd16dbfdec437f4573",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/samosir-lake-toba.timber",
-   "bytes": 115365,
-   "sha256": "a14d501099e7de543359592a5569498552b200846a9fa9f1372c07ffd1891323"
+   "bytes": 82549,
+   "sha256": "75582dbbed236b9e44d4005235c0a8a1d3588e771d1c88cd16dbfdec437f4573"
   },
   {
    "id": "fish-river-canyon-north",
@@ -2926,13 +2659,10 @@
    "image": "cards/fish-river-canyon-north.webp",
    "topImage": "cards/fish-river-canyon-north-top.webp",
    "view": "W",
-   "imageFrom": "d29a3da0000d810a945a2eb48102e1026eb47e534ff1815ba321d0318e087e47",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "6562ef1d186e142575aadeca7e35566efed60d3573257fbc1d9be4bae7dd9e8c",
    "file": "maps/fish-river-canyon-north.timber",
-   "bytes": 119816,
-   "sha256": "d29a3da0000d810a945a2eb48102e1026eb47e534ff1815ba321d0318e087e47"
+   "bytes": 115248,
+   "sha256": "6562ef1d186e142575aadeca7e35566efed60d3573257fbc1d9be4bae7dd9e8c"
   },
   {
    "id": "mount-taranaki-north",
@@ -2948,10 +2678,13 @@
    "image": "cards/mount-taranaki-north.webp",
    "topImage": "cards/mount-taranaki-north-top.webp",
    "view": "W",
-   "imageFrom": "ea9cc71631d6996121fb3b87ef7a069c833531529e8cff515edcad55f3076ebb",
+   "imageFrom": "c201a6b8ea378ab5abfcc3b475e339751e5f3033156cf93792ea12ee2680eaf2",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/mount-taranaki-north.timber",
-   "bytes": 116672,
-   "sha256": "ea9cc71631d6996121fb3b87ef7a069c833531529e8cff515edcad55f3076ebb"
+   "bytes": 82753,
+   "sha256": "c201a6b8ea378ab5abfcc3b475e339751e5f3033156cf93792ea12ee2680eaf2"
   },
   {
    "id": "drakensberg-amphitheatre-southwest",
@@ -2967,17 +2700,14 @@
    "image": "cards/drakensberg-amphitheatre-southwest.webp",
    "topImage": "cards/drakensberg-amphitheatre-southwest-top.webp",
    "view": "N",
-   "imageFrom": "129b734b3409bb94c6e71a4364c029d7a994a60a42cfb9bb0a5dcbb31e654748",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "f7c42b94ef6d2e87b62ec264de2c198f185a54bff7b8a8525b4eaa47d40eec22",
    "floorTrees": {
-    "trees": 29,
+    "trees": 5,
     "dead": 0
    },
    "file": "maps/drakensberg-amphitheatre-southwest.timber",
-   "bytes": 109666,
-   "sha256": "129b734b3409bb94c6e71a4364c029d7a994a60a42cfb9bb0a5dcbb31e654748"
+   "bytes": 107249,
+   "sha256": "f7c42b94ef6d2e87b62ec264de2c198f185a54bff7b8a8525b4eaa47d40eec22"
   },
   {
    "id": "gullfoss-southwest",
@@ -2993,32 +2723,13 @@
    "image": "cards/gullfoss-southwest.webp",
    "topImage": "cards/gullfoss-southwest-top.webp",
    "view": "E",
-   "imageFrom": "50a5b90b1636df9d9594c95ccef3782ad62cb6905f1c92209c3bec9f15b14261",
-   "file": "maps/gullfoss-southwest.timber",
-   "bytes": 98473,
-   "sha256": "50a5b90b1636df9d9594c95ccef3782ad62cb6905f1c92209c3bec9f15b14261"
-  },
-  {
-   "id": "ilulissat-icefjord-southwest",
-   "name": "Ilulissat Icefjord Southwest",
-   "surveyName": "Near Ilulissat icefjord (southwest sample), 120 m per tile",
-   "sample": "southwest",
-   "family": "fjord",
-   "familyName": "Fjord",
-   "plays": "Steep shores and wide water to store.",
-   "size": 96,
-   "metres": 120,
-   "data": "data/ilulissat-icefjord-southwest.json.gz",
-   "image": "cards/ilulissat-icefjord-southwest.webp",
-   "topImage": "cards/ilulissat-icefjord-southwest-top.webp",
-   "view": "S",
-   "imageFrom": "d259fbf72ea17aa58efe69e0cfe0a4792f76c1375afa2e5ddf96478fe6e7c5ca",
+   "imageFrom": "e89e53239af9515a9b4f395d45174b7fb37480502e58f4b9909d3aa55cf5bc4d",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "file": "maps/ilulissat-icefjord-southwest.timber",
-   "bytes": 95968,
-   "sha256": "d259fbf72ea17aa58efe69e0cfe0a4792f76c1375afa2e5ddf96478fe6e7c5ca"
+   "file": "maps/gullfoss-southwest.timber",
+   "bytes": 95786,
+   "sha256": "e89e53239af9515a9b4f395d45174b7fb37480502e58f4b9909d3aa55cf5bc4d"
   },
   {
    "id": "torres-del-paine-east",
@@ -3034,17 +2745,13 @@
    "image": "cards/torres-del-paine-east.webp",
    "topImage": "cards/torres-del-paine-east-top.webp",
    "view": "W",
-   "imageFrom": "b07cc918be24a5e80398d649ae9df105f96d804fb097d994d6af6d1176091a18",
+   "imageFrom": "997d9bd5fcefbf347e8973a6acf59ef250dd1e941077d3f57694a14a1494a0c1",
    "notes": [
     "The water keeps moving"
    ],
-   "floorTrees": {
-    "trees": 72,
-    "dead": 0
-   },
    "file": "maps/torres-del-paine-east.timber",
-   "bytes": 146140,
-   "sha256": "b07cc918be24a5e80398d649ae9df105f96d804fb097d994d6af6d1176091a18"
+   "bytes": 144732,
+   "sha256": "997d9bd5fcefbf347e8973a6acf59ef250dd1e941077d3f57694a14a1494a0c1"
   },
   {
    "id": "tara-gorge-north",
@@ -3060,14 +2767,13 @@
    "image": "cards/tara-gorge-north.webp",
    "topImage": "cards/tara-gorge-north-top.webp",
    "view": "N",
-   "imageFrom": "21ef4495de96988fee2d77ea63daae888837049cf41d1f14a59be43261163609",
-   "floorTrees": {
-    "trees": 42,
-    "dead": 0
-   },
+   "imageFrom": "dd0802b6186ed513c4a3caa733e76a5976655c77e8e8619afcb82045325a3bd7",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/tara-gorge-north.timber",
-   "bytes": 110992,
-   "sha256": "21ef4495de96988fee2d77ea63daae888837049cf41d1f14a59be43261163609"
+   "bytes": 76841,
+   "sha256": "dd0802b6186ed513c4a3caa733e76a5976655c77e8e8619afcb82045325a3bd7"
   },
   {
    "id": "plitvice-lakes-southwest",
@@ -3083,17 +2789,13 @@
    "image": "cards/plitvice-lakes-southwest.webp",
    "topImage": "cards/plitvice-lakes-southwest-top.webp",
    "view": "S",
-   "imageFrom": "99d393408bf7dc3c9b2ab218b8c4a96c4e9e8156d02bf16d8d9551fab6b53823",
+   "imageFrom": "89e33affb14215533fa7a22243556c71f64756f0a2c309fedbc8dd33dc98dba7",
    "notes": [
-    "The water keeps moving"
+    "No water a pump can reach from the start"
    ],
-   "floorTrees": {
-    "trees": 10,
-    "dead": 0
-   },
    "file": "maps/plitvice-lakes-southwest.timber",
-   "bytes": 117630,
-   "sha256": "99d393408bf7dc3c9b2ab218b8c4a96c4e9e8156d02bf16d8d9551fab6b53823"
+   "bytes": 84545,
+   "sha256": "89e33affb14215533fa7a22243556c71f64756f0a2c309fedbc8dd33dc98dba7"
   },
   {
    "id": "uvac-river-southwest",
@@ -3109,10 +2811,17 @@
    "image": "cards/uvac-river-southwest.webp",
    "topImage": "cards/uvac-river-southwest-top.webp",
    "view": "W",
-   "imageFrom": "788f1a856ff02d6bfd4f32eb529e2206fa972bd66d2505c0302655a4a6c844a1",
+   "imageFrom": "6d219488988112233c60d3f2aac2e4dccc5bf054cd0e1aabfbe232d9d58ab734",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "floorTrees": {
+    "trees": 101,
+    "dead": 101
+   },
    "file": "maps/uvac-river-southwest.timber",
-   "bytes": 161406,
-   "sha256": "788f1a856ff02d6bfd4f32eb529e2206fa972bd66d2505c0302655a4a6c844a1"
+   "bytes": 127177,
+   "sha256": "6d219488988112233c60d3f2aac2e4dccc5bf054cd0e1aabfbe232d9d58ab734"
   },
   {
    "id": "bungle-bungle-southwest",
@@ -3128,10 +2837,13 @@
    "image": "cards/bungle-bungle-southwest.webp",
    "topImage": "cards/bungle-bungle-southwest-top.webp",
    "view": "N",
-   "imageFrom": "913c374f26d33dcac29d9d94c0889fa985907728059e7cbb97ce7ac4e38406a4",
+   "imageFrom": "0574b4bc22e06311fb4f791d6bd7d5599358991f4016c6e643319e991cebf653",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/bungle-bungle-southwest.timber",
-   "bytes": 310825,
-   "sha256": "913c374f26d33dcac29d9d94c0889fa985907728059e7cbb97ce7ac4e38406a4"
+   "bytes": 212898,
+   "sha256": "0574b4bc22e06311fb4f791d6bd7d5599358991f4016c6e643319e991cebf653"
   },
   {
    "id": "waimakariri-river-southwest",
@@ -3147,10 +2859,14 @@
    "image": "cards/waimakariri-river-southwest.webp",
    "topImage": "cards/waimakariri-river-southwest-top.webp",
    "view": "W",
-   "imageFrom": "8e9fbca5b4b85aceef8f2be1a9741c8cf0fdddf1ed37a970b48b6eca5802b452",
+   "imageFrom": "8ebe7fe710f1f137c8f3cd3da1c2d7d22321e6fa3bcbb99e6a8e2f907b6c3231",
+   "floorTrees": {
+    "trees": 10,
+    "dead": 0
+   },
    "file": "maps/waimakariri-river-southwest.timber",
-   "bytes": 96534,
-   "sha256": "8e9fbca5b4b85aceef8f2be1a9741c8cf0fdddf1ed37a970b48b6eca5802b452"
+   "bytes": 114222,
+   "sha256": "8ebe7fe710f1f137c8f3cd3da1c2d7d22321e6fa3bcbb99e6a8e2f907b6c3231"
   },
   {
    "id": "rio-negro-and-solimoes",
@@ -3165,13 +2881,17 @@
    "image": "cards/rio-negro-and-solimoes.webp",
    "topImage": "cards/rio-negro-and-solimoes-top.webp",
    "view": "N",
-   "imageFrom": "d91aafac7d4d161f2d2c5b34a02c74e66c37bac2696d8149ff237677ae9e29e5",
+   "imageFrom": "40ebce97f1d8426293e6ff469ac710376671b79a6f60ef93472878b0cd52f0ca",
    "notes": [
     "The water keeps moving"
    ],
+   "floorTrees": {
+    "trees": 10,
+    "dead": 0
+   },
    "file": "maps/rio-negro-and-solimoes.timber",
-   "bytes": 111801,
-   "sha256": "d91aafac7d4d161f2d2c5b34a02c74e66c37bac2696d8149ff237677ae9e29e5"
+   "bytes": 114708,
+   "sha256": "40ebce97f1d8426293e6ff469ac710376671b79a6f60ef93472878b0cd52f0ca"
   },
   {
    "id": "deccan-plateau-southwest",
@@ -3187,13 +2907,14 @@
    "image": "cards/deccan-plateau-southwest.webp",
    "topImage": "cards/deccan-plateau-southwest-top.webp",
    "view": "N",
-   "imageFrom": "7236b1937bb99e7318cbd24bce19a2858c89429da1429d0d1827ec43e9cea36f",
-   "notes": [
-    "The water keeps moving"
-   ],
+   "imageFrom": "5fd6cc464f73c72e06ca84ad4897e5c7f1b791f41a8e5d2a8507498a187e8a4f",
+   "floorTrees": {
+    "trees": 69,
+    "dead": 0
+   },
    "file": "maps/deccan-plateau-southwest.timber",
-   "bytes": 120739,
-   "sha256": "7236b1937bb99e7318cbd24bce19a2858c89429da1429d0d1827ec43e9cea36f"
+   "bytes": 117251,
+   "sha256": "5fd6cc464f73c72e06ca84ad4897e5c7f1b791f41a8e5d2a8507498a187e8a4f"
   },
   {
    "id": "thousand-islands-southwest",
@@ -3209,10 +2930,13 @@
    "image": "cards/thousand-islands-southwest.webp",
    "topImage": "cards/thousand-islands-southwest-top.webp",
    "view": "S",
-   "imageFrom": "454ef5b3563093a13567567b6467f767bf1d5920bfacd2f26f65a0de8166a8ba",
+   "imageFrom": "0c9836f07f4e1ee98737fd6863effa5c088cb79492452250622b7e96448ccb33",
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
    "file": "maps/thousand-islands-southwest.timber",
-   "bytes": 151014,
-   "sha256": "454ef5b3563093a13567567b6467f767bf1d5920bfacd2f26f65a0de8166a8ba"
+   "bytes": 139264,
+   "sha256": "0c9836f07f4e1ee98737fd6863effa5c088cb79492452250622b7e96448ccb33"
   },
   {
    "id": "rhine-and-moselle-north",
@@ -3228,13 +2952,17 @@
    "image": "cards/rhine-and-moselle-north.webp",
    "topImage": "cards/rhine-and-moselle-north-top.webp",
    "view": "N",
-   "imageFrom": "36d8742fd88eaa22a7eef1851838d8dda344a0d3b1df664d0b09f6a197399caf",
+   "imageFrom": "6081eb9743ee4645d5b1317028bec5e7247d0062dfa95868d4494510eb108786",
    "notes": [
     "No water a pump can reach from the start"
    ],
+   "floorTrees": {
+    "trees": 24,
+    "dead": 0
+   },
    "file": "maps/rhine-and-moselle-north.timber",
-   "bytes": 152316,
-   "sha256": "36d8742fd88eaa22a7eef1851838d8dda344a0d3b1df664d0b09f6a197399caf"
+   "bytes": 142979,
+   "sha256": "6081eb9743ee4645d5b1317028bec5e7247d0062dfa95868d4494510eb108786"
   },
   {
    "id": "lake-saimaa-east",
@@ -3250,14 +2978,14 @@
    "image": "cards/lake-saimaa-east.webp",
    "topImage": "cards/lake-saimaa-east-top.webp",
    "view": "N",
-   "imageFrom": "6950a77213d4b40ec925034e1993d66a223208aa888bd94a27303f9ef04e2dc5",
+   "imageFrom": "d8f3d3c6a35f781258cc8ef62627e1c98f505e6adbafbf42aebb14865d1eb290",
    "floorTrees": {
-    "trees": 62,
-    "dead": 11
+    "trees": 17,
+    "dead": 1
    },
    "file": "maps/lake-saimaa-east.timber",
-   "bytes": 144963,
-   "sha256": "6950a77213d4b40ec925034e1993d66a223208aa888bd94a27303f9ef04e2dc5"
+   "bytes": 174144,
+   "sha256": "d8f3d3c6a35f781258cc8ef62627e1c98f505e6adbafbf42aebb14865d1eb290"
   },
   {
    "id": "twelve-apostles-east",
@@ -3273,40 +3001,17 @@
    "image": "cards/twelve-apostles-east.webp",
    "topImage": "cards/twelve-apostles-east-top.webp",
    "view": "N",
-   "imageFrom": "64db034e75f8309ee399def232de303fec362ebdf0c8149bb5bce77d0a33d6d2",
+   "imageFrom": "2c3d5fc853cd998d8f891878db4fd08414d2e829510fa55e32fa60c227f68030",
    "notes": [
-    "Too little wood near the start"
+    "No water a pump can reach from the start"
    ],
    "floorTrees": {
-    "trees": 29,
-    "dead": 12
+    "trees": 14,
+    "dead": 14
    },
    "file": "maps/twelve-apostles-east.timber",
-   "bytes": 165842,
-   "sha256": "64db034e75f8309ee399def232de303fec362ebdf0c8149bb5bce77d0a33d6d2"
-  },
-  {
-   "id": "painted-desert-north",
-   "name": "Painted Desert North",
-   "surveyName": "Near Painted Desert (north sample), 30 m per tile",
-   "sample": "north",
-   "family": "badlands",
-   "familyName": "Badlands",
-   "plays": "Gullies cut many small narrows and walls; flat land for farms is scarce.",
-   "size": 128,
-   "metres": 30,
-   "data": "data/painted-desert-north.json.gz",
-   "image": "cards/painted-desert-north.webp",
-   "topImage": "cards/painted-desert-north-top.webp",
-   "view": "S",
-   "imageFrom": "2e3723e338c11651c45193157efa834232492eb6c057fe62d15c01196c00c823",
-   "notes": [
-    "No water a pump can reach from the start",
-    "The water keeps moving"
-   ],
-   "file": "maps/painted-desert-north.timber",
-   "bytes": 152959,
-   "sha256": "2e3723e338c11651c45193157efa834232492eb6c057fe62d15c01196c00c823"
+   "bytes": 121307,
+   "sha256": "2c3d5fc853cd998d8f891878db4fd08414d2e829510fa55e32fa60c227f68030"
   },
   {
    "id": "ngorongoro-north",
@@ -3322,13 +3027,13 @@
    "image": "cards/ngorongoro-north.webp",
    "topImage": "cards/ngorongoro-north-top.webp",
    "view": "N",
-   "imageFrom": "efebd96d11ecaef2d9e48d07fe9a1551976dc58c2546034862d0ecd8427ddd41",
+   "imageFrom": "8a09e843eb74e3ef3333b1090018bf54f7e6e508cc1b6661dc87ddc5930ee1d1",
    "notes": [
     "The water keeps moving"
    ],
    "file": "maps/ngorongoro-north.timber",
-   "bytes": 118444,
-   "sha256": "efebd96d11ecaef2d9e48d07fe9a1551976dc58c2546034862d0ecd8427ddd41"
+   "bytes": 125583,
+   "sha256": "8a09e843eb74e3ef3333b1090018bf54f7e6e508cc1b6661dc87ddc5930ee1d1"
   }
  ]
 }

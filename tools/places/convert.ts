@@ -6,20 +6,24 @@
 //
 // 1. The terrain: the survey's patch, cropped and quantised to 16 levels (hydro.ts), as it is. No
 //    wall or rim along the edges (D151), and water may drain off the map (D152).
-// 2. The sources (D171), only where water begins: a row across each river's mouth where it comes
-//    into the map (channel tiles on the edge at the channel's level, about 0.5 of strength each as
-//    the generator's mouth rows have, up to 12), and a spring at each channel head inside; at most
-//    8 of them. The flow is the survey's, twice the generator's water strength for the map's size
-//    (`density("water_strength_per_10k")`), shared by the square root of the area each drains, at
-//    most 8 a tile. Then the water settles, and any source the water of another reaches
-//    (water.source_in_flow) or whose water never reaches the map's edge (water.outflow) goes, its
-//    flow shared among the rest; again, until none does. At least one source stays. A map whose
-//    water stands on more than 60% of it, however thin, reads as flooded and fails.
+// 2. The sources (D171), only where water begins, and only where the real place has water (Kyler,
+//    2026-09-27, D271): ESA WorldCover's permanent water and OpenStreetMap's permanent rivers on
+//    the patch (worldcover.ts, osm.ts; `observed`). Each stretch of it begins where a river comes
+//    into the map (a row across its mouth: channel tiles on the edge at the channel's level, about
+//    0.5 of strength each as the generator's mouth rows have, up to 12), or at a spring at its
+//    head; a lake gets one spring in its middle, fed what it evaporates; the sea and dry land get
+//    none (`beginnings`). At most 8. The rivers' flow is the survey's, twice the generator's water
+//    strength for the map's size (`density("water_strength_per_10k")`), shared by the square root
+//    of the area each drains, at most 8 a tile. A spring whose water would stand mostly off the
+//    real water goes (`offWater`). Then the water settles, and any source the water of another
+//    reaches (water.source_in_flow) or whose water never reaches the map's edge (water.outflow)
+//    goes, its flow shared among the rest; again, until none does; and a lake's spring whose lake
+//    the land cannot hold. A place with no observed water is dry, and its note says so.
 //    Rivers, not floods (Kyler, 2026-09-26, D214): the flow stays near the official maps' range
-//    for the size (`FLOW_CAP`). When the water does not settle or no start passes, the conversion
-//    keeps fewer and larger rivers at the same flow (the 3 largest groups, then the largest, as
-//    Pick a place's designed water uses one head on small maps and three on large ones), and only
-//    then tries more flow, up to the cap. Before D214 it tried 4 and 8 times the generator's
+//    for the size (`FLOW_CAP`). When the water does not settle, the conversion keeps fewer and
+//    larger rivers at the same flow (the 3 largest groups, then the largest, as Pick a place's
+//    designed water uses one head on small maps and three on large ones; D271 brought it back),
+//    and at 256² it also tries the cap's flow. Before D214 it tried 4 and 8 times the generator's
 //    strength instead, which made floods.
 // 3. The start: flat dry 3×3s with a dry ring and their door's tile on their level, the best in
 //    each 8×8 block by moist land near, then scored by the walk to clean water a pump reaches
@@ -422,7 +426,7 @@ function groupsOf(entries: Entry[], heads: Head[], size: number, h: Uint8Array, 
 }
 
 /** Each group's share of the flow, and its tiles' strengths (at most 8 a tile, at least 0.1; a
- *  lake's spring at least 0.01), in thousandths, their sum at most `flow`. */
+ *  lake's spring at least 0.01), to a thousandth, their sum at most `flow`. */
 function strengths(groups: Group[], size: number, flow = Infinity): [number, number, number][] {
   // the least a tile gets can lift the sum over the flow: the rest give up the difference (D214's
   // cap holds for all of it), a few rounds at most
@@ -431,10 +435,11 @@ function strengths(groups: Group[], size: number, flow = Infinity): [number, num
     const out: [number, number, number][] = [];
     for (const g of groups) {
       const each = Math.min(8, Math.max(g.lake ? 0.01 : 0.1, (g.share * scale) / g.tiles.length));
-      for (const i of g.tiles) out.push([i % size, Math.floor(i / size), Math.floor(each * 1000) / 1000]);
+      for (const i of g.tiles) out.push([i % size, Math.floor(i / size), Math.round(each * 1000) / 1000]);
     }
     const sum = out.reduce((s, [, , v]) => s + v, 0);
-    if (sum <= flow || round >= 8) return out;
+    // (each rounded to a thousandth: half a thousandth a source over is the rounding's)
+    if (sum <= flow + out.length * 0.0005 || round >= 8) return out;
     scale *= flow / sum;
   }
 }

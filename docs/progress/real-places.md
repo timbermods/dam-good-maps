@@ -701,3 +701,18 @@ at ee21cf5 (D270, D271, D272).
   as a sheet (Drumheller's valley floor, the Toklat's braided plain); a lake the map's edge cuts
   drains over the edge (Crater Lake at 60 m is 7.7 km across, its lake 9 km). Both would take the
   same bed a level down under the real water, a land change.
+- **The new review sheet** (`docs/sheets/real-places-review/`, 6 pages of 24, each under 800 KB;
+  `python tools/places-review.py ... --was 33f7050 --marks <marks.json>`): each card gives its
+  number on the D245 sheet ("No. 42 on the last sheet") and Kyler's marks in purple: the 9 held
+  places (2, 12, 41, 56, 58, 69, 86, 95, 97 here), 29, and the stripes (42, 48, 116, 118 here),
+  with `stripes.jpg` beside it (the real heights and the same land at 16 levels). The dropped places
+  are listed at the end of the last page with their reason. Every card picture drawn again on the
+  GPU; the contact sheet (`docs/sheets/real-places.png`) too.
+- **Tests** (D148): `tests/unit/places-water.test.ts` (new: dry land gets no source, an observed
+  river its mouth row, a lake one spring fed what it evaporates, the sea none; WorldCover's tile
+  names); `places.test.ts` to D271: the dropped are Kyler's 15, each with its reason; a dry place's
+  note says so; berry bushes only where there is water (they grow on moist ground); a region's
+  second map keeps its title when Kyler dropped the first (Samosir); the families' spread counts
+  Kyler's drops back in (they are his choice, not the tool's); the index's budget a place is taken
+  over its entries (the fixed part no longer spreads over as many places); the credits page's water
+  data (e2e). None weakened.
