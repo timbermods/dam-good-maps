@@ -35,7 +35,11 @@ self.onmessage = async ({data:r}:MessageEvent<MapRequest>) => {
     if(r.kind === 'falls' || r.kind === 'objects') {
       let view:MapView, velocity:Float32Array;
       if(r.kind === 'falls') {
-        const m=galleryMap(); const w=canonicalSettle({W:m.W,H:m.H,floor:Float64Array.from(m.heights),dam:null,emitters:m.emitters});
+        const m=galleryMap();
+        // Original rock islands in the outlet river. These are real obstacles in
+        // the solver's floor, so the foam responds to diverted flow.
+        for(const [x,y] of [[17,11],[18,11],[18,12],[25,10],[30,12]])m.heights[y*m.W+x]=4;
+        const w=canonicalSettle({W:m.W,H:m.H,floor:Float64Array.from(m.heights),dam:null,emitters:m.emitters});
         view={W:m.W,H:m.H,heights:m.heights,columns:emptyColumns(),entities:entityView([]),water:waterFromDepth(m.heights,w.depth,w.contamination),soil:soilView(moisture(m.heights,w.depth,w.contamination,m.W,m.H),soilContamination(m.heights,w.depth,w.contamination,m.W,m.H))};
         velocity=surfaceVelocity(m.W,m.H,w.depth,w.out!);
         label='Waterfall study · repository gallery · simulator-settled';

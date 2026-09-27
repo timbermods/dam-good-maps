@@ -10,3 +10,6 @@ Stage 1: cross-section materials reuse the exact outer faces and water columns. 
 
 Stages 2–4 and verification are in progress.
 
+
+Stage 2: world-space crown detail, a dissolving pool contact, small circular bubbles, mist and expanding rings. River foam reads a smoothed turbulence envelope from simulated velocity and actual wet neighbours. Tiny water-height steps share their neighbours' body colour, removing bright dotted tile seams. Paired old/new tall-fall, landing and river-rock captures pass Chrome shader checks. Mist and rings each add one bounded draw; measurements follow.
+

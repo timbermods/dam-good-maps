@@ -13,6 +13,7 @@ import { Post } from './post';
 import { Forest, isPlant, vegetationMaterial } from './forest';
 import { motion } from './wind';
 import { DioramaEdge } from './edge';
+import { WaterFinish } from './water-finish';
 import type { MapRequest } from './maps.worker';
 
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -23,6 +24,7 @@ base.water=base.shadows=base.sunlight=true;base.apply();
 const flow=new WaterFlow(b.waterMat), bed=badwaterBed(b.terrainMat,b.waterMat);
 const lighting=new Lighting(high,base), terrain=new Terrain(b.terrainMat), edge=new DioramaEdge(b.terrainMat,b.waterMat), post=new Post(high);
 const vegMaterial=vegetationMaterial(b.objectMat); motion.vegSway.value=0;
+const waterFinish=new WaterFinish(high,b.waterMat);
 let forest:Forest|undefined, map:MapView|undefined, baseMap:MapView|undefined, velocity=new Float32Array(2), currentKind='', label='', ready=false, worker:Worker|undefined, serial=0;
 let clock=8, measuring=false, paused=false, low=false, syncing=false;
 let objectIndex=0, activeWeather='normal';
@@ -43,6 +45,8 @@ function apply(){
   lighting.ao.value=+flags.ao;lighting.haze.value=+flags.haze;lighting.sky.value=+flags.sky;lighting.unclamp.value=+(flags.tone||flags.grade);
   terrain.strata.value=+flags.strata;terrain.blend.value=+flags.blend;terrain.variation.value=+flags.variation;post.tone=flags.tone;post.grade=flags.grade;
   edge.geology.value=+on(0,'geology');edge.soil.value=+on(0,'soil');edge.water.value=+on(0,'section');
+  waterFinish.crown.value=+on(1,'crown');waterFinish.landing.value=+on(1,'landing');waterFinish.bubbles.value=+on(1,'bubbles');waterFinish.river.value=+on(1,'riverfoam');
+  waterFinish.mist=on(1,'mist');waterFinish.rings=on(1,'rings');waterFinish.low=low;waterFinish.apply();
   if(forest){forest.group.visible=flags.vegetation;forest.low=low;}
   const objects=(high as unknown as {objects:Group}).objects;
   if(objects)for(const child of objects.children){if(isPlant(child.name.split('.')[0]))child.visible=!flags.vegetation;}
@@ -89,7 +93,7 @@ async function load(index=Number(select('map').value),seed=Number(input('seed').
     lighting.setMap(map!);flow.set(map!.W,map!.H,velocity,surfaceContamination(map!));
     rs.forEach(r=>r.setMap(map!));base.fit(map!.W,map!.H);
     forest=new Forest(map!.entities,data.growth,vegMaterial);b.scene.add(forest.group);
-    resetWeather();apply();setPose(currentKind==='objects'?'objects':currentKind==='falls'?'fall':'overview');
+    waterFinish.setMap(map!,velocity);resetWeather();apply();setPose(currentKind==='objects'?'objects':currentKind==='falls'?'fall':'overview');
     ready=true;pendingReject=undefined;samples=[];adaptAt=performance.now();
     $('status').textContent=label+' · '+map!.entities.count.toLocaleString()+' objects';
     ['normal','drought','badtide'].forEach(k=>($<HTMLButtonElement>(k).disabled=['falls','objects'].includes(currentKind)));

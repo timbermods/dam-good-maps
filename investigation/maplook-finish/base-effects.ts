@@ -93,7 +93,7 @@ export class Effects {
       if (scene === this.b.scene && this.shadows && this.dirty) {
         const oldTarget = this.b.gl.getRenderTarget();
         const override = this.b.scene.overrideMaterial;
-        const hidden = [this.b.sky, ...this.b.water.values(), ...this.b.falls.values()];
+        const hidden = [this.b.sky, ...this.b.water.values(), ...this.b.falls.values(), ...this.b.scene.children.filter(m => m.userData.noShadow)];
         const visible = hidden.map(m => m.visible);
         const clear = this.b.gl.getClearColor(new Color());
         const alpha = this.b.gl.getClearAlpha();
