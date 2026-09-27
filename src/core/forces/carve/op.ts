@@ -18,6 +18,8 @@ export interface CarveParams {
   wander: number;
   /** Nominal width in tiles, or null when it followed Power. */
   width: number | null;
+  /** Its Depth set by hand, in levels below the land (D226; absent: it followed Power). */
+  depth?: number;
   seed: number;
   walls: "steep" | "wide";
   defyGravity: boolean;

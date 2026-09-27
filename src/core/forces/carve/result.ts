@@ -4,7 +4,7 @@
 
 import type { BuildResult } from "../../features/build";
 import { placementOf } from "../../format/entities";
-import { forceResult, type ForceMap } from "../force";
+import { forceCeiling, forceResult, type ForceMap } from "../force";
 import { forceOfCarve, type ForceResultParams } from "../op";
 import { keptObject, literalOf } from "../result";
 import type { CarveParams } from "./op";
@@ -14,15 +14,13 @@ import { oxbowLake } from "./water";
 /** The map a force starts from: the build's ground and objects (those standing on the map), and
  *  the water as it stands (`water`: the water in flight, when there is some). */
 export function forceMapOf(b: BuildResult, water?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }): ForceMap {
-  let top = 16;
-  for (const h of b.heights) if (h > top) top = h;
   return {
     W: b.W,
     H: b.H,
     heights: b.heights.slice(),
     entities: b.entities.filter((e) => !e.raw || placementOf(e.raw)),
     water: { depth: Float64Array.from(water?.depth ?? b.water), contamination: Float64Array.from(water?.contamination ?? b.contamination) },
-    maxHeight: Math.min(22, top),
+    maxHeight: forceCeiling(b.heights),
   };
 }
 
@@ -57,6 +55,7 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     walls: set.walls,
     defyGravity: set.defyGravity,
     dry: set.dry,
+    ...(set.depth != null ? { depth: set.depth } : {}),
     ...(rec.cut !== null ? { cut: rec.cut } : {}),
     steps: run.steps,
     reason: run.done ? run.reason : "stopped",

@@ -31,9 +31,9 @@ export interface ForceWhere {
 
 /** A force's settings, as each force's options row sets them (the seed is its personality). */
 export type ForceSettingsRecord =
-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean }
+  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number }
-  | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number }
+  | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number };
 
 export interface ForceResultParams {
@@ -84,7 +84,7 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
   return {
     version: 1,
     verb: "carve",
-    settings: { mode: p.mode, power: p.power, wander: p.wander, width: p.width, seed: p.seed, walls: p.walls, defyGravity: p.defyGravity, dry: p.dry },
+    settings: { mode: p.mode, power: p.power, wander: p.wander, width: p.width, seed: p.seed, walls: p.walls, defyGravity: p.defyGravity, dry: p.dry, ...(p.depth != null ? { depth: p.depth } : {}) },
     where: { origin: p.origin, ...(p.end ? { end: p.end } : {}) },
     ...(p.cut !== undefined ? { cut: p.cut } : {}),
     steps: p.steps,
@@ -137,6 +137,12 @@ export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): s
     const w = s.width as number | null;
     if (!(Number.isFinite(s.wander as number) && (s.wander as number) >= 0 && (s.wander as number) <= 100)) return ["a carve's wander is 0 to 100"];
     if (w !== null && !(Number.isFinite(w) && w >= 2 && w <= 24)) return ["a carve's width is 2 to 24 tiles, or null (it follows Power)"];
+    const d = s.depth as number | null | undefined;
+    if (d != null && !(Number.isInteger(d) && d >= 1 && d <= 12)) return ["a carve's depth is 1 to 12 levels, or null (it follows Power)"];
+  }
+  if (verb === "erupt") {
+    const size = s.size as number | null | undefined;
+    if (size != null && !(Number.isFinite(size) && size >= 6 && size <= 140)) return ["an eruption's size is 6 to 140 tiles, or null (it follows Power)"];
   }
   if (verb === "craterize") {
     const size = s.size as number | null;

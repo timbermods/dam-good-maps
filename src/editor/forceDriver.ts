@@ -27,6 +27,23 @@ export const FORCE_PACE: Record<WaterSpeed, { steps: number; ms: number }> = {
 /** (Carve's name for it.) */
 export const CARVE_PACE = FORCE_PACE;
 
+/** An eruption's pace (D226): its volcano swells over about four seconds at the normal speed, as
+ *  the demo Kyler approved (eight pulses, each eased in over a fifth of a second), so the land
+ *  rises with its plume and its glow instead of ending before them; half as fast at the slower
+ *  speed, twice at the faster. */
+export const ERUPT_PACE: Record<WaterSpeed, { steps: number; ms: number }> = {
+  slower: { steps: 1, ms: 280 },
+  normal: { steps: 1, ms: 140 },
+  faster: { steps: 1, ms: 70 },
+  instant: { steps: 10, ms: 0 },
+};
+
+/** The pace of a force at a speed. */
+export function paceOf(verb: Verb, speed: WaterSpeed): { steps: number; ms: number } {
+  const table = verb === "erupt" ? ERUPT_PACE : FORCE_PACE;
+  return table[speed] ?? table.normal;
+}
+
 /** The head's moments that get half as long again on screen when the camera follows. */
 const DRAMATIC = new Set<ForceHead["event"]>(["breakthrough", "waterfall", "oxbow", "split"]);
 
@@ -203,7 +220,7 @@ export class ForceDriver {
         await sleep(80);
         continue;
       }
-      const pace = FORCE_PACE[this.host.speed()] ?? FORCE_PACE.normal;
+      const pace = paceOf(st.verb, this.host.speed());
       const dramatic = !!this.head && DRAMATIC.has(this.head.event) && st.verb === "carve" && this.host.follow() && this.motion();
       const ms = pace.ms * (dramatic ? 1.5 : 1);
       const t0 = performance.now();
@@ -215,11 +232,17 @@ export class ForceDriver {
         this.host.error(String(e instanceof Error ? e.message : e));
       }
       if (token !== this.token || !this.status) return;
+      // (the worker failed: all of it goes back, as Esc would, never a half-risen land left behind)
       if (!f) {
-        this.finish(false);
+        this.cancel();
         return;
       }
-      this.show(f);
+      // (a frame the page could not show never stops the force: its next frame shows the land)
+      try {
+        this.show(f);
+      } catch (e) {
+        this.host.error(String(e instanceof Error ? e.message : e));
+      }
       if (f.done) {
         await this.stop();
         return;

@@ -12,6 +12,7 @@
 import type { ComponentChildren } from "preact";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
 import type { RemoveKind } from "../core/features/objects";
+import { BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import type { Verb } from "../core/forces/op";
 
@@ -176,6 +177,47 @@ export function Toggle(p: { label: string; title: string; on: boolean; onChange(
   );
 }
 
+/** A size on a slider with its number (D226): a brush's (hold F to drag it too), and each force's
+ *  size, which follows Power (Auto, pressed) until the slider sets it by hand; Auto puts it back. */
+export function SizeControl(p: {
+  label: string;
+  title: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  /** What the number reads (the value, by default). */
+  words?: string;
+  onChange(v: number): void;
+  /** A force's: it follows Power while `on`; `onAuto` switches. */
+  auto?: { on: boolean; onAuto(on: boolean): void };
+}) {
+  const words = p.words ?? String(p.value);
+  return (
+    <span class="size-control">
+      <label class="slider-field" title={p.title}>
+        {p.label}
+        <input
+          type="range"
+          min={p.min}
+          max={p.max}
+          step={p.step}
+          aria-label={p.label}
+          aria-valuetext={p.auto?.on ? `${words}, following Power` : words}
+          value={p.value}
+          onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))}
+        />
+        <output>{words}</output>
+      </label>
+      {p.auto ? (
+        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power: move the slider to set it yourself` : `Let ${p.label.toLowerCase()} follow Power again`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
+          Auto
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 export function TopBar(p: TopBarProps) {
   const s = p.settings;
   const set = (patch: Partial<BrushSettings>) => p.onSettings({ ...s, ...patch });
@@ -241,6 +283,7 @@ export function TopBar(p: TopBarProps) {
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
+            <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and drag to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={BRUSH_SIZE_MAX} step={0.5} onChange={(size) => set({ size })} />
             <Toggle label="Square" title="A square brush instead of a round one" on={s.square} onChange={(square) => set({ square })} />
             <Toggle label="Precise" title="Hard edges and straight walls, a level at a time: hold still to dig or build a level more" on={s.precise} onChange={(precise) => set({ precise })} />
             <Toggle label="Straight lines" title="The stroke runs straight from where you press to the pointer; its length shows beside it" on={s.straight} onChange={(straight) => set({ straight })} />

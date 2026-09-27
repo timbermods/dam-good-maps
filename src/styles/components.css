@@ -384,6 +384,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* a size with its slider and its number, and for a force its Auto (pressed: it follows Power) */
+.size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.options-row .size-control .auto-button {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  border-radius: 10px;
+}
+
 /* a slim panel docked beside a view; folded, a strip that stays on screen */
 .side-panel {
   flex: none;

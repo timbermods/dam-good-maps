@@ -117,17 +117,26 @@ describe("the editor's juice", () => {
     expect(log.at(-1)).toBe("play erupt:cool");
   });
 
-  it("sounds are on and quiet unless the player turned them off, and a saved choice is kept", () => {
+  it("sounds are on and clearly audible unless the player turned them off (D226), and a saved choice is kept", () => {
     expect(loadSound()).toEqual(DEFAULT_SOUND);
     expect(DEFAULT_SOUND.on).toBe(true);
-    expect(DEFAULT_SOUND.volume).toBeLessThanOrEqual(0.5);
     expect(DEFAULT_SOUND.ambience).toBe(false);
-    // the default is the engine's quiet volume (Codex's 0.22)
-    expect(engineVolume(DEFAULT_SOUND.volume)).toBeCloseTo(0.22, 6);
-    localStorage.setItem("dgm.sound", JSON.stringify({ on: false, volume: 0.8 }));
-    expect(loadSound()).toEqual({ on: false, volume: 0.8, ambience: false });
+    // louder than the first default (the engine's quiet 0.22): about ten decibels, roughly twice as
+    // loud to the ear; the engine's limiter keeps it below full scale
+    expect(20 * Math.log10(engineVolume(DEFAULT_SOUND.volume) / 0.22)).toBeGreaterThanOrEqual(9);
+    expect(engineVolume(1)).toBeLessThanOrEqual(1);
+    // a choice saved now is kept as it is
     const { e } = fakeEngine();
+    new Juice(() => null, loadSound(), e).setSound({ on: false, volume: 0.35 });
+    expect(loadSound()).toEqual({ on: false, volume: 0.35, ambience: false });
     new Juice(() => null, loadSound(), e).setSound({ on: true, volume: 0.25 });
-    expect(e.settingsSeen.at(-1)).toEqual({ enabled: true, volume: 0.11, ambience: false });
+    expect(e.settingsSeen.at(-1)).toEqual({ enabled: true, volume: 0.25, ambience: false });
+    // saved before D226: off stays off, a volume set keeps its loudness, the first default never
+    // moved becomes the new one
+    localStorage.setItem("dgm.sound", JSON.stringify({ on: false, volume: 0.8 }));
+    expect(loadSound()).toEqual({ on: false, volume: 0.35, ambience: false });
+    localStorage.setItem("dgm.sound", JSON.stringify({ on: true, volume: 0.5 }));
+    expect(loadSound()).toEqual({ on: true, volume: DEFAULT_SOUND.volume, ambience: false });
+    localStorage.removeItem("dgm.sound");
   });
 });

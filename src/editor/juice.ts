@@ -6,8 +6,9 @@
 // crumbling under a brush for as long as the stroke lasts, a wooden pop for a tree, a gurgle for a
 // source, a poof for Remove, a soft rewind for undo, and each force's own (a torrent for Carve, a
 // whistle and an impact for Craterize, a rumble and a crack for Quake, grinding for its Slide, a
-// rumble, a rising plume and a cooling hiss for Erupt). On by default and quiet, with a volume and an
-// off switch the player keeps; water ambience is off unless turned on. Nothing waits on any of it.
+// rumble, a rising plume and a cooling hiss for Erupt). On by default at a clearly audible level
+// (D226: louder than the first, quiet default), limited and never harsh, with a volume and an off
+// switch the player keeps; water ambience is off unless turned on. Nothing waits on any of it.
 
 import type { MapRenderer } from "../render3d";
 import type { ForceCue } from "../core/forces/runs";
@@ -28,13 +29,27 @@ export interface SoundSettings {
 }
 
 const SOUND_KEY = "dgm.sound";
-export const DEFAULT_SOUND: SoundSettings = { on: true, volume: 0.5, ambience: false };
+/** The saved volume's scale: 2 since D226 (the volume is the engine's level); a choice saved before
+ *  had the engine at 0.44 of it. */
+const SOUND_SCALE = 2;
+/** The volume before D226's (the player never moved it). */
+const OLD_DEFAULT_VOLUME = 0.5;
+/** On, at 0.7 of the engine's range (D226): about ten decibels over the first default (0.22), heard
+ *  as roughly twice as loud, and clear on a laptop's speakers; the synthesiser's own limiter keeps
+ *  every sound below full scale, soft at the top. */
+export const DEFAULT_SOUND: SoundSettings = { on: true, volume: 0.7, ambience: false };
+
+const unit = (v: number) => Math.max(0, Math.min(1, v));
 
 export function loadSound(): SoundSettings {
   try {
-    const s = JSON.parse(localStorage.getItem(SOUND_KEY) ?? "null") as Partial<SoundSettings> | null;
+    const s = JSON.parse(localStorage.getItem(SOUND_KEY) ?? "null") as (Partial<SoundSettings> & { scale?: number }) | null;
     if (!s) return DEFAULT_SOUND;
-    return { on: s.on !== false, volume: typeof s.volume === "number" && Number.isFinite(s.volume) ? Math.max(0, Math.min(1, s.volume)) : DEFAULT_SOUND.volume, ambience: s.ambience === true };
+    let volume = typeof s.volume === "number" && Number.isFinite(s.volume) ? unit(s.volume) : DEFAULT_SOUND.volume;
+    // saved before D226: a volume the player set keeps its loudness on the new scale; the first
+    // default (never moved) becomes the new one; off stays off
+    if (s.scale !== SOUND_SCALE) volume = volume === OLD_DEFAULT_VOLUME ? DEFAULT_SOUND.volume : Math.round(volume * 0.44 * 100) / 100;
+    return { on: s.on !== false, volume, ambience: s.ambience === true };
   } catch {
     return DEFAULT_SOUND;
   }
@@ -42,15 +57,14 @@ export function loadSound(): SoundSettings {
 
 export function saveSound(s: SoundSettings): void {
   try {
-    localStorage.setItem(SOUND_KEY, JSON.stringify(s));
+    localStorage.setItem(SOUND_KEY, JSON.stringify({ ...s, scale: SOUND_SCALE }));
   } catch {
     // kept for this visit only
   }
 }
 
-/** The engine's master volume for the player's: the default (0.5) is the engine's quiet 0.22. A
- *  player's saved volume keeps its meaning. */
-export const engineVolume = (volume: number) => Math.max(0, Math.min(1, volume)) * 0.44;
+/** The engine's master volume for the player's (the same, 0–1, since D226). */
+export const engineVolume = (volume: number) => unit(volume);
 
 /** A sound's size from a thing's width in tiles. */
 export const soundSize = (tiles: number) => Math.max(0, Math.min(1, Math.log2(1 + Math.max(0, tiles)) / 6));

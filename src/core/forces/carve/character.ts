@@ -18,6 +18,10 @@ export interface Knob {
 /** The width a river of this Power takes when Width follows Power. */
 export const naturalWidth = (power: number) => 2.8 + power * 0.1;
 
+/** How deep a carve of this Power (and Width) cuts where it starts, in levels below the land,
+ *  when Depth follows Power (D226): its incision; its falls and rapids take it deeper downstream. */
+export const naturalDepth = (power: number, width?: number | null) => Math.round(Math.min(12, 1 + 6 * (power / 100) * Math.sqrt(naturalWidth(power) / (width ?? naturalWidth(power)))));
+
 /** Stateless integer mixer; sampling order, frame rate and wall time are irrelevant. */
 export function mixSeed(n: number): number {
   n = Math.imul(n ^ (n >>> 16), 0x21f0aaad);

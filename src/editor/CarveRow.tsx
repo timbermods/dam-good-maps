@@ -1,16 +1,18 @@
-// Carve's options row (PLAN §20 D194, D199, D206): its mode switch first (Unleash: click a spot;
-// Aim: its start, then where it ends), then Power (a creek to a catastrophe), Width (following
-// Power, or set by hand: a slot canyon, a wide lazy river), Wander (straight to winding), Walls
+// Carve's options row (PLAN §20 D194, D199, D206, D226): its mode switch first (Unleash: click a
+// spot; Aim: its start, then where it ends), then Power (a creek to a catastrophe), Width and Depth
+// (each following Power, or set by hand: a slot canyon, a wide lazy river, a wide shallow one at high
+// Power), Wander (straight to winding), Walls
 // (steep or wide), Keep river or Dry canyon, Defy gravity (aimed, to cut uphill), Follow (the
 // camera after its head), and Try another path once a carve is kept. While it runs, the row is its
 // controls: Pause, Stop (keep what's carved) and Revert (Esc). Built from the shared bar styles
 // (D176).
 
 import type { CarveSettings } from "../core/forces/carve/run";
-import { naturalWidth } from "../core/forces/carve/character";
+import { naturalDepth, naturalWidth } from "../core/forces/carve/character";
+import { DEPTH_MAX, DEPTH_MIN } from "../core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../core/forces/force";
 import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
-import { ForceOptions, Toggle, type Force } from "./TopBar";
+import { ForceOptions, SizeControl, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next carve (the page keeps it for the visit). */
 export interface CarveUi {
@@ -18,6 +20,8 @@ export interface CarveUi {
   power: number;
   /** Tiles, or null: it follows Power. */
   width: number | null;
+  /** Levels below the land at most, or null: it follows Power (D226). */
+  depth: number | null;
   wander: number;
   walls: "steep" | "wide";
   dry: boolean;
@@ -26,11 +30,11 @@ export interface CarveUi {
   follow: boolean;
 }
 
-export const DEFAULT_CARVE: CarveUi = { mode: "unleash", power: 65, width: null, wander: 35, walls: "steep", dry: false, defyGravity: false, follow: false };
+export const DEFAULT_CARVE: CarveUi = { mode: "unleash", power: 65, width: null, depth: null, wander: 35, walls: "steep", dry: false, defyGravity: false, follow: false };
 
 /** The run's settings for a new carve (a new series: seed 0; the rock's layers always on). */
 export function carveSettingsOf(u: CarveUi): CarveSettings {
-  return { mode: u.mode, power: u.power, wander: u.wander, width: u.width, seed: 0, walls: u.walls, defyGravity: u.mode === "aim" && u.defyGravity, dry: u.dry, layers: true };
+  return { mode: u.mode, power: u.power, wander: u.wander, width: u.width, ...(u.depth !== null ? { depth: u.depth } : {}), seed: 0, walls: u.walls, defyGravity: u.mode === "aim" && u.defyGravity, dry: u.dry, layers: true };
 }
 
 export interface CarveRowProps {
@@ -73,6 +77,7 @@ export function CarveRow(p: CarveRowProps) {
     );
   }
   const width = u.width ?? naturalWidth(u.power);
+  const depth = u.depth ?? naturalDepth(u.power, u.width);
   return (
     <ForceOptions force={p.force} mode={u.mode === "aim" ? "Aim" : "Unleash"} onMode={(m) => set({ mode: m === "Aim" ? "aim" : "unleash" })}>
       <label class="slider-field" title="How hard it cuts and how far it runs: a creek to a catastrophe">
@@ -80,12 +85,27 @@ export function CarveRow(p: CarveRowProps) {
         <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
         <output>{powerWord(u.power)}</output>
       </label>
-      <Toggle label="Width follows Power" title="Untick to set the width yourself: narrow for a slot canyon, wide for a lazy river" on={u.width === null} onChange={(on) => set({ width: on ? null : Math.round(width) })} />
-      <label class="slider-field" title={u.width === null ? "The width Power gives (untick Width follows Power to set it)" : "How wide it cuts, in tiles"}>
-        Width
-        <input type="range" min={2} max={24} step={1} aria-label="Width" value={Math.round(width)} disabled={u.width === null} onInput={(e) => set({ width: Number((e.target as HTMLInputElement).value) })} />
-        <output>{u.width === null ? width.toFixed(1) : u.width}</output>
-      </label>
+      <SizeControl
+        label="Width"
+        title="How wide it cuts, in tiles: narrow for a slot canyon, wide for a lazy river (Auto: the width Power gives)"
+        value={Math.round(width)}
+        words={u.width === null ? width.toFixed(1) : String(u.width)}
+        min={2}
+        max={24}
+        step={1}
+        onChange={(v) => set({ width: v })}
+        auto={{ on: u.width === null, onAuto: (on) => set({ width: on ? null : Math.round(width) }) }}
+      />
+      <SizeControl
+        label="Depth"
+        title="How deep it cuts at most, in levels below the land it runs through: shallow for a wide, lazy river at high Power (Auto: Power sets it, deeper downstream)"
+        value={depth}
+        min={DEPTH_MIN}
+        max={DEPTH_MAX}
+        step={1}
+        onChange={(v) => set({ depth: v })}
+        auto={{ on: u.depth === null, onAuto: (on) => set({ depth: on ? null : depth }) }}
+      />
       <label class="slider-field" title="Straight to winding">
         Wander
         <input type="range" min={0} max={100} step={5} aria-label="Wander" aria-valuetext={`${u.wander}, ${wanderWord(u.wander)}`} value={u.wander} onInput={(e) => set({ wander: Number((e.target as HTMLInputElement).value) })} />

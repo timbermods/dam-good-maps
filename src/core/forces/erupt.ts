@@ -37,9 +37,16 @@ export interface EruptSettings {
   flows: "light" | "heavy";
   ridges: boolean;
   seed: number;
+  /** Its breadth across, in tiles (D226): null (or absent: operations from before D226) follows
+   *  Power. Power sets how high it throws; Size how broad it spreads. */
+  size?: number | null;
 }
 
-export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1 };
+export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1, size: null };
+
+/** Erupt's Size, in tiles across (D226). */
+export const ERUPT_SIZE_MIN = 6;
+export const ERUPT_SIZE_MAX = 140;
 
 export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i: EruptIntent): void {
   if (
@@ -53,7 +60,8 @@ export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i: 
     s.power > 100 ||
     !Number.isInteger(s.seed) ||
     s.seed < 0 ||
-    s.seed > 0xffffffff
+    s.seed > 0xffffffff ||
+    (s.size != null && !(Number.isFinite(s.size) && s.size >= ERUPT_SIZE_MIN && s.size <= ERUPT_SIZE_MAX))
   )
     throw Error("Invalid eruption settings");
   if (!Number.isInteger(i.origin) || i.origin < 0 || i.origin >= m.W * m.H) throw Error("Choose land on the map");
@@ -185,15 +193,64 @@ export interface EruptAnatomy {
   vents: Point[];
   length: number;
   lobes: LavaLobe[];
+  /** How much of the prototype's rise it keeps under the map's ceiling (D226): 1 where it has the
+   *  room (the prototype's volcano exactly); less, and it grows broader rather than taller. A
+   *  fissure's share is worked out along its line (it is 1 here). */
+  scale: number;
+  /** The map's ceiling: it rises to it at most. */
+  ceiling: number;
+  /** Where it was asked to erupt, when the vent broke out on the flank instead (no room there). */
+  asked?: Point;
 }
 
+/** Its radius, in tiles: half its Size when set, or the prototype's for its Power. */
 export function ventRadius(s: EruptSettings): number {
+  if (s.size != null) return s.size / 2;
   const summit = s.summit === "auto" ? autoSummit(s.power) : s.summit;
   return naturalSize(s.power) * 0.5 * (s.shape === "broad" ? 1.6 : s.mode === "vent" && summit !== "caldera" ? 0.74 : 1) * (s.mode === "fissure" ? 0.47 : 1);
 }
 
-export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array }, s: EruptSettings, intent: EruptIntent): EruptAnatomy {
-  validateErupt(s, m, intent);
+/** The Size that follows Power (tiles across: what the options row shows until Size is set). */
+export const naturalBreadth = (s: EruptSettings) => 2 * ventRadius({ ...s, size: null });
+
+// ------------------------------------------------------------------------------- headroom (D226)
+
+/** The least rise that still reads as a volcano with a peak: with less room than this at the vent,
+ *  the eruption breaks out on the flank, where there is room. */
+export const FLANK_ROOM = 4;
+/** Why it cannot erupt there: at the map's ceiling, with no lower flank near. */
+export const NO_ROOM_REASON = "No room to rise here";
+/** How much broader it grows, at most, when it has to be lower (while Size follows Power). */
+const BROADEN_MAX = 1.6;
+
+/** The most the prototype's volcano rises above its datum on level ground (levels), whatever its
+ *  flows do: its cone or rim, its apron, its ridges at their strongest. A bound, worked out along
+ *  the radius (the prototype's own formula, the lobes' strongest). */
+export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "summit" | "lobes">): number {
+  const fissure = s.mode === "fissure";
+  const strength = a.lobes.reduce((v, l) => Math.max(v, l.strength), 0);
+  let top = 0;
+  for (let k = 0; k <= 260; k++) {
+    const r = k / 100;
+    let profile = Math.max(0, 1 - r) ** (s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65);
+    if (!fissure && a.summit === "crater" && r < 0.16) profile = 0.64 + (Math.pow(0.84, s.shape === "steep" ? 1.7 : 1.65) - 0.64) * smooth(r / 0.16);
+    if (!fissure && a.summit === "caldera") profile = r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+    const reach = s.flows === "heavy" ? 2.55 : 1.25;
+    const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4;
+    const ridge = s.ridges
+      ? fissure
+        ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : strength * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)
+      : 0;
+    const basin = !fissure && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? 0.16 : 0);
+    const rise = basin ? a.height * profile : Math.max(a.height * profile, apron) + ridge;
+    if (rise > top) top = rise;
+  }
+  return top;
+}
+
+/** The prototype's volcano on this ground (its anatomy, before the ceiling). */
+function protoAnatomy(m: { W: number; H: number; heights: Uint8Array }, s: EruptSettings, intent: EruptIntent): EruptAnatomy {
   const x = intent.origin % m.W;
   const y = Math.floor(intent.origin / m.W);
   const p = s.power / 100;
@@ -224,9 +281,160 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array }, s
       vents.push({ x: seg.a.x + (seg.b.x - seg.a.x) * t, y: seg.a.y + (seg.b.y - seg.a.y) * t });
     }
   } else vents.push({ x, y });
-  const a: EruptAnatomy = { x, y, radius, height, datum: m.heights[intent.origin], summit, phase: hash(s.seed, 71) * Math.PI * 2, segments, vents, length, lobes: [] };
+  const a: EruptAnatomy = { x, y, radius, height, datum: m.heights[intent.origin], summit, phase: hash(s.seed, 71) * Math.PI * 2, segments, vents, length, lobes: [], scale: 1, ceiling: 22 };
   if (s.mode === "vent") a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
   return a;
+}
+
+/** The tiles round its cone (r at most 1: the cone's edge wobbles by an eighth at most). */
+function coreBox(m: { W: number; H: number }, a: EruptAnatomy): { x0: number; y0: number; x1: number; y1: number } {
+  const reach = a.radius * 1.12;
+  let x0 = Math.floor(a.x - reach);
+  let x1 = Math.ceil(a.x + reach);
+  let y0 = Math.floor(a.y - reach);
+  let y1 = Math.ceil(a.y + reach);
+  for (const seg of a.segments) {
+    x0 = Math.min(x0, Math.floor(Math.min(seg.a.x, seg.b.x) - reach));
+    x1 = Math.max(x1, Math.ceil(Math.max(seg.a.x, seg.b.x) + reach));
+    y0 = Math.min(y0, Math.floor(Math.min(seg.a.y, seg.b.y) - reach));
+    y1 = Math.max(y1, Math.ceil(Math.max(seg.a.y, seg.b.y) + reach));
+  }
+  return { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(m.W - 1, x1), y1: Math.min(m.H - 1, y1) };
+}
+
+/** Whether the prototype's volcano fits under the ceiling within its cone (r at most 1): no level
+ *  of it there would be cut off, so it is the prototype's exactly. Quick answers first (its vent
+ *  alone passes the ceiling; the highest ground under it with the most it adds stays below), the
+ *  exact one (every tile, rounded as the plan rounds it) only between. */
+function fits(m: { W: number; H: number; heights: Uint8Array }, s: EruptSettings, a: EruptAnatomy, keep: Uint8Array | null): boolean {
+  const over = (t: number) => Math.round(Math.round(t * 4096) / 4096) > a.ceiling;
+  if (s.mode === "vent") {
+    const basin = a.summit === "caldera" || a.summit === "crater";
+    const peak = a.summit === "caldera" ? 0.34 : a.summit === "crater" ? 0.64 : 1;
+    const apron = basin ? 0 : (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * 0.86;
+    if (!keep?.[a.y * m.W + a.x] && over(a.datum + Math.max(a.height * peak, apron))) return false;
+  }
+  const box = coreBox(m, a);
+  let ground = s.mode === "vent" ? a.datum : 0;
+  for (let y = box.y0; y <= box.y1; y++)
+    for (let x = box.x0; x <= box.x1; x++) {
+      const h = m.heights[y * m.W + x];
+      if (h > ground) ground = h;
+    }
+  const bound = riseBound(s, a) + 1e-9;
+  if (!over(ground + bound)) return true;
+  const flows = lobeField(m.W, m.H, a.lobes);
+  const floor = s.mode === "vent" ? a.datum : 0;
+  for (let y = box.y0; y <= box.y1; y++)
+    for (let x = box.x0; x <= box.x1; x++) {
+      const i = y * m.W + x;
+      // (a tile rises to its ground, or the vent's, and the most the volcano adds, at most)
+      if (keep?.[i] || !over(Math.max(m.heights[i], floor) + bound)) continue;
+      const f = eruptField(a, s, x, y);
+      if (f.r > 1) continue;
+      if (over(raiseAt(m, s, a, flows, f, i, m.heights[i], 1))) return false;
+    }
+  return true;
+}
+
+/** A vent on the flank near (x, y) with at least `need` levels of room under the ceiling: the
+ *  nearest, the seed choosing among the nearly nearest (Try another breaks out elsewhere); null when
+ *  there is none within reach. */
+function flankVent(m: { W: number; H: number; heights: Uint8Array }, s: EruptSettings, x: number, y: number, need: number, ceiling: number, reach: number, keep: Uint8Array | null): number | null {
+  let best: number | null = null;
+  let bestScore = Infinity;
+  const r = Math.ceil(reach);
+  for (let dy = -r; dy <= r; dy++)
+    for (let dx = -r; dx <= r; dx++) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 2 || yy < 2 || xx > m.W - 3 || yy > m.H - 3) continue;
+      const i = yy * m.W + xx;
+      if (ceiling - m.heights[i] < need || keep?.[i]) continue;
+      const d = Math.hypot(dx, dy);
+      if (d > reach || d * 0.99 > bestScore) continue;
+      const bucket = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12) % 12;
+      const score = d * (1 + 0.3 * hash(s.seed, 940 + bucket));
+      if (score < bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+  return best;
+}
+
+/** The volcano an eruption raises here (D206, D226): the prototype's, where it has the room under
+ *  the map's ceiling (`maxHeight`: 16, or the map's own top up to 22). Where it hasn't, it keeps a
+ *  peak within the room it has: every level it raises (cone, apron, ridges) scaled together, so
+ *  its summit reaches the ceiling at most and is never pressed flat, and, while Size follows Power,
+ *  broader rather than taller. With too little room at the vent itself (the top of an earlier
+ *  volcano, say), it breaks out on the flank, the nearest place with room: overlapping eruptions
+ *  build new cones on the flanks. A fissure keeps its line and rises less where the ground is high.
+ *  `keep`: ground it leaves alone (the start's is always kept). */
+export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; maxHeight?: number; entities?: FullForceMap["entities"] }, s: EruptSettings, intent: EruptIntent, keep: Uint8Array | null = null): EruptAnatomy {
+  validateErupt(s, m, intent);
+  const ceiling = Math.min(22, m.maxHeight ?? 22);
+  const guard = m.entities ? startGround(m as { W: number; H: number; heights: Uint8Array; entities: FullForceMap["entities"] }) : null;
+  if (guard && keep) for (let i = 0; i < keep.length; i++) if (keep[i]) guard[i] = 1;
+  const kept = guard ?? keep;
+  let a = protoAnatomy(m, s, intent);
+  a.ceiling = ceiling;
+  if (s.mode === "fissure" || fits(m, s, a, kept)) return a;
+  let room = ceiling - a.datum;
+  const need = Math.min(riseBound(s, a), FLANK_ROOM);
+  if (room < need) {
+    const at = flankVent(m, s, a.x, a.y, need, ceiling, Math.max(8, a.radius * 1.5), kept);
+    if (at === null) throw Error(NO_ROOM_REASON);
+    const asked = { x: a.x, y: a.y };
+    a = protoAnatomy(m, s, { origin: at });
+    a.ceiling = ceiling;
+    a.asked = asked;
+    if (fits(m, s, a, kept)) return a;
+    room = ceiling - a.datum;
+  }
+  const k = Math.min(1, room / riseBound(s, a));
+  if (k >= 1) return a;
+  a.scale = k;
+  a.height *= k;
+  if (s.size == null) {
+    a.radius *= Math.min(BROADEN_MAX, 1 / Math.sqrt(k));
+    a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
+  }
+  return a;
+}
+
+/** A fissure's share of its rise at a tile whose line stands on `local` (D226): all of it where the
+ *  line has room under the ceiling, less where the ground is high. */
+function fissureScale(a: EruptAnatomy, bound: number, local: number): number {
+  return Math.min(1, Math.max(0, a.ceiling - local) / bound);
+}
+
+/** The ground the prototype raises at tile `i` (unrounded, before the ceiling), its rise scaled by
+ *  `k` (1: the prototype's own, exactly). */
+function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: EruptAnatomy, flows: Float32Array, f: ReturnType<typeof eruptField>, i: number, h: number, k: number): number {
+  const r = f.r;
+  const local = m.heights[Math.round(f.cy) * m.W + Math.round(f.cx)];
+  const datum = s.mode === "vent" ? a.datum : local;
+  let profile = Math.max(0, 1 - r) ** (s.shape === "steep" ? (s.mode === "fissure" ? 0.83 : 1.7) : 1.65);
+  if (s.mode === "vent" && a.summit === "crater" && r < 0.16) profile = 0.64 + (Math.pow(0.84, s.shape === "steep" ? 1.7 : 1.65) - 0.64) * smooth(r / 0.16);
+  if (s.mode === "vent" && a.summit === "caldera") profile = r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  if (s.mode === "fissure") {
+    const bowl = 1 - smooth(f.ventDistance / Math.max(2.4, a.radius * 0.19));
+    profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
+  }
+  const shoulder = smooth((r - 0.48) / 0.7);
+  const cone = datum + (k === 1 ? a.height : a.height * k) * profile + (h - datum) * shoulder;
+  const reach = s.flows === "heavy" ? 2.55 : 1.25;
+  const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * k;
+  const ridge = s.ridges
+    ? (s.mode === "fissure"
+        ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)) * k
+    : 0;
+  let target = Math.max(h, cone, h + apron) + ridge;
+  // Keep broad summit basins open; flow ridges begin below the rim.
+  if (s.mode === "vent" && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? 0.16 : 0)) target = Math.max(h, cone);
+  return target;
 }
 
 export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: number) {
@@ -271,7 +479,7 @@ export function eruptionReason(m: { W: number; H: number; heights: Uint8Array; e
   const keep = startGround(m);
   if (keep[i.origin]) return START_REASON;
   if (s.mode === "fissure") {
-    const a = eruptAnatomy(m, s, i);
+    const a = protoAnatomy(m, s, i);
     for (let k = 0; k < keep.length; k++) if (keep[k] && eruptField(a, s, k % m.W, Math.floor(k / m.W)).r * a.radius < 2) return START_REASON;
   }
   return null;
@@ -288,19 +496,26 @@ export class EruptPlan {
   private row = 0;
   private done = false;
 
+  /** A fissure's bound on its rise, when its line needs its share of it (D226; 0: all of it). */
+  private readonly bound: number;
+
   constructor(
     readonly before: FullForceMap,
     readonly settings: EruptSettings,
     readonly intent: EruptIntent,
     extraKeep: Uint8Array | null = null,
   ) {
-    this.anatomy = eruptAnatomy(before, settings, intent);
+    validateErupt(settings, before, intent);
     const reason = eruptionReason(before, settings, intent);
     if (reason) throw Error(reason);
+    this.anatomy = eruptAnatomy(before, settings, intent, extraKeep);
     this.keep = startGround(before);
     if (extraKeep) for (let i = 0; i < extraKeep.length; i++) if (extraKeep[i]) this.keep[i] = 1;
     this.map = snapshotMap(before);
     this.flows = lobeField(before.W, before.H, this.anatomy.lobes);
+    // (a fissure that fits keeps all of its rise everywhere, as the prototype's)
+    const a = this.anatomy;
+    this.bound = settings.mode === "fissure" && !fits(before, settings, a, this.keep) ? riseBound(settings, a) : 0;
   }
 
   get planned(): boolean {
@@ -320,29 +535,9 @@ export class EruptPlan {
         const h = this.before.heights[i];
         if (this.keep[i]) continue;
         const f = eruptField(a, s, x, y);
-        const r = f.r;
-        if (r > 2.6) continue;
-        const local = this.before.heights[Math.round(f.cy) * W + Math.round(f.cx)];
-        const datum = s.mode === "vent" ? a.datum : local;
-        let profile = Math.max(0, 1 - r) ** (s.shape === "steep" ? (s.mode === "fissure" ? 0.83 : 1.7) : 1.65);
-        if (s.mode === "vent" && a.summit === "crater" && r < 0.16) profile = 0.64 + (Math.pow(0.84, s.shape === "steep" ? 1.7 : 1.65) - 0.64) * smooth(r / 0.16);
-        if (s.mode === "vent" && a.summit === "caldera") profile = r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
-        if (s.mode === "fissure") {
-          const bowl = 1 - smooth(f.ventDistance / Math.max(2.4, a.radius * 0.19));
-          profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
-        }
-        const shoulder = smooth((r - 0.48) / 0.7);
-        const cone = datum + a.height * profile + (h - datum) * shoulder;
-        const reach = s.flows === "heavy" ? 2.55 : 1.25;
-        const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r));
-        const ridge = s.ridges
-          ? s.mode === "fissure"
-            ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-            : this.flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)
-          : 0;
-        let target = Math.max(h, cone, h + apron) + ridge;
-        // Keep broad summit basins open; flow ridges begin below the rim.
-        if (s.mode === "vent" && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? 0.16 : 0)) target = Math.max(h, cone);
+        if (f.r > 2.6) continue;
+        const k = this.bound ? fissureScale(a, this.bound, this.before.heights[Math.round(f.cy) * W + Math.round(f.cx)]) : a.scale;
+        let target = raiseAt(this.before, s, a, this.flows, f, i, h, k);
         target = clamp(Math.round(Math.round(target * 4096) / 4096), 0, Math.min(22, this.map.maxHeight));
         this.map.heights[i] = target;
         if (target !== h) {

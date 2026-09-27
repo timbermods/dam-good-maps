@@ -37,7 +37,8 @@ import { ForceDriver, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
-import { ventRadius } from "../core/forces/erupt";
+import { eruptAnatomy, type EruptAnatomy } from "../core/forces/erupt";
+import { forceCeiling } from "../core/forces/force";
 import { START_REASON, strokeReason } from "../core/forces/objects";
 import type { Verb } from "../core/forces/op";
 import { Fault, faultStrokeReason, FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
@@ -1660,6 +1661,28 @@ export default function Editor(props: EditorProps) {
     return keep;
   }
 
+  /** The page's map's ceiling for the forces (the worker's rule), worked out once per map state. */
+  const ceilingOf = useRef<{ heights: Uint8Array | null; top: number }>({ heights: null, top: 16 });
+
+  /** Where a vent erupts from a click at (x, y), and how broad (D226: the worker's own fit, from the
+   *  same ground), or why it would not. */
+  function eruptFit(x: number, y: number): { a: EruptAnatomy | null; why: string | null } {
+    const { W, H } = infoRef.current;
+    const heights = mirror.current.heights;
+    const keep = startKeep();
+    if (keep[y * W + x]) return { a: null, why: START_REASON };
+    const c = ceilingOf.current;
+    if (c.heights !== heights) {
+      c.heights = heights;
+      c.top = forceCeiling(heights);
+    }
+    try {
+      return { a: eruptAnatomy({ W, H, heights, maxHeight: c.top }, { ...eruptSettingsOf(eruptUiRef.current), mode: "vent" }, { origin: y * W + x }, keep), why: null };
+    } catch (e) {
+      return { a: null, why: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   /** The tiles of a line through the points (the painted fault or fissure, drawn on the land). */
   function strokeTiles(points: readonly { x: number; y: number }[]): number[] {
     const { W, H } = infoRef.current;
@@ -1762,9 +1785,21 @@ export default function Editor(props: EditorProps) {
         const angle = end ? Math.atan2(end.y - y, end.x - x) : 0;
         return rimTiles(x, y, (d / 2) * (1 + 0.65 * glance), d / 2 / (1 + 0.18 * glance), angle);
       }
-      const u = eruptUiRef.current;
-      const radius = ventRadius({ ...eruptSettingsOf(u), mode: "vent" });
-      return rimTiles(x, y, radius, radius, 0);
+      const { a } = eruptFit(x, y);
+      if (!a) return rimTiles(x, y, 1.5, 1.5, 0);
+      // (a vent that breaks out on the flank: its cone there, and the way to it from the pointer)
+      return [...rimTiles(a.x, a.y, a.radius, a.radius, 0), ...(a.asked ? strokeTiles([a.asked, { x: a.x, y: a.y }]) : [])];
+    };
+    /** The hovered vent's fit, once a frame at most (it reads the ground round it). */
+    let hoverFrame = 0;
+    const showVent = (x: number, y: number) => {
+      cancelAnimationFrame(hoverFrame);
+      hoverFrame = requestAnimationFrame(() => {
+        const { a, why } = eruptFit(x, y);
+        showMarks({ tiles: a ? footprintAt(x, y) : rimTiles(x, y, 1.5, 1.5, 0), side: [], bad: !!why });
+        const note = why ?? (a?.asked ? "No room to rise here: it breaks out on the flank" : a && a.scale < 1 ? "Near the height limit: it grows broader" : null);
+        setShapeNote(note ? { text: note, ok: !why, warn: false, ...pointerAt.current } : null);
+      });
     };
     const onStart = (x: number, y: number) => startKeep()[y * W + x] === 1;
     const sendPaint = () => {
@@ -1799,6 +1834,7 @@ export default function Editor(props: EditorProps) {
     const t: PointerTool = {
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        cancelAnimationFrame(hoverFrame);
         down = hit;
         notePointer(ev);
         if (painted()) {
@@ -1901,6 +1937,7 @@ export default function Editor(props: EditorProps) {
           showMarks(null);
           return;
         }
+        if (verb === "erupt") return showVent(hit.x, hit.y);
         const bad = onStart(hit.x, hit.y);
         showMarks({ tiles: footprintAt(hit.x, hit.y), side: [], bad });
         setShapeNote(bad ? { text: START_REASON, ok: false, warn: false, ...pointerAt.current } : null);
@@ -1925,6 +1962,7 @@ export default function Editor(props: EditorProps) {
     return () => {
       if (r.tool === t) r.tool = null;
       cancelAnimationFrame(marksFrame);
+      cancelAnimationFrame(hoverFrame);
       flipRef.current = null;
       forceEscRef.current = null;
       if (painting) forcer.current?.cancel();

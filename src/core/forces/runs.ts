@@ -277,7 +277,7 @@ export class CraterRun extends Staged implements StagedRun {
 export class EruptRun extends Staged implements StagedRun {
   readonly verb = "erupt" as const;
   readonly plan0: EruptPlan;
-  protected readonly stages = 14;
+  protected readonly stages = 28;
   protected readonly approach = 2;
   private mask: Uint8Array | null = null;
 

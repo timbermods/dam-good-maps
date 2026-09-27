@@ -43,6 +43,9 @@ export interface CarveSettings {
   wander?: number;
   /** Nominal width in tiles, 2–24; null follows Power. */
   width?: number | null;
+  /** How deep it cuts at most, in levels below the land it runs through, 1–12 (D226): a wide,
+   *  shallow river at high Power; null (or absent) follows Power. */
+  depth?: number | null;
   /** The personality seed (Try another path takes the next one). */
   seed?: number;
   walls: "steep" | "wide";
@@ -62,6 +65,10 @@ export const DEFAULTS: CarveSettings = { mode: "unleash", power: 65, wander: 35,
 
 /** The strength of the source a carve keeps (D199): following its nominal Width, linked to Power
  *  when Width follows it; 0.5 to 8 water a second. */
+/** Carve's Depth, in levels below the land (D226). */
+export const DEPTH_MIN = 1;
+export const DEPTH_MAX = 12;
+
 export const sourceStrength = (power: number, width?: number | null) =>
   Math.round((0.5 + 7.5 * (width == null ? power / 100 : Math.max(0, Math.min(1, (width - 2.8) / 10)))) * 1e6) / 1e6;
 
@@ -160,6 +167,9 @@ export class CarveRun implements ForceRun {
   private depositQueue: number[] = [];
   private depositDone = false;
 
+  /** Depth set by hand (levels below the land), or null: it follows Power. */
+  private readonly depth: number | null;
+
   /** `planning`: a route-only look-ahead (it moves the head and finds the cut-off, never the land). */
   constructor(input: ForceMap, settings: CarveSettings, intent: CarveIntent, options: CarveOptions = {}, private readonly planning = false) {
     settings = this.settings = { ...settings };
@@ -188,10 +198,12 @@ export class CarveRun implements ForceRun {
       !Number.isInteger(settings.seed) ||
       settings.seed < 0 ||
       settings.seed > 0xffffffff ||
-      (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24))
+      (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24)) ||
+      (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX))
     )
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
+    this.depth = settings.depth ?? null;
     this.initialWater = input.water.depth.slice();
     this.intent = { ...intent };
     this.seed = mapSeed(input);
@@ -335,6 +347,8 @@ export class CarveRun implements ForceRun {
           if (d > lane.width && this.hard(t, i) > 0.5) t++;
           const work = p * this.character.intensity;
           if (work < 0.45) t = Math.max(t, this.original[i] - Math.max(1, Math.round(1 + 6 * work)));
+          // Depth set by hand: never deeper than that below the land it runs through (D226)
+          if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
           if (t < this.target[i]) {
             this.target[i] = t;
             this.active.add(i);
@@ -343,7 +357,7 @@ export class CarveRun implements ForceRun {
           if (d <= lane.width * 0.72) this.channel[i] = 1;
           if (d <= lane.width * 0.65) {
             this.previewCells.add(i);
-            this.previewBed[i] = Math.min(this.previewBed[i], this.bed);
+            this.previewBed[i] = Math.min(this.previewBed[i], this.depth !== null ? Math.max(this.bed, this.original[i] - this.depth) : this.bed);
           }
         }
     }
@@ -358,7 +372,8 @@ export class CarveRun implements ForceRun {
       for (let xx = Math.max(0, Math.floor(x - radius - 1)); xx <= Math.min(W - 1, Math.ceil(x + radius + 1)); xx++) {
         const i = yy * W + xx;
         const d = Math.hypot(xx - x, yy - y);
-        const t = floor + Math.ceil(Math.max(0, d - radius) * 4);
+        let t = floor + Math.ceil(Math.max(0, d - radius) * 4);
+        if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
         if (this.keep[i] || this.character.rock[i] || this.sign[i] > 0 || t >= this.target[i]) continue;
         this.target[i] = Math.max(0, t);
         this.active.add(i);
@@ -366,7 +381,7 @@ export class CarveRun implements ForceRun {
         if (d < radius * 0.8) this.channel[i] = 1;
         if (d < radius * 0.65) {
           this.previewCells.add(i);
-          this.previewBed[i] = Math.min(this.previewBed[i], floor);
+          this.previewBed[i] = Math.min(this.previewBed[i], this.depth !== null ? Math.max(floor, this.original[i] - this.depth) : floor);
         }
       }
   }

@@ -39,6 +39,14 @@ export interface ForceMap {
   fallen?: Fallen[];
 }
 
+/** The highest level a force builds to on a map with these heights: 16, or the map's own top on a
+ *  tall map (D172), 22 at most. */
+export function forceCeiling(heights: ArrayLike<number>): number {
+  let top = 16;
+  for (let i = 0; i < heights.length; i++) if (heights[i] > top) top = heights[i];
+  return Math.min(22, top);
+}
+
 /** A force's map with everything the verbs read filled in. */
 export interface FullForceMap extends ForceMap {
   rockLayers: number[];

@@ -1097,17 +1097,18 @@ export class MapRenderer {
     (this.surge ??= new Surge(this.scene, () => this.requestRender())).set(head, trail, m.heights, m.W);
   }
 
-  /** Where tile (x, y) is from the camera, for a sound (D220): its distance (0 near, 1 far) and its
-   *  pan (−1 left, 1 right). */
+  /** Where tile (x, y) is in the view, for a sound (D220, D226): its distance (0 near, 1 far) and its
+   *  pan (−1 left, 1 right). What is on screen is what is being edited: it plays at nearly its full
+   *  level at any zoom (the camera's own distance made every sound far, a whisper, at the usual
+   *  views); only what is off screen fades and softens, the further off the more. */
   soundPlace(x: number, y: number): { distance: number; pan: number } {
     const m = this.map;
     if (!m) return { distance: 0, pan: 0 };
     const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
     const p = new Vector3(x + 0.5, m.heights[i], -(y + 0.5));
-    const cam = this.camera();
-    const d = cam.position.distanceTo(p);
-    const ndc = p.clone().project(cam);
-    return { distance: Math.max(0, Math.min(1, (d - 12) / 180)), pan: Number.isFinite(ndc.x) ? Math.max(-1, Math.min(1, ndc.x)) : 0 };
+    const ndc = p.project(this.camera());
+    const off = Math.max(Math.abs(ndc.x), Math.abs(ndc.y));
+    return { distance: Number.isFinite(off) && ndc.z <= 1 ? Math.max(0, Math.min(1, (off - 0.8) / 1.5)) : 1, pan: Number.isFinite(ndc.x) ? Math.max(-1, Math.min(1, ndc.x)) : 0 };
   }
 
   /** A puff of dust where ground was lowered at tile (x, y), `size` tiles across. */

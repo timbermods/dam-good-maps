@@ -1,16 +1,17 @@
-// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219), each starting
-// with its mode switch (ForceOptions): Craterize's Strike or Aim, Power, Size (following Power, or
-// set), Steep or Terraced walls, its centre, Light or Heavy debris and Rays; Erupt's Vent or Fissure,
-// Power, Steep or Broad, its summit, Light or Heavy flows and Ridges; Quake's Lift or Slide, Power,
+// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226), each
+// starting with its mode switch (ForceOptions): Craterize's Strike or Aim, Power, Size (following
+// Power, or set by hand), Steep or Terraced walls, its centre, Light or Heavy debris and Rays; Erupt's
+// Vent or Fissure, Power, Size (its breadth: following Power, or set by hand), Steep or Broad, its
+// summit, Light or Heavy flows and Ridges; Quake's Lift or Slide, Power (its drawn line sets its length),
 // Sheer or Stepped scarp and the side that moves (X flips it). Try another once one is kept. While a
 // force is at work its row is its status and Revert (Esc). Carve's row is its own (CarveRow.tsx).
 // Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { autoSummit, ERUPT_DEFAULTS, type EruptSettings } from "../core/forces/erupt";
+import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { ForceOptions, Toggle, type Force } from "./TopBar";
+import { ForceOptions, SizeControl, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next impact (kept for the visit). */
 export interface CraterUi {
@@ -31,8 +32,10 @@ export interface EruptUi {
   summit: EruptSettings["summit"];
   flows: "light" | "heavy";
   ridges: boolean;
+  /** Its breadth, tiles across, or null: it follows Power (D226). */
+  size: number | null;
 }
-export const DEFAULT_ERUPT: EruptUi = { mode: ERUPT_DEFAULTS.mode, power: ERUPT_DEFAULTS.power, shape: ERUPT_DEFAULTS.shape, summit: ERUPT_DEFAULTS.summit, flows: ERUPT_DEFAULTS.flows, ridges: ERUPT_DEFAULTS.ridges };
+export const DEFAULT_ERUPT: EruptUi = { mode: ERUPT_DEFAULTS.mode, power: ERUPT_DEFAULTS.power, shape: ERUPT_DEFAULTS.shape, summit: ERUPT_DEFAULTS.summit, flows: ERUPT_DEFAULTS.flows, ridges: ERUPT_DEFAULTS.ridges, size: null };
 
 export interface QuakeUi {
   mode: "lift" | "slide";
@@ -114,12 +117,16 @@ export function CraterizeRow(p: RowProps<CraterUi>) {
   return (
     <ForceOptions force={p.force} mode={u.mode === "aim" ? "Aim" : "Strike"} onMode={(m) => set({ mode: m === "Aim" ? "aim" : "strike" })}>
       <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits: deeper, wider, with more debris" />
-      <Toggle label="Size follows Power" title="Untick to set the crater's size yourself" on={u.size === null} onChange={(on) => set({ size: on ? null : size })} />
-      <label class="slider-field" title={u.size === null ? "The size Power gives (untick Size follows Power to set it)" : "The crater's width, in tiles"}>
-        Size
-        <input type="range" min={4} max={180} step={2} aria-label="Size" value={size} disabled={u.size === null} onInput={(e) => set({ size: Number((e.target as HTMLInputElement).value) })} />
-        <output>{size}</output>
-      </label>
+      <SizeControl
+        label="Size"
+        title="The crater's width, in tiles (Auto: the size Power gives; a bigger crater is shallower for the same Power)"
+        value={Math.round(size / 2) * 2}
+        min={4}
+        max={180}
+        step={2}
+        onChange={(v) => set({ size: v })}
+        auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
+      />
       <label title="Steep: one cliff all round. Terraced: broad benches stepping down">
         Walls
         <select aria-label="Walls" value={u.walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as CraterUi["walls"] })}>
@@ -155,9 +162,20 @@ export function CraterizeRow(p: RowProps<CraterUi>) {
 export function EruptRow(p: RowProps<EruptUi>) {
   const u = p.ui;
   const set = (patch: Partial<EruptUi>) => p.onUi({ ...u, ...patch });
+  const breadth = u.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth(eruptSettingsOf(u)) / 2) * 2));
   return (
     <ForceOptions force={p.force} mode={u.mode === "fissure" ? "Fissure" : "Vent"} onMode={(m) => set({ mode: m === "Fissure" ? "fissure" : "vent" })}>
-      <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How much it throws up: a small cone to a towering volcano" />
+      <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
+      <SizeControl
+        label="Size"
+        title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives; near the height limit it grows broader still)"
+        value={breadth}
+        min={ERUPT_SIZE_MIN}
+        max={ERUPT_SIZE_MAX}
+        step={2}
+        onChange={(v) => set({ size: v })}
+        auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : breadth }) }}
+      />
       <Segmented
         label="Shape"
         value={u.shape}
