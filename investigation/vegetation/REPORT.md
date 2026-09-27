@@ -14,3 +14,4 @@ Prototype only, based on dev `f78d9a2`. Run `npm --prefix investigation/vegetati
 ## Steps
 
 1. Read CLAUDE.md, docs/PERFECT.md, EDITOR_PLAN.md, PLAN §20, Map look 2 and current plant/ghost/icon rendering. Isolated the runner and licences. Baseline findings: current plants are instanced; young trees use a fixed half-scale; Map look 2's override depth shader needs the same wind deformation as the visible model.
+2. Built the original species registry, three mature variants per species, shared young/dead forms, actual stored-growth sidecar, instancing, real geometry LOD and shared colour/depth wind. Built the worker-backed comparison, specimen garden, Real places, stress scene, tuning, shelf/ghost previews and single-view measurement. TypeScript and production compilation pass; visual and performance checks follow.

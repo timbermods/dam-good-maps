@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Vegetation · Dam Good Maps</title></head>
+<body>
+<header><div><span class="eyebrow">DAM GOOD MAPS / LOOK STUDIES / 02</span><h1>A little more life.</h1><p>Original vegetation, in the same light. Drag either view to explore.</p></div><div class="badge">INVESTIGATION<br><strong>Vegetation</strong></div></header>
+<section class="controls" aria-label="Comparison controls">
+  <label>Landscape <select id="map"></select></label><label>Seed <input id="seed" type="number" value="4242" min="1" max="2147483647"></label><button id="load">Load</button>
+  <label>View <select id="pose"><option value="garden">Specimen garden</option><option value="edge">Forest edge</option><option value="grove">Grove close up</option><option value="stages">Saplings & dead trees</option><option value="overview">Whole map · above</option><option value="types">Types · straight above</option></select></label>
+  <label>Compare <select id="layout"><option value="both">Side by side</option><option value="old">Today's trees only</option><option value="new">New trees only</option></select></label>
+  <button id="top">Top-down</button><button id="orbit">Orbit</button>
+</section>
+<section class="controls secondary" aria-label="Vegetation settings">
+  <label><input type="checkbox" id="sway" checked> Gentle sway</label><label><input type="checkbox" id="detail" checked> Close detail</label><label><input type="checkbox" id="low"> Laptop mode</label><label><input type="checkbox" id="shadows" checked> Soft shadows</label><label><input type="checkbox" id="pause"> Pause</label><label><input type="checkbox" id="adaptive" checked> Automatic fallback in single view</label><button id="benchmark">Measure old / still / sway / laptop</button>
+</section>
+<div id="status" role="status">Preparing specimen garden…</div>
+<main id="comparison">
+  <section class="pane" id="old-pane"><div class="pane-title"><span><b>TODAY</b> Repository models</span><output id="old-fps">—</output></div><canvas id="old" aria-label="Current tree models; drag to orbit" tabindex="0"></canvas></section>
+  <section class="pane" id="new-pane"><div class="pane-title"><span><b>PROPOSAL</b> Original vegetation</span><output id="new-fps">—</output></div><canvas id="new" aria-label="New vegetation; drag to orbit" tabindex="0"></canvas></section>
+</main>
+<section class="under"><div><div class="eyebrow">SHELF & PLACEMENT PREVIEW</div><div id="shelf"></div><p>Pick a model, then hover over the map. R turns it; Esc puts it away.</p></div><div><div class="eyebrow">READING THE GARDEN</div><p id="legend">Columns: pine · birch · oak · berries<br>Back row: bare / dead. Middle: 66%, 32%, 8% growth.<br>Front three rows: mature natural variations.</p><p id="counts"></p></div></section>
+<details id="tuning"><summary>Palette & material tuning</summary><div id="colours"></div><div class="controls"><label>Roughness <input id="roughness" type="range" min="0.2" max="1" step="0.01" value="0.92"></label><label>Leaf wrap <input id="wrap" type="range" min="0" max="0.6" step="0.01" value="0.25"></label><label>Specular <input id="specular" type="range" min="0" max="0.25" step="0.005" value="0.045"></label><label>Ambient response <input id="ambient" type="range" min="0.5" max="1.5" step="0.01" value="1"></label><button id="reset">Reset tuning</button><button id="export">Save tuning JSON</button></div></details>
+<details><summary>Measurements & map credits</summary><p id="gpu"></p><p>Paired FPS includes both scenes. The measurement button runs one view at a time at equal resolution, with a camera orbit and 2 s warm-up per case. Loading and shader compilation are excluded. Software rendering does not predict your GPU.</p><pre id="measurements">No benchmark yet.</pre><div id="credits"></div></details>
+<footer>Procedural models only · three.js 0.186.0 · Prototype for visual judgement, not adopted by the editor.</footer>
+<script type="module" src="/app.ts"></script></body></html>
