@@ -1,10 +1,13 @@
-// The start areas (PLAN §20 D229): a crop of 40 tiles round each start, north up, one tile a pixel,
-// seeds 1–30 of a few themes and Any at 128², at Normal and at Hard, labelled with its theme, seed,
-// difficulty and the groves the starting-logs floor added. The floor's added groves (D224, D227,
-// D229: `forest/floor/<kind>/…`) are outlined orange; the start's own groves, planted for Minimum
-// starting wood within 20 tiles' walk (`forest/start/…`), cyan; the start is red. A tool for eyes,
-// not a gate: does meeting the floor make starts converge? Also prints how often wood was added,
-// and where.
+// The start areas (PLAN §20 D229, D252 (1)): a crop of 40 tiles round each start, north up, one tile
+// a pixel, seeds 1–30 of a few themes and Any at 128², at Normal and at Hard, labelled with its theme,
+// seed, difficulty and the groves the starting-logs floor added. The floor's added groves (D224,
+// D227, D229: `forest/floor/<kind>/…`) are outlined orange; the start's own groves, planted for
+// Minimum starting wood within 20 tiles' walk (`forest/start/<kind>/…`, `berryPatch/start/…`), cyan;
+// standing dead groves among them (`forest/start/dead`, planted when the walk's moist ground held too
+// little) are outlined magenta and labelled `D<n>` instead; the start is red. A tool for eyes, not a
+// gate: does meeting the floor make starts converge, and does the spread-out planting (D252 (1)) still
+// need dead groves? Also prints how often wood was added and where, and how many starts have dead
+// groves.
 //
 //   npx tsx tools/start-sheet.ts [--themes any,riverValley,canyon,highlands] [--seeds 1-30] [--size 128]
 //                                [--difficulties normal,hard] [--out docs/sheets/m9a-start-areas.png] [--jobs 8]
@@ -28,6 +31,7 @@ const R = 40;
 const SIDE = 2 * R + 1;
 const ORANGE = [255, 138, 20] as const;
 const CYAN = [70, 214, 255] as const;
+const MAGENTA = [230, 60, 200] as const;
 const TAG: Record<string, string> = { any: "AN", riverValley: "RV", canyon: "CA", highlands: "HI", lakeBasin: "LB", delta: "DE", islands: "IS" };
 
 interface Crop {
@@ -39,6 +43,7 @@ interface Crop {
   floorGroves: number;
   floorKinds: string[];
   startGroves: number;
+  deadGroves: number;
 }
 
 /** One theme at one difficulty: every seed's crop, written as JSON. */
@@ -65,6 +70,7 @@ function part(theme: ThemeId, difficulty: Difficulty, seeds: number[], size: num
     };
     const floor = mark("forest/floor/");
     const start = mark("forest/start/");
+    const dead = mark("forest/start/dead");
     const rgb = new Uint8Array(SIDE * SIDE * 3).fill(40);
     const edge = (m: Uint8Array, x: number, y: number) => m[y * W + x] && (x === 0 || y === 0 || x === W - 1 || y === H - 1 || !m[y * W + x - 1] || !m[y * W + x + 1] || !m[(y - 1) * W + x] || !m[(y + 1) * W + x]);
     for (let cy = 0; cy < SIDE; cy++)
@@ -76,11 +82,12 @@ function part(theme: ThemeId, difficulty: Difficulty, seeds: number[], size: num
         const p = ((H - 1 - y) * pic.w + x) * 3;
         let c: ArrayLike<number> = pic.rgb.subarray(p, p + 3);
         if (edge(floor.m, x, y)) c = ORANGE;
+        else if (edge(dead.m, x, y)) c = MAGENTA;
         else if (edge(start.m, x, y)) c = CYAN;
         rgb.set(c, k);
       }
-    crops.push({ theme, seed, difficulty, rgb: Buffer.from(rgb).toString("base64"), floorGroves: floor.n, floorKinds: floor.kinds, startGroves: start.n });
-    console.log(`${theme} ${difficulty} ${seed}: ${r.report.passed ? "passed" : "FAILED"}, floor groves ${floor.n} (${floor.kinds.join(" ")}), start groves ${start.n}`);
+    crops.push({ theme, seed, difficulty, rgb: Buffer.from(rgb).toString("base64"), floorGroves: floor.n, floorKinds: floor.kinds, startGroves: start.n, deadGroves: dead.n });
+    console.log(`${theme} ${difficulty} ${seed}: ${r.report.passed ? "passed" : "FAILED"}, floor groves ${floor.n} (${floor.kinds.join(" ")}), start groves ${start.n}, dead groves ${dead.n}`);
   }
   writeFileSync(out, JSON.stringify(crops));
 }
@@ -135,31 +142,39 @@ async function main(): Promise<void> {
     });
   let added = 0;
   let total = 0;
+  let withDead = 0;
   const kinds = new Map<string, number>();
   const lines: string[] = [];
   parts.forEach((p, pi) => {
     const crops = JSON.parse(readFileSync(p.file, "utf8")) as Crop[];
     let partAdded = 0;
+    let partDead = 0;
     crops.forEach((c, k) => {
       total++;
       if (c.floorGroves) {
         added++;
         partAdded++;
       }
+      if (c.deadGroves) {
+        withDead++;
+        partDead++;
+      }
       for (const kd of c.floorKinds) kinds.set(kd, (kinds.get(kd) ?? 0) + 1);
       const x0 = pad + (k % cols) * (SIDE + pad);
       const y0 = pad + (pi * rowsPer + Math.floor(k / cols)) * (SIDE + label + pad);
       const rgb = Buffer.from(c.rgb, "base64");
       for (let y = 0; y < SIDE; y++) for (let x = 0; x < SIDE; x++) put(x0 + x, y0 + label + y, rgb.subarray((y * SIDE + x) * 3, (y * SIDE + x) * 3 + 3));
-      text(`${TAG[c.theme]} ${c.seed} ${c.difficulty === "hard" ? "H" : c.difficulty === "easy" ? "E" : "N"}${c.floorGroves ? ` +${c.floorGroves}` : ""}`, x0, y0 + 1, c.floorGroves ? ORANGE : [250, 246, 236]);
+      const label2 = `${c.floorGroves ? ` +${c.floorGroves}` : ""}${c.deadGroves ? ` D${c.deadGroves}` : ""}`;
+      text(`${TAG[c.theme]} ${c.seed} ${c.difficulty === "hard" ? "H" : c.difficulty === "easy" ? "E" : "N"}${label2}`, x0, y0 + 1, c.deadGroves ? MAGENTA : c.floorGroves ? ORANGE : [250, 246, 236]);
     });
-    lines.push(`${p.t} ${p.d}: floor wood added on ${partAdded} of ${crops.length} maps`);
+    lines.push(`${p.t} ${p.d}: floor wood added on ${partAdded} of ${crops.length} maps, dead groves on ${partDead}`);
   });
   const png = palettedPng(img, Wimg, Himg);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, png);
   console.log(lines.join("\n"));
   console.log(`floor wood added on ${added} of ${total} maps; groves by kind: ${[...kinds].sort((x, y) => y[1] - x[1]).map(([k, n]) => `${k} ${n}`).join(", ")}`);
+  console.log(`starts with dead groves: ${withDead} of ${total}`);
   console.log(`wrote ${out} (${Math.round(png.length / 1024)} KB, ${Wimg}×${Himg})`);
 }
 
