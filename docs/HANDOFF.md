@@ -192,7 +192,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **`investigation/glaciate`** (Codex, D246: Glaciate, a new force; a PR into `dev`): when its PR is open and green it is
   **held, not merged**, until Kyler has tried the demo and says it's ready (as Carve and Quake were, D194, D203); then
   adopt it onto the shared forces core with round 2's conventions, following its INTEGRATION.md, and add it to the
-  investigation index. Not pushed yet.
+  investigation index. **#69 is open and green; Kyler has sent it back for another round of feedback and changes
+  (2026-09-26): keep holding it until he says it's ready.**
 - **`investigation/maplook-finish`** (#67, D243, D250): approved and merged (8ed950a); adopt it into High in the Map look
   work with #38, #65 and #66, plus D250's two additions (badtide withering; the RTX 2070 SUPER measurement).
 - **Codex's second sound round** on `investigation/juice-2` (natural recorded sounds with a crisp, musical reward;
