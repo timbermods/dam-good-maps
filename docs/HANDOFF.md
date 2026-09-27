@@ -211,8 +211,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **Progress log** (D221): a short, plain comment on [#57](https://github.com/timbermods/dam-good-maps/issues/57) each time
   a step finishes, something is released, a probe batch runs or something is parked for Kyler (what happened, links, what's
   next). `docs/STATUS.md` stays the full record, with its summary at the top.
-- **Pings:** none while Kyler is away (from 2026-09-26). On his main PC the old session pinged with a `notify.ps1` in its
-  `.scratch/` (not on this machine) and a chat line such as "🔔🔔 … IS READY FOR YOUR REVIEW 🔔🔔".
+- **Pings:** when Kyler asks for one, or something waits on him and he may have walked away: `powershell -NoProfile
+  -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body "<where>"` (a Windows toast on this
+  machine; the PushNotification tool is skipped while he is at the terminal) and a chat line such as "🔔🔔 … 🔔🔔".
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; give each e2e run its own free port),
   `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
