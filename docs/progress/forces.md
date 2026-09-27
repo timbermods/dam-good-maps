@@ -1,13 +1,47 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **State (2026-09-26, round 2b done: D239, D247, D248).** Branch `feature/forces`, `dev` merged in
-> (last at eb3f103). Round 2 (Kyler's review, D226) and round 2b are built and pushed: Unleash on a
-> selected source (its own water carves its course), Smooth's walkable option retired (saved strokes
-> replay exactly; Flatten's ramped edges checked, decisions-pending #84), Level lines a view switch
-> beside Height colours. Checked: typecheck clean; `npm run test:quick` 671 passed, 13 skipped;
-> `npx playwright test` 55 passed, 1 skipped; the Claude reference suite 135 of 148. Next: D249
-> (sources: Clear sources, sources ride the ground, easier to hit, Delete, a Remove drag from a
-> source), on this branch. Round 1's forces build is below the round-2 section (D219).
+> **State (2026-09-26, paused for the session restart; where a fresh session resumes).** Branch
+> `feature/forces`, `dev` merged in last at 986e5fc (merge 0cfefd7: D249's plan, D250, #67). Round 2
+> (Kyler's review, D226) is done; round 1 is below the round-2 section (D219). The queue, in order:
+>
+> 1. **Round 2b, Unleash on a source (D239): done**, pushed, in the section below.
+> 2. **D247, Smooth without its walkable option, and the Flatten ramped-edge check: done** (saved
+>    strokes replay exactly; a retired term; the check's finding and recommendation are
+>    decisions-pending #84, Flatten unchanged).
+> 3. **D248, Level lines in the view bar beside Height colours: done.** It made the view bar run
+>    under the compass on a laptop's view (CI's brushKit hover failed on ad45798); the bar wraps
+>    before the compass now and the brush bar sits under its rows (1a93e2b; its CI was running at
+>    the pause: check it first).
+> 4. **D249, sources and the brushes: not started** (only `dev` merged and the code read). All of it
+>    is left: (1) Clear sources in the five terrain brushes' row (off, remembered; the sources under
+>    the ring glow red, a mark on the ring; removed in the stroke's undo step, water receding live);
+>    (2) with it off, sources ride the ground (a 3×3 BadwaterSource as one level piece; no pit, no
+>    pillar, no change to strength or footprint; old strokes replay exactly, D158); (3) any tool
+>    targets a source within about two tiles over water or bare ground (a direct hit on another
+>    object wins; the nearest source wins; its marker, Remove's red glow with Remove); (4) Delete or
+>    Backspace removes the targeted source (one undo step, Remove's sound); (5) a Remove drag starting
+>    on a source takes only sources; (6) the tests PLAN §20 D249 lists (D148, none weakened); (7) the
+>    two captures (a group of sources raised over with Clear sources on, and off) here, linked below.
+>    Where it starts: `keptTiles()` in `src/editor/Editor.tsx` (about line 2527) gives every non-plant
+>    object's tiles, sources included, to the painter's `keep`, and each stroke stores them in its
+>    own `keep` runs (`BrushParams.keep`, `src/core/features/raster/brush.ts`): the build replays the
+>    runs a stroke saved, so leaving sources out of new strokes' `keep` should leave old strokes as
+>    they were (check it with a saved stroke near a source). Still to find: how a source's height
+>    follows its tile after a stroke (and how a 3×3 one stays level), and the hover targeting's home
+>    (the Remove tool's hover and the source marker in `Editor.tsx`).
+> 5. **The `forceResult` draw in `randomOps` (the nightly's sweep): done** (the heavy project passes, 4
+>    of 4).
+> 6. **D244 step 2 (one height ceiling everywhere): waits** for the in-game probe (step 1); spec comes
+>    separately.
+>
+> Checked at round 2b's end: typecheck clean; `npm run test:quick` 671 passed, 13 skipped;
+> `npx playwright test` 55 passed, 1 skipped; the Claude reference suite 135 of 148. Since then, only
+> the view-bar fix (its four e2e specs and the unit tests pass locally) and the `dev` merge (docs and
+> an investigation; no `src` change). Caveats: `docs/STATUS.md` carries two inline retired-term allow
+> markers (D247); merging `dev`, EDITOR_PLAN keeps Unleash as built (dev's plan paragraph for it is
+> replaced) beside dev's new D249 text. Parked: decisions-pending #84 (Ramped laying its own slopes);
+> Claude's `placeObject` can't yet choose a slope's way to join a step (B15); Kyler's listening check
+> of the sounds.
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
 Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high power), D205 and D212
