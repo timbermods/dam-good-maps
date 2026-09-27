@@ -7,7 +7,6 @@
 // problems warn and are noted in the map's description when the player exports anyway. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
-
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -65,6 +64,7 @@ import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
+import { carveNature, craterNature, eruptNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
@@ -1659,6 +1659,9 @@ export type ForceRequest = (
    *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
    *  locked land a level a tile. */
   area?: [number, number, number][];
+  /** The editor's row (D289): the choices it doesn't show are drawn from the land and the seed
+   *  (nature.ts), again at each Try another. */
+  natural?: boolean;
 };
 
 /** A carve to start: the carve's own request (kept for the carve's calls). */
@@ -1868,6 +1871,7 @@ function refusal(e: unknown): string {
 function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replaces?: number, state: TerrainState = s.terrainState()): ForceStarted {
   const { W, H } = base;
   const N = W * H;
+  if (req.natural) req = naturalRequest(req, base);
   const cut = req.cut;
   const inMap = (p: [number, number]) => p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
@@ -1906,7 +1910,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           try {
             carve = new CarveRun(base, settings, intent, { keep, sourceId: crypto.randomUUID(), unleashed: e.id, bad: e.template === "BadwaterSource" });
           } catch (err) {
-            // (a source's own water runs downhill: Unleash has no Defy gravity)
+            // (a source's own water runs downhill: an unleashed source never cuts uphill)
             throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
           }
           break;
@@ -1963,6 +1967,27 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     viewAt: -Infinity,
   };
   return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb };
+}
+
+/** The editor's force (D289): the choices its row doesn't show, drawn from the ground where it acts
+ *  and the series' seed; what it runs with, and what its operation keeps. */
+function naturalRequest(req: ForceRequest, base: FullForceMap): ForceRequest {
+  const { W, H } = base;
+  const clampTile = (x: number, y: number) => Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)));
+  const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
+  const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
+  switch (req.verb) {
+    case "carve":
+      return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "craterize":
+      return { ...req, settings: craterNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "erupt":
+      return { ...req, settings: eruptNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "quake": {
+      const m = mid(req.path);
+      return { ...req, settings: quakeNature(req.settings, ground(clampTile(m.x, m.y))) };
+    }
+  }
 }
 
 /** Start a force on the map as it stands: a new series, at its seed. */

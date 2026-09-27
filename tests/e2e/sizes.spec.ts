@@ -57,7 +57,7 @@ test("the shelf's order; every brush's size in its row; each force's size follow
 
   // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back
   for (const [key, rowName, sizes] of [
-    ["7", "Carve options", ["Width", "Depth"]],
+    ["7", "Carve options", ["Size"]],
     ["8", "Craterize options", ["Size"]],
     ["0", "Erupt options", ["Size"]],
   ] as const) {

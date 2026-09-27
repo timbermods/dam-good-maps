@@ -1,13 +1,13 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
-// the forces | Select (D259; with Delete it removes what stands in the selection, D288), and a small row beneath with only the picked tool's options (the sources are
-// on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
+// Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
+// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
 // while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
 // slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
 // hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
 // Flatten has "in steps" and its edges; Smooth has none (D247: the
 // shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
-// Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each options row
-// starting with its mode switch; all four are ready (D216, D219), and the public site shows none
+// Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each row Power,
+// Size, at most one choice and Try another, the gesture deciding the rest (D289); all four are ready (D216, D219), and the public site shows none
 // until their release (release.ts, D219). While a force is at work the other tools wait. Built from
 // the shared bar and button styles (D176).
 
@@ -91,23 +91,24 @@ function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
 export type TopTool = BrushTool | Verb;
 
 /** The forces (D203, D206): their slots in the bar, each hidden until it is ready. One shared core
- *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its modes:
- *  every force's options row starts with its mode switch. */
+ *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its one
+ *  signature choice where it has one (D289: the gesture decides the rest). */
 export interface Force {
   id: Verb;
   name: string;
   ready: boolean;
-  /** The mode switch that starts its options row (the first mode is the default). */
-  modes: readonly [string, string];
+  /** Its one choice as a switch that starts its options row (the first is the default): Quake's
+   *  Lift or Slide. The others' click or drag is their mode (D289). */
+  modes?: readonly [string, string];
   /** Its key, and what it does, for its button's title. */
   key?: string;
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Stop keeps it, Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, modes: ["Strike", "Aim"], key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Esc takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, modes: ["Vent", "Fissure"], key: "0", hint: "a volcano where you click, or paint a fissure. Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -117,17 +118,20 @@ export const SHOWN_FORCES: readonly Force[] = forcesShownIn({ mode: import.meta.
 /** This build shows the force `id`. */
 export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
-/** A force's options row: its mode switch first, then the force's own options. */
-export function ForceOptions(p: { force: Force; mode: string; onMode(mode: string): void; children?: ComponentChildren }) {
+/** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
+ *  Size and Try another (D289). */
+export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: string): void; children?: ComponentChildren }) {
   return (
     <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} options`}>
-      <div class="segmented" role="group" aria-label="Mode">
-        {p.force.modes.map((m) => (
-          <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode(m)}>
-            {m}
-          </button>
-        ))}
-      </div>
+      {p.force.modes ? (
+        <div class="segmented" role="group" aria-label="Mode">
+          {p.force.modes.map((m) => (
+            <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode?.(m)}>
+              {m}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {p.children ? <div class="bar-group">{p.children}</div> : null}
     </div>
   );

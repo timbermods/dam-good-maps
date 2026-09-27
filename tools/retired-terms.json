@@ -59,6 +59,9 @@
     { "pattern": ">\\s*orbit\\s*<", "retired": "D287", "instead": "one Top-down toggle, off for the usual orbit", "example": "<button>Orbit</button>" },
     { "pattern": "\\bremove \\(x\\)", "retired": "D288", "instead": "Select and Delete; Delete on what the pointer is on", "example": "<button aria-label=\"Remove (X)\">" },
     { "pattern": ">\\s*clear objects\\s*<", "retired": "D288", "instead": "the Selection row's Delete (or the Delete key)", "example": "<button>Clear objects</button>" },
+    { "pattern": "label=\"defy gravity\"|turn on defy gravity", "retired": "D289", "instead": "an aimed carve goes where the player drags, cutting through rises on its way", "example": "<Toggle label=\"Defy gravity\" />" },
+    { "pattern": "keep what.s carved so far", "retired": "D289", "instead": "a carve keeps itself when it ends; Esc and undo take it back", "example": "Keep what's carved so far: one undo step" },
+    { "pattern": "label=\"side that moves\"", "retired": "D289", "instead": "X flips the side of Quake's fault that moves", "example": "<div aria-label=\"Side that moves\">" },
     { "pattern": "\\bpick source\\b", "retired": "D212", "instead": "the shelf's Water source and Badwater source", "example": "Add water: pick Source, then click where the water starts." }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],

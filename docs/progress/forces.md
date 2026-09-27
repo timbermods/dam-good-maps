@@ -11,9 +11,8 @@
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
 > 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
-> 7. **The lean editor, D287-D289, with D290** (in progress): D287 and D288 done (the section
->    below); D289 (every force's row Power, Size, one choice, Try another) and D290 (a badwater
->    source cuts its own spring pool) next.
+> 7. **The lean editor, D287-D289, with D290** (in progress): D287, D288 and D289 done (the
+>    section below); D290 (a badwater source cuts its own spring pool) next.
 > 8. **D263**: smart Lower's depth from strokes, new channels about one tile deep.
 > 9. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
@@ -83,6 +82,56 @@ pine; a rectangle round a grove and a source, by key and by the row's button, on
 one; the ground unchanged; the start stays, pointed at and under Ctrl+A); `brushSources.spec` lost
 its Remove-drag part (D249's "a drag from a source takes only sources" went with the tool);
 `brushKit.spec` and `publicSite.spec` look for Select where they looked for Remove.
+
+### D289: every force's row takes Glaciate's shape
+
+- **The rows.** Carve: Power, **Size** (its width, following Power or set; its depth follows both),
+  Keep river or Dry canyon, Try another path. Craterize: Power, Size, Try another. Erupt: Power,
+  Size, Try another. Quake: Lift or Slide (its one choice), Power, Try another; X flips the side
+  that moves (the Side control is gone; the painting status says so). No mode switches, no Walls,
+  Centre, Debris, Rays, Shape, Summit, Flows, Ridges, Scarp, Wander, Width and Depth pair, and no
+  Defy gravity.
+- **The gesture is the mode.** Carve: a click unleashes, a drag (two tiles or more) aims, and an
+  aimed carve goes where it is dragged, uphill too (the page sends `defyGravity` with every aim; the
+  flag stays in the operation's data). Craterize: a click strikes, a drag aims a glancing blow.
+  Erupt: a click vents; a drag paints a fissure (shown once it leaves its tile; a drag too short for
+  a fissure vents where it began). Quake: painted, as before.
+- **Nature** (`src/core/forces/nature.ts`, new): the hidden choices are drawn from a stream of the
+  series' seed, the tile the force acts round and its height, leaned by the ground's ruggedness
+  (relief within 8 tiles, 8 levels = fully rugged): rugged ground carves straighter (wander about 25
+  instead of 55) between steep walls and raises steeper cones and sheer scarps; open ground lets a
+  river wander and shows an impact's rays; a harder impact throws heavy debris more often, a stronger
+  eruption runs heavy flows. Summits and crater centres keep Auto three times in four. The worker
+  draws them only for the editor's own requests (`natural: true`), before the run, so the run, the
+  frames and the kept `forceResult` all carry the drawn settings; Try another (the next seed) draws
+  again. Old projects replay exactly (their results are literal); another caller's settings run as
+  given.
+- **No Stop.** Carve's and Unleash's mid-carve Stop is gone: Pause (Space) and Revert (Esc) stay, and
+  a carve keeps itself when it ends. (The driver's own stop still keeps a painted Lift on release.)
+- The carve's own refusal for an uphill aim without the flag says only "The end point is uphill of
+  the start" (only another caller can meet it).
+- Docs: EDITOR_PLAN §3 (the top bar's forces, the gestures, the sizes), Craterize, Quake, Erupt,
+  Unleash and Carve, Part 3; ROADMAP's Live editing item 1 and its Carve line. Retired: a `Defy
+  gravity` toggle and "turn on Defy gravity", "keep what's carved so far", a "Side that moves" group.
+
+Tests: `forceNature.test` (new: the same place and seed draw the same; 24 seeds draw more than four
+characters for each force and both scarps; the land leans wander and walls; the editor's force runs
+with and keeps the drawn settings, five Try anothers re-roll them, the project replays to the same
+bytes, and a force without `natural` runs as asked). Changed to the decision (D148): `carve.spec`
+(the row is exactly Power, Size, Auto, Keep river, Dry canyon; the carve runs at a creek's Power and
+keeps itself when it ends, no Stop; the aim test drags without a mode switch or Defy gravity, and
+the "a click in Aim goes nowhere" check went with Aim's switch); `forces.spec` (each row's exact
+controls; Erupt's fissure is a drag; Craterize's aim a drag; Quake's side read from the page's hook,
+`gesture().side`, flipped by X; the ceiling test no longer counts the peak's tiles, since its summit
+is nature's now: `eruptHeadroom.test` keeps that check with each summit set; the camera test waits
+for the carve to end instead of Stop); `unleash.spec` (waits for the end, no Stop); `sizes.spec`
+(Carve's size is Size); `release.test` (only Quake has a switch); `carve.test` (the uphill refusal's
+words).
+
+For Kyler's forces sitting: each force's row (Power, Size, one choice at most, Try another); click
+or drag decides the mode (a Carve dragged uphill cuts through); Try another a few times on one spot:
+the walls, rays, summit or wander change with the land's lean; X flips Quake's side (say if you want
+the Left/Right control back).
 
 ## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
 
