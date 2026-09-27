@@ -61,7 +61,8 @@ editor is desktop-first (D185).
   have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
   is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
   relics and geothermal fields.
-- **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
+- **The view buttons:** Orbit, Top-down, Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin
+  line wherever the ground steps down a level, off by default, whatever tool is picked), Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
@@ -93,7 +94,7 @@ editor is desktop-first (D185).
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
   slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
   preview, released with the forces). Pen pressure on drawing tablets.
-- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines, exact
+- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
   length, the level while flattening).
