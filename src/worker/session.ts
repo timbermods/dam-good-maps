@@ -825,6 +825,9 @@ export async function showHazard(h: Hazard, days: number, opts: { id?: number; f
   const world = s.exportFile(b, { thumbnail: false }).world;
   const objects = mapObjects(world);
   const barrier = moistureBarrier(W, H, objects);
+  // (a press again or an edit meanwhile: stop before the next piece of work)
+  await breathe();
+  if (!current() || version !== v) return null;
   const soilNow = (D: ArrayLike<number>, C: ArrayLike<number>) => {
     const D64 = D instanceof Float64Array ? D : Float64Array.from(D);
     const C64 = C instanceof Float64Array ? C : Float64Array.from(C);
@@ -835,6 +838,8 @@ export async function showHazard(h: Hazard, days: number, opts: { id?: number; f
   const mid = startMiddleOf(objects);
   const within = rulesFor(s.spec, s.meta.designedFor).waterWithin;
   const sw = mid ? startWater({ W, H, heights: b.heights, walk: startWalk(objects, b.heights, W, H, mid), within, depth: zero.depth, contamination: zero.contamination, moisture: moisture(b.heights, zero.depth, zero.contamination, W, H, barrier) }) : null;
+  await breathe();
+  if (!current() || version !== v) return null;
   let wet = 0;
   for (let i = 0; i < N; i++) if (zero.depth[i] > WET_VIEW) wet++;
   const run = new HazardRun({ model: zero.model, depth: zero.depth, contamination: zero.contamination, ...(zero.out ? { out: zero.out } : {}), hazard: h, days, framesPerDay: framesCap ? Math.min(framesCap, framesPerDay(days + 1, wet)) : framesPerDay(days + 1, wet), ...(lead !== undefined ? { lead } : {}) });

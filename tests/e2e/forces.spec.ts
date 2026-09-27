@@ -396,6 +396,8 @@ test("a force keeps its own pace whatever the day strip's Speed (D266, D268)", a
     await idle(page);
     return ms;
   };
+  // (a first strike untimed: the force's first run warms its code up)
+  await timed("normal");
   const slow = await timed("slower");
   const quick = await timed("instant");
   // the same moment either way (Speed is about the hazard's days only)
