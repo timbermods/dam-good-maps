@@ -99,7 +99,7 @@ parentPort.on("message", (job) => {
       passed: r.report.passed, attempts: r.attempts, genomes: r.info.genomes, ms: Math.round(performance.now() - t0),
       intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })),
       drawn: r.info.genome ? r.info.genome.intentions : [],
-      recipe: r.info.genome ? (r.info.genome.seaLayout ? "sea " + r.info.genome.seaLayout : r.info.genome.recipe) : null,
+      recipe: r.info.genome?.seaLayout ? "sea " + r.info.genome.seaLayout : null,
       hydro: r.info.hydro, story, outcomes: out, sig: signatureOf(W, H, b.heights, b.water, r.features),
       name: r.name ?? null, description: r.description ?? null,
       failures: r.failures.map((f) => f.failed.join("+")),

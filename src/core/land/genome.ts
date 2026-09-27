@@ -2,7 +2,7 @@
 // prior. A theme is not a layout: it is a prior over one parameter space (how likely each landform
 // part is, how strong the processes run, how much water enters and where). Every part can appear in
 // every theme; the prior only weights them. Variety (0–100) widens every range and flattens the part
-// weights toward uniform. A recipe (a named premise) is at most a forced part.
+// weights toward uniform. The recipes are folded into intentions (D275 (1)).
 //
 // "Any" (the default, D208, D209) draws from broad ranges across all six themes: each range spans
 // the lowest to the highest of theirs, each chance is their mean, and the island sea is one of the
@@ -53,7 +53,6 @@ export const LEANINGS: readonly Leaning[] = ["riverValley", "canyon", "highlands
 export interface Genome {
   theme: ThemeId;
   variety: number;
-  recipe: string | null;
   /** Lowest ground level before rivers cut, and the spread of levels (`top` − `base`). */
   base: number;
   relief: number;
@@ -209,7 +208,6 @@ interface Prior {
   cap: Range;
   badwater: [number, number, number];
   thorns: number;
-  recipes: Partial<Record<string, number>>;
   /** Valley lakes (the mean count, hydro.ts). */
   troughs: number;
   /** The chance of an island sea. */
@@ -233,7 +231,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [1, 2, 2, 3, 3], share: { lo: 0.15, hi: 0.65 } },
     inflows: [0, 1, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 0.9, hi: 2.4 }, lakeBudget: { lo: 0.04, hi: 0.25 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
     split: 0.5, delta: 0.12, incise: { lo: 0, hi: 1.5 }, floor: { lo: 7, hi: 13 }, cap: { lo: 0, hi: 0.25 },
-    badwater: [0.2, 0.55, 0.25], thorns: 0.5, recipes: { "island-in-a-river": 0.08, "great-scarp": 0.06 },
+    badwater: [0.2, 0.55, 0.25], thorns: 0.5,
     troughs: 0.8, sea: 0, woods: [0.3, 0.25],
   },
   canyon: {
@@ -246,7 +244,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [2, 2, 3, 3, 4], share: { lo: 0.35, hi: 0.9 } },
     inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 0, hi: 3 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
     split: 0.45, delta: 0.03, incise: { lo: 3, hi: 6 }, floor: { lo: 0, hi: 2.5 }, cap: { lo: 0.1, hi: 0.5 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.2, recipes: { "mesa-field": 0.1, "great-scarp": 0.08 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.2,
     troughs: 0.5, sea: 0, woods: [0.35, 0.2],
   },
   highlands: {
@@ -259,7 +257,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [2, 2, 3, 3], share: { lo: 0.4, hi: 0.8 } },
     inflows: [0, 0, 1, 1, 2, 3], springs: { lo: 1, hi: 6 }, flowMul: { lo: 0.9, hi: 2.2 }, lakeBudget: { lo: 0.03, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.55,
     split: 0.3, delta: 0.02, incise: { lo: 1.5, hi: 3.5 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0.05, hi: 0.4 },
-    badwater: [0.35, 0.45, 0.2], thorns: 0.5, recipes: { "badwater-volcano": 0.08, "hanging-lake": 0.08 },
+    badwater: [0.35, 0.45, 0.2], thorns: 0.5,
     troughs: 1, sea: 0, woods: [0.4, 0.2],
   },
   lakeBasin: {
@@ -272,7 +270,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [1, 1, 2, 2, 3], share: { lo: 0.05, hi: 0.55 } },
     inflows: [0, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 1.1, hi: 2.6 }, lakeBudget: { lo: 0.1, hi: 0.4 }, lakes: { lo: 1, hi: 4 }, lakeSprings: 1,
     split: 0.25, delta: 0.02, incise: { lo: 0, hi: 1 }, floor: { lo: 0, hi: 4 }, cap: { lo: 0, hi: 0.2 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.2, recipes: { caldera: 0.12, "chain-of-lakes": 0.1 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.2,
     troughs: 1.3, sea: 0, woods: [0.25, 0.35],
   },
   delta: {
@@ -285,7 +283,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [1, 1, 2, 2], share: { lo: 0.05, hi: 0.4 } },
     inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.05, hi: 0.3 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
     split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.1, recipes: { "island-in-a-river": 0.12 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.1,
     troughs: 0.3, sea: 0, woods: [0.2, 0.4],
   },
   islands: {
@@ -298,7 +296,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [1, 2, 2, 3], share: { lo: 0.05, hi: 0.45 } },
     inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.6, hi: 3.2 }, lakeBudget: { lo: 0.2, hi: 0.5 }, lakes: { lo: 0, hi: 2 }, lakeSprings: 0.6,
     split: 0.15, delta: 0.02, incise: { lo: 0, hi: 0.5 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0, hi: 0.2 },
-    badwater: [0.4, 0.45, 0.15], thorns: 0.1, recipes: { "volcano-island": 0.12 },
+    badwater: [0.4, 0.45, 0.15], thorns: 0.1,
     troughs: 0.3, sea: 1, woods: [0.3, 0.3],
   },
 };
@@ -331,8 +329,6 @@ function anyPrior(): Prior {
     const w = mean(ps.map((p) => p.parts[k] ?? 0));
     if (w > 0) parts[k] = w;
   }
-  const recipes: Partial<Record<string, number>> = {};
-  for (const p of ps) for (const name of Object.keys(p.recipes)) recipes[name] = mean(ps.map((q) => q.recipes[name] ?? 0));
   return {
     base: r((p) => p.base),
     top: r((p) => p.top),
@@ -364,7 +360,6 @@ function anyPrior(): Prior {
     cap: r((p) => p.cap),
     badwater: [m((p) => p.badwater[0]), m((p) => p.badwater[1]), m((p) => p.badwater[2])],
     thorns: m((p) => p.thorns),
-    recipes,
     troughs: m((p) => p.troughs),
     sea: m((p) => p.sea),
     woods: [m((p) => p.woods[0]), m((p) => p.woods[1])],
@@ -499,7 +494,6 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   const g: Genome = {
     theme,
     variety: vy,
-    recipe: null,
     base: clamp(d(p.base), 0.2, 3),
     relief: 0,
     flowDir: rng.int(0, 8),

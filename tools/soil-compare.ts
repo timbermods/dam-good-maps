@@ -60,5 +60,5 @@ for (const theme of themes)
     t.msNew += ms1;
     console.log(`${theme} ${seed} | ${p0.size}/${p1.size} | ${moved} | ${changed} | ${r0.attempts}/${r1.attempts} | ${Math.round(ms0)}/${Math.round(ms1)} | old plants the game dries: ${dies}`);
   }
-console.log("\ntheme | maps | plants (new) | moved | changed | same attempt | mean ms old/new");
-for (const [theme, t] of Object.entries(tot)) console.log(`${theme} | ${t.maps} | ${t.plants} | ${t.moved} (${((100 * t.moved) / Math.max(1, t.plants)).toFixed(1)}%) | ${t.changed} | ${t.sameAttempt}/${t.maps} | ${Math.round(t.msOld / t.maps)}/${Math.round(t.msNew / t.maps)}`);
+console.log("\ntheme | maps | plants (new) | moved | changed | same attempt | mean ms old/new | old plants the game dries");
+for (const [theme, t] of Object.entries(tot)) console.log(`${theme} | ${t.maps} | ${t.plants} | ${t.moved} (${((100 * t.moved) / Math.max(1, t.plants)).toFixed(1)}%) | ${t.changed} | ${t.sameAttempt}/${t.maps} | ${Math.round(t.msOld / t.maps)}/${Math.round(t.msNew / t.maps)} | ${t.dies}`);

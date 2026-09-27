@@ -60,7 +60,7 @@ export const ACTIVE: readonly IntentionId[] = INTENTIONS.filter((id) => id !== "
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
-export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "safe-water-uphill"]);
+export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "safe-water-uphill", "two-ways", "badwater-rich"]);
 
 /** The outcome in a player's words. */
 export const INTENTION_TEXT: Record<IntentionId, string> = {
@@ -353,6 +353,11 @@ export interface SettlerView {
   farms: { size: number; cx: number; cy: number }[];
   gorge: Uint8Array;
   p75: number;
+  /** Distance to badwater (contaminated water), for badwater through the richest land. */
+  dBad: Float64Array;
+  /** The land in blocks of `B`×`B` tiles (dry tiles, their farmland and summed height), for two
+   *  ways to grow. */
+  blocks: { B: number; bw: number; bh: number; n: Float32Array; farm: Float32Array; hs: Float32Array; lowBad: Float32Array };
 }
 
 /** A straight line from (x, y) to (px, py) crosses a gorge tile. */
@@ -410,6 +415,51 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       return s.dFall[y * W + x] <= 18 ? 1 : 0;
     case "safe-water-uphill":
       return s.lakes.some((lk) => lk.surface >= L + 1 && lk.keep9 >= 0.5 && near(lk.tiles, 40)) ? 1 : 0;
+    case "badwater-rich": {
+      // the low land beside badwater within 60 tiles, against the check's 400 (at 128²)
+      if (!(s.dBad[y * W + x] <= 60)) return 0;
+      const b = s.blocks;
+      let low = 0;
+      for (let by = Math.max(0, Math.floor((y - 61) / b.B)); by < Math.min(b.bh, Math.ceil((y + 62) / b.B)); by++)
+        for (let bx = Math.max(0, Math.floor((x - 61) / b.B)); bx < Math.min(b.bw, Math.ceil((x + 62) / b.B)); bx++) {
+          const k = by * b.bw + bx;
+          if (!b.lowBad[k]) continue;
+          const cx = (bx + 0.5) * b.B - 0.5 - x;
+          const cy = (by + 0.5) * b.B - 0.5 - y;
+          if (cx * cx + cy * cy <= 3600) low += b.lowBad[k];
+        }
+      return Math.min(1, low / ((400 * W * H) / 16384));
+    }
+    case "two-ways": {
+      // from the start (12–60 tiles out), one side's open farmland twice the other's and the
+      // other side higher (its wood and ruins are placed later; the check reads them)
+      const b = s.blocks;
+      const want = (200 * W * H) / 16384;
+      for (const [ux, uy] of [[1, 0], [0.707, 0.707], [0, 1], [-0.707, 0.707]] as const) {
+        const side = [
+          { farm: 0, h: 0, n: 0 },
+          { farm: 0, h: 0, n: 0 },
+        ];
+        for (let by = Math.max(0, Math.floor((y - 61) / b.B)); by < Math.min(b.bh, Math.ceil((y + 62) / b.B)); by++)
+          for (let bx = Math.max(0, Math.floor((x - 61) / b.B)); bx < Math.min(b.bw, Math.ceil((x + 62) / b.B)); bx++) {
+            const k = by * b.bw + bx;
+            if (!b.n[k]) continue;
+            const cx = (bx + 0.5) * b.B - 0.5 - x;
+            const cy = (by + 0.5) * b.B - 0.5 - y;
+            const e = Math.sqrt(cx * cx + cy * cy);
+            if (e < 12 || e > 60) continue;
+            const dot = cx * ux + cy * uy;
+            if (Math.abs(dot) < 3) continue;
+            const sd = side[dot > 0 ? 0 : 1];
+            sd.farm += b.farm[k];
+            sd.h += b.hs[k];
+            sd.n += b.n[k];
+          }
+        for (const [a, c] of [[side[0], side[1]], [side[1], side[0]]])
+          if (a.n && c.n && a.farm >= 2 * c.farm && a.farm >= want && c.h / c.n >= a.h / a.n + 1.5) return 1;
+      }
+      return 0;
+    }
     case "farmland-past-gorge":
       return s.farms.some((f) => {
         const d = Math.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
