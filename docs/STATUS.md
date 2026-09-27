@@ -51,6 +51,11 @@ Your fifty decisions since the restart are recorded (D252–D301, below) and in 
      their lake through 9 days. That is the game's rule (sources stop), but it bears on PERFECT's "the start survives its first
      cycles" (Challenge) and may belong in M9b.
    Its defaults #120–#124 (the step pace, the start's water rule, per-tile hover notes, the highlight, days as they're worked out).
+   - **Update (#73, 021dcfc): the day strip now follows the game** within the probe's 5% on Canyon, No badwater and Delta
+     (sources ease down before a drought as the game's DroughtWaterStrengthModifier does; the run starts from the loaded water with
+     its flows; and the game's 0.1 spill threshold where a river leaves the map at floor 0). **Default #125 for you:** that last
+     rule is used by the drought run only, so no map changes today; the agent recommends adding it to all water with D293's move to
+     the game's rules (the 3D engine's game mode should already carry it).
 5. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
    Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
    shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
