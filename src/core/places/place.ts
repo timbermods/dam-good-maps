@@ -32,28 +32,54 @@ import { DIFFICULTY_RULES, defaultSettings } from "../spec/mapspec";
 import { validateMap, type Validation } from "../validate/checks";
 import { CREDITS_URL, fileNotices } from "./attribution";
 import logFloor from "../data/log-floor.json";
+import { reachAt, walkDistance } from "../analysis/walk";
+import { isSapling, treeLogs } from "../analysis/wood";
+import { FOOTPRINTS, footprintTiles, slopeHighSide } from "../format/footprints";
+import { WALK_BLOCKERS } from "../validate/playability";
+import { plantForFloor, type FloorWood } from "./wood";
 import type { PlaceView } from "./view";
 
 export const PLACE_FORMAT = 2;
 
-/** The starting-logs floor (Kyler, 2026-09-26, D224): every place has at least this many logs
- *  within 20 tiles' walk of its start, at every difficulty, counted as `start.wood` counts (grown
- *  trees by their species' yield, dead ones too; src/core/data/log-floor.json, computed from the
- *  game's own data for its version). A blocking rule for the places until M9a's validators carry
- *  it: tools/places-convert.ts chooses only starts that meet it, and tools/real-places.ts and the
- *  places tests refuse a place that does not. */
+/** The starting-logs floor (Kyler, 2026-09-26, D224, amended by D227): every place has at least
+ *  `LOG_FLOOR` logs within `LOG_FLOOR_WALK` tiles' walk of its start, at every difficulty
+ *  (src/core/data/log-floor.json, computed from the game's own data for its version: 178 logs
+ *  within 40 tiles for 1.1.2.4). A blocking rule for the places until M9a's validators carry it:
+ *  tools/places-convert.ts chooses only starts that meet it, and tools/real-places.ts and the places
+ *  tests refuse a place that does not. */
 export const LOG_FLOOR: number = logFloor.floor;
+export const LOG_FLOOR_WALK: number = logFloor.withinWalk;
 
-/** The logs within 20 tiles' walk of a built place's start: `start.wood`'s count. */
-export function startLogs(v: Validation): number {
-  const c = v.report.checks.find((x) => x.id === "start.wood");
-  return typeof c?.value === "number" ? c.value : 0;
+/** The logs within `within` tiles' walk of the start (the floor's count, D224, D227): every grown
+ *  tree, alive or dead, by its species' yield (a sapling's never), over the start requirements'
+ *  walk: the map's own ground and its natural slopes, never stairs, round what blocks walking, from
+ *  the district center (the validators' `start.wood` counts the same within 20). */
+export function startLogs(heights: ArrayLike<number>, W: number, H: number, objects: readonly MapObject[], within = LOG_FLOOR_WALK): number {
+  const blocked = new Uint8Array(W * H);
+  const links: [number, number][] = [];
+  for (const o of objects) {
+    if (WALK_BLOCKERS.has(o.template) && FOOTPRINTS[o.template]) for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
+    if (o.template !== "Slope" || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
+    const [dx, dy] = slopeHighSide(o.orientation);
+    const hx = o.x + dx;
+    const hy = o.y + dy;
+    if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([o.y * W + o.x, hy * W + hx]);
+  }
+  const start = objects.find((o) => o.template === "StartingLocation");
+  if (!start) return 0;
+  const walk = walkDistance(heights, W, H, blocked, links, startCentreOf(start));
+  let logs = 0;
+  for (const o of objects) {
+    const each = treeLogs(o.template, o.components);
+    if (!each || isSapling(o.components) || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
+    if (reachAt(walk, W, H, o.y * W + o.x) <= within) logs += each;
+  }
+  return logs;
 }
 
-/** Why a built place is below the starting-logs floor, or null. */
-export function logFloorProblem(v: Validation): string | null {
-  const logs = startLogs(v);
-  return logs >= LOG_FLOOR ? null : `start.log_floor: ${logs} logs within 20 tiles' walk of the start, under the floor of ${LOG_FLOOR} (D224)`;
+/** Why a map is below the starting-logs floor, or null. */
+export function logFloorProblem(logs: number): string | null {
+  return logs >= LOG_FLOOR ? null : `start.log_floor: ${logs} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the floor of ${LOG_FLOOR} (D224, D227)`;
 }
 
 /** One real place as the site stores it (public/real-places/data/<id>.json.gz). */
@@ -203,6 +229,10 @@ export interface BuiltPlace {
   model: WaterModel;
   settle: CanonicalWater;
   resources: MapResources;
+  /** The logs within the starting-logs floor's walk of the start (`startLogs`). */
+  logs: number;
+  /** The groves grown for the starting-logs floor, when the place fell short of it (D224, D229). */
+  floorWood?: FloorWood;
 }
 
 /** The place's terrain, its own objects and their water model: what the settle runs on. */
@@ -228,9 +258,10 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
   const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
   const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
   // the resource baseline, as the generator would give a map of this size designed for Normal
-  // (resources/plan.ts): starting wood and berries near the start with the generator's margins,
-  // the wood never under the starting-logs floor (D224), at every difficulty
+  // (resources/plan.ts): starting wood and berries near the start with the generator's margins;
+  // the starting-logs floor (D224, D227) counts farther out, and the planner plants toward it too
   const rules = DIFFICULTY_RULES.normal;
+  const start = startCentreOf(objects.find((o) => o.template === "StartingLocation")!);
   const resources = planMapResources({
     W,
     H,
@@ -239,13 +270,34 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
     moisture: moist,
     soilContamination: soil,
     entities,
-    start: startCentreOf(objects.find((o) => o.template === "StartingLocation")!),
+    start,
     settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources,
     seed: hash32("real-place", p.survey),
-    nearStart: { wood: Math.ceil(1.35 * Math.max(rules.woodWithin20, LOG_FLOOR)), bushes: Math.max(rules.berriesTarget, Math.ceil(1.15 * rules.bushesWithin20)) },
+    nearStart: { wood: Math.ceil(1.35 * rules.woodWithin20), bushes: Math.max(rules.berriesTarget, Math.ceil(1.15 * rules.bushesWithin20)) },
     ruinsClear: rules.ruinsWithin + 7,
     owner: `real-place:${p.id}`,
   });
+  // the starting-logs floor (D224, D227): a place short of it grows groves that read its own land
+  // within the floor's walk (D229, wood.ts), for the logs it lacks and a tenth more
+  let logs = startLogs(heights, W, H, [...objects, ...resources.entities.map(mapObject)]);
+  let floorWood: FloorWood | null = null;
+  if (logs < LOG_FLOOR) {
+    floorWood = plantForFloor({
+      W,
+      H,
+      heights,
+      water: settle.depth,
+      moisture: moist,
+      soilContamination: soil,
+      entities: [...entities, ...resources.entities],
+      start,
+      need: Math.ceil((LOG_FLOOR - logs) * 1.1),
+      within: LOG_FLOOR_WALK,
+      seed: hash32("real-place", p.survey),
+      owner: `real-place:${p.id}/floor`,
+    });
+    logs = startLogs(heights, W, H, [...objects, ...resources.entities.map(mapObject), ...floorWood.entities.map(mapObject)]);
+  }
   const file: TimberFile = {
     metadata: mapMetadata(W, H, placeDescription(p)),
     thumbnail: thumbnailJpeg(heights, W, H, settle.depth),
@@ -258,11 +310,11 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
       layers: LAYERS,
       voxels: voxelsFromHeights(heights, W, H),
       singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat }),
-      entities: [...entities, ...resources.entities].map(entityJson),
+      entities: [...entities, ...resources.entities, ...(floorWood?.entities ?? [])].map(entityJson),
     },
     extraFiles: [],
   };
-  return { file, heights, model, settle, resources };
+  return { file, heights, model, settle, resources, logs, ...(floorWood ? { floorWood } : {}) };
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its

@@ -472,7 +472,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, 
       const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
       const failing = v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
       // the starting-logs floor (D224), a blocking rule the validators do not carry yet
-      if (logFloorProblem(v)) failing.push("start.log_floor");
+      if (logFloorProblem(built.logs)) failing.push("start.log_floor");
       const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
       if (v.report.passed && !failing.length) return { row, ok: true, size, ...base, start, advisories, ...(moved ? { moved } : {}), ms: 0 };
       if (!best || failing.length < best.failing.length) best = { failing, advisories };

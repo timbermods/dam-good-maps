@@ -8,7 +8,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
-import { decodePlaceFile, LOG_FLOOR, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { mapObjects } from "../../src/core/sim/model";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 
@@ -76,9 +77,10 @@ export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], b
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
       expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES);
-      // the starting-logs floor (Kyler, 2026-09-26, D224), at every difficulty: the logs within 20
-      // tiles' walk of the start, as start.wood counts them
-      expect(startLogs(v), entry.id).toBeGreaterThanOrEqual(LOG_FLOOR);
+      // the starting-logs floor (Kyler, 2026-09-26, D224, D227), at every difficulty: the logs of the
+      // written file's grown trees within the floor's walk of its start
+      const p = placeData(entry);
+      expect(startLogs(decodeHeights(p.heights), p.W, p.H, mapObjects(file.world)), entry.id).toBeGreaterThanOrEqual(LOG_FLOOR);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works
       expect(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity).toBe(PLACES_LACK_MINE_SITES ? "warning" : "info");
