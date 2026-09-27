@@ -27,7 +27,11 @@
 >      self-tests pass. The batch (about 12 minutes) is the milestone session's to run: `npm --prefix
 >      C:\Users\krams\code\DamGoodMaps-3d\investigation\probe run batch -- --group "Terrain 3D"`, then again with
 >      the code it prints.
-> - **Next:** 7. golden fixtures, once the batch agrees (see "Next").
+>   7. **Golden fixtures, pending the batch** (`tools/stack-golden.ts`, `tests/golden/terrain3d.json`,
+>      `tests/unit/stack-golden.test.ts`): the engine's results on T1–T5 and two cave maps, hashed, checked on every
+>      push (about 5 s). Their `verified` field becomes the probe run's id once its records agree.
+> - **Next:** the Terrain 3D batch (queued third, after M9a's and Ceiling's), then its verdicts: mark the fixtures
+>   verified, or fix the engine and regenerate them.
 > - **Decided since:** D295 and D297 (a tile may change between wet and dry only where its depth under the game's
 >   rules is within 0.04–0.06, volume within 0.1%): all 30 sampled generated maps pass, Highlands seed 3
 >   included. D298: game-mode soil is adopted in M9b. Until the wiring step nothing that runs today changes: game
@@ -44,8 +48,9 @@ In this order, each a new module beside the existing code until the wiring step:
 5. ~~**The support check.**~~ Done. The validators keep today's check until the wiring step, which gates it on
    "any tile not one plain run from z = 0" (`allPlain`) rather than the floor count (INVENTORY bug 1).
 6. ~~**T1–T6 and the probe group.**~~ Written; the batch waits for the milestone session.
-7. **Golden fixtures** once the probe batch and the official maps (`.scratch/official/` on this machine; never
-   committed) agree: the engine's results on our own T maps and cave cases as CI fixtures, checked on every push.
+7. **Golden fixtures.** Built and checked in CI; marked verified once the Terrain 3D batch's records agree with the
+   engine (the official maps' saved water already does: "Findings"). Regenerate with `npx tsx tools/stack-golden.ts`
+   only when the engine is meant to change.
 
 ## Findings
 
@@ -128,4 +133,5 @@ In this order, each a new module beside the existing code until the wiring step:
   modes (ef1d758), then game mode about 1.6× faster with the same bits and its output pinned (62508d7), for M9b
   (D298). Step 4, the multi-slot writer (3a08eaa). Step 5, the support rule (713fa9f). Step 6, T1–T6, the Terrain
   3D group and DGM Probe 0.3.0 (a5a612e); the maps written to `C:\dgm-probe\terrain3d\`, the batch command sent
-  to the coordinator.
+  to the coordinator. Step 7's fixtures and their CI test (4db3e2a), pending the batch. Merged `origin/dev`
+  (b24fb6f: D293–D298 recorded).
