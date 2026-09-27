@@ -51,7 +51,7 @@ import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 3;
+const VERSION = 4;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -123,9 +123,9 @@ interface Chosen {
 
 interface Selection {
   note: string;
-  /** `rivers`: the most source groups kept, when fewer than the land gives (D214); `startMoved`:
-   *  the start from the shore-first ranking (D214). */
-  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; rivers?: number; startMoved?: true; sourcesDropped?: Converted["dropped"]; advisories: string[] }[];
+  /** `startMoved`: the start from the shore-first ranking (D214); `notes` and `shortOf`: what the
+   *  place falls short of (D245: information). */
+  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; startMoved?: true; notes?: string[]; shortOf?: string[]; sourcesDropped?: Converted["dropped"]; advisories: string[] }[];
   /** Places no row gives any more: the first round's (no status: Majuli), and those D214 or D224
    *  took (their status as they were). */
   dropped: { name: string; row: string; status?: Chosen["status"]; reason: string; tried: string[] }[];
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
       results.set(r.row, r);
       writeFileSync(cachePath(r.row), JSON.stringify(r));
       ran++;
-      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"}${r.groups !== undefined && r.groups < (r.beginnings ?? 0) ? ` rivers ${r.groups}/${r.beginnings}` : ""}${r.moved ? " start moved" : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
+      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"}${r.moved ? " start moved" : ""}${r.notes?.length ? ` notes: ${r.notes.join("; ")}` : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
     });
   }
 
@@ -229,63 +229,22 @@ async function main(): Promise<void> {
     // the places as chosen before, converted again
     const sel = JSON.parse(readFileSync(SELECTION, "utf8")) as Selection;
     await convert(sel.places.map((p) => p.row));
-    // Rivers, not floods (D214): a place whose row no longer converts, its water held to the
-    // size's cap and its start moved to the water, tries its region's other rows as the choice's
-    // rules allow (a first-round place its first-round fallbacks, title kept; an addition the
-    // region's other rows, best first), each on other land than the region's other map; a place
-    // none of them gives is dropped, with the reason.
-    const inUse = new Set(sel.places.map((p) => p.row));
-    const failing = sel.places.filter((p) => !results.get(p.row)!.ok);
-    const others = (p: Selection["places"][number]) => sel.places.filter((q) => q !== p && byRow.get(q.row)!.region === byRow.get(p.row)!.region).map((q) => byRow.get(q.row)!);
-    const tries = new Map(
-      failing.map((p) => {
-        const own = byRow.get(p.row)!;
-        const pool =
-          p.status === "added"
-            ? eligible.filter((r) => r.region === own.region).sort((a, b) => (b.size === own.size ? 10 : 0) + score(b) - (a.size === own.size ? 10 : 0) - score(a) || a.id.localeCompare(b.id))
-            : options(p.was ?? p.row);
-        return [p.id, pool.filter((r) => !inUse.has(r.id) && others(p).every((o) => apart(r, o))).slice(0, FALLBACKS)] as const;
-      }),
-    );
-    for (let k = 0; k < FALLBACKS; k++) {
-      const wanted = failing.filter((p) => !tries.get(p.id)!.slice(0, k).some((r) => results.get(r.id)?.ok)).map((p) => tries.get(p.id)![k]).filter(Boolean);
-      if (!wanted.length) break;
-      await convert(wanted.map((r) => r.id));
-    }
+    // Real places are kept on their own land (Kyler, 2026-09-26, D245): a place is never dropped,
+    // moved to another part of its region, or given another height mapping or scale for a
+    // playability check; it converts, and says what it falls short of. Only the absolutes fail a
+    // conversion (the checks that are not about playability, and the starting-logs floor), and
+    // then the tool stops: the floor is met by planting (D229), never by moving land.
     const regions = new Set<string>();
-    for (const [k, p] of sel.places.entries()) {
-      const own = byRow.get(p.row)!;
-      const second = regions.has(own.region);
+    for (const p of sel.places) {
+      const r = byRow.get(p.row)!;
       const res = results.get(p.row)!;
-      // a replacement is other land than the region's maps as they end up: those chosen before it,
-      // and those after it that keep their row
-      let r: Row | undefined = res.ok ? own : undefined;
-      if (!r) {
-        const mates = [
-          ...chosen.filter((c) => c.row.region === own.region).map((c) => c.row),
-          ...sel.places.slice(k + 1).filter((q) => byRow.get(q.row)!.region === own.region && results.get(q.row)!.ok).map((q) => byRow.get(q.row)!),
-        ];
-        for (const o of tries.get(p.id)!) {
-          if (inUse.has(o.id) || !mates.every((m) => apart(o, m))) continue;
-          if (!results.has(o.id)) await convert([o.id]);
-          if (results.get(o.id)!.ok) {
-            r = o;
-            break;
-          }
-        }
-      }
-      if (!r) {
-        const rule = /start\.log_floor/.test(res.reason ?? "") ? `the starting-logs floor (D224): at least ${LOG_FLOOR} logs within 20 tiles' walk of the start` : `rivers, not floods (D214): at most ${FLOW_CAP[own.size]}× the water for ${own.size}²`;
-        dropped.push({ name: p.name, row: p.row, status: p.status, reason: `${rule}; no row of the region passes (its own: ${res.reason})`, tried: [p.row, ...tries.get(p.id)!.map((o) => o.id)] });
-        continue;
-      }
+      if (!res.ok) throw new Error(`${p.name} (${p.row}) does not convert: ${res.reason}`);
+      const second = regions.has(r.region);
       regions.add(r.region);
-      inUse.add(r.id);
-      const status = r === own ? p.status : p.status === "added" ? "added" : "replaced";
-      const was = r === own ? p.was : p.status === "added" ? undefined : (p.was ?? p.row);
-      // a first-round place keeps its title; an addition is named by its row
+      // a first-round place keeps its title; an addition is named by its row (a region's second
+      // map by its own part of the place, titles.ts)
       const name = p.status === "added" ? titleOf(r, second).name : p.name;
-      chosen.push({ row: r, loc: locs.get(r.location)!, name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status, was, result: results.get(r.id)! });
+      chosen.push({ row: r, loc: locs.get(r.location)!, name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status: p.status, was: p.was, result: res });
     }
     dropped.push(...sel.dropped);
   } else {
@@ -392,7 +351,7 @@ async function main(): Promise<void> {
   }
   const selection: Selection = {
     note: "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
-    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.groups !== undefined && c.result.groups < (c.result.beginnings ?? 0) ? { rivers: c.result.groups } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow) ? { sourcesDropped: c.result.dropped } : {}), advisories: c.result.advisories ?? [] })),
+    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.notes?.length ? { notes: c.result.notes } : {}), ...(c.result.shortOf?.length ? { shortOf: c.result.shortOf } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow) ? { sourcesDropped: c.result.dropped } : {}), advisories: c.result.advisories ?? [] })),
     dropped,
   };
   writeFileSync(SELECTION, JSON.stringify(selection, null, 1) + "\n");

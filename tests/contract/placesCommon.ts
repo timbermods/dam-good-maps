@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
-import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeNotes, placeProblems, placeTimber, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { mapObjects } from "../../src/core/sim/model";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -38,7 +38,9 @@ export const PLACES_SOURCES_IN_FLOW: ReadonlySet<string> = new Set<string>();
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done had
  *  none. Real places 2 plans their resources and mine sites with the shared baseline
- *  (src/core/resources/plan.ts, when each map is built), so every place has one. */
+ *  (src/core/resources/plan.ts, when each map is built), where any fits. Since D245 a place whose
+ *  land has no room for one is kept (a playability check, information): this flag is for the
+ *  Python oracle's sample, whose places all have one. */
 export const PLACES_LACK_MINE_SITES = false;
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
@@ -55,10 +57,12 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
 }
 
 /** Each place: its .timber, built as the deploy builds it (build, settle, validate, write), passes
- *  the export profile and every check of the generate profile but its known faults, which flag it
- *  as long as the places have them (`PLACES_HAVE_EDGE_WALLS`, `PLACES_SOURCES_IN_FLOW`,
- *  `PLACES_LACK_MINE_SITES`), has the starting-logs floor's logs near its start (D224), and is the
- *  same bytes as the index records. */
+ *  the export profile, and every check of the generate profile that is not about playability, but
+ *  its known faults, which flag it as long as the places have them (`PLACES_HAVE_EDGE_WALLS`,
+ *  `PLACES_SOURCES_IN_FLOW`); has the starting-logs floor's logs near its start (D224, D227); says
+ *  in the index what it falls short of that would sink a player (its notes, D245); and is the same
+ *  bytes as the index records. The playability checks are information (Kyler, 2026-09-26, D245: a
+ *  place is kept on its own land and ships as it is). */
 export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], build: (e: PlaceIndexEntry) => ReturnType<typeof placeTimber> = (e) => placeTimber(placeData(e))): void {
   describe(title, () => {
     it.each(places.map((p) => [p.name, p] as const))("%s", (_name, entry) => {
@@ -72,18 +76,20 @@ export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], b
       const file = readTimber(r.bytes);
       const v = validateMap(file, { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
       const f = placeFailures(v.report.checks);
-      expect(f.other).toEqual([]);
+      // the absolutes block (D245): every check that is not about playability
+      const { blocking } = placeProblems(v.report.checks);
+      expect(blocking.filter((id) => id !== "terrain.edge_wall" && id !== "water.source_in_flow")).toEqual([]);
       expect(f.edgeWall).toBe(PLACES_HAVE_EDGE_WALLS);
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
-      expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
-      expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES);
+      // the playability checks are information, and the place says what would sink a player
+      expect(entry.notes ?? [], entry.id).toEqual(placeNotes(v.report.checks));
       // the starting-logs floor (Kyler, 2026-09-26, D224, D227), at every difficulty: the logs of the
       // written file's grown trees within the floor's walk of its start
       const p = placeData(entry);
       expect(startLogs(decodeHeights(p.heights), p.W, p.H, mapObjects(file.world)), entry.id).toBeGreaterThanOrEqual(LOG_FLOOR);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
-      // the missing mine site only warns on export: the gallery's download works
-      expect(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity).toBe(PLACES_LACK_MINE_SITES ? "warning" : "info");
+      // a missing mine site only warns on export: the gallery's download works
+      expect(["warning", "info"]).toContain(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity);
       expect(sha256(r.bytes)).toBe(entry.sha256);
       expect(r.bytes.length).toBe(entry.bytes);
     });

@@ -101,28 +101,12 @@ const PART: Record<string, string> = { east: "East", north: "North", southwest: 
  *  Valley", "South Rim"), keyed by the survey patch (`<location>-<size>-<metres>`). A second map
  *  at a place's centre needs one; one from a sampled part may have one. */
 const SECOND: Record<string, string> = {
-  // the glen, the River Coe along it, the Three Sisters and Bidean nam Bian south of it
-  "n248-128-60": "River Coe, Glencoe",
   // the river's wide bed and the town of San Daniele del Friuli on its hills
   "n064-256-30": "San Daniele, Tagliamento River",
-  // Cabanaconde's side of the canyon, the rim plateau south of the river
-  "n004-256-30": "Colca Canyon South Rim",
   // the plateau's eastern edge at Kate's Point, east of Mahabaleshwar
   "n277-256-30": "Kate's Point, Western Ghats",
-  // the Xingping reach, Nine Horse Fresco Hill
-  "n200-256-30": "Xingping, Li River",
-  // the town in the Red Deer River's valley
-  "n188-96-60": "Red Deer River, Drumheller",
   // every corner on Samosir, the island in the lake
   "n132-96-30": "Samosir, Lake Toba",
-  // the four Cuernos peaks, the Valle del Frances
-  "n252-96-60": "Cuernos del Paine",
-  // south of the other Tara Gorge map, at the Djurdjevica Tara bridge
-  "n024-96-60": "Tara Gorge South",
-  // the river's meanders under the Molitva viewpoint
-  "n088-96-60": "Uvac Meanders",
-  // north-east of the other Bungle Bungle map
-  "n168-96-120": "Bungle Bungle Northeast",
 };
 
 /** A survey name, "Near Grand Canyon Colorado (southwest sample), 60 m per tile": the map's title,

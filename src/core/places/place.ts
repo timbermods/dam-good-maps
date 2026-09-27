@@ -30,6 +30,7 @@ import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import { DIFFICULTY_RULES, defaultSettings } from "../spec/mapspec";
 import { validateMap, type Validation } from "../validate/checks";
+import type { CheckResult } from "../validate/report";
 import { CREDITS_URL, fileNotices } from "./attribution";
 import logFloor from "../data/log-floor.json" with { type: "json" };
 import { reachAt, walkDistance } from "../analysis/walk";
@@ -80,6 +81,31 @@ export function startLogs(heights: ArrayLike<number>, W: number, H: number, obje
 /** Why a map is below the starting-logs floor, or null. */
 export function logFloorProblem(logs: number): string | null {
   return logs >= LOG_FLOOR ? null : `start.log_floor: ${logs} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the floor of ${LOG_FLOOR} (D224, D227)`;
+}
+
+/** Real places are kept on their own land (Kyler, 2026-09-26, D245): only the absolutes gate a
+ *  place. A check blocks when it fails and is not about playability: the file's load checks (it
+ *  loads and plays exactly as the editor shows it), the design checks (one floor a tile, the height
+ *  limit, sources only where water begins, D171) and the principles (no edge walls, D151); the
+ *  starting-logs floor is the other absolute (`logFloorProblem`). Every playability check is
+ *  information: a place short of one ships as it is. */
+export function placeProblems(checks: readonly CheckResult[]): { blocking: string[]; shortOf: string[] } {
+  const failing = checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate);
+  return { blocking: failing.filter((c) => c.class !== "playability").map((c) => c.id), shortOf: failing.filter((c) => c.class === "playability").map((c) => c.id) };
+}
+
+/** A place's note (D245): only what would sink a player who goes straight to the game, in a few
+ *  plain words. The everyday advisories (drought, reservoir, clean water in a badtide) get none. */
+export const PLACE_NOTES: readonly (readonly [string, string])[] = [
+  ["start.water", "No water a pump can reach from the start"],
+  ["start.wood", "Too little wood near the start"],
+  ["water.settles", "The water keeps moving"],
+];
+
+/** The notes a place's checks give (see `PLACE_NOTES`), in that order. */
+export function placeNotes(checks: readonly CheckResult[]): string[] {
+  const short = new Set(placeProblems(checks).shortOf);
+  return PLACE_NOTES.filter(([id]) => short.has(id)).map(([, words]) => words);
 }
 
 /** One real place as the site stores it (public/real-places/data/<id>.json.gz). */
@@ -146,6 +172,11 @@ export interface PlaceIndexEntry {
   /** The sha256 of the .timber the card pictures show (tools/places-thumbs.ts renders them again
    *  when the map changes). */
   imageFrom?: string;
+  /** What would sink a player who goes straight to the game (`placeNotes`, D245), when anything. */
+  notes?: string[];
+  /** The groves grown for the starting-logs floor (D229), when any: their trees, and how many of
+   *  them stand dead on dry ground (pending #82). */
+  floorTrees?: { trees: number; dead: number };
   /** The .timber's size in bytes and its sha256: every build of the place gives this file. */
   bytes: number;
   sha256: string;

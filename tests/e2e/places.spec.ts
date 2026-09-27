@@ -1,6 +1,6 @@
 // Real places (ROADMAP "Real places", PLAN §20 D136): the gallery loads, its filters work, a card's
 // Download is the static .timber built at deploy time (tools/places-build.ts), byte for byte Node's
-// and the index's, Refine opens that file in the editor, the credits page lists every notice, and
+// and the index's, a card's notes show (D245), Refine opens that file in the editor, the credits page lists every notice, and
 // the pages work on a phone. The web server builds the sample's files (placeSample,
 // playwright.config.ts). Screenshots go to .scratch/places/.
 
@@ -164,6 +164,21 @@ test("a card's pictures: the overview, with a minimap from above that fills it o
   await expect(mini).toHaveAttribute("aria-pressed", "false");
   await page.mouse.move(2, 2);
   await expect.poll(width).toBeLessThan(full.width / 2);
+  expect(errors).toEqual([]);
+});
+
+test("a card says what would sink a player who goes straight to the game, and nothing for the rest (D245)", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("./real-places/");
+  const noted = INDEX.places.filter((p) => p.notes?.length);
+  expect(noted.length).toBeGreaterThan(0);
+  for (const p of [noted[0], noted.find((q) => q.notes!.length > 1) ?? noted[1]]) {
+    const card = page.locator("li.place").filter({ has: page.getByRole("heading", { name: p.name, exact: true }) });
+    await expect(card.getByRole("list", { name: "Before you play" }).getByRole("listitem")).toHaveText(p.notes!);
+  }
+  const quiet = INDEX.places.find((p) => !p.notes)!;
+  const card = page.locator("li.place").filter({ has: page.getByRole("heading", { name: quiet.name, exact: true }) });
+  await expect(card.getByRole("list", { name: "Before you play" })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

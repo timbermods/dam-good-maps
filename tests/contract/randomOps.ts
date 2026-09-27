@@ -3,7 +3,8 @@
 // map now, so almost all pass their check; the rest must be rejected cleanly. Since M5 the draw
 // also makes the land and water tools' edits: drawn rivers, lakes, landforms with gentle and
 // terraced edges, every set piece, and moving and deleting them, each a group of operations the
-// tools apply as one step.
+// tools apply as one step. Since Live editing (D199, D212) it also carves: a short Carve run from a
+// dry tile, as the editor records one (`carve` is one of the log's operations, LOG_OPS).
 
 import type { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
@@ -13,6 +14,8 @@ import type { Feature, LandformFeature, Point, RiverFeature } from "../../src/co
 import type { Orientation } from "../../src/core/format/footprints";
 import { tilesToRuns } from "../../src/core/math/grid";
 import type { Rng } from "../../src/core/math/rng";
+import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
+import { CarveRun, DEFAULTS } from "../../src/core/forces/carve/run";
 
 const ORIENT: Orientation[] = ["Cw0", "Cw90", "Cw180", "Cw270"];
 
@@ -103,11 +106,32 @@ export function randomToolEdit(s: MapSession, rng: Rng): EditOp[] | null {
 
 /** One random operation (or a tool's group of them) for the session's current map, or null when
  *  the drawn kind has no target. */
+/** A short Carve run from a dry tile of the map, as the operation the editor records (the carve's
+ *  settings and its path; the document replays it). */
+export function randomCarve(s: MapSession, rng: Rng): EditOp | null {
+  const m = forceMapOf(s.built);
+  const { W, H } = m;
+  let origin = -1;
+  for (let k = 0; k < 20 && origin < 0; k++) {
+    const x = rng.int(10, W - 10);
+    const y = rng.int(10, H - 10);
+    if (!(s.built.water[y * W + x] > 0)) origin = y * W + x;
+  }
+  if (origin < 0) return null;
+  const set = { ...DEFAULTS, seed: rng.int(1, 1000), power: rng.int(40, 90), width: rng.int(2, 6) };
+  const r = new CarveRun(m, set, { origin }, { sourceId: guid(rng) });
+  for (let k = 0; k < 120 && !r.done; k++) r.step();
+  const params = carveParams(m, r, { settings: set, origin: [origin % W, Math.floor(origin / W)], cut: null });
+  return params ? { op: "carve", params } : null;
+}
+
 export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
   if (rng.float() < 0.2) {
     const ops = randomToolEdit(s, rng);
     if (ops) return ops;
   }
+  // a carve now and then (Live editing's force, D199): costly, so rare
+  if (rng.float() < 0.03) return randomCarve(s, rng);
   const { x: W, y: H } = s.size;
   const features = s.features;
   const entities = s.built.entities;

@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { CREDITS_URL, fileNotices, PROVIDERS } from "../../src/core/places/attribution";
-import { decodeHeights, placeDescription, placeSample, placeTimber } from "../../src/core/places/place";
+import { decodeHeights, PLACE_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { checkPlaces, INDEX, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_MINE_SITES, PLACES_SOURCES_IN_FLOW, placeData, sha256 } from "./placesCommon";
@@ -324,7 +324,7 @@ const PY = python();
 if (!PY && process.env.CI) throw new Error("CI needs Python with numpy for the real places oracle");
 
 describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py)", () => {
-  it("every check has the same verdict, and every map passes both but for the conversion's known faults, which both flag", () => {
+  it("every check has the same verdict, and every map passes both but for the known faults and the playability checks (information, D245), which both flag", () => {
     const dir = join(".scratch", "places-oracle");
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
@@ -345,19 +345,64 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
     }
     const ts = (c: CheckResult) => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
     const py = (c: { ok: boolean; na: boolean; approx?: string }) => (c.na ? "na" : c.approx ? "approx" : c.ok ? "pass" : "fail");
+    let anyFails = false;
     for (const [k, e] of SAMPLE.entries()) {
       const rep = reports.get(paths[k].split(sep).join("/"));
       expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
-      const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : [])];
-      expect(rep!.passed, e.id).toBe(known.length === 0);
-      expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
       const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
+      const cls = new Map(v.report.checks.map((c) => [c.id, c.class]));
+      const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : [])];
+      // both fail nothing but the known faults and, since D245, playability checks (information)
+      const pyFailing = rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id);
+      expect(pyFailing.filter((id) => cls.get(id) !== "playability" && id !== "resources.mine_site").sort(), e.id).toEqual(known.filter((id) => id !== "resources.mine_site").sort());
+      expect(rep!.passed, e.id).toBe(pyFailing.length === 0);
+      anyFails ||= pyFailing.length > 0;
       const a = Object.fromEntries(v.report.checks.map((c) => [c.id, ts(c)]));
       const p = Object.fromEntries(rep!.checks.map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
-    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id)) ? 1 : 0);
+    expect(r.status).toBe(anyFails ? 1 : 0);
+  });
+});
+
+describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
+  it("a place short of the playability checks still builds, loads, and says what it lacks", () => {
+    // the places whose notes say the start has no pumpable water, and that the water keeps moving
+    for (const words of [PLACE_NOTES[0][1], PLACE_NOTES[2][1]]) {
+      const e = INDEX.places.find((p) => p.notes?.includes(words) && p.size < 256);
+      expect(e, words).toBeDefined();
+      const r = built(e!.id);
+      // it loads as the editor shows it: the export profile passes
+      expect(r.validation.report.passed, e!.id).toBe(true);
+      const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
+      const { blocking, shortOf } = placeProblems(v.report.checks);
+      // only playability checks fall short: information, never a reason to drop the place
+      expect(blocking, e!.id).toEqual([]);
+      expect(shortOf.length, e!.id).toBeGreaterThan(0);
+      expect(v.report.passed, e!.id).toBe(false);
+      // and it says so, in the index the card reads
+      expect(e!.notes, e!.id).toEqual(placeNotes(v.report.checks));
+      expect(sha256(r.bytes)).toBe(e!.sha256);
+    }
+  });
+
+  it("notes only what would sink a player, in a few plain words", () => {
+    expect(PLACE_NOTES.map(([id]) => id)).toEqual(["start.water", "start.wood", "water.settles"]);
+    const words = new Set(PLACE_NOTES.map(([, w]) => w));
+    for (const p of INDEX.places) for (const n of p.notes ?? []) expect(words.has(n), `${p.id}: ${n}`).toBe(true);
+    for (const w of words) {
+      expect(w.split(" ").length).toBeLessThanOrEqual(9);
+      expect(w, "no advice").not.toMatch(/\b(add|move|try|should|build|place)\b/i);
+    }
+    // the everyday advisories get none
+    expect(PLACE_NOTES.some(([id]) => /drought|reservoir|clean/.test(id))).toBe(false);
+  });
+
+  it("every place is on its own land: none dropped, the first round's places all there", () => {
+    expect(SELECTION.dropped).toEqual([]);
+    expect(SELECTION.places.filter((p) => p.status !== "added").length).toBe(85);
+    expect(INDEX.places.some((p) => p.id === "majuli-brahmaputra")).toBe(true);
   });
 });
 

@@ -376,6 +376,8 @@ are gone. Built after merging `dev` (Live editing, waterfalls, the forces' inves
   first-round place its first-round fallbacks, title kept; an addition the region's other rows,
   best first; always other land than the region's other map, checked against the maps as they end
   up), and is dropped, with the reason, when none passes.
+  (Superseded by D245, below: step 3 and the other rows are gone; a place keeps its own land and
+  water, and anything short ships as it is, with its note.)
 - **What changed** (with the starting-logs floor below, in one conversion: `VERSION` 3, 234
   conversions, 8 minutes on 4 threads):
   - Of the 76 places at 2×, 70 keep their data as it was; 6 moved their start for the floor.
@@ -499,3 +501,103 @@ Tests updated to D214 and the floor (D148), none weakened:
   already there).
 - `carve.test.ts` (from `dev`): its real place is read by its new file name (grand-canyon).
 
+## Kept on their own land (Kyler, 2026-09-26, D245)
+
+Kyler's review of the round: the beauty of a real place is its composition of terrain features, so
+failing a playability check never drops a place, swaps its land or changes its mapping or scale.
+Only the absolutes gate a place; everything else is information, and what would sink a player gets
+a note. Built after merging `dev` at 248ac1b (D244, D245).
+
+- **What blocks** (`placeProblems`, src/core/places/place.ts): every check that is not about
+  playability (the load checks, the design checks such as D171's sources in flow, the principles
+  such as D151's edge walls) and the starting-logs floor (D224, D227). The 22 playability checks are
+  information. The conversion (`VERSION` 4), `npm run places`, the deploy's `npm run places:build`
+  and the places tests all follow it.
+- **The conversion**: the survey's sources at the capped flow (D214's cap and D171 stay), the start
+  at the best spot the land offers (the shore-first ranking, D214, when the first ranking finds none
+  that passes everything). D214's fewer-rivers step is gone: a place keeps its own water. Water that
+  does not settle within 4 days is kept as it is (D245 (6)), with its note. The attempt with the
+  fewest notes, then the fewest shortfalls, then the least water wins. It fails only on the
+  absolutes, and then the tool stops: nothing is swapped or dropped.
+- **Notes** (`PLACE_NOTES`): "No water a pump can reach from the start" (start.water), "Too little
+  wood near the start" (start.wood, Minimum starting wood within 20 tiles at Normal), "The water
+  keeps moving" (water.settles). The everyday advisories get none. The index records them
+  (`notes`); the gallery card lists them, each by an amber dot like the editor's checks dot; in the
+  editor the checks dot already lists these checks when a place opens from Refine. 68 places carry
+  notes: the water keeps moving on 44, no pumpable water on 28, too little wood on 1 (Twelve
+  Apostles East); 5 carry two. 3 more fall short only of a mine site (Alaknanda and Bhagirathi,
+  Godavari Delta, Majuli), which gets no note.
+- **Versions** (D245 (7), (8)): every first map built from an off-centre sample, and the 34 places
+  D214 changed, looked at again. The records (the survey's rows, round 1's frozen selection
+  `investigation/landscapes/data/library-selection.json` and its score in `curate.ts`, round 2's
+  selection) show that no sample was ever chosen for holding the place's signature: round 1 took
+  each region's best-scoring passing row, often by one fewer failed check (a check), or a size the
+  round wanted, or before the centre's rows were converted; round 2 took another row when its own
+  failed the rebuild's checks; round 2's additions went by score, their attempts' records left on the
+  other machine. Each was judged again on relief views of the 04e90ef row, the centre at the same
+  framing and the centre wider, the named place's anchor marked (PERFECT.md's Real places lines 1 to
+  3):
+  - of the 68 first maps from a sample (with Majuli): 35 built at their centre (Crater Lake, Mount
+    Mayon, the Grand Canyon, Mount Fuji, Yosemite Valley, Ngorongoro, Aso Caldera and others; some
+    at a wider or closer framing where only that shows the signature), 10 where the region's centre
+    already was its second map (Colca Canyon, Torres del Paine, Uvac River, Drumheller, Blyde River
+    Canyon, Glencoe, Bungle Bungle, Li River, Ilulissat Icefjord, Tara Gorge: the two lands swap
+    names, no new land), and 23 kept on their sample (it shows the signature as well or better, or
+    the region's other map covers the centre). Death Valley stays on its sample: its centre drains
+    inward and the survey's routing finds no river, so it could hold no water source.
+  - The 34: first maps as above; the rest back to their own land and height mapping, except
+    Kyler's two swaps kept (Geirangerfjord at the fjord's centre; the whole glen at 60 m, now titled
+    Glencoe) and Lake Saimaa at its centre.
+  - Second maps that took another sample because their centre failed (Blyde River Canyon, Ilulissat
+    Icefjord) are back at their centre, which now carries the place's name; their old first map is
+    the second map, named by its part (#81's rule). No other second map had.
+  - Seven regions' two maps now overlap by more than a quarter (Aso Caldera, Lake Toba, Ngorongoro,
+    Mount Roraima, Hooker Valley, Monument Valley, Fish River Canyon): both kept, for Kyler to drop
+    either.
+  - **Majuli, Brahmaputra is back** (D245 (1): it was dropped for no mine site, a playability
+    check), at its centre. 151 places; none dropped.
+  - Every line is in the PR comment "Versions", for Kyler to overrule (default #84; what blocks
+    and what is noted, default #85).
+- **Result**: 151 places, 143 at 2× and 8 at 3.75× (256²); 8 starts moved to the water. Floor
+  groves on 60 places (1,693 trees); **dead trees in them (pending #82): 67 trees on 9 places**
+  (Green and Colorado 16, Twelve Apostles East 12, Lake Saimaa East 11, Yosemite Valley 10, Glencoe
+  6, Phong Nha 4, Goosenecks of the San Juan 4, Torres del Paine 3, Skeidara Outwash 1), shown apart
+  on the review sheet.
+- **Tall places for the tall round** (D172; none built now): the places whose real relief at their
+  scale spans more than 22 levels (relief ÷ metres a tile), so even tall compresses them: Tiger
+  Leaping Gorge North, Colca Canyon, Mount Taranaki, Geirangerfjord East, Tiger Leaping Gorge,
+  Paricutin Southwest, Torres del Paine East, Geirangerfjord, Roaring River Fan, Milford Sound,
+  Mount Mayon, Aso Caldera East, Hooker Valley East, Torres del Paine, Blyde River Canyon North,
+  Roaring River Fan East, Alaknanda and Bhagirathi, Lauterbrunnen, Drakensberg Amphitheatre, Mount
+  Roraima East, Todgha Gorge, Crater Lake East, Mount Etna, the Grand Canyon, Lake Toba, Na Pali
+  Coast, Mount Fuji, Mount Roraima, Toklat River North, Blue Mountains, Blue Mountains Southwest,
+  Phong Nha Southwest, Blyde River Canyon, Todgha Gorge Southwest, Hooker Valley and Kate's Point
+  (36); and 13 between 16 and 22, which tall would show at their real height (Ethiopian Highlands
+  Southwest, Plitvice Lakes, Samosir, Aysen Fjord Southwest, Mount Mayon North, Aysen Fjord, Glencoe,
+  Li River, Mount Taranaki North, Kawarau and Shotover, Aialik Bay, Death Valley, Glencoe North).
+  Yosemite Valley spans 13 levels at its 120 m a tile; a tall version at 60 m would span about 21.
+- **The grey area's probe group** (D245 (6); nothing launched): `npx tsx tools/places-probe.ts`
+  writes Paricutin (96²), Badlands National Park (128²) and Lake Toba (256²), all "The water keeps
+  moving", into `investigation/probe/local/places-moving/` and prints the batch: DGM Probe plays each
+  as a Given map (3 temperate days, then Normal's longest first drought) and compares the start's
+  water, sampled hourly, with the model.
+- **The review sheet**, drawn again (`python tools/places-review.py docs/sheets/real-places-review
+  --changed-since b2d9d2a`): each place's notes under its title in amber, the floor's groves with
+  their dead trees apart, what changed since the sheet Kyler saw. Posted on #35; the old one is
+  marked out of date. Kyler picks drops from the new one only.
+- **Pictures**: every card drawn again on the GPU.
+
+Tests updated to D245 (D148), none weakened; the absolutes stay blocking:
+- `placesCommon.ts` (every place, nightly and in the release check; the sample on every push): the
+  export profile passes; every generate-profile check that is not about playability passes (was:
+  every check); the floor; the index's notes equal the checks' notes (new).
+- `places.test.ts`: new "a place short of the playability checks still builds, loads, and says what
+  it lacks" (a place noted for no pumpable water and one whose water keeps moving: the export
+  profile passes, only playability checks fall short, its notes match); "notes only what would sink
+  a player, in a few plain words"; "every place is on its own land: none dropped". The oracle
+  comparison still checks both validators check by check; its pass expectation allows the
+  playability checks (was: every sample place passes everything).
+- `places.spec.ts`: new, a card lists its notes, and a card without any shows none.
+- `randomOps.ts` (from `dev`, the nightly's property test): the random edits now include a short
+  Carve run, so the sweep finds every operation in LOG_OPS (`carve` joined it with Live editing; the
+  nightly failed on #35 without it).

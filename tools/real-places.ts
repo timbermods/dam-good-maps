@@ -1,4 +1,4 @@
-// Real places (ROADMAP "Real places", PLAN §20 D136, D155, D174): the gallery's index, from each
+// Real places (ROADMAP "Real places", PLAN §20 D136, D155, D174, D245): the gallery's index, from each
 // place's data (public/real-places/data/, written by tools/places-convert.ts) in the order
 // tools/places/selection.json gives.
 //
@@ -7,9 +7,12 @@
 //   npm run places -- --only glencoe       (builds and checks the places named, writes nothing)
 //
 // Every place's .timber is built with src/core/places (build, settle, resources, validate, write),
-// in worker threads, and must pass the export profile and every check of the generate profile; the
-// tool stops on any that does not. The index records each map's size and sha256, the way its card
-// pictures face (view.ts), and, from the index before, which map its pictures show (imageFrom).
+// in worker threads. It must pass the export profile, every check of the generate profile that is
+// not about playability, and the starting-logs floor; the tool stops on any that does not. The
+// playability checks are information (D245, `placeProblems`): the tool reports them, and the index
+// records the place's notes (what would sink a player who goes straight to the game) and the
+// floor's groves. The index records each map's size and sha256, the way its card pictures face
+// (view.ts), and, from the index before, which map its pictures show (imageFrom).
 // The card pictures are drawn by tools/places-thumbs.ts; the site's .timber files are built at
 // deploy time (tools/places-build.ts) and must match the index. Everything this writes is the same
 // bytes on every run.
@@ -19,7 +22,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";
 import { writeTimber } from "../src/core/format/timber";
-import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, placeNotes, placeProblems, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { placeView, type PlaceView } from "../src/core/places/view";
 import { validateMap } from "../src/core/validate/checks";
 import { defaultThreads, runPool, serve } from "./places/pool";
@@ -32,7 +35,12 @@ interface Built {
   id: string;
   bytes?: Uint8Array;
   view?: PlaceView;
+  /** What blocks the place (D245: the checks that are not about playability, and the floor). */
   failing: string[];
+  /** The playability checks it falls short of (information), its notes, and the floor's groves. */
+  shortOf: string[];
+  notes: string[];
+  floorTrees?: { trees: number; dead: number };
   advisories: string[];
   ms: number;
 }
@@ -45,17 +53,22 @@ serve<string, Built>(
       const built = buildPlace(p);
       const v = validatePlace(built);
       const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
-      const bad = (checks: typeof v.report.checks) => checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
-      const failing = [...new Set([...bad(v.report.checks).map((id) => `export: ${id}`), ...bad(strict.report.checks)])];
-      // the starting-logs floor (D224), until the validators carry it
+      // D245: the export profile must pass (the file loads as the editor shows it), and in the
+      // generate profile only the playability checks may fall short: they are information, and the
+      // three that would sink a player become the place's notes
+      const exported = placeProblems(v.report.checks);
+      const { blocking, shortOf } = placeProblems(strict.report.checks);
+      const failing = [...new Set([...exported.blocking.map((id) => `export: ${id}`), ...blocking])];
+      // the starting-logs floor (D224, D227), until the validators carry it
       const floor = logFloorProblem(built.logs);
       if (floor) failing.push(floor);
       if (!v.report.passed && !failing.length) failing.push("export: not passed");
-      if (!strict.report.passed && !failing.some((f) => !f.startsWith("export"))) failing.push("generate: not passed");
       const advisories = strict.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
-      return { id: p.id, bytes: writeTimber(built.file), view: placeView(built.heights, p.W, p.H), failing, advisories, ms: performance.now() - t };
+      const grown = built.floorWood?.groves ?? [];
+      const floorTrees = grown.length ? { trees: grown.reduce((n, g) => n + g.trees, 0), dead: grown.reduce((n, g) => n + g.dead, 0) } : undefined;
+      return { id: p.id, bytes: writeTimber(built.file), view: placeView(built.heights, p.W, p.H), failing, shortOf, notes: placeNotes(strict.report.checks), ...(floorTrees ? { floorTrees } : {}), advisories, ms: performance.now() - t };
     } catch (e) {
-      return { id: p.id, failing: [String(e instanceof Error ? e.message : e)], advisories: [], ms: performance.now() - t };
+      return { id: p.id, failing: [String(e instanceof Error ? e.message : e)], shortOf: [], notes: [], advisories: [], ms: performance.now() - t };
     }
   },
   (r) => (r.bytes ? [r.bytes.buffer as ArrayBuffer] : []),
@@ -82,7 +95,7 @@ async function main(): Promise<void> {
 
   const t0 = performance.now();
   const built = await runPool<string, Built>(new URL(import.meta.url), ids.map((id) => join(OUT, "data", `${id}.json.gz`)), Number(arg("threads") ?? defaultThreads()), (r) =>
-    console.log(`${r.failing.length ? "FAIL" : "ok  "} ${(r.ms / 1000).toFixed(1).padStart(5)} s  ${r.id}${r.failing.length ? `: ${r.failing.join(", ")}` : ""}${r.advisories.length ? `  (advisory: ${r.advisories.join(", ")})` : ""}`),
+    console.log(`${r.failing.length ? "FAIL" : "ok  "} ${(r.ms / 1000).toFixed(1).padStart(5)} s  ${r.id}${r.failing.length ? `: ${r.failing.join(", ")}` : ""}${r.shortOf.length ? `  (short of: ${r.shortOf.join(", ")})` : ""}${r.advisories.length ? `  (advisory: ${r.advisories.join(", ")})` : ""}`),
   );
   const failures = built.filter((b) => b.failing.length);
   if (failures.length) {
@@ -108,6 +121,8 @@ async function main(): Promise<void> {
       topImage: `cards/${p.id}-top.webp`,
       view: b.view!,
       ...(shown.get(p.id) ? { imageFrom: shown.get(p.id) } : {}),
+      ...(b.notes.length ? { notes: b.notes } : {}),
+      ...(b.floorTrees ? { floorTrees: b.floorTrees } : {}),
       file: `maps/${p.id}.timber`,
       bytes: b.bytes!.length,
       sha256: sha256(b.bytes!),

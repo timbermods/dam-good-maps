@@ -1,7 +1,9 @@
 """The Real places review sheet (Kyler, 2026-09-26): every place in the gallery, numbered in the
 gallery's order, with its title and both card pictures (the 3D overview and the map from above), as
-JPEG pages Kyler can read on a phone and answer with the numbers to drop. The places no longer in
-the gallery come after the numbered grid, with the reason each went, so the numbers are only the
+JPEG pages Kyler can read on a phone and answer with the numbers to drop. Under each title: the
+place's notes (D245: what would sink a player who goes straight to the game), and the groves grown
+for the starting-logs floor with their dead trees apart (pending #82). The places no longer in the
+gallery come after the numbered grid, with the reason each went, so the numbers are only the
 gallery's.
 
     python tools/places-review.py docs/sheets/real-places-review
@@ -9,9 +11,11 @@ gallery's.
     python tools/places-review.py <dir> --per-page 30
 
 --changed-since <git ref> marks each card whose place changed since that commit: "new land" (made
-from another survey row), "new heights" (the same land, another height mapping), "new water" (the same row, its sources or start changed), "more trees"
-(the same data, a different map: the starting-logs floor's groves), "was <title>" (renamed). Each page stays under 800 KB (the JPEG quality is lowered until it does). Run it again
-after Kyler's drops, and after the pictures change (npm run places:thumbs).
+from another survey row), "new heights" (the same land, another height mapping), "new water" (the
+same row, its sources or start changed), "more trees" (the same data, a different map: the
+starting-logs floor's groves), "was <title>" (renamed). Each page stays under 800 KB (the JPEG
+quality is lowered until it does). Run it again after Kyler's drops, and after the pictures change
+(npm run places:thumbs).
 """
 import gzip
 import io
@@ -32,14 +36,15 @@ COLS = 2
 GAP = 16
 PIC = 240
 CELL = 2 * PIC + 8
-HEAD = 104
-ROW = HEAD + PIC + 26
+LINE_H = 26
 WIDTH = GAP + COLS * (CELL + GAP)
 INK = (28, 28, 28)
 SOFT = (95, 90, 80)
 PAPER = (246, 242, 234)
 CARD = (255, 251, 243)
 LINE = (216, 207, 189)
+NOTE = (190, 110, 0)
+DEAD = (120, 95, 70)
 TAG = {"new land": (178, 70, 30), "new heights": (150, 90, 20), "new water": (30, 100, 170), "more trees": (40, 120, 50), "was": (110, 110, 110)}
 
 
@@ -112,8 +117,23 @@ def changes(ref, places):
     return out
 
 
-def card(draw, img, p, k, x, y, tag):
-    draw.rounded_rectangle((x, y, x + CELL, y + ROW - 10), radius=10, fill=CARD, outline=LINE)
+def lines_of(p, tag):
+    """The lines under a card's title: its notes, the floor's groves, what changed."""
+    out = [("note", n) for n in p.get("notes", [])]
+    t = p.get("floorTrees")
+    if t:
+        out.append(("floor", t))
+    if tag:
+        out.append(("tag", tag))
+    return out
+
+
+def head_of(p, tag):
+    return 84 + LINE_H * len(lines_of(p, tag)) + 6
+
+
+def card(draw, img, p, k, x, y, head, height, tag):
+    draw.rounded_rectangle((x, y, x + CELL, y + height - 10), radius=10, fill=CARD, outline=LINE)
     num = f"{k + 1}"
     nf = font(40, True)
     draw.text((x + 12, y + 8), num, fill=INK, font=nf)
@@ -122,13 +142,26 @@ def card(draw, img, p, k, x, y, tag):
     draw.text((left, y + 13), text, fill=INK, font=tf)
     info = f"{p['familyName']} · {p['size']}² · {p['metres']} m a tile"
     draw.text((x + 12, y + 56), info, fill=SOFT, font=font(22))
-    if tag:
-        kind, words = tag
-        words, wf = fitted(draw, words, CELL - 24, 22, 18)
-        draw.text((x + 12, y + 80), words, fill=TAG[kind], font=wf)
+    ly = y + 84
+    for kind, v in lines_of(p, tag):
+        if kind == "note":
+            draw.ellipse((x + 14, ly + 7, x + 26, ly + 19), fill=NOTE)
+            words, wf = fitted(draw, v, CELL - 44, 22, 18)
+            draw.text((x + 34, ly), words, fill=NOTE, font=wf)
+        elif kind == "floor":
+            first = f"Groves for the starting logs: {v['trees']} trees"
+            f = font(21)
+            draw.text((x + 12, ly), first, fill=SOFT, font=f)
+            if v["dead"]:
+                draw.text((x + 12 + draw.textlength(first, font=f), ly), f", {v['dead']} dead", fill=DEAD, font=font(21, True))
+        else:
+            kind2, words = v
+            words, wf = fitted(draw, words, CELL - 24, 22, 18)
+            draw.text((x + 12, ly), words, fill=TAG[kind2], font=wf)
+        ly += LINE_H
     for j, key in enumerate(("image", "topImage")):
         pic = Image.open(os.path.join(PLACES, p[key])).convert("RGB").resize((PIC, PIC), Image.LANCZOS)
-        img.paste(pic, (x + 2 + j * (PIC + 4), y + HEAD))
+        img.paste(pic, (x + 2 + j * (PIC + 4), y + head))
 
 
 # the checks a dropped place failed, in plain words
@@ -151,7 +184,8 @@ def plain(d):
 
 
 def page(places, first, count, pages, number, title, tags, gone):
-    rows = math.ceil(len(places) / COLS)
+    rows = [places[i : i + COLS] for i in range(0, len(places), COLS)]
+    heads = [max(head_of(p, tags.get(p["id"])) for p in r) for r in rows]
     probe = ImageDraw.Draw(Image.new("RGB", (10, 10)))
     body = font(24)
     notes = []
@@ -161,16 +195,19 @@ def page(places, first, count, pages, number, title, tags, gone):
             for line in wrap(probe, g, body, WIDTH - 2 * GAP - 20):
                 notes.append((line, body))
     top = 150
-    height = top + rows * ROW + (40 + 34 * len(notes) if notes else 0) + GAP
+    grid = sum(hd + PIC + 26 for hd in heads)
+    height = top + grid + (40 + 34 * len(notes) if notes else 0) + GAP
     img = Image.new("RGB", (WIDTH, height), PAPER)
     d = ImageDraw.Draw(img)
     d.text((GAP, 16), title, fill=INK, font=font(38, True))
     d.text((GAP, 66), f"Page {number} of {pages}: places {first + 1}–{first + len(places)} of {count}. Reply with the numbers to drop.", fill=INK, font=font(26))
-    d.text((GAP, 104), "Each card: the 3D overview, and the map from above turned to match.", fill=SOFT, font=font(22))
-    for i, p in enumerate(places):
-        k = first + i
-        card(d, img, p, k, GAP + (i % COLS) * (CELL + GAP), top + (i // COLS) * ROW, tags.get(p["id"]))
-    y = top + rows * ROW + 20
+    d.text((GAP, 104), "Each card: the 3D overview, and the map from above turned to match. Amber: what would sink a player who goes straight in.", fill=SOFT, font=font(20))
+    y = top
+    for r, (row, hd) in enumerate(zip(rows, heads)):
+        for c, p in enumerate(row):
+            card(d, img, p, first + r * COLS + c, GAP + c * (CELL + GAP), y, hd, hd + PIC + 26, tags.get(p["id"]))
+        y += hd + PIC + 26
+    y += 20
     for line, f in notes:
         d.text((GAP + 10, y), line, fill=INK, font=f)
         y += 34
@@ -201,8 +238,8 @@ def main():
     places = index["places"]
     tags = changes(ref, places) if ref else {}
     gone = [plain(d) for d in dropped]
-    if not any(d.get("status") for d in dropped):
-        gone.append("Rivers, not floods (D214) and the starting-logs floor (D224) dropped none.")
+    if not gone:
+        gone.append("None: every place is kept on its own land (D245).")
     os.makedirs(dst, exist_ok=True)
     for f in os.listdir(dst):
         if f.startswith("page-") and f.endswith(".jpg"):

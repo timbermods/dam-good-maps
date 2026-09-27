@@ -122,6 +122,29 @@
   margin: 0 0 4px;
 }
 
+/* a place's notes (D245): what would sink a player who goes straight to the game, each by an amber
+   dot like the editor's checks dot */
+.place-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.place-notes li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.place-notes .dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
 .place-actions {
   display: flex;
   gap: 8px;

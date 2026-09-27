@@ -39,7 +39,7 @@ import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, pumpShoreDistance, reachAt, WALK_LI
 import { MinHeap } from "../../src/core/math/grid";
 import { waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { density } from "../../src/core/gen/calibrated";
-import { encodeHeights, buildPlace, logFloorProblem, type PlaceData } from "../../src/core/places/place";
+import { encodeHeights, buildPlace, logFloorProblem, placeNotes, placeProblems, type PlaceData } from "../../src/core/places/place";
 import { moistureBarrier, waterModel, type MapObject } from "../../src/core/sim/model";
 import { moisture } from "../../src/core/sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../../src/core/sim/prefill";
@@ -61,10 +61,6 @@ const GROUPS = 8;
  *  (D214), when none of the first passes. */
 const TRIES = 6;
 const SHORE_TRIES = 10;
-/** Source groups a conversion tries, most first: the survey's (up to `GROUPS`), then fewer, the
- *  largest rivers kept (D214: at a flow near the official range, fewer and deeper rivers, as Pick a
- *  place's designed water uses one head on small maps and three on large ones). */
-const GROUP_TRIES = [GROUPS, 3, 1];
 /** The share of the map any water may stand on, however thin. Flat real land at 16 levels can carry
  *  a film of water over most of a map: it passes the flood check (which counts water over 0.05
  *  deep), but the map reads as flooded. */
@@ -120,14 +116,16 @@ export interface Converted {
   cover?: number;
   /** Sources taken out because another's water reached them, or theirs reached no edge. */
   dropped?: { inFlow: number; noOutflow: number };
-  /** The most source groups the conversion started from (`GROUP_TRIES`), and the groups the land
-   *  gives (at most `GROUPS`). */
-  groups?: number;
+  /** The source groups the land gives (at most `GROUPS`). */
   beginnings?: number;
   /** The start came from the shore-first ranking (D214): none of the first ranking's passed. */
   moved?: boolean;
   settled?: boolean;
   ticks?: number;
+  /** The playability checks the place falls short of (D245: information; it ships as it is), and
+   *  its notes (`placeNotes`). */
+  shortOf?: string[];
+  notes?: string[];
   /** Advisory checks the map does not meet (information). */
   advisories?: string[];
   ms: number;
@@ -375,7 +373,10 @@ export function coverOf(r: Converted): number {
 }
 
 /** Convert one survey row: see the file's header. `meta` is the place's own (its id, title and the
- *  rest), which the built map's description and the resources' seed use. */
+ *  rest), which the built map's description and the resources' seed use. It fails only when no
+ *  start on the land meets the absolutes (D245: the checks that are not about playability, and the
+ *  starting-logs floor) or the land has no river or start at all; a place short of a playability
+ *  check is converted and says so (`shortOf`, `notes`). */
 export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number[]): Converted {
   const t0 = performance.now();
   const m = /^(.+)-(\d+)-(\d+)-(\w+)-(\d+)$/.exec(row);
@@ -385,36 +386,34 @@ export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number
   const h = quantise(crop(raw, size + 2 * HALO, size, HALO), m[4], CAP);
   const fail = (reason: string, extra: Partial<Converted> = {}): Converted => ({ row, ok: false, reason, size, ms: Math.round(performance.now() - t0), ...extra });
 
-  // 2 and 3: at each flow up to the size's cap, the survey's sources, then fewer and larger rivers
-  // (see the file's header)
+  // 2 and 3 at each flow up to the size's cap (D214), the survey's sources (D245: a place keeps
+  // its own water); the first that falls short of nothing, else the one with the fewest notes, then
+  // the fewest shortfalls, then the least water
+  let best: Converted | null = null;
   let last: Converted | null = null;
+  const rank = (r: Converted) => [r.notes?.length ?? 0, r.shortOf?.length ?? 0];
   for (const times of flows ?? flowsFor(size)) {
-    let wide = false;
-    let land = Infinity;
-    for (const most of GROUP_TRIES) {
-      // no fewer groups than the land has rivers and heads: the same conversion again
-      if (most >= land) continue;
-      const r = attempt(row, meta, raw, size, h, times, most, fail);
-      if (r.ok) return { ...r, ms: Math.round(performance.now() - t0) };
-      last = r;
-      land = Math.min(land, r.beginnings ?? Infinity);
-      // land where no source or start fits does not change with the flow or the sources
-      if (/^no river|^start: no flat/.test(r.reason ?? "")) return { ...r, ms: Math.round(performance.now() - t0) };
-      if (/^water covers/.test(r.reason ?? "")) wide = true;
+    const r = attempt(row, meta, raw, size, h, times, fail);
+    last = r;
+    if (r.ok && !r.shortOf?.length) return { ...r, ms: Math.round(performance.now() - t0) };
+    if (!r.ok && /^no river|^start: no flat/.test(r.reason ?? "")) break;
+    if (r.ok) {
+      const [a1, b1] = rank(r);
+      const [a0, b0] = best ? rank(best) : [Infinity, Infinity];
+      if (a1 < a0 || (a1 === a0 && b1 < b0)) best = r;
     }
     // more flow only spreads water wider
-    if (wide) break;
+    if ((r.cover ?? 0) > MAX_COVER) break;
   }
-  return { ...last!, ms: Math.round(performance.now() - t0) };
+  return { ...(best ?? last!), ms: Math.round(performance.now() - t0) };
 }
 
-/** One conversion at one flow, `times` the generator's water strength for the map's size, from at
- *  most `most` source groups. */
-function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, h: Uint8Array, times: number, most: number, fail: (reason: string, extra?: Partial<Converted>) => Converted): Converted {
+/** One conversion at one flow, `times` the generator's water strength for the map's size. */
+function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, h: Uint8Array, times: number, fail: (reason: string, extra?: Partial<Converted>) => Converted): Converted {
   const N = size * size;
   const flow = (times * density("water_strength_per_10k", N) * N) / 1e4;
-  const land = beginnings(raw, size, h, flow).length;
-  let groups = beginnings(raw, size, h, flow, most);
+  let groups = beginnings(raw, size, h, flow);
+  const land = groups.length;
   if (!groups.length) return fail("no river comes in and no channel starts on this land", { beginnings: land });
   const dropped = { inFlow: 0, noOutflow: 0 };
   let sources = strengths(groups, size);
@@ -434,12 +433,9 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, 
     });
     if (!gone.some(Boolean)) break;
     const keep = groups.filter((_, k) => !gone[k]);
-    if (!keep.length) {
-      // keep the strongest where it is: it is where water begins, if anything is
-      groups = [groups[0]];
-      if (gone[0] === "pool") return fail("water.outflow: the only source's water never leaves the map", { heights: encodeHeights(h), dropped, flow: times, groups: most, beginnings: land });
-      break;
-    }
+    // keep the strongest where it is, if every one would go: it is where water begins, if
+    // anything is (a pool it fills is information, D245)
+    if (!keep.length) break;
     for (const g of gone) if (g === "flow") dropped.inFlow++;
     else if (g === "pool") dropped.noOutflow++;
     const kept = keep.reduce((s, g) => s + g.share, 0);
@@ -449,20 +445,21 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, 
     water = canonicalSettle(model);
   }
   const cover = waterCover(water.depth);
-  const base = { heights: encodeHeights(h), sources, dropped, settled: water.settled, ticks: water.ticks, flow: times, cover, groups: most, beginnings: land };
-  if (!water.settled) return fail("water.settles: the water does not settle within 4 days", base);
-  if (cover > MAX_COVER) return fail(`water covers ${Math.round(cover * 100)}% of the map (at most ${Math.round(MAX_COVER * 100)}%)`, base);
+  // water that has not settled in 4 days is kept as it is (D245 (6): the file holds the water the
+  // editor shows, and it goes on moving in the game as modelled), with its note
+  const base = { heights: encodeHeights(h), sources, dropped, settled: water.settled, ticks: water.ticks, flow: times, cover, beginnings: land };
 
   // 3. the start: the best positions, each built and checked in full
   const objects = sourceEntities(sources, h, size).map(mapObject);
   const M = moisture(h, water.depth, water.contamination, size, size, moistureBarrier(size, size, objects));
   const first = starts(h, size, size, water, M).slice(0, TRIES);
   if (!first.length) return fail("start: no flat dry 3×3 with a dry ring on this land", base);
-  // none of the first passes: the start moves to the water (D214), the shore-first ranking's
-  // starts not yet tried
+  // none of the first passes every check: the start moves to the water (D214), the shore-first
+  // ranking's starts not yet tried
   const tried = new Set(first.map(([x, y]) => y * size + x));
   const shore = () => starts(h, size, size, water, M, true).filter(([x, y]) => !tried.has(y * size + x)).slice(0, SHORE_TRIES);
-  let best: { failing: string[]; advisories: string[] } | null = null;
+  let best: Converted | null = null;
+  let blocked: string[] | null = null;
   let count = 0;
   for (const moved of [false, true]) {
     for (const start of moved ? shore() : first) {
@@ -470,13 +467,19 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, size: number, 
       const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: base.heights, sources, start };
       const built = buildPlace(place, water);
       const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
-      const failing = v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
-      // the starting-logs floor (D224), a blocking rule the validators do not carry yet
-      if (logFloorProblem(built.logs)) failing.push("start.log_floor");
+      const { blocking, shortOf } = placeProblems(v.report.checks);
+      // the starting-logs floor (D224, D227), an absolute the validators do not carry yet
+      if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
+      if (blocking.length) {
+        if (!blocked || blocking.length < blocked.length) blocked = blocking;
+        continue;
+      }
       const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
-      if (v.report.passed && !failing.length) return { row, ok: true, size, ...base, start, advisories, ...(moved ? { moved } : {}), ms: 0 };
-      if (!best || failing.length < best.failing.length) best = { failing, advisories };
+      const notes = placeNotes(v.report.checks);
+      const r: Converted = { row, ok: true, size, ...base, start, shortOf, notes, advisories, ...(moved ? { moved } : {}), ms: 0 };
+      if (!shortOf.length) return r;
+      if (!best || notes.length < best.notes!.length || (notes.length === best.notes!.length && shortOf.length < best.shortOf!.length)) best = r;
     }
   }
-  return fail(`the best of ${count} starts fails ${best!.failing.join(", ")}`, base);
+  return best ?? fail(`the best of ${count} starts fails ${blocked!.join(", ")}`, base);
 }

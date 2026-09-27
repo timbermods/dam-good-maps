@@ -10,9 +10,10 @@
 // It reads the index and data the site serves (<out>/real-places/, which vite build copies from
 // public/), builds each place with src/core/places (build, settle, validate, write) in worker
 // threads, and writes the files beside them. It fails, writing nothing, when a place does not pass
-// the export profile and every check of the generate profile on its written file (as
-// tests/contract/placesCommon.ts checks it), or when a file is not the one the index records
-// (sha256 and size): then the engine changed and the index is stale (`npm run places`).
+// the export profile and every check of the generate profile that is not about playability on its
+// written file (D245: those are information; tests/contract/placesCommon.ts checks the same), or
+// when a file is not the one the index records (sha256 and size): then the engine changed and the
+// index is stale (`npm run places`).
 
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -21,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { readTimber } from "../src/core/format/timber";
-import { decodePlaceFile, placeSample, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { decodePlaceFile, placeProblems, placeSample, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { validateMap } from "../src/core/validate/checks";
 
 interface Job {
@@ -33,7 +34,8 @@ interface Result {
   id: string;
   ms: number;
   bytes?: Uint8Array;
-  /** The checks it fails (export profile, or the generate profile on its written file), or the error. */
+  /** The checks that block it (the export profile, or the generate profile's checks that are not
+   *  about playability, on its written file), or the error. */
   failing: string[];
 }
 
@@ -43,8 +45,7 @@ function build(job: Job): Result {
   try {
     const r = placeTimber(decodePlaceFile(new Uint8Array(readFileSync(job.data))));
     const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
-    const failing = v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => `generate profile: ${c.id}`);
-    if (!v.report.passed && !failing.length) failing.push("generate profile: not passed");
+    const failing = placeProblems(v.report.checks).blocking.map((id) => `generate profile: ${id}`);
     return { id: job.id, ms: performance.now() - t, bytes: r.bytes, failing };
   } catch (e) {
     return { id: job.id, ms: performance.now() - t, failing: [String(e instanceof Error ? e.message : e)] };

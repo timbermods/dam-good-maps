@@ -72,8 +72,9 @@ export interface FloorInput {
 
 export interface FloorWood {
   entities: EntitySpec[];
-  /** The groves, in the order grown: their stand, species, trees and logs. */
-  groves: { stand: Stand; species: Species; trees: number; logs: number }[];
+  /** The groves, in the order grown: their stand, species, trees, the trees standing dead (on
+   *  dry soil) and logs. */
+  groves: { stand: Stand; species: Species; trees: number; dead: number; logs: number }[];
   logs: number;
 }
 
@@ -246,7 +247,7 @@ export function plantForFloor(inp: FloorInput): FloorWood {
       const y = (i - x) / W;
       for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) clear[(y + dy) * W + x + dx] = 1;
     }
-    groves.push({ stand: s, species, trees: grown.tiles.length, logs: got });
+    groves.push({ stand: s, species, trees: grown.tiles.length, dead: grown.tiles.filter((i) => !moist(i)).length, logs: got });
     logs += got;
   }
   return { entities: out, groves, logs };

@@ -2,7 +2,8 @@
 // content to play or to refine. Each card shows two pictures of the map, drawn by our 3D view and
 // facing the same way: the angled overview, with the map from above as a minimap in its corner
 // that fills the picture on hover, focus or a tap (Kyler's choice), each with a north arrow. Then
-// the place's title, its landform, size and scale, and how it plays. **Download** is a link to the
+// the place's title, its landform, size and scale, its notes (D245: what would sink a player who
+// goes straight to the game; a place short of other checks gets none), and how it plays. **Download** is a link to the
 // place's .timber, built at deploy time (tools/places-build.ts); **Save to Timberborn** fetches the
 // same file and saves it into the game's maps folder (D162); **Refine** opens it in the editor (the
 // generator page's `#place=` link, which imports it). Nothing here feeds the generator (D108).
@@ -168,6 +169,16 @@ export function Gallery() {
                       <p class="place-meta">
                         {p.familyName} · {p.size}×{p.size} · {p.metres} m per tile
                       </p>
+                      {p.notes?.length ? (
+                        <ul class="place-notes" aria-label="Before you play">
+                          {p.notes.map((n) => (
+                            <li key={n}>
+                              <span class="dot" aria-hidden="true" />
+                              {n}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                       <p class="place-plays">{p.plays}</p>
                       <div class="place-actions">
                         <a class="button primary" href={map.url} download={map.fileName} aria-label={`Download ${p.name}`}>
