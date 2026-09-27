@@ -865,6 +865,24 @@ Kyler changed #72: slow evaporation from sealed basins (a drying oxbow lake, say
 - `npm run oracle -- --seeds 1,5,9,10,14,18 --sizes 96,128,256` (CI's): 18 maps, every theme at
   every size, 276 checks compared, 0 disagreements.
 
+## Nightly heavy suite green again (2026-09-26)
+
+Last night's scheduled nightly (issue #55, run 36241875853) failed two heavy tests.
+
+- Tests (D148): `tests/contract/reshape.test.ts`, "an object a lake would drown is cleared, and the
+  report says so" drew its lake over River Valley seed 13's small relic; since the generator's
+  0.6.2 resources, that relic has no room for a lake round it any more. Already fixed on
+  `feature/real-places-2` (a59c051) and cherry-picked here: the case now uses seed 14, where the
+  same drowned-and-cleared check holds.
+- Tests (D148): `tests/contract/properties.test.ts`'s random-operations property test sweeps every
+  kind in `LOG_OPS`, which gained `carve` with Live editing; `randomOp`
+  (`tests/contract/randomOps.ts`) never drew one, so the sweep could never complete. Added
+  `randomCarve`: a short "Keep river" or "Dry canyon" run (low Power, low Wander, no Aim) from a
+  point on dry land outside the start's protected ground, built the way the editor and Claude's
+  carve step both build one (`forceMapOf`, `CarveRun`, `carveParams`), capped at 30–70 steps so it
+  stays quick on the heavy project's larger presets. Drawn at a low, occasional rate in the roll
+  ladder; `carve` stays in the sweep.
+
 ## Try it
 
 - `npm run try` builds this branch and serves it at a local address (it prints it), with the forces
