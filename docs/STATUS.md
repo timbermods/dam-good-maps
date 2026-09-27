@@ -11,8 +11,10 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
 
 ### 1. Needs your decision or your eyes
 
-1. **Try the four forces and the juice sounds on the preview** (section 3). Their defaults are pending **#74**
-   ([decisions-pending.md](decisions-pending.md)); a Craterize strike at its default power is 54 tiles wide on a 128² map.
+1. **The forces, round 2 (D226), being fixed now** on `feature/forces`, then back on the preview for you: Erupt matched to
+   the demo (a peak within its headroom, never a flat mesa; cones on the flanks; it always completes), a size control
+   beside Power in every force (Carve's Width and new Depth, Craterize's Size, Erupt's Size), the brush size back in the
+   options row, the shelf starting Water source, Badwater source, Start, Pine, and louder sounds. #74 is accepted.
 2. **Real places: the places to drop.** The numbered review sheet is being rendered as an image on
    [PR #35](https://github.com/timbermods/dam-good-maps/pull/35) so you can pick from any device (D222); reply there with
    the numbers. The D214 rebuild and the new titles are under way; the round's release waits for your drops and the
@@ -267,6 +269,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D226: the forces' review: Erupt fixed to the demo (a peak within its headroom, cones on the flanks, it always completes); Power and size separate in every force (Carve's Depth, Craterize's and Erupt's Size); the brush size in the options row; the shelf reads Water source, Badwater source, Start, Pine; sounds louder; #74 accepted.
 - D223: a seed's candidates: the best wins by the quality score; variety breaks near ties only; only true near-duplicates are rejected, resemblance is information (replaces #53's default).
 
 ## Done and released
