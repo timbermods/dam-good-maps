@@ -31,6 +31,19 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
 `rock.ts`, `runs.ts`), so nothing had to move. Codex's #58 and #59 were merged into `dev` at the Live editing boundary
 (D220). The forces reached the preview about 20 minutes before your message, after this check of the agent's report.
 
+### Your checklist for the forces sitting (on the preview when round 2b is up)
+
+One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
+1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
+   ground and on high ground once the one ceiling (D244) is in.
+2. **Power and size apart:** Carve's Width and new **Depth**, Craterize's **Size**, Erupt's **Size**.
+3. **Quake:** Lift and Slide; Lift on a high map once the ceiling is in.
+4. **Unleash on a source** (D239): select a source, **Unleash** (or U); from a pool; drag to aim; Try another.
+5. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247).
+6. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
+7. **Sounds:** louder by default; #64's recorded sounds for every action and force.
+8. Anything from the ceiling probe that needs your hands (the camera near a summit, building on one), once it has run.
+
 ### 2. Released or merged
 
 - **Merged into `dev`** (2026-09-26, the Live editing boundary):
@@ -281,6 +294,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
 - D246: Glaciate, a new force (a valley made glacial: a level floor, a chain of lakes, hanging valleys, moraines; Flow or Aim, Power, Size, Meltwater, Try another); Codex's `investigation/glaciate` is held until you've tried its demo, then built on the forces core after round 2.
 - D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
 - D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.

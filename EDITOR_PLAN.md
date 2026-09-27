@@ -90,8 +90,9 @@ editor is desktop-first (D185).
 
 ## 4. Shaping the land
 
-- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"); Ramp is a Smooth
-  option ("make walkable": the game's natural slopes). Pen pressure on drawing tablets.
+- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
+  slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
+  preview, released with the forces). Pen pressure on drawing tablets.
 - **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines, exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
@@ -370,7 +371,7 @@ never rises along the stroke, so the replay carves the same bed. A stroke also r
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects; the footprints a Flatten's rim would leave on a step, D204),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges, Smooth's make walkable, and a pen's pressure per dab. A source's strength changed in
+edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
@@ -733,7 +734,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
-| Terrace and Ramp as separate brushes | D184: Flatten "in steps", Smooth "make walkable" |
+| Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |
 | The legend always beside the map | D184: only while an overlay is on |

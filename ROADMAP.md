@@ -925,8 +925,8 @@ they conflict):
    another); built from `investigation/craterize` (#51, ready, D216). A small row
    beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
    only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines,
-   level lines. Flatten has "in steps" (terraces); Smooth has "make walkable" (the game's natural slopes;
-   the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
+   level lines. Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
+   puts the shelf's Slope (D247 removed Smooth's walkable option; the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
    slot. Pen pressure sets strength on a drawing tablet.
    Hold to dig (D193): in precise mode, holding Lower or Raise keeps working a level at a time,
    with an optional "stop at" level (a faint plane, a pulse on arrival); never below the map's bottom
@@ -1814,7 +1814,7 @@ background start after generation, caching under the full input hash, cancellabl
 ## M10. Symmetry, and the brushes' extras
 
 The brushes are largely done: Live editing brought them forward from M10 (D158, D182, D184).
-Raise, Lower (smart near water), Flatten ("in steps"), Smooth ("make walkable") and Naturalize,
+Raise, Lower (smart near water), Flatten ("in steps", Ramped edges), Smooth and Naturalize,
 circle and square shapes, precise mode, straight lines, level lines, pen pressure and the Select
 tool are built there, and 3D-a moves them onto runs. M10 adds symmetry, live and brush-first (D179,
 D182), and the extras the brushes still lack.
