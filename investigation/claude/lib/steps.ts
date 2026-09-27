@@ -46,6 +46,8 @@ import { carveParams, forceMapOf } from "../../../src/core/forces/carve/result";
 import { forceOfCarve } from "../../../src/core/forces/op";
 import { checkForceStep, expandForceStep, type ForceStep } from "./forceSteps";
 import { CarveRun, type CarveSettings } from "../../../src/core/forces/carve/run";
+import { breakout, sourceTile, unleashWidth } from "../../../src/core/forces/carve/unleash";
+import { startGround } from "../../../src/core/forces/objects";
 import { protectedGround, STEPS_PER_SECOND } from "../../../src/core/forces/force";
 
 export const MAX_STEPS = 12;
@@ -100,7 +102,7 @@ export type Step =
   | { op: "brush"; tool: BrushTool; where?: Where; path?: Point[]; amount?: number; level?: number; passes?: number; size?: SizeWord | number; edges?: "slope" | "cliff" | "ramped"; steps?: number; walkable?: boolean }
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
-  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; depth?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  | { op: "carve"; from?: [number, number]; where?: Where; source?: [number, number]; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; depth?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
   /** Craterize, Erupt and Quake (D202, D203, D206): an impact at a tile or the middle of a place (a
    *  glancing blow toward a tile), a volcano there or a fissure along a line, a fault along a line
    *  lifting or sliding one side (forceSteps.ts). */
@@ -325,7 +327,16 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.walkable !== undefined && (s.tool !== "smooth" || typeof s.walkable !== "boolean")) errs.push("walkable is smooth's: true wears steps to one level and puts the game's natural slopes on them");
       return [...errs, ...checkPlace(s.where, "where", W, H)];
     case "carve":
-      if (s.from === undefined && s.where === undefined) return ["carve needs from [x, y] or a where (its start: the highest dry ground there)"];
+      if (s.source !== undefined) {
+        // Unleash (D239): a placed source carves its own course
+        if (!(Array.isArray(s.source) && s.source.length === 2 && num(s.source[0], 0, W - 1) && num(s.source[1], 0, H - 1))) return ["source is the tile [x, y] of a placed water or badwater source"];
+        if (s.from !== undefined || s.where !== undefined) return ["a source's river starts at the source (or where its pool spills over): give source, or from or where, not both"];
+        if (s.width !== undefined || s.river !== undefined || s.defyGravity !== undefined) return ["an unleashed source's river takes its width from the source's strength, keeps the source, and runs downhill: leave out width, river and defyGravity"];
+        if (s.to !== undefined && !(Array.isArray(s.to) && s.to.length === 2 && num(s.to[0], 0, W - 1) && num(s.to[1], 0, H - 1))) return ["to is a tile [x, y] on the map (aimed, downhill of the source)"];
+        if (s.power !== undefined && !(num(s.power, 0, 100) || String(s.power) in POWER_WORDS)) return ["power is 0–100, or creek, torrent, river, catastrophe"];
+        return [];
+      }
+      if (s.from === undefined && s.where === undefined) return ["carve needs from [x, y] or a where (its start: the highest dry ground there), or a source to unleash"];
       if (s.from !== undefined && !(Array.isArray(s.from) && s.from.length === 2 && num(s.from[0], 0, W - 1) && num(s.from[1], 0, H - 1))) errs.push("from is a tile [x, y] on the map");
       if (Array.isArray(s.to) && !(s.to.length === 2 && num(s.to[0], 0, W - 1) && num(s.to[1], 0, H - 1))) errs.push("to is a tile [x, y] on the map, or a place");
       if (s.power !== undefined && !(num(s.power, 0, 100) || String(s.power) in POWER_WORDS)) errs.push("power is 0–100, or creek, torrent, river, catastrophe");
@@ -618,7 +629,73 @@ const CARVE_PATHS = [0, 1, 2];
 /** A carve (D194, D199), as the editor's Carve button makes it: Unleash from a spot (its start: the
  *  given tile, or the highest dry ground of the place, nearest its middle), or Aim to an end (a
  *  tile, or the place's middle), run to its end (or for `seconds`), and kept as one operation. */
+/** Unleash (D239): the placed source at `step.source` carves its own course with Carve's engine:
+ *  from a pool, it breaks out where the water would spill over (aimed with `to`: where its rim is
+ *  nearest); its strength sets the width; the source stays its origin (no second source). */
+function expandUnleash(s: MapSession, step: Extract<Step, { op: "carve" }>): Expanded {
+  const { x: W, y: H } = s.size;
+  const b = s.built;
+  const [sx, sy] = [Math.round(step.source![0]), Math.round(step.source![1])];
+  const resolved: Record<string, unknown> = { source: [sx, sy] };
+  const e = b.entities.find((g) => (g.template === "WaterSource" && g.x === sx && g.y === sy) || (g.template === "BadwaterSource" && sx >= g.x && sx <= g.x + 2 && sy >= g.y && sy <= g.y + 2));
+  if (!e) return fail(step, [`there is no water or badwater source at (${sx}, ${sy}) to unleash`], undefined, resolved);
+  const comps = (e.raw ? ((e.raw as { Components?: Record<string, unknown> }).Components ?? {}) : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+  const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
+  const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
+  const map = forceMapOf(b);
+  const keep = protectedGround(map);
+  for (const i of s.columns.keys()) keep[i] = 1;
+  const guard = startGround(map);
+  for (let i = 0; i < keep.length; i++) if (keep[i]) guard[i] = 1;
+  const to = Array.isArray(step.to) ? ([Math.round(step.to[0]), Math.round(step.to[1])] as [number, number]) : undefined;
+  const at = (p: [number, number]) => p[1] * W + p[0];
+  const out = breakout(W, H, b.heights, b.water, sourceTile(e, W), guard, to ? at(to) : null);
+  const origin: [number, number] = [out.origin % W, Math.floor(out.origin / W)];
+  const power = typeof step.power === "string" ? POWER_WORDS[step.power] : (step.power ?? 65);
+  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: unleashWidth(strength), seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: false, dry: true, layers: true };
+  let run: CarveRun;
+  try {
+    run = new CarveRun(map, settings, { origin: out.origin, ...(to ? { end: at(to) } : {}) }, { keep, unleashed: e.id, bad: e.template === "BadwaterSource" });
+  } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    return fail(step, [/uphill/.test(text) ? "that point is uphill of the source: water runs downhill, aim it lower" : text], undefined, resolved);
+  }
+  const limit = step.seconds !== undefined ? Math.round(step.seconds * STEPS_PER_SECOND) : 1200;
+  for (let k = 0; k < limit && !run.done; k++) run.step();
+  const params = carveParams(map, run, { settings, origin, ...(to ? { end: to } : {}), cut: null });
+  if (!params) return fail(step, ["its water found nothing to carve from there: more power, or aim it with to"], undefined, resolved);
+  const cap = Math.floor(MAX_AREA_SHARE * W * H);
+  if (params.tiles.length > cap) return fail(step, [`that carve changes ${params.tiles.length} tiles; one proposal may change at most ${cap} (30% of the map): less power, or fewer seconds`], undefined, resolved);
+  let deepest = 0;
+  let cut = 0;
+  params.tiles.forEach((i, k) => {
+    const d = map.heights[i] - params.heights[k];
+    if (d > 0) cut += d;
+    deepest = Math.max(deepest, d);
+  });
+  const secs = (run.steps / STEPS_PER_SECOND).toFixed(1);
+  const ended = params.reason === "stopped" ? `stopped after ${secs} s` : `ran ${secs} s and ended at ${params.reason === "destination" ? "its end" : params.reason === "map edge" ? "the map's edge" : params.reason === "lake" ? "a lake" : params.reason}`;
+  const word = Object.entries(POWER_WORDS).reduce((a, x) => (Math.abs(x[1] - power) < Math.abs(a[1] - power) ? x : a))[0];
+  const kind = e.template === "BadwaterSource" ? "badwater source" : "water source";
+  const report = [
+    `unleashes the ${kind} at (${sx}, ${sy}) (${word}, power ${power}): ${out.pool ? `it breaks out of its pool at (${origin[0]}, ${origin[1]}), where the water spills over, and ` : ""}it ${ended}, cutting ${cut} blocks over ${params.tiles.length} tiles, ${deepest} levels deep at most, ${settings.width} tiles wide (the source's ${strength} blocks/s)`,
+    `the source stays the river's origin: no other source is added${e.template === "BadwaterSource" ? "; its river is badwater" : ""}`,
+  ];
+  const op = forceOfCarve(params);
+  return {
+    ok: true,
+    step,
+    ops: [{ op: "forceResult", params: { ...op, where: { ...op.where, source: e.id } } }],
+    made: [],
+    report,
+    resolved: { ...resolved, origin, breakout: !!out.pool, mode: settings.mode, power, width: settings.width, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length },
+    errors: [],
+    tiles: params.tiles.length,
+  };
+}
+
 function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op: "carve" }>): Expanded {
+  if (step.source) return expandUnleash(s, step);
   const { x: W, y: H } = s.size;
   const b = s.built;
   const refs = refContext(conv);

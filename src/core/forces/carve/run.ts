@@ -122,6 +122,11 @@ export const modelFor = (m: ForceMap) => waterModel(m.W, m.H, m.heights, m.entit
 export interface CarveOptions {
   keep?: Uint8Array | null;
   sourceId?: string;
+  /** Unleash (D239): the placed source whose own water becomes the river. It stays where it is (a
+   *  dry carve adds no other), riding its ground if the cut reaches it. */
+  unleashed?: string;
+  /** Its water is badwater: the preview's ribbon is too. */
+  bad?: boolean;
 }
 
 export class CarveRun implements ForceRun {
@@ -146,6 +151,9 @@ export class CarveRun implements ForceRun {
   readonly seed: number;
   readonly intent: CarveIntent;
   readonly sourceId: string;
+  /** The placed source it unleashes (D239), or null. */
+  private readonly unleashed: string | null;
+  private readonly bad: boolean;
   readonly settings: CarveSettings;
   readonly metrics: Metrics = { cut: 0, deposited: 0, exported: 0, suspended: 0, bankCuts: 0, bendCuts: 0, steps: 0, stable: false, distance: 0, reason: "", splits: 0, waterfalls: 0, rapids: 0, oxbows: 0 };
   head: ForceHead;
@@ -212,6 +220,8 @@ export class CarveRun implements ForceRun {
     let sourceId = options.sourceId ?? "carve-source-" + intent.origin + "-" + this.seed.toString(16);
     while (input.entities.some((e) => e.id === sourceId)) sourceId += "-next";
     this.sourceId = sourceId;
+    this.unleashed = options.unleashed ?? null;
+    this.bad = !!options.bad;
     this.original = input.heights.slice();
     this.keep = protectedGround(input, options.keep ?? null);
     this.course = new Course(input, settings, intent, this.character);
@@ -605,8 +615,8 @@ export class CarveRun implements ForceRun {
       const W = this.map.W;
       const H = this.map.H;
       this.map.entities = this.map.entities
-        .filter((e) => e.template === "StartingLocation" || e.id === this.sourceId || !entityTiles(W, H, e).some((i) => hit.has(i)))
-        .map((e) => (e.id === this.sourceId ? { ...e, z: this.map.heights[this.intent.origin] } : e));
+        .filter((e) => e.template === "StartingLocation" || e.id === this.sourceId || e.id === this.unleashed || !entityTiles(W, H, e).some((i) => hit.has(i)))
+        .map((e) => (e.id === this.sourceId ? { ...e, z: this.map.heights[this.intent.origin] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e));
     }
     for (const i of changed) this.sim.F[i] = this.map.heights[i];
     this.sim.run(2);
@@ -627,7 +637,11 @@ export class CarveRun implements ForceRun {
     // The force's muddy ribbon is a preview, not counterfeit game water. Keep it inside the
     // excavated channel; the map's water always comes from the canonical settle.
     for (const i of this.active) if (this.sign[i] < 0) this.map.water.depth[i] = 0;
-    for (const i of this.previewCells) if (this.sign[i] < 0 && !this.sediment[i] && this.map.heights[i] <= this.previewBed[i] + 2) this.map.water.depth[i] = 0.45 + (0.5 * this.settings.power) / 100;
+    for (const i of this.previewCells)
+      if (this.sign[i] < 0 && !this.sediment[i] && this.map.heights[i] <= this.previewBed[i] + 2) {
+        this.map.water.depth[i] = 0.45 + (0.5 * this.settings.power) / 100;
+        if (this.bad) this.map.water.contamination[i] = 1;
+      }
   }
 
   private rejectIsolated(d: Int8Array) {

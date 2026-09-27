@@ -27,6 +27,8 @@ export interface ForceWhere {
   end?: [number, number];
   path?: [number, number][];
   side?: 1 | -1;
+  /** Unleash (D239): the placed source whose water the carve became (it stays; no source added). */
+  source?: string;
 }
 
 /** A force's settings, as each force's options row sets them (the seed is its personality). */
@@ -169,6 +171,7 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   } else if (!w.origin) return ["a force needs the point it started from"];
   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
   if ((p.verb === "carve" || p.verb === "craterize") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
+  if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
   if (p.tiles.length !== p.heights.length) return ["a force needs a level for each of its tiles"];
   let last = -1;
   for (let k = 0; k < p.tiles.length; k++) {
@@ -215,10 +218,10 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
 
 /** The history's word for a force (Try another's, a carve's own). */
 export function forceLabel(p: ForceResultParams): string {
-  if (p.replaces !== undefined) return p.verb === "carve" ? "Try another path" : "Try another";
+  if (p.replaces !== undefined) return p.verb === "carve" ? (p.where.source ? "Try another course" : "Try another path") : "Try another";
   switch (p.verb) {
     case "carve":
-      return (p.settings as { dry: boolean }).dry ? "Carve a dry canyon" : "Carve a river";
+      return p.where.source ? "Unleash a source" : (p.settings as { dry: boolean }).dry ? "Carve a dry canyon" : "Carve a river";
     case "craterize":
       return "Craterize";
     case "erupt":

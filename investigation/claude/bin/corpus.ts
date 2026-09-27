@@ -1296,6 +1296,17 @@ R("B27", "simple", "raise a broad volcano about 60 tiles across near (70, 20), n
     checks: [chk("propose", "steps.0.resolved.breadth", "equals", 60), chk("propose", "steps.0.report.0", "matches", "^raises a volcano [(]cone, power 40[)] at [(]70, 20[)]: up to level [0-9]+, [0-9]+ levels at most, 60 tiles across")],
   },
 });
+R("B28", "simple", "put a water source on the hill at (70, 30) and let it carve its own river down", "rv96", {
+  note: "Unleash, on a source (D239): the placed source's own water carves its course with Carve's engine, its width from the source's strength; the source stays, no other is added",
+  goals: [G("g1", "a river carved from a new source at (70, 30), the source still its origin")],
+  report: { mustSay: ["the source placed and its strength", "where its river ran and why it ended, and how wide it is (from the source's strength)", "that the source stays the river's origin: no other source"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "carve" })],
+    proposal: { steps: [{ op: "addSource", kind: "water", at: [70, 30], strength: 3 }, { op: "carve", source: [70, 30], power: 60 }] },
+    checks: [chk("propose", "steps.1.report.0", "matches", "^unleashes the water source at [(]70, 30[)] [(]river, power 60[)]: .*6.1 tiles wide [(]the source's 3 blocks/s[)]"), chk("propose", "steps.1.report.1", "matches", "^the source stays the river's origin"), chk("propose", "steps.1.resolved.width", "equals", 6.1)],
+  },
+});
 R("B11", "simple", "draw a straight canal from the river south to the map edge at x 72", "rv96", {
   note: "a Lower stroke from the river (smart Lower, D184): the river's own water follows its bed, which never rises",
   goals: [G("g1", "a straight channel from the main river to the south edge")],

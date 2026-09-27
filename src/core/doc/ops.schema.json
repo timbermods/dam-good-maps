@@ -202,7 +202,8 @@
             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
             "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
-            "side": { "enum": [1, -1] }
+            "side": { "enum": [1, -1] },
+            "source": { "type": "string" }
           }
         },
         "cut": { "type": "integer", "minimum": 0, "maximum": 40 },

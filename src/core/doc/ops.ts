@@ -641,6 +641,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a force leaves as it is`];
       // Try another starts from the land before the force it replaces, whose objects may be gone now
       if (p.replaces === undefined) {
+        if (p.where.source !== undefined && !ctx.entityIds.has(p.where.source)) return [`there is no source ${p.where.source} to unleash`];
         for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
         for (const m of p.moved ?? []) if (!ctx.entityIds.has(m.id)) return [`entity ${m.id} does not exist`];
         for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];

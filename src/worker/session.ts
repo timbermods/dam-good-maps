@@ -68,10 +68,11 @@ import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/v
 import { changedRect } from "../render3d/mesh";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
+import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import type { CraterSettings } from "../core/forces/craterize";
 import type { EruptSettings, Point } from "../core/forces/erupt";
 import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
-import { START_REASON, startProblem } from "../core/forces/objects";
+import { START_REASON, startGround, startProblem } from "../core/forces/objects";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
 import type { QuakeSettings } from "../core/forces/quake";
 import { geology, nextSeed } from "../core/forces/random";
@@ -1673,7 +1674,7 @@ export function damSiteLayer(): { sites: DamSiteView[]; ms: number } {
  *  ground above it is left as it is). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest =
-  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
+  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; cut: number | null; source?: string }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean };
@@ -1906,6 +1907,29 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     switch (req.verb) {
       case "carve": {
         const aimed = req.settings.mode === "aim" && req.end ? req.end : undefined;
+        if (req.source) {
+          // Unleash (D239): the placed source's own water carves; its strength sets the width; from
+          // a pool or a lake it breaks out where the water would spill over (aimed: the rim nearest
+          // its aim); no other source is added
+          const e = base.entities.find((g) => g.id === req.source && (g.template === "WaterSource" || g.template === "BadwaterSource"));
+          if (!e) throw new Error("That source is gone");
+          // (its strength as the page reads it: an imported map's in its raw components)
+          const comps = (e.raw ? (e.raw as { Components?: Record<string, unknown> }).Components ?? {} : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+          const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
+          const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
+          const guard = startGround(base);
+          for (let i = 0; i < N; i++) if (keep[i]) guard[i] = 1;
+          const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), guard, aimed ? at(aimed) : null);
+          const settings: CarveSettings = { ...req.settings, width: unleashWidth(strength), dry: true };
+          const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}) };
+          try {
+            carve = new CarveRun(base, settings, intent, { keep, sourceId: crypto.randomUUID(), unleashed: e.id, bad: e.template === "BadwaterSource" });
+          } catch (err) {
+            // (a source's own water runs downhill: Unleash has no Defy gravity)
+            throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
+          }
+          break;
+        }
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) };
         carve = new CarveRun(base, req.settings, intent, { keep, sourceId: crypto.randomUUID() });
         break;
@@ -2157,8 +2181,11 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     const r = f.carve;
     const req = f.request as Extract<ForceRequest, { verb: "carve" }>;
     const aimed = req.settings.mode === "aim" && req.end ? req.end : undefined;
-    params = carveForceParams(f.before, r, { settings: req.settings, origin: req.origin, ...(aimed ? { end: aimed } : {}), cut: req.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
-    if (!params) return refused(["Nothing was carved"]);
+    // (an unleashed source's carve starts where it broke out, with its width and dry: the run's own)
+    const origin: [number, number] = req.source ? [r.intent.origin % f.before.W, Math.floor(r.intent.origin / f.before.W)] : req.origin;
+    params = carveForceParams(f.before, r, { settings: req.source ? r.settings : req.settings, origin, ...(aimed ? { end: aimed } : {}), cut: req.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
+    if (params && req.source) params = { ...params, where: { ...params.where, source: req.source } };
+    if (!params) return refused([req.source ? "Its water found nothing to carve from there: more Power, or drag from Unleash to aim it" : "Nothing was carved"]);
     water = r.liveWater();
   } else {
     const r = f.staged!;

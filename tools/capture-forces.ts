@@ -194,6 +194,52 @@ async function main(): Promise<void> {
       // (on until its glow has cooled, so its last frames show the cone as it stays)
       save("erupt", await record(page, () => page.mouse.click(p.x, p.y), 7000, 120));
     }
+    if (want("unleash")) {
+      // Unleash (D239): a source placed on the hills, selected, its row (Unleash beside its
+      // strength), then its own water carving its river down
+      const { start } = await open(page);
+      // high, dry ground well inside the map, away from the start and from any water
+      const at = (await page.evaluate(
+        ([sx, sy]) => {
+          const m = window.dgm3d!.renderer.mapState()!;
+          let best: [number, number] = [64, 64];
+          let score = -Infinity;
+          for (let y = 24; y < m.H - 24; y += 2)
+            for (let x = 24; x < m.W - 24; x += 2) {
+              let wet = false;
+              for (let dy = -6; dy <= 6 && !wet; dy++) for (let dx = -6; dx <= 6 && !wet; dx++) if (m.surface.depth[(y + dy) * m.W + x + dx] > 0) wet = true;
+              if (wet || Math.hypot(x - sx, y - sy) < 30) continue;
+              const s = m.heights[y * m.W + x] * 4 - Math.hypot(x - m.W / 2, y - m.H / 2) * 0.2;
+              if (s > score) {
+                score = s;
+                best = [x, y];
+              }
+            }
+          return best;
+        },
+        [start[0], start[1]] as [number, number],
+      )) as [number, number];
+      await look(page, at[0] + (at[0] < 64 ? 12 : -12), at[1] + (at[1] < 64 ? 10 : -10), 95);
+      await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: /^Water source/ }).click();
+      const p = await client(page, at[0], at[1]);
+      await page.mouse.move(p.x + 3, p.y);
+      await page.mouse.click(p.x, p.y);
+      await page.evaluate("window.dgmEditor.idle()");
+      await page.keyboard.press("Escape");
+      await page.mouse.move(p.x + 3, p.y);
+      await page.mouse.click(p.x, p.y);
+      const row = page.getByRole("group", { name: "Water source, selected" });
+      await row.waitFor();
+      await page.mouse.move(5, 400);
+      const box = (await row.boundingBox())!;
+      const shot = readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x - 4, y: box.y - 4, width: box.width + 8, height: box.height + 8 } })));
+      const rgb = new Uint8Array(shot.width * shot.height * 3);
+      for (let i = 0; i < shot.width * shot.height; i++) rgb.set(shot.data.subarray(i * 4, i * 4 + 3), i * 3);
+      writeFileSync(join(OUT, "unleash-row.png"), encodePng(rgb, shot.width, shot.height));
+      console.log(`${OUT}/unleash-row.png`);
+      const button = row.getByRole("button", { name: "Unleash" });
+      save("unleash", await record(page, () => button.click(), 800, 70));
+    }
     if (want("rows")) {
       await open(page);
       const strips: Rgba[] = [];

@@ -33,12 +33,12 @@ import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { removeTool, shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
-import { ForceDriver, type ForceStatus } from "./forceDriver";
+import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
 import { eruptAnatomy, type EruptAnatomy } from "../core/forces/erupt";
-import { forceCeiling } from "../core/forces/force";
+import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
 import { START_REASON, strokeReason } from "../core/forces/objects";
 import type { Verb } from "../core/forces/op";
 import { Fault, faultStrokeReason, FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
@@ -1546,10 +1546,109 @@ export default function Editor(props: EditorProps) {
       else renderer.current?.clearForce();
       juice.current?.forceEnded(kept, lastCue.current ?? undefined);
       lastCue.current = null;
+      // an unleashed source (D239): picked again, with Try another once kept
+      const u = unleashRef.current;
+      if (u) {
+        unleashRef.current = null;
+        setUnleashing(false);
+        if (kept) lastUnleash.current = u.id;
+        pickTile(u.x, u.y);
+      }
     },
   });
   // (a force at work when the editor closes goes with it)
   useEffect(() => () => forcer.current?.cancel(), []);
+
+  // ------------------------------------------------------------------------ Unleash, on a source
+
+  /** The source being unleashed (D239): its id and its tile, while its carve works. */
+  const unleashRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const [unleashing, setUnleashing] = useState(false);
+  /** The source last unleashed and kept (its row offers Try another). */
+  const lastUnleash = useRef<string | null>(null);
+  const [unleashPower, setUnleashPower] = useState(DEFAULT_CARVE.power);
+  const unleashPowerRef = useRef(unleashPower);
+  unleashPowerRef.current = unleashPower;
+
+  /** Unleash a placed source (D239): it carves its own course downhill with Carve's engine (from a
+   *  pool, breaking out where it would spill over), or to `end`, aimed; its strength sets the width,
+   *  Power how hard it cuts, the rest Carve's defaults; the source stays its origin. */
+  function unleash(e: EntityInfo, end?: [number, number]) {
+    if (forcer.current?.running) return;
+    const x = e.template === "BadwaterSource" ? e.x + 1 : e.x;
+    const y = e.template === "BadwaterSource" ? e.y + 1 : e.y;
+    unleashRef.current = { id: e.id, x, y };
+    setUnleashing(true);
+    const settings = carveSettingsOf({ ...DEFAULT_CARVE, power: unleashPowerRef.current, mode: end ? "aim" : "unleash" });
+    startForce({ verb: "carve", settings, origin: [x, y], ...(end ? { end } : {}), cut: renderer.current?.slice ?? null, source: e.id });
+  }
+
+  /** Try another for an unleashed source: another course from the same land, in its place. */
+  function unleashAgain(e: EntityInfo) {
+    if (forcer.current?.running) return;
+    unleashRef.current = { id: e.id, x: e.template === "BadwaterSource" ? e.x + 1 : e.x, y: e.template === "BadwaterSource" ? e.y + 1 : e.y };
+    setUnleashing(true);
+    forceAgain();
+  }
+
+  /** Unleash's button: a click unleashes it downhill; pressed and dragged out onto the land, it aims
+   *  there (the line from the source follows the pointer; the source's own drag still moves it). */
+  function unleashDown(ev: PointerEvent, e: EntityInfo) {
+    if (ev.button !== 0 || forcer.current?.running) return;
+    ev.preventDefault();
+    const x0 = ev.clientX;
+    const y0 = ev.clientY;
+    const from = { x: e.template === "BadwaterSource" ? e.x + 1 : e.x, y: e.template === "BadwaterSource" ? e.y + 1 : e.y };
+    let aim: [number, number] | null = null;
+    let moved = false;
+    const move = (m: PointerEvent) => {
+      if (Math.hypot(m.clientX - x0, m.clientY - y0) > 6) moved = true;
+      if (!moved) return;
+      notePointer(m);
+      const hit = renderer.current?.pick(m.clientX, m.clientY) ?? null;
+      const onMap = hit && document.elementFromPoint(m.clientX, m.clientY)?.tagName === "CANVAS";
+      aim = onMap && hit && Math.hypot(hit.x - from.x, hit.y - from.y) >= 2 ? [hit.x, hit.y] : null;
+      setForceMarks(aim ? { tiles: strokeTiles([from, { x: aim[0], y: aim[1] }]), side: [], bad: false } : null);
+      setShapeNote(aim ? { text: "Let go to aim it here", ok: true, warn: false, ...pointerAt.current } : { text: "Drag onto the land to aim it", ok: true, warn: false, ...pointerAt.current });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setForceMarks(null);
+      setShapeNote(null);
+      // (a click starts it from the button's own click: starting it here would put the row's Stop
+      // under the pointer before the click lands)
+      if (moved && aim) unleash(e, aim);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  /** The row while an unleashed source's carve works: Carve's own controls. */
+  function unleashRow(): { label: string; content: ComponentChildren } | null {
+    const st = forcer.current?.status ?? null;
+    if (!unleashing || !st) return null;
+    const secs = (st.steps / STEPS_PER_SECOND).toFixed(1);
+    return {
+      label: "Unleash at work",
+      content: (
+        <>
+          <span class="bar-status" role="status">
+            {st.stopping ? "Keeping the river…" : st.paused ? `Paused at ${secs} s` : `The source carves its way… ${secs} s`}
+          </span>
+          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
+            {st.paused ? "Resume" : "Pause"}
+          </button>
+          <button type="button" disabled={st.stopping} onClick={() => void forcer.current?.stop()} title="Keep what's carved so far: one undo step">
+            Stop
+          </button>
+          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.cancel()} title="Take all of it back (Esc)">
+            Revert
+          </button>
+        </>
+      ),
+    };
+  }
 
   /** The water's journey and a weather run give way to the force's own water. */
   function clearForForce() {
@@ -2048,6 +2147,26 @@ export default function Editor(props: EditorProps) {
           <button type="button" onClick={() => removeSources(picked!.list)}>
             Remove
           </button>
+          <span class="bar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            class="unleash-button"
+            title="Unleash (U): the source carves its own river downhill, its width from its strength (from a pool, it breaks out where the water would spill over). Drag from here onto the land to aim it."
+            onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)}
+            onClick={() => unleash(e)}
+          >
+            Unleash
+          </button>
+          <label class="slider-field" title="How hard its river cuts: a creek to a catastrophe">
+            Power
+            <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
+            <output>{powerWord(unleashPower)}</output>
+          </label>
+          {info.forceAgain === "carve" && lastUnleash.current === e.id ? (
+            <button type="button" onClick={() => unleashAgain(e)} title="The same source, another course (it replaces the last one)">
+              Try another
+            </button>
+          ) : null}
           <button type="button" class="linkish" aria-label="Put it down" onClick={() => setPicked(null)}>
             ×
           </button>
@@ -2755,6 +2874,10 @@ export default function Editor(props: EditorProps) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();
         removeSources(pickedSources());
+      } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "u" && pickedSources().length && !forcer.current?.running) {
+        // U: a picked source carves its own course (D239)
+        ev.preventDefault();
+        unleash(pickedSources()[0]);
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "t") {
         // T: clear water, as the game (D196)
         setClearWater((on) => !on);
@@ -2932,7 +3055,7 @@ export default function Editor(props: EditorProps) {
               remove={removing}
               removeKinds={removeKinds}
               onRemoveKinds={setRemoveKinds}
-              row={shelfRow() ?? pickedRow()}
+              row={unleashRow() ?? shelfRow() ?? pickedRow()}
               hints={
                 <FirstRun
                   done={firstRun}

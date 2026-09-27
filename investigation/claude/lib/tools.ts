@@ -492,6 +492,7 @@ export class ClaudeTools {
         power: { min: 0, max: 100, words: POWER_WORDS, note: "how deep it cuts and how far it runs: a creek to a catastrophe" },
         width: { min: 2, max: 24, note: "tiles; left out, it follows power (2.8 + power/10): narrow for a slot canyon, wide for a lazy river" },
         depth: { min: 1, max: 12, note: "levels below the land it runs through, at most; left out, it follows power (deeper downstream): set low with a wide width and high power for a wide, shallow river" },
+        source: "Unleash: the tile [x, y] of a placed water or badwater source, instead of from or where: its own water carves the river, its width from the source's strength (leave out width, river and defyGravity); from a pool it breaks out where the water spills over (the lowest point of its rim); to aims it downhill; the source stays and no other is added",
         wander: { min: 0, max: 100, note: "straight to winding" },
         walls: "steep (a gorge) or wide (broad terraces)",
         river: "keep (the default: a source at its start, its strength following the width, keeps the river flowing) or dry (a dry canyon, no source)",
