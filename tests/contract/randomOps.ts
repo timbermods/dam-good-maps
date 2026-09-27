@@ -8,6 +8,9 @@
 import type { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
 import { deleteEdit, moveEdit, planContextOf, planLake, planLandform, planPiece, planRiver, type PlannedEdit } from "../../src/core/doc/tools";
+import { DEFAULTS as CARVE_DEFAULTS, CarveRun, type CarveSettings } from "../../src/core/forces/carve/run";
+import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
+import { protectedGround } from "../../src/core/forces/force";
 import type { Facing } from "../../src/core/features/setpieces/common";
 import type { Feature, LandformFeature, Point, RiverFeature } from "../../src/core/features/schema";
 import type { Orientation } from "../../src/core/format/footprints";
@@ -99,6 +102,46 @@ export function randomToolEdit(s: MapSession, rng: Rng): EditOp[] | null {
       return f ? planned(deleteEdit(s, f.id)) : null;
     }
   }
+}
+
+/** A small, real carve (Live editing's force, D194, D199, D203, the way the product makes one): a
+ *  short "Keep river" or "Dry canyon" run of a few dozen steps, from a point on dry land outside
+ *  the start's protected ground. Kept brief and gentle (low Power, low Wander, no Aim, no rock
+ *  layers to break through) so it cuts a modest reach rather than running to completion — real
+ *  work, but light enough that the sweep which hunts down every op kind stays fast on the heavy
+ *  project's larger presets. Null when the map has no room for one, or the run cut nothing (a
+ *  carve that only kept a source is still a real, if small, change). */
+function randomCarve(s: MapSession, rng: Rng): EditOp | null {
+  const b = s.built;
+  const { x: W, y: H } = s.size;
+  const m = forceMapOf(b);
+  const keep = protectedGround(m);
+  let ox = -1;
+  let oy = -1;
+  for (let tries = 0; tries < 25 && ox < 0; tries++) {
+    const x = rng.int(10, W - 10);
+    const y = rng.int(10, H - 10);
+    const i = y * W + x;
+    if (!keep[i] && b.water[i] === 0) {
+      ox = x;
+      oy = y;
+    }
+  }
+  if (ox < 0) return null;
+  const settings: CarveSettings = {
+    ...CARVE_DEFAULTS,
+    power: rng.int(20, 55),
+    wander: rng.int(0, 40),
+    width: null,
+    seed: rng.int(0, 1000),
+    walls: rng.pick(["steep", "wide"] as const),
+    defyGravity: false,
+    dry: rng.float() < 0.5,
+  };
+  const run = new CarveRun(m, settings, { origin: oy * W + ox }, { sourceId: guid(rng) });
+  for (let k = 0, n = 30 + rng.int(0, 40); k < n && !run.done; k++) run.step();
+  const params = carveParams(m, run, { settings, origin: [ox, oy], cut: null });
+  return params ? { op: "carve", params } : null;
 }
 
 /** One random operation (or a tool's group of them) for the session's current map, or null when
@@ -245,11 +288,12 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     return sl ? { op: "removeSlope", params: { x: sl.x, y: sl.y } } : null;
   }
   if (roll < 91) return { op: "pinSlope", params: { x: rng.int(1, W - 1), y: rng.int(1, H - 1), orientation: pick(rng, ORIENT)! } };
-  if (roll < 96) {
+  if (roll < 95) {
     const locks = s.state.locks;
     if (locks.length && rng.float() < 0.4) return { op: "setLock", params: { id: pick(rng, locks)!.id, region: null } };
     return { op: "setLock", params: { id: `lock-${rng.int(0, 1000)}`, region: { runs: rectRuns(rect(rng, W, H, 12, 12), W) } } };
   }
+  if (roll < 98) return randomCarve(s, rng);
   // an invalid operation: it must be rejected with a reason, and change nothing
   return pick(rng, [
     { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } },
