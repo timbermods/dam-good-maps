@@ -1018,6 +1018,13 @@ shared styles and components (D176).
 
 Built in pushes, water first, each put on the preview for Kyler.
 
+**Alive, not mechanical** (D240, after the forces round 2, alongside the other editor work): short, visual-only animations
+for the land (grow, sink and crumble, a ripple from the brush's centre, grass creeping over fresh earth, rock layers in
+new walls), the water (gliding surfaces, a foaming front, rising basins, bursting falls, wet sheen and damp ground,
+pulsing sources) and the moments (Generate's reveal, pops and topples, undo in reverse, a breathing brush ring, Save to
+Timberborn's send-off, optional cloud shadows); synced with the sounds; off with reduced motion; GPU effects with capped
+particles, measured on dense 256² maps and scaled down on weaker hardware. The final map and water never change.
+
 **Blocking:** responsiveness (visible within one or two frames of the input; the display's frame
 rate while painting on 256²; no main-thread stalls; cancel, undo and tool switches at once), and
 breakage (strokes replay exactly; undo and redo always correct; nothing crashes; no edit lost; after

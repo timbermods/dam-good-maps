@@ -215,6 +215,29 @@ Waterfalls leave the lip and arc into the pool as one sheet, round the corners o
 foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
 as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 
+## 6a. Alive, not mechanical (D240; after the forces round 2)
+
+Visual only: the final map and water are exactly as they'd be without it. Every animation is short, never delays the next
+action, never makes the editor feel sluggish, switches off with reduced motion, and is synced with the sounds.
+
+- **Land:** raised blocks grow up from below with a tiny overshoot and settle; lowered blocks sink and crumble, with a puff
+  of dust and a few pebbles; a stroke's changes ripple outward from the brush's centre over a few milliseconds, so it feels
+  organic, not stamped; fresh ground starts as bare earth and grass creeps over it in about a second where it's moist;
+  cutting down reveals rock layers in the new walls.
+- **Water:** the surface glides between states instead of jumping tile by tile; advancing water has a thin line of foam
+  and shimmer at its front; basins fill with a smoothly rising surface and ripples; water tipping over a new edge bursts
+  into a waterfall with a splash; ground darkens with a wet sheen where water touches it, and draining water leaves damp
+  ground and fading puddles; sources pulse with a gentle upwelling, stronger for stronger sources.
+- **Moments:** Generate reveals the new map in about a second and a half (the land rises into its shape, water flows in,
+  trees pop up; a click skips to the finished map); placed trees and bushes pop in with a bounce and a rustle, removed ones
+  topple or shrink away with a poof, ruins crumble, and painting a forest is a cascade of tiny pops; undo plays the change
+  quickly in reverse; the brush ring breathes while hovering, squashes slightly on press and eases as it moves; Save to
+  Timberborn ends with a small send-off (a flourish, a sound, "Ready to play in Timberborn"); optional ambience: soft
+  cloud shadows drifting across the land.
+- **Performance:** GPU and shader effects where possible, never per-tile work on the main thread; particles and
+  simultaneous pops capped, so a huge stroke over a dense forest stays smooth; the frame rate measured before and after on
+  dense 256² maps; effects scale down automatically on weaker hardware rather than stutter.
+
 ## 7. Controls
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms,
