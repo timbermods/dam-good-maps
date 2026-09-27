@@ -13,6 +13,7 @@ import { decodeProject, encodeProject, generatedDocument } from "../../src/core/
 import { MapSession } from "../../src/core/doc/session";
 import type { Feature } from "../../src/core/features/schema";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
+import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { makeSpec, SIZE_PRESETS, THEMES, type ThemeId } from "../../src/core/spec/mapspec";
 import { FEATURES_SCHEMA, validateFeatures } from "../../src/core/spec/schema";
 
@@ -67,6 +68,21 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
     // the editor's autosave (a faster gzip level) opens the same way
     expect(decodeProject(s.project(6)).features).toEqual(doc.features);
+  });
+
+  it("a river falling from land above 16 to level 0 in one step reopens (Highlands 128², seed 7, Verticality 100)", () => {
+    // the feature schema allowed a bed step 15 levels, its start 22: at Verticality 70 and above the
+    // land rises past 16 and a river's natural fall can be deeper (M9b's chaos batch, and M9a's sweep
+    // at Verticality 100, 128², 2026-09-27: 27 of 118 accepted maps' project files refused as damaged)
+    const r = generate(decodeSpecFragment("s=7&t=highlands&z=128&d=n&vt=100")!.spec);
+    expect(r.report.passed).toBe(true);
+    const falls = r.features.flatMap((f) => (f.kind === "river" && f.params.bedProfile ? [f.params.bedProfile] : [])).filter((b) => b.start > 16 && b.steps.some((s) => s.drop > 15));
+    expect(falls.some((b) => b.start - b.steps.reduce((a, s) => a + s.drop, 0) === 0)).toBe(true);
+    expect(validateFeatures(r.features)).toEqual([]);
+    expect(ajvFeatures(r.features), JSON.stringify(ajvFeatures.errors?.slice(0, 3))).toBe(true);
+    const s = MapSession.open(decodeProject(encodeProject(generatedDocument(r))));
+    expect(s.mode).toBe("live");
+    expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
   });
 
   it("a generated map's features that reach past the map edge (its rivers' mouths) reopen", () => {

@@ -11,7 +11,7 @@
 
 import { damSites, type DamSite } from "../analysis/damsites";
 import { components, walkRegions } from "../analysis/regions";
-import { pumpShoreDistance, reachAt, walkDistance, WALK_LIMIT } from "../analysis/walk";
+import { reachAt, startWaterShore, walkDistance, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
 import { leveeStorage, runningFlow, SECONDS_PER_DAY } from "../analysis/storage";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
@@ -512,11 +512,14 @@ function checkStart(
 
   // requirement 1, the water rule (D153, amending D85): clean pumpable water at a
   // shore the start reaches on foot, over the map's own ground and slopes, within the rule's walk;
-  // a pump on that shore reaches the water's surface (0–2 levels below it)
-  const shore = pumpShoreDistance(walk, h, W, H, D, C);
+  // a pump on that shore reaches the water's surface (0–2 levels below it); and (D302) the water is
+  // fed by a running source or a lake that lasts the rule's drought, never a sealed puddle
+  const shore = startWaterShore(walk, h, W, H, D, C, model.emitters, droughtStorage(model, D, rules.droughtDays), rules.waterWithin);
   const dw = shore.distance;
   analysis.waterDistance = dw;
-  const dwText = Number.isFinite(dw) ? `${(Math.round(dw * 10) / 10).toString()} tiles' walk` : "not";
+  const walkText = (d: number) => `${(Math.round(d * 10) / 10).toString()} tiles' walk`;
+  const dwText = Number.isFinite(dw) ? walkText(dw) : "not";
+  const puddleText = shore.puddle <= rules.waterWithin ? `the water ${walkText(shore.puddle)} away is a sealed puddle no source feeds, which a ${rules.droughtDays}-day drought empties; ` : "";
   c.add({
     id: "start.water",
     class: "playability",
@@ -528,8 +531,10 @@ function checkStart(
       dw <= rules.waterWithin
         ? `clean water a pump reaches is ${dwText} from the start, over the map's own ground and slopes (${cap(rules.difficulty)} allows ${rules.waterWithin})`
         : Number.isFinite(dw)
-          ? `the nearest clean water a pump reaches is ${dwText} from the start; ${cap(rules.difficulty)} allows ${rules.waterWithin} (beavers go thirsty on day 6)`
-          : `no clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start over the map's own ground and slopes: beavers would need stairs to drink`,
+          ? `${puddleText}the nearest clean water a pump reaches that a source feeds or that lasts a drought is ${dwText} from the start; ${cap(rules.difficulty)} allows ${rules.waterWithin} (beavers go thirsty on day 6)`
+          : puddleText
+            ? `${puddleText}no other clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start: beavers would go thirsty`
+            : `no clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start over the map's own ground and slopes: beavers would need stairs to drink`,
   });
   let db = Infinity;
   let badAt = -1;

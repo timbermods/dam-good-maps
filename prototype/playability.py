@@ -16,11 +16,11 @@ import re
 import numpy as np
 
 import calibrated as cal
-from analysis import (components, dam_sites, distance_from, is_dead, placement, point_clusters, pump_shore_distance,
+from analysis import (components, dam_sites, distance_from, is_dead, placement, point_clusters, start_water_shore,
                       reach_at, walk_distance, walk_regions)
 from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
-from storage import SECONDS_PER_DAY, dam_walls, levee_storage, pump_shore_tile, running_flow
+from storage import SECONDS_PER_DAY, dam_walls, levee_storage, running_flow
 
 WET = 0.05                   # water deeper than this is a water tile
 BAD = 0.05                   # water this contaminated is badwater to a beaver
@@ -440,9 +440,14 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             links.append(((q.y, q.x), (q.y + dy, q.x + dx)))
     walk = walk_distance(h, blocked, links, sx, sy)
     # requirement 1, the water rule (D153, amending D85): clean pumpable water at a
-    # shore the start reaches on foot, over the map's own ground and slopes, within the rule's walk
-    dw = pump_shore_distance(walk, h, D, C)
-    rep.add("start.water", dw <= rules["water_within"], f"clean water a pump reaches {dw:.1f} tiles' walk away",
+    # shore the start reaches on foot, over the map's own ground and slopes, within the rule's walk;
+    # and (D302) the water is fed by a running source or a lake that lasts the rule's drought, never a
+    # sealed puddle
+    after = drought_storage(floor, D, rules["drought_days"], sources, dam)
+    dw, puddle, shore_tile = start_water_shore(walk, h, D, C, sources, after, rules["water_within"])
+    rep.add("start.water", dw <= rules["water_within"],
+            f"clean water a pump reaches {dw:.1f} tiles' walk away"
+            + (f" (a sealed puddle {puddle:.1f} tiles' walk away does not count)" if puddle <= rules["water_within"] else ""),
             round(dw, 1), rules["water_within"])
     bad_soil = (SC > 0) | (wet & (C >= BAD))
     db = float(sd[bad_soil].min()) if bad_soil.any() else float("inf")
@@ -544,7 +549,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     best = max([s["volume"] for s in near_sites], default=0.0)
     need = rules["reservoir_need"]
     held = max(natural, best)
-    _, shore_tile = pump_shore_tile(walk, h, D, C)
+    # (the start's water tile by the water rule, D302: the water that counts)
     running = running_flow(D, sources, shore_tile) if shore_tile is not None else 0.0
     levee = levee_storage(h, D, C, sx, sy, int(h[sy, sx]), need) if shore_tile is not None and held < need else 0.0
     stored = max(held, levee)
