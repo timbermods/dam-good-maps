@@ -69,5 +69,5 @@ export function openFieldModel(m: StackModel): WaterModel | null {
     if (e.depthLimit) out.depthLimit = { ...e.depthLimit };
     emitters.push(out);
   }
-  return { W, H, floor, dam, emitters };
+  return m.retained?.length ? { W, H, floor, dam, emitters, retained: m.retained } : { W, H, floor, dam, emitters };
 }

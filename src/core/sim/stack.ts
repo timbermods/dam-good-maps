@@ -44,6 +44,7 @@
 // (tests/unit/stack.test.ts), at the heightfield engine's cost.
 
 import { OPEN_CEILING, type WaterColumns } from "./columns";
+import type { RetainedWater } from "./water";
 
 export const DT = 0.3;
 export const K = 2.25 * DT;
@@ -74,6 +75,10 @@ export interface StackEmitter {
 export interface StackModel {
   cols: WaterColumns;
   emitters: StackEmitter[];
+  /** Water sealed basins keep from before they were sealed (water.ts `RetainedWater`: a carve's
+   *  oxbow lakes), on each tile's top column: the canonical settle starts from it
+   *  (stackPrefill.ts). */
+  retained?: readonly RetainedWater[];
 }
 
 export interface StackState {
