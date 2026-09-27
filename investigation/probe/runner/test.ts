@@ -167,6 +167,18 @@ async function main(): Promise<void> {
   const L2 = new compare.Loaded(resDir, m8, result);
   const w2 = compare.evaluate({ L: L2, others: new Map(), model: null, modelError: null }, [m8.checks.find((c) => c.id === 'water')!])[0];
   check('compare: a drained map fails the water check', w2.verdict === 'failed', w2.detail);
+  // the wet-tile counts leave out tiles within 0.01 of the 0.05 line (D297, D302)
+  const startDay = m8.map.moments.find((x) => x.id === 'start')!.day;
+  const picked = [...m8.info.depth.keys()].filter((t) => m8.info.depth[t] > 0.2).slice(0, Math.ceil(0.2 * [...m8.info.depth].filter((d) => d > 0.05).length));
+  const fakeModel = (to: number) => {
+    const depth = Float32Array.from(m8.info.depth);
+    for (const t of picked) depth[t] = to;
+    const N = depth.length;
+    return { samples: [], maps: [{ day: startDay, depth, contamination: new Float32Array(N), moisture: Float32Array.from(m8.info.moisture), soilContamination: new Float32Array(N) }], plants: [], W: m8.info.W, H: m8.info.H, cpuSeconds: 0, momentum: 'test' };
+  };
+  const tl = (to: number) => compare.evaluate({ L, others: new Map(), model: fakeModel(to), modelError: null }, [{ id: 'cal-timeline', title: 't', how: 'measure' }])[0];
+  const onLine = tl(0.045), off = tl(0);
+  check('cal-timeline: tiles within 0.01 of the wet line are left out of the wet counts (D297, D302)', /wet tiles 0\.0%/.test(onLine.detail) && Number(/wet tiles (\d+\.\d)%/.exec(off.detail)?.[1] ?? 0) >= 5 && off.verdict === 'failed', `${onLine.detail.slice(-160)} | ${off.detail.slice(-160)}`);
 
   // 4b. the model starts from what the game loads: the file's water and the outflows it stores
   const modelM = require('./model') as typeof import('./model');

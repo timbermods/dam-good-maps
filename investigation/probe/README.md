@@ -51,6 +51,8 @@ another session, and a low processor load). `--no-wait` skips the wait.
 - The start's water (`drought-start-water`, `m9a-badwater` and the sampled tiles) is the water the project's
   own `start.water` rule counts: clean water a pump reaches from a shore the start walks to within the
   difficulty's walk, and the whole bodies of water it belongs to.
+- The wet-tile counts (`cal-timeline`) are judged as Kyler's D297 judges water (D302): a tile within 0.01 of
+  the 0.05 wet line, in the game or the model, is left out of both counts.
 
 ## What stays on this machine
 

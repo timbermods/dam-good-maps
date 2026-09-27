@@ -463,7 +463,8 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
   // model day by day. The tolerances, stated before the batch runs: load (no loading issue, no error
   // or exception, the start placed); objects (every object at its tile); water (after a day 95% of
   // wet tiles within 0.1 deep of the file, the volume within 10%); terrain (every tile's height as in
-  // the file); cal-timeline (the map's water volume and wet tiles within 5% of the model each day);
+  // the file); cal-timeline (the map's water volume and wet tiles within 5% of the model each day; the
+  // wet tiles judged as D297 judges water, tiles within 0.01 of the 0.05 line left out, D302);
   // drought-start-water (the start's water, the water `start.water` counts, within 10% of its volume
   // of the model through the drought); m9a-badwater (before the badtide, the start's water under 5%
   // contamination, and badwater only within 3 tiles of the file's); m9a-weir (the water beside the weir within 0.1 deep of the
