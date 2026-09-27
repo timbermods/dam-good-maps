@@ -7,9 +7,9 @@
 // - `undo` and `redo` step through the history: operations invert with their undo data, and a
 //   regeneration restores the generation before it. Built maps are kept as snapshots every few
 //   steps and around regenerations, so stepping back is instant on 256² maps.
-// - `regenerate` (the `specPatch` operation) plans a new generation around the player's features,
-//   locks and keep-out regions (PLAN §7.0), replays the log on it, and flags what no longer
-//   applies (PLAN §19.4).
+// - `regenerate` (the `specPatch` operation) plans a new generation around the player's features
+//   and keep-out regions (PLAN §7.0), replays the log on it, and flags what no longer applies
+//   (PLAN §19.4).
 // - Documents opened by a newer generator open from their stored base, exactly, until
 //   `rebuildWithCurrentGenerator` (PLAN §19.7).
 
@@ -19,16 +19,16 @@ import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameRetained, type WaterModel } from "../sim/water";
 import { pathField, polygonMask } from "../features/geometry";
-import { entityJson, placementOf, rawEntity } from "../format/entities";
-import { fromBase64, toBase64 } from "../format/base64";
-import { parse, stringify, type JsonObject } from "../format/json";
+import { entityJson, rawEntity } from "../format/entities";
+import { fromBase64 } from "../format/base64";
+import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature } from "../features/schema";
 import { MAX_ATTEMPTS, planFeatures, type GenerateResult } from "../gen/generate";
 import { description, fileName as timberFileName, mapName, toTimberFile } from "../gen/pack";
 import { PlanConflict } from "../gen/riverValley";
-import { tilesToRuns, runsToTiles, type Runs } from "../math/grid";
+import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
 import { GENERATOR_VERSION, type MapSpec, type Region } from "../spec/mapspec";
 import { applyMergePatch, clone } from "../spec/mergepatch";
@@ -39,7 +39,7 @@ import { blocks, type Profile, type ValidationReport } from "../validate/report"
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type SavedView } from "./document";
+import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
   applyOp,
   invertOp,
@@ -49,7 +49,6 @@ import {
   type AppliedOp,
   type DocState,
   type EditOp,
-  type Lock,
   type OpName,
   type OpOrigin,
 } from "./ops";
@@ -157,6 +156,7 @@ export class MapSession {
     this.log = r.log;
     this.st = r.state;
     this.seqNext = doc.nextSeq;
+    for (const n of (doc as MapDocument & RetiredNotes).__retiredNotes ?? []) this.notices.push(n);
     if (doc.spec && doc.base.world === null) {
       // a format-1 project file: no stored map, so the base is built with this generator
       if (doc.generatorVersion !== GENERATOR_VERSION) {
@@ -404,7 +404,6 @@ export class MapSession {
       kept: this.gen.kept,
       features: clone(this.st.features),
       edits: clone(this.log),
-      locks: clone(this.st.locks),
       nextSeq: this.seqNext,
       meta: this.gen.meta,
     };
@@ -593,10 +592,10 @@ export class MapSession {
   // --------------------------------------------------------------------------- regeneration
 
   /** Change the settings and regenerate (`specPatch`, PLAN §19.1): the generated features are
-   *  planned again around the player's features, locks and keep-out regions (PLAN §7.0), the
-   *  log is replayed on them, and whatever no longer applies is flagged. The generator retries
-   *  until the generate profile passes, as for a new map; when no attempt passes, the last one is
-   *  kept with its report. */
+   *  planned again around the player's features and keep-out regions (PLAN §7.0), the log is
+   *  replayed on them, and whatever no longer applies is flagged. The generator retries until the
+   *  generate profile passes, as for a new map; when no attempt passes, the last one is kept with
+   *  its report. */
   regenerate(patch: Record<string, unknown>, label = "Change settings and regenerate"): RegenerateResult {
     const fail = (errors: string[], failures: RegenerateResult["failures"] = []): RegenerateResult => ({
       ok: false,
@@ -617,17 +616,19 @@ export class MapSession {
     spec = {
       ...spec,
       generatorVersion: GENERATOR_VERSION,
-      constraints: { ...spec.constraints, keep: kept.map((f) => f.id), locks: this.st.locks.map((l) => clone(l.region)) },
+      constraints: { ...spec.constraints, keep: kept.map((f) => f.id) },
     };
     delete spec.accepted;
     const specErrors = validateSpec(spec);
     if (specErrors.length) return fail(specErrors.map((e) => `settings${e.path}: ${e.message}`));
     const W = spec.size.x;
     const H = spec.size.y;
-    if ((W !== old.size.x || H !== old.size.y) && this.st.locks.length) return fail(["locked areas keep their tiles: unlock them before changing the map size"]);
-    const keptContent = this.captureKept(W, H);
-    const keptLayer = keptContent ? keptLayerOf(keptContent, W, H) : null;
-    const protect = protectMask(W, H, kept, this.st.locks, spec.constraints.keepOut);
+    // locks and the retired regenerateRegion operation were removed (D253, D270): a regeneration
+    // never keeps anything of the previous generation any more (an old project's own kept content,
+    // from before, stays put until its next regeneration, same as always).
+    const keptContent: KeptContent | null = null;
+    const keptLayer: LockedLayer | null = null;
+    const protect = protectMask(W, H, kept, spec.constraints.keepOut);
     const fits = (op: AppliedOp) => opFitsMap(op, W, H);
     const failures: RegenerateResult["failures"] = [];
     type Attempt = { spec: MapSpec; planned: Feature[]; state: DocState; log: AppliedOp[]; built: BuildResult; report: ValidationReport; analysis: PlayabilityAnalysis | null; cache: SettleCache; base?: BuildResult };
@@ -749,28 +750,6 @@ export class MapSession {
     const rep = replay(r.gen.baseFeatures, r.log);
     this.log = rep.log;
     this.st = rep.state;
-  }
-
-  /** What locks keep of the current generation's generated content (EDITOR_PLAN §3). */
-  private captureKept(W: number, H: number): KeptContent | null {
-    if (!this.st.locks.length) return null;
-    const mask = new Uint8Array(W * H);
-    for (const l of this.st.locks) for (const i of runsToTiles(l.region.runs, W)) mask[i] = 1;
-    const tiles: number[] = [];
-    for (let i = 0; i < mask.length; i++) if (mask[i]) tiles.push(i);
-    const base = this.baseStuff();
-    const bytes = new Uint8Array(tiles.length);
-    tiles.forEach((i, k) => (bytes[k] = base.terrain.heights[i]));
-    const entities: JsonObject[] = [];
-    const owners: string[] = [];
-    base.file.world.entities.forEach((e, k) => {
-      const p = placementOf(e);
-      if (!p || p.template === "Slope" || p.template === "StartingLocation") return;
-      if (p.x < 0 || p.x >= W || p.y < 0 || p.y >= H || !mask[p.y * W + p.x]) return;
-      entities.push(e);
-      owners.push(this.gen.base.owners?.[k] ?? "kept");
-    });
-    return { runs: tilesToRuns(tiles, W), heights: toBase64(bytes), entities: stringify(entities), owners };
   }
 
   // ------------------------------------------------------------------------------ building
@@ -1009,9 +988,9 @@ export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
   return { mask, heights, entities };
 }
 
-/** Tiles the planner keeps off (PLAN §7.0): the player's features, locked and keep-out regions. */
-export function protectMask(W: number, H: number, kept: readonly Feature[], locks: readonly Lock[], keepOut: readonly Region[]): Uint8Array | null {
-  if (!kept.length && !locks.length && !keepOut.length) return null;
+/** Tiles the planner keeps off (PLAN §7.0): the player's features and keep-out regions. */
+export function protectMask(W: number, H: number, kept: readonly Feature[], keepOut: readonly Region[]): Uint8Array | null {
+  if (!kept.length && !keepOut.length) return null;
   const m = new Uint8Array(W * H);
   const runs = (r: Runs) => {
     for (const [y, x0, x1] of r) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) m[y * W + x] = 1;
@@ -1039,7 +1018,6 @@ export function protectMask(W: number, H: number, kept: readonly Feature[], lock
         break;
     }
   }
-  for (const l of locks) runs(l.region.runs);
   for (const r of keepOut) runs(r.runs);
   return m;
 }
@@ -1091,8 +1069,6 @@ export function labelOf(op: AppliedOp): string {
       return "Place a slope";
     case "removeSlope":
       return "Remove a slope";
-    case "setLock":
-      return op.params.region ? "Lock an area" : "Unlock an area";
     default:
       return op.op;
   }
