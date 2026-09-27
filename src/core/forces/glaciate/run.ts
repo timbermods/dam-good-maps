@@ -1,0 +1,196 @@
+// Glaciate at work (PLAN §20 D246, D291, D292; the investigation's two acts, INTEGRATION.md): while
+// it is planned (a few slices a step: the worker answers the page between them) the ice gathers where
+// it was asked; then the ice advances for three seconds, the land under it taking its final levels as
+// the front passes (every height is the plan's before the retreat begins), and melts back for two,
+// revealing the valley's water as it goes. Ten steps are a second on every machine (D266: its own
+// pace, whatever the water's speed); what is kept is always the plan's final map (the stages only show
+// it), so the result never depends on the pace, the machine or the effects.
+
+import { prefill } from "../../sim/prefill";
+import type { WarmState } from "../../sim/preview";
+import { WaterSim } from "../../sim/water";
+import { snapshotMap, type FullForceMap } from "../force";
+import { clamp } from "../random";
+import { trimRock } from "../rock";
+import { modelOf, respectKeep, type Finalize, type ForceCue, type StagedRun } from "../runs";
+import { sizeOf, Valley, type GlaciateIntent, type GlaciateSettings } from "./model";
+import { planGlaciate, type GlaciatePlan } from "./plan";
+
+/** Steps of its advance and its retreat (ten a second: three seconds, then two). */
+export const ADVANCE_STEPS = 30;
+export const RETREAT_STEPS = 20;
+
+/** A planning step's budget (ms): at least one slice, then more while they fit. */
+const PLAN_MS = 30;
+
+export class GlaciateRun implements StagedRun {
+  readonly verb = "glaciate" as const;
+  map: FullForceMap;
+  steps = 0;
+  finalize: Finalize | null = null;
+  private plan0: GlaciatePlan | null = null;
+  private readonly slices: Generator<void, GlaciatePlan, void>;
+  private stage = 0;
+  private ended = false;
+  private sim: WaterSim | null = null;
+
+  constructor(
+    readonly before: FullForceMap,
+    readonly settings: GlaciateSettings,
+    readonly intent: GlaciateIntent,
+    private readonly keep: Uint8Array | null = null,
+    valley?: Valley,
+  ) {
+    this.map = snapshotMap(before);
+    // (its settings and gesture are checked now: a bad one never starts)
+    this.slices = planGlaciate(before, settings, intent, valley);
+  }
+
+  get done(): boolean {
+    return this.ended;
+  }
+  get reason(): string {
+    return this.ended ? "done" : "";
+  }
+  get planned(): boolean {
+    return this.plan0 !== null;
+  }
+  /** The plan, once made (the effects' ice follows its stations). */
+  get plan(): GlaciatePlan | null {
+    return this.plan0;
+  }
+
+  /** Plan within the budget; true once planned. */
+  private planFor(budgetMs: number): boolean {
+    if (this.plan0) return true;
+    const t0 = performance.now();
+    for (;;) {
+      const r = this.slices.next();
+      if (r.done) {
+        this.settle(r.value);
+        return true;
+      }
+      if (performance.now() - t0 > budgetMs) return false;
+    }
+  }
+
+  /** The plan's last touches: the ground a force leaves as it is (the layer showing, caves, outside
+   *  the working area), the build's own (its integrity pass), and the water on what is kept. */
+  private settle(p: GlaciatePlan): void {
+    const m = p.map;
+    trimRock(m);
+    respectKeep(this.before, m, this.keep);
+    this.finalize?.(m);
+    // (the tarn keeps only the tiles still at its floor)
+    const r = p.retained;
+    const keepAt = r.tiles.map((i, k) => m.heights[i] === r.floor[k]);
+    if (keepAt.some((k) => !k)) p.retained = { tiles: r.tiles.filter((_, k) => keepAt[k]), floor: r.floor.filter((_, k) => keepAt[k]), depth: r.depth.filter((_, k) => keepAt[k]), contamination: r.contamination.filter((_, k) => keepAt[k]) };
+    m.water = prefill({ ...modelOf(m), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });
+    this.plan0 = p;
+  }
+
+  step(): void {
+    if (this.ended) return;
+    this.steps++;
+    if (!this.plan0) {
+      this.planFor(PLAN_MS);
+      return;
+    }
+    this.stage++;
+    this.show(this.stage);
+    if (this.stage >= ADVANCE_STEPS + RETREAT_STEPS) this.ended = true;
+  }
+
+  /** Plan all of it at once (tests). */
+  planAll(): this {
+    this.planFor(Infinity);
+    return this;
+  }
+
+  finishAll(): this {
+    this.planAll();
+    while (!this.ended) this.step();
+    return this;
+  }
+
+  final(): FullForceMap | null {
+    return this.plan0?.map ?? null;
+  }
+
+  /** The land at `stage` of the two acts (the investigation's reveal): under the advancing ice each
+   *  tile takes its final level as the front passes it; the water already there keeps its surface
+   *  over the ground the ice changes; in the retreat the valley's own water shows behind the melting
+   *  front. The last stage is the plan's map itself. */
+  private show(stage: number): void {
+    const p = this.plan0!;
+    const total = ADVANCE_STEPS + RETREAT_STEPS;
+    if (stage >= total) {
+      this.map = snapshotMap(p.map);
+      this.sim = null;
+      return;
+    }
+    const b = this.before;
+    const f = p.map;
+    const m = snapshotMap(b);
+    const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
+    const retreat = clamp((stage - ADVANCE_STEPS) / RETREAT_STEPS, 0, 1);
+    const retreating = stage > ADVANCE_STEPS;
+    for (let i = 0; i < m.heights.length; i++) {
+      if (p.arrival[i] > advance) continue;
+      m.heights[i] = f.heights[i];
+      m.lava[i] = f.lava[i];
+      if (retreating && p.arrival[i] >= 1 - retreat) {
+        m.water.depth[i] = f.water.depth[i];
+        m.water.contamination[i] = f.water.contamination[i];
+      } else m.water.depth[i] = b.water.depth[i] > 0.01 ? Math.max(0, b.water.depth[i] + b.heights[i] - m.heights[i]) : 0;
+    }
+    const W = m.W;
+    const final = new Map(f.entities.map((e) => [e.id, e]));
+    m.entities = m.entities.flatMap((e) => {
+      const i = e.y * W + e.x;
+      if (p.arrival[i] > advance) return [e];
+      return final.has(e.id) ? [structuredClone(final.get(e.id)!)] : [];
+    });
+    if (retreating) {
+      const had = new Set(b.entities.map((e) => e.id));
+      m.entities.push(...f.entities.filter((e) => !had.has(e.id)).map((e) => structuredClone(e)));
+    }
+    const ids = new Set(m.entities.map((e) => e.id));
+    m.fallen = f.fallen.filter((g) => ids.has(g.id));
+    this.map = m;
+    this.sim = null;
+  }
+
+  cue(): ForceCue {
+    const p = this.plan0;
+    const o = this.intent.origin;
+    const W = this.before.W;
+    const total = ADVANCE_STEPS + RETREAT_STEPS;
+    const phase = this.ended ? "done" : !p ? "gather" : this.stage <= ADVANCE_STEPS ? "advance" : "retreat";
+    // its front: the station the ice has reached (while it gathers, where it was asked)
+    const front = p ? p.path[Math.max(0, p.path.findIndex((q) => q.s >= Math.min(1, this.stage / ADVANCE_STEPS)))] : null;
+    const x = front ? front.x - 0.5 : o % W;
+    const y = front ? front.y - 0.5 : Math.floor(o / W);
+    return {
+      verb: "glaciate",
+      phase,
+      progress: p ? this.stage / total : 0,
+      x,
+      y,
+      z: this.before.heights[clamp(Math.round(y), 0, this.before.H - 1) * W + clamp(Math.round(x), 0, W - 1)],
+      size: sizeOf(this.settings),
+      power: this.settings.power,
+      glaciate: {
+        seconds: p ? this.stage / 10 : 0,
+        ...(p ? { path: p.path.map((q) => ({ x: q.x, y: q.y, s: q.s, r: q.r, floor: q.floor })) } : {}),
+      },
+    };
+  }
+
+  liveWater(): WarmState {
+    const m = this.map;
+    this.sim ??= new WaterSim(modelOf(m), m.water);
+    const sim = this.sim;
+    return { model: modelOf(m), water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+  }
+}

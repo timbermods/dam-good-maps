@@ -25,8 +25,9 @@ import { transportRock, trimRock } from "./rock";
 export interface ForceCue {
   verb: Verb;
   /** incoming (an impactor falling), impact, rumble (the ground stirring), rise (a volcano
-   *  swelling), crack (a fault breaking), slide (a block moving), carve (a river cutting), done. */
-  phase: "incoming" | "impact" | "rumble" | "rise" | "crack" | "slide" | "carve" | "done";
+   *  swelling), crack (a fault breaking), slide (a block moving), carve (a river cutting), gather (ice
+   *  gathering), advance and retreat (a glacier's two acts), done. */
+  phase: "incoming" | "impact" | "rumble" | "rise" | "crack" | "slide" | "carve" | "gather" | "advance" | "retreat" | "done";
   /** 0–1 through the event's stages. */
   progress: number;
   /** Its focus: a tile and the level there. */
@@ -43,11 +44,13 @@ export interface ForceCue {
   erupt?: { vents: Point[]; radius: number; fissure: boolean; line: Point[] };
   /** A quake: its crack as it runs, and whether it slides. */
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
+  /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
+  glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
 }
 
 /** A staged force as the worker drives it. */
 export interface StagedRun {
-  readonly verb: "craterize" | "erupt" | "quake";
+  readonly verb: "craterize" | "erupt" | "quake" | "glaciate";
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;

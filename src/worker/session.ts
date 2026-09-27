@@ -80,6 +80,8 @@ import { geology, nextSeed } from "../core/forces/random";
 import { forceParamsOf, pathRecord } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
+import { GlaciateRun } from "../core/forces/glaciate/run";
+import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth } from "../core/features/raster/brush";
@@ -1734,6 +1736,7 @@ export type ForceRequest = (
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
+  | { verb: "glaciate"; settings: GlaciateSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
 ) & {
   /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the land
    *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
@@ -1744,7 +1747,7 @@ export type ForceRequest = (
 /** A carve to start: the carve's own request (kept for the carve's calls). */
 export type CarveRequest = Omit<Extract<ForceRequest, { verb: "carve" }>, "verb">;
 
-export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings;
+export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
 
 /** The last stretch of a force's course (the effects' muddy ribbon, the camera). */
@@ -2010,6 +2013,14 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         staged.finalize = buildTouches(state, base.heights);
         break;
       }
+      case "glaciate": {
+        // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
+        map = stagedForceMap(base);
+        const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
+        staged = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) }, keep);
+        staged.finalize = buildTouches(state, base.heights);
+        break;
+      }
       case "quake": {
         map = stagedForceMap(base);
         const run = new QuakeRun(map, req.settings, { path: req.path, side: req.side }, keep);
@@ -2058,7 +2069,7 @@ export function forceAgain(): ForceStarted {
   const s = need();
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
-  sr.nextSeed = nextSeed(sr.nextSeed);
+  sr.nextSeed = sr.request.verb === "glaciate" ? glaciateNextSeed(sr.nextSeed) : nextSeed(sr.nextSeed);
   const req = { ...sr.request, settings: { ...sr.request.settings, seed: sr.nextSeed }, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
@@ -2198,6 +2209,10 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
       const r = f.staged as QuakeRun;
       return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path), side: r.intent.side } };
     }
+    case "glaciate": {
+      const r = f.staged as GlaciateRun;
+      return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}) } };
+    }
     default:
       throw new Error("a carve keeps its own record");
   }
@@ -2236,6 +2251,8 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!after) return refused(["Nothing changed"]);
     params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
+    // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246)
+    if (r instanceof GlaciateRun && r.plan) params = { ...params, ...glacierSprings(f.before, after, r.plan.retained) };
     water = r.liveWater();
   }
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
@@ -2270,6 +2287,21 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
 }
 
 export const carveStop = forceStop;
+
+/** The springs a glacier added and the tarn it keeps, as its operation keeps them. */
+function glacierSprings(before: FullForceMap, after: FullForceMap, lake: { tiles: readonly number[]; floor: readonly number[]; depth: readonly number[]; contamination: readonly number[] }): Pick<ForceResultParams, "sources" | "lake"> {
+  const had = new Set(before.entities.map((e) => e.id));
+  const sources = after.entities
+    .filter((e) => !had.has(e.id) && e.template === "WaterSource")
+    .map((e) => {
+      const ws = ({ ...(e.before ?? {}), ...e.components } as { WaterSource?: { SpecifiedStrength?: unknown } }).WaterSource;
+      const raw = ws?.SpecifiedStrength;
+      const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 0);
+      return { id: e.id, x: e.x, y: e.y, strength };
+    })
+    .filter((q) => q.strength > 0);
+  return { ...(sources.length ? { sources } : {}), ...(lake.tiles.length ? { lake: { tiles: [...lake.tiles], floor: [...lake.floor], depth: [...lake.depth], contamination: [...lake.contamination] } } : {}) };
+}
 
 /** A force's result eased to the working area's edge (D254): a tile changes at most as many levels as
  *  it is steps inside the area (`inside`, 0 outside it), so the edit meets the locked land a level a

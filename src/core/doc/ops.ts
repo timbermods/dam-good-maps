@@ -317,10 +317,8 @@ function forceEntityEdits(op: ForceOp): EntityOp[] {
     for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
     for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
   }
-  if (p.source) {
-    const s = p.source;
-    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
-  }
+  const springs = [...(p.source ? [p.source] : []), ...(op.op === "forceResult" ? (op.params.sources ?? []) : [])];
+  for (const s of springs) out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
   return out;
 }
 
@@ -647,9 +645,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];
       }
       for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
-      if (p.source) {
-        if (!GUID.test(p.source.id)) return [`${p.source.id} is not a lowercase GUID`];
-        if (ctx.entityIds.has(p.source.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.source!.id)) return [`an entity with the Id ${p.source.id} already exists`];
+      for (const q of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+        if (!GUID.test(q.id)) return [`${q.id} is not a lowercase GUID`];
+        if (ctx.entityIds.has(q.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === q.id)) return [`an entity with the Id ${q.id} already exists`];
       }
       if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no force ${p.replaces} to try another for`];
       return [];

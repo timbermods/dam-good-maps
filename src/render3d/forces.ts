@@ -34,7 +34,7 @@ import { JUICE } from "./palette";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
 export interface ForceMoment {
-  verb: "carve" | "craterize" | "erupt" | "quake";
+  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate";
   phase: string;
   progress: number;
   x: number;
@@ -45,6 +45,7 @@ export interface ForceMoment {
   crater?: { a: number; b: number; angle: number; glance: number; radius: number; datum: number };
   erupt?: { vents: { x: number; y: number }[]; radius: number; fissure: boolean; line: { x: number; y: number }[] };
   quake?: { path: { x: number; y: number }[]; slide: boolean; side: 1 | -1 };
+  glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
 }
 
 const css = (c: readonly number[]) => "rgb(" + c.map((v) => Math.round(v * 255)).join(",") + ")";
