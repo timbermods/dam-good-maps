@@ -12,12 +12,17 @@
 >   2. **The 3D pre-fill and the canonical settle in slices** (`sim/stackPrefill.ts`), with a progress share for
 >      the page. On heightfields they give today's numbers bit for bit (the pre-fill; in port mode the settle's
 >      ticks, depth, contamination and saturation; sealed basins included).
-> - **Next:** 3. soil per run top (`sim/soil3d.ts`); 4. the multi-slot writer; 5. the support check
->   (`terrain/support.ts`); 6. T1–T6 and the probe group; 7. golden fixtures. See "Next" below.
-> - **Open, with the coordinator for Kyler:** game mode on generated heightfields is outside ROADMAP 3D-a's band
->   on 1 of 30 maps (Highlands seed 3; see "Findings"). D293 (one water model everywhere, the game's) is
->   being recorded; until the wiring step, heightfield water stays exactly as it is (game mode off the
->   heightfield path).
+>   3. **Soil moisture and contamination per run** (`sim/soil3d.ts`), two modes. "port" gives `moisture.ts`'s and
+>      `contamination.ts`'s numbers bit for bit on heightfields (18 generated maps, the test). "game" runs the
+>      game's own per-tick soil rules to their fixed point: on the 19 official maps it has no moist/dry
+>      disagreement with their stored soil and matches 99.79–100% of slots (layered slots 99.5–100%).
+> - **Next:** 4. the multi-slot writer; 5. the support check (`terrain/support.ts`); 6. T1–T6 and the probe
+>   group; 7. golden fixtures. See "Next" below.
+> - **With the coordinator for Kyler:** (a) D295's acceptance line holds on 29 of 30 generated maps; Highlands
+>   seed 3 has one tile outside it on a strict reading (see "Findings"). (b) Soil: today's heightfield model keeps
+>   some land moist that the game keeps dry (114 of 36,453 plants on 18 generated maps stand on it); adopting
+>   game-mode soil, like D293 for water, is Kyler's call at the wiring step. Until then nothing that runs today
+>   changes: game mode (water and soil) stays off the heightfield path.
 
 ## Next
 
@@ -25,16 +30,7 @@ In this order, each a new module beside the existing code until the wiring step:
 
 1. ~~**The fast path.**~~ Done (see the state above).
 2. ~~**The 3D pre-fill and canonical settle.**~~ Done. `proto/prefill3d.ts`'s no-op `port` flag was dropped.
-3. **Moisture and contamination per run top**, new `sim/soil3d.ts`: nodes are the game's terrain columns (run 0
-   always present, empty when the bottom voxel is air, so the slot layout matches `SoilMoistureSimulator`). The
-   formulas are in the decompiled `MoistureCalculationTask.CalculateMoistureForCell` and
-   `SoilContaminationSimulator`'s `GetContaminationCandidate`: own water (the column whose floor is the run top,
-   2·sat); a full column directly under the run (range − 6·(thickness − 1); contamination 2(c − 0.5) −
-   (5/7)(thickness − 1)); the topmost wet column at or below the run top on each 4-neighbour; spread from
-   8-neighbour runs whose [floor, ceiling] overlaps (both ends inclusive), 1 or 1.414 (1/7, √2/7 for
-   contamination) plus 6 (5/7) per level up less the neighbour's water depth there (contamination: no depth
-   credit). On a heightfield it must equal `moisture.ts` and `contamination.ts`; check it against the official
-   cave maps' stored slots (at least 18 of 19).
+3. ~~**Moisture and contamination per run top.**~~ Done (see the state above and "Findings").
 4. **The multi-slot writer**, a new function beside `settledSimulationSingletons` (or its own file):
    `WaterMapNew.Levels` = the most columns, tokens per (slot, tile) `depth:contamination:overflow:floor:depth`,
    `WaterEvaporationMap` with the same levels, soil with `Size` = the most terrain columns
@@ -52,17 +48,33 @@ In this order, each a new module beside the existing code until the wiring step:
 
 ## Findings
 
-- **Game mode moves one generated map's water past the band (2026-09-27).** At the canonical settle, game mode
-  against today's heightfield water on 30 generated maps (six themes, seeds 1–5, 128²): 29 are within ROADMAP
-  3D-a's band (no wet tile differs, the largest depth change 0.033). **Highlands seed 3** is not: 94 wet tiles
-  differ, 1 tile moves by 0.05 or more, and the largest change is 0.051. The cause is a 5 cm sheet on flat ground
-  at floor 3 (tiles about x 95–105, y 45–61). Today it stands at 0.049, just under the 0.05 wet line; game mode's
-  rules (mostly evaporation on a dry tile that receives water) spread it differently, 0.054 on some tiles and 0 on
-  others. The volume moves by 0.02%. It is a thin sheet flipping across the wet line, not a changed river or lake,
-  but it conflicts with the acceptance line "no wet tile differs"; the coordinator has put it to Kyler.
+- **Game-mode water on generated maps, against D295's line (2026-09-27).** D295 (Kyler): a tile may change
+  between wet (deeper than 0.05) and dry only where its depth is within 0.01 of the wet line (0.04–0.06), and
+  the map's water volume stays within 0.1%. At the canonical settle, game mode against today's heightfield
+  water on 30 generated maps (six themes, seeds 1–5, 128²): 29 have no tile changing between wet and dry, and
+  every volume moves by at most 0.058%. **Highlands seed 3** has 94 such tiles: a 5 cm sheet on flat ground at
+  floor 3 (tiles about x 95–105, y 45–61) that today stands at 0.049, just under the wet line, and game mode's
+  rules (mostly evaporation on a dry tile that receives water) spread differently. 93 of the 94 have both depths
+  within 0.04–0.06; one, (105, 53), goes from 0.000 today to 0.0512. So the map passes the line if "its depth"
+  is the new depth, and fails by that one tile if both depths must lie in the band (the volume moves 0.016%).
   Reproduce: `npx tsx tools/stack-band.ts --seeds 3-3 --themes highlands --list` (the whole sample:
-  `npx tsx tools/stack-band.ts`, about 5 minutes). The same run also checks that port mode equals today on every
-  map (it does, 30 of 30).
+  `npx tsx tools/stack-band.ts`, about 5 minutes). The same run checks that port mode equals today on every map
+  (30 of 30).
+- **Soil: today's heightfield model against the game's rules (2026-09-27).** On the 19 official maps' own water,
+  today's `moisture.ts` matches their stored moisture on 87–99.8% of top slots (0.001), and `soil3d` in port mode
+  as well or better (it adds the cave rules). The misses are three approximations in the heightfield modules: a
+  contaminated wet tile spreads its value before its water's (1 − c) applies, so moisture leaks through a
+  badwater stream (Hollows' cave floors beside badwater: stored 0, today's model up to 5.9); a diagonal step
+  costs √2 where the game's costs 1.414; clean water's own 2·sat is scaled by (1 − c). `soil3d`'s game mode runs
+  the game's own per-tick task (float32, its rates) from dry soil to its fixed point, and matches the stored
+  soil on all 19 (no moist/dry disagreement; 99.79–100% of slots within 0.001, layered 99.5–100%, contamination
+  99.94–100%). On 18 generated maps (six themes, seeds 1–3) game-mode soil turns 0–376 tiles a map from moist to
+  dry, never the other way; 114 of the maps' 36,453 plants stand on such tiles, where the game would dry them.
+  `builtin_09` (a test map outside the 19) stores unsettled soil and matches neither model.
+- **The canonical settle on the official maps** (game mode, up to 6 days) reproduces their stored water as the
+  investigation measured: IoU of wet columns 0.99 or more on 17 of 19 (13 at 1.000, Canyon 0.998, Pillars 0.998,
+  Meander 0.991, HelixMountain 0.990), and Spillage 0.59 and Oasis 0.21, whose stored water comes from seeps and
+  aquifers. One day from each map's own water keeps it (IoU 1.000, HelixMountain 0.999).
 - **The fast path is exact by construction, with one guard.** On a fast column the general arithmetic reduces
   exactly (no overflow on an open column, so the pressure terms are +0 and the head difference is the surfaces');
   the comparisons against the ceiling 34 keep their sign only while surfaces stay below 33, so the fast path hands
@@ -101,4 +113,5 @@ In this order, each a new module beside the existing code until the wiring step:
 - **2026-09-27 (build-xhigh).** Merged `origin/dev`; opened draft PR #71. Step 1, the fast path (commit db6c149):
   `StackSim`'s per-column fast path, `stackModel`, `openFieldModel`, `setMomentum`, an exact rewrite of the game
   mode's scale step; tests. Step 2, the 3D pre-fill and the settle in slices (35911f1). `tools/stack-band.ts` and
-  the Highlands finding.
+  the Highlands finding (ee1a77d), measured against D295's line since. Step 3, soil per run in two modes
+  (ef1d758).
