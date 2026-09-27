@@ -59,9 +59,10 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-8. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
-   the ceiling (D244 step 2) is built too (73809c2). The preview for your sitting goes up with Glaciate's adoption. Your answers on its
-   two questions are D299 (the generator page's Moist soil switch stays for now; Quake's Left/Right stays gone).
+8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
+   on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
+   Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
+   painting stutter after tall edits is fixed. (The water bar still shows Speed: the day-by-day branch, with its own sitting, removes it.)
 9. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
 10. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
@@ -74,7 +75,7 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
 
 None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
 
-### Your checklist for the forces sitting (on the preview once D249, D257–D260 and the ceiling are built)
+### Your checklist for the forces sitting: on the preview now (`feature/glaciate` at 86b4ca16: the forces and Glaciate)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
 1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
