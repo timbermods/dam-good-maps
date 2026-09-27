@@ -942,6 +942,9 @@ they conflict):
      Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
+   - **Unleash, on a source** (D239, with or right after the forces round 2): a selected source's small Unleash action
+     (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; drag to aim;
+     strength sets width, a quick Power sets how hard it cuts; Try another; one undo step; Esc stops it.
    - **Water is never an object** (D196): no river selection, panel or deletion; flow and clean or
      bad belong to sources; generated rivers are their sources and land. Hovering water shows its
      depth, bed level and contamination, and highlights the sources feeding it.

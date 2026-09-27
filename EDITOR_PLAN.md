@@ -149,6 +149,13 @@ Make a valley, drop a source, and there's a river.
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196).
+- **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
+  small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
+  downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
+  the water would spill over (its rim's lowest point) and carves on. Drag from the source to a point to aim it. The source's
+  strength sets the width, a quick **Power** beside it sets how hard it cuts, the rest is Carve's defaults (one click);
+  **Try another** re-rolls the course. The source stays the river's origin; one undo step; Esc stops it. The Carve tool
+  stays as it is.
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
