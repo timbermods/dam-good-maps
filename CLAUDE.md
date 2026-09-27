@@ -100,8 +100,8 @@ text.
     `look-mine-ruins-done`; waterfalls `look-waterfalls-done`;
   - Map look 2 (after the Map quality checkpoint, before the Frame pass) is tagged `map-look-2-done`;
   - the Frame pass (after Map look 2, before the 3D stages) is tagged `frame-pass-done`;
-  - the 3D terrain stages (after the Frame pass, before M10) are tagged `3d-a-done`, `3d-b-done` and `3d-c-done`;
-  - the Weather view (after the 3D stages, before M10) is tagged `weather-view-done`.
+  - the 3D terrain stages (after the Frame pass, before the Weather view) are tagged `3d-a-done`, `3d-b-done` and `3d-c-done`;
+  - the Weather view (after the 3D stages, before the refinement phase) is tagged `weather-view-done`.
 - When dev changes `deploy.yml`, keep its noindex step.
 - The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`
   (Live editing's preview, refreshed after every iteration). Small changes to the deploy workflow itself are
