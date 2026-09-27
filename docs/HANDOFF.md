@@ -18,6 +18,19 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 Nothing is running: every agent stopped at a clean point with everything pushed. The summary for Kyler is at the top of
 `docs/STATUS.md`.
 
+**The editor is where the magic happens; the generator provides the canvas** (D282). M9a keeps the machine first until
+its own release; after that, the editor's work and M9b share it. Getting the forces to the preview for Kyler's sitting,
+and then released, comes first among the work waiting for him.
+
+**Until Kyler's Claude allowance resets, Tuesday 2026-09-29 8:00 PDT (D286):** more runs in parallel than D282 alone
+would allow, each on its own branch and worktree (§2) so no piece redoes another's work: M9a keeps running (`m9a-build`);
+the forces queue, the Drought and Badtide day strip, the Real places water fix and the Erode investigation keep running
+(`build`); M9b starts now, on its own branch from `feature/m9a`'s frozen generator (`m9b-build`); the 3D stacked-column
+water engine starts now, new modules only, on `build-xhigh` until the lapse, then `build`; the High look adoption starts
+now (`build`); housekeeping runs on its own branch (`routine`); the milestone session keeps orchestrating, merging and
+sequencing the machine. Heavy batches still run one at a time, M9a first; if M9a's review set or probe batch is delayed,
+M9b or the High look pauses first. Nothing is released or merged into `dev` without Kyler's yes.
+
 1. **M9a** (`m9a-build`, `feature/m9a` at 0f70fcb, #56), now under D252: merge `dev` in; build the start planting
    spread over the 20-tile walk, reading the land (D252 (1)); re-freeze the generator; finish the Normal batches (96²;
    128² Any, Canyon, Highlands, Lake Basin, Delta, Islands; 192² Lake Basin, Delta, Islands; about 1.5 hours; the
@@ -63,8 +76,12 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
 8. **M9b** (`m9b-build`, xhigh, D262; M9c removed and folded into M9b, D278; `m9-build` stays defined but unused) in
    parallel with 7, taking the machine first (D236); read `docs/PERFECT.md` and D252 and D273–D278 first (D225): rewritten
    around D273's five outcomes, judged by Kyler's eye.
-9. **The Map look work** (`build`) when ROADMAP's order reaches Map look 2: the High look from #38, #65, #66 and #67 (D241,
-   D242, D250). Then the rest of `ROADMAP.md`.
+9. **The High look adoption (Map look 2)** (`build`, `feature/high-look`), moved up to right after the forces' release,
+   alongside item 7 (D284; starting now under D286 (4)): #38, #65, #66 and #67 (D241, D242, D250), with the Frame pass's
+   touch-up folded in (D283 (2)); High becomes the default where it runs smoothly, with a fallback to Standard, measured
+   on this machine's RTX 2070 SUPER. Visible seasons waits for item 4 (Drought and Badtide) to merge (D286 (4)). Then the
+   rest of `ROADMAP.md`, including the four terrain-above-terrain steps (D279–D281) and housekeeping (D283 (3)) — no
+   longer a Frame pass, Map quality checkpoint or refinement-phase milestone (D283).
 
 **Held:** Glaciate (#69, D246: Kyler and Codex are in another round; merge only when he says it's ready); #54 (inside M9a).
 
@@ -84,6 +101,13 @@ Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clon
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | 33f7050 | D245 rebuild done, new review sheet posted; waits for Kyler |
 | Glaciate (Codex) | `investigation/glaciate` | #69 | none | f63e4ae | held (D246) |
 | Badwater on every map (D200) | `feature/badwater-source` | #54 | none | 5b1f3d6 | held, inside M9a (D213) |
+| M9b, composition and variety | `feature/m9b` | none | `DamGoodMaps-m9b` | — | starting from `feature/m9a`'s frozen generator, D273–D278 (D286 (2)) |
+| The High look adoption | `feature/high-look` | none | `DamGoodMaps-high` | — | Map look 2, moved up right after the forces' release (D284); starting now (D286 (4)) |
+| Housekeeping | `chore/housekeeping` | none | `DamGoodMaps-house` | — | #91 and D283 (3)'s small items; merges early so other branches pick it up (D286 (5)) |
+| Terrain above terrain, step 1 (Foundations) | `feature/terrain3d-a` | none | `DamGoodMaps-3d` | — | new modules only for now: the stacked-column water engine and the support-rule check (D286 (3)) |
+| Erode (built by the session, not Codex) | `investigation/erode` | none | `DamGoodMaps-erode` | — | held, like the other forces' investigations, until Kyler has tried it (D281) |
+| Drought and Badtide day by day | `feature/weather-days` | none | `DamGoodMaps-weather` | — | based on `feature/forces`; owns the water bar's day strip (D267) |
+| Kyler's review worktree | (not a work branch) | — | `DamGoodMaps-review` | — | where Kyler tries a branch before saying yes; not written to by any agent |
 
 Finished, removable when convenient: `DamGoodMaps-live`, `DamGoodMaps-waterfalls`, `DamGoodMaps-fixes`,
 `DamGoodMaps-nightly` and `DamGoodMaps-carve-check` (all merged). `main` is at a73b4b8 (`look-waterfalls-done`).
@@ -237,7 +261,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   forces core if it has landed; hook the sounds into Live editing (on by default, quiet, with an off switch) and show them on
   the preview.
 - **Pending decisions:** `docs/decisions-pending.md`'s #66 (the candidate intentions) is settled (D274). All are decided.
-- **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types/node 26), for the refinement phase (D150).
+- **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types/node 26), for a quiet housekeeping slot (D150, D283).
 
 ## 7. How things are run here
 
@@ -286,10 +310,11 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   | Work | Definition | Model, effort |
   |---|---|---|
   | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
-  | M9b, composition and variety (D262, D278) | `m9b-build` | Opus 5.5, xhigh |
+  | M9b, composition and variety (D262, D278, D286 (2)) | `m9b-build` | Opus 5.5, xhigh |
   | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
-  | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246) | `build` | Opus 5.5, high |
-  | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps | `routine` | Sonnet 5, medium |
+  | **Temporary, until Tuesday 2026-09-29 8:00 PDT (D286 (3)):** the 3D stacked-column water engine (step 1 of terrain above terrain) | `build-xhigh` | Opus 5.5, xhigh |
+  | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246), the Drought and Badtide day strip (D267), the Erode investigation (D281), and — once `build-xhigh` lapses — the 3D water engine's conversion work (D286 (3)) | `build` | Opus 5.5, high |
+  | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps, housekeeping (D283 (3), D286 (5)) | `routine` | Sonnet 5, medium |
   | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
 
 
