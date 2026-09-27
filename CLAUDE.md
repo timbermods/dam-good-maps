@@ -52,8 +52,9 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
   log. No need to ask first. Never weaken a test to make it pass.
 - Dependency updates: merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte
   checks catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future
-  major) for a deliberate upgrade step at a quiet time, such as the refinement phase, with the full nightly suite;
-  never mid-milestone. Dependabot groups its updates into one weekly pull request per ecosystem.
+  major) for a deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; PLAN
+  §20 D283), with the full nightly suite; never mid-milestone. Dependabot groups its updates into one weekly pull
+  request per ecosystem.
 
 ## Writing README and website text
 
@@ -82,8 +83,8 @@ text.
 - After every deploy, the live check (`.github/workflows/live-check.yml`) must pass. It runs after each deploy and
   daily; `gh workflow run live-check.yml --ref main` runs it by hand. If it fails, revert the release merge on
   `main`, confirm the old site is back, and report.
-- The site stays noindex and unannounced until launch. Launch needs versioned deploys (M13) and Kyler's go-ahead;
-  then set the repository variable `DGM_PUBLIC` to `true`.
+- The site stays noindex and unannounced until launch. Launch needs versioned deploys (moved to Later, PLAN §20
+  D285) and Kyler's go-ahead; then set the repository variable `DGM_PUBLIC` to `true`.
 - Steps outside the milestones are released the same way:
   - the design pass (straight after Kyler's editor UI audit of the combined page, D236) is tagged `design-done` once Kyler has
     approved and merged it on `dev`;
@@ -93,15 +94,19 @@ text.
   - Live editing is tagged `live-editing-done` once Kyler says it feels right; its preview is built from its
     branch into `/preview/` (noindex) by the deploy workflow;
   - Save to Timberborn is tagged `save-to-timberborn-done`, and Pick a place `pick-a-place-done`;
-  - the refinement phase is tagged `refinement-done` (D236, D238);
   - the start and edge rules are tagged `start-edge-rules-done`; the Real places second round
     `real-places-2-done`; contaminated ground as a layer `look-contamination-done`, once Kyler approves it;
   - the Map look fixes, once Kyler approves each: badwater blending `look-badwater-done`; mine sites and ruins
     `look-mine-ruins-done`; waterfalls `look-waterfalls-done`;
-  - Map look 2 (after the Map quality checkpoint, before the Frame pass) is tagged `map-look-2-done`;
-  - the Frame pass (after Map look 2, before the 3D stages) is tagged `frame-pass-done`;
-  - the 3D terrain stages (after the Frame pass, before the Weather view) are tagged `3d-a-done`, `3d-b-done` and `3d-c-done`;
-  - the Weather view (after the 3D stages, before the refinement phase) is tagged `weather-view-done`.
+  - Map look 2 (the High look; right after the forces' release, alongside "The page is the editor"; folds in the
+    Frame pass's touch-up, PLAN §20 D283–D284) is tagged `map-look-2-done`;
+  - the four terrain-above-terrain steps (PLAN §20 D279–D281, D286; ROADMAP.md, "Terrain above terrain"): 1
+    Foundations `3d-foundations-done`, 2 the view `3d-view-done`, 3 creating them `3d-creating-done`, 4
+    generation `3d-generation-done`;
+  - the Weather view (after the 3D steps; slimmed to the drought line and a map-card line, PLAN §20 D285) is
+    tagged `weather-view-done`;
+  - the refinement phase is cut (PLAN §20 D283): its remaining items are housekeeping, released with whatever
+    step ships them, no tag of its own.
 - When dev changes `deploy.yml`, keep its noindex step.
 - The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`
   (Live editing's preview, refreshed after every iteration). Small changes to the deploy workflow itself are
