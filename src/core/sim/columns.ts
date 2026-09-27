@@ -202,6 +202,67 @@ export function waterColumns(t: VoxelMasks, objects: readonly MapObject[]): Wate
   return { W, H, N, L, count, floor, ceil, heightLimit, dirLimit };
 }
 
+/** The game's terrain columns (`ColumnTerrainMap.LoadColumns`): the solid runs of each tile
+ *  [floor, ceiling), bottom to top, where run 0 always starts at z = 0 and is empty (floor 0,
+ *  ceiling 0) when the bottom voxel is air. Soil moisture and contamination are stored per run, slot
+ *  j of tile i at j·N + i, the ceiling being the run's top (its walking surface). */
+export interface TerrainColumns {
+  W: number;
+  H: number;
+  N: number;
+  /** The most runs of any tile (the file's soil `Size`). */
+  T: number;
+  count: Uint8Array;
+  floor: Int16Array;
+  ceil: Int16Array;
+}
+
+export function terrainColumns(t: VoxelMasks): TerrainColumns {
+  const { W, H, mask } = t;
+  const N = W * H;
+  let T = 1;
+  const count = new Uint8Array(N);
+  const runs: number[][] = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const m = mask[i];
+    if ((m & (m + 1)) === 0) {
+      count[i] = 1;
+      continue;
+    }
+    const r: number[] = [];
+    let solid = true;
+    let f = 0;
+    for (let z = 0; z < TERRAIN_LAYERS; z++) {
+      if (m & (1 << z)) {
+        if (!solid) f = z;
+        solid = true;
+      } else {
+        if (solid) r.push(f, z);
+        solid = false;
+      }
+    }
+    if (solid) r.push(f, TERRAIN_LAYERS);
+    runs[i] = r;
+    count[i] = r.length / 2;
+    if (count[i] > T) T = count[i];
+  }
+  const floor = new Int16Array(T * N);
+  const ceil = new Int16Array(T * N);
+  for (let i = 0; i < N; i++) {
+    const r = runs[i];
+    if (!r) {
+      const m = mask[i];
+      ceil[i] = m === 0 ? 0 : 32 - Math.clz32(m);
+      continue;
+    }
+    for (let k = 0; k < r.length / 2; k++) {
+      floor[k * N + i] = r[2 * k];
+      ceil[k * N + i] = r[2 * k + 1];
+    }
+  }
+  return { W, H, N, T, count, floor, ceil };
+}
+
 /** The slot of the column that holds cell z of tile i, or −1 (inside terrain or an obstacle). */
 export function slotAt(wc: WaterColumns, i: number, z: number): number {
   for (let k = 0; k < wc.count[i]; k++) {
