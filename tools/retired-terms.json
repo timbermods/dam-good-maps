@@ -24,7 +24,10 @@
     { "term": "make walkable", "retired": "D247", "instead": "the shelf's Slope and Flatten's ramped edges" },
     { "term": "regenerate area", "retired": "D253", "instead": "the working area (D254): the player protects what they like and keeps shaping the rest with the same tools" },
     { "term": "Stamps and symmetry", "retired": "D253", "instead": "the forces reshape land instead; symmetry is not planned" },
-    { "term": "symmetric layout", "retired": "D253", "instead": "not planned; the forces make dramatic land far better" }
+    { "term": "symmetric layout", "retired": "D253", "instead": "not planned; the forces make dramatic land far better" },
+    { "term": "More like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
+    { "term": "Less like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
+    { "term": "A-or-B", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

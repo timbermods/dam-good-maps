@@ -2,7 +2,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D268) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D286) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9), with Kyler away.
@@ -49,7 +49,7 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    brush level and stop, brushes.ts's layer-cut raise and precise hold, `forceCeiling`; merge `chore/ceiling-probe`'s tool;
    the tall note in plain words). Then deploy the preview from `feature/forces` and tell Kyler: his checklist for the
    sitting is in STATUS. Not released until he has tried it. The top note of `docs/progress/forces.md` has the detail.
-4. **Drought and Badtide day by day** (D267, D268; `build`; its own branch, `feature/weather-days`): based on `feature/forces`
+4. **Drought and Badtide day by day** (D267, D268, D269: an edit ends the view; `build`; its own branch, `feature/weather-days`): based on `feature/forces`
    once the forces' water and camera work (D260, D265, D266) is pushed, so it doesn't conflict with them; it owns the water
    bar (the Speed control moves to the day strip). Merged separately, after the forces; on the preview for a sitting of
    its own, after Kyler's forces sitting (the preview shows one branch at a time).
@@ -60,7 +60,9 @@ Nothing is running: every agent stopped at a clean point with everything pushed.
    `real-places-2-done`. The commands are in the top note of `docs/progress/real-places.md`.
 7. **The page is the editor** (`build`; D232–D234, D237), after the forces round 2 and M9a's release, on the preview; then
    Kyler's editor UI audit, then the design pass straight after it (D236, D238).
-8. **M9b and M9c** (M9b on `m9b-build`, xhigh, D262; M9c on `m9-build`) in parallel with 7, taking the machine first (D236); read `docs/PERFECT.md` first (D225).
+8. **M9b** (`m9b-build`, xhigh, D262; M9c removed and folded into M9b, D278; `m9-build` stays defined but unused) in
+   parallel with 7, taking the machine first (D236); read `docs/PERFECT.md` and D252 and D273–D278 first (D225): rewritten
+   around D273's five outcomes, judged by Kyler's eye.
 9. **The Map look work** (`build`) when ROADMAP's order reaches Map look 2: the High look from #38, #65, #66 and #67 (D241,
    D242, D250). Then the rest of `ROADMAP.md`.
 
@@ -123,9 +125,8 @@ Its probe group is prepared: `investigation/probe` catalogue group `M9a`, 15 map
 3. **Full batches, 3–4 h:** six themes plus "Any" at 96², 128², 192² and 256², ≥ 98% final each (blocking), with the
    straightness stats.
 4. **Contact sheet and "Any" measures, ~1 h:** `docs/sheets/m9a.png` (D144, with "Any").
-5. **Claude suite re-tune, 4–6 h:** back to at least 103 of 120 (it was 81 after the maps changed). Re-tune fixtures or
-   re-express character requests as steering (D139, D187); never weaken a pass criterion; P01, F05, M02 and Z05 may recover
-   once Live editing merges (its export profile skips `water.source_in_flow` for hand-placed sources, D184).
+5. ~~**Claude suite re-tune**~~: dropped (D277). All M12 work, its preparation included, is deferred while Kyler refines
+   Dam Good Maps; the Claude suite leaves the regular checks and stays in the repository unmaintained until M12 begins.
 6. **Docs, browser tests, final CI, 2–3 h:** the e2e determinism timeout and the Islands 256² preview timeout.
 7. **D252 (before release):** the start planting spread over the 20-tile walk, reading the land (D252 (1)); then the
    review set posted on #56 (D252 (2)) and **Kyler's yes on it**, blocking; full detail in §1 item 1.
@@ -235,7 +236,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   (synthesised editor sounds). Merge each at a boundary once green and adopt it as proposals (D220): build the forces on the
   forces core if it has landed; hook the sounds into Live editing (on by default, quiet, with an off switch) and show them on
   the preview.
-- **Pending decisions:** `docs/decisions-pending.md` (#66, the candidate intentions: Kyler, later). All others are decided.
+- **Pending decisions:** `docs/decisions-pending.md`'s #66 (the candidate intentions) is settled (D274). All are decided.
 - **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types/node 26), for the refinement phase (D150).
 
 ## 7. How things are run here
@@ -249,7 +250,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; give each e2e run its own free port),
   `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
-  `npm run places -- --check`, `npx tsx investigation/claude/bin/reference.ts` (the Claude suite, D134).
+  `npm run places -- --check`. The Claude suite (`npx tsx investigation/claude/bin/reference.ts`, D134) is kept but
+  unmaintained and left out of the regular checks while M12 is deferred (D277).
 - **The preview:** `gh workflow run deploy.yml --ref main -f preview_ref=feature/live-editing`, then check
   <https://timbermods.github.io/dam-good-maps/preview/> (noindex). A normal deploy of `main` drops `/preview/`, so republish
   it after every release.
@@ -274,9 +276,9 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D269), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D287), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #84 (#80–#82 are Real places' defaults on #35's branch). **Every review is measured against
-  [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
+  [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,
   and only when it starts in `C:\Users\krams\code\DamGoodMaps`; start the milestone session there, at Opus 5.5, high.
@@ -284,8 +286,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   | Work | Definition | Model, effort |
   |---|---|---|
   | M9a, the new generator, until `m9a-done` | `m9a-build` | Opus 5.5, xhigh |
-  | M9b, composition and variety (D262) | `m9b-build` | Opus 5.5, xhigh |
-  | M9c | `m9-build` | Opus 5.5, high |
+  | M9b, composition and variety (D262, D278) | `m9b-build` | Opus 5.5, xhigh |
+  | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
   | Everything else Claude builds: the forces and Unleash, the editor changes (D235, D240, D244, D247–D249), "The page is the editor" (D232–D234, D237), the Real places rebuild (D245), the Map look adoption (D241, D242, D250), Glaciate's adoption (D246) | `build` | Opus 5.5, high |
   | Routine: tests and test fixes, nightly failures, watching CI, contact sheets, docs sweeps | `routine` | Sonnet 5, medium |
   | The milestone session itself: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
@@ -307,7 +309,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   (running processes, last commit, what's left). Some hand back before their CI finishes; check the PR yourself.
 - **Merges between steps that change generated maps** conflict on the generator version and the pinned seed-4242 sha
   (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version (0.7.0 is M9a's).
-- **The Claude suite** drifts whenever the generator changes; re-tune in the step that moves the maps (D134).
+- **The Claude suite** drifts whenever the generator changes; re-tuning it is suspended while M12 is deferred (D134, D277).
 - **Repository size** (D195): investigations commit reports, code, small samples and a few captures; bulk results stay in a
   gitignored `local/` folder or a GitHub Release. #45 added about 98 MB before the rule; history isn't rewritten.
 - **Retired terms** (`tools/retired-terms.json`, D188): CI fails if a retired name or retired interface text reappears in the
