@@ -30,6 +30,26 @@ export interface VoxelMasks {
   mask: Uint32Array;
 }
 
+/** Voxel masks from a file's voxels (layer-major, index z·N + tile, as world.ts). */
+export function voxelMasks(W: number, H: number, voxels: Uint8Array, layers = TERRAIN_LAYERS): VoxelMasks {
+  const N = W * H;
+  const mask = new Uint32Array(N);
+  for (let z = 0; z < layers && z < TERRAIN_LAYERS; z++) {
+    const bit = 1 << z;
+    const o = z * N;
+    for (let i = 0; i < N; i++) if (voxels[o + i]) mask[i] |= bit;
+  }
+  return { W, H, mask };
+}
+
+/** Voxel masks of a heightfield: tile i solid from z = 0 to its height. */
+export function heightMasks(W: number, H: number, heights: ArrayLike<number>): VoxelMasks {
+  const N = W * H;
+  const mask = new Uint32Array(N);
+  for (let i = 0; i < N; i++) mask[i] = 2 ** Math.min(TERRAIN_LAYERS, Math.max(0, heights[i])) - 1;
+  return { W, H, mask };
+}
+
 /** Water columns per tile, slot-major like the game (column id = slot·N + tile). */
 export interface WaterColumns {
   W: number;

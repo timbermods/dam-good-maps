@@ -29,9 +29,19 @@
 // direction limiters); it exists so tests can prove the ports agree bit for bit.
 //
 // Exactness: only + − × ÷, min, max and ceil (PLAN §2.1), in a fixed order, so Node and every
-// browser give the same bytes. On a map where every tile is one open column, "game" gives exactly
-// the bits of water.ts, which is the fast path the build takes for such maps (water.ts's own loops).
-// Contamination uses the port's volume-weighted mix in both modes (the game also diffuses it).
+// browser give the same bytes. Contamination uses the port's volume-weighted mix in both modes (the
+// game also diffuses it).
+//
+// The fast path (level 2; level 1, a whole map of open columns, is stackModel.ts `openFieldModel`):
+// a column is fast when its tile and the tile's 8 neighbours are each one open column [floor, 34)
+// and neither it nor its 4 neighbours hold a partial obstacle or a direction limiter (every tile of
+// a heightfield, and most of a cave map). There the general arithmetic reduces exactly: an open
+// column holds no overflow (its water would stand above 34, 12 levels over the highest terrain), so
+// the pressure terms are 0 and the head difference is the surfaces' (the guard `FAST_TOP` keeps
+// that exact to the last bit); each direction has one target column; a neighbour counts as watered
+// when its one column is wet; and its best watered count is that column's own. The edges stay as
+// they are, so momentum stays keyed per edge. It gives the general loop's bits
+// (tests/unit/stack.test.ts), at the heightfield engine's cost.
 
 import { OPEN_CEILING, type WaterColumns } from "./columns";
 
@@ -74,6 +84,16 @@ export interface StackState {
 
 /** The target of an edge into the map's padding. */
 export const SINK = -1;
+
+/** The fast path's surfaces stay below this, so its head differences are the general loop's bit for
+ *  bit (the pressure terms' comparisons against the ceiling 34 keep their sign); above it a column
+ *  takes the general loop. Water never stands this high (terrain tops out at 22). */
+const FAST_TOP = 33;
+
+export interface StackOptions {
+  /** The fast path for one-column tiles (default on). Off only to prove it gives the same bits. */
+  fast?: boolean;
+}
 
 export class StackSim {
   readonly N: number;
@@ -118,8 +138,10 @@ export class StackSim {
   private readonly seepOn: Uint8Array;
   /** Tiles that hold a partial obstacle or a direction limiter at some z (null when none). */
   private readonly limited: Uint8Array | null;
+  /** Per tile: its one column takes the fast path (null when the fast path is off). */
+  readonly fast: Uint8Array | null;
 
-  constructor(model: StackModel, mode: StackMode = "game") {
+  constructor(model: StackModel, mode: StackMode = "game", opts: StackOptions = {}) {
     const wc = model.cols;
     this.cols = wc;
     this.mode = mode;
@@ -228,6 +250,34 @@ export class StackSim {
     let limited: Uint8Array | null = null;
     for (const m of [wc.heightLimit, wc.dirLimit]) if (m) for (const key of m.keys()) (limited ??= new Uint8Array(N))[key % N] = 1;
     this.limited = limited;
+
+    // the fast path: one open column on the tile and on its 8 neighbours, no limits on it or its 4
+    this.fast = null;
+    if (opts.fast ?? true) {
+      const open = new Uint8Array(N);
+      for (let i = 0; i < N; i++) open[i] = wc.count[i] === 1 && wc.ceil[i] === OPEN_CEILING && !(limited && limited[i]) ? 1 : 0;
+      const fast = new Uint8Array(N);
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (!open[i]) continue;
+          let ok = true;
+          for (let dy = -1; dy <= 1 && ok; dy++) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= H) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= W) continue;
+              if (!open[yy * W + xx]) {
+                ok = false;
+                break;
+              }
+            }
+          }
+          if (ok) fast[i] = 1;
+        }
+      this.fast = fast;
+    }
   }
 
   /** Start from a state (depth, overflow and contamination per column id). */
@@ -242,6 +292,29 @@ export class StackSim {
 
   state(): StackState {
     return { depth: this.D.slice(), overflow: this.O.slice(), contamination: this.C.slice() };
+  }
+
+  /** Start from stored momentum (a file's `ColumnOutflows`): each entry names its origin column and
+   *  its target, a column (slot, tile) or the padding (tile −1, on the origin's side `side`: 0 −y,
+   *  1 −x, 2 +y, 3 +x). Returns how many entries fit no edge (0 on the official maps: every stored
+   *  target lies on this graph). */
+  setMomentum(flows: readonly { from: number; toTile: number; toSlot: number; side?: number; flow: number }[]): number {
+    const N = this.N;
+    let dropped = 0;
+    for (const m of flows) {
+      const target = m.toTile < 0 ? SINK : m.toSlot * N + m.toTile;
+      let found = -1;
+      if (m.from >= 0 && m.from < this.M) {
+        for (let e = this.eStart[m.from]; e < this.eStart[m.from + 1]; e++) {
+          if (this.eTarget[e] !== target || (target === SINK && m.side !== undefined && this.eDir[e] !== m.side)) continue;
+          found = e;
+          break;
+        }
+      }
+      if (found >= 0) this.out[found] = m.flow;
+      else dropped++;
+    }
+    return dropped;
   }
 
   // ------------------------------------------------------------------ evaporation modifier
@@ -261,10 +334,11 @@ export class StackSim {
   }
 
   private computeWn(): void {
-    const { W, H, N, wn } = this;
+    const { W, H, N, wn, D } = this;
+    const fast = this.fast;
     for (let k = 0; k < this.wetCount; k++) {
       const c = this.wet[k];
-      if (!(this.D[c] > 0)) {
+      if (!(D[c] > 0)) {
         wn[c] = 0;
         continue;
       }
@@ -272,6 +346,24 @@ export class StackSim {
       const x = i % W;
       const y = (i - x) / W;
       let n = 1;
+      if (fast !== null && c < N && fast[c] === 1) {
+        // every neighbour is one open column: it is watered when that column is wet
+        if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+          n += +(D[c - W - 1] > 0) + +(D[c - W] > 0) + +(D[c - W + 1] > 0) + +(D[c - 1] > 0) + +(D[c + 1] > 0) + +(D[c + W - 1] > 0) + +(D[c + W] > 0) + +(D[c + W + 1] > 0);
+        } else {
+          for (let dy = -1; dy <= 1; dy++) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= H) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const xx = x + dx;
+              if (xx >= 0 && xx < W && D[yy * W + xx] > 0) n++;
+            }
+          }
+        }
+        wn[c] = n;
+        continue;
+      }
       for (let dy = -1; dy <= 1; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= H) continue;
@@ -305,6 +397,16 @@ export class StackSim {
     const x = i % W;
     const y = (i - x) / W;
     let best = wn[c];
+    const fast = this.fast;
+    if (fast !== null && c < N && fast[c] === 1) {
+      // every 4-neighbour is one open column: its best watered count is that column's own
+      const D = this.D;
+      if (y > 0 && D[c - W] > 0 && wn[c - W] - 1 > best) best = wn[c - W] - 1;
+      if (x > 0 && D[c - 1] > 0 && wn[c - 1] - 1 > best) best = wn[c - 1] - 1;
+      if (y < H - 1 && D[c + W] > 0 && wn[c + W] - 1 > best) best = wn[c + W] - 1;
+      if (x < W - 1 && D[c + 1] > 0 && wn[c + 1] - 1 > best) best = wn[c + 1] - 1;
+      return best < 8 ? best : 8;
+    }
     if (y > 0) {
       const b = this.bestWn(c, i - W);
       if (b - 1 > best) best = b - 1;
@@ -414,6 +516,7 @@ export class StackSim {
     const { Fl, Ce, D, O, C, out, f, mod, eStart, eTarget, eRev, N } = this;
     const game = this.mode === "game";
     const limited = this.limited;
+    const fast = this.fast;
     for (let k = 0; k < this.prevWetCount; k++) {
       const c = this.prevWet[k];
       for (let e = eStart[c]; e < eStart[c + 1]; e++) f[e] = 0;
@@ -430,9 +533,36 @@ export class StackSim {
       const Pc = Oc * PRESSURE;
       const e0 = eStart[c];
       const e1 = eStart[c + 1];
-      const lc = limited !== null && limited[c % N] === 1;
       let s = 0;
-      for (let e = e0; e < e1; e++) {
+      let done = false;
+      if (fast !== null && c < N && fast[c] === 1 && Hc < FAST_TOP) {
+        // the fast path: no pressure, no limits, one open column in each direction
+        done = true;
+        for (let e = e0; e < e1; e++) {
+          const t = eTarget[e];
+          const sink = t === SINK;
+          const Ft = sink ? 0 : Fl[t];
+          if (Ft >= Hc) {
+            f[e] = 0;
+            continue;
+          }
+          const Dt = sink ? 0 : D[t];
+          const Ht = Ft + Dt;
+          if (Ht >= FAST_TOP) {
+            done = false;
+            break;
+          }
+          let ev = Hc - Ht;
+          if ((game || !sink) && Dt === 0 && Ft === Fc) ev = ev - SPILL;
+          const fk = KEEP * out[e] + K * ev;
+          const v = fk > 0 ? fk : 0;
+          f[e] = v;
+          s += v;
+        }
+      }
+      const lc = !done && limited !== null && limited[c % N] === 1;
+      if (!done) s = 0;
+      for (let e = done ? e1 : e0; e < e1; e++) {
         const t = eTarget[e];
         const sink = t === SINK;
         const Ft = sink ? 0 : Fl[t];
@@ -483,9 +613,12 @@ export class StackSim {
       // a column never gives more than it holds
       const have = Dc + Oc;
       if (game) {
-        if (s > 0) {
-          const r = have / (s * DT);
-          if (r < 1) for (let e = e0; e < e1; e++) f[e] *= r;
+        // the game scales by have / (s·dt) when that is under 1, which it is exactly when have is
+        // under s·dt (a correctly rounded quotient of doubles a < b stays below 1)
+        const sd = s * DT;
+        if (s > 0 && have < sd) {
+          const r = have / sd;
+          for (let e = e0; e < e1; e++) f[e] *= r;
         }
       } else if (s * DT > have) {
         const r = have / Math.max(s * DT, 1e-12);
