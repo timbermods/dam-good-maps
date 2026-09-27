@@ -128,7 +128,11 @@ test("Unleash: a selected source carves its own course; Stop keeps it as one ste
     await page.mouse.move(button.x + button.width / 2 + ((q.x - button.x - button.width / 2) * k) / 12, button.y + button.height / 2 + ((q.y - button.y - button.height / 2) * k) / 12);
     await page.waitForTimeout(20);
   }
+  // (only a thin arrow from the source to the pointer shows the way, D258)
+  await expect(page.locator(".aim-arrow")).toBeVisible();
+  expect((await page.evaluate(() => window.dgmEditor!.gesture())).stroke).toBeNull();
   await page.mouse.up();
+  await expect(page.locator(".aim-arrow")).toHaveCount(0);
   await expect(work).toBeVisible();
   await expect.poll(() => running(page), { timeout: 60_000 }).toBeNull();
   await idle(page);

@@ -1,8 +1,9 @@
 // Carve (PLAN §20 D194, D199), through the page: the button next to Source, its options row with
 // the mode switch first; a click unleashes a river that runs visibly, a frame at a time; Stop keeps
 // it as one undo step (the ground as it was shown), Esc or undo takes all of it back at once; Try
-// another path replaces the kept carve, and undoing it brings the first one back. Aim: a start,
-// then an end, the line between them shown.
+// another path replaces the kept carve, and undoing it brings the first one back. Aim is a drag in
+// a direction (D258): only a thin arrow from where it began to the pointer, no route on the land; on
+// release it goes that way.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -121,7 +122,7 @@ test("Carve: unleash a river, Stop keeps it as one step, Esc takes it back, Try 
   await expect.poll(() => heights(page)).toEqual(before);
 });
 
-test("Carve: Aim picks a start, then an end; undo while it runs takes it back", async ({ page }) => {
+test("Carve: Aim is a drag with only an arrow, and on release it runs that way; undo while it runs takes it back", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Carve (7)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
@@ -131,14 +132,30 @@ test("Carve: Aim picks a start, then an end; undo while it runs takes it back", 
   const at = await highGround(page);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
-  await clickTile(page, at[0], at[1]);
-  // (nothing runs yet: the start is picked, the line follows the pointer)
+  const gesture = () => page.evaluate(() => window.dgmEditor!.gesture());
+  // hovered: the small cursor, nothing drawn ahead
+  const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), at);
+  await page.mouse.move(a.x + 3, a.y);
+  await page.mouse.move(a.x, a.y);
+  await expect.poll(async () => (await gesture()).cursor).toEqual(at);
+  // a click alone in Aim goes nowhere: it needs a direction
+  await page.mouse.click(a.x, a.y);
+  await page.waitForTimeout(300);
   expect(await status(page)).toBeNull();
+  // pressed and dragged: only the arrow, from where it began to the pointer, and no route
   const endX = at[0] > 48 ? at[0] - 24 : at[0] + 24;
-  const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [endX, at[1]] as [number, number]);
-  await page.mouse.move(p.x, p.y, { steps: 3 });
-  await expect(page.locator(".shape-note")).toContainText("tiles");
-  await page.mouse.click(p.x, p.y);
+  const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [endX, at[1]] as [number, number]);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x, p.y, { steps: 6 });
+  const g = await gesture();
+  expect(g.arrow?.from).toEqual(at);
+  expect(g.stroke).toBeNull();
+  await expect(page.locator(".aim-arrow")).toBeVisible();
+  expect(await status(page)).toBeNull();
+  // let go: it runs that way, and the arrow goes as it starts
+  await page.mouse.up();
+  await expect(page.locator(".aim-arrow")).toHaveCount(0);
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 10, null, { timeout: 20_000 });
   await page.keyboard.press("Control+z");
   await expect.poll(() => status(page)).toBeNull();

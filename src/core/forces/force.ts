@@ -127,20 +127,11 @@ export function entityTiles(W: number, H: number, e: Pick<EntitySpec, "template"
   return out;
 }
 
-/** The ground no force touches: the start's footprint and a tile round it, and `also` (the land
- *  above the layer showing, an imported map's caves). */
-export function protectedGround(m: Pick<ForceMap, "W" | "H" | "entities">, also: Uint8Array | null = null): Uint8Array {
-  const keep = also ? also.slice() : new Uint8Array(m.W * m.H);
-  for (const e of m.entities)
-    if (e.template === "StartingLocation")
-      for (const i of entityTiles(m.W, m.H, e))
-        for (let y = -1; y <= 1; y++)
-          for (let x = -1; x <= 1; x++) {
-            const xx = (i % m.W) + x;
-            const yy = Math.floor(i / m.W) + y;
-            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H) keep[yy * m.W + xx] = 1;
-          }
-  return keep;
+/** The ground no force touches: `also` (the land above the layer showing, an imported map's
+ *  caves). The start's is not among it: a force is bound only by nature, and the start is carried
+ *  to level ground when a force breaks its own (D257). */
+export function protectedGround(m: Pick<ForceMap, "W" | "H">, also: Uint8Array | null = null): Uint8Array {
+  return also ? also.slice() : new Uint8Array(m.W * m.H);
 }
 
 /** What a force left, literally: the changed tiles (sorted) and their new levels, the objects that

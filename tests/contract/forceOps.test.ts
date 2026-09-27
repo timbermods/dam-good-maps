@@ -21,6 +21,8 @@ import { generate } from "../../src/core/gen/generate";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
+import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
+import type { StartFeature } from "../../src/core/features/schema";
 import * as ed from "../../src/worker/session";
 
 /** Dry ground far from the start (and a little high), for a force to act on. */
@@ -152,32 +154,74 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     ed.settleWater();
   });
 
-  it("refuses where the start sits, with the quiet word, and changes nothing", async () => {
+  it("a force through the start completes, and the start is carried to level ground where it stands well, in the same undo step (D257)", async () => {
+    const W = 96;
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const open = () => MapSession.open(decodeProject(ed.project().bytes));
+    const st = open().built.start!;
+    const n0 = history().length;
+    const on: [number, number] = [st.x, st.y];
+    let carried = 0;
+    for (const req of [
+      { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 60 }, origin: on, cut: null },
+      { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 60 }, origin: on, cut: null },
+      { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: st.x - 20, y: st.y }, { x: st.x + 20, y: st.y }], side: 1, cut: null },
+      { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, path: [{ x: 3, y: st.y }, { x: W - 4, y: st.y + 1 }], side: 1, cut: null },
+      { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", defyGravity: true, power: 70 }, origin: [Math.max(2, st.x - 14), st.y], end: [Math.min(W - 3, st.x + 14), st.y], cut: null },
+    ] as ed.ForceRequest[]) {
+      const r = ed.forceStart(req);
+      expect(r.errors, req.verb).toEqual([]);
+      for (let k = 0; k < 600 && !ed.forceAdvance(8)!.done; k++);
+      const kept = ed.forceStop();
+      expect(kept.errors, req.verb).toEqual([]);
+      // one step, whatever it did to the start
+      expect(history().length, req.verb).toBe(n0 + 1);
+      const s = open();
+      const starts = s.built.entities.filter((e) => e.template === "StartingLocation");
+      expect(starts, req.verb).toHaveLength(1);
+      // the start stands on level ground, off rivers and objects
+      const at = startMiddle(s)!;
+      const f = s.features.find((g) => g.kind === "start") as StartFeature;
+      const problem = startProblem(s.built, at[0], at[1], f.params.orientation, true, f.id, pieceTiles(s));
+      expect(problem === null || problem === "under water", `${req.verb}: ${problem}`).toBe(true);
+      if (at[0] !== st.x || at[1] !== st.y) carried++;
+      // undo takes back the force and the carry together
+      ed.undo();
+      expect(history().length).toBe(n0);
+      expect(startMiddle(open())).toEqual([st.x, st.y]);
+    }
+    // the impact and the volcano on the start's own ground carried it
+    expect(carried).toBeGreaterThanOrEqual(2);
+  });
+
+  it("the checks say what a force left short at the start, and each one-click fix mends it (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;
-    const n0 = history().length;
-    const on: [number, number] = [st.x, st.y];
-    for (const req of [
-      { verb: "craterize", settings: CRATER_DEFAULTS, origin: on, cut: null },
-      { verb: "erupt", settings: ERUPT_DEFAULTS, origin: on, cut: null },
-      { verb: "quake", settings: QUAKE_DEFAULTS, path: [{ x: st.x - 20, y: st.y }, { x: st.x + 20, y: st.y }], side: 1, cut: null },
-    ] as ed.ForceRequest[]) {
-      const r = ed.forceStart(req);
-      expect(r.ok, req.verb).toBe(false);
-      expect(r.errors[0]).toBe("Start here");
-      expect(ed.forcing()).toBe(false);
+    // what a force might leave: every tree and bush within 26 tiles of the start gone
+    const gone = s.built.entities.filter((e) => /^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template) && Math.hypot(e.x - st.x, e.y - st.y) < 26).map((e) => e.id);
+    expect(gone.length).toBeGreaterThan(0);
+    expect(ed.apply({ op: "deleteEntities", params: { entities: gone } }).errors).toEqual([]);
+    ed.settleWater();
+    const short = (id: string) => {
+      const c = ed.exportCheck();
+      return [...c.blocking, ...c.warnings, ...c.advisory].find((i) => i.id === id) ?? null;
+    };
+    for (const id of ["start.wood", "start.food"]) {
+      const item = short(id);
+      expect(item, id).not.toBeNull();
+      expect(item!.fix?.length, id).toBeGreaterThan(0);
+      expect(item!.fix![0].label).toMatch(id === "start.wood" ? /oaks? for the starting logs/ : /berry bush/);
+      const u = ed.applyAll(item!.fix!.map(({ label: _l, ...op }) => op as EditOp), item!.fix![0].label, "fix");
+      expect(u.errors, id).toEqual([]);
+      ed.settleWater();
+      expect(short(id), id).toBeNull();
     }
-    // a Slide that would carry the start is refused too (X flips the side that moves)
-    const across = { verb: "quake" as const, settings: { ...QUAKE_DEFAULTS, mode: "slide" as const }, path: [{ x: 3, y: st.y + 12 }, { x: W - 4, y: st.y + 12 }], cut: null };
-    const one = ed.forceStart({ ...across, side: -1 });
-    const other = ed.forceStart({ ...across, side: 1 });
-    expect([one.ok, other.ok].filter((ok) => !ok).length).toBeGreaterThanOrEqual(1);
-    if (ed.forcing()) ed.forceCancel();
-    expect(history().length).toBe(n0);
   });
 });
 

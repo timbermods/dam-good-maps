@@ -42,7 +42,8 @@ export interface Breakout {
 /** Where a source's river starts: at the source; or, when it stands in a pool or a lake (water at
  *  least `POOL_DEPTH` deep, a level surface round it), at the lowest tile of that water's rim, where
  *  it would spill over (ties: the nearest to the source). Aimed at `toward`, it breaks out where the
- *  rim is nearest that point instead. `keep`: ground it leaves alone (the start's). */
+ *  rim is nearest that point instead. `keep`: ground it leaves alone (the land above the layer showing,
+ *  caves). */
 export function breakout(W: number, H: number, heights: ArrayLike<number>, depth: ArrayLike<number>, source: number, keep: Uint8Array | null = null, toward: number | null = null): Breakout {
   const at = { origin: source, pool: null, spill: null };
   if (!(depth[source] >= POOL_DEPTH)) return at;

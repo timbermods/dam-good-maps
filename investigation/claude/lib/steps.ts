@@ -12,7 +12,7 @@
 
 import type { EditOp } from "../../../src/core/doc/ops";
 import type { MapSession } from "../../../src/core/doc/session";
-import { cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, startCentre, type PlannedEdit } from "../../../src/core/doc/tools";
+import { carryStartOps, cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, startCentre, type PlannedEdit } from "../../../src/core/doc/tools";
 import { applyBrush, BRUSH_MAX_LEVEL, BRUSH_TOOLS, MAX_DABS, type BrushParams, type BrushTool } from "../../../src/core/features/raster/brush";
 import { polygonMask } from "../../../src/core/features/geometry";
 import { fmix32 } from "../../../src/core/math/hash";
@@ -47,7 +47,6 @@ import { forceOfCarve } from "../../../src/core/forces/op";
 import { checkForceStep, expandForceStep, type ForceStep } from "./forceSteps";
 import { CarveRun, type CarveSettings } from "../../../src/core/forces/carve/run";
 import { breakout, sourceTile, unleashWidth } from "../../../src/core/forces/carve/unleash";
-import { startGround } from "../../../src/core/forces/objects";
 import { protectedGround, STEPS_PER_SECOND } from "../../../src/core/forces/force";
 
 export const MAX_STEPS = 12;
@@ -646,8 +645,7 @@ function expandUnleash(s: MapSession, step: Extract<Step, { op: "carve" }>): Exp
   const map = forceMapOf(b);
   const keep = protectedGround(map);
   for (const i of s.columns.keys()) keep[i] = 1;
-  const guard = startGround(map);
-  for (let i = 0; i < keep.length; i++) if (keep[i]) guard[i] = 1;
+  const guard = keep;
   const to = Array.isArray(step.to) ? ([Math.round(step.to[0]), Math.round(step.to[1])] as [number, number]) : undefined;
   const at = (p: [number, number]) => p[1] * W + p[0];
   const out = breakout(W, H, b.heights, b.water, sourceTile(e, W), guard, to ? at(to) : null);
@@ -683,10 +681,14 @@ function expandUnleash(s: MapSession, step: Extract<Step, { op: "carve" }>): Exp
     `the source stays the river's origin: no other source is added${e.template === "BadwaterSource" ? "; its river is badwater" : ""}`,
   ];
   const op = forceOfCarve(params);
+  const unleashOp: EditOp = { op: "forceResult", params: { ...op, where: { ...op.where, source: e.id } } };
+  // (a force is bound only by nature: where it broke the start's ground, the start is carried, D257)
+  const carry = carryStartOps(s, unleashOp);
+  if (carry.length) report.push("it broke the start's ground: the start is carried to the nearest level ground");
   return {
     ok: true,
     step,
-    ops: [{ op: "forceResult", params: { ...op, where: { ...op.where, source: e.id } } }],
+    ops: [unleashOp, ...carry],
     made: [],
     report,
     resolved: { ...resolved, origin, breakout: !!out.pool, mode: settings.mode, power, width: settings.width, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length },
@@ -832,11 +834,15 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
       `${moved.start ? "starts at the next highest dry ground there" : "takes another path"}${moved.path ? ` (path ${moved.path})` : ""}: the first course from (${moved.first[0]}, ${moved.first[1]}), the highest, ${moved.why}`,
     );
   const made = params.source ? [{ handle: newHandle(conv, "source", step.handle), id: `${SOURCE_PREFIX}${params.source.id}`, kind: "source" }] : [];
+  const carveOp: EditOp = { op: "forceResult", params: forceOfCarve(params) };
+  // (a force is bound only by nature: where it broke the start's ground, the start is carried, D257)
+  const carry = carryStartOps(s, carveOp);
+  if (carry.length) report.push("it broke the start's ground: the start is carried to the nearest level ground");
   return {
     ok: true,
     step,
-    // (the four forces' one operation, as the editor's Carve keeps it)
-    ops: [{ op: "forceResult", params: forceOfCarve(params) }],
+    // (the four forces' one operation, as the editor's Carve keeps it, and the start's carry)
+    ops: [carveOp, ...carry],
     made,
     report,
     resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, ...(step.depth !== undefined ? { depth: step.depth } : {}), seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },

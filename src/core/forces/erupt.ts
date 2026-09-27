@@ -4,8 +4,8 @@
 // winding lava flows, never per-tile noise. Every level it raises is fresh volcanic rock (rock.ts),
 // hard for Carve; flows can dam rivers; objects ride the rising ground (a rigid one on a terrace of
 // its own), trees near a vent are knocked down, and what stands in the vent itself is gone;
-// overlapping eruptions build volcanic fields. It refuses to erupt where the start sits and never
-// adds water. The swell is shown in stages (`stageMap`).
+// overlapping eruptions build volcanic fields. It erupts wherever it is asked, the start's ground
+// too (the editor carries the start to level ground, D257), and never adds water. The swell is shown in stages (`stageMap`).
 //
 // Ported from investigation/forces-core `verbs/erupt/engine.ts` and `flows.ts` (PR #59, from #50 at
 // 89c6842), kept to its structure: the pinned parity tests compare it with the prototype byte for
@@ -13,7 +13,7 @@
 
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
-import { footprint, START_REASON, startGround } from "./objects";
+import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
 
 export interface Point {
@@ -406,13 +406,11 @@ function flankVent(m: { W: number; H: number; heights: Uint8Array }, s: EruptSet
  *  broader rather than taller. With too little room at the vent itself (the top of an earlier
  *  volcano, say), it breaks out on the flank, the nearest place with room: overlapping eruptions
  *  build new cones on the flanks. A fissure keeps its line and rises less where the ground is high.
- *  `keep`: ground it leaves alone (the start's is always kept). */
+ *  `keep`: ground it leaves alone (the land above the layer showing, caves). */
 export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; maxHeight?: number; entities?: FullForceMap["entities"] }, s: EruptSettings, intent: EruptIntent, keep: Uint8Array | null = null): EruptAnatomy {
   validateErupt(s, m, intent);
   const ceiling = Math.min(22, m.maxHeight ?? 22);
-  const guard = m.entities ? startGround(m as { W: number; H: number; heights: Uint8Array; entities: FullForceMap["entities"] }) : null;
-  if (guard && keep) for (let i = 0; i < keep.length; i++) if (keep[i]) guard[i] = 1;
-  const kept = guard ?? keep;
+  const kept = keep;
   let a = protoAnatomy(m, s, intent);
   a.ceiling = ceiling;
   if (s.mode === "fissure" || fits(m, s, a, kept)) return a;
@@ -526,18 +524,6 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
   return { r, theta, ridge, cx, cy, along, vent, ventDistance: nearest };
 }
 
-/** Why it would not erupt there (null: it will): a vent on the start's ground, or a fissure within
- *  two tiles of it. */
-export function eruptionReason(m: { W: number; H: number; heights: Uint8Array; entities: FullForceMap["entities"] }, s: EruptSettings, i: EruptIntent): string | null {
-  const keep = startGround(m);
-  if (keep[i.origin]) return START_REASON;
-  if (s.mode === "fissure") {
-    const a = protoAnatomy(m, s, i);
-    for (let k = 0; k < keep.length; k++) if (keep[k] && eruptField(a, s, k % m.W, Math.floor(k / m.W)).r * a.radius < 2) return START_REASON;
-  }
-  return null;
-}
-
 /** An eruption planned a few rows at a time (`advance`), on its own copy of the map. `keep` adds
  *  ground it leaves alone (the land above the layer showing, an imported map's caves). */
 export class EruptPlan {
@@ -559,10 +545,9 @@ export class EruptPlan {
     extraKeep: Uint8Array | null = null,
   ) {
     validateErupt(settings, before, intent);
-    const reason = eruptionReason(before, settings, intent);
-    if (reason) throw Error(reason);
     this.anatomy = eruptAnatomy(before, settings, intent, extraKeep);
-    this.keep = startGround(before);
+    // (the start's ground is nature's to change: the start is carried off it, D257)
+    this.keep = new Uint8Array(before.W * before.H);
     if (extraKeep) for (let i = 0; i < extraKeep.length; i++) if (extraKeep[i]) this.keep[i] = 1;
     this.map = snapshotMap(before);
     this.flows = lobeField(before.W, before.H, this.anatomy.lobes);
@@ -614,7 +599,8 @@ export class EruptPlan {
     m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[clamp(Math.floor(f.y), 0, m.H - 1) * m.W + clamp(Math.floor(f.x), 0, m.W - 1)] }));
     m.entities = m.entities.filter((e) => {
       const tile = e.y * m.W + e.x;
-      if (this.keep[tile]) return true;
+      // (the start is the editor's: carried to level ground when its own breaks, D257)
+      if (this.keep[tile] || e.template === "StartingLocation") return true;
       const f = eruptField(a, s, e.x, e.y);
       const plant = /^(Pine|Oak|Birch|Succulent|BlueberryBush)$/.test(e.template);
       if (!EMITTERS[e.template] && f.ventDistance < Math.max(1.5, a.radius * 0.065)) {

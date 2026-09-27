@@ -1,23 +1,18 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
-> last at 986e5fc (merge 0cfefd7). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
+> last at 052aa69 (D252-D260). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):
 >
 > 1. **CI green: done.** The red Erupt ceiling test was the test's spot under a wrapped view bar
 >    (5fbf586; run 36298701656 green). Its hover words go with D258 (below).
 > 2. **D249, brushes and sources: done** (the section below; captures linked there).
-> 3. **D257/D258** (next): the forces bound only by nature (no playability refusals or shaping; the
->    start carried to the nearest valid level ground; the checks dot shows what broke, with its
->    one-click fix) and clean gestures (no predicted route, footprint or fit preview; one click; Aim
->    a drag with a thin arrow only; Quake's fault and Erupt's fissure still drawn; "No room to rise
->    here" stays). Merge `origin/dev` first for the decisions' text. The Erupt test's hover words
->    ("breaks out on the flank", "grows broader") are removed then: update it per D148, and add the
->    words to `tools/retired-terms.json`.
-> 4. **D259 with the working area (D254)**: Select's own button; Circle and Brush shapes; Set level to
->    the ceiling constant and Ctrl+click's level; Ctrl+drag with a brush out selects and the brush
->    keeps painting inside; one row at a time (a chip); every tool works only inside the selection,
->    feathered, locked land as unbreakable rock to the forces, water never locked.
+> 3. **D257/D258: done** (the section below; `dev` merged at 052aa69 first).
+> 4. **D259 with the working area (D254), and D261** (next): Select's own button; Circle and Brush
+>    shapes; Same level becomes Wand (a click on water selects that river's or lake's visible water);
+>    Set level to the ceiling constant and Ctrl+click's level; Ctrl+drag with a brush out selects and
+>    the brush keeps painting inside; one row at a time (a chip); every tool works only inside the
+>    selection, feathered, locked land as unbreakable rock to the forces, water never locked.
 > 5. **D260**: water no source feeds recedes at once (stored lakes excepted), a removed source's
 >    marker goes at once; the before/after table here.
 > 6. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
@@ -31,6 +26,98 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## The forces bound only by nature, with clean gestures (D257, D258)
+
+Built on this branch after D249, with `dev` merged in again (052aa69: D252-D260). [Carve's Aim and
+Erupt's Vent, clean](forces/clean-gestures.png).
+
+- **Bound only by nature (D257).** No force refuses, stops short or reshapes its result for the start
+  any more: Craterize and Erupt leave the start's ground out of what they keep (`startGround` and the
+  quiet "Start here" are gone from `src/core/forces/objects.ts`), Erupt's fit no longer steers round the
+  start and its vent no longer terraces the start's ground, Quake's faults run anywhere (`faultReason`
+  is gone; the Slide refusal and the "painted Lift would flood the start" refusal too) and leaves the
+  start out of its object ride (no apron flattened for it), Carve's `protectedGround` keeps only the
+  land above the layer showing and an imported map's caves, and Unleash's breakout no longer avoids
+  the start. What still limits a force is nature and the map: its floor, the ceiling, the layer showing,
+  caves.
+- **The start is carried** (`carryStart` in the worker; `startBrokenBy`, `moveStartNear(…, level)` and
+  `carryStartOps` in `src/core/doc/tools.ts`). After a force is kept, if it changed the start's own
+  tiles (its 3 × 3 and its door) and left it off level ground, in a river, on an object or off the map,
+  the start moves to the nearest spot within 24 tiles where it stands on level ground already (so the
+  force's land stays as it made it), in the same undo step as the force (undo takes both back). Where
+  there's no such spot it stays, and the checks say so. Claude's force, carve and unleash steps do the
+  same (their proposals carry the start in the step, and say so in the report).
+- **The checks and their fixes.** The quiet dot already listed the start's checks; each now has a
+  one-click fix where one exists: its ground, door, dry ring and what covers it: "Move the start to the
+  nearest good spot" (as before); water out of reach: "Move the start near the water" (the nearest good
+  spot by the nearest water a pump reaches); berry bushes short: "Plant N berry bushes near the start";
+  the starting logs short of the floor: "Plant N oaks for the starting logs" (on the nearest free soil
+  within the walk, moist soil first, oaks on dry ground only when there's no more; a tree keeps its
+  logs when it dies). The planting fixes come with the check (`startPlanting` in
+  `src/core/validate/playability.ts`, stable ids) and the worker keeps only the plants the game takes.
+- **Clean gestures (D258).** Nothing predicts a force's result on the land: Craterize's crater outline,
+  Erupt's cone, its line to a flank vent and its "breaks out on the flank" and "grows broader" words,
+  Carve's Aim line and Unleash's line from the source are gone, as are the hover hints ("Paint a fault
+  · X flips the side that moves", "Paint the fissure", "Click where it starts") and Quake's band on the
+  side that moves (the row's Left and Right say it; a Lift shows it live). What shows: a small cursor
+  ring where a click will act (Carve's Unleash, Craterize's Strike, Erupt's Vent); Aim as a drag in a
+  direction (Carve's Aim, now a drag instead of two clicks; Craterize's Aim; Unleash dragged from its
+  button) with only a thin straight arrow from where the drag began to the pointer (`AimArrow`, an SVG
+  over the map), gone as the force starts; the painted stroke of Quake's fault and Erupt's fissure; and
+  a word only when the force won't act at all ("No room to rise here", Aim uphill without Defy
+  gravity). A click in Carve's Aim with no drag does nothing. A force picked now takes a click on the
+  start or a source too (they were grabbed before: with the start refused it didn't matter).
+- Retired (`tools/retired-terms.json`, as patterns of the exact interface words so describing the
+  behaviour stays possible): "No room to rise here: it breaks out…", "Near the height limit: it grows
+  broader", "The start's ground stays as it is…". Erupt's Size tooltip and Carve's top-bar hint say it
+  the new way.
+
+Tests: `forceOps.test` (every force through the start in the worker: Craterize and Erupt on it, a Lift
+and a Slide across it, a Carve aimed through it; each completes as one step, exactly one start standing
+on level ground, undo taking back force and carry; the start's wood and food fixes each mend their
+check), `forces.test` (every random fault quakes: none refused), `carve.test` (a carve from the start's
+ground runs; only the kept land refuses), the e2e `forces.spec` (hover shows only the cursor, no words;
+Craterize on the start strikes and the start moves, undo brings both back; a Lift through the start
+quakes; Craterize's Aim is a drag with only the arrow), `carve.spec` (Carve's Aim: the cursor, a click
+alone doing nothing, a drag with only the arrow, running on release), `unleash.spec` (the arrow while
+aiming, gone on release).
+
+**Tests changed to the new decisions (D148), none weakened:** `forceOps.test`'s "refuses where the start
+sits, with the quiet word, and changes nothing" checks the start carried instead (D257);
+`forces.test`'s random strokes "either quake or are refused with Start here" now all quake; the pinned
+prototype cases for Quake and Erupt (#59's parity) and `eruptHeadroom.test`'s studies compare with the
+prototypes live on the same studies without their start, since the prototypes kept the start's ground
+(on those studies the port is the prototype, land, objects and rock, exactly; Craterize's and Carve's
+pinned cases are unchanged and pass as pinned); `carve.test`'s "the start's own ground can't be a
+carve's origin" checks it can, and that only the kept land refuses; `randomOps`' force draw keeps off
+the start's ground itself (the session doesn't carry the start; the worker does); `forces.spec`'s
+Craterize and Quake "the start refuses it" check the start carried, its Erupt ceiling hover checks no
+words and no preview (D258), and its Quake Slide no longer needs the other side; `carve.spec`'s Aim
+"picks a start, then an end" is the drag with its arrow; `unleash.test`'s breakout "never on the start's
+ground" is named for the ground it keeps (the layer showing, caves), which is what it checks. Claude's
+request B25 ("drop a meteor right on the start") expected the refusal: it now expects the step
+accepted and the start carried (its reference a meteor of size 14, inside the 30% cap).
+
+Checked: typecheck clean; `npm run test:quick` passes; the forces', Carve's, Unleash's, the start's and
+the editor's e2e specs pass; the Claude reference suite 135 of 148 (B25 as above; the 13 that fail fail
+on `dev` too); the harness's own tests fail the same 3 with and without these changes.
+
+Defaults chosen (for `docs/decisions-pending.md`): the start is carried only when the force changed
+its own tiles and left it standing badly (water over it is the dot's, with its fix); it goes to level
+ground only, within 24 tiles, nearest first; the fixes plant berry bushes first, then oaks (8 logs
+each) on the nearest free soil within the walk; Quake's side band is removed with the other previews;
+a click in Aim does nothing; the small cursor is a ring of about three tiles in the drawing colour.
+
+For Kyler's forces sitting (the new lines for STATUS's checklist):
+- Any force through the start: it goes on, and the start hops to the nearest level ground in the same
+  step (one undo takes both back); then the dot shows what it left short, each with its fix (move the
+  start, near the water; plant berry bushes; plant oaks for the starting logs).
+- Clean gestures: hover any force, only a small cursor; Carve's Aim and Craterize's Aim are drags with
+  a thin arrow; Unleash dragged from its button, the arrow from the source; no outline, route or words
+  (only "No room to rise here", and Aim uphill without Defy gravity).
+- Quake: no band on the side that moves any more (the row says Left or Right; a Lift shows it as it's
+  painted). Say if you want the band back.
 
 ## Brushes and water sources (D249)
 

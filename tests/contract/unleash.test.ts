@@ -19,7 +19,7 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 describe("Unleash, on a source (D239)", () => {
-  it("from a pool it breaks out at its rim's lowest point; aimed, where the rim is nearest the aim; out of water, at the source; never on the start's ground", () => {
+  it("from a pool it breaks out at its rim's lowest point; aimed, where the rim is nearest the aim; out of water, at the source; never on ground it keeps (the layer showing, caves)", () => {
     const W = 40;
     const H = 40;
     const heights = new Uint8Array(W * H).fill(8);
@@ -44,7 +44,8 @@ describe("Unleash, on a source (D239)", () => {
     expect(breakout(W, H, heights, depth, 20 * W + 20, null, 2 * W + 20).origin).toBe(14 * W + 20);
     // out of water it starts at the source
     expect(breakout(W, H, heights, depth, 5 * W + 5)).toEqual({ origin: 5 * W + 5, pool: null, spill: null });
-    // never on the start's ground: the next lowest
+    // never on ground it keeps (the land above the layer showing; the start's is nature's since
+    // D257): the next lowest
     const keep = new Uint8Array(W * H);
     keep[20 * W + 26] = 1;
     expect(breakout(W, H, heights, depth, 20 * W + 20, keep).origin).not.toBe(20 * W + 26);

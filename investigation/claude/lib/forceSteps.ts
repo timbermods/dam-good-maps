@@ -1,8 +1,9 @@
 // Claude's steps for the other forces (D202, D203, D206, D219): craterize, erupt and quake, as the
 // editor's buttons make them. Each runs the force whole on the map as it stands (the shared forces
 // core, src/core/forces) and becomes one `forceResult` operation, exactly the one the editor's worker
-// keeps for the same force; a step that would strike, erupt or split the land through the start is
-// refused with the editor's own word ("Start here"). M12 keeps them ready (D134).
+// keeps for the same force. A force is bound only by nature (D257): through the start it goes on,
+// and the start is carried to the nearest level ground, in the same step, as the editor does. M12
+// keeps them ready (D134).
 
 import type { EditOp } from "../../../src/core/doc/ops";
 import type { MapSession } from "../../../src/core/doc/session";
@@ -10,7 +11,7 @@ import { forceMapOf } from "../../../src/core/forces/carve/result";
 import { CRATER_DEFAULTS, naturalSize, type CraterSettings } from "../../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, type EruptSettings } from "../../../src/core/forces/erupt";
 import { plainEntities, type FullForceMap } from "../../../src/core/forces/force";
-import { START_REASON, startGround, startProblem } from "../../../src/core/forces/objects";
+import { carryStartOps } from "../../../src/core/doc/tools";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../../../src/core/forces/quake";
 import { geology } from "../../../src/core/forces/random";
 import { forceParamsOf, pathRecord } from "../../../src/core/forces/result";
@@ -106,7 +107,6 @@ export function expandForceStep(s: MapSession, step: ForceStep, at: [number, num
   const tile = (p: [number, number]) => Math.round(p[1]) * W + Math.round(p[0]);
   const cap = Math.floor(0.3 * W * H);
   const resolved: Record<string, unknown> = {};
-  if (at && startGround(map)[tile(at)]) return refused([`${START_REASON}: the start's ground stays as it is, so the force starts away from it`], { at });
   let run: CraterRun | EruptRun | QuakeRun;
   let settings: CraterSettings | EruptSettings | QuakeSettings;
   const seed = (d: number) => (step.path !== undefined ? (d + step.path) >>> 0 : d);
@@ -127,17 +127,9 @@ export function expandForceStep(s: MapSession, step: ForceStep, at: [number, num
     }
     run.finishAll();
   } catch (e) {
-    const text = e instanceof Error ? e.message : String(e);
-    return refused([text === START_REASON ? `${START_REASON}: the start's ground stays as it is (a fault or a fissure keeps a few tiles from it)` : text], resolved);
+    return refused([e instanceof Error ? e.message : String(e)], resolved);
   }
   const after = run.final()!;
-  if (run instanceof QuakeRun) {
-    const start = map.entities.find((e) => e.template === "StartingLocation");
-    const moved = start && after.entities.find((e) => e.id === start.id);
-    if (start && moved && (moved.x !== start.x || moved.y !== start.y)) return refused([`${START_REASON}: the start is on the side that slides; side ${step.op === "quake" && step.side === "right" ? "left" : "right"} moves the other one`], resolved);
-    const problem = !startProblem(map) && startProblem({ ...after, water: run.map.water });
-    if (problem) return refused([`${problem}: the quake would leave the start so`], resolved);
-  }
   const where =
     step.op === "quake" ? { path: pathRecord(step.line.map(([x, y]) => ({ x, y }))), side: step.side === "right" ? (-1 as const) : (1 as const) } : step.op === "erupt" && step.line ? { origin: step.line[0], path: pathRecord(step.line.map(([x, y]) => ({ x, y }))) } : { origin: at!, ...(step.op === "craterize" && settings.mode === "aim" ? { end: step.toward! } : {}) };
   const params = forceParamsOf(map, after, { verb: step.op, settings, where, cut: null, steps: run.steps, reason: "done" });
@@ -181,6 +173,15 @@ export function expandForceStep(s: MapSession, step: ForceStep, at: [number, num
   }
   if (felled) report.push(`${felled} tree${felled > 1 ? "s" : ""} knocked down (dead, lying away from it)`);
   if (gone) report.push(`${gone} object${gone > 1 ? "s" : ""} on the changed ground go with it`);
+  // the start, where the force broke its ground, carried to the nearest level ground (D257)
+  const op: EditOp = { op: "forceResult", params };
+  const carry = carryStartOps(s, op);
+  if (carry.length) {
+    const c = carry[0];
+    const to = c.op === "updateFeature" ? (c.params.patch as { params?: { position?: [number, number] } }).params?.position : c.op === "moveEntity" ? ([c.params.x, c.params.y] as [number, number]) : undefined;
+    report.push(`it broke the start's ground: the start is carried to the nearest level ground${to ? `, at (${to[0]}, ${to[1]})` : ""}`);
+    Object.assign(resolved, { startCarried: to ?? true });
+  }
   Object.assign(resolved, { tiles: params.tiles.length, felled, removed: gone, seed: settings.seed });
-  return { ok: true, ops: [{ op: "forceResult", params }], report, resolved, errors: [], tiles: params.tiles.length };
+  return { ok: true, ops: [op, ...carry], report, resolved, errors: [], tiles: params.tiles.length };
 }

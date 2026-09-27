@@ -4,7 +4,8 @@
 // a river that crossed the fault is joined again along it. Power sets the throw and the shaking's
 // reach; Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it
-// refuses a fault through the start, and it never adds water: the water there moves with the land.
+// never minds the start (the editor carries it to level ground when its own breaks, D257), and it
+// never adds water: the water there moves with the land.
 //
 // Ported from investigation/forces-core `verbs/quake/engine.ts` and `brush.ts` (PR #59, from #52 at
 // a293e41), kept to its structure: the pinned parity tests compare it with the prototype byte for
@@ -15,7 +16,7 @@ import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
 import type { WaterState } from "../sim/water";
 import { snapshotMap, type FullForceMap } from "./force";
-import { footprint, startGround } from "./objects";
+import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
 
 export interface Point {
@@ -189,29 +190,6 @@ export class Fault {
   }
 }
 
-/** A fault within 3.5 tiles of the protected ground (the start's) is refused, with room for its
- *  seeded bends. */
-export function faultStrokeReason(points: readonly Point[], keep: Uint8Array, W: number): string | null {
-  for (let i = 0; i < keep.length; i++)
-    if (keep[i]) {
-      const x = i % W;
-      const y = Math.floor(i / W);
-      for (let k = 0; k < Math.max(1, points.length - 1); k++) {
-        const a = points[k];
-        const b = points[k + 1] ?? a;
-        if (!a) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const t = clamp(((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
-        if ((x - a.x - t * dx) ** 2 + (y - a.y - t * dy) ** 2 < 3.5 ** 2) return "Start here";
-      }
-    }
-  return null;
-}
-
-export function faultReason(m: { W: number; H: number; entities: readonly EntitySpec[] }, intent: QuakeIntent): string | null {
-  return faultStrokeReason(intent.path, startGround(m), m.W);
-}
 
 /** A quake planned a few rows at a time (`advance`), on its own copy of the map. */
 export class QuakePlan {
@@ -234,8 +212,6 @@ export class QuakePlan {
   ) {
     validateQuake(settings, before, intent);
     this.fault = new Fault(settings, intent);
-    const reason = faultReason(before, intent);
-    if (reason) throw Error(reason);
     this.map = snapshotMap(before);
     this.arrival = new Float32Array(before.W * before.H);
     this.dx = new Int16Array(this.arrival.length);
@@ -361,8 +337,7 @@ export class QuakePlan {
   private ensureTear(): void {
     if (this.map.heights.some((h, i) => h !== this.before.heights[i])) return;
     // Sliding a featureless plain (or lifting already capped ground) must still leave a visible
-    // tear. This small whole-level scarp never changes a start.
-    const keep = startGround(this.before);
+    // tear.
     const cap = Math.min(22, this.map.maxHeight);
     for (const p of this.fault.points)
       for (let yy = -2; yy <= 2; yy++)
@@ -370,7 +345,6 @@ export class QuakePlan {
           const x = clamp(Math.round(p.x) + xx, 0, this.map.W - 1);
           const y = clamp(Math.round(p.y) + yy, 0, this.map.H - 1);
           const i = y * this.map.W + x;
-          if (keep[i]) continue;
           const f = this.fault.at(x, y);
           const h = this.before.heights[i];
           this.map.heights[i] = h === 0 ? 1 : h === cap ? h - 1 : clamp(h + (f.d >= 0 ? 1 : -1), 0, cap);
@@ -389,7 +363,9 @@ export class QuakePlan {
     const inside = this.settings.mode === "slide" ? new Map(this.map.entities.map((e) => [e.id, Number(staysInside(e))])) : new Map<string, number>();
     // Place intact interior blocks before the edge continuation. Clamped edge trees must not dislodge
     // a ruin that has room for its full translation.
-    const all = [...this.map.entities].sort((a, b) => Number(b.template === "StartingLocation") - Number(a.template === "StartingLocation") || (inside.get(b.id) ?? 0) - (inside.get(a.id) ?? 0));
+    // (the start stays where it stands: a force is bound only by nature, and the editor carries the
+    // start to level ground when its own is broken, D257)
+    const all = [...this.map.entities].filter((e) => e.template !== "StartingLocation").sort((a, b) => (inside.get(b.id) ?? 0) - (inside.get(a.id) ?? 0));
     const fallen = new Map(this.map.fallen.map((f) => [f.id, f]));
     for (const e of all) {
       const old = { ...e };
@@ -398,7 +374,7 @@ export class QuakePlan {
       const corners = [objectTile(e, 0, 0), objectTile(e, fp[0] - 1, 0), objectTile(e, 0, fp[1] - 1), objectTile(e, fp[0] - 1, fp[1] - 1)];
       const xs = corners.map((p) => p[0] - e.x);
       const ys = corners.map((p) => p[1] - e.y);
-      const margin = e.template === "StartingLocation" ? 1 : 0;
+      const margin = 0;
       const px = clamp(e.x + f.dx, margin - Math.min(...xs), W - 1 - margin - Math.max(...xs));
       const py = clamp(e.y + f.dy, margin - Math.min(...ys), H - 1 - margin - Math.max(...ys));
       e.x = px;

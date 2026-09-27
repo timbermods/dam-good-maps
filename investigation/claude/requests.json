@@ -8468,25 +8468,25 @@
    "kind": "conflicting",
    "text": "drop a meteor right on the start",
    "setup": "rv96",
-   "feasible": "no",
+   "feasible": "yes",
    "expressible": true,
-   "note": "every force refuses where the start sits (D202): the quiet word is the editor's, Start here",
+   "note": "D257: a force is bound only by nature: the impact lands on the start's ground, and the start is carried to the nearest level ground in the same step (it was refused with Start here before D257)",
    "goals": [
     {
      "id": "g1",
-     "text": "a crater where the start is",
+     "text": "a crater where the start stood, the start carried off it",
      "expect": []
     }
    ],
    "report": {
     "mustSay": [
-     "conflict: the start's ground stays as it is, so the impact can't land there",
-     "offer: a crater beside the start instead"
+     "the crater lands where the start stood",
+     "the start is carried to level ground nearby"
     ]
    },
    "pass": [
-    "the step is refused with the start's reason",
-    "the conflict is reported with an offer"
+    "the step is accepted and carries the start",
+    "the report says where the start went"
    ],
    "reference": {
     "calls": [
@@ -8500,7 +8500,8 @@
           34,
           47
          ],
-         "power": "meteor"
+         "power": "meteor",
+         "size": 14
         }
        ]
       }
@@ -8509,9 +8510,13 @@
     "checks": [
      {
       "on": "call:0",
-      "path": "steps.0.errors.0",
-      "op": "matches",
-      "value": "^Start here"
+      "path": "steps.0.errors",
+      "op": "missing"
+     },
+     {
+      "on": "call:0",
+      "path": "steps.0.resolved.startCarried",
+      "op": "exists"
      }
     ]
    }

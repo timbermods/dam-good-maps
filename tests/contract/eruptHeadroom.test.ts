@@ -18,9 +18,11 @@ const W = 128;
 const CENTRE = 64 * W + 64;
 
 /** The demo's own study (open woodland at level 3, its ceiling 22), or raised to `level` under
- *  `ceiling`. */
+ *  `ceiling`; without its start (D257: the prototype kept the start's ground, which a force now
+ *  treats as any other; D148). */
 function study(level = 3, ceiling = 22): ProtoMap {
   const m = fixture("plain", W);
+  m.entities = m.entities.filter((e) => e.template !== "StartingLocation");
   if (level !== 3) {
     for (let i = 0; i < m.heights.length; i++) m.heights[i] = level;
     for (const e of m.entities) e.z = level;

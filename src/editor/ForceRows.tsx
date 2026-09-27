@@ -168,7 +168,7 @@ export function EruptRow(p: RowProps<EruptUi>) {
       <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
       <SizeControl
         label="Size"
-        title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives; near the height limit it grows broader still)"
+        title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives)"
         value={breadth}
         min={ERUPT_SIZE_MIN}
         max={ERUPT_SIZE_MAX}

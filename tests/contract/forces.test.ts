@@ -1,7 +1,10 @@
 // The shared forces core (PLAN §20 D203, D206, D219, D220), pinned to Codex's prototypes: the
 // forces-core investigation (#59) compared its extracted verbs with the four prototypes' pinned
 // sources byte for byte on 45 cases (investigation/forces-core/checks/parity.json). The port in
-// src/core/forces must give the same land, objects and fallen trees on each of them.
+// src/core/forces must give the same land, objects and fallen trees on each of them. Since D257 a
+// force is bound only by nature: the prototypes' Quake and Erupt kept the start's ground (a Lift
+// carried the start on a flattened apron, a volcano left its ground alone), so those two are held to
+// the prototypes live, on the same studies without their start, where nothing else differs (D148).
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -12,13 +15,25 @@ import { CRATER_DEFAULTS, impact } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, erupt } from "../../src/core/forces/erupt";
 import { snapshotMap, type ForceMap } from "../../src/core/forces/force";
 import { blockObject } from "../../src/core/format/entities";
-import { FaultBrush, faultReason, QUAKE_DEFAULTS, quake, revealQuake, slideTiles, type QuakeIntent } from "../../src/core/forces/quake";
+import { FaultBrush, QUAKE_DEFAULTS, quake, revealQuake, slideTiles, type QuakeIntent } from "../../src/core/forces/quake";
 import { hash } from "../../src/core/forces/random";
 import { transportRock } from "../../src/core/forces/rock";
 import { CraterRun, EruptRun, modelOf, QuakeRun } from "../../src/core/forces/runs";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { WaterSim } from "../../src/core/sim/water";
 import { fixture } from "./forceFixtures";
+import { erupt as protoErupt, quake as protoQuake } from "../../investigation/forces-core/verbs";
+import { fixture as protoFixture } from "../../investigation/forces-core/demo/maps";
+import { snapshot as protoSnapshot } from "../../investigation/forces-core/core/map";
+
+/** A study and the prototype's same study, both without their start (D257). */
+function startless(kind: "slide" | "plain"): { m: ReturnType<typeof fixture>; proto: ReturnType<typeof protoFixture> } {
+  const m = fixture(kind, 64);
+  m.entities = m.entities.filter((e) => e.template !== "StartingLocation");
+  const proto = protoFixture(kind, 64);
+  proto.entities = proto.entities.filter((e) => e.template !== "StartingLocation");
+  return { m, proto };
+}
 
 interface Pinned {
   verb: string;
@@ -48,13 +63,15 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
     expect(PINNED.results.length).toBe(45);
   });
 
-  it("Quake: Lift and Slide, Sheer and Stepped, three personalities", () => {
+  it("Quake: Lift and Slide, Sheer and Stepped, three personalities (the prototype's, without the start: D257)", () => {
     for (const seed of [0, 1, 42])
       for (const mode of ["lift", "slide"] as const)
         for (const scarp of ["sheer", "stepped"] as const) {
-          const m = fixture("slide", 64);
-          const p = quake(snapshotMap(m), { ...QUAKE_DEFAULTS, seed, mode, scarp }, { path: [{ x: 0, y: 38 }, { x: 63, y: 38 }], side: seed % 2 ? 1 : -1 });
-          expect(digest(p.map), `${mode} ${scarp} ${seed}`).toBe(pinned({ verb: "quake", mode, scarp, seed }));
+          const { m, proto } = startless("slide");
+          const intent = { path: [{ x: 0, y: 38 }, { x: 63, y: 38 }], side: seed % 2 ? (1 as const) : (-1 as const) };
+          const p = quake(snapshotMap(m), { ...QUAKE_DEFAULTS, seed, mode, scarp }, intent);
+          const q = protoQuake.quake(protoSnapshot(proto), { ...protoQuake.DEFAULTS, seed, mode, scarp }, intent);
+          expect(digest(p.map), `${mode} ${scarp} ${seed}`).toBe(digest(q.map as unknown as ForceMap));
         }
   });
 
@@ -67,13 +84,15 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  it("Erupt: Vent and Fissure, Steep and Broad", () => {
+  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's, without the start: D257)", () => {
     for (const seed of [0, 1, 42])
       for (const mode of ["vent", "fissure"] as const)
         for (const shape of ["steep", "broad"] as const) {
-          const m = fixture("plain", 64);
-          const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, mode, shape, power: 45 }, { origin: 40 * 64 + 35, path: [{ x: 30, y: 40 }, { x: 50, y: 42 }] });
-          expect(digest(p.map), `${mode} ${shape} ${seed}`).toBe(pinned({ verb: "erupt", mode, shape, seed }));
+          const { m, proto } = startless("plain");
+          const intent = { origin: 40 * 64 + 35, path: [{ x: 30, y: 40 }, { x: 50, y: 42 }] };
+          const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, mode, shape, power: 45 }, intent);
+          const q = protoErupt.erupt(protoSnapshot(proto), { ...protoErupt.DEFAULTS, seed, mode, shape, power: 45 }, intent);
+          expect(digest(p.map), `${mode} ${shape} ${seed}`).toBe(digest(q.map as unknown as ForceMap));
         }
   });
 
@@ -92,15 +111,13 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
 // --------------------------------------------------------------- the forces' own regressions (#59, #52)
 
 describe("the forces' own regressions (Quake's strokes and rivers, the rock between forces, the stages)", () => {
-  it("every short stroke quakes, and random strokes either quake or are refused with Start here, never silently", () => {
+  it("every short stroke quakes, and every random stroke quakes: the start never refuses one (D257)", () => {
     const b = fixture("plain", 48);
     for (const distance of [0, 0.000001, 0.01, 0.2, 0.9, 1.99, 2, 2.99, 3, 20]) {
       const i: QuakeIntent = { side: 1, path: [{ x: 25.2, y: 25.4 }, { x: 25.2 + distance, y: 25.4 }] };
-      expect(faultReason(b, i)).toBeNull();
       expect(quake(snapshotMap(b), QUAKE_DEFAULTS, i).stats.changed).toBeGreaterThan(0);
     }
     let accepted = 0;
-    let refused = 0;
     for (let seed = 0; seed < 300; seed++) {
       const m = snapshotMap(b);
       if (seed % 4 === 0) {
@@ -113,19 +130,13 @@ describe("the forces' own regressions (Quake's strokes and rivers, the rock betw
       for (let k = 0; k < (seed % 5) + 2; k++) points.push(seed % 4 === 1 ? { x: Math.max(0, Math.min(47, x + k * hash(seed, k + 30) * 0.15)), y } : { x: hash(seed, k * 2 + 10) * 47, y: hash(seed, k * 2 + 11) * 47 });
       const intent: QuakeIntent = { path: points, side: seed % 2 ? 1 : -1 };
       const settings = { ...QUAKE_DEFAULTS, power: seed % 101, seed, mode: seed % 3 ? ("lift" as const) : ("slide" as const), scarp: seed % 2 ? ("sheer" as const) : ("stepped" as const) };
-      if (faultReason(m, intent)) {
-        expect(() => quake(m, settings, intent)).toThrow(/Start here/);
-        refused++;
-        continue;
-      }
       const p = quake(m, settings, intent);
       expect(settings.mode === "slide" ? p.stats.fullOffset : p.stats.changed, `stroke ${seed}`).toBeGreaterThan(0);
       expect(p.map.heights.every((h) => h >= 0 && h <= 22)).toBe(true);
       expect(p.map.entities.map((e) => e.id)).toEqual(m.entities.map((e) => e.id));
       accepted++;
     }
-    expect(accepted).toBeGreaterThan(150);
-    expect(refused).toBeGreaterThan(0);
+    expect(accepted).toBe(300);
     // the pen: smooth, reaching the release point, flipping, and bounded
     const pen = new FaultBrush({ x: 20, y: 20 }, 48, 48);
     for (let k = 0; k < 10000; k++) {

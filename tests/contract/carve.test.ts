@@ -106,9 +106,13 @@ describe("the force: every step keeps the rules", () => {
     new CarveRun(mountain, Object.freeze(legacy) as CarveSettings, intent);
     expect(legacy.seed).toBeUndefined();
     for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/Invalid character/);
-    // the start's own ground can't be a carve's origin
+    // the start's own ground is a carve's like any other (D257: the editor carries the start)
     const start = mountain.entities.find((e) => e.template === "StartingLocation")!;
-    expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).toThrow(/protected/);
+    expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).not.toThrow();
+    // what it leaves alone is only what it is told to (the land above the layer showing, caves)
+    const keep = new Uint8Array(64 * 64);
+    keep[20 * 64 + 20] = 1;
+    expect(() => new CarveRun(mountain, DEFAULTS, { origin: 20 * 64 + 20 }, { keep })).toThrow(/land showing/);
   });
 });
 

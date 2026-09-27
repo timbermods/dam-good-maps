@@ -115,7 +115,7 @@ export interface Force {
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or aim it from one spot to another. Stop keeps it, Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, modes: ["Unleash", "Aim"], key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it. Stop keeps it, Esc takes it back" },
   { id: "craterize", name: "Craterize", ready: true, modes: ["Strike", "Aim"], key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
   { id: "erupt", name: "Erupt", ready: true, modes: ["Vent", "Fissure"], key: "0", hint: "a volcano where you click, or paint a fissure. Esc takes it back" },

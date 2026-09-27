@@ -6,14 +6,15 @@
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); other objects whose ground changed go; water sources keep their
-// ground and strength. It refuses to strike where the start sits and never adds water.
+// ground and strength. It strikes wherever it is aimed, the start's ground too (the editor carries
+// the start to level ground, D257), and never adds water.
 //
 // Ported from investigation/forces-core `verbs/craterize/engine.ts` (PR #59, from #51 at 2f4963c),
 // kept to its structure: the pinned parity tests compare it with the prototype byte for byte.
 
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
-import { footprint, START_REASON, startGround } from "./objects";
+import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
 
 export interface CraterSettings {
@@ -248,8 +249,8 @@ export class ImpactPlan {
     this.settings = { ...settings };
     this.intent = { ...intent };
     this.anatomy = craterAnatomy(before, settings, intent);
-    this.keep = startGround(before);
-    if (this.keep[intent.origin]) throw Error(START_REASON);
+    // (the start's ground is nature's to change: the start is carried off it, D257)
+    this.keep = new Uint8Array(before.W * before.H);
     if (extraKeep) for (let i = 0; i < extraKeep.length; i++) if (extraKeep[i]) this.keep[i] = 1;
     // Existing emitter footprints retain their ground and exact source settings.
     for (const e of before.entities) if (EMITTERS[e.template]) for (const i of footprint(before, e)) this.keep[i] = 1;

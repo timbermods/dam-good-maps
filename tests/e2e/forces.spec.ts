@@ -1,9 +1,12 @@
 // Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D216, D219), through the page: each in the
 // forces group with Carve, its options row starting with its mode switch; a click strikes or erupts,
 // a painted fault quakes; each is kept as one undo step, exactly as it was shown (the worker's map is
-// the page's), Esc takes it back at once, Try another replaces it and undo brings the first one back;
-// every force refuses where the start sits, quietly ("Start here"). Keys 7, 8, 9, 0 pick them, X
-// flips a quake's side, Esc puts a force away; with reduced motion the land is exactly the same.
+// the page's), Esc takes it back at once, Try another replaces it and undo brings the first one back.
+// A force is bound only by nature (D257): through the start it goes on, and the start is carried to
+// level ground in the same step. Its gestures are clean (D258): no footprint, route or fit on the
+// land, only a small cursor where a click acts, a thin arrow while Aim drags, and the stroke a
+// fault or a fissure is painted with. Keys 7, 8, 9, 0 pick them, X flips a quake's side, Esc puts a
+// force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -13,6 +16,9 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const worker = (page: Page) => page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
+const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture());
+/** The start's middle, now. */
+const startAt = async (page: Page) => ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
 async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await page.goto(`./#${hash}`);
@@ -80,7 +86,7 @@ async function settled(page: Page) {
   await idle(page);
 }
 
-test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; Try another replaces it; the start refuses it", async ({ page }) => {
+test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = bar.getByRole("group", { name: "Forces" });
@@ -100,6 +106,13 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   const { start, far } = await places(page);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
+  // hovered: only the small cursor where it will strike, no crater's outline (D258)
+  const h = await client(page, far[0], far[1]);
+  await page.mouse.move(h.x + 3, h.y);
+  await page.mouse.move(h.x, h.y);
+  await expect.poll(async () => (await gesture(page)).cursor).toEqual(far);
+  expect((await gesture(page)).stroke).toBeNull();
+  await expect(page.locator(".shape-note")).toHaveCount(0);
   // Esc as it strikes: all of it goes, and the history never had it
   await clickTile(page, far[0], far[1]);
   await page.keyboard.press("Escape");
@@ -131,13 +144,21 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
 
-  // on the start: red, "Start here", and nothing happens
+  // on the start: it strikes all the same (D257), one step, and the start is carried off the
+  // broken ground; undo brings both back
   const s = await client(page, start[0], start[1]);
+  await page.mouse.move(s.x + 3, s.y);
   await page.mouse.move(s.x, s.y);
-  await expect(page.locator(".shape-note")).toHaveText("Start here");
+  await expect(page.locator(".shape-note")).toHaveCount(0);
   await page.mouse.click(s.x, s.y);
   await settled(page);
-  expect(await heights(page)).toEqual(before);
+  expect((await labels(page)).at(-1)).toBe("Craterize");
+  expect(await heights(page)).not.toEqual(before);
+  expect(await startAt(page)).not.toEqual(start);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(before);
+  expect(await startAt(page)).toEqual(start);
   // Esc puts the force away
   await page.keyboard.press("Escape");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "false");
@@ -183,7 +204,7 @@ test("Erupt: a vent on a click, a fissure painted; each one step; undo takes it 
   await expect.poll(() => heights(page)).toEqual(vent);
 });
 
-test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; again on its summit it breaks out on the flank", async ({ page }) => {
+test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; again on its summit it rises on the flank, with no preview on the land (D258)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("0");
   const row = page.getByRole("group", { name: "Erupt options" });
@@ -210,11 +231,15 @@ test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; a
             best = h[yy * W + xx];
             at = [xx, yy];
           }
-      // hovered, it says where it will go
+      // hovered: only the cursor, no cone, no line to the flank and no words (D258), as it can rise
+      // somewhere near
       const p = await client(page, at[0], at[1]);
       await page.mouse.move(p.x + 3, p.y);
       await page.mouse.move(p.x, p.y);
-      await expect(page.locator(".shape-note")).toContainText(/breaks out on the flank|grows broader/);
+      await expect.poll(async () => (await gesture(page)).cursor).toEqual(at);
+      expect((await gesture(page)).stroke).toBeNull();
+      await page.waitForTimeout(200);
+      await expect(page.locator(".shape-note")).toHaveCount(0);
     }
     await clickTile(page, at[0], at[1]);
     await expect(page.getByRole("group", { name: "Erupt at work" })).toBeVisible();
@@ -229,7 +254,7 @@ test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; a
   }
 });
 
-test("Quake: a painted Lift follows the stroke and is kept when let go; X flips the side; a Slide carries the land; a fault through the start is refused", async ({ page }) => {
+test("Quake: a painted Lift follows the stroke and is kept when let go; X flips the side; a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
@@ -247,6 +272,9 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; X flips 
   // a short fault away from the start: the land moves while it is painted, and is kept when let go
   const y = far[1];
   await paint(page, [far[0] - 10, y], [far[0] + 10, y], { release: false });
+  // the fault is drawn as it is painted (the gesture itself), nothing else
+  expect((await gesture(page)).stroke).toBeGreaterThan(0);
+  expect((await gesture(page)).cursor).toBeNull();
   await expect.poll(async () => (await status(page))?.painting ?? false).toBe(true);
   await expect.poll(async () => JSON.stringify(await heights(page)) !== JSON.stringify(before)).toBe(true);
   await page.mouse.up();
@@ -259,26 +287,44 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; X flips 
   await row.getByRole("button", { name: "Slide" }).click();
   await paint(page, [far[0] - 10, y - 6], [far[0] + 10, y - 6]);
   await settled(page);
-  const l = await labels(page);
-  if (l.at(-1) !== "Quake: slide") {
-    // (the start was on the side that slides: the other side, then)
-    await page.keyboard.press("x");
-    await paint(page, [far[0] - 10, y - 6], [far[0] + 10, y - 6]);
-    await settled(page);
-  }
   expect((await labels(page)).at(-1)).toBe("Quake: slide");
   expect(await worker(page)).toEqual(await heights(page));
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(lifted);
 
-  // through the start: red, "Start here", and nothing happens
+  // through the start: it quakes all the same (D257), one step, and the start stands on level
+  // ground (carried there when its own broke)
   await row.getByRole("button", { name: "Lift" }).click();
-  await paint(page, [start[0] - 8, start[1]], [start[0] + 8, start[1]], { release: false });
-  await expect(page.locator(".shape-note")).toContainText("Start here");
-  await page.mouse.up();
+  await paint(page, [start[0] - 8, start[1]], [start[0] + 8, start[1]]);
   await settled(page);
-  expect(await heights(page)).toEqual(lifted);
+  expect((await labels(page)).at(-1)).toBe("Quake: lift");
+  expect(await heights(page)).not.toEqual(lifted);
+  expect(await worker(page)).toEqual(await heights(page));
+});
+
+test("Craterize's Aim is a drag in a direction: only a thin arrow, no crater's outline; let go, a glancing blow (D258)", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("8");
+  const row = page.getByRole("group", { name: "Craterize options" });
+  await row.getByRole("button", { name: "Aim" }).click();
+  await row.getByRole("slider", { name: "Power" }).fill("30");
+  const { far } = await places(page);
+  const a = await client(page, far[0], far[1]);
+  const b = await client(page, far[0] + 10, far[1]);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  const g = await gesture(page);
+  expect(g.arrow?.from).toEqual(far);
+  expect(g.stroke).toBeNull();
+  expect(g.cursor).toBeNull();
+  await expect(page.locator(".aim-arrow")).toBeVisible();
+  await expect(page.locator(".shape-note")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.locator(".aim-arrow")).toHaveCount(0);
+  await settled(page);
+  expect((await labels(page)).at(-1)).toBe("Craterize");
 });
 
 test("the forces with reduced motion: the same land, no camera moving", async ({ page }) => {

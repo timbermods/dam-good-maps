@@ -28,6 +28,24 @@
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [
+    {
+      "pattern": "\\bno room to rise here: it breaks out\\b",
+      "retired": "D258",
+      "instead": "no fit preview: Erupt says only \"No room to rise here\" when a vent can't rise at all",
+      "example": "No room to rise here: it breaks out on the flank"
+    },
+    {
+      "pattern": "\\bnear the height limit: it grows broader\\b",
+      "retired": "D258",
+      "instead": "no fit preview: the volcano simply rises as it can",
+      "example": "Near the height limit: it grows broader"
+    },
+    {
+      "pattern": "\\bthe start's ground stays as it is\\b",
+      "retired": "D257",
+      "instead": "the forces go through the start's ground; the editor carries the start to level ground",
+      "example": "The start's ground stays as it is: start the carve away from it"
+    },
     { "pattern": "\\b(hill|plateau|ridge|canyon|valley|island|terraces?|mesa|valley floor): reaches level\\b", "retired": "D182", "instead": "the brushes: hills and valleys come from painting", "example": "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles" },
     { "pattern": "\\bits edge (climbs|sinks) 1 level every\\b", "retired": "D182", "instead": "the brushes, whose edge slopes a level a tile", "example": "its edge sinks 1 level every 3 tiles from level 9" },
     { "pattern": ">on this map<", "retired": "D184", "instead": "the land itself: the generator's features are its plan, never a list of objects", "example": "<h2>On this map</h2>" },

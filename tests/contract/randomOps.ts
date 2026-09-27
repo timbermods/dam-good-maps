@@ -14,7 +14,7 @@ import { plainEntities, protectedGround, type FullForceMap } from "../../src/cor
 import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, type EruptSettings } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS, type QuakeSettings } from "../../src/core/forces/quake";
-import { startGround } from "../../src/core/forces/objects";
+import { footprint } from "../../src/core/forces/objects";
 import { geology } from "../../src/core/forces/random";
 import { forceParamsOf, pathRecord } from "../../src/core/forces/result";
 import { CraterRun, EruptRun, QuakeRun } from "../../src/core/forces/runs";
@@ -166,7 +166,10 @@ function randomForce(s: MapSession, rng: Rng): EditOp | null {
   const map: FullForceMap = { ...m, entities, rockLayers: geology(s.openedHeights), lava: new Uint32Array(W * H), fallen: [] };
   const keep = new Uint8Array(W * H);
   for (const i of s.columns.keys()) keep[i] = 1;
-  const guard = startGround(map);
+  // (the draw keeps its forces off the start's ground: applied straight to the session, a force
+  // there would leave the start for the editor to carry, which the worker does, not the session)
+  const guard = new Uint8Array(W * H);
+  for (const e of map.entities) if (e.template === "StartingLocation") for (const i of footprint(map, e, 1)) guard[i] = 1;
   let ox = -1;
   let oy = -1;
   for (let tries = 0; tries < 25 && ox < 0; tries++) {

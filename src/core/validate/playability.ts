@@ -14,6 +14,8 @@ import { components, walkRegions } from "../analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
 import { isSapling, noWood, treeLogs, woodDetail, type WoodBySpecies, type WoodSpecies } from "../analysis/wood";
+import { TREE_LOGS } from "../format/entities";
+import { guidFrom } from "../math/hash";
 import { footprintTiles, slopeHighSide, worldBlocks, FOOTPRINTS } from "../format/footprints";
 import { polygonMask } from "../features/geometry";
 import { OBJECT_NAMES, objectTiles } from "../features/objects";
@@ -573,6 +575,10 @@ function checkStart(
     if (tree) trees++;
     else bushes++;
   }
+  // the fixes when the start falls short (D257: a force may leave it so): berry bushes, then oaks for
+  // the starting logs, on the nearest free soil within the walk (moist soil first: a bush must live;
+  // an oak keeps its logs even if the ground is dry), one step each
+  const plant = startPlanting(inp, fl, walk, sd, rules.bushesWithin20 - bushes, rules.woodWithin20 - wood);
   analysis.treesNear = trees;
   analysis.bushesNear = bushes;
   analysis.woodNear = wood;
@@ -585,6 +591,7 @@ function checkStart(
     value: bushes,
     limit: rules.bushesWithin20,
     message: `${bushes} living berry bushes within 20 tiles' walk of the start (at least ${rules.bushesWithin20})`,
+    ...(plant.bushes.length ? { fix: plant.bushes } : {}),
   });
   c.add({
     id: "start.wood",
@@ -593,6 +600,7 @@ function checkStart(
     value: wood,
     limit: rules.woodWithin20,
     message: `${wood} logs within 20 tiles' walk of the start${woodDetail(bySpecies, growing)} (at least ${rules.woodWithin20})`,
+    ...(plant.trees.length ? { fix: plant.trees } : {}),
   });
   const ruinsNear: string[] = [];
   let ruinsNearCount = 0;
@@ -911,6 +919,51 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
     message: bad.length ? why.join("; ") : `${extras.length} map objects stand where they should`,
     ...(bad.length ? { where: { tiles: bad.slice(0, 20) } } : {}),
   });
+}
+
+/** The planting that makes up what the start lacks (D257's fixes): `bushes` more living berry
+ *  bushes and `logs` more starting logs, on the free tiles within the walk nearest the start (never
+ *  on its own ground or its ring), bushes on soil where they live, oaks there too while it lasts,
+ *  then on dry ground (a tree keeps its logs when it dies). Its ids are stable (the same map, the
+ *  same fix). Empty when nothing is short, or there's no room. */
+function startPlanting(inp: PlayabilityInput, fl: Fields, walk: Float64Array, sd: Float64Array, bushes: number, logs: number): { bushes: FixOp[]; trees: FixOp[] } {
+  const out = { bushes: [] as FixOp[], trees: [] as FixOp[] };
+  if (bushes <= 0 && logs <= 0) return out;
+  const { W, H, objects, water } = inp;
+  const N = W * H;
+  const taken = new Uint8Array(N);
+  for (const o of objects) {
+    const tiles: [number, number][] = FOOTPRINTS[o.template] ? footprintTiles(o.template, o) : [[o.x, o.y]];
+    for (const [x, y] of tiles) if (x >= 0 && x < W && y >= 0 && y < H) taken[y * W + x] = 1;
+  }
+  const moist: { i: number; d: number }[] = [];
+  const dry: { i: number; d: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    if (taken[i] || fl.blocked[i] || fl.wet[i] || water.depth[i] > 0 || sd[i] < 3) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x < 1 || y < 1 || x > W - 2 || y > H - 2) continue;
+    const d = reachAt(walk, W, H, i);
+    if (!(d <= NEAR - 2)) continue;
+    (fl.M[i] > 0 && !(fl.SC[i] > 0) ? moist : dry).push({ i, d });
+  }
+  const near = (a: { i: number; d: number }, b: { i: number; d: number }) => a.d - b.d || a.i - b.i;
+  moist.sort(near);
+  dry.sort(near);
+  const place = (template: string, i: number): FixOp => ({ op: "placeEntity", label: "", params: { id: guidFrom("fix:start", template, i), template, x: i % W, y: Math.floor(i / W), orientation: "Cw0" } });
+  let k = 0;
+  for (; k < moist.length && out.bushes.length < bushes; k++) out.bushes.push(place("BlueberryBush", moist[k].i));
+  // (the oaks keep clear of the bushes the other fix would plant, so both can be taken)
+  const oaks = Math.max(0, Math.ceil(logs / TREE_LOGS.Oak));
+  for (const s of [...moist.slice(k), ...dry]) {
+    if (out.trees.length >= oaks) break;
+    out.trees.push(place("Oak", s.i));
+  }
+  if (out.bushes.length < bushes) out.bushes = [];
+  if (out.trees.length < oaks) out.trees = [];
+  if (out.bushes.length) out.bushes[0] = { ...out.bushes[0], label: `Plant ${out.bushes.length} berry bush${out.bushes.length > 1 ? "es" : ""} near the start` };
+  if (out.trees.length) out.trees[0] = { ...out.trees[0], label: `Plant ${out.trees.length} oak${out.trees.length > 1 ? "s" : ""} for the starting logs` };
+  return out;
 }
 
 function fixDelete(entities: string[], label: string): FixOp {

@@ -6,7 +6,7 @@
 // leave benches. Power sets its depth, its reach and how long it runs; Width (following Power, or
 // set) concentrates or spreads that work. What it cuts is carried and laid down as a fan at its
 // end. Each tile changes in one direction only, no step leaves a new one-tile pit or spike, and
-// the start's ground is never touched.
+// the start's ground is nature's to carve too (the editor carries the start to level ground, D257).
 //
 // Bends vary (D199): measured over six stations, a bend's outer bank is cut wider and up to two
 // levels deeper, its inner bank keeps shallow shelves, and the straights between bends narrow, so
@@ -225,7 +225,7 @@ export class CarveRun implements ForceRun {
     this.original = input.heights.slice();
     this.keep = protectedGround(input, options.keep ?? null);
     this.course = new Course(input, settings, intent, this.character);
-    if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!])) throw new Error("Choose a point outside the start’s protected ground");
+    if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!])) throw new Error("Choose a point on the land showing");
     this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
     this.sim = new WaterSim((this.model = modelFor(input)), input.water);
     this.target = input.heights.slice();

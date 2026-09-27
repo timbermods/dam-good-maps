@@ -18,6 +18,8 @@ import {
   objectsOnNewGround,
   moveEdit,
   moveStartNear,
+  startBrokenBy,
+  startMiddle,
   planContextOf,
   planLake,
   planPiece,
@@ -72,7 +74,6 @@ import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash
 import type { CraterSettings } from "../core/forces/craterize";
 import type { EruptSettings, Point } from "../core/forces/erupt";
 import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
-import { START_REASON, startGround, startProblem } from "../core/forces/objects";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
 import type { QuakeSettings } from "../core/forces/quake";
 import { geology, nextSeed } from "../core/forces/random";
@@ -1060,10 +1061,23 @@ const START_FIXABLE = new Set(["start.flat", "start.entrance", "start.dry", "sta
 
 function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
   let fix = c.fix?.length ? c.fix : undefined;
+  // (a planting fix only where the game takes each plant: the rest of it still helps)
+  if (fix && s && fix.some((op) => op.op === "placeEntity")) {
+    const label = fix[0].label;
+    fix = fix.filter((op) => op.op !== "placeEntity" || !entityProblem(s, op.params));
+    fix = fix.length ? [{ ...fix[0], label }, ...fix.slice(1)] : undefined;
+  }
   if (!fix && s && START_FIXABLE.has(c.id)) {
     const at = startAt(s);
     const ops = at ? moveStartNear(s, at[0], at[1]) : null;
     if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start to the nearest good spot" : "" }) as FixOp);
+  }
+  // water out of reach (D257: a force may carry it off): the start moved to the nearest good spot
+  // by the nearest water a pump reaches
+  const shore = c.where?.tiles?.[0];
+  if (!fix && s && c.id === "start.water" && shore) {
+    const ops = moveStartNear(s, shore[0], shore[1]);
+    if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start near the water" : "" }) as FixOp);
   }
   // entities are named by id; the page finds them by their tiles
   let where = c.where;
@@ -1732,8 +1746,6 @@ export interface ForceFrame {
   water?: WaterView;
   entities?: EntityView;
   heat?: Uint8Array;
-  /** Why keeping it now would be refused (a painted Lift flooding the start). */
-  problem?: string;
 }
 
 export interface ForceStarted {
@@ -1899,11 +1911,10 @@ export function carveAgainReady(): boolean {
 
 const refuse = (text: string): ForceStarted => ({ ok: false, errors: [text], frame: null, settings: null });
 
-/** The words for a force's refusal, from its run's (the start's ground is the quiet "Start here"). */
-function refusal(verb: Verb, e: unknown): string {
-  const text = e instanceof Error ? e.message : String(e);
-  if (/protected|Start here/.test(text)) return verb === "carve" ? "The start's ground stays as it is: start the carve away from it" : START_REASON;
-  return text;
+/** The words for a force's refusal, from its run's (only nature and the map's limits refuse one:
+ *  the start is never in its way, D257). */
+function refusal(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replaces?: number, state: TerrainState = s.terrainState()): ForceStarted {
@@ -1937,9 +1948,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           const comps = (e.raw ? (e.raw as { Components?: Record<string, unknown> }).Components ?? {} : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
           const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
           const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
-          const guard = startGround(base);
-          for (let i = 0; i < N; i++) if (keep[i]) guard[i] = 1;
-          const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), guard, aimed ? at(aimed) : null);
+          const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), keep, aimed ? at(aimed) : null);
           const settings: CarveSettings = { ...req.settings, width: unleashWidth(strength), dry: true };
           const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}) };
           try {
@@ -1973,20 +1982,13 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         map = stagedForceMap(base);
         const run = new QuakeRun(map, req.settings, { path: req.path, side: req.side }, keep);
         run.finalize = buildTouches(state, base.heights);
-        if (req.settings.mode === "slide") {
-          // Slide carries the land; the start stays where it is: a block with the start on it is
-          // refused (X flips which side moves)
-          const start = map.entities.find((e) => e.template === "StartingLocation");
-          const move = start && run.plan0.fault.movement(start.x, start.y);
-          if (move && (move.dx || move.dy)) throw new Error(START_REASON);
-        }
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;
         break;
       }
     }
   } catch (e) {
-    return refuse(refusal(req.verb, e));
+    return refuse(refusal(e));
   }
   // the map's own water waits: the force's water takes over from it (a weather run ends)
   stopWater();
@@ -2088,11 +2090,6 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
       f.shownEntities = copyEntityView(v);
     }
   }
-  // a painted Lift that would flood the start, or tip it: said while it is painted
-  if (f.staged instanceof QuakeRun && f.staged.painting) {
-    const problem = quakeStartProblem(f, f.staged);
-    if (problem) out.problem = problem;
-  }
   if (!f.heatSent && f.staged?.heat) {
     const heat = f.staged.heat();
     if (heat) {
@@ -2101,14 +2098,6 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     }
   }
   return out;
-}
-
-/** What a quake would do to the start (null: nothing wrong): it rides the land, and must still stand
- *  flat and dry, as it did before. */
-function quakeStartProblem(f: NonNullable<typeof force>, r: QuakeRun): string | null {
-  const after = r.final();
-  if (!after || startProblem(f.before)) return null;
-  return startProblem({ ...after, water: r.map.water });
 }
 
 /** Run the force `steps` steps more (ten are a second of a carve), and what changed. */
@@ -2213,11 +2202,6 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!r.done && !(r instanceof QuakeRun && r.painting)) r.finishAll();
     const after = r.final();
     if (!after) return refused(["Nothing changed"]);
-    if (r instanceof QuakeRun) {
-      // the start rides the land; it must still stand flat and dry (unless it didn't before)
-      const problem = quakeStartProblem(f, r);
-      if (problem) return refused([`${problem}: the quake is taken back`]);
-    }
     params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
     water = r.liveWater();
@@ -2236,6 +2220,7 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     handoff = null;
     return refused(res.errors);
   }
+  carryStart(s, params);
   const seq = lastSeq(s)!;
   if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
   else series = { session: s, seqs: new Set([seq]), base: f.before, state: f.state, request: f.request, nextSeed: f.request.settings.seed ?? 0 };
@@ -2247,6 +2232,23 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
 }
 
 export const carveStop = forceStop;
+
+/** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on
+ *  an object) carries the start to the nearest level ground where it stands well, in the same undo
+ *  step (D257: a force is bound only by nature; the editor keeps the map playable). With no such
+ *  ground within reach it stays, and the checks say what is wrong. */
+function carryStart(s: MapSession, params: ForceResultParams): boolean {
+  if (!startBrokenBy(s, new Set(params.tiles))) return false;
+  const at = startMiddle(s);
+  const ops = at ? moveStartNear(s, at[0], at[1], true) : null;
+  if (!ops) return false;
+  const label = s.history().filter((h) => h.applied).at(-1)?.label;
+  s.undo();
+  const r = s.applyAll([{ op: "forceResult", params }, ...ops], "user", label);
+  if (r.ok) return true;
+  s.apply({ op: "forceResult", params }, "user");
+  return false;
+}
 
 /** A force is at work. */
 export function forcing(): boolean {
