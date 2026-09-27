@@ -1,0 +1,434 @@
+[
+  {
+    "id": "wood-a",
+    "file": "audio/wood-a.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactWood_light_000.ogg",
+        "sha256": "eb45e35b4bed784d3f120de4afec4b0d6ac09d9e143cce8cfcb7d739e1b1f3c3"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1103,
+    "gainDb": -3.94,
+    "bytes": 4076,
+    "sha256": "51434c42a287291bbe5a4ef00463123ad7bbb3843f796085c6bb547cf6ac6ee2"
+  },
+  {
+    "id": "wood-b",
+    "file": "audio/wood-b.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactWood_light_002.ogg",
+        "sha256": "b183cf7a5bd783817e0e4b82af34ac6658fa1927049089dadc8b15c2ecc771dc"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1103,
+    "gainDb": -4.16,
+    "bytes": 4076,
+    "sha256": "2b780671fa69dd1d98bb5b9e86757c57bd4d8c6d39c3bf6ea253dce864ed973e"
+  },
+  {
+    "id": "wood-body",
+    "file": "audio/wood-body.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactWood_medium_001.ogg",
+        "sha256": "15271dbe8e2872dbb0ff1aeb7b12b2d2b92b7c1951c88532b9ab9158c36dfc73"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.4s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1663,
+    "gainDb": -4.66,
+    "bytes": 5228,
+    "sha256": "8e3c7ea0826ef2b92e34affe7bdfce43d7a5c4693de34ada34e98d7819945cf6"
+  },
+  {
+    "id": "wood-heavy",
+    "file": "audio/wood-heavy.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactWood_heavy_000.ogg",
+        "sha256": "15ff82332f342c30e469215539e1cc57e11b221aa2cf7e11e811d313a9927f3d"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.5s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.2075,
+    "gainDb": -7.29,
+    "bytes": 6380,
+    "sha256": "a0e86c832247a1a41dc43e81e4e0a60145a985334a0f761e06ed39100b7f70dd"
+  },
+  {
+    "id": "earth-a",
+    "file": "audio/earth-a.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactSoft_heavy_000.ogg",
+        "sha256": "49e7ca88743fca974bb8676ea138b751cfd8f9033b5e7af8736c2a215d6edbc1"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.3378,
+    "gainDb": -11.64,
+    "bytes": 9836,
+    "sha256": "fc21ad848278018ac533e90c3eeffc5ba7f83d013c670824708f28817cf22f43"
+  },
+  {
+    "id": "earth-b",
+    "file": "audio/earth-b.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactSoft_heavy_002.ogg",
+        "sha256": "d130ae541951243d3f6ed963d0057450a445ffe117fbf9a084d34eb1635cb563"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.4014,
+    "gainDb": -12.17,
+    "bytes": 10988,
+    "sha256": "51d5f502b192bbc30025bef966d838f72180c797c14cd015ade38d0b56ac249f"
+  },
+  {
+    "id": "leaf-a",
+    "file": "audio/leaf-a.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "footstep_grass_000.ogg",
+        "sha256": "9d49497777405d78d7cf7f2888e28277f3a23192300cfd1d79d54876b20f479f"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.4s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.0932,
+    "gainDb": -3.84,
+    "bytes": 3500,
+    "sha256": "0a9c23d3eda98556accd73b75817563266c9964856cbd461a46e3cf53620c74c"
+  },
+  {
+    "id": "leaf-b",
+    "file": "audio/leaf-b.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "footstep_grass_002.ogg",
+        "sha256": "73a520139f5be716a403bfe9c80e0e94d1e61d8e9de04a354b336392164b53dc"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.4s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1642,
+    "gainDb": -3.9,
+    "bytes": 5228,
+    "sha256": "ae924df1bf7534c85257fa46f3badd1aac250641623d74190c1f8ffaab62d9bb"
+  },
+  {
+    "id": "stone",
+    "file": "audio/stone.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "footstep_concrete_001.ogg",
+        "sha256": "507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.0966,
+    "gainDb": -3.94,
+    "bytes": 4076,
+    "sha256": "8968a99a7a1a15cd301e96538d638ea6812c7e4ce57a55b62a639a104dd797b2"
+  },
+  {
+    "id": "grit",
+    "file": "audio/grit.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactMining_000.ogg",
+        "sha256": "36b4ea107222d073c67ca64dde26944975609202d5090b2f2021213c1a7e35cd"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.5s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.5488,
+    "gainDb": -10.86,
+    "bytes": 14444,
+    "sha256": "8a1ef849ea43cf0945104f5ba15c925acc83a794756a09ffe80f1acaaa12fa4e"
+  },
+  {
+    "id": "scrape",
+    "file": "audio/scrape.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactMining_004.ogg",
+        "sha256": "8ca3a99d85d845751ad8ce7b40509da58263a62e48cde70e5a30b5ccef4c9a3b"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.5s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.5004,
+    "gainDb": -11.16,
+    "bytes": 13292,
+    "sha256": "a407e877aa5f3eaac2828a2fad9a4c8dcb8751ed458313d93b0dea388fb5798f"
+  },
+  {
+    "id": "metal",
+    "file": "audio/metal.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactMetal_medium_001.ogg",
+        "sha256": "e8a9eaba7c4d27422e4eeb3e6c7100d5d7dc0f83e005efc98c960adcc5265337"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1229,
+    "gainDb": -3.96,
+    "bytes": 4652,
+    "sha256": "d36eaf2354551223eb69efff7ffc7ac8fc1f081f3beeee7b19459845c9d1cfb9"
+  },
+  {
+    "id": "tin",
+    "file": "audio/tin.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactTin_medium_002.ogg",
+        "sha256": "c1d2c4f9910d4529581ae56a9a9a01454c4619fbb7d6da7616221d8ec58cc0c4"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.5s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.1282,
+    "gainDb": -3.9,
+    "bytes": 4652,
+    "sha256": "6c07beabc390131a23755d8774216b9d1d99278a03d2bcef2cddc61b7c44c046"
+  },
+  {
+    "id": "resonance",
+    "file": "audio/resonance.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactBell_heavy_000.ogg",
+        "sha256": "94b8bb5f2d43ab65e4bcc32b28562416e9bc2c51d9fd4be1e333660ee52f977f"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.9618,
+    "gainDb": -5.59,
+    "bytes": 24812,
+    "sha256": "bc72768c1ed38cd959afa9fbd0b1e3e9d09acaa31eed65078591a9d107bb9671"
+  },
+  {
+    "id": "crack-a",
+    "file": "audio/crack-a.mp3",
+    "provenance": "independent",
+    "sources": [
+      {
+        "file": "crack01.mp3.flac",
+        "sha256": "a25993adc8c2bbfdd80490980d83c27a587f2d3452ee4e5bd784f02c082ec448"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 1.3512,
+    "gainDb": -9.79,
+    "bytes": 34028,
+    "sha256": "eff50120be08afb3286d4b29e2fc4bec43c6cb31d30e9a4fe494392f5ed6d4da"
+  },
+  {
+    "id": "crack-b",
+    "file": "audio/crack-b.mp3",
+    "provenance": "independent",
+    "sources": [
+      {
+        "file": "crack06.mp3.flac",
+        "sha256": "35fcccacbae84bb459957f5212f34daad7eafba6ef81e89ff112c2452d24b79a"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 1.6687,
+    "gainDb": -8.45,
+    "bytes": 41516,
+    "sha256": "e5b2dfccb0af9cd8a6a7c1cf7b8c69050bea5aeb0aa30f0dda9c5bff592addf1"
+  },
+  {
+    "id": "splash-a",
+    "file": "audio/splash-a.mp3",
+    "provenance": "ezwa",
+    "sources": [
+      {
+        "file": "water_splash-01.flac",
+        "sha256": "9bdc7921e76e22753368a5d239bd3f5e6a204ef8eae33d469c8c8bac426d9fd8"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.9976,
+    "gainDb": -1.68,
+    "bytes": 25388,
+    "sha256": "0d319b865d61de3e1c953c85d1a3366a717f74cb9684ffd5531f99cd91f78f83"
+  },
+  {
+    "id": "splash-b",
+    "file": "audio/splash-b.mp3",
+    "provenance": "ezwa",
+    "sources": [
+      {
+        "file": "water_splash-03.flac",
+        "sha256": "a22c5cac675fa60aaff8d907acf7627f1e9dcc337798ff4eb34f2f8e7a4c9e2e"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.8s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 0.7137,
+    "gainDb": 15.12,
+    "bytes": 18476,
+    "sha256": "b1ac50d13871e55d2ef6740e84d1e27d679a19e853884bbc5068683c2fd07db5"
+  },
+  {
+    "id": "bubbles",
+    "file": "audio/bubbles.mp3",
+    "provenance": "tinyworlds",
+    "sources": [
+      {
+        "file": "boiling.ogg",
+        "sha256": "ac5c065ae8f7b8dd660d9705c688dd1eff6ebc4b58dc81f6ca3c6912d8be81a8"
+      }
+    ],
+    "edits": "Crop from 0s, at most 4s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 4.0,
+    "gainDb": 19.83,
+    "bytes": 97388,
+    "sha256": "96f0161efbe4a561c418954f0c16314af20d38954e20987f1fcab2a86b88d34e"
+  },
+  {
+    "id": "waterfall",
+    "file": "audio/waterfall.mp3",
+    "provenance": "kaszuba",
+    "sources": [
+      {
+        "file": "waterfall.mp3",
+        "sha256": "cb2acc1348c4658e7c0d8c7e9e4ee9e0b0bfd76260fe7c57b16b3ed09ce25262"
+      }
+    ],
+    "edits": "Crop from 12s, at most 6s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 6.0,
+    "gainDb": -7.63,
+    "bytes": 145196,
+    "sha256": "6d6f26802a604c0ea46aed8fae8da4fecfc6d4c29fa873b7f3aa08e8dde50c1c"
+  },
+  {
+    "id": "boom",
+    "file": "audio/boom.mp3",
+    "provenance": "samster",
+    "sources": [
+      {
+        "file": "explosion.mp3",
+        "sha256": "fbc04a0bcbdba5647d5546d33c853d3ba2ef4cd2e24095bb62113202076f93ef"
+      }
+    ],
+    "edits": "Crop from 0s, at most 5s; trim impact silence; mono 48 kHz; linear level balance; 1/15 ms edge fades; MP3 192 kbps.",
+    "duration": 5.0,
+    "gainDb": -12.3,
+    "bytes": 121580,
+    "sha256": "dec3e9e0b14fa349053d4a95a172d03ee8aae4c258dbbff0f8f386ea46bf07a3"
+  },
+  {
+    "id": "earth-bed",
+    "file": "audio/earth-bed.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "footstep_concrete_000.ogg",
+        "sha256": "d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe"
+      },
+      {
+        "file": "footstep_concrete_001.ogg",
+        "sha256": "507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d"
+      },
+      {
+        "file": "footstep_concrete_002.ogg",
+        "sha256": "b21fa546d74941196b25da8a20b7010abd8c05c4fcf93545d1f344e66a664e13"
+      },
+      {
+        "file": "footstep_concrete_003.ogg",
+        "sha256": "8b513c2f0316324060b9174b8f28df6c2147418c506e6a53b77f18e149a5547b"
+      },
+      {
+        "file": "footstep_concrete_004.ogg",
+        "sha256": "24dd8db2413e5b81ad181e1205c12a1c7801da5f85715d471b92a4b2f632e45e"
+      }
+    ],
+    "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
+    "duration": 3.0,
+    "gainDb": 14.08,
+    "bytes": 73196,
+    "sha256": "5ebb1c22312ae2ef00c3a812fc2b3c350176a5ae67c7eac0688d26169d8dfc82"
+  },
+  {
+    "id": "leaf-bed",
+    "file": "audio/leaf-bed.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "footstep_grass_000.ogg",
+        "sha256": "9d49497777405d78d7cf7f2888e28277f3a23192300cfd1d79d54876b20f479f"
+      },
+      {
+        "file": "footstep_grass_001.ogg",
+        "sha256": "fb28781bd22b2eefdc14077f1adf5c94d7fe9c3a130194633b55f3e0d39d9f04"
+      },
+      {
+        "file": "footstep_grass_002.ogg",
+        "sha256": "73a520139f5be716a403bfe9c80e0e94d1e61d8e9de04a354b336392164b53dc"
+      },
+      {
+        "file": "footstep_grass_003.ogg",
+        "sha256": "0546e1d8ab2def714425701a18bd34c5ee2794b12e858e5b595aabcf38a34137"
+      },
+      {
+        "file": "footstep_grass_004.ogg",
+        "sha256": "086fd4ab3546a507ea5f5c759a9a10e535c95ade13705c238bc0eeffd7d4e8ba"
+      }
+    ],
+    "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
+    "duration": 3.0,
+    "gainDb": 12.09,
+    "bytes": 73196,
+    "sha256": "ede8d423928cb97862eaad4e75740c4cd3c4485cfa81aacbcd58f8f7163ae245"
+  },
+  {
+    "id": "stone-bed",
+    "file": "audio/stone-bed.mp3",
+    "provenance": "kenney",
+    "sources": [
+      {
+        "file": "impactMining_000.ogg",
+        "sha256": "36b4ea107222d073c67ca64dde26944975609202d5090b2f2021213c1a7e35cd"
+      },
+      {
+        "file": "impactMining_001.ogg",
+        "sha256": "61235a18de3f3d92118235398222dbf51d448f1be70b1c8bc962b10b86f2d9c6"
+      },
+      {
+        "file": "impactMining_002.ogg",
+        "sha256": "059558ec751115ca6b1441e00f0adc837c1a3eeb0a066b109e0fd879fc5d0b0c"
+      },
+      {
+        "file": "impactMining_003.ogg",
+        "sha256": "4237fa2cd80364ad81cd0af44f67d7497f1c5edcc7bdb02cd22be2ba4580c83d"
+      },
+      {
+        "file": "impactMining_004.ogg",
+        "sha256": "8ca3a99d85d845751ad8ce7b40509da58263a62e48cde70e5a30b5ccef4c9a3b"
+      }
+    ],
+    "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
+    "duration": 3.0,
+    "gainDb": 9.61,
+    "bytes": 73196,
+    "sha256": "945019cf000617c43353bd5436c299e897717d63f220fe7bf6689396b4a19eff"
+  }
+]
