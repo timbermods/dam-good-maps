@@ -81,8 +81,10 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     choice (Carve: river or dry canyon) and Try another, which varies the rest; Carve aimed through a rise.
 17. **Badwater on a riverbed** (D290): switch a source in an uneven river to badwater: it cuts a small level pool and stands; undo brings back
     the ground and the clean source.
-18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
-    Meltwater, Try another; one river on the floor; the camera stays put.
+18. **Glaciate** (D291, D292; `feature/glaciate`, on the preview with the forces): press **-**; a click on high ground flows down a
+    valley, a drag aims through a ridge with only the arrow; the ice gathers, advances for three seconds and melts back for two, the
+    camera still; Power, Size, Meltwater, Try another and nothing else; the floor reads as one river (Canyon 10, click 22,22, and your
+    cross-valley drag 24,80 → 96,36); undo and Esc take it back at once. The floor's before and after: `docs/progress/glaciate/`.
 19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
 20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
 13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
