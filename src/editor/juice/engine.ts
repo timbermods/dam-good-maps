@@ -191,7 +191,7 @@ export class JuiceEngine {
 
   /** The audio context and its output (no recording fetched, nothing played). Making the page's
    *  first context opens the audio device, a few hundred milliseconds on the page's thread: `prepare`
-   *  lets that happen while the editor is idle, never on the player's first gesture. */
+   *  lets that happen as the editor opens, never on the player's gestures. */
   private ensureContext(): AudioContext | null {
     if (this.context) return this.context;
     const Ctor = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -206,8 +206,8 @@ export class JuiceEngine {
     }
   }
 
-  /** Get the context ready while the editor is idle (it stays silent, suspended until a gesture where
-   *  the browser asks for one); off, nothing is made. */
+  /** Get the context ready as the editor opens (it stays silent, suspended until a gesture where the
+   *  browser asks for one); off, nothing is made. */
   prepare(): void {
     if (this.disposed || this.context || !this.settings.enabled) return;
     this.ensureContext();

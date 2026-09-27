@@ -199,7 +199,7 @@ afterEach(() => {
 });
 
 describe("the sound engine (round two)", () => {
-  it("is silent until the first gesture (its context made ready while idle), then loads the bank four at a time; a sound asked for while it loads is dropped, never played late", async () => {
+  it("is silent until the first gesture (its context made ready as the editor opens), then loads the bank four at a time; a sound asked for while it loads is dropped, never played late", async () => {
     let made = 0;
     const ctx = new FakeContext();
     let release!: () => void;
@@ -208,7 +208,7 @@ describe("the sound engine (round two)", () => {
     const e = new JuiceEngine({}, f.fetcher, () => (made++, ctx as unknown as AudioContext));
     expect(made).toBe(0);
     expect(e.play("tree")).toBeNull();
-    // made ready while the editor is idle: the context only (its device opens then, never on a
+    // made ready as the editor opens: the context only (its device opens then, never on a
     // gesture), nothing fetched, nothing played
     e.prepare();
     expect(made).toBe(1);

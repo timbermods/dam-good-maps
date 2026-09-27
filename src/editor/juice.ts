@@ -91,7 +91,7 @@ export interface SoundEngine {
   stop(id: string | number | null): void;
   stopAll(): void;
   setSettings(s: Partial<{ enabled: boolean; volume: number; ambience: boolean }>): void;
-  /** Get ready while the editor is idle (silent). */
+  /** Get ready as the editor opens (silent). */
   prepare?(): void;
   pause(): void;
   dispose(): Promise<void> | void;
@@ -111,8 +111,6 @@ export class Juice {
   private force: { run: number; verb: string; ids: string[]; played: Set<string>; puffAt: number } | null = null;
   private runs = 0;
   private readonly unlock = () => void this.engine.unlock();
-  private prepareTimer = 0;
-  private prepareIdle = false;
   private readonly blur = () => this.engine.pause();
 
   constructor(
@@ -127,12 +125,11 @@ export class Juice {
       window.addEventListener("pointerdown", this.unlock, true);
       window.addEventListener("keydown", this.unlock, true);
       window.addEventListener("blur", this.blur);
-      // (the audio device opens while the editor is idle, never on the first gesture)
-      const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-      const soon = () => this.engine.prepare?.();
-      this.prepareTimer = idle ? idle(soon, { timeout: 2000 }) : window.setTimeout(soon, 1200);
-      this.prepareIdle = !!idle;
     }
+    // the audio device opens while the editor opens (the page is busy loading then, and nothing can
+    // be done yet), never on a gesture or in the middle of one: making a page's first audio context
+    // blocks it for a few hundred milliseconds; it stays silent (suspended until a gesture)
+    this.engine.prepare?.();
   }
 
   setSound(s: SoundSettings): void {
@@ -267,8 +264,6 @@ export class Juice {
 
   dispose(): void {
     if (typeof window !== "undefined") {
-      if (this.prepareIdle) (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(this.prepareTimer);
-      else window.clearTimeout(this.prepareTimer);
       window.removeEventListener("pointerdown", this.unlock, true);
       window.removeEventListener("keydown", this.unlock, true);
       window.removeEventListener("blur", this.blur);

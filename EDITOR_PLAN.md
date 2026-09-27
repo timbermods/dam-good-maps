@@ -692,8 +692,8 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
     `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 818,400 bytes, in
     `public/sounds/juice-2/` with their manifest and provenance, `SOUNDS.md`), fetched and decoded on
-    the first click or key (four at a time; the audio context itself is made while the editor is
-    idle, since opening the audio device blocks the page for a few hundred milliseconds) and played by the browser's own audio thread (buffer
+    the first click or key (four at a time; the audio context itself is made as the editor opens,
+    since opening the audio device blocks the page for a few hundred milliseconds) and played by the browser's own audio thread (buffer
     sources, held beds as pre-crossfaded loops): no synthesis on the page, no worklet. One engine for
     the editor's lifetime, never waited on: a sound asked for while the bank loads, while paused or
     off, or past the limits (72 recordings, 20 sounds, four held beds, ten accents a second) is

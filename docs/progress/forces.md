@@ -75,12 +75,13 @@ draws a `forceResult` too: a small, low-power Craterize, Erupt or Quake Lift pla
 build stands and kept literally, the way the product keeps one (only planned, not played through its
 stages, so it stays fast). The heavy project passes (4 of 4).
 
-### Sounds: the audio context while idle
+### Sounds: the audio context as the editor opens
 
 Making a page's first audio context opens the audio device, 200-350 ms on the page's thread: on the
-first key it stalled the view (CI's camera test caught it once). The engine's context is now made
-while the editor is idle, a moment after it opens; the first gesture only resumes it (and starts the
-bank's load). The first key now costs nothing (the worst frame 6.2 ms, no long task).
+first key it stalled the view (CI's camera test caught it once), and made in idle time it could land
+in the middle of a first gesture. The engine's context is now made as the editor opens (the page is
+busy loading then); the first gesture only resumes it (and starts the bank's load). The first key
+costs nothing now (the worst frame 6.2 ms, no long task).
 
 ### Tests (round 2b)
 
@@ -94,7 +95,7 @@ bank's load). The first key now costs nothing (the worst frame 6.2 ms, no long t
 - `tests/contract/brush.test.ts`: a stroke saved with walkable replays exactly through a project.
 - `tests/e2e/brushKit.spec.ts`: Smooth's row without it; Level lines in the view bar beside Height
   colours, with a brush out or none.
-- `tests/unit/juiceSounds.test.ts`: the context made ready while idle fetches nothing.
+- `tests/unit/juiceSounds.test.ts`: the context made ready as the editor opens fetches nothing.
 
 **Tests changed to the new decisions (D148), none weakened:** `brushKit.spec` checked Smooth's
 walkable toggle and a walkable stroke, and Level lines in the brush row: it checks Smooth has no such
@@ -223,9 +224,9 @@ own audio thread, no synthesis on the page. Its 24 recordings (818,400 bytes) ar
 SHA-256) and provenance (`SOUNDS.md`), checked file by file against the round's own. They load
 lazily: nothing with the page; the first click or key in the editor fetches and decodes them (four at
 a time, a few hundred milliseconds warm); a sound asked for before is dropped, never played late. The
-engine's audio context is made while the editor is idle, a moment after it opens (making a page's
-first context opens the audio device: 200–350 ms on the page's thread on this machine, which on the
-first gesture stalled the view; CI's camera test caught it); the first gesture only resumes it.
+engine's audio context is made as the editor opens (making a page's first context opens the audio
+device: 200–350 ms on the page's thread on this machine, which on the first gesture stalled the
+view; CI's camera test caught it); the first gesture only resumes it.
 
 The mapping (`juice.ts`, the cues round one already had): a brush's recorded bed from its first change
 of the land to its end, with one soft contact at its start, rising gently to a fifth on a long stroke;
