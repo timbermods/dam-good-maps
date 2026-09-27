@@ -12,7 +12,7 @@
 > samples; the full batches, the 200-seeds-per-theme measures and one pooled probe batch run once,
 > at the release candidate; a review set only when Kyler's eye is needed. **Asked of Kyler:** D297's
 > line fails on 8 of 18 maps under the game's rules (the dry-tile evaporation; see "The game's
-> water rules"). Defaults this session chose: decisions-pending #100–#109 and #130–#132.
+> water rules"). Defaults this session chose: decisions-pending #100–#109 and #130–#133.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -224,14 +224,16 @@ heightfield cannot hold. `prototype/watersim.py` runs the same rules, bit for bi
 fixture and the edge, dam and seep grids: 0 difference); the golden vectors are regenerated; the
 speed-ups test keeps its port digests (still byte-exact) and pins the game's beside them.
 
-**D297's line** (`tools/water-rules-band.ts`: the canonical settle, game against port, on the same
+**D297's line** (`tools/water-rules-band.ts`, information: the canonical settle, game against port, on the same
 map's water model): 10 of 18 maps within (six themes, seeds 1–3, 128²). Outside: River Valley 2
 (139 tiles, volume −0.36%), Lake Basin 3 (156 tiles, 0.057 → 0), Delta 3 (30 tiles, −0.85%),
 Delta 1 and 2, Highlands 1 and 2, River Valley 3 (3–30 tiles). Taking the rules one at a time on
 three of them, the dry-tile evaporation makes all of it (without it: 0 tiles, 0.000%); the edge
 spill alone moves a few edge-row tiles from 0 to 0.1. Thin spreading films (0.04–0.09 deep) no
 longer form, or take another way, since a dry tile loses 1e-3 a second before it wets. The game's
-result is the line's own reference; asked of Kyler through the milestone session.
+result is the line's own reference; asked of Kyler through the milestone session, with the
+session's default: accept the game's rules with this departure, the pooled probe batch at the
+release candidate checking the water against the game itself (decisions-pending #133).
 
 ### The probe's two findings (D302)
 
