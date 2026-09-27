@@ -19,10 +19,18 @@ Your thirty-five decisions since the restart are recorded (D252–D286, below) a
    14 random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. The
    start planting is spread over the 20-tile walk (starts with a full ring within 10 tiles: 14 of 112 → 3). My honest read
    against PERFECT's "Maps" and "Water" follows here once the set exists. #90 (dead groves) waits for it.
-3. **Glaciate (#69)** is held while you and Codex do another round (D246).
-4. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+3. **Two questions for you, neither urgent:**
+   - **Housekeeping's merge** (D286 (5) and (9)): (5) says merge it early, (9) says nothing merges into `dev` without your yes. I read (5) as your
+     yes for housekeeping only and will merge it when its CI is green; say if you want to see the PR first.
+   - **3D and the Python check** (D280): D280 keeps heightfield water's Python check exactly as today, but the game's full rules on
+     heightfields (D120) move every generated map's water in its last digits, so `prototype/watersim.py` would need the same change (in
+     practice one rule: evaporation on a dry tile that receives water) or the two stop agreeing bit for bit. Options: add that rule to the
+     Python check, or keep today's rules on heightfields and use the game's only under roofs. It only matters when the engine is wired in
+     (after the forces and M9b merge); until then heightfield water is unchanged.
+4. **Glaciate (#69)** is held while you and Codex do another round (D246).
+5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-5. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's review set, then its release. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
