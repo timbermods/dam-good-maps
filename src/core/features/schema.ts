@@ -8,7 +8,7 @@ import type { Runs } from "../math/grid";
 export const FEATURE_SCHEMA_VERSION = 1;
 
 export type FeatureKind = "river" | "lake" | "landform" | "setPiece" | "forest" | "berryPatch" | "ruinField" | "mapObject" | "start";
-export type Origin = "generated" | "user" | "claude" | "stamp";
+export type Origin = "generated" | "user" | "claude";
 export type Edge = "west" | "east" | "south" | "north";
 export type Point = [number, number];
 

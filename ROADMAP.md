@@ -1298,9 +1298,9 @@ design version 1's.
     patches first, the start rules' planting spread over the walk the way the land offers it,
     `tests/contract/startPlanting.test.ts`); natural ramps only climb cliffs and badwater ditches
     wind (D209); `dev` merged in (Live editing, the forces, the waterfalls). The generator is frozen
-    again after D252 (1) (788c145), and the batches and the probe maps are re-run on it; the Claude
-    suite is no longer an M9a gate (D277) (docs/progress/m9a.md). Left: D252 (2)'s review set and
-    Kyler's yes, the DGM Probe batch, then the release.
+    again after D252 (1) (788c145); every batch on it is at 98% final or better, and the probe maps
+    are rebuilt on it; the Claude suite is no longer an M9a gate (D277) (docs/progress/m9a.md). Kyler
+    said yes on D252 (2)'s review set (D294). Left: the DGM Probe batch, then the release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
@@ -1759,16 +1759,16 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   count only water standing at or above the start's ground, so a lakeside start like Beaverome's
   passes? Measure how many official, workshop and generated starts it changes before deciding.
   Until then the floor rule applies only to water under roofs (3D terrain step 1);
-- **the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md), both P3: a `__proto__`
-  key in an imported singleton is rewritten as forged sibling data (parse into null-prototype
-  records, write own keys only); and the JSON parser accepts raw control characters inside strings
-  (reject them, as `JSON.parse` does). Each with its round-trip test;
+- **done: the audit's A3 and A4** (PLAN §20 D129; investigation/audit/AUDIT.md; #72): `parse`
+  (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
+  stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
+  does; each with its round-trip test (`tests/unit/format.test.ts`);
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
-- **the unused lock and regional-regrowth code** (#91; old projects holding a lock still open): D253
-  dropped locking part of a map and regrowing it region by region from the plan; the dead code they
-  left behind is being removed now, on `chore/housekeeping`.
+- **done: the unused lock and regional-regrowth code** (#91; #72): D253 dropped locking part of a
+  map and regrowing it region by region; their operations, fields and the stamp origin are removed,
+  and an old project holding a lock still opens with its land as it was kept.
 
 Every blocking check keeps passing (`water.storage_possible` is information the generator prefers,
 #67); batches stay at 98% or better; the Python oracle changes with the TypeScript, with 0

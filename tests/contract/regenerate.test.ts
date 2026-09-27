@@ -1,7 +1,7 @@
 // Regeneration with constraints (ROADMAP M3 acceptance, PLAN §7.0, EDITOR_PLAN §3 conflict rules):
 // generate, add a user feature, change a setting, regenerate: the user feature survives and nothing
-// is silently dropped. The planner keeps its layout off the player's features, locked regions and
-// keep-out regions; locks keep what the generator made there; what no longer applies is flagged.
+// is silently dropped. The planner keeps its layout off the player's features and keep-out
+// regions; what no longer applies is flagged.
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
@@ -109,26 +109,6 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
     const gone = groves.slice(-3).filter((f) => !s.features.some((x) => x.id === f.id));
     expect(gone.length).toBeGreaterThan(0);
     expect(g.orphans.map((o) => o.reason)).toEqual(gone.map((f) => `feature ${f.id} no longer exists`));
-  });
-
-  it("locks keep what the generator made in their area", () => {
-    const s = MapSession.fromGenerated(r);
-    const region = box(90, 90, 120, 120);
-    expect(s.apply({ op: "setLock", params: { id: "north-east", region: { runs: region } } }).ok).toBe(true);
-    const tiles = runsToTiles(region, W);
-    const heights = tiles.map((i) => s.built.heights[i]);
-    const inside = (e: { x: number; y: number }) => e.x >= 90 && e.x <= 120 && e.y >= 90 && e.y <= 120;
-    const kept = s.built.entities.filter((e) => inside(e) && e.template !== "Slope" && e.template !== "StartingLocation").map((e) => e.id).sort();
-    expect(kept.length).toBeGreaterThan(10);
-    const g = s.regenerate({ seed: 4321 });
-    expect(g.ok).toBe(true);
-    expect(tiles.map((i) => s.built.heights[i])).toEqual(heights);
-    expect(s.built.entities.filter((e) => inside(e) && e.template !== "Slope").map((e) => e.id).sort()).toEqual(kept);
-    expect(s.spec!.constraints.locks).toEqual([{ runs: region }]);
-    // the project file keeps the generation with what the lock kept
-    const doc = s.document;
-    expect(doc.kept!.owners.length).toBe(kept.length);
-    expect(Buffer.from(MapSession.open(doc).exportTimber().bytes).equals(Buffer.from(s.exportTimber().bytes))).toBe(true);
   });
 
   it("the planner places nothing in keep-out regions", () => {

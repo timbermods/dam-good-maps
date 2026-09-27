@@ -190,7 +190,7 @@ export function encodeSpecFragment(spec: MapSpec): string {
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
   if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
   const k = spec.constraints;
-  if (k.locks.length || k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
+  if (k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
   return parts.join("&");
 }
 
