@@ -100,7 +100,7 @@ export type Step =
   | { op: "brush"; tool: BrushTool; where?: Where; path?: Point[]; amount?: number; level?: number; passes?: number; size?: SizeWord | number; edges?: "slope" | "cliff" | "ramped"; steps?: number; walkable?: boolean }
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
-  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; depth?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
   /** Craterize, Erupt and Quake (D202, D203, D206): an impact at a tile or the middle of a place (a
    *  glancing blow toward a tile), a volcano there or a fissure along a line, a fault along a line
    *  lifting or sliding one side (forceSteps.ts). */
@@ -330,6 +330,7 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (Array.isArray(s.to) && !(s.to.length === 2 && num(s.to[0], 0, W - 1) && num(s.to[1], 0, H - 1))) errs.push("to is a tile [x, y] on the map, or a place");
       if (s.power !== undefined && !(num(s.power, 0, 100) || String(s.power) in POWER_WORDS)) errs.push("power is 0–100, or creek, torrent, river, catastrophe");
       if (s.width !== undefined && !num(s.width, 2, 24)) errs.push("width is 2–24 tiles (left out, it follows power)");
+      if (s.depth !== undefined && !(Number.isInteger(s.depth) && num(s.depth, 1, 12))) errs.push("depth is 1–12 levels below the land it runs through (left out, it follows power)");
       if (s.wander !== undefined && !num(s.wander, 0, 100)) errs.push("wander is 0 (straight) to 100 (winding)");
       if (s.walls !== undefined && s.walls !== "steep" && s.walls !== "wide") errs.push("walls is steep (a gorge) or wide (terraces)");
       if (s.river !== undefined && s.river !== "keep" && s.river !== "dry") errs.push("river is keep (a source at its start keeps it flowing) or dry (a dry canyon)");
@@ -711,7 +712,7 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   }
   if (chosenPath !== undefined) step = { ...step, path: chosenPath };
   const power = typeof step.power === "string" ? POWER_WORDS[step.power] : step.power ?? 65;
-  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
+  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, ...(step.depth !== undefined ? { depth: step.depth } : {}), seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
   const at = (p: [number, number]) => p[1] * W + p[0];
   if (to && at(to) === at(from)) return fail(step, ["its end is where it starts: aim somewhere else"], undefined, { ...resolved, from });
   const id = newId(conv, "source");
@@ -744,6 +745,7 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   const report = [
     `carves ${settings.dry ? "a dry canyon" : "a river"} (${word}, power ${power}) from (${from[0]}, ${from[1]})${to ? ` toward (${to[0]}, ${to[1]})` : ""}: it ${ended}, cutting ${cut} blocks over ${params.tiles.length} tiles, ${deepest} levels deep at most${Number.isFinite(low) ? `, down to level ${low}` : ""}`,
   ];
+  if (step.depth !== undefined) report.push(`its depth set to ${step.depth} level${step.depth > 1 ? "s" : ""} below the land it runs through: a ${params.width !== null && params.width >= 10 ? "wide, " : ""}shallow river, however strong`);
   if (params.source) report.push(`keeps a water source of ${params.source.strength} blocks/s at (${params.source.x}, ${params.source.y}), its strength following the width: the river keeps flowing`);
   else report.push("a dry canyon: no source");
   if (params.removed.length) report.push(`${params.removed.length} object${params.removed.length > 1 ? "s" : ""} on the cut ground go with it`);
@@ -759,7 +761,7 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
     ops: [{ op: "forceResult", params: forceOfCarve(params) }],
     made,
     report,
-    resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },
+    resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, ...(step.depth !== undefined ? { depth: step.depth } : {}), seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },
     errors: [],
     tiles: params.tiles.length,
   };

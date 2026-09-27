@@ -491,6 +491,7 @@ export class ClaudeTools {
         how: "the editor's Carve: unleash a river from a spot (from [x, y], or where: its start is the highest dry ground there) and it finds its own way down, or aim it at an end (to: a tile or a place); it runs until it ends by itself (a lake, the map's edge, its end, or its power spent), or for seconds",
         power: { min: 0, max: 100, words: POWER_WORDS, note: "how deep it cuts and how far it runs: a creek to a catastrophe" },
         width: { min: 2, max: 24, note: "tiles; left out, it follows power (2.8 + power/10): narrow for a slot canyon, wide for a lazy river" },
+        depth: { min: 1, max: 12, note: "levels below the land it runs through, at most; left out, it follows power (deeper downstream): set low with a wide width and high power for a wide, shallow river" },
         wander: { min: 0, max: 100, note: "straight to winding" },
         walls: "steep (a gorge) or wide (broad terraces)",
         river: "keep (the default: a source at its start, its strength following the width, keeps the river flowing) or dry (a dry canyon, no source)",
@@ -516,7 +517,9 @@ export class ClaudeTools {
     if (kind === "erupt")
       return {
         how: "the editor's Erupt: a volcano at a tile (at) or the middle of a place (where), or a fissure along a line of 2–24 points",
-        power: { min: 0, max: 100, words: ERUPT_WORDS, note: "a small cinder cone to a towering volcano" },
+        power: { min: 0, max: 100, words: ERUPT_WORDS, note: "how high it throws: a small cinder cone to a towering volcano" },
+        size: { min: 6, max: 140, note: "its breadth, tiles across; left out, it follows power (and shape)" },
+        ceiling: "it rises to the map's height limit at most (16, or the map's own top up to 22), keeping a peak: near it the volcano grows broader rather than taller; with no room at the vent (an earlier volcano's top) it breaks out on the flank",
         shape: "steep (a tall cone) or broad (a wide shield)",
         summit: "auto (by power: peak, crater, caldera), peak, crater or caldera",
         flows: "light (short lava flows) or heavy (long ones that can dam rivers)",

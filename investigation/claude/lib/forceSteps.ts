@@ -23,7 +23,7 @@ export const QUAKE_WORDS = { tremor: 15, rift: 40, upheaval: 65, cataclysm: 95 }
 
 export type ForceStep =
   | { op: "craterize"; at?: [number, number]; where?: unknown; toward?: [number, number]; power?: number | keyof typeof IMPACT_WORDS; size?: number; walls?: "steep" | "terraced"; centre?: CraterSettings["centre"]; debris?: "light" | "heavy"; rays?: boolean; path?: number; handle?: string }
-  | { op: "erupt"; at?: [number, number]; where?: unknown; line?: [number, number][]; power?: number | keyof typeof ERUPT_WORDS; shape?: "steep" | "broad"; summit?: EruptSettings["summit"]; flows?: "light" | "heavy"; ridges?: boolean; path?: number; handle?: string }
+  | { op: "erupt"; at?: [number, number]; where?: unknown; line?: [number, number][]; power?: number | keyof typeof ERUPT_WORDS; size?: number; shape?: "steep" | "broad"; summit?: EruptSettings["summit"]; flows?: "light" | "heavy"; ridges?: boolean; path?: number; handle?: string }
   | { op: "quake"; line: [number, number][]; mode?: "lift" | "slide"; side?: "left" | "right"; power?: number | keyof typeof QUAKE_WORDS; scarp?: "sheer" | "stepped"; path?: number; handle?: string };
 
 const num = (v: unknown, lo: number, hi: number) => typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi;
@@ -58,6 +58,7 @@ export function checkForceStep(s: Record<string, unknown>, W: number, H: number)
       if (s.at !== undefined && !tileOn(s.at, W, H)) errs.push("at is a tile [x, y] on the map");
       if (s.line !== undefined) errs.push(...line(s.line, "line"));
       if (!powerOk(s.power, ERUPT_WORDS)) errs.push(`power is 0–100, or ${Object.keys(ERUPT_WORDS).join(", ")}`);
+      if (s.size !== undefined && !num(s.size, 6, 140)) errs.push("size is the volcano's breadth, 6–140 tiles across (left out, it follows power)");
       if (s.shape !== undefined && s.shape !== "steep" && s.shape !== "broad") errs.push("shape is steep or broad");
       if (s.summit !== undefined && !["auto", "peak", "crater", "caldera"].includes(String(s.summit))) errs.push("summit is auto, peak, crater or caldera");
       if (s.flows !== undefined && s.flows !== "light" && s.flows !== "heavy") errs.push("flows is light or heavy");
@@ -118,7 +119,7 @@ export function expandForceStep(s: MapSession, step: ForceStep, at: [number, num
       const fissure = !!step.line;
       const path = fissure ? step.line!.map(([x, y]) => ({ x, y })) : undefined;
       const origin = fissure ? tile(step.line![0]) : tile(at!);
-      settings = { mode: fissure ? "fissure" : "vent", power: powerOf(step.power, ERUPT_WORDS, ERUPT_DEFAULTS.power), shape: step.shape ?? ERUPT_DEFAULTS.shape, summit: step.summit ?? ERUPT_DEFAULTS.summit, flows: step.flows ?? ERUPT_DEFAULTS.flows, ridges: step.ridges ?? ERUPT_DEFAULTS.ridges, seed: seed(ERUPT_DEFAULTS.seed) };
+      settings = { mode: fissure ? "fissure" : "vent", power: powerOf(step.power, ERUPT_WORDS, ERUPT_DEFAULTS.power), shape: step.shape ?? ERUPT_DEFAULTS.shape, summit: step.summit ?? ERUPT_DEFAULTS.summit, flows: step.flows ?? ERUPT_DEFAULTS.flows, ridges: step.ridges ?? ERUPT_DEFAULTS.ridges, seed: seed(ERUPT_DEFAULTS.seed), size: step.size ?? null };
       run = new EruptRun(map, settings, { origin, ...(path ? { path } : {}) }, keep);
     } else {
       settings = { mode: step.mode ?? "lift", power: powerOf(step.power, QUAKE_WORDS, QUAKE_DEFAULTS.power), scarp: step.scarp ?? QUAKE_DEFAULTS.scarp, seed: seed(QUAKE_DEFAULTS.seed) };
@@ -163,8 +164,11 @@ export function expandForceStep(s: MapSession, step: ForceStep, at: [number, num
     report.push(`strikes a crater ${d} tiles across (${wordOf(power, IMPACT_WORDS)}, power ${power}) at (${at![0]}, ${at![1]})${cs.mode === "aim" ? `, a glancing blow toward (${step.op === "craterize" ? step.toward![0] : 0}, ${step.op === "craterize" ? step.toward![1] : 0})` : ""}: its floor down to level ${low}, its rim and debris up to level ${high}, over ${params.tiles.length} tiles`);
     Object.assign(resolved, { at, mode: cs.mode, diameter: d, floor: low, rim: high });
   } else if (step.op === "erupt") {
-    report.push(`${settings.mode === "fissure" ? "opens a fissure" : "raises a volcano"} (${wordOf(power, ERUPT_WORDS)}, power ${power}) ${settings.mode === "fissure" ? `along ${step.line!.length} points` : `at (${at![0]}, ${at![1]})`}: up to level ${high}, ${up} levels at most, over ${params.tiles.length} tiles; its fresh lava is hard rock, which Carve cuts slowly`);
-    Object.assign(resolved, { at: at ?? step.line![0], mode: settings.mode, summit: high, rise: up });
+    const a = (run as EruptRun).plan0.anatomy;
+    report.push(`${settings.mode === "fissure" ? "opens a fissure" : "raises a volcano"} (${wordOf(power, ERUPT_WORDS)}, power ${power}) ${settings.mode === "fissure" ? `along ${step.line!.length} points` : `at (${a.x}, ${a.y})`}: up to level ${high}, ${up} levels at most, ${Math.round(a.radius * 2)} tiles across, over ${params.tiles.length} tiles; its fresh lava is hard rock, which Carve cuts slowly`);
+    if (a.asked) report.push(`no room to rise at (${a.asked.x}, ${a.asked.y}), at the map's height limit: it broke out on the flank, at (${a.x}, ${a.y})`);
+    else if (a.scale < 1) report.push(`near the map's height limit (level ${a.ceiling}) it keeps a peak within the room it has, broader rather than taller`);
+    Object.assign(resolved, { at: at ?? step.line![0], vent: [a.x, a.y], mode: settings.mode, summit: high, rise: up, breadth: Math.round(a.radius * 2), fitted: a.scale < 1 });
   } else {
     const qs = settings as QuakeSettings;
     const side = step.side === "right" ? "right" : "left";

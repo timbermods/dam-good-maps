@@ -185,13 +185,14 @@ async function main(): Promise<void> {
     if (want("erupt")) {
       const { start } = await open(page);
       const at: [number, number] = [start[0] < 64 ? 92 : 36, start[1] < 64 ? 90 : 38];
-      await look(page, at[0], at[1], 110, 34);
+      await look(page, at[0], at[1], 85, 26);
       // Kyler's case: steep, with a peak, at the default power, the map's ceiling 16
       await pick(page, "0", "Erupt options", async (r) => {
         await r.getByRole("combobox", { name: "Summit" }).selectOption("peak");
       });
       const p = await client(page, at[0], at[1]);
-      save("erupt", await record(page, () => page.mouse.click(p.x, p.y), 3000, 90));
+      // (on until its glow has cooled, so its last frames show the cone as it stays)
+      save("erupt", await record(page, () => page.mouse.click(p.x, p.y), 7000, 120));
     }
     if (want("rows")) {
       await open(page);
@@ -208,7 +209,7 @@ async function main(): Promise<void> {
         await row.waitFor();
         await page.mouse.move(5, 400);
         const box = (await row.boundingBox())!;
-        strips.push(readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x - 4, y: box.y - 4, width: Math.min(1000, box.width + 8), height: box.height + 8 } }))));
+        strips.push(readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x - 4, y: box.y - 4, width: Math.min(1180, box.width + 8), height: box.height + 8 } }))));
         await page.keyboard.press(key);
       }
       const width = Math.max(...strips.map((s) => s.width));

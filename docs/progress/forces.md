@@ -16,6 +16,201 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
 
+## Round 2: Kyler's review (D226)
+
+Kyler tried the forces and the sounds on the preview (a88d7d2): Quake and Craterize great; Erupt
+broken (it stopped partway, and steep eruptions with a peak became flat mesas); Power and size
+separate in every force; the brush size in the options row; the shelf's order; sounds too quiet.
+Codex's second sound round (#64) came in with it. Built on this branch after merging `dev` (f3f8a39,
+then e1fe89e with #63 and #64).
+
+### Erupt, to the demo he approved
+
+**Why it went wrong.** Two causes, both in how the editor ran the prototype's engine, not in the
+engine:
+
+1. **The ceiling pressed the cone flat.** The prototype's volcano rises `(2 + 18·power)·1.42` levels
+   above its vent for a steep cone (about 19 at the default power), then every level is clamped to the
+   map's ceiling. The demo's study map stood at level 3 under a ceiling of 22: room for all of it. The
+   editor's maps stand at 6–12 under a ceiling of 16 (the brushes' own, or the map's top on a tall
+   map): the cone was cut off flat, and each eruption after it only widened the flat top. On
+   Highlands 7 (128²), 21 of 57 eruptions across the settings pressed their whole core flat against the
+   ceiling (up to 193 tiles within eight of the vent), and five eruptions on one spot made a mesa.
+2. **It ended long before its eruption.** The swell was 14 stages at the water speed's pace (50 ms at
+   normal: the land stopped rising after 0.7 s), and the eruption then counted as done: the plume's
+   thinning and the lava's cooling started at once, while the demo grows its volcano over eight pulses
+   of about half a second each, the plume and glow building with it. The land stopped partway through
+   its own eruption.
+
+Nothing threw: across those runs and through the page (128² and 256², eruptions stacked on one spot)
+every eruption completed and was kept. The page's force driver, though, would have left a half-risen
+land had a frame failed to show or the worker failed; it now keeps going past a frame the page can't
+show, and takes all of it back (as Esc) if the worker fails.
+
+**The fix** (`src/core/forces/erupt.ts`, `eruptAnatomy`): where the prototype's volcano fits under the
+ceiling it is the prototype's, level for level. Where it doesn't:
+
+- every level it raises (its cone, its apron, its ridges) is scaled together, so its summit reaches the
+  ceiling at most, and is never pressed flat;
+- while Size follows Power it grows broader rather than taller (up to 1.6 times), but never so broad
+  that its low summit spreads into a plateau: its top level stays about three tiles across (a volcano
+  already broad may grow a little narrower instead, to 0.6 at least);
+- with less than three quarters of its rise, Auto's summit is a peak (a crater or a caldera pressed
+  into a few levels reads as a flat top); a summit picked by hand stays;
+- with too little room at the vent itself (under four levels: the top of an earlier volcano), it breaks
+  out on the flank, the nearest place with room (the seed choosing among the nearest, so Try another
+  breaks out elsewhere): overlapping eruptions build new cones on the flanks. A fitted volcano's lava
+  runs downhill from its vent: its apron and ridges never pile onto higher ground (an older cone's
+  upper slopes would otherwise be pressed into a mesa);
+- a fissure keeps its line and rises less where the ground is high;
+- at the ceiling everywhere near, it says "No room to rise here" (red under the pointer), and does
+  nothing.
+
+The page previews the same fit under the pointer (its breadth; a line out to the flank vent, with
+"No room to rise here: it breaks out on the flank"; "Near the height limit: it grows broader"). The
+swell is now 28 stages over about four seconds at the normal speed (`ERUPT_PACE`), as the demo's: the
+land rises with its plume and its glow, and the eruption counts as done only when it has risen.
+
+**Against the prototype** (`tests/contract/eruptHeadroom.test.ts`, `tools/erupt-compare.ts`; the
+prototype's own engine and seeds, 24 settings a map: power 20, 62 and 96, Steep and Broad, each
+summit):
+
+| Map | The same as the prototype | Otherwise |
+| --- | --- | --- |
+| the demo's study (level 3, ceiling 22) | 22 of 24, level for level and rock for rock | the two where the demo itself hit 22 (power 96, Steep, Peak and Crater: 137 and 128 tiles pressed flat); the editor's peak there is one tile |
+| the same under a ceiling of 16 (13 levels of room) | 17 of 24 | peaks at 16 with 1–27 tiles at the top, where the prototype pressed 66–408 flat; calderas keep their floors |
+| level 12 under 16 (4 levels of room) | 2 of 24 | every one a summit of 1–45 tiles at the top (a caldera's rim 8–13), where the prototype pressed 435–437 tiles flat |
+
+Every case where the prototype has the room is identical (the test compares 40 and more of them,
+fissures included). On Highlands 7 in the editor's worker, with every setting: the five eruptions on
+one spot now make a cluster of cones, the tops at 20 tiles at most; the rest that touch the ceiling
+are rims of craters picked by hand (a ring about three tiles wide) and fissures on ground already at
+the ceiling. [Before and after on the demo's own seeds](forces/erupt-headroom.png): the demo; the
+editor now on the same map (the same); the prototype with four levels of room (what the editor did:
+pale where pressed against the ceiling); the editor now there (886, 787, 7,332, 1,264 and 2,174 tiles
+pressed flat become 45, 30, 297, 57 and 60). Rows: a steep crater (seed 890), a broad shield (890), a
+huge caldera (77), eruptions on older flanks (313, 314), and Kyler's case, three steep peaks on one
+spot (the demo itself made that a mesa; the editor, three cones).
+
+### Power and size, separate in every force
+
+Each size control follows Power (**Auto**, pressed) until its slider sets it by hand; Auto puts it
+back (`SizeControl` in `TopBar.tsx`, one control for all): Carve's **Width** and its new **Depth**
+(1–12 levels below the land it runs through, at most: a wide, shallow river at high Power; the carve
+caps each tile's cut there, `DEPTH_MIN/MAX` in `carve/run.ts`), Craterize's **Size** (4–180 tiles,
+as before, now in the same control), Erupt's **Size** back (its breadth, 6–140 tiles; Power sets its
+height). Quake's drawn line sets its length. A set size is kept in the operation (`depth`, `size`);
+operations from before have neither and replay as they were (the schema and the engine agree). A
+force's options now flow on from its mode switch, wrapping a control at a time (Carve's is two lines
+at 1280 wide). [The options rows](forces/forces-rows.png).
+
+### The brushes, the shelf
+
+Every brush's row starts with its **Size**, a number and a slider (0.5–24, the same number as hold F
+and [ and ]). The shelf reads Water source, Badwater source, Start, Pine, then the rest.
+
+### The sounds: Codex's round two (#64)
+
+The round-one synthesiser is gone from `src/` (`synth.ts`, `worklet.ts`; `investigation/juice` keeps
+it as history). The editor's one engine is round two's, ported to TypeScript (`src/editor/juice/`:
+`engine.ts`, `palette.ts`, `calibration.ts`, `bank.ts`): recorded CC0 foley played by the browser's
+own audio thread, no synthesis on the page. Its 24 recordings (818,400 bytes) are in
+`public/sounds/juice-2/audio/` with their manifest (`bank.json`: source, author, licence, edits,
+SHA-256) and provenance (`SOUNDS.md`), checked file by file against the round's own. They load
+lazily: nothing with the page; the first click or key in the editor fetches and decodes them (four at
+a time, a few hundred milliseconds warm); a sound asked for before is dropped, never played late.
+
+The mapping (`juice.ts`, the cues round one already had): a brush's recorded bed from its first change
+of the land to its end, with one soft contact at its start, rising gently to a fifth on a long stroke;
+each placement its accent by material, at most one every 120 ms of a painted grove (with a quiet leaf
+bed while it paints); sources' splash, darker and murkier for badwater; Remove's earth puff; undo's
+reversed wooden catch (a stroke's bed stops first); Carve's torrent held; Craterize's breath, then its
+crack and boom, then its falling stone as the debris lands; Quake's low bed, its crack once, a Slide's
+splintering and grind; Erupt's pressure, its plume (its roar held while it swells) and its cooling
+hiss when kept. Each force's accents play under its run's id and its beds under their own: Esc or
+undo stops all of it at once, and the page hidden stops everything and sleeps. Repeats climb a small
+pentatonic ladder and reset after a pause.
+
+**Loudness:** the round's own clearly audible default, 0.72 (its everyday actions near −23 dBFS, its
+forces near −16.5, in its measure; at least 21 dB over round one's quiet default); a compressor and a
+bounded curve keep every sample below 0.92 of full scale. And the reason round one was so quiet: a
+sound's distance came from the camera's distance to it, and at the editor's usual views that was
+always "far" (every sound attenuated by 18 dB and muffled). A sound's distance now comes from where it
+is in the view: anything on screen, what is being edited, plays at its full level at any zoom; off
+screen it fades. A player's saved choice is kept as it is, off included (round two's proposal: never
+silently raise a saved volume); the slider moves in steps of 0.02. Water ambience stays off and has no
+switch yet.
+
+### Claude (M12 stays ready, D134)
+
+The `carve` step takes `depth` (1–12) and the `erupt` step `size` (6–140), each described in `limits`;
+the erupt step reports the fit (the flank it broke out on, or that it grew broader near the height
+limit). Requests B26 (a wide, shallow river: power 90, width 16, depth 2) and B27 (a broad volcano
+about 60 tiles across). The reference suite: {CLAUDE}.
+
+### What a player feels at 256²
+
+Highlands 7 (3,860 objects), the installed Chrome on the GPU, the new pace and the recorded sounds
+playing: an eruption of 4.5 s, its frames 5.9 / 11.8 / 35.3 ms (median, 95th percentile, most), no
+long task; Craterize 5.9 / 23.5 / 41.2, none; Carve 5.9 / 11.8 / 52.9, one of 51 ms; a map-wide
+painted Lift 5.9 / 29.3 / 88.2, three of 52–62 ms at keeping.
+
+### Tests (round 2)
+
+- `tests/contract/eruptHeadroom.test.ts`: against the prototype itself (the same where it has room,
+  level and rock; a peak near the ceiling, broader; cones on the flanks, each eruption complete; "No
+  room to rise here"; the staged run always ends with the plan's map; Size its breadth, Power its
+  height).
+- `tests/contract/forceSizes.test.ts`: Carve's Depth caps the cut (two levels at power 95, width 16);
+  kept in the operation and replayed; each size checked alike by the engine and the schema; older
+  operations fit.
+- `tests/unit/juiceSounds.test.ts`: the bank intact against its manifest and the round's own, its
+  credits beside it; every recipe on the bank; runs; force phases; distance; the engine silent until
+  the first gesture, then loading four at a time, sounds asked for while it loads dropped, a force's
+  run cut at once, the page hidden stopping and sleeping, off silent, bursts bounded; nothing on the
+  input path waiting for audio.
+- `tests/e2e/sounds.spec.ts` (the bank fetched only after the first gesture, the first edit at once,
+  a placement's accent, Esc silencing an impact), `tests/e2e/sizes.spec.ts` (the shelf's order, every
+  brush's Size and a stroke of that size, each force's Auto), and in `forces.spec.ts` Erupt near the
+  ceiling (a peak, no mesa; again on its summit, the flank).
+- Totals at the last push: {TOTALS}.
+
+**Tests changed to the new decisions (D148), none weakened:**
+
+- `placeTools.test` and `brushKit.spec` read the shelf in D212's order; D226's now.
+- `juice.test` checked round one's quiet default (the engine's 0.22) and a saved volume's conversion;
+  it checks round two's default (0.72, on) and a saved choice kept exactly, and the round-two cues
+  (Craterize's debris, Quake's Slide, Erupt's plume bed and its cooling).
+- `juiceSynth.test` tested round one's synthesiser, which is gone; `juiceSounds.test` tests round two.
+- `forces.spec`'s fissure painted ten tiles past its vent, now under the Erupt row (wider with its Size):
+  it paints on whichever side of the vent the map takes the pointer; it waits for the eruption to
+  start (four seconds now) before it checks it.
+
+### Defaults chosen in round 2 (for `docs/decisions-pending.md`)
+
+- The forces' ceiling stays 16, or the map's own top up to 22 (D172: a standard map stays standard).
+- Erupt's fit: a flank vent below four levels of room; broader up to 1.6 times; a summit's top about
+  three tiles across; a volcano already broad may narrow to 0.6; Auto a peak below three quarters of its
+  rise; a fitted volcano's lava never on higher ground than its vent.
+- Erupt's swell: 28 stages, about four seconds at the normal speed (twice at the slower, half at the
+  faster, at once at instant).
+- Size controls: the slider sets it by hand at once (no box to untick first), Auto puts it back; Carve's
+  Depth 1–12 levels (its Auto reads the carve's cut where it starts); Erupt's Size 6–140 tiles across
+  (Steep and Broad and the summit shape it only while it follows Power).
+- The brush row's Size: first in the row, 0.5–24 in half tiles.
+- Sounds: round two's 0.72 for a fresh player; saved choices kept as saved; a sound's distance from
+  where it is on screen; one accent every 120 ms at most for a painted grove, with a quiet leaf bed.
+
+### What's left after round 2
+
+- Kyler's ear: round two's balance was measured, not listened to in the editor on speakers and
+  headphones (round two's own adoption note).
+- Water ambience: the engine has round two's waterfall and stream beds, but no switch shows it (off).
+- The GPU morphs of round 1 (Quake's glides, Craterize's growing bowl) are still not in the editor's
+  renderer; Erupt's finer stages stand in for its demo's morph.
+
+Round 1 (D219), as it was built, follows; where round 2 changed it, the section above says so.
+
 ## What was built
 
 ### One forces core (`src/core/forces/`)
@@ -91,9 +286,9 @@ again while a force worked (its settled water re-planting trees) are left out of
   (their dead model, laid down). With reduced motion, or in software rendering, none of it plays and
   the camera never moves; the land is exactly the same (tested).
 
-### The sounds (D205, D212, D220)
+### The sounds (D205, D212, D220; replaced in round 2)
 
-Codex's synthesised engine (#58) is the editor's one sound engine (`src/editor/juice/`: `synth.ts`,
+Round one's, replaced by Codex's round two in round 2 (above). Codex's synthesised engine (#58) was the editor's one sound engine (`src/editor/juice/`: `synth.ts`,
 the synthesiser in an AudioWorklet, `worklet.ts`; `engine.ts` on the page), for the editor's lifetime:
 made at the first click or key (browsers ask for that), never waited on, bounded (64 voices, four
 textures, excess accents dropped), paused when the page is hidden or loses the focus. `juice.ts` keeps
@@ -151,8 +346,9 @@ GPU, the water speed at its slowest; about 2.9 MB in all, D195):
 - [Carve](forces/carve.gif): a river unleashed (power 75, wander 60);
 - [Craterize](forces/craterize.gif): a strike with rays (power 45): the streak, the flash, the shock
   ring and the dust, the bowl, a peak in the middle, the river running into its rings;
-- [Erupt](forces/erupt.gif) at full power: a caldera swelling, the plume billowing dark (D216), the
-  lava glowing along its flows and cooling;
+- [Erupt](forces/erupt.gif) as Kyler makes it (round 2: steep, a peak, the default power, the map's
+  ceiling 16): the ground stirs, the volcano swells over four seconds with its plume, the lava glows
+  along its flows and cools, and a stepped peak stays, damming the river into lakes;
 - [Quake, Lift](forces/quake-lift.gif): a fault painted across the map, the far side rising behind
   the pointer, the river dammed into lakes;
 - [Quake, Slide](forces/quake-slide.gif): the fault drawn, then the block sliding along it (power 70:
@@ -208,16 +404,16 @@ At the last push: `npm run test:quick` 621 passed, 13 skipped; `npx playwright t
   prototype's GPU glides and painted slides aren't in the editor's renderer); a Slide that would carry
   the start is refused (X flips the side). A painted Lift carries the start with its ground, and is
   refused if that floods or tips it (only when the start was dry and flat before).
-- Stages: 8 for an impact, 14 for an eruption, 8 for a Lift, the travel's tiles (at least 8) for a
-  Slide, at the water speed's pace.
+- Stages: 8 for an impact, 8 for a Lift, the travel's tiles (at least 8) for a Slide, at the water
+  speed's pace; an eruption's, 28 over about four seconds (round 2).
 - A small render-only shake with the impact and the quake, and a lighter one while a volcano swells,
   on by default (off with reduced motion); no switch for it.
 - The prototypes' own defaults for each force's options (Craterize power 55, Terraced, Heavy debris;
   Erupt power 62, Steep, Heavy flows, Ridges; Quake power 60, Lift, Sheer, the left side moving).
 - The Power words: Pebble, Meteor, Asteroid, Cataclysm; Cinder, Cone, Volcano, Cataclysm; Tremor,
   Rift, Upheaval, Cataclysm.
-- The sound volume: the player's 0.5 is the engine's 0.22 (one scale, so a saved volume keeps its
-  meaning); no ambience switch yet (off).
+- The sound volume: round 1's was the player's 0.5 as the engine's 0.22; round 2's is round two's
+  0.72 (above); no ambience switch yet (off).
 - Objects a force touched that the map planted again while it worked are left out of its result.
 
 ## What's left, and what couldn't come across

@@ -1274,6 +1274,28 @@ R("B25", "conflicting", "drop a meteor right on the start", "rv96", {
     checks: [chk("call:0", "steps.0.errors.0", "matches", "^Start here")],
   },
 });
+R("B26", "simple", "carve a wide, shallow river from the east hills, powerful but only two levels deep", "rv96", {
+  note: "Carve's Depth (D226): power and size are separate; a wide river at high power, its depth capped by hand below the land it runs through",
+  goals: [G("g1", "a wide river from the east hills, two levels deep at most")],
+  report: { mustSay: ["where it starts, how far it ran and why it ended", "that its depth is held to two levels below the land, however strong it is"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "carve" })],
+    proposal: { steps: [{ op: "carve", where: "the east third", power: 90, width: 16, depth: 2 }] },
+    checks: [chk("propose", "steps.0.resolved.depth", "equals", 2), chk("propose", "steps.0.resolved.deepest", "max", 2), chk("propose", "steps.0.report.1", "matches", "^its depth set to 2 levels")],
+  },
+});
+R("B27", "simple", "raise a broad volcano about 60 tiles across near (70, 20), not very tall", "rv96", {
+  note: "Erupt's Size (D226): its breadth set by hand, its height from power; broad and low",
+  goals: [G("g1", "a broad, low volcano about 60 tiles across near (70, 20)")],
+  report: { mustSay: ["where it rose, how high and how broad", "that its fresh lava is hard rock"] },
+  pass: [VALID, START_RULES_HOLD],
+  reference: {
+    calls: [call("limits", { kind: "erupt" })],
+    proposal: { steps: [{ op: "erupt", at: [70, 20], power: "cone", size: 60, shape: "broad", flows: "light" }] },
+    checks: [chk("propose", "steps.0.resolved.breadth", "equals", 60), chk("propose", "steps.0.report.0", "matches", "^raises a volcano [(]cone, power 40[)] at [(]70, 20[)]: up to level [0-9]+, [0-9]+ levels at most, 60 tiles across")],
+  },
+});
 R("B11", "simple", "draw a straight canal from the river south to the map edge at x 72", "rv96", {
   note: "a Lower stroke from the river (smart Lower, D184): the river's own water follows its bed, which never rises",
   goals: [G("g1", "a straight channel from the main river to the south edge")],

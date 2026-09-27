@@ -222,8 +222,42 @@ export const FLANK_ROOM = 4;
 export const NO_ROOM_REASON = "No room to rise here";
 /** How much broader it grows, at most, when it has to be lower (while Size follows Power). */
 const BROADEN_MAX = 1.6;
-/** A low volcano's peak stays a peak: its top level at most this far from its summit (tiles). */
+/** A low volcano's summit stays a summit: its top level spans this many tiles at most (a peak's
+ *  radius, a crater's rim). */
 const SUMMIT_TOP = 3;
+/** How much narrower a volcano already broad may grow, at most, to keep its summit (while Size
+ *  follows Power). */
+const NARROW_MIN = 0.6;
+
+/** A vent's profile at r (0 at its vent, 1 at its foot): the prototype's, by summit and shape. */
+function ventProfile(s: EruptSettings, summit: EruptSettings["summit"], r: number): number {
+  const e = s.shape === "steep" ? 1.7 : 1.65;
+  if (summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  if (summit === "crater" && r < 0.16) return 0.64 + (Math.pow(0.84, e) - 0.64) * smooth(r / 0.16);
+  return Math.max(0, 1 - r) ** e;
+}
+
+/** How wide the top level of a vent `height` levels high is, in radii: the widest run of the profile
+ *  within half a level of its highest (a peak's disk; a crater that shallow is all top; a caldera's
+ *  rim). */
+function topSpan(s: EruptSettings, summit: EruptSettings["summit"], height: number): number {
+  let top = 0;
+  for (let k = 0; k <= 650; k++) top = Math.max(top, ventProfile(s, summit, k / 500));
+  const edge = top - 0.5 / Math.max(0.5, height);
+  let widest = 0;
+  let from = -1;
+  for (let k = 0; k <= 650; k++) {
+    const r = k / 500;
+    const at = ventProfile(s, summit, r) >= edge;
+    if (at && from < 0) from = r;
+    if ((!at || k === 650) && from >= 0) {
+      // (a peak's or a flat crater's top is a disk round the vent: its radius; a rim is a ring)
+      widest = Math.max(widest, from === 0 ? r : r - from);
+      from = -1;
+    }
+  }
+  return widest;
+}
 
 /** The most the prototype's volcano rises above its datum on level ground (levels), whatever its
  *  flows do: its cone or rim, its apron, its ridges at their strongest. A bound, worked out along
@@ -406,12 +440,10 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; max
   a.scale = k;
   a.height *= k;
   if (s.size == null) {
-    let broad = Math.min(BROADEN_MAX, 1 / Math.sqrt(k));
-    // (never so broad that a low peak's top level spreads into a plateau)
-    if (a.summit === "peak") {
-      const top = 1 - (1 - 0.5 / Math.max(1, a.height)) ** (1 / (s.shape === "steep" ? 1.7 : 1.65));
-      broad = Math.max(1, Math.min(broad, SUMMIT_TOP / (a.radius * top)));
-    }
+    // broader rather than taller, but never so broad that its low summit spreads into a plateau (a
+    // volcano already broad may grow a little narrower instead, to keep its summit)
+    const span = topSpan(s, a.summit, a.height);
+    const broad = Math.max(NARROW_MIN, Math.min(Math.min(BROADEN_MAX, 1 / Math.sqrt(k)), span > 0 ? SUMMIT_TOP / (a.radius * span) : BROADEN_MAX));
     a.radius *= broad;
     a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
   }
@@ -440,12 +472,17 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   }
   const shoulder = smooth((r - 0.48) / 0.7);
   const cone = datum + (k === 1 || s.mode === "vent" ? a.height : a.height * k) * profile + (h - datum) * shoulder;
+  // a fitted volcano's lava runs downhill from its vent: its apron and ridges never pile onto higher
+  // ground (an older cone's upper slopes, pressed against the ceiling, would become a mesa)
+  const flowsHere = k === 1 && s.mode === "fissure" ? 1 : s.mode === "vent" && (a.scale < 1 || a.asked) && h > datum ? 0 : 1;
   const reach = s.flows === "heavy" ? 2.55 : 1.25;
-  const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * k;
+  const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * k * flowsHere;
   const ridge = s.ridges
     ? (s.mode === "fissure"
         ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)) * k
+        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)) *
+      k *
+      flowsHere
     : 0;
   let target = Math.max(h, cone, h + apron) + ridge;
   // Keep broad summit basins open; flow ridges begin below the rim.
