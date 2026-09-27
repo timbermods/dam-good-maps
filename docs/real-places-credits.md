@@ -35,14 +35,18 @@ Zealand's notice kept in the file.
 
 Since Kyler's D271 (2026-09-27: a place's water follows the real place), the conversion puts water
 sources only where ESA WorldCover 10 m 2021 v200 shows permanent water (class 80), as Pick a place's
-signature water does (D192, `investigation/pickplace-water2/ATTRIBUTION.md`). No WorldCover data is
-in the maps themselves: it decides where the sources go, and the water is simulated on the map's
-terrain. The credits page has its own "Water data" section (`src/places/Credits.tsx`,
-`attribution.ts` `WATER_*`).
+signature water does (D192, `investigation/pickplace-water2/ATTRIBUTION.md`), and where
+OpenStreetMap has a permanent river WorldCover misses. Neither is in the maps themselves: they
+decide where the sources go, and the water is simulated on the map's terrain. The credits page has
+its own "Water data" section (`src/places/Credits.tsx`, `attribution.ts` `WATER_*` and `RIVERS_*`).
 
 | Provider | Licence or terms | Verdict | Deciding words |
 |---|---|---|---|
 | ESA WorldCover (ESA, VITO and the WorldCover consortium) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [the provider's data access page](https://esa-worldcover.org/en/data-access) | Link | As Australia (§3(a)(2)). The provider's notice, verbatim: "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium". The credits page says how the data was used and that the provider does not endorse the maps. |
+| OpenStreetMap (its contributors; the OpenStreetMap Foundation) | [ODbL](https://www.openstreetmap.org/copyright) | Link | The maps are Produced Works (ODbL §4.3): the notice "© OpenStreetMap contributors" goes where a user would look for credits, and the [OSMF attribution guidelines](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines) accept a credits page linked from the work. Only permanent rivers (`waterway=river`, not intermittent or seasonal) are read, for where rivers WorldCover misses begin; no OpenStreetMap data is published as a database. |
+
+OpenStreetMap's rivers fill in where WorldCover misses a river (under about 20 m wide, or in a
+gorge's shade): the conversion reads each river's line as observed water (`tools/places/osm.ts`).
 
 Not needed: Mapzen (only for Mapzen's hosted service; the data came from AWS), and Natural Earth
 (public domain, and used only for the survey's random-land controls, which are not published).

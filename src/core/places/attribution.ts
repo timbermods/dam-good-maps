@@ -26,8 +26,15 @@ export const WATER_SOURCE_URL = "https://registry.opendata.aws/esa-worldcover-vi
 export const WATER_NOTICE = "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium";
 export const WATER_LICENCE = "CC BY 4.0";
 export const WATER_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
+/** Rivers WorldCover misses (a narrow river, one in a gorge's shade): OpenStreetMap's permanent
+ *  rivers (D271). ODbL: "© OpenStreetMap contributors", credit by link. */
+export const RIVERS_SOURCE = "OpenStreetMap";
+export const RIVERS_SOURCE_URL = "https://www.openstreetmap.org/";
+export const RIVERS_NOTICE = "© OpenStreetMap contributors";
+export const RIVERS_LICENCE = "ODbL";
+export const RIVERS_LICENCE_URL = "https://www.openstreetmap.org/copyright";
 /** What the water data was used for, in plain words. */
-export const WATER_USE = "Its permanent water bodies decide where water sources go; the water is then simulated on the map. The provider does not endorse these maps.";
+export const WATER_USE = "Their permanent water decides where water sources go; the water is then simulated on the map. The providers do not endorse these maps.";
 
 export const NOT_ENDORSED = "The data providers do not endorse these maps.";
 

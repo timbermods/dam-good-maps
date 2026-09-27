@@ -13,7 +13,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
-import { CREDITS_URL, fileNotices, PROVIDERS, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
+import { CREDITS_URL, fileNotices, PROVIDERS, RIVERS_LICENCE_URL, RIVERS_NOTICE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
 import { decodeHeights, PLACE_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -120,7 +120,7 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
     const first = SELECTION.places.filter((p) => p.status !== "added");
     expect(first.length + SELECTION.dropped.filter((d) => d.status !== "added").length).toBe(85);
     for (const d of SELECTION.dropped) expect(d.reason.length, d.name).toBeGreaterThan(10);
-    for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toMatch(/\((D214|D224)\)/);
+    for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toMatch(/\((D214|D224|D271)\)/);
     for (const p of SELECTION.places.filter((q) => q.status === "replaced")) expect(p.was, p.id).toMatch(/^n\d{3}-/);
     // spread across the families: none far behind the rest
     const perFamily = INDEX.families.map((f) => INDEX.places.filter((p) => p.family === f.id).length);
@@ -138,7 +138,8 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       expect(Math.max(...walls.map((w) => w.share)), entry.id).toBeLessThan(EDGE_SHARE);
       // the place's own objects are its sources and its start: resources come when it is built
       expect(Object.keys(p).sort(), entry.id).toEqual(expect.arrayContaining(["format", "heights", "sources", "start", "survey"]));
-      expect(p.sources.length, entry.id).toBeGreaterThan(0);
+      // a place whose square has no observed water is dry (D271), and its note says so
+      if (!p.sources.length) expect(entry.notes, entry.id).toContain("No water a pump can reach from the start");
       for (const [x, y, strength] of p.sources) {
         expect(x >= 0 && y >= 0 && x < p.W && y < p.H, entry.id).toBe(true);
         expect(strength, entry.id).toBeGreaterThan(0);
@@ -258,9 +259,11 @@ describe("credits and the in-game description (docs/real-places-credits.md)", ()
     expect(fileNotices(-33.87, 151.2)).toEqual([]); // Sydney
     const verdicts = readFileSync("docs/real-places-credits.md", "utf8");
     for (const p of PROVIDERS) expect(verdicts, p.licence).toContain(p.licenceUrl);
-    // the water data (D271): its verdict and its notice, verbatim
+    // the water data (D271): each source's verdict and notice, verbatim
     expect(verdicts).toContain(WATER_LICENCE_URL);
     expect(verdicts).toContain(WATER_NOTICE);
+    expect(verdicts).toContain(RIVERS_LICENCE_URL);
+    expect(verdicts).toContain(RIVERS_NOTICE);
     expect(readFileSync("real-places/credits/index.html", "utf8")).toContain("/src/places/credits-main.tsx");
     expect(readFileSync("vite.config.ts", "utf8")).toContain("./real-places/credits/index.html");
   });
@@ -402,10 +405,28 @@ describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
     expect(PLACE_NOTES.some(([id]) => /drought|reservoir|clean/.test(id))).toBe(false);
   });
 
-  it("every place is on its own land: none dropped, the first round's places all there", () => {
-    expect(SELECTION.dropped).toEqual([]);
-    expect(SELECTION.places.filter((p) => p.status !== "added").length).toBe(85);
-    expect(INDEX.places.some((p) => p.id === "majuli-brahmaputra")).toBe(true);
+  it("every place is on its own land: none dropped but the 15 Kyler dropped from the review sheet (D271)", () => {
+    expect(SELECTION.dropped.map((d) => d.name)).toEqual([
+      "Lake Toba",
+      "Godavari Delta",
+      "Majuli, Brahmaputra",
+      "Tsingy de Bemaraha",
+      "Mount Mayon North",
+      "Kinabatangan River East",
+      "Kornati",
+      "Masurian Lakes",
+      "San Daniele, Tagliamento River",
+      "Roaring River Fan East",
+      "Tiger Leaping Gorge North",
+      "Cape of Good Hope",
+      "Danube Delta Southwest",
+      "Ilulissat Icefjord Southwest",
+      "Painted Desert North",
+    ]);
+    for (const d of SELECTION.dropped) expect(d.reason, d.name).toMatch(/^dropped by Kyler from the D245 review sheet, number \d+ \(D271\)$/);
+    expect(SELECTION.places.length).toBe(136);
+    // a region's second map keeps its name when Kyler dropped its first
+    expect(INDEX.places.some((p) => p.name === "Samosir, Lake Toba")).toBe(true);
   });
 });
 

@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { CHANGES, ELEVATION_SOURCE, NOT_ENDORSED, PROVIDERS, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE, WATER_SOURCE } from "../../src/core/places/attribution";
+import { CHANGES, ELEVATION_SOURCE, NOT_ENDORSED, PROVIDERS, RIVERS_LICENCE, RIVERS_LICENCE_URL, RIVERS_NOTICE, RIVERS_SOURCE, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE, WATER_SOURCE } from "../../src/core/places/attribution";
 import { decodePlaceFile, placeSample, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { VIEW_TURNS } from "../../src/core/places/view";
 import { northLabel } from "../../src/ui/NorthArrow";
@@ -213,11 +213,14 @@ test("the credits page lists every notice with its licence, and links back to th
     await expect(items.nth(k)).toContainText(p.notice);
     await expect(items.nth(k).getByRole("link", { name: p.licence })).toHaveAttribute("href", p.licenceUrl);
   }
-  // the water data (D271): its source, its notice verbatim and its licence
+  // the water data (D271): its sources, their notices verbatim and their licences
   const water = page.locator("#water-credits");
   await expect(water.getByRole("link", { name: WATER_SOURCE })).toBeVisible();
   await expect(water).toContainText(WATER_NOTICE);
   await expect(water.getByRole("link", { name: WATER_LICENCE })).toHaveAttribute("href", WATER_LICENCE_URL);
+  await expect(water.getByRole("link", { name: RIVERS_SOURCE, exact: true })).toBeVisible();
+  await expect(water).toContainText(RIVERS_NOTICE);
+  await expect(water.getByRole("link", { name: RIVERS_LICENCE })).toHaveAttribute("href", RIVERS_LICENCE_URL);
   await page.screenshot({ path: ".scratch/places/credits.png", fullPage: true });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Real places" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
