@@ -969,7 +969,9 @@ they conflict):
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
    where it fits and red where it doesn't, with a quiet reason ("needs flat ground"). Click places,
-   R rotates, Esc puts it back. Trees and bushes: click places one, drag paints many, naturally
+   R rotates, Esc puts it back. Scatter-type items (trees, bushes, ruins, thorns) place like a brush (D235, after the
+   forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
+   trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
 4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Markers, and the overlays
    (moisture, contamination, drought). The legend appears only while an overlay is on.

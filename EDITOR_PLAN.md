@@ -52,6 +52,15 @@ editor is desktop-first (D185).
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
+  **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
+  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
+  size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
+  naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
+  field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
+  trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
+  have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
+  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  relics and geothermal fields.
 - **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
