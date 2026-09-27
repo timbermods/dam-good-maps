@@ -159,9 +159,10 @@ and the preview switches to the best one with a short notice. The map card says 
 
 A plain **Report a problem** link opens the repository's GitHub issues
 (`github.com/timbermods/dam-good-maps/issues`), for bug reports. There is no rating form and no
-`tools/ratings.ts` (Kyler, 2026-09-25; §20 D145, superseding D14). Feedback on generated maps is
-the in-site feedback proposed for M9c (D137), which steers each theme's priors and the Variety
-setting; the score keeps its default weights.
+`tools/ratings.ts` (Kyler, 2026-09-25; §20 D145, superseding D14). The vote-based in-site feedback
+once proposed for M9c (D137) is dropped (D278); "Another like this" (D278) makes a sibling of the
+current map instead, and the score keeps its default weights only where it is still used (M9 drops
+it as a candidate-choice mechanism, D278).
 
 ---
 
@@ -488,7 +489,9 @@ at 0.35, and at 0.55 for Islands and Lake Basin.
 Planned for M9 (D87, the workshop study): River Valley's relief 70 and the other themes' +15–20,
 and terracing defaults of 25–35 (decisions-pending #37: generated maps are flatter and lower than
 official and workshop maps: flat share 0.69 against 0.52 and 0.44, height range 10 against 13 and
-14). The water share cap follows the premise's water budget, up to 0.70 (#33).
+14). The water share cap up to 0.70 (#33) no longer follows a premise's water budget: premises are
+folded into intentions for M9b (D275, D278); which intentions carry a higher water share is for
+M9b to work out.
 
 ---
 
@@ -540,12 +543,11 @@ set pieces are mandatory. The premise also fixes the macro parameters: the flow 
 edge-to-edge directions, so maps are not always west to east), the meander phase, and the
 anchor positions as fractions of the map.
 
-Planned for M9 (D87, the workshop study): at least three premises per theme (§8), drawn by the
-Variety setting (§5.8, decisions-pending #32); the valley themes and Lake Basin's outlet draw their
-flow axis from the 8 directions (D67). The planners lay out in a west-to-east frame, and the
-feature list is turned by one of the 8 symmetries of the square (paths, outlines, set-piece plans,
-orientations), or they plan natively. Today 74% of generated maps whose water leaves the map flow
-west to east (workshop 10%, official 0%).
+**Changed for M9** (D275, D278; drops the premises-per-theme plan of D87 and §8's catalogue):
+premises are folded into intentions, checked by outcome, not drawn as a layout variant (§6 of
+`docs/m9-design.md`, D274). Flow-direction variety no longer comes from drawing a flow axis during
+layout (D67); a finished map is rotated or mirrored into one of its 8 orientations instead, so all 8
+appear and none over a quarter (D275).
 
 ### 7.2 Macro layout
 
@@ -770,16 +772,11 @@ and Lake Basin's outlet runs east (D67). As built (M7): Highlands and Delta are 
 planner's table (D73, D74), and Islands is the Lake Basin planner with a sea (D70); each builds one
 premise until M9 (Staircase, Many mouths, Archipelago).
 
-**Planned for M9** (D87, the workshop study): at least three premises per theme, each a planner
-variant that lays its landmark out first and the rest around it, from the study's recipes
-(`investigation/workshop/recipes/`, which pass their batches on River Valley bases) and the
-premises above. River Valley: Gorge-dammed basin, Island in a moat, Oxbow bend, Twin falls, Spiral
-mountain or quarry. Canyon: Narrows, Rim settlement, Hanging lake on a mesa, Mesa field. Highlands:
-Staircase, Twin plateaus, Badwater volcano, Spiral mountain. Lake Basin: Rising lake, Crater lakes,
-Caldera with an island, Heart lake (rare). Delta: Many mouths, Salt marsh, Oxbow delta. Islands:
-Archipelago, Atoll, Volcano island, Heart islands (rare). Rare premises are drawn only at Variety
-60 and above (§5.8). Every premise that lists a dam site keeps it until Kyler decides Reservoir
-help (decisions-pending #31).
+**Dropped from M9's plan** (D275, D278; supersedes D87's premises-per-theme catalogue above): M9
+doesn't add a per-theme premises table or planner variants named for landmarks (Gorge-dammed basin,
+Island in a moat, Spiral mountain, Heart lake, Heart islands and the rest). The named premises that
+became intentions are in design version 2 §6 and D274; the rest are dropped. No dam ridge is built
+anywhere (D111), so the old "every premise that lists a dam site keeps it" no longer applies.
 
 **Canyon as built (M6, D63):** a canyon floor 18–25 tiles wide; walls 4–6 levels by the relief,
 then one-level rim terraces up to the plateau; the dam site in a narrows (a gorge 3–5 wide round
@@ -938,7 +935,9 @@ what the map allows are reduced to the nearest achievable value, and the reducti
   valley (§5.4). The plateau is a disc of radius 4–5 exactly 2 levels above the highest ground
   round it, with a cliff all round, 35–70% of the way from the start to the farthest ground, and a
   ruin field on top. The one-stair rule holds by construction and is a contract test, not a
-  validation check. The ridge worth tunnelling waits for M9's premises.
+  validation check. The ridge worth tunnelling waits for M9b's intentions (D274 folds premises into
+  intentions; this one wasn't among the candidates Kyler picked, so it stays an open idea, not
+  built).
 
 ### 9.5 Badwater with counterplay
 
@@ -1092,14 +1091,15 @@ S = 2 sheet is the default, and its report says so.
 Planned (D87; `investigation/WORKSHOP-INTEGRATION.md` §3). Each in D47's shape: `request` (hard
 bounds), `limits(ctx)`, `plan`, `check`, `rasterize`, `footprint`, and `slopes`, `clears` and `area`
 where it has them. The study's recipes (`investigation/workshop/recipes/`) are reference
-implementations built from today's operations.
+implementations built from today's operations. **The four rows marked M9 below are dropped**
+(D278): M9 doesn't add these builders; struck through, kept only for the record.
 
 | Builder | Milestone | Request | Limits | Checks | Acceptance |
 |---|---|---|---|---|---|
-| `spiral` (landform kind or set piece) | M9 | at, radius 8–48, turns 0.75–3, levels 3–12, direction up / down, ramp width 3–12 | levels ≤ 16 − ground (up) or ground − 1 (down); radius ≤ 40% of the shorter side | a slope at every step (`slopes.connect`), planned with the ramp; terrain 0–16 | 100 plans on 96², 128², 256²: every step walkable from the foot of the ramp |
-| `cone` (landform edge style) | M9 | outline, height, crater radius and depth, spill direction | height ≤ 16; crater depth ≤ height − 2 | a crater with water has an outlet (`water.outflow`) | the volcano premises pass their batches |
-| `mesaField` (set piece) | M9 | at, radius 10–40, count 3–15, rise 2–6, ruins on 0–3 tops | mesas 2+ tiles apart; tops of 12+ tiles for ruins | the payoff needs one player stair (§9.4's rule) | as obstaclePayoff's range tests |
-| sealed `sea` (Islands variant) | M9 | the sea's outline to the map edge | the edge sealed by a rim or sources along it | `water.outflow`, `water.settles`; water share ≤ the premise's budget (#33) | the Lone island premise passes its batches |
+| ~~`spiral` (landform kind or set piece)~~ | dropped (D278) | at, radius 8–48, turns 0.75–3, levels 3–12, direction up / down, ramp width 3–12 | levels ≤ 16 − ground (up) or ground − 1 (down); radius ≤ 40% of the shorter side | a slope at every step (`slopes.connect`), planned with the ramp; terrain 0–16 | 100 plans on 96², 128², 256²: every step walkable from the foot of the ramp |
+| ~~`cone` (landform edge style)~~ | dropped (D278) | outline, height, crater radius and depth, spill direction | height ≤ 16; crater depth ≤ height − 2 | a crater with water has an outlet (`water.outflow`) | the volcano premises pass their batches |
+| ~~`mesaField` (set piece)~~ | dropped (D278) | at, radius 10–40, count 3–15, rise 2–6, ruins on 0–3 tops | mesas 2+ tiles apart; tops of 12+ tiles for ruins | the payoff needs one player stair (§9.4's rule) | as obstaclePayoff's range tests |
+| ~~sealed `sea` (Islands variant)~~ | dropped (D278) | the sea's outline to the map edge | the edge sealed by a rim or sources along it | `water.outflow`, `water.settles`; water share ≤ the premise's budget (#33) | the Lone island premise passes its batches |
 | `riverFork` | unscheduled (D253) | river, from, to (arc), island width 6–40 | arms 2+ tiles apart; both arms ≥ 3 wide | both arms carry ≥ 30% of the flow; the island stays dry | 100 forks on random rivers settle and keep both arms wet |
 | lake `outlets` (2–4) | unscheduled (D253) | lake, outlets [{at, to}] | outlets 8+ tiles apart, all at the sill | every outlet carries water; none drains back into the lake | 50 hub lakes settle with every spoke wet |
 | river `switchback` | unscheduled (D253) | a river path with hairpins | a wall ≥ 3 tiles thick and ≥ 2 levels above the lower reach between reaches | reaches at different levels do not leak into each other | D53's property test with hairpins allowed |
@@ -1342,7 +1342,7 @@ clean water has contamination under 0.05.
 | Id | Rule |
 |---|---|
 | `water.settles` | Steady within 4 game days: volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady: maps need not hold their water (D152); what fails is water that never settles. Only real flow counts (D222): a sealed basin that is only evaporating (a carve's oxbow lake: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, so a map whose drying lake is all that still changes has settled. Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
-| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Islands and Lake Basin); official p90 0.40. Planned for M9 (decisions-pending #33): the cap follows the premise, 0.35 by default and up to 0.70 for water premises (moat, archipelago, lone island, lake world), which declare their water budget; workshop maps: median 0.27, p90 0.67. |
+| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Islands and Lake Basin); official p90 0.40. Decisions-pending #33's premise-based cap (up to 0.70 for water premises) is dropped with the premises (D278); workshop maps: median 0.27, p90 0.67. |
 | `water.clean_exists` | Clean wet tiles ≥ 2% of the map. Since D152 a target with an advisory warning: maps need not hold their water, and the start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region (depth > 0) touches a map-edge tile that drains (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.clean_reach` | At least one connected (4-neighbour) body of clean water of 40+ tiles. Since D152 a target with an advisory warning, as `water.clean_exists`. |
@@ -1453,15 +1453,12 @@ third, and so the unconventional ones don't dominate. Report the official distri
 card: "Score 71 (official maps: 48–79, median 63)". (D137: the weights are never fitted to
 ratings.)
 
-**Planned for M9** (D87, the workshop study, decisions-pending #35): the score is ported from
-`investigation/workshop/lib/score.ts`, with 12 components, each 0–1: engineering (full marks when
-storage takes real work; it replaces dam value D), height variety, landmarks, river character,
-resource pacing, regions, trade-off, frontier, surprise (novelty), verticality, naturalness and
-water. Its targets and weights are `data/score-params.json`, a copy of the study's default
-`score-params.json`; `fit-score.ts` and `ratings.json` are not used (D137). With the default
-parameters the recommended official maps rank 3rd, 6th and 7th of 19; the generated median at
-default settings is 40 against the official 52. The score picks the best of a seed's passing
-candidates (D223) and orders a contact sheet; it is never a gate on quality (D137).
+**Dropped from M9's plan** (D278, amending D223): M9 no longer ports a 12-component score, and
+`score/score.ts` above is not used to choose among M9's candidates. A seed's candidate is chosen by
+whether it meets D273's five outcomes (the theme's signature, at least one standout intention,
+readable water), within a capped number of attempts, not by a score; the permanent measures (no
+clones, no archetypes, play variety, no approximation of workshop maps) stay as information on
+every milestone. `fit-score.ts` and `ratings.json` were already dropped (D137).
 
 ---
 
@@ -1484,12 +1481,11 @@ seed stream.
   - "Reserves are thin: plan for droughts early."
 - **Map description** in `map_metadata.json`: premise + settings summary + "Made with Dam Good Maps
   <version>, seed N". The in-game map name is the download file name: `<Name> (<seed>).timber`.
-- **Planned for M9** (D87, the workshop study): the templates grow with the catalogue's plain words
-  for what a map has, keyed by the detected feature or the premise: *island in a moat*, *crater
-  lake*, *caldera*, *spiral mountain*, *spiral quarry*, *volcano*, *hanging lake*, *mesa field*,
-  *twin falls*, *oxbow lake*, *chain of lakes*, *great scarp*, *hub of channels*, *archipelago*,
-  *branching rifts*, *concentric rings*. Examples: "Moat Isle", "Caldera Rest", "Spiral Quarry",
-  "Twin Falls", "Mesa Reach".
+- **Changed for M9** (D274, D278; drops the catalogue premise plan from D87): premises are gone;
+  M9's names and its one-line "how it plays" description come from the map's standout intention
+  (design version 2 §6, D274) and its read-back features, checked on 30 hand-checked maps (10 at
+  Variety 100). The catalogue's landmark word list above (*island in a moat*, *spiral mountain* and
+  the rest) is not adopted into M9's naming.
 
 ---
 
@@ -1637,7 +1633,7 @@ milestone and says where it went. Effort: S under a day, M 1–3 days, L 3–7 d
 | **1** | **End-to-end slice** (L) | Vite + TS + Preact app shell. `core/format` (writer, footprints, C# float format, fflate, jpeg-js). RNG streams. River Valley ported from the prototype *without* the water sim: sources placed, water left as zeros. Slopes and start rules. File and placement validation (§11.1–11.2). 2D preview (terrain, start, entities). Settings: seed, size preset, difficulty. Download. GitHub Pages deploy. **Added:** `MapSpec` v1, the feature schema v1 and the feature-first River Valley (§19), stable ids, per-feature RNG streams, the reader as well as the writer, the project file download, and the `calibrated.py` alignment (§4). | 50 seeds × 3 sizes pass Python `validate.py` file and placement checks and `roundtrip_test.py`; identical sha256 in Node and Chromium for 10 seeds; 128² generates in < 3 s; **added:** rebuilding from the project file reproduces the `.timber` byte for byte; **in-game check A** (§18). | M1 |
 | **2** | **Water and playability** (L) | `sim/*` exact port with golden vectors; steady-state water, moisture and contamination; pre-filled water in the file; vegetation placed from moisture; all §11.3–11.4 checks; retry loop; map card with validation report; water, moisture and reach layers. **Added:** the exact active list and the canonical settle, validation classes and profiles (§19.5), and the water benchmark that fixes the §10 budget. | Golden vectors pass; the game's save reproduced within 0.001; batch 100 seeds at 128² Normal: final pass ≥ 98%, first attempt ≥ 60%; **in-game check B** (pre-filled water, tree survival). | M2 |
 | **3** | **Settings, sharing, themes I** (L) | The full settings panel (§5) with reference bands; URL codec; Canyon and Lake Basin archetypes; set pieces dam site, waterfall, terraced cliffs, badwater counterplay; the dam-site layer. | Each setting moves its measured target in batch runs (a test per setting); share links reproduce byte-identical files; batch per theme ≥ 98% final pass; **in-game check C** (build a dam at a generated dam site; a waterfall runs a water wheel). | Set pieces and in-game check C: M5 (built once, shared with the editor). Settings, sharing and themes: M6. |
-| **4** | **Interestingness** (M) | `score.ts` calibrated on official maps; K = 3 candidates with progressive preview; names and premises; score on the card. | The official score distribution is documented; recommended official maps in the top third; the name and premise match the detected features on 30 hand-checked maps; 256² with K = 3 ≤ 20 s. | M9 |
+| **4** | ~~**Interestingness**~~ (M) | `score.ts` calibrated on official maps; K = 3 candidates with progressive preview; names and premises; score on the card. **Superseded for M9 by D278**: candidates are chosen by D273's five outcomes, not a score; names and a one-line description come from the map's standout intention. | The official score distribution is documented; recommended official maps in the top third; the name and premise match the detected features on 30 hand-checked maps; 256² with K = 3 ≤ 20 s. | M9 |
 | **5** | **Themes II and 1.0 features** (L) | Highlands, Delta, Islands; second district; obstacle-with-payoff set pieces; NaturalDam weir; plugged spillway; thorn belts; relics; geothermal; mine sites. | Batch per theme ≥ 98%; every new object passes the placement emulation; **in-game check D** (the new objects load with no loading issues; demolish a spillway plug). | M7 (with the editor's resources and map-object tools) |
 | **6** | **3D, ratings, polish** (M) | Lazy three.js view; ratings flow and `tools/ratings.ts`; install help; the Impeccable design pass with the timbermods design system; accessibility (keyboard, contrast) and mobile layout; versioned deploys `/v/<version>/`. | 3D builds in < 1.5 s at 256²; a Lighthouse performance score ≥ 90 on desktop; a rating issue created from the page with every field filled; an old-version link reproduces its file. | 3D view: M4 (one renderer for preview and editor). The rest: M13, without the ratings flow (D145). |
 | **7** | **Later** | NaturalOverhang bridges; seeps and an arid theme; caves with stacked-column water; aquifers; badtide drains; unstable cores out of Advanced. | Each behind a feature flag until its own in-game check passes. | Later |

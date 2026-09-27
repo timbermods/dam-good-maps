@@ -483,6 +483,11 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
 
 ## Claude integration (M12)
 
+**All work on M12, its preparation included, is deferred while Kyler refines Dam Good Maps**
+(D277): no step before M12 adds tool entries, suite requests or reference solutions for Claude; the
+design below stays as recorded, and M12's first part, when it begins, is catching Claude up to the
+tools as they are then.
+
 **Summoned, small, steering** (D139, D187): a chat box summoned with a key that disappears when
 done; Claude steers the generator for character, and uses the editor's tools only for precise edits.
 M12 revises the step kinds below to the current tools (brush strokes, sources, placements from the
@@ -717,7 +722,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
 - **Claude request suite:** 120 requests (`tests/claude/requests.json`), each with its map, its goals and their expectations, whether it is feasible, what the report must say, and a reference solution (`PLAN.md` §20, D88). The kinds: the requests below word for word, simple, follow-ups, compass, feature-relative, flow-relative, judgement and size words, compound, vague, impossible, conflicting, questions and safety. The maps: generated maps of 48², 96², 128² and 256², rivers drawn in each direction, tributaries, and imports.
   - The reference solutions run in CI through `MapSession` with the real validators; every one must pass.
   - Reference solutions for character and feature requests, Kyler's flagship requests included (the giant waterfall and the compound request; D145), steer whole-map generation or use the forces for local change (D256) instead of building features with planners (D139). A request whose steered solution needs a capability that doesn't exist yet (M9's intentions) is marked "waiting for capability", not failed, and is checked from the step that provides it.
-  - Every step before M12 that adds a way to edit or understand maps adds its requests, with reference solutions, and re-runs the whole suite so it stays green (D134).
+  - Every step before M12 that adds a way to edit or understand maps adds its requests, with reference solutions, and re-runs the whole suite so it stays green (D134). This is suspended while Kyler refines Dam Good Maps (D277): the suite leaves the regular checks and stays in the repository unmaintained until M12 begins.
   - "Describe the map you want" requests (D139): the candidates shown really have the intentions, and the report names the ones that didn't emerge.
   - With a key, the suite runs nightly in Node through the Messages API adapter, with the same prompts and tools the artifact edition uses and the artifact's limits on (64 KiB input, 32 KB results). It checks expectations against the achievable ranges (`PLAN.md` §9.10).
   - Include at least:
