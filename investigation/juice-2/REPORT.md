@@ -25,3 +25,5 @@ unchanged for comparison. The branch is `investigation/juice-2`.
 ## Steps
 
 1. Establish the branch and sound direction; verify permissive recording sources.
+2. Build 24 CC0 recording assets (818,400 bytes) with source/author/licence and
+   SHA-256 manifests. Preserve attacks; balance gain without flattening dynamics.
