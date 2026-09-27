@@ -81,6 +81,10 @@ In this order, each a new module beside the existing code until the wiring step:
   investigation measured: IoU of wet columns 0.99 or more on 17 of 19 (13 at 1.000, Canyon 0.998, Pillars 0.998,
   Meander 0.991, HelixMountain 0.990), and Spillage 0.59 and Oasis 0.21, whose stored water comes from seeps and
   aquifers. One day from each map's own water keeps it (IoU 1.000, HelixMountain 0.999).
+- **The settle's cost at 256² (information).** The canonical settle in game mode costs 1.18× today's on generated
+  256² maps (River Valley seed 1: 2.0 s against 1.7 s; Islands seed 1: 15.2 s against 12.8 s, the same ticks), on
+  this machine under load. On the official cave maps the phases split between outflows, the per-column update and
+  evaporation (Pressure 256²: about 10 ms a tick with 9,000 wet columns); big water is simply big.
 - **The support rule on real maps.** With the objects' stackable tops (NaturalOverhangs hold the rock above them),
   nothing falls on any of the 22 official maps; without them Pillars would lose 2 voxels. The build's rule pass
   must pass the objects' stackable tops, as the validator's placement scan already gathers them.
