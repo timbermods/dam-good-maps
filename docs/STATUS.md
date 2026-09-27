@@ -137,11 +137,14 @@ The preview still shows the forces' first round (a88d7d2). Round 2, Unleash (2b)
 
 ### 4. Probe batches
 
-None has run yet. Three are prepared, to run after the restart, M9a's first (D218; each reported here and on #57):
-- **M9a** (the gate for its release): 15 maps on the frozen generator in `C:\dgm-probe\maps\20260927-0424-batch`, about
-  93 minutes.
-- **Ceiling** (D244 step 1): three editor-made tall maps in `C:\dgm-probe\ceiling\`, about 24 minutes.
-- **Real places whose water keeps moving** (the grey area, optional confirmation): Paricutin, Badlands and Lake Toba.
+None has run yet. Queued, one at a time when the machine is quiet (M9a's batches are finishing first):
+1. **M9a** (the gate for its release, D294): 15 maps on the frozen generator (788c145) in `C:\dgm-probe\maps60927-0853-batch`, about
+   93 minutes.
+2. **Ceiling** (D244 step 1): three editor-made tall maps in `C:\dgm-probe\ceiling\`, about 24 minutes; its result unblocks the
+   editor's ceiling on `feature/forces`.
+3. **Terrain 3D** (D279, D280 step 1): T1–T6 in `C:\dgm-probe	errain3d\` (a5a612e on `feature/terrain3d-a`), about 12 minutes; the
+   game's own verdict on cave water, soil under roofs and the support rule, before golden fixtures.
+4. Optional: the Real places grey area (three places whose water keeps moving), after D271's water fix.
 
 ### 5. Defaults I chose (your answers: D222)
 
