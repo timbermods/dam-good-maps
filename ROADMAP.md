@@ -858,7 +858,7 @@ named by a real feature in its square or a direction, never "Centre". Badwater o
 follows once M9a is on `dev`.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
-D151 (no edge walls), and the starting-logs floor (D224: at least 167 logs reachable on foot from the start).
+D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
 the rebuild and D214 done (150 places, none dropped by D214). Waiting on Kyler's list of places to
@@ -1227,9 +1227,9 @@ become recipes inside the system (design §3).
   - Acceptance (Kyler's one rule, D115):
     - Blocking: **zero built dam walls on every theme, size, difficulty and setting** (the
       dam-wall check on every batch map, and a contract test that no planned feature list holds a
-      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224: at least the
-      floor, 167 logs for 1.1.2.4, reachable on foot from the start, at every difficulty; Minimum starting
-      wood only goes up from it); batches ≥ 98% final per theme at 96², 128², 192² and
+      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224, D227: at least
+      the floor, 178 logs for 1.1.2.4, within 40 tiles' walk of the start, at every difficulty; Minimum
+      starting wood counts within 20 tiles: Easy 250, Normal 200, Hard none beyond the floor); batches ≥ 98% final per theme at 96², 128², 192² and
       256² (a seed that makes no map is breakage); the same bytes for the same seed in Node and
       Chrome, and share links that reproduce; 0 disagreements with the Python oracle, A1's file
       included, and A2's timestamp writing the same bytes in every time zone; every speedup
@@ -1910,7 +1910,7 @@ official-like trees, ruins, mines and clusters (D167–D170). When the quiet ret
 player's framing, size or scale, the page says so plainly.
 
 **Blocking:** breakage (the map passes the validators and exports; the share link rebuilds it
-exactly; attribution present; no edge walls; the starting-logs floor, D224) and what a player feels (the explore view and the
+exactly; attribution present; no edge walls; the starting-logs floor, D224, D227) and what a player feels (the explore view and the
 live preview stay smooth; progress while it builds; never a frozen page; never a failed attempt
 shown).
 

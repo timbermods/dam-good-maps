@@ -42,8 +42,13 @@ editor is desktop-first (D185).
   picked tool; every force's options row starts with its mode switch. The four forces are built on
   one shared forces core (D203, D206). The forces go to the preview first and reach the public site
   only once Kyler has tried them (D219): until then the public site shows no forces group at all.
-- **The left shelf:** a clean grid of placeable objects: the start, then the **Water source** and
-  the **Badwater source** (two separate items, D212), then **Pine**, **Birch**, **Oak**, **Berry
+  **Power and size are separate in every force** (D226): each size control follows Power by default, or is
+  set by hand: Carve's **Width** and **Depth** (how deep it cuts, in levels below the land around it, so high
+  Power can carve a wide, shallow river), Craterize's **Size**, Erupt's **Size** (breadth); Quake's drawn line
+  sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
+  resize (D226).
+- **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
+  source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
@@ -54,8 +59,8 @@ editor is desktop-first (D185).
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
 - **Juice** (D205): small satisfying feedback on every action (a soft thud as land rises, a puff of
   dust when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts,
-  fitting touches for the forces). Sounds are on by default but quiet, with a volume and an off switch
-  (D212); micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in
+  fitting touches for the forces). Sounds are on by default at a clearly audible level (D226 raised it), with a volume and an
+  off switch (D212); micro-animations follow the reduced-motion setting. Nothing new stays on screen unless in
   use.
 - **Visible layers, identical to Timberborn** (D207): a compact layer widget with the view buttons,
   showing the visible level (∞ when everything shows) with up and down arrows, quiet at ∞ until used.
@@ -109,7 +114,10 @@ editor is desktop-first (D185).
   **Flows** (Light or Heavy, with or without Ridges); **Try another**. Fresh volcanic rock is hard for
   Carve; flows can dam rivers; objects ride the rising ground; overlapping eruptions build volcanic
   fields; it refuses to erupt where the start sits and never adds water; one undo step, and Esc
-  reverts. Prototyped on `investigation/erupt` (#50, ready: D216).
+  reverts. **Size** (breadth) follows Power or is set (D226). A volcano always keeps a peak within the
+  headroom it has: near the height ceiling it grows broader rather than taller, never flat-topped;
+  overlapping eruptions build new cones on the flanks; an eruption always completes, as in the demo
+  Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
@@ -157,8 +165,9 @@ Make a valley, drop a source, and there's a river.
   with its full set:
   - **Unleash** (click a spot) and **Aim** (origin to end point), with **Defy gravity** for aimed
     carves that climb uphill;
-  - **Power** (creek to catastrophe), and **Width** (following Power by default, or set by hand for
-    slot canyons or wide lazy rivers);
+  - **Power** (creek to catastrophe), **Width** (following Power by default, or set by hand for
+    slot canyons or wide lazy rivers) and **Depth** (following Power, or capped by hand: how many levels
+    below the land around it the carve may cut, so high Power can carve a wide, shallow river; D226);
   - **Wander** (straight to winding), natural variation within each carve (at high Wander too: bends
     wider and deeper on the outside, narrower on the straights, never a uniform tube), and **Try another
     path**; a bend cut off becomes an oxbow lake, sealed by sediment at both ends;

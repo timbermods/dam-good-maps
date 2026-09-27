@@ -1,4 +1,4 @@
-// The starting-logs floor (PLAN §20 D224), computed from the installed game's own blueprints.
+// The starting-logs floor (PLAN §20 D224, D227), computed from the installed game's own blueprints.
 //
 //   npx tsx tools/log-floor.ts            prints the computation for the installed game
 //   npx tsx tools/log-floor.ts --write    also pins it in src/core/data/log-floor.json
@@ -9,8 +9,11 @@
 //   - the route: the science building (the Forester costs science), a plank mill, the cheapest power that
 //     runs the mill (without flowing water: a beaver-powered wheel; with it, also a water wheel), and the
 //     Forester itself (its logs, and its planks at the plank recipe's logs per plank);
-//   - the essentials: the cheapest water pump and the cheapest dwelling available at the start.
-// The floor is the worst faction's route and essentials, plus 10%, and never below 120 logs.
+//   - the essentials: the cheapest water pump and the cheapest dwelling available at the start, and for a
+//     faction that grows by breeding pods (Iron Teeth), the cheapest breeding pod: it can't grow without one.
+// The floor is the worst faction's route and essentials, plus 10%, and never below 120 logs. It counts the
+// logs within WITHIN tiles' walk of the start (D227: "can I survive"; the 20-tile Minimum starting wood is "how
+// comfortable is it").
 // Rerun it whenever the game's version changes (docs/HANDOFF.md §9); the pinned file records the version.
 // It also pins each tree's log yield and whether a dead tree keeps its logs (the Succulent's
 // DeadCuttableYieldRemover is the only one that removes them), which the start's wood count uses.
@@ -22,6 +25,7 @@ const GAME = process.env.DGM_GAME_DIR ?? "C:\\Program Files (x86)\\Steam\\steama
 const OUT = join(import.meta.dirname, "..", "src", "core", "data", "log-floor.json");
 const MINIMUM = 120;
 const MARGIN = 0.1;
+const WITHIN = 40;
 const FACTIONS = ["Folktails", "IronTeeth"] as const;
 
 type Blueprint = Record<string, any>;
@@ -72,6 +76,8 @@ function factionFloor(faction: string) {
   const flowing = water.length ? cheapest([walker, ...water], "power") : walker;
   const pump = cheapest(buildings("Water", faction).filter(atStart).filter((b) => /(^|[^d])WaterPump\./.test(b.name) || /^DeepWaterPump\./.test(b.name)), "water pump");
   const dwelling = cheapest(buildings("Housing", faction).filter(atStart).filter((b) => b.bp.DwellingSpec), "dwelling");
+  const pods = buildings("Housing", faction).filter(atStart).filter((b) => b.bp.BreedingPodSpec);
+  const pod = pods.length ? cheapest(pods, "breeding pod") : null;
   const route = (p: Building): Item[] => [
     { what: "science (the Forester costs " + forester.science + " science)", building: science.name, logs: logCost(science) },
     { what: "plank mill (" + need + " power)", building: mill.name, logs: logCost(mill) },
@@ -85,6 +91,7 @@ function factionFloor(faction: string) {
   const essentials: Item[] = [
     { what: "water pump", building: pump.name, logs: logCost(pump) },
     { what: "dwelling", building: dwelling.name, logs: logCost(dwelling) },
+    ...(pod ? [{ what: "breeding pod (the faction grows only through one)", building: pod.name, logs: logCost(pod) }] : []),
   ];
   return { faction, route: worstRoute, routeLogs: sum(worstRoute.items), otherRouteLogs: Math.min(sum(noFlow), sum(withFlow)), essentials, essentialsLogs: sum(essentials), total: sum(worstRoute.items) + sum(essentials) };
 }
@@ -108,6 +115,7 @@ for (const [p, bp] of blueprints) {
 const result = {
   gameVersion: version,
   floor,
+  withinWalk: WITHIN,
   minimum: MINIMUM,
   margin: MARGIN,
   computed,
