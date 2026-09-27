@@ -40,7 +40,7 @@ Standard is left, High right, at the same camera and water time (8 seconds).
 | [Demo controls](captures/demo.jpg), [tree sketch](captures/vegetation.jpg) | [Riverbank](captures/riverbank.jpg), [contaminated ground](captures/contaminated-ground.jpg) |
 | Real places | [Victoria Falls](captures/real-victoria.jpg), [Yosemite](captures/real-yosemite.jpg), [Danube Delta](captures/real-danube.jpg) |
 
-JPEGs are 1440 pixels across or smaller, about 11–175 KB each. Larger generated results,
+JPEGs are 1440 pixels across or smaller, about 9–182 KB each. Larger generated results,
 dependencies and builds are ignored.
 
 ## Brightness and colour check
@@ -78,16 +78,17 @@ Two orbit runs per case, each with 700 ms warm-up and 2.2 seconds measured:
 | Map | Trees, living + dead | Living trees | Ruins | Standard | High | Both together |
 |---|---:|---:|---:|---:|---:|---:|
 | 128² | 3,219 | 1,009 | 874 | 164.9 fps | 164.9 fps | 164.9 fps |
-| 256² | 6,859 | 2,006 | 1,235 | 164.9 fps | 164.9 fps | 164.9 fps |
+| 256² | 6,859 | 2,006 | 1,235 | 164.9 fps | 164.9 fps | 164.7 fps |
 
-High's p95 frame interval was 6.2–6.3 ms. Forest close-ups also reached 164.9 fps. These
+High's p95 frame interval was 6.2 ms. Forest close-ups also reached 164.9 fps. These
 results hit the roughly 165 Hz cap; they are not a promise for slower GPUs or larger panes.
 [Raw frame measurements](captures/performance.json) include all switches and hardware details.
 
 Individual GPU queries varied at that cap, so a second test used paired 32-draw batches.
-The shared tone/grade pass cost about 0.042/0.022 ms at 128²/256²; cached shadow sampling
-about 0.018/0.023 ms; the three specimens about 0.007/0.006 ms. Other individual median differences
-were under 0.01 ms and within run noise. AO's one-time map bake took 23/114 ms and used
+The shared tone/grade pass cost about 0.069/0.027 ms at 128²/256²; cached shadow sampling
+about 0.022/0.047 ms; the three specimens about 0.005/0.022 ms. Most other individual median
+differences were under 0.01 ms and within run noise. Warm sunlight changes only light
+uniforms. AO's one-time map bake took 24/86 ms and used
 64/256 KiB. [Per-effect costs and limits](INTEGRATION.md#measured-costs) explain the method;
 [raw paired results](captures/gpu-profile.json) retain negative/noisy differences too.
 
@@ -126,3 +127,5 @@ the original checkout's older, checked-out `dev` reference alone.
 6. Wrote the integration proposals and checked the folder boundary before publishing the PR.
 7. Retuned High for a bright warm afternoon; added an independent sun switch and objective
    colour checks, keeping the accepted terrain and vegetation work intact.
+8. Refreshed all paired captures and measurements, checked colour gains and Standard parity,
+   and updated the existing PR only, leaving it open and unmerged.

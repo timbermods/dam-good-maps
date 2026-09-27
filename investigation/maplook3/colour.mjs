@@ -25,7 +25,7 @@ export async function measureColour(page) {
       const rgb = [0, 0, 0];
       for (let i = 0; i < p.length; i += 4) {
         if (region !== 'frame' && Math.max(mask[i], mask[i + 1], mask[i + 2]) < 8) continue;
-        // Diagnostic only: choose sunny yellow-green pixels from Standard once.
+        // Choose sunny yellow-green reference pixels once for both renderers.
         if (region === 'sunnyGreen' && !(standard[i] > .6 * standard[i + 1] && standard[i] < .96 * standard[i + 1] && standard[i + 2] < .55 * standard[i + 1] && standard[i + 1] > 95)) continue;
         const r = p[i] / 255, g = p[i + 1] / 255, b = p[i + 2] / 255;
         const max = Math.max(r, g, b), min = Math.min(r, g, b);
