@@ -18,7 +18,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isMainThread } from "node:worker_threads";
 
 export const OSM_CACHE = "investigation/landscapes/.cache/osm";
-const ENDPOINTS = ["https://overpass-api.de/api/interpreter"];
+/** Overpass API instances: the main one, and a public mirror when it is busy. */
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
 const HALO = 32;
 const M_PER_DEG = 111195;
 
@@ -37,13 +38,19 @@ function box(lat: number, lon: number, size: number, metres: number): [number, n
   return [lat - dlat, lon - dlon, lat + dlat, lon + dlon];
 }
 
+let answered = 0;
+
 async function query(q: string): Promise<{ elements: { type: string; id: number; tags?: Record<string, string>; geometry?: { lat: number; lon: number }[] }[] }> {
   let last: unknown;
   for (let attempt = 0; attempt < 6; attempt++) {
-    const url = ENDPOINTS[attempt % ENDPOINTS.length];
+    // the endpoint that last answered first
+    const url = ENDPOINTS[(answered + attempt) % ENDPOINTS.length];
     try {
-      const r = await fetch(url, { method: "POST", body: new URLSearchParams({ data: q }), headers: { "User-Agent": "dam-good-maps-real-places/1.0 (https://github.com/timbermods/dam-good-maps)" }, signal: AbortSignal.timeout(100000) });
-      if (r.ok) return (await r.json()) as never;
+      const r = await fetch(url, { method: "POST", body: new URLSearchParams({ data: q }), headers: { "User-Agent": "dam-good-maps-real-places/1.0 (https://github.com/timbermods/dam-good-maps)" }, signal: AbortSignal.timeout(60000) });
+      if (r.ok) {
+        answered = ENDPOINTS.indexOf(url);
+        return (await r.json()) as never;
+      }
       last = new Error(`${url}: HTTP ${r.status}`);
     } catch (e) {
       last = e;
@@ -109,10 +116,13 @@ async function main(): Promise<void> {
     patches = [...new Set(sel.places.map((p) => p.row.replace(/-\w+-\d+$/, "")))];
   }
   const todo = patches.filter((p) => process.argv.includes("--again") || !existsSync(`${OSM_CACHE}/${p}.json`));
+  // a second run from the other end shares the work (the server gives each caller two slots)
+  if (process.argv.includes("--reverse")) todo.reverse();
   console.log(`${patches.length} patches, ${todo.length} to read`);
   // one at a time: the Overpass API is shared
   let failed = 0;
   for (const p of todo) {
+    if (!process.argv.includes("--again") && existsSync(`${OSM_CACHE}/${p}.json`)) continue;
     const loc = locs.get(p.replace(/-\d+-\d+$/, ""));
     if (!loc) throw new Error(`no location for ${p}`);
     try {
