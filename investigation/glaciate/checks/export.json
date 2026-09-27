@@ -1,0 +1,112 @@
+{
+  "cases": [
+    {
+      "id": "default",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "small-map",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "side-valleys",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "large-map",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "lobe",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "low-ground",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tall",
+      "thumbnail": "960x540 JPEG",
+      "checks": 20,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.count",
+          "class": "load",
+          "ok": false,
+          "value": 0,
+          "limit": 1,
+          "message": "0 StartingLocation(s) (a vanilla map needs exactly one)",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "id": "aim",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "power-low",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "power-default",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "power-high",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "another-1",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "another-2",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "another-3",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "source": "feature/forces at cd9225cea5cdff18318b7d57c4ef2e3a70628dc2, read-only comparison oracle; not a demo dependency",
+  "settings": {
+    "mode": "unleash",
+    "power": 100,
+    "wander": 5,
+    "width": 24,
+    "seed": 891,
+    "walls": "steep",
+    "defyGravity": false,
+    "dry": false,
+    "layers": true,
+    "depth": 12
+  },
+  "intent": {
+    "origin": 2112
+  },
+  "carve": {
+    "cut": 18334,
+    "deposited": 0,
+    "changed": 2647,
+    "excavatedBelowOutlet": 6,
+    "run": {
+      "cut": 18334,
+      "deposited": 0,
+      "exported": 18334,
+      "suspended": 0,
+      "bankCuts": 7922,
+      "bendCuts": 1,
+      "steps": 149,
+      "stable": true,
+      "distance": 74.25,
+      "reason": "map edge",
+      "splits": 1,
+      "waterfalls": 1,
+      "rapids": 16,
+      "oxbows": 0
+    },
+    "settled": true
+  },
+  "glaciate": {
+    "cut": 9187,
+    "deposited": 9187,
+    "changed": 8360,
+    "excavatedBelowOutlet": 1083
+  }
+}

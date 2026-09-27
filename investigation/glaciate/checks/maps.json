@@ -1,0 +1,62 @@
+[
+  {
+    "id": "river-128",
+    "seed": 18,
+    "W": 128,
+    "source": "src/core/gen/generate.ts (editor runGenerate)",
+    "passed": true,
+    "attempts": 1,
+    "min": 2,
+    "max": 16
+  },
+  {
+    "id": "river-96",
+    "seed": 18,
+    "W": 96,
+    "source": "src/core/gen/generate.ts (editor runGenerate)",
+    "passed": true,
+    "attempts": 1,
+    "min": 2,
+    "max": 16
+  },
+  {
+    "id": "highlands-128",
+    "seed": 7,
+    "W": 128,
+    "source": "src/core/gen/generate.ts (editor runGenerate)",
+    "passed": true,
+    "attempts": 1,
+    "min": 1,
+    "max": 16
+  },
+  {
+    "id": "highlands-256",
+    "seed": 7,
+    "W": 256,
+    "source": "src/core/gen/generate.ts (editor runGenerate)",
+    "passed": true,
+    "attempts": 1,
+    "min": 0,
+    "max": 16
+  },
+  {
+    "id": "delta-128",
+    "seed": 39,
+    "W": 128,
+    "source": "src/core/gen/generate.ts (editor runGenerate)",
+    "passed": true,
+    "attempts": 1,
+    "min": 4,
+    "max": 16
+  },
+  {
+    "id": "tall-128",
+    "W": 128,
+    "seed": 7,
+    "verticality": 85,
+    "source": "generative/v2/unlocked.ts pipeline, BEFORE product build",
+    "min": 0,
+    "max": 18,
+    "limitation": "dev editor has no VT control; no objects or source build"
+  }
+]

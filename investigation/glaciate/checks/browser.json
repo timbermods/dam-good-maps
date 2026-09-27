@@ -1,0 +1,46 @@
+{
+  "browser": "153.0.8010.48",
+  "viewport": [
+    1200,
+    820
+  ],
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "normalSpeed": true,
+  "captureDuringPerformance": false,
+  "all": {
+    "count": 1125,
+    "median": 6.099999999998545,
+    "p95": 6.200000000000728,
+    "worst": 11.200000000000728
+  },
+  "advance": {
+    "count": 590,
+    "median": 6.099999999998545,
+    "p95": 6.200000000000728,
+    "worst": 8.099999999998545
+  },
+  "retreat": {
+    "count": 326,
+    "median": 6.099999999998545,
+    "p95": 6.200000000000728,
+    "worst": 11.200000000000728
+  },
+  "longTasks": [],
+  "planningMs": 573.3999999761581,
+  "firstTerrainMs": 749.6000000238419,
+  "totalMs": 6848.199999988079,
+  "water": {
+    "settled": true,
+    "ticks": 1920
+  },
+  "checks": [
+    "real default-settings pointer gesture",
+    "undo exact",
+    "Esc during advance exact",
+    "Esc during retreat exact",
+    "gallery loads",
+    "no browser exceptions",
+    "Esc during final settling exact; no late completion"
+  ],
+  "errors": []
+}

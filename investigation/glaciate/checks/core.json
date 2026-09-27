@@ -1,0 +1,900 @@
+{
+  "checks": 301,
+  "cases": [
+    {
+      "id": "default",
+      "map": "river-128",
+      "x": 64,
+      "y": 16,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 2112
+      },
+      "planningMs": 774.8367999999999,
+      "settled": true,
+      "ticks": 1280,
+      "signature": "5de22396e9c2bdb2",
+      "metrics": {
+        "cut": 9187,
+        "deposited": 9187,
+        "ratio": 1,
+        "floorWidth": 16,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.677887405687754,
+        "centreline": 1.3009111564730038,
+        "valley": 1.3009111564730038,
+        "outwash": 1615,
+        "treesMoved": 414,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 6,
+          "outlet": 8,
+          "depth": 2,
+          "tiles": 354,
+          "fed": true
+        },
+        {
+          "floor": 4,
+          "outlet": 6,
+          "depth": 2,
+          "tiles": 137,
+          "fed": true
+        },
+        {
+          "floor": 2,
+          "outlet": 6,
+          "depth": 4,
+          "tiles": 592,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 8,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "small-map",
+      "map": "river-96",
+      "x": 52,
+      "y": 16,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 1588
+      },
+      "planningMs": 323.35369999999966,
+      "settled": true,
+      "ticks": 1024,
+      "signature": "b3e0d9778b4c5e9b",
+      "metrics": {
+        "cut": 7822,
+        "deposited": 7822,
+        "ratio": 1,
+        "floorWidth": 15,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.6828737300435413,
+        "centreline": 1.2738028246603086,
+        "valley": 1.2738028246603086,
+        "outwash": 381,
+        "treesMoved": 199,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 7,
+          "outlet": 8,
+          "depth": 1,
+          "tiles": 35,
+          "fed": true
+        },
+        {
+          "floor": 1,
+          "outlet": 6,
+          "depth": 5,
+          "tiles": 897,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 7,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "side-valleys",
+      "map": "highlands-128",
+      "x": 64,
+      "y": 96,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 12352
+      },
+      "planningMs": 621.3037000000004,
+      "settled": true,
+      "ticks": 1536,
+      "signature": "ed198977edbefa6f",
+      "metrics": {
+        "cut": 9735,
+        "deposited": 9735,
+        "ratio": 1,
+        "floorWidth": 18,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.7037747920665387,
+        "centreline": 1.082806401910526,
+        "valley": 1.082806401910526,
+        "outwash": 1224,
+        "treesMoved": 418,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 0,
+          "outlet": 1,
+          "depth": 1,
+          "tiles": 502,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 1,
+          "depth": 1,
+          "tiles": 125,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 1,
+          "depth": 1,
+          "tiles": 169,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 1,
+          "depth": 1,
+          "tiles": 60,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 23,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "large-map",
+      "map": "highlands-256",
+      "x": 80,
+      "y": 112,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 28752
+      },
+      "planningMs": 567.0164000000004,
+      "settled": true,
+      "ticks": 1920,
+      "signature": "0ff57b4983bd1471",
+      "metrics": {
+        "cut": 12352,
+        "deposited": 12352,
+        "ratio": 1,
+        "floorWidth": 17,
+        "requestedWidth": 22,
+        "crossRange": 0,
+        "flatShare": 0.6827814569536423,
+        "centreline": 1.3039573016047812,
+        "valley": 1.3039573016047812,
+        "outwash": 1605,
+        "treesMoved": 199,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 1,
+          "outlet": 3,
+          "depth": 2,
+          "tiles": 413,
+          "fed": true
+        },
+        {
+          "floor": 2,
+          "outlet": 3,
+          "depth": 1,
+          "tiles": 135,
+          "fed": true
+        },
+        {
+          "floor": 1,
+          "outlet": 3,
+          "depth": 2,
+          "tiles": 148,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 2,
+          "depth": 2,
+          "tiles": 839,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 2,
+          "depth": 2,
+          "tiles": 169,
+          "fed": true
+        },
+        {
+          "floor": 1,
+          "outlet": 2,
+          "depth": 1,
+          "tiles": 195,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 2,
+          "depth": 2,
+          "tiles": 156,
+          "fed": true
+        },
+        {
+          "floor": 1,
+          "outlet": 2,
+          "depth": 1,
+          "tiles": 155,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 21,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "lobe",
+      "map": "river-128",
+      "x": 32,
+      "y": 32,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 4128
+      },
+      "planningMs": 263.1647000000012,
+      "settled": true,
+      "ticks": 1024,
+      "signature": "a6a2492d8392cfad",
+      "metrics": {
+        "cut": 1427,
+        "deposited": 1427,
+        "ratio": 1,
+        "floorWidth": 25,
+        "requestedWidth": 22,
+        "crossRange": 0,
+        "flatShare": 0.9581151832460733,
+        "centreline": 1,
+        "valley": 1,
+        "outwash": 650,
+        "treesMoved": 151,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 7,
+          "outlet": 8,
+          "depth": 1,
+          "tiles": 629,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 0,
+      "notice": "Ice spreads into a lobe",
+      "refused": null
+    },
+    {
+      "id": "low-ground",
+      "map": "highlands-256",
+      "x": 208,
+      "y": 112,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 28880
+      },
+      "planningMs": 619.0469000000012,
+      "settled": true,
+      "ticks": 2304,
+      "signature": "b56adfe4f00343c3",
+      "metrics": {
+        "cut": 4094,
+        "deposited": 4094,
+        "ratio": 1,
+        "floorWidth": 25,
+        "requestedWidth": 29.700000000000003,
+        "crossRange": 0,
+        "flatShare": 0.8431130327362569,
+        "centreline": 1.1125463989868623,
+        "valley": 1.1125463989868623,
+        "outwash": 1141,
+        "treesMoved": 175,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 0,
+          "outlet": 2,
+          "depth": 2,
+          "tiles": 1778,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 4,
+      "notice": "No room to deepen here · widening and building moraines",
+      "refused": null
+    },
+    {
+      "id": "tall",
+      "map": "tall-128",
+      "x": 32,
+      "y": 80,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 10272
+      },
+      "planningMs": 12.499700000000303,
+      "settled": true,
+      "ticks": 640,
+      "signature": "03afb9fe195145e9",
+      "metrics": {
+        "cut": 5187,
+        "deposited": 5187,
+        "ratio": 1,
+        "floorWidth": 11,
+        "requestedWidth": 22,
+        "crossRange": 2,
+        "flatShare": 0.669181659895531,
+        "centreline": 1.0671746055396634,
+        "valley": 1.0671746055396634,
+        "outwash": 15,
+        "treesMoved": 0,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 0,
+          "outlet": 4,
+          "depth": 4,
+          "tiles": 884,
+          "fed": true
+        },
+        {
+          "floor": 2,
+          "outlet": 5,
+          "depth": 3,
+          "tiles": 158,
+          "fed": true
+        },
+        {
+          "floor": 4,
+          "outlet": 8,
+          "depth": 4,
+          "tiles": 26,
+          "fed": true
+        },
+        {
+          "floor": 6,
+          "outlet": 8,
+          "depth": 2,
+          "tiles": 4,
+          "fed": true
+        },
+        {
+          "floor": 12,
+          "outlet": 13,
+          "depth": 1,
+          "tiles": 85,
+          "fed": true
+        },
+        {
+          "floor": 10,
+          "outlet": 12,
+          "depth": 2,
+          "tiles": 16,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 0,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "aim",
+      "map": "river-128",
+      "x": 28,
+      "y": 80,
+      "end": [
+        97,
+        35
+      ],
+      "settings": {
+        "mode": "aim",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 10268,
+        "end": 4577
+      },
+      "planningMs": 393.85310000000027,
+      "settled": true,
+      "ticks": 1792,
+      "signature": "88d86f2114aea0a4",
+      "metrics": {
+        "cut": 11882,
+        "deposited": 11882,
+        "ratio": 1,
+        "floorWidth": 18,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.7151106833493744,
+        "centreline": 1.0025770965929726,
+        "valley": 1.0025770965929726,
+        "outwash": 1943,
+        "treesMoved": 234,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 2,
+          "outlet": 6,
+          "depth": 4,
+          "tiles": 2346,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 8,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "power-low",
+      "map": "river-128",
+      "x": 96,
+      "y": 32,
+      "power": 15,
+      "settings": {
+        "mode": "flow",
+        "power": 15,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 4192
+      },
+      "planningMs": 24.18869999999879,
+      "settled": true,
+      "ticks": 1024,
+      "signature": "c7fee6fe001aa3a3",
+      "metrics": {
+        "cut": 574,
+        "deposited": 574,
+        "ratio": 1,
+        "floorWidth": 8,
+        "requestedWidth": 10,
+        "crossRange": 0,
+        "flatShare": 0.36079545454545453,
+        "centreline": 1.0549509962812689,
+        "valley": 1.0549509962812689,
+        "outwash": 50,
+        "treesMoved": 5,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 6,
+          "outlet": 7,
+          "depth": 1,
+          "tiles": 5,
+          "fed": true
+        },
+        {
+          "floor": 2,
+          "outlet": 5,
+          "depth": 3,
+          "tiles": 25,
+          "fed": true
+        },
+        {
+          "floor": 1,
+          "outlet": 4,
+          "depth": 3,
+          "tiles": 116,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 2,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "power-default",
+      "map": "river-128",
+      "x": 96,
+      "y": 32,
+      "power": 60,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 4192
+      },
+      "planningMs": 119.26890000000276,
+      "settled": true,
+      "ticks": 896,
+      "signature": "0a84421bcb7796c2",
+      "metrics": {
+        "cut": 5368,
+        "deposited": 5368,
+        "ratio": 1,
+        "floorWidth": 19,
+        "requestedWidth": 22,
+        "crossRange": 0,
+        "flatShare": 0.7311586051743532,
+        "centreline": 1.0226891163617386,
+        "valley": 1.0226891163617386,
+        "outwash": 0,
+        "treesMoved": 57,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 4,
+          "outlet": 6,
+          "depth": 2,
+          "tiles": 189,
+          "fed": true
+        },
+        {
+          "floor": 0,
+          "outlet": 4,
+          "depth": 4,
+          "tiles": 642,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 22,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "power-high",
+      "map": "river-128",
+      "x": 96,
+      "y": 32,
+      "power": 95,
+      "settings": {
+        "mode": "flow",
+        "power": 95,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 4192
+      },
+      "planningMs": 521.7339999999967,
+      "settled": true,
+      "ticks": 640,
+      "signature": "bd3b72c6c82b6e60",
+      "metrics": {
+        "cut": 11850,
+        "deposited": 11850,
+        "ratio": 1,
+        "floorWidth": 25,
+        "requestedWidth": 31,
+        "crossRange": 2,
+        "flatShare": 0.7935247403787417,
+        "centreline": 1.0975970628920313,
+        "valley": 1.0975970628920313,
+        "outwash": 0,
+        "treesMoved": 268,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 1,
+          "outlet": 4,
+          "depth": 3,
+          "tiles": 361,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 8,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "another-1",
+      "map": "river-128",
+      "x": 64,
+      "y": 16,
+      "seed": 2496995998,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 2496995998
+      },
+      "intent": {
+        "origin": 2112
+      },
+      "planningMs": 741.1260000000038,
+      "settled": true,
+      "ticks": 1152,
+      "signature": "b8eaaf1bd5746520",
+      "metrics": {
+        "cut": 7472,
+        "deposited": 7472,
+        "ratio": 1,
+        "floorWidth": 17,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.6677195198989261,
+        "centreline": 1.3009111564730038,
+        "valley": 1.3009111564730038,
+        "outwash": 1615,
+        "treesMoved": 373,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 5,
+          "outlet": 8,
+          "depth": 3,
+          "tiles": 219,
+          "fed": true
+        },
+        {
+          "floor": 5,
+          "outlet": 6,
+          "depth": 1,
+          "tiles": 246,
+          "fed": true
+        },
+        {
+          "floor": 3,
+          "outlet": 6,
+          "depth": 3,
+          "tiles": 446,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 4,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "another-2",
+      "map": "river-128",
+      "x": 64,
+      "y": 16,
+      "seed": 410691941,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 410691941
+      },
+      "intent": {
+        "origin": 2112
+      },
+      "planningMs": 694.2904000000053,
+      "settled": true,
+      "ticks": 1024,
+      "signature": "0d1d417ded82d236",
+      "metrics": {
+        "cut": 9522,
+        "deposited": 9522,
+        "ratio": 1,
+        "floorWidth": 17,
+        "requestedWidth": 22,
+        "crossRange": 1,
+        "flatShare": 0.6680424528301887,
+        "centreline": 1.3009111564730038,
+        "valley": 1.3009111564730038,
+        "outwash": 1615,
+        "treesMoved": 375,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 5,
+          "outlet": 8,
+          "depth": 3,
+          "tiles": 383,
+          "fed": true
+        },
+        {
+          "floor": 4,
+          "outlet": 6,
+          "depth": 2,
+          "tiles": 212,
+          "fed": true
+        },
+        {
+          "floor": 5,
+          "outlet": 6,
+          "depth": 1,
+          "tiles": 151,
+          "fed": true
+        },
+        {
+          "floor": 2,
+          "outlet": 6,
+          "depth": 4,
+          "tiles": 589,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 8,
+      "notice": "",
+      "refused": null
+    },
+    {
+      "id": "another-3",
+      "map": "river-128",
+      "x": 64,
+      "y": 16,
+      "seed": 3842296704,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 3842296704
+      },
+      "intent": {
+        "origin": 2112
+      },
+      "planningMs": 683.7353000000003,
+      "settled": true,
+      "ticks": 1152,
+      "signature": "f99c6882de260830",
+      "metrics": {
+        "cut": 7171,
+        "deposited": 7171,
+        "ratio": 1,
+        "floorWidth": 16,
+        "requestedWidth": 22,
+        "crossRange": 2,
+        "flatShare": 0.6524777636594663,
+        "centreline": 1.3009111564730038,
+        "valley": 1.3009111564730038,
+        "outwash": 1615,
+        "treesMoved": 333,
+        "treesUnmoved": 0
+      },
+      "basins": [
+        {
+          "floor": 6,
+          "outlet": 8,
+          "depth": 2,
+          "tiles": 235,
+          "fed": true
+        },
+        {
+          "floor": 4,
+          "outlet": 6,
+          "depth": 2,
+          "tiles": 431,
+          "fed": true
+        },
+        {
+          "floor": 4,
+          "outlet": 6,
+          "depth": 2,
+          "tiles": 431,
+          "fed": true
+        }
+      ],
+      "hangingCrossingTiles": 6,
+      "notice": "",
+      "refused": null
+    }
+  ],
+  "comparison": {
+    "settings": {
+      "mode": "unleash",
+      "power": 100,
+      "wander": 5,
+      "width": 24,
+      "seed": 891,
+      "walls": "steep",
+      "defyGravity": false,
+      "dry": false,
+      "layers": true
+    },
+    "metrics": {
+      "cut": 18334,
+      "deposited": 0,
+      "exported": 18334,
+      "suspended": 0,
+      "bankCuts": 7922,
+      "bendCuts": 1,
+      "steps": 149,
+      "stable": true,
+      "distance": 74.25,
+      "reason": "map edge",
+      "splits": 1,
+      "waterfalls": 1,
+      "rapids": 16,
+      "oxbows": 0
+    },
+    "glacier": {
+      "cut": 9187,
+      "deposited": 9187,
+      "ratio": 1,
+      "floorWidth": 16,
+      "requestedWidth": 22,
+      "crossRange": 1,
+      "flatShare": 0.677887405687754,
+      "centreline": 1.3009111564730038,
+      "valley": 1.3009111564730038,
+      "outwash": 1615,
+      "treesMoved": 414,
+      "treesUnmoved": 0
+    },
+    "limitation": "dev Carve has no separate Depth setting; full Power uses its uncapped deep excavation. No feature/forces dependency."
+  }
+}

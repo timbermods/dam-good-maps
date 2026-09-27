@@ -1,0 +1,8 @@
+{
+  "method": "OfflineAudioContext, actual Sound.begin recipe, mono 48kHz, strongest nonoverlapping 100ms window",
+  "peak": 0.49694040417671204,
+  "peakDbFS": -6.073913822480257,
+  "strongest100msDbFS": -17.128546793645732,
+  "master": 0.72,
+  "voicesStopOnCancel": true
+}
