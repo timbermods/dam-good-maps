@@ -46,11 +46,16 @@ Your forty-seven decisions since the restart are recorded (D252–D298, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-6. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+6. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
+   the ceiling (D244 step 2) waits for the Ceiling probe batch, then the preview for your sitting. Two small questions from it:
+   - the generator page's flat 2D preview keeps its own **Moist soil** switch (not the editor's view bar, so D287 didn't reach it):
+     should it go too?
+   - Quake's Left/Right control is gone (D289: X flips the side, and the status line says so): want the control back?
+7. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-7. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+8. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-8. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+9. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
@@ -145,16 +150,26 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 The preview still shows the forces' first round (a88d7d2). Round 2, Unleash (2b), D247 and D248 are done on
 `feature/forces` (c1438df); it goes back on the preview for your sitting once D249 and the ceiling (D244 step 2) are in.
 
-### 4. Probe batches
+### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
 
-None has run yet. Queued, one at a time when the machine is quiet (M9a's batches are finishing first):
-1. **M9a** (the gate for its release, D294): 15 maps on the frozen generator (788c145) in `C:\dgm-probe\maps\20260927-0853-batch`, about
-   93 minutes.
-2. **Ceiling** (D244 step 1): three editor-made tall maps in `C:\dgm-probe\ceiling\`, about 24 minutes; its result unblocks the
-   editor's ceiling on `feature/forces`.
-3. **Terrain 3D** (D279, D280 step 1): T1–T6 in `C:\dgm-probe\terrain3d\` (a5a612e on `feature/terrain3d-a`), about 12 minutes; the
-   game's own verdict on cave water, soil under roofs and the support rule, before golden fixtures.
-4. Optional: the Real places grey area (three places whose water keeps moving), after D271's water fix.
+1. **M9a** (`20260927-0853-batch`, 15 maps, 40 min): **98 passed, 5 failed**, so no tag yet. Every map loads; objects, terrain and the
+   tall map pass. The cause of most failures, found by M9a: our files write the water's flows as zero (as the official maps ship),
+   so the game resets the water's momentum at load; our own simulation restarted that way reproduces the game's first day exactly,
+   and with its flows kept the water holds. On Delta 128² that reset re-routes the side channels (water: 78.5% of wet tiles within
+   0.1 after a day, needs 95%), and it explains the model mismatches on the Hard and weir maps. **The fix, being built:** write the
+   settled flows into the file (every map's bytes change, no decision does), then the whole M9a group again. Left for you only if
+   they persist: Delta's wet-tile count after the drought (thin sheets near the wet line, volume within 0.8%), and badwater lingering
+   in a side pool 42 tiles from the start after the drought on Any 128² (the start's water stays clean).
+2. **Ceiling** (`ceiling-20260927`, 3 maps): the game keeps editor-made land above 16 (loads, heights, water, objects, sources at
+   19–21, building): D244 step 2 is being built. One failure, not about height: on the waterfall map the badtide model contaminates one
+   watched tile a moment before the game does (0.5 against 0); the whole map agrees within 0.7%.
+3. **Terrain 3D** (`terrain3d-20260927`, T1–T6): cave water, soil under roofs, plants and a start under a roof, and the 256² high
+   landscape all match the game. T1's support check failed only at the load instant: the game drops exactly the 24 voxels our rule
+   predicts, but half a day after loading, not at the load; the check is being moved to after the drop and the fixtures marked verified.
+4. Optional: the Real places grey area, after D271's water fix.
+
+Runner note: its "machine quiet" check reads 0% because Windows' CPU counter isn't available here, so it doesn't really measure;
+the other agents paused by hand.
 
 ### 5. Defaults I chose (your answers: D222)
 
