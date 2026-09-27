@@ -5,15 +5,25 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-26, 17:50)
+## Summary for Kyler (updated 2026-09-26, 18:10, after his answers)
 
 The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
 
 ### 1. Needs your decision or your eyes
 
-1. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
-2. **Real places (#35), the places to drop:** `C:\dgm-workshop\places\sheet.html` is on your main PC, not here. The D214
-   water changes and the "Centre" titles go ahead without it; the drops and the release wait for you.
+1. **Try the four forces and the juice sounds on the preview** (section 3). Their defaults are pending **#74**
+   ([decisions-pending.md](decisions-pending.md)); a Craterize strike at its default power is 54 tiles wide on a 128² map.
+2. **Real places: the places to drop.** The numbered review sheet is being rendered as an image on
+   [PR #35](https://github.com/timbermods/dam-good-maps/pull/35) so you can pick from any device (D222); reply there with
+   the numbers. The D214 rebuild and the new titles are under way; the round's release waits for your drops and the
+   badwater stage (after M9a).
+3. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
+
+**The forces are built on the shared forces core** (checked 2026-09-26, as you asked): `feature/forces` was started from
+`dev` after Codex's forces core (#59) had landed, and its first commit ports Craterize, Erupt and Quake from
+`investigation/forces-core`; all four import the core's modules (`src/core/forces/force.ts`, `op.ts`, `result.ts`,
+`rock.ts`, `runs.ts`), so nothing had to move. Codex's #58 and #59 were merged into `dev` at the Live editing boundary
+(D220). The forces reached the preview about 20 minutes before your message, after this check of the agent's report.
 
 ### 2. Released or merged
 
@@ -48,7 +58,9 @@ None yet. The probe is set up here (runner tests pass, the mod builds against th
 up in `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\`). The first batch will be M9a's 15 maps once its generator is
 frozen (D218 lets it run without asking on this machine).
 
-### 5. Defaults I chose
+### 5. Defaults I chose (your answers: D222)
+
+#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). Still pending: #74.
 
 - **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
   the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
@@ -247,6 +259,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D219: Quake is ready with both Lift and Slide; all four forces go to the preview, released after Kyler tries them.
 - D220: Codex's forces-core and juice investigations merged once green and adopted as proposals.
 - D221: a "Progress log" issue (#57) gets a short comment at each step, release, probe batch or parked item.
+- D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
+- D223: a seed's candidates: the best wins by the quality score; variety breaks near ties only; only true near-duplicates are rejected, resemblance is information (replaces #53's default).
 
 ## Done and released
 
