@@ -26,13 +26,18 @@ decodes that RGB, grades in linear light, applies 1.22 exposure and a peak-prese
 and encodes once in a single full-resolution pass. The shoulder begins at linear peak 0.82,
 scaling all channels together toward a bounded peak of 1. It retains the Neutral shoulder's
 form but removes its darkening toe and whitening of highlights. There is no filmic wash.
-The grade adds 6% linear-light saturation and a gentle warm highlight balance, retaining
-sunny yellow-greens. Grading precedes the shoulder to avoid clipped warm highlights. The High finish
+The grade starts with 6% linear-light saturation and a gentle warm highlight balance, then
+restrains chroma around the resulting luminance. Warm near-neutral colours get more restraint
+than foliage. A small R-to-G exchange moves bright yellow-greens away from lime; its channel
+weights preserve luminance. Exposure, sun, sky and AO keep the approved afternoon lighting.
+The final matched-view map saturation uplift averages 16%, with a 30% ceiling. Grading
+precedes the shoulder to avoid clipped warm highlights. The High finish
 allows values above one before that pass. This is not a conversion to physically based HDR
 lighting. Preserve the maplook2 colour anchors during product adoption by measuring final
 framebuffer samples again; exposure and lighting deliberately brighten their final appearance.
 Keep the captured-view regression: whole canvas, a shared map mask and sunny-green pixels
-must each match or exceed Standard in mean brightness, linear luminance and saturation.
+must each match or exceed Standard in mean brightness, linear luminance and saturation;
+whole-frame and map saturation averages must also stay at or below +30%.
 The test is a guard against a dull finish, not a substitute for judging the art direction.
 The demo retains four-sample MSAA in its half-float render target. At the measured 719×637
 pane that target needs roughly 25–27 MiB (multisampled colour/depth and resolve buffers),

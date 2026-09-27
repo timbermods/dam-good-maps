@@ -23,6 +23,10 @@ fill across the map. **Warm sunlight** has its own switch. Haze now starts at le
 away and beyond the camera target, with a 5.5% maximum blend. Materials, strata, soil edges,
 colour variation, AO and the vegetation sketch are unchanged from the first study.
 
+The small follow-up reduces saturation without changing that lighting or exposure. It
+preserves luminance, restrains warm neutral colours more than foliage, and shifts only
+bright yellow-greens slightly toward green. The same grade applies to every map and view.
+
 Standard imports the current renderer. With every addition off, High matches it exactly:
 **zero differences across 1,832,012 framebuffer channels**. The comparison forces full
 Standard on software WebGL, as maplook2 did; the product's Light selection is untouched.
@@ -47,26 +51,33 @@ dependencies and builds are ignored.
 
 All nine paired views pass: High's mean brightness and saturation are at least Standard's,
 both across the whole canvas and across the same map pixels with the sky excluded.
-Map-only gains are below; these are relative percentages, not percentage points.
+Map-only saturation now averages **+16%** across the nine views, ranging from +11% to +30%
+instead of reaching +54%. This keeps the pull-back gentle without adjusting individual
+cameras to force every view into the approximate +15–30% target. Map-only gains are below;
+these are relative percentages, not percentage points.
 
 | Matched view | Brightness | Saturation |
 |---|---:|---:|
-| 128² overview | +13.4% | +29.3% |
-| Cliff | +7.5% | +32.5% |
-| Forest edge | +10.2% | +29.3% |
-| Riverbank | +12.9% | +28.4% |
-| Contaminated ground | +12.7% | +29.4% |
-| 256² overview | +16.7% | +42.6% |
-| Victoria Falls | +7.1% | +22.6% |
-| Yosemite | +3.3% | +53.9% |
-| Danube Delta | +5.5% | +30.0% |
+| 128² overview | +13.7% | +11.9% |
+| Cliff | +7.8% | +11.7% |
+| Forest edge | +10.5% | +17.3% |
+| Riverbank | +13.3% | +16.3% |
+| Contaminated ground | +13.1% | +11.1% |
+| 256² overview | +17.1% | +13.5% |
+| Victoria Falls | +7.2% | +15.6% |
+| Yosemite | +3.6% | +29.8% |
+| Danube Delta | +5.8% | +17.6% |
 
 The check reads raw framebuffer pixels before JPEG compression, at identical cameras and
 time. Brightness is mean display-RGB luma (0.2126 R + 0.7152 G + 0.0722 B); saturation is
 mean HSV saturation. Linear-light luminance also passes in every view. A black-sky Standard
 draw supplies one shared map mask. UI and the corner sketch are excluded. A shared sunny
 yellow-green selection also passes, including Yosemite. Individual shadow pixels can stay
-dark: the goal is depth within a bright scene. These checks are assertions in `run verify`,
+dark: the goal is depth within a bright scene. Compared with the approved sunny revision
+(`d61eaaa`), map luminance changes by less than 0.02%; display brightness changes by only
++0.18–0.33%. The sunny-green selection's mean RGB hue moves 1.3–2.4 degrees toward green;
+its saturation is +13–21% over Standard. The brightness checks and a +30% saturation ceiling
+for whole-frame/map averages are assertions in `run verify`,
 with per-view values in [verification.json](captures/verification.json).
 
 ## Speed
@@ -100,7 +111,9 @@ Standard preservation, both-direction camera input, and wind on/off. [Verificati
 
 With the demo running, `npm --prefix investigation/maplook3 run verify` refreshes captures;
 `run check:colour` repeats just the nine colour comparisons (results in ignored `local/`);
-`run bench` measures frame rates and `run profile` measures paired GPU costs. These use the
+`run bench` measures frame rates and `run profile` measures paired GPU costs. The narrower
+`run bench -- --overview-only` repeats Standard/High/both and forest-close-up cadence after
+a finish-only change; the current frame report uses that mode. These use the
 installed Chrome. `run check` and `run build` check compilation. The built bundle is a
 compilation check; Real-place loading is supplied by the local demo server.
 
@@ -129,3 +142,5 @@ the original checkout's older, checked-out `dev` reference alone.
    colour checks, keeping the accepted terrain and vegetation work intact.
 8. Refreshed all paired captures and measurements, checked colour gains and Standard parity,
    and updated the existing PR only, leaving it open and unmerged.
+9. Pulled saturation back, shifted bright yellow-greens slightly greener while preserving
+   luminance, and added the upper saturation guard and mean-RGB hue measurements.

@@ -34,7 +34,9 @@ export async function measureColour(page) {
         saturation += max ? (max - min) / max : 0; chroma += max - min;
         clipped += max === 1 ? 1 : 0; rgb[0] += r; rgb[1] += g; rgb[2] += b;
       }
-      return { pixels: count, brightness: brightness / count, linearLuminance: luminance / count, saturation: saturation / count, chroma: chroma / count, clippedFraction: clipped / count, rgb: rgb.map(c => c / count) };
+      const mean = rgb.map(c => c / count), max = Math.max(...mean), min = Math.min(...mean), span = max - min;
+      const hue = !span ? 0 : 60 * (max === mean[0] ? ((mean[1] - mean[2]) / span + 6) % 6 : max === mean[1] ? (mean[2] - mean[0]) / span + 2 : (mean[0] - mean[1]) / span + 4);
+      return { pixels: count, brightness: brightness / count, linearLuminance: luminance / count, saturation: saturation / count, chroma: chroma / count, clippedFraction: clipped / count, rgb: mean, hueOfMeanRgb: hue };
     }
     const out = {};
     for (const region of ['frame', 'map', 'sunnyGreen']) {
@@ -52,4 +54,5 @@ export function assertColour(result, label) {
       assert.ok(result[region].ratio[metric] >= 1, `${label} ${region} ${metric}: High / Standard = ${result[region].ratio[metric]}`);
     }
   }
+  for (const region of ['frame', 'map']) assert.ok(result[region].ratio.saturation <= 1.30, `${label} ${region}: saturation overshoots +30%`);
 }

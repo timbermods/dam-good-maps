@@ -39,6 +39,22 @@ export class Post {
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
           c = max(mix(vec3(l), c, 1.06), vec3(0.0));
           c *= mix(vec3(1.008, 1.0, 0.995), vec3(1.030, 1.016, 0.960), smoothstep(0.035, 0.55, l));
+          // Restrain chroma without dimming the approved afternoon lighting.
+          // Neutral earth needs more restraint than already-colourful foliage.
+          float litLuma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+          float peak = max(c.r, max(c.g, c.b));
+          float chroma = peak - min(c.r, min(c.g, c.b));
+          float vividness = chroma / max(peak, 0.0001);
+          float warmNeutral = smoothstep(0.0, 0.25, (c.r - c.g) / max(chroma, 0.0001))
+                            * (1.0 - smoothstep(0.70, 0.95, vividness));
+          float restraint = mix(0.65, 0.98, smoothstep(0.35, 0.75, vividness)) * (1.0 - 0.20 * warmNeutral);
+          c = mix(vec3(litLuma), c, restraint);
+          // Move only bright yellow-greens a little toward green. The R/G
+          // exchange preserves linear luminance; sky, earth and shade stay warm.
+          float yellowGreen = smoothstep(-0.12, 0.10, (c.g - c.r) / max(chroma, 0.0001))
+                            * smoothstep(0.25, 0.70, (c.r - c.b) / max(chroma, 0.0001));
+          float shift = 0.06 * chroma * yellowGreen * smoothstep(0.14, 0.40, litLuma);
+          c += vec3(-shift, shift * (0.2126 / 0.7152), 0.0);
         }
         // Grade before the bounded shoulder, so warm highlights cannot clip after it.
         if (tone > 0.5) c = sunnyShoulder(c * 1.22);
