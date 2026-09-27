@@ -837,7 +837,7 @@ every place rebuilt without perimeter walls, water free to drain; and the galler
 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
-and D151 (no edge walls).
+D151 (no edge walls), and the starting-logs floor (D224: at least 167 logs reachable on foot from the start).
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round
@@ -1202,7 +1202,9 @@ become recipes inside the system (design §3).
   - Acceptance (Kyler's one rule, D115):
     - Blocking: **zero built dam walls on every theme, size, difficulty and setting** (the
       dam-wall check on every batch map, and a contract test that no planned feature list holds a
-      dam-site ridge), and nothing stamped; batches ≥ 98% final per theme at 96², 128², 192² and
+      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224: at least the
+      floor, 167 logs for 1.1.2.4, reachable on foot from the start, at every difficulty; Minimum starting
+      wood only goes up from it); batches ≥ 98% final per theme at 96², 128², 192² and
       256² (a seed that makes no map is breakage); the same bytes for the same seed in Node and
       Chrome, and share links that reproduce; 0 disagreements with the Python oracle, A1's file
       included, and A2's timestamp writing the same bytes in every time zone; every speedup
@@ -1222,7 +1224,9 @@ become recipes inside the system (design §3).
 - **After M9a: the agent guide** (Kyler, 2026-09-25; D142): how a Claude Code session generates,
   edits, validates and exports maps, and runs the contact sheet and the DGM Probe (under the
   probe rule, D117), written once M9a has settled the generator's code.
-- **M9b: composition and variety** (tag `m9b-done`).
+- **M9b: composition and variety** (tag `m9b-done`). **Read [docs/PERFECT.md](docs/PERFECT.md) first** (D225): its
+  Challenge section changes how difficulty shapes the terrain (a harder map makes trees, easy land and easy dam sites hard
+  to come by early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle pays off).
   - Delivers: the recipes (the named premises as forced parts), Variety (`vy`) and Surprise me, the
     8 flow directions (all appear in 100 seeds of each theme, none over 25%), river-network variety
     (splits, deltas, meanders and oxbows), no clones (only true near-duplicates rejected; resemblance as
@@ -1237,7 +1241,7 @@ become recipes inside the system (design §3).
     direction as tool entries; suite requests for them; every reference solution re-run.
   - Acceptance (D115): blocking: M6, the dam-wall check, finds no built wall; information: the
     design's measures M1–M5 on 200 seeds per theme at 128², against their targets.
-- **M9c: score, names and candidates** (tag `m9c-done`).
+- **M9c: score, names and candidates** (tag `m9c-done`). **Read [docs/PERFECT.md](docs/PERFECT.md) first** (D225).
   - Delivers: the 12-component score with its default weights, which picks the best of a seed's
     passing candidates (variety breaks near ties only; D223) and orders a contact sheet, never a
     gate on quality (D137); K = 3 candidates with progressive
@@ -1881,7 +1885,7 @@ official-like trees, ruins, mines and clusters (D167–D170). When the quiet ret
 player's framing, size or scale, the page says so plainly.
 
 **Blocking:** breakage (the map passes the validators and exports; the share link rebuilds it
-exactly; attribution present; no edge walls) and what a player feels (the explore view and the
+exactly; attribution present; no edge walls; the starting-logs floor, D224) and what a player feels (the explore view and the
 live preview stay smooth; progress while it builds; never a frozen page; never a failed attempt
 shown).
 

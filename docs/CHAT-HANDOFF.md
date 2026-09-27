@@ -1,4 +1,5 @@
 # Chat handoff: how Kyler and his planning chat work
+**The yardstick for every review: docs/PERFECT.md** (what perfect means, PLAN.md §20 D225).
 Read this first, then docs/HANDOFF.md, docs/STATUS.md, EDITOR_PLAN.md and PLAN.md §20, all from github.com/timbermods/dam-good-maps (public).
 
 ## Roles

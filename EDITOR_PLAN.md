@@ -1,5 +1,7 @@
 # Dam Good Maps: the map editor
 
+> **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
+
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision, taken from Kyler's
 decisions (`PLAN.md` §20: D158, D172, D179–D187). Part 2 is the technical reference that still holds.
 Part 3 lists what was superseded: it must not come back. Where anything here conflicts with Part 1
