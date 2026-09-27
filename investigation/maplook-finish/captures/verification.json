@@ -34,8 +34,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 739969,
-        "max": 176,
+        "count": 705979,
+        "max": 46,
         "channels": 1556256
       }
     },
@@ -62,8 +62,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 55226,
-        "max": 115,
+        "count": 55791,
+        "max": 140,
         "channels": 1556256
       }
     },
@@ -90,7 +90,7 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 7798,
+        "count": 7779,
         "max": 64,
         "channels": 1556256
       }
@@ -118,8 +118,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 116967,
-        "max": 191,
+        "count": 114201,
+        "max": 188,
         "channels": 1556256
       }
     },
@@ -131,8 +131,8 @@
         "channels": 1556256
       },
       "highNeutral": {
-        "count": 11,
-        "max": 1,
+        "count": 0,
+        "max": 0,
         "channels": 1556256
       },
       "standard": {
@@ -141,12 +141,12 @@
         "channels": 1556256
       },
       "restored": {
-        "count": 11,
-        "max": 1,
+        "count": 0,
+        "max": 0,
         "channels": 1556256
       },
       "effect": {
-        "count": 48737,
+        "count": 48719,
         "max": 19,
         "channels": 1556256
       }
@@ -159,8 +159,8 @@
         "channels": 1556256
       },
       "highNeutral": {
-        "count": 0,
-        "max": 0,
+        "count": 18,
+        "max": 1,
         "channels": 1556256
       },
       "standard": {
@@ -169,12 +169,12 @@
         "channels": 1556256
       },
       "restored": {
-        "count": 0,
-        "max": 0,
+        "count": 18,
+        "max": 1,
         "channels": 1556256
       },
       "effect": {
-        "count": 118407,
+        "count": 113575,
         "max": 127,
         "channels": 1556256
       }
@@ -197,12 +197,12 @@
         "channels": 1556256
       },
       "restored": {
-        "count": 2,
-        "max": 1,
+        "count": 0,
+        "max": 0,
         "channels": 1556256
       },
       "effect": {
-        "count": 15399,
+        "count": 15362,
         "max": 16,
         "channels": 1556256
       }
@@ -230,7 +230,7 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 7739,
+        "count": 7717,
         "max": 10,
         "channels": 1556256
       }
@@ -258,8 +258,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 342708,
-        "max": 166,
+        "count": 87384,
+        "max": 51,
         "channels": 1556256
       }
     },
@@ -314,7 +314,7 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 246833,
+        "count": 246832,
         "max": 164,
         "channels": 1556256
       }
@@ -342,8 +342,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 90255,
-        "max": 145,
+        "count": 91417,
+        "max": 151,
         "channels": 1556256
       }
     },
@@ -454,8 +454,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 155274,
-        "max": 96,
+        "count": 165033,
+        "max": 82,
         "channels": 1556256
       }
     },
@@ -594,8 +594,8 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 46628,
-        "max": 85,
+        "count": 46992,
+        "max": 72,
         "channels": 1556256
       }
     },
@@ -622,8 +622,36 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 20007,
-        "max": 45,
+        "count": 21212,
+        "max": 40,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "plants",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 3145,
+        "max": 60,
         "channels": 1556256
       }
     },
@@ -650,8 +678,36 @@
         "channels": 1556256
       },
       "effect": {
-        "count": 420391,
+        "count": 420380,
         "max": 11,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "poison",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 347735,
+        "max": 118,
         "channels": 1556256
       }
     }
@@ -669,7 +725,7 @@
         ],
         "triangles": [
           521786,
-          982058
+          977998
         ],
         "vegetation": {
           "plants": 3373,
@@ -677,24 +733,35 @@
           "far": 3373,
           "triangles": 138594,
           "draws": 7,
-          "lodMs": 2.100000023841858
+          "lodMs": 1.399999976158142,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 26.30000001192093,
+          "milliseconds": 21.899999976158142,
           "trees": 1009,
           "ruins": 874,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 2.800000011920929,
+          "buildMs": 4.800000011920929,
           "particles": 10,
           "rings": 9,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 27,
+            "rapids": 9,
+            "obstacles": 0,
+            "wet": 1132
+          }
         },
         "landmarks": {
-          "buildMs": 16.100000023841858,
+          "buildMs": 17.30000001192093,
           "draws": 29,
-          "triangles": 826704,
+          "triangles": 822644,
           "instances": 2959
         },
         "seasons": {
@@ -718,7 +785,7 @@
         ],
         "triangles": [
           830537,
-          1443681
+          1437909
         ],
         "vegetation": {
           "plants": 7154,
@@ -726,24 +793,35 @@
           "far": 7154,
           "triangles": 291790,
           "draws": 7,
-          "lodMs": 0.5999999642372131
+          "lodMs": 1.800000011920929,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 84.5,
+          "milliseconds": 94.30000001192093,
           "trees": 2006,
           "ruins": 1235,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 11.600000023841858,
+          "buildMs": 17.400000035762787,
           "particles": 29,
           "rings": 21,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 64,
+            "rapids": 98,
+            "obstacles": 18,
+            "wet": 3894
+          }
         },
         "landmarks": {
-          "buildMs": 17.600000023841858,
+          "buildMs": 14.599999964237213,
           "draws": 30,
-          "triangles": 1112911,
+          "triangles": 1107139,
           "instances": 3987
         },
         "seasons": {
@@ -751,7 +829,7 @@
           "wet": 3894,
           "contaminated": 1479,
           "bytes": 262144,
-          "buildMs": 3.399999976158142
+          "buildMs": 2.599999964237213
         }
       }
     },
@@ -767,7 +845,7 @@
         ],
         "triangles": [
           514046,
-          917808
+          914108
         ],
         "vegetation": {
           "plants": 3406,
@@ -775,24 +853,35 @@
           "far": 3406,
           "triangles": 146888,
           "draws": 7,
-          "lodMs": 0.5
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 20.600000023841858,
+          "milliseconds": 21.69999998807907,
           "trees": 404,
           "ruins": 939,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 0.800000011920929,
+          "buildMs": 5.300000011920929,
           "particles": 26,
           "rings": 16,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 67,
+            "rapids": 32,
+            "obstacles": 0,
+            "wet": 654
+          }
         },
         "landmarks": {
-          "buildMs": 15.399999976158142,
+          "buildMs": 9,
           "draws": 28,
-          "triangles": 757416,
+          "triangles": 753716,
           "instances": 2855
         },
         "seasons": {
@@ -800,7 +889,7 @@
           "wet": 654,
           "contaminated": 79,
           "bytes": 65536,
-          "buildMs": 0.5
+          "buildMs": 0.19999998807907104
         }
       }
     },
@@ -816,7 +905,7 @@
         ],
         "triangles": [
           838345,
-          1383787
+          1378303
         ],
         "vegetation": {
           "plants": 7163,
@@ -824,24 +913,35 @@
           "far": 7163,
           "triangles": 313334,
           "draws": 7,
-          "lodMs": 0.6000000238418579
+          "lodMs": 0.6000000238418579,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 74.90000003576279,
+          "milliseconds": 83.29999995231628,
           "trees": 592,
           "ruins": 1266,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 2.099999964237213,
+          "buildMs": 10.299999952316284,
           "particles": 46,
           "rings": 38,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 132,
+            "rapids": 0,
+            "obstacles": 0,
+            "wet": 2789
+          }
         },
         "landmarks": {
-          "buildMs": 19.400000035762787,
+          "buildMs": 12.100000023841858,
           "draws": 29,
-          "triangles": 1040603,
+          "triangles": 1035119,
           "instances": 3908
         },
         "seasons": {
@@ -849,7 +949,7 @@
           "wet": 2789,
           "contaminated": 751,
           "bytes": 262144,
-          "buildMs": 0.40000003576278687
+          "buildMs": 0.5
         }
       }
     },
@@ -865,7 +965,7 @@
         ],
         "triangles": [
           457635,
-          853797
+          850745
         ],
         "vegetation": {
           "plants": 3318,
@@ -873,24 +973,35 @@
           "far": 3318,
           "triangles": 136680,
           "draws": 7,
-          "lodMs": 0.30000001192092896
+          "lodMs": 0.09999996423721313,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 23.600000023841858,
+          "milliseconds": 19.400000035762787,
           "trees": 1009,
           "ruins": 712,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 0.800000011920929,
+          "buildMs": 3.699999988079071,
           "particles": 37,
           "rings": 28,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 105,
+            "rapids": 26,
+            "obstacles": 0,
+            "wet": 1554
+          }
         },
         "landmarks": {
-          "buildMs": 18.19999998807907,
+          "buildMs": 15.399999976158142,
           "draws": 49,
-          "triangles": 691813,
+          "triangles": 688761,
           "instances": 2331
         },
         "seasons": {
@@ -898,7 +1009,7 @@
           "wet": 1555,
           "contaminated": 212,
           "bytes": 65536,
-          "buildMs": 0.30000001192092896
+          "buildMs": 0.20000004768371582
         }
       }
     },
@@ -914,7 +1025,7 @@
         ],
         "triangles": [
           839199,
-          1406325
+          1398139
         ],
         "vegetation": {
           "plants": 7129,
@@ -922,24 +1033,35 @@
           "far": 7129,
           "triangles": 290098,
           "draws": 7,
-          "lodMs": 0.699999988079071
+          "lodMs": 0.800000011920929,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 89.30000001192093,
+          "milliseconds": 85,
           "trees": 2126,
           "ruins": 1217,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 5.400000035762787,
+          "buildMs": 12.699999988079071,
           "particles": 70,
           "rings": 59,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 177,
+            "rapids": 51,
+            "obstacles": 14,
+            "wet": 4626
+          }
         },
         "landmarks": {
-          "buildMs": 15,
+          "buildMs": 13.199999988079071,
           "draws": 30,
-          "triangles": 1066043,
+          "triangles": 1057857,
           "instances": 3948
         },
         "seasons": {
@@ -947,7 +1069,7 @@
           "wet": 4758,
           "contaminated": 730,
           "bytes": 262144,
-          "buildMs": 0.40000003576278687
+          "buildMs": 0.5
         }
       }
     },
@@ -963,7 +1085,7 @@
         ],
         "triangles": [
           482806,
-          852504
+          849452
         ],
         "vegetation": {
           "plants": 3406,
@@ -971,24 +1093,35 @@
           "far": 3406,
           "triangles": 138856,
           "draws": 7,
-          "lodMs": 0.20000004768371582
+          "lodMs": 0.30000001192092896,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 22.30000001192093,
+          "milliseconds": 21,
           "trees": 936,
           "ruins": 829,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 1.0999999642372131,
+          "buildMs": 3.199999988079071,
           "particles": 29,
           "rings": 22,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 74,
+            "rapids": 956,
+            "obstacles": 42,
+            "wet": 4040
+          }
         },
         "landmarks": {
-          "buildMs": 12.400000035762787,
+          "buildMs": 10.300000011920929,
           "draws": 29,
-          "triangles": 692048,
+          "triangles": 688996,
           "instances": 2588
         },
         "seasons": {
@@ -996,7 +1129,7 @@
           "wet": 4040,
           "contaminated": 97,
           "bytes": 65536,
-          "buildMs": 0.19999998807907104
+          "buildMs": 0.3999999761581421
         }
       }
     },
@@ -1012,7 +1145,7 @@
         ],
         "triangles": [
           840399,
-          1396917
+          1391493
         ],
         "vegetation": {
           "plants": 7168,
@@ -1020,24 +1153,35 @@
           "far": 7168,
           "triangles": 294664,
           "draws": 7,
-          "lodMs": 0.5999999642372131
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 82.90000003576279,
+          "milliseconds": 83.5,
           "trees": 1819,
           "ruins": 1227,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 3.199999988079071,
+          "buildMs": 10.099999964237213,
           "particles": 68,
           "rings": 51,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 178,
+            "rapids": 3007,
+            "obstacles": 162,
+            "wet": 9176
+          }
         },
         "landmarks": {
-          "buildMs": 15.399999976158142,
+          "buildMs": 10.400000035762787,
           "draws": 30,
-          "triangles": 1053239,
+          "triangles": 1047815,
           "instances": 3941
         },
         "seasons": {
@@ -1045,7 +1189,7 @@
           "wet": 9177,
           "contaminated": 1597,
           "bytes": 262144,
-          "buildMs": 0.40000003576278687
+          "buildMs": 0.5
         }
       }
     },
@@ -1061,7 +1205,7 @@
         ],
         "triangles": [
           504168,
-          907334
+          903304
         ],
         "vegetation": {
           "plants": 3423,
@@ -1069,24 +1213,35 @@
           "far": 3423,
           "triangles": 142416,
           "draws": 7,
-          "lodMs": 0.19999998807907104
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 21,
+          "milliseconds": 22,
           "trees": 716,
           "ruins": 894,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 0.7000000476837158,
+          "buildMs": 2.900000035762787,
           "particles": 15,
           "rings": 9,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 35,
+            "rapids": 0,
+            "obstacles": 7,
+            "wet": 1560
+          }
         },
         "landmarks": {
-          "buildMs": 12.5,
+          "buildMs": 10.100000023841858,
           "draws": 28,
-          "triangles": 748838,
+          "triangles": 744808,
           "instances": 2825
         },
         "seasons": {
@@ -1094,7 +1249,7 @@
           "wet": 1560,
           "contaminated": 451,
           "bytes": 65536,
-          "buildMs": 0.10000002384185791
+          "buildMs": 0.09999996423721313
         }
       }
     },
@@ -1110,7 +1265,7 @@
         ],
         "triangles": [
           828389,
-          1380809
+          1375097
         ],
         "vegetation": {
           "plants": 7118,
@@ -1118,24 +1273,35 @@
           "far": 7118,
           "triangles": 294334,
           "draws": 7,
-          "lodMs": 0.699999988079071
+          "lodMs": 1.100000023841858,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 89,
+          "milliseconds": 74.80000001192093,
           "trees": 1688,
           "ruins": 1289,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 2,
+          "buildMs": 9.899999976158142,
           "particles": 17,
           "rings": 10,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 49,
+            "rapids": 257,
+            "obstacles": 8,
+            "wet": 4223
+          }
         },
         "landmarks": {
-          "buildMs": 14.300000011920929,
+          "buildMs": 10.300000011920929,
           "draws": 29,
-          "triangles": 1044635,
+          "triangles": 1038923,
           "instances": 3924
         },
         "seasons": {
@@ -1143,7 +1309,7 @@
           "wet": 4234,
           "contaminated": 1688,
           "bytes": 262144,
-          "buildMs": 0.3999999761581421
+          "buildMs": 0.40000003576278687
         }
       }
     },
@@ -1159,7 +1325,7 @@
         ],
         "triangles": [
           361618,
-          608730
+          605924
         ],
         "vegetation": {
           "plants": 3001,
@@ -1167,24 +1333,35 @@
           "far": 3001,
           "triangles": 118800,
           "draws": 7,
-          "lodMs": 0.5999999642372131
+          "lodMs": 0.3999999761581421,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 21.100000023841858,
+          "milliseconds": 23.400000035762787,
           "trees": 1009,
           "ruins": 526,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 1.199999988079071,
+          "buildMs": 5.600000023841858,
           "particles": 43,
           "rings": 37,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 90,
+            "rapids": 1056,
+            "obstacles": 18,
+            "wet": 5434
+          }
         },
         "landmarks": {
-          "buildMs": 13.5,
+          "buildMs": 11,
           "draws": 29,
-          "triangles": 463328,
+          "triangles": 460522,
           "instances": 1716
         },
         "seasons": {
@@ -1192,7 +1369,7 @@
           "wet": 5434,
           "contaminated": 151,
           "bytes": 65536,
-          "buildMs": 0.09999996423721313
+          "buildMs": 0.19999998807907104
         }
       }
     },
@@ -1208,7 +1385,7 @@
         ],
         "triangles": [
           870669,
-          1420795
+          1414829
         ],
         "vegetation": {
           "plants": 7193,
@@ -1216,24 +1393,35 @@
           "far": 7193,
           "triangles": 291266,
           "draws": 7,
-          "lodMs": 1
+          "lodMs": 0.8999999761581421,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 91.80000001192093,
+          "milliseconds": 89.19999998807907,
           "trees": 2126,
           "ruins": 1238,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 10.800000011920929,
+          "buildMs": 19.19999998807907,
           "particles": 92,
           "rings": 70,
-          "bytes": 1310720
+          "bytes": 1310720,
+          "rough": {
+            "falls": 318,
+            "rapids": 5148,
+            "obstacles": 135,
+            "wet": 15520
+          }
         },
         "landmarks": {
-          "buildMs": 20.5,
+          "buildMs": 14.399999976158142,
           "draws": 30,
-          "triangles": 1046491,
+          "triangles": 1040525,
           "instances": 3913
         },
         "seasons": {
@@ -1241,7 +1429,7 @@
           "wet": 15584,
           "contaminated": 375,
           "bytes": 262144,
-          "buildMs": 1.199999988079071
+          "buildMs": 1.5
         }
       }
     },
@@ -1265,19 +1453,30 @@
           "far": 1890,
           "triangles": 79040,
           "draws": 5,
-          "lodMs": 0.20000004768371582
+          "lodMs": 0.09999996423721313,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 30.80000001192093,
+          "milliseconds": 34.80000001192093,
           "trees": 696,
           "ruins": 395,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 3.199999988079071,
+          "buildMs": 5.099999964237213,
           "particles": 38,
           "rings": 28,
-          "bytes": 327680
+          "bytes": 327680,
+          "rough": {
+            "falls": 107,
+            "rapids": 1143,
+            "obstacles": 245,
+            "wet": 6729
+          }
         },
         "landmarks": {
           "buildMs": 4.900000035762787,
@@ -1290,7 +1489,7 @@
           "wet": 8121,
           "contaminated": 0,
           "bytes": 65536,
-          "buildMs": 1.300000011920929
+          "buildMs": 1.5
         }
       }
     },
@@ -1314,22 +1513,33 @@
           "far": 1360,
           "triangles": 57100,
           "draws": 5,
-          "lodMs": 0.09999996423721313
+          "lodMs": 0,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 14.300000011920929,
+          "milliseconds": 13.5,
           "trees": 486,
           "ruins": 235,
           "bytes": 36864
         },
         "water": {
-          "buildMs": 0.8999999761581421,
+          "buildMs": 1.899999976158142,
           "particles": 93,
           "rings": 67,
-          "bytes": 184320
+          "bytes": 184320,
+          "rough": {
+            "falls": 421,
+            "rapids": 601,
+            "obstacles": 63,
+            "wet": 2776
+          }
         },
         "landmarks": {
-          "buildMs": 4.600000023841858,
+          "buildMs": 3.800000011920929,
           "draws": 6,
           "triangles": 130580,
           "instances": 479
@@ -1339,7 +1549,7 @@
           "wet": 2864,
           "contaminated": 0,
           "bytes": 36864,
-          "buildMs": 0.09999996423721313
+          "buildMs": 0.19999998807907104
         }
       }
     },
@@ -1363,22 +1573,33 @@
           "far": 1360,
           "triangles": 57100,
           "draws": 5,
-          "lodMs": 0.10000002384185791
+          "lodMs": 0.19999998807907104,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
         },
         "ambient": {
-          "milliseconds": 11.800000011920929,
+          "milliseconds": 11.5,
           "trees": 486,
           "ruins": 251,
           "bytes": 36864
         },
         "water": {
-          "buildMs": 1.800000011920929,
+          "buildMs": 4.399999976158142,
           "particles": 16,
           "rings": 11,
-          "bytes": 184320
+          "bytes": 184320,
+          "rough": {
+            "falls": 232,
+            "rapids": 1400,
+            "obstacles": 541,
+            "wet": 4215
+          }
         },
         "landmarks": {
-          "buildMs": 5,
+          "buildMs": 5.099999964237213,
           "draws": 6,
           "triangles": 139064,
           "instances": 511
@@ -1388,7 +1609,7 @@
           "wet": 4372,
           "contaminated": 0,
           "bytes": 36864,
-          "buildMs": 0.09999996423721313
+          "buildMs": 0.19999998807907104
         }
       }
     }

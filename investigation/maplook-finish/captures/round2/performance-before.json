@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-27T04:15:27.377Z",
+  "date": "2026-09-27T03:20:36.025Z",
   "browser": "153.0.8010.48",
   "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
   "gpu": {
@@ -21,7 +21,7 @@
         ],
         "triangles": [
           521786,
-          977998
+          982058
         ],
         "vegetation": {
           "plants": 3373,
@@ -29,35 +29,24 @@
           "far": 3373,
           "triangles": 138594,
           "draws": 7,
-          "lodMs": 1.199999988079071,
-          "drought": {
-            "dry": 0,
-            "dying": 0,
-            "killed": 0
-          }
+          "lodMs": 1.0999999642372131
         },
         "ambient": {
-          "milliseconds": 21.899999976158142,
+          "milliseconds": 21.69999998807907,
           "trees": 1009,
           "ruins": 874,
           "bytes": 65536
         },
         "water": {
-          "buildMs": 8.699999988079071,
+          "buildMs": 2,
           "particles": 10,
           "rings": 9,
-          "bytes": 327680,
-          "rough": {
-            "falls": 27,
-            "rapids": 9,
-            "obstacles": 0,
-            "wet": 1132
-          }
+          "bytes": 327680
         },
         "landmarks": {
-          "buildMs": 11.5,
+          "buildMs": 14.199999988079071,
           "draws": 29,
-          "triangles": 822644,
+          "triangles": 826704,
           "instances": 2959
         },
         "seasons": {
@@ -73,9 +62,9 @@
           "name": "foundation",
           "pass": 0,
           "mode": "high",
-          "frames": 297,
-          "fps": 164.9083842309828,
-          "frameP95": 6.199999999999818,
+          "frames": 296,
+          "fps": 164.3440119926712,
+          "frameP95": 6.300000000000182,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -103,9 +92,9 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8992282494031,
-          "frameP95": 6.200000000000728,
-          "completedRenderP50": 0.30000001192092896,
+          "fps": 164.89007328447704,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.2999999523162842,
           "completedRenderP95": 0.5,
           "draws": [
             72,
@@ -132,8 +121,8 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.199999999998909,
+          "fps": 164.8992282494031,
+          "frameP95": 6.299999999999272,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -171,7 +160,7 @@
           ],
           "triangles": [
             521786,
-            977980
+            982040
           ],
           "size": [
             696,
@@ -190,7 +179,7 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.9083842309828,
+          "fps": 164.89007328447713,
           "frameP95": 6.200000000000728,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
@@ -219,8 +208,8 @@
           "pass": 0,
           "mode": "standard",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.200000000000728,
+          "fps": 164.89007328447695,
+          "frameP95": 6.299999999999272,
           "completedRenderP50": 0.19999998807907104,
           "completedRenderP95": 0.3999999761581421,
           "draws": [
@@ -248,8 +237,8 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.9083842309828,
-          "frameP95": 6.200000000000728,
+          "fps": 164.89007328447695,
+          "frameP95": 6.299999999999272,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -258,7 +247,7 @@
           ],
           "triangles": [
             521786,
-            977998
+            982058
           ],
           "size": [
             696,
@@ -279,15 +268,15 @@
           "frames": 297,
           "fps": 164.9083842309828,
           "frameP95": 6.200000000000728,
-          "completedRenderP50": 0.40000003576278687,
-          "completedRenderP95": 0.7000000476837158,
+          "completedRenderP50": 0.5,
+          "completedRenderP95": 0.800000011920929,
           "draws": [
             72,
             75
           ],
           "triangles": [
             521786,
-            977998
+            982058
           ],
           "size": [
             696,
@@ -306,9 +295,9 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.200000000000728,
-          "completedRenderP50": 0.2999999523162842,
+          "fps": 164.9083842309828,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
             72,
@@ -335,7 +324,7 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.9083842309828,
+          "fps": 164.89922824940328,
           "frameP95": 6.200000000000728,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
@@ -394,7 +383,7 @@
           "mode": "high",
           "frames": 297,
           "fps": 164.89922824940294,
-          "frameP95": 6.19999999999709,
+          "frameP95": 6.200000000000728,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -403,7 +392,7 @@
           ],
           "triangles": [
             521786,
-            977980
+            982040
           ],
           "size": [
             696,
@@ -422,7 +411,7 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8900732844773,
+          "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
@@ -452,7 +441,7 @@
           "mode": "standard",
           "frames": 297,
           "fps": 164.89922824940328,
-          "frameP95": 6.19999999999709,
+          "frameP95": 6.200000000004366,
           "completedRenderP50": 0.19999998807907104,
           "completedRenderP95": 0.30000001192092896,
           "draws": [
@@ -480,8 +469,8 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.200000000004366,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -490,7 +479,7 @@
           ],
           "triangles": [
             521786,
-            977998
+            982058
           ],
           "size": [
             696,
@@ -509,9 +498,9 @@
           "pass": 1,
           "mode": "both",
           "frames": 297,
-          "fps": 164.8900732844766,
-          "frameP95": 6.200000000004366,
-          "completedRenderP50": 0.40000003576278687,
+          "fps": 164.89922824940328,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.5,
           "completedRenderP95": 0.800000011920929,
           "draws": [
             72,
@@ -519,7 +508,7 @@
           ],
           "triangles": [
             521786,
-            977998
+            982058
           ],
           "size": [
             696,
@@ -537,9 +526,9 @@
           "name": "drought-baseline",
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
+          "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
-          "completedRenderP50": 0.2999999523162842,
+          "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
             59,
@@ -547,7 +536,7 @@
           ],
           "triangles": [
             518502,
-            974696
+            978756
           ],
           "size": [
             696,
@@ -565,17 +554,17 @@
           "name": "drought-finish",
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.200000000004366,
-          "completedRenderP50": 0.20000004768371582,
-          "completedRenderP95": 0.40000003576278687,
+          "fps": 164.8900732844766,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
           "draws": [
             59,
-            62
+            61
           ],
           "triangles": [
             518502,
-            974696
+            978756
           ],
           "size": [
             696,
@@ -593,8 +582,8 @@
           "name": "lower-cost",
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940328,
-          "frameP95": 6.19999999999709,
+          "fps": 164.8992282494026,
+          "frameP95": 6.200000000004366,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -603,7 +592,7 @@
           ],
           "triangles": [
             521786,
-            977980
+            982040
           ],
           "size": [
             591,
@@ -629,7 +618,7 @@
         ],
         "triangles": [
           830537,
-          1437909
+          1443681
         ],
         "vegetation": {
           "plants": 7154,
@@ -637,35 +626,24 @@
           "far": 7154,
           "triangles": 291790,
           "draws": 7,
-          "lodMs": 0.40000003576278687,
-          "drought": {
-            "dry": 0,
-            "dying": 0,
-            "killed": 0
-          }
+          "lodMs": 0.30000001192092896
         },
         "ambient": {
-          "milliseconds": 112.80000001192093,
+          "milliseconds": 89.60000002384186,
           "trees": 2006,
           "ruins": 1235,
           "bytes": 262144
         },
         "water": {
-          "buildMs": 12.400000035762787,
+          "buildMs": 4.699999988079071,
           "particles": 29,
           "rings": 21,
-          "bytes": 1310720,
-          "rough": {
-            "falls": 64,
-            "rapids": 98,
-            "obstacles": 18,
-            "wet": 3894
-          }
+          "bytes": 1310720
         },
         "landmarks": {
-          "buildMs": 13.299999952316284,
+          "buildMs": 14,
           "draws": 30,
-          "triangles": 1107139,
+          "triangles": 1112911,
           "instances": 3987
         },
         "seasons": {
@@ -673,7 +651,7 @@
           "wet": 3894,
           "contaminated": 1479,
           "bytes": 262144,
-          "buildMs": 0.800000011920929
+          "buildMs": 0.5999999642372131
         }
       },
       "runs": [
@@ -683,9 +661,9 @@
           "mode": "high",
           "frames": 297,
           "fps": 164.89922824940328,
-          "frameP95": 6.19999999999709,
+          "frameP95": 6.299999999995634,
           "completedRenderP50": 0.3999999761581421,
-          "completedRenderP95": 0.5999999642372131,
+          "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
             134
@@ -711,10 +689,10 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8900732844766,
-          "frameP95": 6.200000000004366,
-          "completedRenderP50": 0.40000003576278687,
-          "completedRenderP95": 0.699999988079071,
+          "fps": 164.8992282494026,
+          "frameP95": 6.299999999995634,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.6000000238418579,
           "draws": [
             133,
             134
@@ -740,7 +718,7 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.9083842309828,
+          "fps": 164.91754122938585,
           "frameP95": 6.200000000004366,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
@@ -768,10 +746,10 @@
           "name": "stage3",
           "pass": 0,
           "mode": "high",
-          "frames": 296,
-          "fps": 164.35313714603066,
-          "frameP95": 6.200000000004366,
-          "completedRenderP50": 0.40000003576278687,
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.3999999761581421,
           "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
@@ -779,7 +757,7 @@
           ],
           "triangles": [
             830537,
-            1437867
+            1443639
           ],
           "size": [
             696,
@@ -798,9 +776,9 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.9083842309828,
+          "fps": 164.8992282494026,
           "frameP95": 6.19999999999709,
-          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP50": 0.3999999761581421,
           "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
@@ -826,9 +804,9 @@
           "name": "all",
           "pass": 0,
           "mode": "standard",
-          "frames": 296,
-          "fps": 164.334887852543,
-          "frameP95": 6.2000000000116415,
+          "frames": 297,
+          "fps": 164.91754122938585,
+          "frameP95": 6.30000000000291,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
           "draws": [
@@ -856,8 +834,8 @@
           "pass": 0,
           "mode": "high",
           "frames": 297,
-          "fps": 164.88091933603616,
-          "frameP95": 6.19999999999709,
+          "fps": 164.8900732844773,
+          "frameP95": 6.30000000000291,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
           "draws": [
@@ -866,7 +844,7 @@
           ],
           "triangles": [
             830537,
-            1437909
+            1443681
           ],
           "size": [
             696,
@@ -885,17 +863,17 @@
           "pass": 0,
           "mode": "both",
           "frames": 297,
-          "fps": 164.89922824940393,
-          "frameP95": 6.19999999999709,
+          "fps": 164.88091933603482,
+          "frameP95": 6.30000000000291,
           "completedRenderP50": 0.699999988079071,
-          "completedRenderP95": 1,
+          "completedRenderP95": 1.100000023841858,
           "draws": [
             133,
             136
           ],
           "triangles": [
             830537,
-            1437909
+            1443681
           ],
           "size": [
             696,
@@ -914,10 +892,10 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8992282494026,
+          "fps": 164.93585827733685,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.3999999761581421,
-          "completedRenderP95": 0.6000000238418579,
+          "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
             134
@@ -943,10 +921,10 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8900732844773,
-          "frameP95": 6.19999999999709,
-          "completedRenderP50": 0.40000003576278687,
-          "completedRenderP95": 0.699999988079071,
+          "fps": 164.8992282494026,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.6000000238418579,
           "draws": [
             133,
             134
@@ -972,7 +950,7 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940393,
+          "fps": 164.92669924477985,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
@@ -1001,7 +979,7 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8992282494026,
+          "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
@@ -1011,7 +989,7 @@
           ],
           "triangles": [
             830537,
-            1437867
+            1443639
           ],
           "size": [
             696,
@@ -1033,7 +1011,7 @@
           "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.40000003576278687,
-          "completedRenderP95": 0.6000000238418579,
+          "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
             134
@@ -1059,7 +1037,7 @@
           "pass": 1,
           "mode": "standard",
           "frames": 297,
-          "fps": 164.8992282494026,
+          "fps": 164.89922824940393,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.30000001192092896,
           "completedRenderP95": 0.5,
@@ -1088,7 +1066,7 @@
           "pass": 1,
           "mode": "high",
           "frames": 297,
-          "fps": 164.8992282494026,
+          "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
@@ -1098,7 +1076,7 @@
           ],
           "triangles": [
             830537,
-            1437909
+            1443681
           ],
           "size": [
             696,
@@ -1117,17 +1095,17 @@
           "pass": 1,
           "mode": "both",
           "frames": 297,
-          "fps": 164.89922824940393,
+          "fps": 164.9083842309828,
           "frameP95": 6.19999999999709,
           "completedRenderP50": 0.699999988079071,
-          "completedRenderP95": 1,
+          "completedRenderP95": 1.0999999642372131,
           "draws": [
             133,
             136
           ],
           "triangles": [
             830537,
-            1437909
+            1443681
           ],
           "size": [
             696,
@@ -1146,16 +1124,16 @@
           "mode": "high",
           "frames": 297,
           "fps": 164.8992282494026,
-          "frameP95": 6.19999999999709,
+          "frameP95": 6.2000000000116415,
           "completedRenderP50": 0.3999999761581421,
-          "completedRenderP95": 0.6000000238418579,
+          "completedRenderP95": 0.699999988079071,
           "draws": [
             114,
             116
           ],
           "triangles": [
             819881,
-            1427211
+            1432983
           ],
           "size": [
             696,
@@ -1173,17 +1151,17 @@
           "name": "drought-finish",
           "mode": "high",
           "frames": 297,
-          "fps": 164.89922824940393,
-          "frameP95": 6.19999999999709,
+          "fps": 164.8992282494026,
+          "frameP95": 6.30000000000291,
           "completedRenderP50": 0.40000003576278687,
           "completedRenderP95": 0.699999988079071,
           "draws": [
             114,
-            117
+            116
           ],
           "triangles": [
             819881,
-            1427211
+            1432983
           ],
           "size": [
             696,
@@ -1201,17 +1179,17 @@
           "name": "lower-cost",
           "mode": "high",
           "frames": 297,
-          "fps": 164.8992282494026,
-          "frameP95": 6.19999999999709,
-          "completedRenderP50": 0.3999999761581421,
-          "completedRenderP95": 0.6000000238418579,
+          "fps": 164.89922824940393,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
           "draws": [
             133,
             134
           ],
           "triangles": [
             830537,
-            1437867
+            1443639
           ],
           "size": [
             591,

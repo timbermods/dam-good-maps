@@ -13,3 +13,5 @@ No Timberborn files, extracted assets, game textures, sounds or screenshots are 
 | Real-place elevation fixtures | Existing public/real-places/data fixtures; provider notices displayed in demo | See repository src/core/places/attribution.ts and fixture metadata; elevation data, not an art asset |
 
 No external art assets are needed. Three.js 0.186.0 is MIT. Large renders, dependencies and build output are ignored.
+
+Round 2 adds only original procedural rock/foam/material/model changes. The badwater source reads the repository's existing `badwaterBody` palette. Plant timing follows the documented rules in `investigation/notes/water_and_soil.md` and `investigation/cycles/model.ts`: this is mechanics data already researched in the repository, not extracted art. All new code remains under the repository's MIT licence.
