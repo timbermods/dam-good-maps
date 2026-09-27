@@ -361,6 +361,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   const nearProtect = protect ? distanceFrom(protect, W, H) : null;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) Er[y * W + x] = E[y * W + x] + wander * fbm(rs, x, y, wanderCell, 2) + (protect?.[y * W + x] ? 1000 : 0);
   const dr = drainage(Er, W, H, { outlet: (i) => !onUp(i), epsilon: 1e-6 });
+  // (M9b: the spill of each tile's lowest way down on the land's levels, as the game's water moves)
+  const drH = natural ? drainage(h, W, H, { outlet: (i) => !onUp(i), eight: false }) : null;
+  // (and the level each tile's water spills out at by any edge: a hollow on a course fills to it)
+  const spillAll = natural ? drainage(h, W, H, { eight: false }).filled : null;
   const downLen = new Float64Array(N);
   for (let q = 0; q < dr.order.length; q++) {
     const i = dr.order[q];
@@ -376,9 +380,17 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     return Math.min(x, y, W - 1 - x, H - 1 - y);
   };
   // ---- paths: each head down its receivers, until an edge or a river already traced; a head
-  // whose path hugs the map edge (its water would drain there) or is too short is passed over
+  // whose path hugs the map edge (its water would drain there) or is too short is passed over.
+  // M9b (D273 (1), a readable water story): the first river is the main one, and every later head
+  // must join the water already traced, as a tributary long enough to read as one, so the map's
+  // water is one system a player follows from where it starts to where it leaves. Only a Rivers
+  // count the player set may enter as a river of its own when no inflow can join. A few heads, never
+  // a tangle: at most `maxHeads` (4 at 96², 5 at 128², 6 at 256²).
   const owner = new Int32Array(N).fill(-1);
   const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
+  const areaK = N / (128 * 128);
+  const maxHeads = natural ? Math.floor(3.5 + 1.5 * Math.sqrt(areaK)) : Infinity;
+  const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
     const y = (i - x) / W;
@@ -389,7 +401,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     if (!up.includes("north")) d = Math.min(d, H - 1 - y);
     return d;
   };
-  const trace = (hd: Head, alongUp = false): boolean => {
+  const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
+    if (heads.length >= maxHeads) return false;
     const k = heads.length;
     const cells: number[] = [];
     let c = hd.cell;
@@ -406,10 +419,20 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       c = dr.rcv[c];
     }
     if (cells.length < (alongUp ? 8 : 12)) return false;
+    if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
+    // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
+    // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
+    // and the water beyond would stand higher than where it begins: it could never flow that way
+    // (an inflow's water runs back out by the edge beside its mouth)
+    if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 || drH.filled[hd.cell] > h[hd.cell])) return false;
+    // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
+    if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell]) return false;
     if (nearProtect && cells.some((i) => nearProtect[i] < 7)) return false;
     // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
     // does not drain)
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
+    // (M9b: an inflow heads inland from its mouth, never along its edge first)
+    if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
     traced.push({ k, head: hd, cells, joins });
@@ -419,7 +442,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // Rivers setting, that many rivers enter (PLAN §5.3): if the first search finds too few, shorter
   // paths and closer heads are taken (a stream of its own, so other maps are as they were)
   if (g.hydro.inflows > 0) {
-    const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean): number => {
+    const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean, separate = false): number => {
       const cands: [number, number][] = [];
       for (let i = 0; i < N; i++) {
         if (!onUp(i) || protect?.[i]) continue;
@@ -439,7 +462,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const x = i % W;
         const y = (i - x) / W;
         if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < apart * side)) continue;
-        if (trace({ cell: i, kind: "edge", edge: edgeOf(i, W, H)!, flow: 0 }, relaxed)) n++;
+        if (trace({ cell: i, kind: "edge", edge: edgeOf(i, W, H)!, flow: 0 }, relaxed, natural && heads.length > 0 && !separate)) n++;
       }
       return n;
     };
@@ -448,22 +471,46 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const more = stream(seed, "hydro-inflows", attempt);
       if (n < g.hydro.inflows) n = search(0.4, 0.22, more, n, true);
       if (n < g.hydro.inflows) n = search(0.25, 0.16, more, n, true);
+      // (the count the player set enters: as a river of its own when none can join)
+      if (n < g.hydro.inflows && natural) n = search(0.25, 0.16, more, n, true, true);
     }
   }
+  // which tiles' water reaches the rivers already traced, and how far it runs before it does (M9b:
+  // tributaries only; recomputed as rivers are added)
+  const reachesOwned = (): { reach: Uint8Array; len: Int32Array } => {
+    const reach = new Uint8Array(N);
+    const len = new Int32Array(N).fill(1 << 30);
+    for (let q = 0; q < dr.order.length; q++) {
+      const i = dr.order[q];
+      const r = dr.rcv[i];
+      if (owner[i] >= 0) {
+        reach[i] = 1;
+        len[i] = 0;
+      } else if (r >= 0 && reach[r]) {
+        reach[i] = 1;
+        len[i] = len[r] + 1;
+      }
+    }
+    return { reach, len };
+  };
   // springs: high inland ground with a long way down
   const wantSprings = g.hydro.springs + (heads.length === 0 ? 1 : 0);
   if (wantSprings > 0) {
     const cands: [number, number][] = [];
+    const joinable = natural && heads.length > 0 ? reachesOwned() : null;
     for (let y = 12; y < H - 12; y++)
       for (let x = 12; x < W - 12; x++) {
         const i = y * W + x;
         if (downLen[i] < 0.35 * side || owner[i] >= 0 || protect?.[i]) continue;
+        if (joinable && (!joinable.reach[i] || joinable.len[i] < minTributary)) continue;
         cands.push([E[i] + 0.01 * downLen[i] + 3 * rng.float(), i]);
       }
     cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
     let n = 0;
+    // (room is kept for a spring lake when the genome may make one)
+    const room = natural && g.lakeSprings > 0.3 && heads.length > 0 ? maxHeads - 1 : maxHeads;
     for (const [, i] of cands) {
-      if (n >= wantSprings) break;
+      if (n >= wantSprings || heads.length >= room) break;
       const x = i % W;
       const y = (i - x) / W;
       if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
@@ -727,18 +774,20 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     }
     return q;
   };
-  const hollow = (seedCell: number): { tiles: number[]; sill: number } | null => {
+  const hollow = (seedCell: number, maxSill = Infinity): { tiles: number[]; sill: number } | null => {
     if (!(depth[seedCell] > 0)) return null;
     let sill = lv.filled[seedCell];
     let tiles = flood(seedCell, sill);
-    // cut the outlet down until the lake fits the budget
-    while (tiles.length > budget && sill > 1) {
+    // cut the outlet down until the lake fits the budget, and (M9b) until it stands below the bed
+    // where the river comes into it: a lake above that would reach back up the river's channel,
+    // and where the river begins lower (an inflow from a low edge), out by the edge beside its mouth
+    while ((tiles.length > budget || sill > maxSill) && sill > 1) {
       sill--;
       const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
       if (h[lowest] >= sill) return null;
       tiles = flood(lowest, sill);
     }
-    if (tiles.length < 6) return null;
+    if (sill > maxSill || tiles.length < 6) return null;
     return { tiles, sill };
   };
 
@@ -772,8 +821,11 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         }
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
       if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
-        const lk = hollow(ci);
-        if (lk) {
+        const lk = hollow(ci, natural && Number.isFinite(run) ? Math.floor(run) : Infinity);
+        // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
+        const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
+        if (lk && again !== undefined) inLake = lakeOf[again];
+        else if (lk) {
           const id = lakes.length;
           for (const i of lk.tiles) {
             lakeOf[i] = id;
@@ -801,9 +853,30 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   };
 
   /** Cut a channel (and its floor) along a profile. */
+  // M9b: the banks beside an inflow's mouth. The game drains every edge tile but the mouth's own
+  // sources (its plain width), so the outer two rows of the inflow's edge beyond that width keep
+  // their ground: a channel or floor that bent along the edge there would let the water out
+  const mouthBank = new Uint8Array(N);
+  if (natural)
+    for (const tr of traced) {
+      const hd = tr.head;
+      if (hd.kind !== "edge") continue;
+      const e = hd.edge!;
+      const hx = hd.cell % W;
+      const hy = Math.floor(hd.cell / W);
+      const plain = widthFor(hd.flow) / 2 + 0.5;
+      for (let t = 0; t < 2; t++)
+        for (let a = 0; a < (e === "west" || e === "east" ? H : W); a++) {
+          const along = e === "west" || e === "east" ? a - hy : a - hx;
+          if (Math.abs(along) <= plain) continue;
+          const x = e === "west" ? t : e === "east" ? W - 1 - t : a;
+          const y = e === "south" ? t : e === "north" ? H - 1 - t : a;
+          mouthBank[y * W + x] = 1;
+        }
+    }
   const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number): void => {
     for (const i of st.tiles) {
-      if (water[i] === 2 || protect?.[i]) continue;
+      if (water[i] === 2 || protect?.[i] || mouthBank[i]) continue;
       const d = st.d[i];
       const x = i % W;
       const y = (i - x) / W;

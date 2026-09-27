@@ -16,8 +16,10 @@ import { stream } from "../math/rng";
 /** Level bed upstream of the weir (its pool) and downstream (its spill). */
 const POOL = 14;
 const TAIL = 4;
-/** How far upstream the pool is followed before it is taken as held. */
-const POOL_REACH = 40;
+/** How far upstream the pool is followed before it is taken as held (M9b: all the way, in effect: a
+ *  pool followed only 40 tiles missed low ground further up that let it drain out by an edge, and
+ *  the river below the weir stood dry). */
+const POOL_REACH = 400;
 
 export interface WeirPlan {
   feature: MapObjectFeature;

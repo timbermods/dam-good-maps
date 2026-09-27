@@ -40,6 +40,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { makeField } from "../land/field";
 import { drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
+import { blockedCourses } from "../land/courses";
 import { planHydro, type Hydro } from "../land/hydro";
 import type { IntentionId } from "../land/intentions";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -430,6 +431,24 @@ function sourcesInFlowOwners(b: BuildResult): Set<string> {
   return new Set(sourcesInFlow(b.waterModel, objects, b.water).inFlow.map((k) => owners[k]));
 }
 
+/** The edge tiles beside each inflow's mouth, 10 tiles either side of its channel, two rows deep. */
+function mouthBanks(hy: Hydro, W: number, H: number): Uint8Array {
+  const keep = new Uint8Array(W * H);
+  for (const r of hy.rivers) {
+    if (!("edge" in r.params.entry)) continue;
+    const [px, py] = r.params.path[Math.min(1, r.params.path.length - 1)];
+    const reach = Math.ceil(r.params.width / 2) + 10;
+    for (let t = 0; t < 2; t++)
+      for (let d = -reach; d <= reach; d++) {
+        const e = r.params.entry.edge;
+        const x = e === "west" ? t : e === "east" ? W - 1 - t : Math.round(px) + d;
+        const y = e === "south" ? t : e === "north" ? H - 1 - t : Math.round(py) + d;
+        if (x >= 0 && y >= 0 && x < W && y < H) keep[y * W + x] = 1;
+      }
+  }
+  return keep;
+}
+
 /** The start's 5×5 stays dry. */
 function wetRing(b: BuildResult, p: StartPick): boolean {
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (b.water[(p.y + dy) * b.W + p.x + dx] > 0.001) return true;
@@ -459,7 +478,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
   const hy = planHydro(land.E, h, g, seed, W, H, attempt, { protect });
-  relaxEdges(h, W, H);
+  // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
+  // water would run out along the edge beside the mouth instead of down its course)
+  relaxEdges(h, W, H, mouthBanks(hy, W, H));
   const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 || ctx?.locked?.mask[i] ? 1 : 0;
   mergeSmallRegions(h, W, H, 4, keep);
@@ -542,8 +563,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const steps = standingSteps(ramps.steps, h, W, H);
     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
   };
-  const build = (features: readonly Feature[], stop: "resources" | null): BuildResult => {
-    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, ...(stop === "resources" ? { stopBeforeResources: true } : {}) });
+  const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
+    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
+    if (stop === "water") return b;
     if (b.settle.depth !== settleKey) {
       settleKey = b.settle.depth;
       info.settles++;
@@ -561,6 +583,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(ctx?.features ?? [])];
   const fail = (stage: string, b: BuildResult | null, replannable: boolean): Attempt => {
     info.stage = stage;
+    // (an attempt refused before its water settled keeps only its land for the record, unless it is
+    // the last attempt, whose map is kept when none passes: a settle there would be spent for nothing)
+    if (!b && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
+      const land = build(rivers, "water");
+      return {
+        passed: false,
+        replannable,
+        noStorage: false,
+        result: { spec: shown, features: [...rivers], built: land, report: { profile: "generate", checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), file: toTimberFile(spec, land), attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
+      };
+    }
     const built = b ?? build(rivers, null);
     const file = toTimberFile(spec, built);
     const v = validateMap(file, { profile: "generate", spec, features: rivers, water: { model: built.waterModel, settled: built.settle } });
@@ -572,6 +605,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     };
   };
   if (!hy.rivers.length) return fail("no rivers", null, false);
+  // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
+  // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
+  // of its course stood dry) is planned again
+  {
+    const blocked = blockedCourses(h, W, H, hy.rivers, hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path));
+    if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
+  }
   // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
   // (not on the last attempt, whose map is kept when none passes)
   if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);

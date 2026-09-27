@@ -303,8 +303,9 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
  *  the edge, so a thin raised band can be left along it. Each of the two outer rows is lowered to
  *  the inward profile carried on (the next tile in, plus its rise toward the edge, never a fall), so
  *  land that rises toward the edge keeps rising and a band standing over the land inside it goes.
- *  Never raises a tile. Returns the number of tiles lowered. */
-export function relaxEdges(h: Uint8Array, W: number, H: number): number {
+ *  Never raises a tile. Tiles marked in `keep` stay as they are (M9b: the banks beside an inflow's
+ *  mouth, which hold its water in its channel). Returns the number of tiles lowered. */
+export function relaxEdges(h: Uint8Array, W: number, H: number, keep: Uint8Array | null = null): number {
   let n = 0;
   const edges: [number, (k: number, t: number) => number][] = [
     [H, (k, t) => k * W + t],
@@ -319,7 +320,7 @@ export function relaxEdges(h: Uint8Array, W: number, H: number): number {
         const b = h[at(k, t + 2)];
         const cap = a + Math.max(0, a - b);
         const i = at(k, t);
-        if (h[i] > cap) {
+        if (h[i] > cap && !keep?.[i]) {
           h[i] = cap;
           n++;
         }
