@@ -63,6 +63,7 @@ Paste this into every investigation prompt, for Claude or Codex:
 | [craterize/](craterize/), [erupt/](erupt/), [quake/](quake/) | Craterize (a giant impact), Erupt (a volcano) and Quake (a fault: Lift or Slide): three more forces. | In progress: ready (D216, D219), built into Live editing's forces group next | [#51](https://github.com/timbermods/dam-good-maps/pull/51), [#50](https://github.com/timbermods/dam-good-maps/pull/50), [#52](https://github.com/timbermods/dam-good-maps/pull/52) | None yet. |
 | [forces-core/](forces-core/) | One shared core for the four forces: a literal result operation, one history entry, the editor's worker and water, and a demo with all four. | In progress: proposals for the forces (D220) | [#59](https://github.com/timbermods/dam-good-maps/pull/59) | None yet. |
 | [juice/](juice/) | Procedurally synthesised editor sounds: one small engine, no samples. | In progress: proposals for Live editing's juice (D205, D220) | [#58](https://github.com/timbermods/dam-good-maps/pull/58) | None yet. |
+| [juice-2/](juice-2/) | The juice sounds' second round: recorded foley (24 CC0 recordings, their authors and sources in SOUNDS.md), musical runs and an A/B audition page. | In progress: proposals for Live editing's sounds (D226); hooked into the forces preview | [#64](https://github.com/timbermods/dam-good-maps/pull/64) | None yet. |
 
 `raw/` and `decompiled/` stay local (gitignored): copies of the game's files, official and
 workshop maps and saves, which are not ours to redistribute, and decompiled game code, for
