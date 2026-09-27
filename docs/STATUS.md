@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D258), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, at the pause for the session restart)
 
@@ -193,7 +193,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - **D112** Kyler approves M9 design version 2 by judgement, from the measures (information), the
   simulated play and ten briefs; the dam-wall check blocks; the permanent measures run after M9.
 - **M9a's contact-sheet command** `npm run sheet`: a tool for Kyler's eyes, not a gate.
-- **D113** Frame pass after the M9 build, before the 3D stages (`frame-pass-done`).
+- **D113** Frame pass after the M9 build, before the 3D stages (`frame-pass-done`). Amended by D253
+  (M10 and M11 removed).
 - **D114** Map look's first fix round (its marks and enlarged objects: D135's information layer).
 - **D115** Kyler's one rule: only breakage, Kyler's decided principles and what a player feels
   block; measures and budgets are information; Kyler decides visual work from captures; stop
@@ -214,8 +215,10 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - **D132** Verticality (`vt`) beside Variety, in M9a; above 16 only at 70 and above, locked until
   a probe batch confirms it; 3D-b extends it to 3D forms (D145); vertical and traversable;
   measured in design version 2.
-- **D133** The Weather view with live water, after the 3D stages (`weather-view-done`).
+- **D133** The Weather view with live water, after the 3D stages (`weather-view-done`). Amended by
+  D253 (now right before the refinement phase, not M10).
 - **D134** Keep M12 ready: each step adds tool entries and suite requests, and keeps the suite green.
+  Amended by D256 (no longer names M10 or M11).
 - **D135** Map look: a clean default look close to the game, and an information layer; Kyler
   approves the appeal from captures.
 - **D136** Real places: a gallery of 88 real-terrain maps, right after Map look
@@ -226,7 +229,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - **D138** Maps feel authored: one or two intentions per map, under three principles.
 - **D139** Claude steers the generator and never hand-builds the map; "describe the map you want"
   in M12. New landforms, water features, dam opportunities and character requests ("harsher")
-  steer; precise edits and follow-ups stay operations (D145).
+  steer; precise edits and follow-ups stay operations (D145). Amended by D256: whole-map generation
+  for character and new features, the forces for local change; that tool is gone (D253).
 - **D140** M12's model layer is provider-neutral; Claude is the only provider built.
 - **D141** A Dam Good Maps MCP server, after M12.
 - **D142** The agent guide, after M9a.
@@ -245,16 +249,16 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D153: start water counts over natural slopes within 12 / 20 / 28 tiles (amends D85).
 - D154: contaminated ground is a layer of crack veins over the ground's own look.
 - D155–D157: Real places, second round: short descriptions with a credits page, deploy-time files, clean titles, 3D thumbnails, no walls, about 150 places.
-- D158: **Live editing**, alongside the M9 design: a triage first, then Cities-style terrain brushes and water that never blocks; tried by Kyler on `/preview/` (its shape tools removed by D182).
-- D159: M11's heightmap import uses the survey's conversion pipeline (drainage rivers, sources, the start rules, the water rules).
-- D160: later, after M11: "Pick a place" from a world map or coordinates, open elevation data only, with attribution.
+- D158: **Live editing**, alongside the M9 design: a triage first, then Cities-style terrain brushes and water that never blocks; tried by Kyler on `/preview/` (its shape tools removed by D182). Amended by D253 (M10 and M11 removed).
+- D159: M11's heightmap import uses the survey's conversion pipeline (drainage rivers, sources, the start rules, the water rules). Superseded by D255 (built from Real places' conversion instead).
+- D160: later, after M11: "Pick a place" from a world map or coordinates, open elevation data only, with attribution. Amended by D253, D255.
 - D161: the north-star journey: a striking place → Pick a place → the Weather view → Live editing → play; each step smooth, no gaps.
-- D160/D175: Pick a place, the full experience (explore a 3D world map, frame a square with a live block preview, one click to build), right after M11 and before the refinement phase.
+- D160/D175: Pick a place, the full experience (explore a 3D world map, frame a square with a live block preview, one click to build), right after M11 and before the refinement phase. Amended by D255 (no longer waits for M11).
 - D162: Save to Timberborn, soon: pick the Maps folder once, then save straight into it (Chrome, Edge).
 - D163: later, proposed: a companion mod that lists and starts new Dam Good Maps maps from the game's menu.
 - D164: starting wood: the start counts logs by species (oak 8, pine 2 plus resin, birch 1), not trees; "Minimum starting wood"; species as a generator lever.
 - D165: Kyler's four intentions (start under a cliff with water below; a snaking river down a hill; a crater where rivers converge; a cliff waterfall into a large round lake), plus 10–15 candidates for him to pick.
-- D166: Pick a place: real land, designed water; it never fails for lack of water, meets the start rules, and quietly tries other sizes, scales and offsets; #34 held until its designed-water follow-up is finished and green, then merged and adopted with this change.
+- D166: Pick a place: real land, designed water; it never fails for lack of water, meets the start rules, and quietly tries other sizes, scales and offsets; #34 held until its designed-water follow-up is finished and green, then merged and adopted with this change. Amended by D255 (the quiet retries never replace the player's framing, size or scale).
 - D167–D170: resources like the official maps: a mine site on every map (Mine sites 1–4), tree counts and living/dead share by size, groves and berry patches in clusters, ruins that vary; one shared baseline for the generator, Real places and Pick a place.
 - D171: water sources start rivers: only at heads (edge inflows, springs), clustered for more flow, never inside an existing flow; a check flags any that are.
 - D172: tall maps (up to 22): allowed in both validators once a probe batch confirms; a standard/tall option for Real places and Pick a place, dramatic places tall by default.
@@ -268,7 +272,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - #56: a failed Pick a place map is never shown; nearby choices that passed, or what to try.
 - D180: Live editing additions: a smooth native camera (WASD, Q/E, Shift), Remove (first named Demolish), water-aware Ctrl-click sampling, player-set source strength, "let the water carve" (Carve since D194), water time controls with a "drought" button, and local-first water that always ends at the game's settled result (its drawn-river rules and natural or exact rivers removed by D184).
 - D181: more for water: carving forms valleys (downcutting, slumping terraces, floodplains, deltas; steep or wide walls), moisture and grass spreading live from new water, a "badtide" button, optional water sounds of our own.
-- D182: **the brush kit is the core of the editor**: the landform objects and their handles removed, no presets; terraces and ramps (now Flatten and Smooth options, D184), pen pressure and level lines; future tools brush-first (symmetry mirrors strokes, stamps are painted, carving is a brush).
+- D182: **the brush kit is the core of the editor**: the landform objects and their handles removed, no presets; terraces and ramps (now Flatten and Smooth options, D184), pen pressure and level lines; future tools brush-first (carving is a brush). Amended by D253 (symmetry and stamps removed).
 - D183: live dimensions: a selection's size in tiles, a straight stroke's length, the level while flattening (D184 removed the other cursor readouts).
 - D184: **the editor's design principles**: the land is the interface; a top bar (Raise, Lower, Flatten, Smooth, Naturalize | Source | Remove) with a small options row; water from smart Lower and Source, everything else emerging from the land; a left shelf of object icons with live ghosts; view buttons with overlays; a header with Save to Timberborn and one menu; a quiet status dot; drawn rivers and lakes removed; plain scroll zooms (strength on Shift+scroll since D196).
 - D185–D187: the editor is desktop-first; the editor's Drought and Badtide buttons show each event, and the Weather view is the separate full-cycle timeline; Claude is a summoned chat box.
@@ -321,7 +325,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D240: the editor feels alive: short, visual-only animations for land, water and moments (Generate's reveal, pops, undo in reverse, Save to Timberborn's send-off), synced sounds, off with reduced motion, GPU effects scaled down on weaker hardware; the final map and water unchanged. After the forces round 2, alongside D235.
 - D239: Unleash on water sources: a selected source's small Unleash action (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; strength sets width, a quick Power; one undo step. On the preview with or right after the forces round 2.
 - D237: "Without pre-filled water" leaves the player's page (folded into D233); the capability stays internal for the probe and tests.
-- D236: the design pass comes straight after your editor UI audit of the combined page; M9b and M9c run in parallel with "The page is the editor" and take the machine first. #79's defaults accepted (D238): the Frame pass is a light update after Map look 2 from the design pass's records; the refinement phase gets its own `refinement-done` tag.
+- D236: the design pass comes straight after your editor UI audit of the combined page; M9b and M9c run in parallel with "The page is the editor" and take the machine first. #79's defaults accepted (D238): the Frame pass is a light update after Map look 2 from the design pass's records; the refinement phase gets its own `refinement-done` tag. Amended by D255 (Pick a place no longer waits for M11).
 - D235: scatter-type shelf items (trees, bushes, ruins, thorns) place like a brush, as in Cities: Skylines: size and density, natural scatter, gap filling, an amber warning on dry ground, an Age option for trees, a click still places one; unique landmarks stay single. Scheduled after the forces round 2, on the preview.
 - D232–D234: 3D everywhere; the landing page's map is the editor (essentials around it, a full-screen editor behind an expand button, undoable Generate, a Legend button); Your maps (the last 30 edited maps in this browser). Scheduled after the forces round 2 and M9a's release; then your editor UI audit, then the design pass.
 - D231: #63 accepted (#77, #78); the crown's per-tile curls, the fall's straight edge at the pool and the milky froth are queued for the next waterfall look pass (Map look 2 or 3).
@@ -372,7 +376,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D221.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D258.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
