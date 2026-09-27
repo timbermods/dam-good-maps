@@ -269,6 +269,7 @@ to 150 (D174). No tall versions this round (D172).
      spreads thinner than a pump needs (0.3 deep). When no start passes, the conversion runs again
      with 4 and then 8 times the official strength (more flow from the sources' strength, as D171
      allows, never from sources downstream). 76 places use 2×, 49 use 4× and 25 use 8×.
+     (Superseded by D214, below: no place above its size's cap.)
   5. A map whose water stands on more than 60% of it, however thin, fails: flat fans and braided
      plains at 16 levels can carry a film of water over most of the map, which passes the flood
      check (it counts water over 0.05 deep) but reads as flooded. Three such maps of the first
@@ -338,4 +339,112 @@ Tests updated to the rebuild (D148), none weakened:
   lake would drown is cleared" drew its lake round River Valley seed 13's small relic; since the
   resources of generator 0.6.2 that relic has no room for one, so the case uses seed 14, where the
   same check holds.
+
+## Rivers, not floods (Kyler, 2026-09-26, D214)
+
+Kyler's review of the rebuilt gallery: no water sources at 8× the official strength (25 maps had
+them: floods, not rivers); strengths stay near the official range; the start moves closer to water
+instead, as Pick a place's designed water places it; a place that still can't work is dropped; and
+the "Centre" titles get a real feature or a direction. The rebuild's 4× and 8× steps (step 4 above)
+are gone. Built after merging `dev` (Live editing, waterfalls, the forces' investigations) at
+04e90ef; the merged tree still built all 150 maps as the index had them.
+
+- **The cap for each size** (`FLOW_CAP`, tools/places/convert.ts; a default the session chose,
+  docs/decisions-pending.md #74). The official maps' strongest water for the size, measured from
+  investigation/calibration.json as the resources step measured its baselines (by size class,
+  Nomads and Oasis left out, joined in ln(area)): 6.7, 3.4 and 4.1 a second per 10,000 tiles at
+  96², 128² and 256² (Thousand Islands is the strongest large map, 27 in all). As multiples of the
+  generator's own strength for the size (3.3, 2.2 and 1.1 per 10,000 tiles, the "1×"), that is 2.05,
+  1.5 and 3.75. The cap is that, never under the survey's own 2× (at 128² 2× gives 4.4 per 10,000,
+  near the official 3.4, and 66 places already had it): **96² 2× (6.1 in all), 128² 2× (7.2), 256²
+  3.75× (27)**. Before, 8× gave up to 58 on a 256² map and 29 on a 128² one, twice to five times
+  anything official. A uniform 4× was measured too: it keeps 128² maps at 2.6 times the official top
+  and leaves them wetter (water on a median 37% of the map at 4×, 23% at 2×).
+- **When the water does not settle or no start passes at that flow.** Measured first on all 150
+  (`.scratch`, not kept): at 2× the places that had needed more flow failed mostly because the water
+  did not settle within 4 days (46 of 68), not for the start (22): at 16 levels real land's wide
+  floors carry thin sheets that keep moving. So, at each flow up to the cap:
+  1. the survey's sources, as before, and the start as before;
+  2. no start passes: **the start moves to the water** (`walkToPumpShore`: every tile's walk to the
+     nearest shore a pump works from, walked back from all of them at once; the starts with one
+     within their walk come first, as Pick a place screens starts from the shore; up to 10 more
+     tried in full);
+  3. still nothing, or the water does not settle: **fewer, larger rivers** at the same flow, the 3
+     largest source groups and then the largest (Pick a place's designed water uses one head on
+     small maps and three on large ones). Sources still only where water begins (D171).
+  A place whose row still fails tries its region's other rows as the choice's rules allow (a
+  first-round place its first-round fallbacks, title kept; an addition the region's other rows,
+  best first; always other land than the region's other map, checked against the maps as they end
+  up), and is dropped, with the reason, when none passes.
+- **What changed** (`VERSION` 2; 231 conversions, 20 minutes on 4 threads):
+  - The 76 places at 2× are the same files (their data unchanged).
+  - Of the 74 at 4× or 8×, 39 keep their row, at 2× (36) or 3.75× (3, at 256²): the start moved to
+    the water on 13, and 35 have fewer rivers (3 or 1 source groups).
+  - 35 are made from another row of their region, because their own fails at the cap (18 the water
+    does not settle, 13 no start has pumpable water, 4 no start has its wood). 13 are the same land
+    with another height mapping (Badlands National Park, Crater Lake, Twelve Apostles, Lena Delta,
+    Mount Roraima, Drumheller, Aso Caldera, Niagara Falls, Aysen Fjord, Kinabatangan River, Ennedi
+    Plateau, Skeidara Outwash, Victoria Falls); 22 show other land of their region: Death Valley,
+    Geirangerfjord, Lofoten, Danube Delta, Glencoe, Lake Saimaa, Na Pali Coast, Iguazu Falls,
+    Yosemite Valley, Tsingy de Bemaraha, Temagami, Mississippi Delta, Phong Nha Southwest (now
+    256²), Danube Delta Southwest, Fish River Canyon North, and seven second maps that now show
+    another part (below). First-round titles are kept.
+  - **None dropped**: every place that failed found a row that passes. The one drop is still the
+    first rebuild's Majuli, Brahmaputra.
+  - Flow: 149 places at 2×, 1 at 3.75×. Water covers a median 22% of a map (at most 45%).
+  - Advisories, as information: plants.drought 136, water.reservoir 101, start.reach 77,
+    water.clean_exists 27 (was 9: less water, so less of it stays clean through a badtide),
+    water.clean_reach 4. Every place passes the export profile and every check of the generate
+    profile.
+- **Titles** (D214): a region's second map is named by its own part of the place: a real feature
+  only where OpenStreetMap's named features in the map's square (queried for each square) and its
+  heights make it sure, else a plain position or direction (tools/places/titles.ts `SECOND`; a
+  second map at a place's centre without one stops the tool). Pending check #75.
+  - Colca Canyon Centre → **Colca Canyon South Rim** (the rim plateau, Cabanaconde, south of the
+    canyon floor along the north edge);
+  - Tagliamento River Centre → **San Daniele, Tagliamento River** (the river's wide bed, and San
+    Daniele del Friuli on its hills);
+  - Li River Centre → **Xingping, Li River** (Xingping and Nine Horse Fresco Hill);
+  - Drumheller Centre → **Red Deer River, Drumheller** (the town in the river's valley);
+  - Lake Toba Centre → **Samosir, Lake Toba** (all four corners on the island);
+  - Torres del Paine Centre → **Cuernos del Paine** (the four Cuernos peaks);
+  - Uvac River Centre → **Uvac Meanders** (the meanders under the Molitva viewpoint);
+  - Tara Gorge Centre → **Tara Gorge South** (south of the other Tara Gorge map);
+  - Bungle Bungle Centre → **Bungle Bungle Northeast** (north-east of the other one);
+  - Mahabaleshwar East, Western Ghats → **Kate's Point, Western Ghats** (the plateau's eastern edge);
+  - Glencoe Centre → **River Coe, Glencoe**: now the same centre at 60 m a tile (the 30 m one fails
+    at the cap), the whole glen, the Three Sisters and Bidean nam Bian;
+  - Blyde River Canyon Centre → **Blyde River Canyon Southwest**, Ilulissat Icefjord Centre →
+    **Ilulissat Icefjord North**: their centre fails at the cap, so they are the region's
+    southwest and north samples, named by the part sampled;
+  - also by the part sampled, other second maps whose row changed: Victoria Falls Southwest →
+    **Victoria Falls North**, Plitvice Lakes Southwest → **Plitvice Lakes East**, Rhine and Moselle
+    North → **Rhine and Moselle Southwest**, Ngorongoro North → **Ngorongoro East**.
+- **Pictures**: every card drawn again on the GPU (`npm run places:thumbs -- --all --port 4832
+  --threads 4`). The tool follows `dev`'s editor: the view's canvas now sits in its own box beside a
+  minimap, so the tool shows only the main canvas; and the editor shows its preview's water first,
+  so the tool waits for the background check's exact settle (the checks dot stops waiting) before
+  drawing. The water in every picture is the map's settled water as `dev`'s renderer draws it now
+  (D212, D215: thin films read differently), so unchanged maps' pictures changed too.
+- **Kyler's own list of places to drop** waits for him. He chose it from the sheet before D214; 35
+  places now show other land or other water, so it wants a look at the new sheet
+  (`docs/sheets/real-places.png`; locally `investigation/landscapes/local/places-sheet/sheet.html`).
+- **Badwater (D200, D213)**: still waits for M9a on `dev`, which carries #54. #54 gives
+  `planMapResources` a `badwater: { setting, within }` input and returns the water settled again
+  with the badwater springs. What is left: in `buildPlace` (src/core/places/place.ts), pass
+  `badwater: { setting: "normal", within: DIFFICULTY_RULES.normal.badwaterWithin }` and write
+  `resources.water` (the settle, moisture and soil) into the file when it is there; take #54's
+  changes to places.test.ts and placesCommon.ts; raise `VERSION` to 3 (the start's checks then
+  include start.badwater and resources.badwater_source), then `npm run places:convert`, `npm run
+  places`, `npm run places:thumbs -- --all`, `npm run places -- --check` and the sheet.
+  `PlaceData.badwater` stays for springs a place's data fixes itself (none now).
+
+Tests updated to D214 (D148), none weakened:
+- `places.test.ts`: the first round's 85 are the first-round places plus the first-round drops (an
+  addition D214 dropped would be listed with its status and a D214 reason); new: each place's
+  flow and its sources' total strength within the cap for its size; titles: every place's sentence
+  is its survey place, a region's first map is titled by its place and its second by its own part
+  (the titles module), never "Centre"; the title examples follow D214 (a centre map named by its
+  land, one without a name stops the tool).
+- `carve.test.ts` (from `dev`): its real place is read by its new file name (grand-canyon).
 

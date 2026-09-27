@@ -850,8 +850,19 @@ nightly and in the release check; clean titles; 3D thumbnails rendered on a GPU 
 every place rebuilt without perimeter walls, water free to drain; and the gallery grown to about
 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
+Rivers, not floods (Kyler, 2026-09-26; PLAN §20 D214): each place's water stays near the official
+maps' range for its size (at most 2× the generator's strength at 96² and 128², 3.75× at 256²);
+where that is too little, the start moves to the water and the land keeps fewer, larger rivers; a
+place that still can't work takes another row of its region or is dropped. A region's second map is
+named by a real feature in its square or a direction, never "Centre". Badwater on every map (D200)
+follows once M9a is on `dev`.
+
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
 and D151 (no edge walls).
+
+**Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
+the rebuild and D214 done (150 places, none dropped by D214). Waiting on Kyler's list of places to
+drop and on M9a for the badwater stage; released as `real-places-2-done` after both.
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round

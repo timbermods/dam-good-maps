@@ -16,6 +16,7 @@
 //   npm run places:thumbs -- --all          (every place)
 //   npm run places:thumbs -- --only a,b     (the places named)
 //   npm run places:thumbs -- --dir <dir>    (write there instead, and leave the index alone: trials)
+//   npm run places:thumbs -- --port 4832 --threads 4   (the preview's port; the maps' build threads)
 //
 // Each place opens in the editor as the gallery's Refine opens it (its .timber, built by
 // tools/places-build.ts), in a fresh browser context. The water is held at one moment of its
@@ -165,11 +166,14 @@ function above(W: number, H: number, level: number): Pose {
 /** The canvas at a size, only the scene in view. */
 async function canvasAt(page: Page, px: number): Promise<void> {
   await page.addStyleTag({
+    // the view's frame holds the canvas in its own box beside the controls and the legend: every
+    // other part is hidden (a visible canvas shows inside a hidden box), and the box fills the square
     content: `.editor-view { position: fixed !important; left: 0 !important; top: 0 !important; width: ${px}px !important; height: ${px}px !important; z-index: 2147483647 !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; }
-      .editor-view > :not(canvas) { visibility: hidden !important; }
-      .editor-view canvas { width: ${px}px !important; height: ${px}px !important; }`,
+      .editor-view * { visibility: hidden !important; }
+      .editor-view .view3d { position: absolute !important; left: 0 !important; top: 0 !important; width: ${px}px !important; height: ${px}px !important; margin: 0 !important; }
+      .editor-view .view3d > canvas { visibility: visible !important; width: ${px}px !important; height: ${px}px !important; }`,
   });
-  await page.waitForFunction((n) => document.querySelector<HTMLCanvasElement>(".editor-view canvas")!.width === n, px);
+  await page.waitForFunction((n) => document.querySelector<HTMLCanvasElement>(".editor-view .view3d > canvas")!.width === n, px);
 }
 
 async function shoot(page: Page, pose: Pose): Promise<Buffer> {
@@ -179,7 +183,7 @@ async function shoot(page: Page, pose: Pose): Promise<Buffer> {
     r.setView(v);
   }, pose);
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 200)))));
-  return page.locator(".editor-view canvas").screenshot({ type: "png" });
+  return page.locator(".editor-view .view3d > canvas").screenshot({ type: "png" });
 }
 
 /** A square PNG as WebP, scaled to a side, or turned by whole quarter turns clockwise at its own
@@ -215,7 +219,12 @@ async function render(browser: Browser, base: string, p: PlaceIndexEntry): Promi
     await page.goto(`${base}#place=${p.id}`);
     await page.waitForFunction((name) => window.dgmEditor?.info().name === name && !!window.dgm3d, p.name, { timeout: 180_000 });
     await page.evaluate(() => window.dgmEditor!.idle());
-    // the background check may replace the water once
+    // the editor shows the preview's water at once, and the background check's exact settle
+    // replaces it when it is done (the checks dot stops waiting), easing it in
+    await page.waitForFunction(() => {
+      const dot = document.querySelector(".checks-dot");
+      return !!dot && !dot.classList.contains("wait");
+    }, null, { timeout: 300_000 });
     await page.waitForTimeout(2500);
     await page.evaluate(() => window.dgmEditor!.idle());
     const gpu = (await page.evaluate(() => window.dgm3d!.renderer.gpu().renderer)) as string;
@@ -261,7 +270,8 @@ async function main(): Promise<void> {
   }
   console.log(`${places.length} place(s) to draw; building the site and the maps…`);
   await build({ configFile: "vite.config.ts", base: "/", logLevel: "warn", build: { outDir: DIST, emptyOutDir: true } });
-  execFileSync(process.execPath, [...process.execArgv, "tools/places-build.ts", "--out", DIST, "--only", places.map((p) => p.id).join(",")], { stdio: "inherit" });
+  const threads = arg("threads");
+  execFileSync(process.execPath, [...process.execArgv, "tools/places-build.ts", "--out", DIST, "--only", places.map((p) => p.id).join(","), ...(threads ? ["--threads", threads] : [])], { stdio: "inherit" });
   const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false, args: ["--ignore-gpu-blocklist"] });
   const out = dir ?? PUBLIC;

@@ -20,11 +20,13 @@ import type { CheckResult } from "../../src/core/validate/report";
 import { checkPlaces, INDEX, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_MINE_SITES, PLACES_SOURCES_IN_FLOW, placeData, sha256 } from "./placesCommon";
 import { EDGE_SHARE, edgeWalls } from "../../src/core/analysis/edges";
 import { title as titleOf } from "../../tools/places/titles";
+import { FLOW_CAP } from "../../tools/places/convert";
+import { density } from "../../src/core/gen/calibrated";
 
 /** The choice tools/places-convert.ts made. */
 const SELECTION = JSON.parse(readFileSync("tools/places/selection.json", "utf8")) as {
   places: { id: string; name: string; row: string; status: "kept" | "replaced" | "added"; was?: string }[];
-  dropped: { name: string; row: string; reason: string }[];
+  dropped: { name: string; row: string; status?: "kept" | "replaced" | "added"; reason: string }[];
 };
 
 /** A WebP's width and height (its VP8, VP8L or VP8X header), or null. */
@@ -113,10 +115,12 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
     expect(INDEX.places.map((p) => p.id)).toEqual(SELECTION.places.map((p) => p.id));
     expect(INDEX.places.map((p) => placeData(p).survey)).toEqual(SELECTION.places.map((p) => p.row));
     // the first round's 85: each kept (from its own survey row), made from another row of its
-    // region (its title kept), or dropped with the reason
+    // region (its title kept), or dropped with the reason; an addition D214 took is dropped with
+    // its reason too
     const first = SELECTION.places.filter((p) => p.status !== "added");
-    expect(first.length + SELECTION.dropped.length).toBe(85);
+    expect(first.length + SELECTION.dropped.filter((d) => d.status !== "added").length).toBe(85);
     for (const d of SELECTION.dropped) expect(d.reason.length, d.name).toBeGreaterThan(10);
+    for (const d of SELECTION.dropped.filter((q) => q.status)) expect(d.reason, d.name).toContain("D214");
     for (const p of SELECTION.places.filter((q) => q.status === "replaced")) expect(p.was, p.id).toMatch(/^n\d{3}-/);
     // spread across the families: none far behind the rest
     const perFamily = INDEX.families.map((f) => INDEX.places.filter((p) => p.family === f.id).length);
@@ -142,6 +146,22 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       }
     }
   });
+
+  it("rivers, not floods (D214): each place's water within the cap for its size, near the official maps' range", () => {
+    // the caps: the official maps' strongest water for the size, never under the survey's own 2×
+    expect(FLOW_CAP).toEqual({ 96: 2, 128: 2, 256: 3.75 });
+    const flows = new Map(JSON.parse(readFileSync("tools/places/selection.json", "utf8")).places.map((p: { id: string; flow: number }) => [p.id, p.flow]));
+    for (const entry of INDEX.places) {
+      const p = placeData(entry);
+      const cap = FLOW_CAP[p.W];
+      expect(flows.get(p.id), p.id).toBeLessThanOrEqual(cap);
+      // what the sources give: at most the cap, the generator's strength for the size times it
+      // (each source rounded to a thousandth)
+      const total = p.sources.reduce((s, [, , v]) => s + v, 0);
+      const area = p.W * p.H;
+      expect(total, p.id).toBeLessThanOrEqual((cap * density("water_strength_per_10k", area) * area) / 1e4 + p.sources.length * 0.0005);
+    }
+  });
 });
 
 describe("titles (Kyler, 2026-09-25)", () => {
@@ -156,11 +176,22 @@ describe("titles (Kyler, 2026-09-25)", () => {
       expect(m, p.surveyName).not.toBeNull();
       expect(p.sample, p.id).toBe(m![2]);
       expect(Number(m![3]), p.id).toBe(p.metres);
-      // the sentence's place: the title, with "the" or a few words where it needs them; a second map
-      // of a place names its part ("Colca Canyon North"), and its sentence the place
-      const base = p.name.replace(/ (Centre|East|North|Southwest)(?=,|$)/, "");
+      // the sentence's place is the survey's place, with "the" or a few words where it needs them
       const place = placeData(p).place;
-      expect([base, `the ${base}`].includes(place) || place.startsWith(`${base.split(",")[0]}, `), `${p.id}: ${place}`).toBe(true);
+      const own = titleOf(p.surveyName);
+      expect(place, p.id).toBe(own.place);
+      expect([own.name, `the ${own.name}`].includes(place) || place.startsWith(`${own.name.split(",")[0]}, `), `${p.id}: ${place}`).toBe(true);
+    }
+    // a region's first map is titled by its place; its second by its own part of the place (D214:
+    // a real feature in its square or a position, never "Centre"), else the part the survey sampled
+    const regions = new Set<string>();
+    for (const p of INDEX.places) {
+      const survey = placeData(p).survey;
+      const region = Math.floor(Number(survey.slice(1, 4)) / 4);
+      const second = regions.has(`${region}`);
+      regions.add(`${region}`);
+      expect(p.name, p.id).toBe(titleOf(p.surveyName, second, survey.replace(/-\w+-\d+$/, "")).name);
+      expect(p.name, p.id).not.toMatch(/\bCentre\b/);
     }
     expect(new Set(INDEX.places.map((p) => p.name.toLowerCase())).size).toBe(INDEX.count);
     // the renames that tidy an awkward title
@@ -174,8 +205,11 @@ describe("titles (Kyler, 2026-09-25)", () => {
     expect(title("Yosemite Valley")).toBe("Yosemite Valley");
     // the words, as tools/places-convert.ts makes them: a place's second map names its part
     expect(titleOf("Near Brahmaputra near Majuli (east sample), 30 m per tile")).toEqual({ name: "Majuli, Brahmaputra", place: "Majuli, on the Brahmaputra", sample: "east" });
-    expect(titleOf("Near Colca Canyon, 30 m per tile", true)).toEqual({ name: "Colca Canyon Centre", place: "the Colca Canyon" });
-    expect(titleOf("Near Western Ghats Mahabaleshwar (east sample), 30 m per tile", true).name).toBe("Mahabaleshwar East, Western Ghats");
+    expect(titleOf("Near Colca Canyon (north sample), 30 m per tile", true, "n006-128-30")).toEqual({ name: "Colca Canyon North", place: "the Colca Canyon", sample: "north" });
+    // a second map at the place's centre is named by its own land (Kyler, 2026-09-26, D214)
+    expect(titleOf("Near Uvac River, 60 m per tile", true, "n088-96-60")).toEqual({ name: "Uvac Meanders", place: "the Uvac River" });
+    expect(() => titleOf("Near Uvac River, 30 m per tile", true, "n088-96-30")).toThrow(/needs its own title/);
+    expect(titleOf("Near Western Ghats Mahabaleshwar (east sample), 30 m per tile", true, "n277-256-30").name).toBe("Kate's Point, Western Ghats");
     expect(INDEX.places.filter((p) => p.sample).length).toBeGreaterThan(40);
   });
 });

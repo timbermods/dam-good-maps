@@ -94,22 +94,54 @@ const NEAR: Record<string, string> = {
 };
 
 /** The part of a named place the survey sampled, as a title's last word. */
-const PART: Record<string, string> = { "": "Centre", east: "East", north: "North", southwest: "Southwest" };
+const PART: Record<string, string> = { east: "East", north: "North", southwest: "Southwest" };
+
+/** Second maps named by their own land (Kyler, 2026-09-26, D214): a real feature inside the map's
+ *  square (checked against OpenStreetMap's named features in it), else a plain position ("Upper
+ *  Valley", "South Rim"), keyed by the survey patch (`<location>-<size>-<metres>`). A second map
+ *  at a place's centre needs one; one from a sampled part may have one. */
+const SECOND: Record<string, string> = {
+  // the glen, the River Coe along it, the Three Sisters and Bidean nam Bian south of it
+  "n248-128-60": "River Coe, Glencoe",
+  // the river's wide bed and the town of San Daniele del Friuli on its hills
+  "n064-256-30": "San Daniele, Tagliamento River",
+  // Cabanaconde's side of the canyon, the rim plateau south of the river
+  "n004-256-30": "Colca Canyon South Rim",
+  // the plateau's eastern edge at Kate's Point, east of Mahabaleshwar
+  "n277-256-30": "Kate's Point, Western Ghats",
+  // the Xingping reach, Nine Horse Fresco Hill
+  "n200-256-30": "Xingping, Li River",
+  // the town in the Red Deer River's valley
+  "n188-96-60": "Red Deer River, Drumheller",
+  // every corner on Samosir, the island in the lake
+  "n132-96-30": "Samosir, Lake Toba",
+  // the four Cuernos peaks, the Valle del Frances
+  "n252-96-60": "Cuernos del Paine",
+  // south of the other Tara Gorge map, at the Djurdjevica Tara bridge
+  "n024-96-60": "Tara Gorge South",
+  // the river's meanders under the Molitva viewpoint
+  "n088-96-60": "Uvac Meanders",
+  // north-east of the other Bungle Bungle map
+  "n168-96-120": "Bungle Bungle Northeast",
+};
 
 /** A survey name, "Near Grand Canyon Colorado (southwest sample), 60 m per tile": the map's title,
- *  the place in a sentence, and the part of the place sampled. `part` adds the part to the title,
- *  for a second map of one place ("Colca Canyon North"). */
-export function title(surveyName: string, part = false): { name: string; place: string; sample?: string } {
+ *  the place in a sentence, and the part of the place sampled. `part` names a second map of one
+ *  place by its own land: its `SECOND` title (by `patch`), else the part sampled ("Colca Canyon
+ *  North"). */
+export function title(surveyName: string, part = false, patch = ""): { name: string; place: string; sample?: string } {
   const m = /^Near (.+?)(?: \((north|south|east|west|northeast|northwest|southeast|southwest) sample\))?, \d+ m per tile$/.exec(surveyName);
   if (!m) throw new Error(`unexpected survey name ${surveyName}`);
   const base = TIDY[m[1]] ?? m[1];
   const place = NEAR[base] ?? (THE.has(base) ? `the ${base}` : base);
   let name = base;
   if (part) {
+    const own = SECOND[patch];
     const word = PART[m[2] ?? ""];
+    if (!own && !word) throw new Error(`${surveyName}: a second map at the place's centre needs its own title (SECOND in tools/places/titles.ts, under ${patch || "its patch"})`);
     // "Majuli North, Brahmaputra": the part stays with the place it names
     const comma = base.indexOf(",");
-    name = comma > 0 ? `${base.slice(0, comma)} ${word}${base.slice(comma)}` : `${base} ${word}`;
+    name = own ?? (comma > 0 ? `${base.slice(0, comma)} ${word}${base.slice(comma)}` : `${base} ${word}`);
   }
   return { name, place, ...(m[2] ? { sample: m[2] } : {}) };
 }

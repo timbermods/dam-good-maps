@@ -1,18 +1,22 @@
-// Real places, second round (Kyler, 2026-09-25 and 26; PLAN §20 D151, D152, D155, D164, D171, D174):
+// Real places, second round (Kyler, 2026-09-25 and 26; PLAN §20 D151, D152, D155, D164, D171, D174,
+// D214):
 // every real place converted again from the landscape survey's elevation patches under today's
 // rules, and the gallery grown to about 150. It writes each place's data
 // (public/real-places/data/<id>.json.gz: terrain, sources, start, words) and the choice
 // (tools/places/selection.json); `npm run places` then builds every map from its data and writes
 // the gallery's index.
 //
-//   npm run places:convert                  (the places in selection.json, converted again)
+//   npm run places:convert                  (the places in selection.json, converted again; one
+//                                            that no longer converts is replaced or dropped, below)
 //   npm run places:convert -- --reselect    (choose again: the first round's places, then additions)
 //   npm run places:convert -- --target 150  (how many places a reselection aims at)
 //   npm run places:convert -- --threads 8
 //
 // It needs the survey's patches, which stay out of git: from investigation/landscapes/, run
-// `npm ci --ignore-scripts --cache ./npm-cache` and `npm run sample` (about 400 MB of Terrain
-// Tiles, 5 minutes; every tile is checked against the survey's recorded sha256). Each conversion is
+// `npm ci --ignore-scripts --cache ./npm-cache` and `npm run sample` (about 1.1 GB of Terrain
+// Tiles and patches, 10 minutes; every tile is checked against the survey's recorded sha256; the
+// run rewrites data/acquisition.json and data/tile-manifest.jsonl.gz with the new access times:
+// `git checkout` them). Each conversion is
 // kept in investigation/landscapes/local/real-places-2/ (gitignored, D195), so a second run redoes
 // only what changed; delete the folder to redo everything.
 //
@@ -25,9 +29,14 @@
 //   conversion, preferring a region no place comes from yet, then a size (128², 256², 96², 128²
 //   by round), then the survey's own score (shape kept, normalised mapping, few flat-topped
 //   tiles). A region gives at most two maps, and its second must be other land: at most a quarter
-//   of the smaller map may lie inside the other's footprint. Its title names the part of the place
-//   it shows ("Colca Canyon North"). The survey's random-land controls and the Las Medulas region (a Roman mine, D136)
-//   stay out.
+//   of the smaller map may lie inside the other's footprint. Its title names its own part of the
+//   place: a real feature in its square or a position (titles.ts SECOND, D214), else the part the
+//   survey sampled ("Colca Canyon North"). The survey's random-land controls and the Las Medulas
+//   region (a Roman mine, D136) stay out.
+// - Converted again (no --reselect), a place that no longer passes (D214 capped the flow) tries
+//   its region's other rows as those rules allow, on other land than the region's other map: a
+//   first-round place its first-round fallbacks (its title kept), an addition the region's other
+//   rows, best first. One that none of them gives is dropped, with the reason.
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,13 +44,13 @@ import { gunzipSync } from "node:zlib";
 import { gzipSync, strToU8 } from "fflate";
 import { isMainThread } from "node:worker_threads";
 import { PLACE_FORMAT, type PlaceData } from "../src/core/places/place";
-import { convertRow, coverOf, MAX_COVER, PATCHES, type Converted, type PlaceMeta } from "./places/convert";
+import { convertRow, coverOf, FLOW_CAP, MAX_COVER, PATCHES, type Converted, type PlaceMeta } from "./places/convert";
 import { defaultThreads, runPool, serve } from "./places/pool";
 import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 1;
+const VERSION = 2;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -113,8 +122,12 @@ interface Chosen {
 
 interface Selection {
   note: string;
-  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; sourcesDropped?: Converted["dropped"]; advisories: string[] }[];
-  dropped: { name: string; row: string; reason: string; tried: string[] }[];
+  /** `rivers`: the most source groups kept, when fewer than the land gives (D214); `startMoved`:
+   *  the start from the shore-first ranking (D214). */
+  places: { id: string; name: string; row: string; status: Chosen["status"]; was?: string; flow: number; rivers?: number; startMoved?: true; sourcesDropped?: Converted["dropped"]; advisories: string[] }[];
+  /** Places no row gives any more: the first round's (no status: Majuli), and those D214 took
+   *  (their status as they were). */
+  dropped: { name: string; row: string; status?: Chosen["status"]; reason: string; tried: string[] }[];
 }
 
 function arg(name: string): string | null {
@@ -158,7 +171,7 @@ async function main(): Promise<void> {
   const surveyName = (r: Row) => `${locs.get(r.location)!.name}, ${r.metres} m per tile`;
   const meta = (r: Row): PlaceMeta => {
     const loc = locs.get(r.location)!;
-    const t = title(surveyName(r));
+    const t = titleOf(r, false);
     const fam = FAMILIES[r.family];
     return { survey: r.id, surveyName: surveyName(r), ...(t.sample ? { sample: t.sample } : {}), id: slug(t.name), name: t.name, place: t.place, family: r.family, familyName: fam.name, plays: fam.plays, metres: r.metres, lat: loc.lat, lon: loc.lon };
   };
@@ -181,7 +194,7 @@ async function main(): Promise<void> {
       results.set(r.row, r);
       writeFileSync(cachePath(r.row), JSON.stringify(r));
       ran++;
-      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
+      console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"}${r.groups !== undefined && r.groups < (r.beginnings ?? 0) ? ` rivers ${r.groups}/${r.beginnings}` : ""}${r.moved ? " start moved" : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
     });
   }
 
@@ -192,29 +205,90 @@ async function main(): Promise<void> {
     chosen.push({ row: r, loc: locs.get(r.location)!, name: opts.name ?? m.name, place: opts.place ?? m.place, surveyName: m.surveyName, sample: m.sample, status, was: opts.was, result: results.get(r.id)! });
   };
 
+  // the first round's places: each from its own row, else its patch's other mappings, else the
+  // region's other patches
+  const options = (id: string) => {
+    const own = byRow.get(id)!;
+    const sameRegion = eligible.filter((r) => r.region === own.region && r.id !== id);
+    const samePatch = sameRegion.filter((r) => patchOf(r.id) === patchOf(id)).sort((a, b) => score(b) - score(a));
+    const others = sameRegion.filter((r) => patchOf(r.id) !== patchOf(id)).sort((a, b) => (b.size === own.size ? 10 : 0) + score(b) - (a.size === own.size ? 10 : 0) - score(a) || a.id.localeCompare(b.id));
+    return [own, ...samePatch, ...others].slice(0, FALLBACKS);
+  };
+  /** A region's two maps show other land: at most a quarter of the smaller inside the other. */
+  const apart = (r: Row, other: Row) => {
+    const loc = locs.get(r.location)!;
+    const ref = loc.anchor ?? { lat: loc.lat, lon: loc.lon };
+    return overlap(footprint(loc, r.size, r.metres, ref), footprint(locs.get(other.location)!, other.size, other.metres, ref)) <= 0.25;
+  };
+  /** A place's title from its row: a region's second map is named by its own part of the place. */
+  const titleOf = (r: Row, second: boolean) => title(surveyName(r), second, patchOf(r.id));
+
   const reselect = process.argv.includes("--reselect") || !existsSync(SELECTION);
   if (!reselect) {
     // the places as chosen before, converted again
     const sel = JSON.parse(readFileSync(SELECTION, "utf8")) as Selection;
     await convert(sel.places.map((p) => p.row));
-    for (const p of sel.places) {
-      const r = byRow.get(p.row)!;
+    // Rivers, not floods (D214): a place whose row no longer converts, its water held to the
+    // size's cap and its start moved to the water, tries its region's other rows as the choice's
+    // rules allow (a first-round place its first-round fallbacks, title kept; an addition the
+    // region's other rows, best first), each on other land than the region's other map; a place
+    // none of them gives is dropped, with the reason.
+    const inUse = new Set(sel.places.map((p) => p.row));
+    const failing = sel.places.filter((p) => !results.get(p.row)!.ok);
+    const others = (p: Selection["places"][number]) => sel.places.filter((q) => q !== p && byRow.get(q.row)!.region === byRow.get(p.row)!.region).map((q) => byRow.get(q.row)!);
+    const tries = new Map(
+      failing.map((p) => {
+        const own = byRow.get(p.row)!;
+        const pool =
+          p.status === "added"
+            ? eligible.filter((r) => r.region === own.region).sort((a, b) => (b.size === own.size ? 10 : 0) + score(b) - (a.size === own.size ? 10 : 0) - score(a) || a.id.localeCompare(b.id))
+            : options(p.was ?? p.row);
+        return [p.id, pool.filter((r) => !inUse.has(r.id) && others(p).every((o) => apart(r, o))).slice(0, FALLBACKS)] as const;
+      }),
+    );
+    for (let k = 0; k < FALLBACKS; k++) {
+      const wanted = failing.filter((p) => !tries.get(p.id)!.slice(0, k).some((r) => results.get(r.id)?.ok)).map((p) => tries.get(p.id)![k]).filter(Boolean);
+      if (!wanted.length) break;
+      await convert(wanted.map((r) => r.id));
+    }
+    const regions = new Set<string>();
+    for (const [k, p] of sel.places.entries()) {
+      const own = byRow.get(p.row)!;
+      const second = regions.has(own.region);
       const res = results.get(p.row)!;
-      if (!res.ok) throw new Error(`${p.name} (${p.row}) no longer converts: ${res.reason}. Run with --reselect to choose again.`);
-      chosen.push({ row: r, loc: locs.get(r.location)!, name: p.name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status: p.status, was: p.was, result: res });
+      // a replacement is other land than the region's maps as they end up: those chosen before it,
+      // and those after it that keep their row
+      let r: Row | undefined = res.ok ? own : undefined;
+      if (!r) {
+        const mates = [
+          ...chosen.filter((c) => c.row.region === own.region).map((c) => c.row),
+          ...sel.places.slice(k + 1).filter((q) => byRow.get(q.row)!.region === own.region && results.get(q.row)!.ok).map((q) => byRow.get(q.row)!),
+        ];
+        for (const o of tries.get(p.id)!) {
+          if (inUse.has(o.id) || !mates.every((m) => apart(o, m))) continue;
+          if (!results.has(o.id)) await convert([o.id]);
+          if (results.get(o.id)!.ok) {
+            r = o;
+            break;
+          }
+        }
+      }
+      if (!r) {
+        dropped.push({ name: p.name, row: p.row, status: p.status, reason: `rivers, not floods (D214): at most ${FLOW_CAP[own.size]}× the water for ${own.size}², ${res.reason}`, tried: [p.row, ...tries.get(p.id)!.map((o) => o.id)] });
+        continue;
+      }
+      regions.add(r.region);
+      inUse.add(r.id);
+      const status = r === own ? p.status : p.status === "added" ? "added" : "replaced";
+      const was = r === own ? p.was : p.status === "added" ? undefined : (p.was ?? p.row);
+      // a first-round place keeps its title; an addition is named by its row
+      const name = p.status === "added" ? titleOf(r, second).name : p.name;
+      chosen.push({ row: r, loc: locs.get(r.location)!, name, place: meta(r).place, surveyName: surveyName(r), sample: meta(r).sample, status, was, result: results.get(r.id)! });
     }
     dropped.push(...sel.dropped);
   } else {
-    // ---- the first round's places, each from its own row, else its patch's other mappings, else
-    //      the region's other patches
+    // ---- the first round's places (`options`)
     const library = (JSON.parse(readFileSync(join(SURVEY, "library/index.json"), "utf8")) as { items: { id: string; family: string }[] }).items.filter((i) => i.family !== "random");
-    const options = (id: string) => {
-      const own = byRow.get(id)!;
-      const sameRegion = eligible.filter((r) => r.region === own.region && r.id !== id);
-      const samePatch = sameRegion.filter((r) => patchOf(r.id) === patchOf(id)).sort((a, b) => score(b) - score(a));
-      const others = sameRegion.filter((r) => patchOf(r.id) !== patchOf(id)).sort((a, b) => (b.size === own.size ? 10 : 0) + score(b) - (a.size === own.size ? 10 : 0) - score(a) || a.id.localeCompare(b.id));
-      return [own, ...samePatch, ...others].slice(0, FALLBACKS);
-    };
     const tries = new Map(library.map((i) => [i.id, options(i.id)]));
     for (let k = 0; k < FALLBACKS; k++) {
       const wanted = library.filter((i) => !tries.get(i.id)!.slice(0, k).some((r) => results.get(r.id)?.ok)).map((i) => tries.get(i.id)![k]).filter(Boolean);
@@ -223,7 +297,7 @@ async function main(): Promise<void> {
     }
     for (const i of library) {
       const own = byRow.get(i.id)!;
-      const t = title(surveyName(own));
+      const t = titleOf(own, false);
       const ok = tries.get(i.id)!.find((r) => results.get(r.id)?.ok);
       if (ok) pick(ok, ok.id === i.id ? "kept" : "replaced", { name: t.name, place: t.place, ...(ok.id === i.id ? {} : { was: i.id }) });
       else dropped.push({ name: t.name, row: i.id, reason: results.get(i.id)!.reason ?? "", tried: tries.get(i.id)!.map((r) => r.id) });
@@ -268,7 +342,7 @@ async function main(): Promise<void> {
           for (const r of opts) if (!results.get(r.id)?.ok && r !== ok) failed.add(r.id);
           if (ok && distinct(ok)) {
             const again = regionsUsed().has(ok.region);
-            const t = title(surveyName(ok), again);
+            const t = titleOf(ok, again);
             pick(ok, "added", { name: t.name, place: t.place });
             added++;
             pending.delete(f);
@@ -316,7 +390,7 @@ async function main(): Promise<void> {
   }
   const selection: Selection = {
     note: "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
-    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow) ? { sourcesDropped: c.result.dropped } : {}), advisories: c.result.advisories ?? [] })),
+    places: chosen.map((c) => ({ id: slug(c.name), name: c.name, row: c.row.id, status: c.status, ...(c.was ? { was: c.was } : {}), flow: c.result.flow!, ...(c.result.groups !== undefined && c.result.groups < (c.result.beginnings ?? 0) ? { rivers: c.result.groups } : {}), ...(c.result.moved ? { startMoved: true as const } : {}), ...(c.result.dropped && (c.result.dropped.inFlow || c.result.dropped.noOutflow) ? { sourcesDropped: c.result.dropped } : {}), advisories: c.result.advisories ?? [] })),
     dropped,
   };
   writeFileSync(SELECTION, JSON.stringify(selection, null, 1) + "\n");
