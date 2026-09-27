@@ -5,6 +5,9 @@
 > editor's sounds on Codex's synthesised engine (#58), their tests, Claude's steps and the docs.
 > They show on the preview and the dev server, never on the public site (`FORCES_RELEASED` stays
 > false, pending #69). The branch is not merged into `dev` until Kyler has tried the forces (D219).
+> Checked at the last push: typecheck clean; `npm run test:quick` 621 passed, 13 skipped; the
+> browser tests (`npx playwright test`) 51 passed, 1 skipped; the Claude reference suite 132 of 145
+> (128 of 141 on `dev`: B22-B25 pass, the same 13 fail); CI green.
 > Next: the milestone session puts the branch on the preview; Kyler tries it.
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
@@ -116,7 +119,8 @@ it). Sound and its volume stay among the view buttons.
 `investigation/claude`: `craterize`, `erupt` and `quake` steps (`lib/forceSteps.ts`), each making the
 editor's own `forceResult` operation, with `limits` for each and the harness prompt; the `carve` step
 keeps the shared operation too. Requests B22 (a crater about 24 tiles across), B23 (a small volcano),
-B24 (a lifted fault) and B25 (a meteor on the start: refused, "Start here").
+B24 (a lifted fault) and B25 (a meteor on the start: refused, "Start here"). The reference suite:
+132 of 145 (128 of 141 on `dev`; the four new requests pass, the 13 that fail on `dev` still fail).
 
 ## What a player feels at 256² (Highlands 7, 3,860 objects; the installed Chrome on this machine's GPU)
 
@@ -177,6 +181,11 @@ GIFs: one palette, each frame only where it changed).
   switches, kept as one step as shown and as the worker keeps it, Esc, Try another, undo, the start's
   refusal, keys 8, 9, 0 and X, Esc putting a force away); reduced motion (the same land, the camera
   still). `tests/e2e/carve.spec.ts` as before.
+- `tests/e2e/start-edit.spec.ts` waits for the instant checks (they come from the checks worker a
+  moment after the edit; CI once read them before they came). Not a decision change: the same check.
+
+At the last push: `npm run test:quick` 621 passed, 13 skipped; `npx playwright test` 51 passed,
+1 skipped.
 
 ### Tests changed to the new decisions (D148)
 
