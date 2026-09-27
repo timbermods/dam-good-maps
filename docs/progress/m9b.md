@@ -28,7 +28,7 @@ own way to its own edge. Now (`land/hydro.ts`):
 - **The main river first, tributaries after.** The first head traced is the main river; every later
   head must join the water already traced, as a tributary at least 18% of the map's side long. Only
   a Rivers count the player set may enter as a river of its own when none can join. At most 4–6
-  heads (4 at 96², 5 at 128², 6 at 256²), a spring lake's kept room among them.
+  heads (4 at 96², 5 at 128², 6 at 192², 7 at 256²), a spring lake's kept room among them.
 - **Rivers that can be followed** (`land/courses.ts`). Before the water settles, a priority flood
   from every draining edge tile (all but an inflow's sealed mouth) and a second from the stretch of
   edge the river's system leaves by (35% of the side either way, and a delta's mouths): where some
@@ -72,12 +72,18 @@ the theme's maps part from the others (on seeds 1–10 of every theme at 128²):
 
 | Theme | Promise | Measure and line |
 |---|---|---|
-| River Valley | a main river through a broad valley | the main river's valley floor (within a level of its water), median across its course, ≥ 20% of the side |
+| River Valley | a main river through a broad valley | the main river's valley floor (within a level of its water), median across its course, ≥ 20% of the side at 128², growing as the square root of the side |
 | Canyon | a river cut deep between cliffs for a real stretch | a river whose ground 2–6 tiles out rises 3+ levels over its water on both sides, for max(16, 16% of the side) tiles and 20% of its course |
 | Highlands | high, rugged ground with plateaus and valleys among it | 60%+ of the dry land 4+ levels over the rivers, 3+ plateaus (level ground of 120+ tiles at 128² whose rim mostly drops 2+ levels), cliffs on 10%+ |
 | Lake Basin | big lakes that dominate the water | 55%+ of the water in the natural lakes the generator found (its read-back lake features; level bodies counted wide rivers too), the largest 4%+ of the map |
 | Delta | a river splitting into several channels as it reaches low ground | the main system leaves by 3+ separate mouths |
 | Islands | land broken by water into islands | 3+ islands of 30+ tiles (at 128²) in a sea of 25%+ of the map, 5%+ of the land apart from the largest mass |
+
+**Larger maps** (the paused 256² batches: River Valley missed its promise 40 times in 14 maps,
+and "only a fifth of the land near clean water" was the commonest water miss on every theme): the
+valley floor, the springs and the heads grow with the map (the floor and the springs as the square
+root of the side and the area, the heads as the area to the ¾), and River Valley's line is a floor
+25.6 tiles wide at 128², growing as the square root of the side (36 at 256²).
 
 The priors were steered toward them (they blurred, D294 (2)): River Valley's big river clears a
 floor of 7–13 tiles; Canyon's floor 0–2.5 and its cut 3–6 levels; Highlands leans up (lean

@@ -14,7 +14,8 @@ import type { ThemeId } from "../spec/mapspec";
  *  no promise. The lines sit where the theme's maps part from the others' (M9b's measures,
  *  docs/progress/m9b.md). */
 export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; holds: (s: Signature, side: number) => boolean }> = {
-  riverValley: { text: "a main river through a broad valley", holds: (s) => s.valley >= 0.2 },
+  // (a floor 20% of the side at 128², growing with the square root of the side, as the floor does)
+  riverValley: { text: "a main river through a broad valley", holds: (s, side) => s.valley * side >= 0.2 * 128 * Math.sqrt(side / 128) },
   canyon: { text: "a river cut deep between cliffs for a real stretch", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * side) && s.canyonShare >= 0.2 },
   highlands: { text: "high, rugged ground with plateaus and valleys among it", holds: (s) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 },
   lakeBasin: { text: "big lakes that dominate the water", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.04 },

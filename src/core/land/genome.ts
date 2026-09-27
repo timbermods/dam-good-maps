@@ -522,13 +522,17 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     },
     hydro: {
       inflows: p.inflows[rng.int(0, p.inflows.length)],
-      springs: Math.round(Math.max(0, d(p.springs))),
+      // (M9b: more springs on a larger map, as the square root of its area: a 256² map had a 128²'s,
+      // and most of its land lay far from water)
+      springs: Math.round(Math.max(0, d(p.springs)) * Math.max(1, Math.sqrt(areaK))),
       flowMul: Math.max(0.8, d(p.flowMul)),
       lakeBudget: clamp(d(p.lakeBudget), 0.01, 0.45),
       split: p.split,
       delta: p.delta,
       incise: Math.max(0, d(p.incise)) + 3 * v * v,
-      floor: Math.max(0, d(p.floor)),
+      // (M9b: a valley floor grows with the map, as the square root of its side: at 256² River
+      // Valley's floor was a 128²'s, a narrow strip across a large map, and never kept its promise)
+      floor: Math.max(0, d(p.floor)) * Math.sqrt(Math.min(W, H) / 128),
     },
     hazards: { badwater: (["none", "pit", "stream"] as const)[rng.weighted(p.badwater)], ratio: 0.3 + 0.7 * rng.float(), thorns: rng.float() < p.thorns },
     resources: {

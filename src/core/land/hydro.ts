@@ -389,7 +389,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   const owner = new Int32Array(N).fill(-1);
   const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
   const areaK = N / (128 * 128);
-  const maxHeads = natural ? Math.floor(3.5 + 1.5 * Math.sqrt(areaK)) : Infinity;
+  const maxHeads = natural ? Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75)) : Infinity;
   const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
