@@ -118,7 +118,10 @@ own audio thread, no synthesis on the page. Its 24 recordings (818,400 bytes) ar
 `public/sounds/juice-2/audio/` with their manifest (`bank.json`: source, author, licence, edits,
 SHA-256) and provenance (`SOUNDS.md`), checked file by file against the round's own. They load
 lazily: nothing with the page; the first click or key in the editor fetches and decodes them (four at
-a time, a few hundred milliseconds warm); a sound asked for before is dropped, never played late.
+a time, a few hundred milliseconds warm); a sound asked for before is dropped, never played late. The
+engine's audio context is made while the editor is idle, a moment after it opens (making a page's
+first context opens the audio device: 200–350 ms on the page's thread on this machine, which on the
+first gesture stalled the view; CI's camera test caught it); the first gesture only resumes it.
 
 The mapping (`juice.ts`, the cues round one already had): a brush's recorded bed from its first change
 of the land to its end, with one soft contact at its start, rising gently to a fifth on a long stroke;

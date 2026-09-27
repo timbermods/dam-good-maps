@@ -91,6 +91,8 @@ export interface SoundEngine {
   stop(id: string | number | null): void;
   stopAll(): void;
   setSettings(s: Partial<{ enabled: boolean; volume: number; ambience: boolean }>): void;
+  /** Get ready while the editor is idle (silent). */
+  prepare?(): void;
   pause(): void;
   dispose(): Promise<void> | void;
   /** Decoded and running (tests). */
@@ -109,6 +111,8 @@ export class Juice {
   private force: { run: number; verb: string; ids: string[]; played: Set<string>; puffAt: number } | null = null;
   private runs = 0;
   private readonly unlock = () => void this.engine.unlock();
+  private prepareTimer = 0;
+  private prepareIdle = false;
   private readonly blur = () => this.engine.pause();
 
   constructor(
@@ -123,6 +127,11 @@ export class Juice {
       window.addEventListener("pointerdown", this.unlock, true);
       window.addEventListener("keydown", this.unlock, true);
       window.addEventListener("blur", this.blur);
+      // (the audio device opens while the editor is idle, never on the first gesture)
+      const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+      const soon = () => this.engine.prepare?.();
+      this.prepareTimer = idle ? idle(soon, { timeout: 2000 }) : window.setTimeout(soon, 1200);
+      this.prepareIdle = !!idle;
     }
   }
 
@@ -258,6 +267,8 @@ export class Juice {
 
   dispose(): void {
     if (typeof window !== "undefined") {
+      if (this.prepareIdle) (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(this.prepareTimer);
+      else window.clearTimeout(this.prepareTimer);
       window.removeEventListener("pointerdown", this.unlock, true);
       window.removeEventListener("keydown", this.unlock, true);
       window.removeEventListener("blur", this.blur);

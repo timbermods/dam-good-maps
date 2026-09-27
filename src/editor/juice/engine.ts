@@ -189,45 +189,58 @@ export class JuiceEngine {
     return this.sources;
   }
 
-  /** Call inside a trusted pointer or key handler; the edit itself never waits on it. The first
-   *  call makes the context and starts loading the bank; later ones resume it. */
+  /** The audio context and its output (no recording fetched, nothing played). Making the page's
+   *  first context opens the audio device, a few hundred milliseconds on the page's thread: `prepare`
+   *  lets that happen while the editor is idle, never on the player's first gesture. */
+  private ensureContext(): AudioContext | null {
+    if (this.context) return this.context;
+    const Ctor = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!this.makeContext && !Ctor) return null;
+    try {
+      const context = (this.context = this.makeContext ? this.makeContext() : new Ctor!({ latencyHint: "interactive" }));
+      this.graph = outputGraph(context, this.settings.enabled ? this.settings.volume : 0);
+      return context;
+    } catch {
+      this.context = null;
+      return null;
+    }
+  }
+
+  /** Get the context ready while the editor is idle (it stays silent, suspended until a gesture where
+   *  the browser asks for one); off, nothing is made. */
+  prepare(): void {
+    if (this.disposed || this.context || !this.settings.enabled) return;
+    this.ensureContext();
+  }
+
+  /** Call inside a trusted pointer or key handler; the edit itself never waits on it. It resumes the
+   *  context (made now if `prepare` hasn't) and starts loading the bank the first time. */
   unlock(): Promise<boolean> {
     if (this.disposed) return Promise.resolve(false);
     this.paused = false;
     clearTimeout(this.pauseTimer);
-    if (this.context) {
-      const loading = this.loading;
-      return this.context
-        .resume()
-        .then(async () => (loading ? await loading : !!this.bank))
-        .catch(() => false);
-    }
-    const Ctor = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!this.makeContext && !Ctor) return Promise.resolve(false);
-    try {
-      const context = (this.context = this.makeContext ? this.makeContext() : new Ctor!({ latencyHint: "interactive" }));
-      const resumed = context.resume();
-      this.graph = outputGraph(context, this.settings.enabled ? this.settings.volume : 0);
-      this.loading = Promise.all([resumed, loadBank(context, this.fetcher)])
-        .then(([, bank]) => {
-          if (this.disposed) return false;
-          this.bank = bank;
-          return true;
-        })
-        .catch(async () => {
-          await context.close().catch(() => undefined);
-          this.graph?.disconnect();
-          this.context = null;
-          this.graph = null;
-          return false;
-        })
-        .finally(() => {
-          this.loading = null;
-        });
-      return this.loading;
-    } catch {
-      return Promise.resolve(false);
-    }
+    const context = this.ensureContext();
+    if (!context) return Promise.resolve(false);
+    const resumed = context.resume();
+    if (this.bank) return resumed.then(() => true).catch(() => false);
+    if (this.loading) return resumed.then(() => this.loading ?? !!this.bank).catch(() => false);
+    this.loading = Promise.all([resumed, loadBank(context, this.fetcher)])
+      .then(([, bank]) => {
+        if (this.disposed) return false;
+        this.bank = bank;
+        return true;
+      })
+      .catch(async () => {
+        await context.close().catch(() => undefined);
+        this.graph?.disconnect();
+        this.context = null;
+        this.graph = null;
+        return false;
+      })
+      .finally(() => {
+        this.loading = null;
+      });
+    return this.loading;
   }
 
   private allowed(name: string): boolean {
