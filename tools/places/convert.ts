@@ -930,7 +930,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
     for (const start of moved ? shore() : first) {
       count++;
       const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: base.heights, sources, start };
-      const built = buildPlace(place, water);
+      const built = buildPlace(place, water, { badwater: false });
       const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
       const { blocking, shortOf } = placeProblems(v.report.checks);
       // the starting-logs floor (D224, D227), an absolute the validators do not carry yet
@@ -942,13 +942,20 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
       const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
       const notes = placeNotes(v.report.checks);
       const r: Converted = { row, ok: true, size, ...base, start, shortOf, notes, advisories, ...(moved ? { moved } : {}), ms: 0 };
-      if (!shortOf.length) return r;
+      if (!shortOf.length) {
+        const f = withBadwater(r, meta, water);
+        if (f) return f;
+      }
       passing.push(r);
       if (better(r, best)) best = r;
     }
   }
   if (!best) return fail(`the best of ${count} starts fails ${blocked!.join(", ")}`, base);
-  if (!dry(best)) return best;
+  const ranked = passing.sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0));
+  for (const r of ranked.filter((q) => !dry(q))) {
+    const f = withBadwater(r, meta, water);
+    if (f) return f;
+  }
   // no start reaches water a pump works from, even moved to it (D214): the water floor's spring
   // near the start (D300), at the best starts in turn
   const order = passing.filter((r) => dry(r)).sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0));
@@ -958,7 +965,22 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
     if (got) return got;
   }
   // none near those starts: a hollow anywhere, the start moved to it
-  return (order.length && springNear(order[0], meta, raw, size, h, sources, water, why, true)) || best;
+  return (order.length && springNear(order[0], meta, raw, size, h, sources, water, why, true)) || withBadwater(best, meta, water) || best;
+}
+
+/** A conversion checked in full with its badwater (D200): the starts are chosen on the water without
+ *  it (a place's badwater spring is planned when it is built, resources/plan.ts, and resettles the
+ *  water: once for the choice, not for every start tried), then the chosen place is built with it
+ *  and checked again. Null when that blocks, or the start's water a pump reaches is lost. */
+function withBadwater(r: Converted, meta: PlaceMeta, water: CanonicalWater): Converted | null {
+  const place: PlaceData = { format: 2, ...meta, W: r.size, H: r.size, heights: r.heights!, sources: r.sources!, start: r.start! };
+  const built = buildPlace(place, water);
+  const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+  const { blocking, shortOf } = placeProblems(v.report.checks);
+  if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
+  if (blocking.length || (shortOf.includes("start.water") && !r.shortOf!.includes("start.water"))) return null;
+  const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
+  return { ...r, shortOf, notes: placeNotes(v.report.checks), advisories };
 }
 
 /** The water floor (Kyler, 2026-09-27, D300), like the starting-logs floor: every place has water a
@@ -1043,7 +1065,7 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
       const own = pumpShoreDistance(walk, h, size, size, settled.depth, settled.contamination).distance <= rules.waterWithin ? [[sx, sy] as [number, number]] : [];
       for (const start of [...own, ...shoreOf(settled, SPRING_START_TRIES).filter(([x, y]) => x !== sx || y !== sy)]) {
         const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: r.heights!, sources: all, start };
-        const built = buildPlace(place, settled);
+        const built = buildPlace(place, settled, { badwater: false });
         const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
         const { blocking, shortOf } = placeProblems(v.report.checks);
         if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
@@ -1053,7 +1075,8 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
         }
         const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
         const moved = start[0] !== sx || start[1] !== sy;
-        return { ...r, sources: all, start, ...(moved ? { moved: true } : {}), spring: { at: [spring[0], spring[1]], strength, why }, settled: settled.settled, ticks: settled.ticks, cover: waterCover(settled.depth), shortOf, notes: placeNotes(v.report.checks), advisories };
+        const got = withBadwater({ ...r, sources: all, start, ...(moved ? { moved: true } : {}), spring: { at: [spring[0], spring[1]], strength, why }, settled: settled.settled, ticks: settled.ticks, cover: waterCover(settled.depth), shortOf, notes: placeNotes(v.report.checks), advisories }, meta, settled);
+        if (got) return got;
       }
     }
   return null;

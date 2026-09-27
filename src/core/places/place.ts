@@ -297,7 +297,7 @@ export function placeGround(p: PlaceData): { heights: Uint8Array; entities: Enti
  *  settle of the same ground and objects, when the caller has it), soil, the resources on that
  *  ground, and the file. Resources and mine sites never move water, so the settle before them is
  *  the settle after. */
-export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
+export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwater?: boolean } = {}): BuiltPlace {
   const { W, H } = p;
   const { heights, entities, objects, model } = placeGround(p);
   let settle = settled ?? canonicalSettle(model);
@@ -324,7 +324,8 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater): BuiltPlace {
     ruinsClear: rules.ruinsWithin + 7,
     // badwater on every map (D200, D213): a spring where the land allows, at Normal's distance from
     // the start, as the generator places it
-    badwater: { setting: "normal", within: rules.badwaterWithin },
+    // (`badwater: false`: none, for the conversion's quick look at a start, tools/places/convert.ts)
+    badwater: { setting: opts.badwater === false ? "off" : "normal", within: rules.badwaterWithin },
     owner: `real-place:${p.id}`,
   });
   // the water settled again with the badwater, and the soil it leaves: what the file holds, and
