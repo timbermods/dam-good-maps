@@ -194,14 +194,15 @@ def page(places, first, count, pages, number, title, tags, gone):
         for g in gone or ["None"]:
             for line in wrap(probe, g, body, WIDTH - 2 * GAP - 20):
                 notes.append((line, body))
-    top = 150
+    top = 160
     grid = sum(hd + PIC + 26 for hd in heads)
     height = top + grid + (40 + 34 * len(notes) if notes else 0) + GAP
     img = Image.new("RGB", (WIDTH, height), PAPER)
     d = ImageDraw.Draw(img)
     d.text((GAP, 16), title, fill=INK, font=font(38, True))
     d.text((GAP, 66), f"Page {number} of {pages}: places {first + 1}–{first + len(places)} of {count}. Reply with the numbers to drop.", fill=INK, font=font(26))
-    d.text((GAP, 104), "Each card: the 3D overview, and the map from above turned to match. Amber: what would sink a player who goes straight in.", fill=SOFT, font=font(20))
+    d.text((GAP, 102), "Each card: the 3D overview, and the map from above turned to match.", fill=SOFT, font=font(20))
+    d.text((GAP, 126), "In amber: what would sink a player who goes straight to the game.", fill=NOTE, font=font(20))
     y = top
     for r, (row, hd) in enumerate(zip(rows, heads)):
         for c, p in enumerate(row):

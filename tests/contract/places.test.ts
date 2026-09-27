@@ -207,7 +207,7 @@ describe("titles (Kyler, 2026-09-25)", () => {
     expect(titleOf("Near Brahmaputra near Majuli (east sample), 30 m per tile")).toEqual({ name: "Majuli, Brahmaputra", place: "Majuli, on the Brahmaputra", sample: "east" });
     expect(titleOf("Near Colca Canyon (north sample), 30 m per tile", true, "n006-128-30")).toEqual({ name: "Colca Canyon North", place: "the Colca Canyon", sample: "north" });
     // a second map at the place's centre is named by its own land (Kyler, 2026-09-26, D214)
-    expect(titleOf("Near Uvac River, 60 m per tile", true, "n088-96-60")).toEqual({ name: "Uvac Meanders", place: "the Uvac River" });
+    expect(titleOf("Near Lake Toba, 30 m per tile", true, "n132-96-30")).toEqual({ name: "Samosir, Lake Toba", place: "Lake Toba" });
     expect(() => titleOf("Near Uvac River, 30 m per tile", true, "n088-96-30")).toThrow(/needs its own title/);
     expect(titleOf("Near Western Ghats Mahabaleshwar (east sample), 30 m per tile", true, "n277-256-30").name).toBe("Kate's Point, Western Ghats");
     expect(INDEX.places.filter((p) => p.sample).length).toBeGreaterThan(40);

@@ -188,7 +188,16 @@ async function shoot(page: Page, pose: Pose): Promise<Buffer> {
 
 /** A square PNG as WebP, scaled to a side, or turned by whole quarter turns clockwise at its own
  *  size (every pixel kept) (in the page's canvas). */
-async function webp(page: Page, png: Buffer, side: number, turns = 0): Promise<Buffer> {
+/** A picture's budget (the places test's): a busy map (a braided delta from above) is encoded again
+ *  a little softer until it fits. */
+const BUDGET = 78_000;
+async function budgeted(page: Page, png: Buffer, side: number, turns = 0): Promise<Buffer> {
+  let out = await webp(page, png, side, turns);
+  for (let q = QUALITY - 0.05; out.length > BUDGET && q > 0.3; q -= 0.05) out = await webp(page, png, side, turns, Math.round(q * 100) / 100);
+  return out;
+}
+
+async function webp(page: Page, png: Buffer, side: number, turns = 0, quality = QUALITY): Promise<Buffer> {
   const b64 = (await page.evaluate(
     async ([data, s, q, t]) => {
       const img = new Image();
@@ -205,7 +214,7 @@ async function webp(page: Page, png: Buffer, side: number, turns = 0): Promise<B
       g.drawImage(img, -s / 2, -s / 2, s, s);
       return c.toDataURL("image/webp", q).split(",")[1];
     },
-    [png.toString("base64"), side, QUALITY, turns] as [string, number, number, number],
+    [png.toString("base64"), side, quality, turns] as [string, number, number, number],
   )) as string;
   return Buffer.from(b64, "base64");
 }
@@ -245,7 +254,7 @@ async function render(browser: Browser, base: string, p: PlaceIndexEntry): Promi
     await canvasAt(page, side);
     const topPng = await shoot(page, above(map.W, map.H, innerLevel(map.heights, map.W, map.H)));
 
-    const out = { overview: await webp(page, overviewPng, SIDE), top: await webp(page, topPng, side, VIEW_TURNS[p.view]), pose, gpu };
+    const out = { overview: await budgeted(page, overviewPng, SIDE), top: await budgeted(page, topPng, side, VIEW_TURNS[p.view]), pose, gpu };
     if (errors.length) throw new Error(`${p.name}: page errors: ${errors.join("; ")}`);
     return out;
   } finally {

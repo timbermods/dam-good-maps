@@ -169,16 +169,12 @@ export function Gallery() {
                       <p class="place-meta">
                         {p.familyName} · {p.size}×{p.size} · {p.metres} m per tile
                       </p>
-                      {p.notes?.length ? (
-                        <ul class="place-notes" aria-label="Before you play">
-                          {p.notes.map((n) => (
-                            <li key={n}>
-                              <span class="dot" aria-hidden="true" />
-                              {n}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
+                      {(p.notes ?? []).map((n) => (
+                        <p class="place-note" key={n}>
+                          <span class="dot" aria-hidden="true" />
+                          {n}
+                        </p>
+                      ))}
                       <p class="place-plays">{p.plays}</p>
                       <div class="place-actions">
                         <a class="button primary" href={map.url} download={map.fileName} aria-label={`Download ${p.name}`}>

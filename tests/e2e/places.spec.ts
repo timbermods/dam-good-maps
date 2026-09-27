@@ -174,11 +174,11 @@ test("a card says what would sink a player who goes straight to the game, and no
   expect(noted.length).toBeGreaterThan(0);
   for (const p of [noted[0], noted.find((q) => q.notes!.length > 1) ?? noted[1]]) {
     const card = page.locator("li.place").filter({ has: page.getByRole("heading", { name: p.name, exact: true }) });
-    await expect(card.getByRole("list", { name: "Before you play" }).getByRole("listitem")).toHaveText(p.notes!);
+    await expect(card.locator(".place-note")).toHaveText(p.notes!);
   }
   const quiet = INDEX.places.find((p) => !p.notes)!;
   const card = page.locator("li.place").filter({ has: page.getByRole("heading", { name: quiet.name, exact: true }) });
-  await expect(card.getByRole("list", { name: "Before you play" })).toHaveCount(0);
+  await expect(card.locator(".place-note")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
