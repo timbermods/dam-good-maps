@@ -1467,7 +1467,10 @@ made smaller by Kyler the same day).
 
 **Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
 `investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
-into High here, with #38's water and soft shadows.
+into High here, with #38's water and soft shadows. Phase 3, "finish the world" (`investigation/maplook-finish`: the
+diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
+visible seasons for drought and badtide), is merged as proposals only; nothing from it is adopted until Kyler has
+reviewed its stages (D243).
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
@@ -1486,7 +1489,7 @@ than bubbly.
   - the new vegetation (#66): distinct pine, birch and oak, blue-berried bushes, white birch trunks, bare dead branches,
     with its sway, its colours tuned to this lighting; the shelf icons and placement ghosts use the same models (D241).
 - **Standard stays exactly as it is** (D242). Its trees switch to #66's models, without the sway, only if they cost little
-  on real hardware (D241; the threshold is pending #80).
+  on real hardware (D241; the threshold is pending #83).
 - High's water reads the shared water palette (`src/render3d/waterPalette.ts`, D177): the same
   colours, opacity, badwater blend and calibration as Standard, so the two never drift apart.
 - Today's grass and dirt textures stay exactly as they are (Kyler likes them).
