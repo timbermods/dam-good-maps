@@ -4,11 +4,15 @@
 > `dev` without Kyler's yes; for the preview right after the forces' release). Built: #38, #65, #66 and #67's stages 1–3
 > with its poisoned soil, as a High look beside Standard; High is the default where the computer draws it smoothly, with an
 > automatic fallback to a lower-cost High and then to Standard. Standard is unchanged: its shaders are byte for byte
-> dev's, and dev's site and this branch draw every captured view to the same pixels. The captures are in
-> [docs/look/high/](../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are below. **Left:** #67's
-> visible seasons and D250's badtide withering (they wait for the Drought and Badtide branch, D286 (4)); pending #83 (the
-> new trees in Standard); the frame's touch-up moved to the design pass (D296) and is not in this branch. Defaults the
-> session chose: pending #110–#117.
+> dev's, and dev's site and this branch draw every captured view to the same pixels (within the noise of two page loads).
+> The captures are in [docs/look/high/](../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are
+> below (High costs it about 1–2 ms a frame more than Standard; every configuration orbits at the display's 165 Hz).
+> **Left:** #67's visible seasons and D250's badtide withering (they wait for the Drought and Badtide branch, D286 (4));
+> pending #83 (the new trees in Standard); the frame's touch-up moved to the design pass (D296) and is not in this
+> branch. Defaults the session chose: pending #110–#117. **Worth a look against PERFECT's "read a map's water at a
+> glance":** from afar, High's poisoned soil (#67's approved proposal) is a dark olive stain where Standard's
+> contaminated ground glows red, so the ground round badwater reads less from a whole-map view (the badwater itself
+> stays crimson); it is its own switch (**Finishing touches**, `poison`).
 
 Spec: `ROADMAP.md` "Map look 2: the High look"; PLAN §20 D147, D177, D201, D231, D232, D241–D243, D250, D265, D283, D284,
 D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook2`, #65 `investigation/maplook3`, #66
