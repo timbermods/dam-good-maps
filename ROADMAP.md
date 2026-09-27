@@ -2184,6 +2184,13 @@ it adds nothing to the editor's screen until used.
 
 ## Later
 
+**Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
+PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
+early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle
+pays off) is not part of M9b's five outcomes. It needs a design step of its own, the way M9 did
+(D108, D109); the starting-logs floor and the start's guards stay exactly as they are until then.
+`docs/m9-design.md` §11's "difficulty as positions on the axes" is one proposal for it to consider.
+
 **Later, proposed: a companion mod for one-click play** (Kyler, 2026-09-25; D163). A small mod
 that lists newly saved Dam Good Maps maps in the game's main menu and starts one in one click,
 building on what the DGM Probe mod already does to open a map. For Kyler's approval before it's
