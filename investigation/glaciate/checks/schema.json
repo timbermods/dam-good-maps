@@ -12,7 +12,7 @@
     "wrong endpoint",
     "valid schema",
     "invalid import is atomic",
-    "pinned tree refusal",
+    "objects follow physical sweep policy",
     "schema compiles"
   ]
 }

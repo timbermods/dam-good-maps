@@ -1,0 +1,189 @@
+{
+  "method": "Visual inspection of all published low valley views and overview panels; unchanged-ground old-water loss counted separately from the literal saved before/after fields. Duplicate start/performance cases share the identical hero geometry.",
+  "cases": [
+    {
+      "id": "hero-canyon",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 25,
+      "observation": "Tall wall falls are visible. Broad linked pools and terrace-wide cascades dominate; the one-tile pinch in the measurements is not the main visual problem. Several wet passages remain."
+    },
+    {
+      "id": "hero-highlands",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 13,
+      "observation": "A readable broad central river and a tall fall on the left. The bank still gives the river an engineered channel appearance; a joining pool reads separately."
+    },
+    {
+      "id": "hero-tall",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "Tall enclosure and a broad dry floor. One shallow channel at the left; no sustained hanging falls. The low bank can still read as a ditch."
+    },
+    {
+      "id": "random-1",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 253,
+      "observation": "Short scooped basin and a foreground outlet, with no long river in frame. Zero width means no qualifying marked-river section was sampled, not a water-free result."
+    },
+    {
+      "id": "random-2",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 1105,
+      "observation": "Broad shallow foreground bend, with pool/cascade enlargement and an engineered bank. No thin ditch network visible in this low view."
+    },
+    {
+      "id": "random-3",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 9,
+      "observation": "A striking tall fall, but pools and small terrace islands split the wet floor into multiple passages."
+    },
+    {
+      "id": "random-4",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "The clearest single gently bending small river in the sample. It is shallow with low banks, though the one-level depression still looks like an excavated channel."
+    },
+    {
+      "id": "random-5",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 306,
+      "observation": "A short basin, surviving outside badwater inflow and a pool/cascade at the mouth. No clean single-river composition; terrain fragments remain."
+    },
+    {
+      "id": "random-6",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 1529,
+      "observation": "Large flooded floor and multiple passages around thin terrace fragments. Fails the dry U-valley picture."
+    },
+    {
+      "id": "modest-1",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 62,
+      "observation": "Broad dry banks, a wide river and multiple visible falls. A large head pool weakens the continuous-river shape; no long collector ditch is visible."
+    },
+    {
+      "id": "modest-2",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "Very broad water between tall walls, with branching around terraces. A one-tile pinch is measured elsewhere; the low view is dominated by pool widening."
+    },
+    {
+      "id": "modest-3",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "A small shallow river/pool in a short bowl, with low walls. No parallel ditch network visible; it is not a grand mountain valley."
+    },
+    {
+      "id": "power-low",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 23,
+      "observation": "Strong falls but separate foreground channels and broad pools. Narrowing and the network appearance remain."
+    },
+    {
+      "id": "power-high",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "Tall enclosing walls and much more continuous dry floor. The central river is readable but pools, forks and distant narrow branches remain."
+    },
+    {
+      "id": "another-1",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 6,
+      "observation": "Visible tall waterfall, but multiple foreground pool passages and narrow connections remain."
+    },
+    {
+      "id": "another-2",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "A clearer river curve with broad dry banks, plus a parallel wet terrace and pool. Some stretches still look excavated."
+    },
+    {
+      "id": "another-3",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 2,
+      "observation": "Tall falls and a flooded foreground with parallel pool passages; fails the one-river picture."
+    },
+    {
+      "id": "aim",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 46,
+      "observation": "Tall side falls and a very wet floor split around narrow terrace fragments. Does not meet the single shallow river picture."
+    },
+    {
+      "id": "through-start",
+      "viewInspected": true,
+      "thinSectionMeasured": true,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 25,
+      "observation": "Tall wall falls are visible. Broad linked pools and terrace-wide cascades dominate; the one-tile pinch in the measurements is not the main visual problem. Several wet passages remain."
+    },
+    {
+      "id": "performance-256",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 13,
+      "observation": "A readable broad central river and a tall fall on the left. The bank still gives the river an engineered channel appearance; a joining pool reads separately."
+    },
+    {
+      "id": "flat",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": true,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 572,
+      "observation": "A broad level cut with low banks. Water is mostly at the side in the low view. The overview reveals drying of much of the former downstream river: source strength is absorbed, but its original course is not preserved."
+    },
+    {
+      "id": "spring",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 0,
+      "observation": "One wide foreground river and the old downstream course visibly flowing in the overview. Banks are low but the view is not spectacular; the water solve reaches its cap."
+    },
+    {
+      "id": "spring-dry",
+      "viewInspected": true,
+      "thinSectionMeasured": false,
+      "extraWetReaches": false,
+      "oldCleanWetTilesNowDryOnUnchangedGround": 2,
+      "observation": "The local replacement sources are absent, but an untouched outside river still wets the same foreground course. This is not literally a dry valley."
+    }
+  ]
+}

@@ -45,3 +45,5 @@ The gallery comparison and picker reuse the bundled **Near Lauterbrunnen, Near A
 > United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.
 
 Captures are taken from the live WebGL demo by `tests/browser.ts`; panel captions/composition and GIF encoding use the local canvas tooling. They are not AI illustrations or game screenshots. The real-place maps are shown unchanged, and the generated Glaciate result is explicitly labelled separately.
+
+Round 3 adds the original Canyon 10 generator snapshot. Its waterfall pass uses the repository's existing `src/render3d/falls.ts` geometry and `fallMaterial`, under the same MIT licence; no game waterfall asset is used. The tall Round 1 heightfield is unchanged. Its loader now adds one ordinary start on already level ground to exercise the one-start contract, without adding terrain, resources or access repairs. Six random high-ground inputs and three modest-ground inputs are selected from the original fixtures before any glacier planning.

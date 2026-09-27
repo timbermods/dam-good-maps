@@ -1,77 +1,152 @@
 {
   "cases": [
     {
-      "id": "default",
+      "id": "hero-canyon",
       "thumbnail": "960x540 JPEG",
       "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "small-map",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "kyler",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "side-valleys",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "large-map",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "lobe",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "low-ground",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
-      "id": "tall",
-      "thumbnail": "960x540 JPEG",
-      "checks": 20,
       "passed": false,
       "failures": [
         {
-          "id": "start.count",
+          "id": "start.entrance",
           "class": "load",
           "ok": false,
-          "value": 0,
-          "limit": 1,
-          "message": "0 StartingLocation(s) (a vanilla map needs exactly one)",
+          "where": {
+            "tiles": [
+              [
+                24,
+                70
+              ]
+            ]
+          },
+          "message": "entrance tile (24,70) must be free ground at level 8, or no beavers spawn",
           "severity": "error"
         }
       ]
     },
     {
-      "id": "aim",
+      "id": "hero-highlands",
       "thumbnail": "960x540 JPEG",
       "checks": 22,
       "passed": true,
       "failures": []
+    },
+    {
+      "id": "hero-tall",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                72,
+                63
+              ]
+            ]
+          },
+          "message": "entrance tile (72,63) must be free ground at level 8, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "id": "random-1",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "random-2",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "random-3",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "random-4",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                72,
+                63
+              ]
+            ]
+          },
+          "message": "entrance tile (72,63) must be free ground at level 8, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "id": "random-5",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "random-6",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "modest-1",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "modest-2",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "modest-3",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                72,
+                63
+              ]
+            ]
+          },
+          "message": "entrance tile (72,63) must be free ground at level 8, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
     },
     {
       "id": "power-low",
@@ -81,25 +156,50 @@
       "failures": []
     },
     {
-      "id": "power-default",
-      "thumbnail": "960x540 JPEG",
-      "checks": 22,
-      "passed": true,
-      "failures": []
-    },
-    {
       "id": "power-high",
       "thumbnail": "960x540 JPEG",
       "checks": 22,
-      "passed": true,
-      "failures": []
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                22,
+                76
+              ]
+            ]
+          },
+          "message": "entrance tile (22,76) must be free ground at level 9, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
     },
     {
       "id": "another-1",
       "thumbnail": "960x540 JPEG",
       "checks": 22,
-      "passed": true,
-      "failures": []
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                23,
+                76
+              ]
+            ]
+          },
+          "message": "entrance tile (23,76) must be free ground at level 13, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
     },
     {
       "id": "another-2",
@@ -110,6 +210,64 @@
     },
     {
       "id": "another-3",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "aim",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "through-start",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": false,
+      "failures": [
+        {
+          "id": "start.entrance",
+          "class": "load",
+          "ok": false,
+          "where": {
+            "tiles": [
+              [
+                24,
+                70
+              ]
+            ]
+          },
+          "message": "entrance tile (24,70) must be free ground at level 8, or no beavers spawn",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "id": "performance-256",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "flat",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "spring",
+      "thumbnail": "960x540 JPEG",
+      "checks": 22,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "spring-dry",
       "thumbnail": "960x540 JPEG",
       "checks": 22,
       "passed": true,

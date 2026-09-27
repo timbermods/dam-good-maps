@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import type { Station,Point } from './model';
+import type { Station } from './model';
 /** Fixed tongue geometry, with a travelling curved nose and advected surface bands.
- * Neither the cross section nor the lobe inflates in place. */
+ * The tongue does not inflate in place. */
 export class Ice {
- readonly group=new THREE.Group();readonly ghost=new THREE.Group();private mesh:THREE.Mesh|null=null;
+ readonly group=new THREE.Group();private mesh:THREE.Mesh|null=null;
  private material=new THREE.ShaderMaterial({transparent:true,depthWrite:true,side:THREE.DoubleSide,
   uniforms:{front:{value:0},back:{value:1},clock:{value:0}},
   vertexShader:`attribute float station; attribute float across; varying float s; varying float v; varying vec3 normalView;
@@ -18,8 +18,8 @@ export class Ice {
     float lip=1.-smoothstep(0.,.025,nose-s);color=mix(color,vec3(.95,.99,1.),lip*.5);
     gl_FragColor=vec4(color,.92);
    }`});
- clear(){if(this.mesh){this.group.remove(this.mesh);this.mesh.geometry.dispose();this.mesh=null;}this.preview([]);}
- set(path:Station[],base:Uint8Array,W:number,_lobe=false){
+ clear(){if(this.mesh){this.group.remove(this.mesh);this.mesh.geometry.dispose();this.mesh=null;}}
+ set(path:Station[],base:Uint8Array,W:number){
   this.clear();const vertices:number[]=[],st:number[]=[],crosses:number[]=[],indices:number[]=[],H=base.length/W;
   const surface=(x:number,y:number)=>base[Math.max(0,Math.min(H-1,Math.floor(y)))*W+Math.max(0,Math.min(W-1,Math.floor(x)))];
   const profile=[-1,-.84,-.5,0,.5,.84,1];
@@ -37,7 +37,4 @@ export class Ice {
   this.mesh=new THREE.Mesh(g,this.material);this.mesh.frustumCulled=false;this.mesh.renderOrder=4;this.group.add(this.mesh);this.update(0);
  }
  update(t:number){this.material.uniforms.front.value=Math.min(1,t/3);this.material.uniforms.back.value=t<=3?1:Math.max(-.01,1-(t-3)/2);this.material.uniforms.clock.value=t;}
- preview(points:Point[],heights?:Uint8Array,W=1){for(const a of [...this.ghost.children]){this.ghost.remove(a);(a as THREE.Line).geometry.dispose();((a as THREE.Line).material as THREE.Material).dispose();}
-  if(points.length<2)return;const geometry=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(p.x,(heights?.[Math.floor(p.y)*W+Math.floor(p.x)]??0)+.2,-p.y)));
-  this.ghost.add(new THREE.Line(geometry,new THREE.LineBasicMaterial({color:0xeafcff,transparent:true,opacity:.45,depthTest:false})));}
 }

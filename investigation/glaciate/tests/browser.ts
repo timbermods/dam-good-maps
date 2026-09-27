@@ -1,87 +1,60 @@
 import assert from 'node:assert/strict';
-import { chromium } from '@playwright/test';
-import { createServer } from 'vite';
-import { readFileSync,writeFileSync,mkdirSync,statSync } from 'node:fs';
-import { createCanvas,loadImage } from '@napi-rs/canvas';
-// @ts-ignore gifenc is a small untyped encoder.
-import { GIFEncoder,quantize,applyPalette } from 'gifenc';
-import { fixture } from './fixtures';
-import { storedMap } from '../../forces-core/core/map';
-import { DEFAULTS } from '../model';
-mkdirSync('captures',{recursive:true});mkdirSync('checks',{recursive:true});
-const server=await createServer({configFile:'vite.config.ts',server:{port:0}});await server.listen();const url=server.resolvedUrls!.local[0];
-const browser=await chromium.launch({channel:'chrome',headless:true});const page=await browser.newPage({viewport:{width:1200,height:820}});const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
+import {chromium} from '@playwright/test';import {createServer} from 'vite';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,statSync} from 'node:fs';
+import {createCanvas,loadImage} from '@napi-rs/canvas';
+// @ts-ignore Small untyped encoder, used only for evidence captures.
+import {GIFEncoder,quantize,applyPalette} from 'gifenc';
+import {storedMap} from '../../forces-core/core/map';
+import {DEFAULTS} from '../model';
+mkdirSync('captures',{recursive:true});
+const core=JSON.parse(readFileSync('checks/core.json','utf8')),rows=core.cases as any[],timings:any[]=[];
+const capturesOnly=process.env.GLACIATE_CAPTURE_ONLY==='1';if(capturesOnly){timings.push(...JSON.parse(readFileSync('checks/browser-timings.json','utf8')));assert.equal(timings.length,rows.length);for(const c of rows)assert.equal(timings.find(t=>t.id===c.id)?.signature,c.signature,'reuse timings only for identical checked endpoints');}
+const server=await createServer({configFile:'vite.config.ts',server:{port:0}});await server.listen();
+const browser=await chromium.launch({channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:1200,height:820}}),errors:string[]=[];
+page.on('pageerror',e=>errors.push(String(e)));
 const ready=()=>page.waitForFunction(()=>window.glaciate?.evidence.ready,null,{timeout:120000});
-const show=async(id:string)=>{const raw=JSON.parse(readFileSync('local/results/'+id+'.json','utf8'));const m=storedMap(raw);await page.evaluate(m=>window.glaciate.show(m),m as any);await ready();await page.waitForTimeout(250);};
+const plan=(id:string)=>JSON.parse(readFileSync('local/results/'+id+'-plan.json','utf8'));
+const show=async(id:string)=>{const m=storedMap(JSON.parse(readFileSync('local/results/'+id+'.json','utf8')));await page.evaluate(m=>window.glaciate.show(m),m as any);await ready();await page.waitForTimeout(150);};
 const image=async()=>Buffer.from(await page.evaluate(()=>document.querySelector<HTMLCanvasElement>('#land')!.toDataURL('image/png').split(',')[1]),'base64');
-const panels=async(name:string,items:{title:string;subtitle:string;bytes:Buffer}[],columns=2)=>{
- const w=600,h=450,c=createCanvas(w*columns,h*Math.ceil(items.length/columns)),ctx=c.getContext('2d');ctx.fillStyle='#edf3ed';ctx.fillRect(0,0,c.width,c.height);
- for(let k=0;k<items.length;k++){const x=k%columns*w,y=Math.floor(k/columns)*h,a=items[k];ctx.fillStyle='#223f46';ctx.font='bold 19px sans-serif';ctx.fillText(a.title,x+20,y+28);ctx.font='13px sans-serif';ctx.fillStyle='#516b70';ctx.fillText(a.subtitle,x+20,y+49);ctx.drawImage(await loadImage(a.bytes),x+8,y+65,w-16,h-73);}
- writeFileSync('captures/'+name+'.png',c.toBuffer('image/png'));
-};
+const valley=async(id:string)=>{await page.evaluate(path=>window.glaciate.valley(path),plan(id).path);await page.waitForTimeout(100);};
+const stats=(v:number[])=>{const a=v.slice().sort((a,b)=>a-b);return {count:a.length,median:a[Math.floor(a.length*.5)]??null,p95:a[Math.floor(a.length*.95)]??null,worst:a.at(-1)??null};};
+type Panel={title:string;subtitle:string;bytes:Buffer};
+const panels=async(name:string,items:Panel[],columns=2)=>{const w=600,h=440,c=createCanvas(w*columns,h*Math.ceil(items.length/columns)),ctx=c.getContext('2d');ctx.fillStyle='#eaf0ec';ctx.fillRect(0,0,c.width,c.height);for(let k=0;k<items.length;k++){const x=k%columns*w,y=Math.floor(k/columns)*h,a=items[k];ctx.fillStyle='#223f46';ctx.font='bold 19px sans-serif';ctx.fillText(a.title,x+18,y+27);ctx.font='13px sans-serif';ctx.fillStyle='#516b70';ctx.fillText(a.subtitle,x+18,y+48);ctx.drawImage(await loadImage(a.bytes),x+8,y+62,w-16,h-70);}writeFileSync('captures/'+name+'.png',c.toBuffer('image/png'));};
 try{
- await page.goto(url);await ready();await page.waitForTimeout(350);
- const initial=await page.evaluate(()=>window.glaciate.evidence.signature);
- await page.click('#top');await page.waitForTimeout(200);
- // A real player click, projected from a known terrain tile; default controls are untouched.
- const xy=await page.evaluate(()=>window.glaciate.project(64,16));await page.mouse.move(xy.x,xy.y);await page.waitForTimeout(120);await page.mouse.click(xy.x,xy.y);
- await page.waitForFunction(()=>!!window.glaciate.evidence.plan,null,{timeout:30000});
- await page.click('#top');await page.evaluate(()=>{const v=window.glaciate.view;v.camera.position.sub(v.controls.target).multiplyScalar(1.2).add(v.controls.target);});
- const encoder=GIFEncoder(),contact:{title:string;subtitle:string;bytes:Buffer}[]=[];
- for(let k=0;k<18;k++){
-  const bytes=await page.screenshot(),im=await loadImage(bytes),c=createCanvas(840,574),ctx=c.getContext('2d');ctx.drawImage(im,0,0,840,574);
-  const rgba=ctx.getImageData(0,0,840,574).data,palette=quantize(rgba,128);encoder.writeFrame(applyPalette(rgba,palette),840,574,{palette,delay:300});
-  if([3,8,12,17].includes(k)){const t=await page.evaluate(()=>window.glaciate.evidence.stage);contact.push({title:t<3?'Advance':t<5?'Retreat':'Revealed',subtitle:`Actual browser stage: ${t.toFixed(1)} seconds`,bytes});}
-  await page.waitForTimeout(180);
+ await page.goto(server.resolvedUrls!.local[0]);await ready();
+ // Every timing run uses the actual worker/chunk renderer at normal speed,
+ // without screenshot encoding. Endpoints must match the independent Node run.
+ for(const c of capturesOnly?[]:rows){await show(c.id+'-before');const original=await page.evaluate(()=>window.glaciate.evidence.signature);await page.evaluate(c=>window.glaciate.start({verb:'glaciate',settings:c.settings,intent:c.intent}),c);await ready();
+  const e=await page.evaluate(()=>{const a=window.glaciate.evidence;return {signature:a.signature,refusal:a.refusal,terrainFinalMs:a.terrainFinalMs,terrainExact:a.terrainExact,retreatEndMs:a.retreatEndMs,planningMs:a.planningMs,duration:a.duration,frames:a.frames,advance:a.advanceFrames,retreat:a.retreatFrames,longTasks:a.longTasks,water:a.result?{settled:a.result.settled,ticks:a.result.ticks}:null,fallMeshes:window.glaciate.view.fallCount};});
+  assert.notEqual(e.signature,original,c.id+' gesture changes land');assert.equal(e.signature,c.signature,c.id+' browser/Node endpoint');assert.ok(e.terrainExact,c.id+' terrain exact');assert.ok(e.terrainFinalMs<5000&&e.terrainFinalMs<e.retreatEndMs,c.id+' terrain by end of advance');timings.push({id:c.id,...e,frames:stats(e.frames),advance:stats(e.advance),retreat:stats(e.retreat)});
+  console.log('Browser',c.id,e.terrainFinalMs??'refused');
  }
- await ready();const final=await page.screenshot();const im=await loadImage(final),cc=createCanvas(840,574),ct=cc.getContext('2d');ct.drawImage(im,0,0,840,574);const rgba=ct.getImageData(0,0,840,574).data,pal=quantize(rgba,128);encoder.writeFrame(applyPalette(rgba,pal),840,574,{palette:pal,delay:1400});encoder.finish();writeFileSync('captures/two-acts.gif',encoder.bytes());
- writeFileSync('captures/default.png',final);await panels('two-acts',contact);
- const player=await page.evaluate(()=>({result:window.glaciate.evidence.result,errors:window.glaciate.evidence.errors,terrainFinalMs:window.glaciate.evidence.terrainFinalMs,retreatEndMs:window.glaciate.evidence.retreatEndMs,terrainExact:window.glaciate.evidence.terrainExact}));assert.equal(player.result.op.params.request.intent.origin,16*128+64);assert.equal(player.result.op.params.request.settings.seed,891);
- assert.ok(player.terrainExact&&player.terrainFinalMs<5000&&player.terrainFinalMs<player.retreatEndMs,'128-square terrain final before retreat ends');
- await page.click('#undo');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial);
- // Browser cancellation during each act; exact signatures include objects, contamination and geology.
- for(const time of [1200,3500]){
-  await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:16*128+64}}),DEFAULTS);await page.waitForTimeout(time);await page.keyboard.press('Escape');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial);
- }
- // Comparative pictures show the same renderer, camera, map and final simulated water.
- await show('before');const untouched=await image();await show('default');const glacier=await image();await show('carve');const carve=await image();
- await panels('default-before-after',[{title:'Before · River Valley 18',subtitle:'128² · untouched editor generation',bytes:untouched},{title:'Round 2 · default Glaciate',subtitle:'Flow at 64,16 · Power 60 · Size Auto · Meltwater on',bytes:glacier}]);
- await panels('carve-comparison',[{title:'Glaciate · Power 60 / Size Auto',subtitle:'Broad dry floor, narrow stream and retained sediment',bytes:glacier},{title:'Carve · Power 100 / Width 24 / Depth 12',subtitle:'Pinned Round 2 · Steep walls / Wander 5',bytes:carve}]);
- await show('kyler-round1');const oldKyler=await image();await show('kyler');const newKyler=await image();
- await panels('kyler-review',[{title:'Before · untouched River Valley 18',subtitle:'Reconstructed head 64,16 · Power 47',bytes:untouched},{title:'Round 1 · reproduced failure',subtitle:'Lake with retained ruin columns',bytes:oldKyler},{title:'Round 2 · same head and Power',subtitle:'Dry floor; swept ruins removed',bytes:newKyler}],3);
- const gallery=[{title:'Glaciate · River Valley 18',subtitle:'Generated 128², default glacier',bytes:glacier}];
- for(const [id,title]of [['near-lauterbrunnen','Lauterbrunnen'],['near-aoraki-hooker-valley','Hooker Valley'],['near-glencoe','Glencoe']]){await page.evaluate(id=>window.glaciate.load(id),id);await ready();await page.waitForTimeout(300);gallery.push({title,subtitle:'Bundled real-place terrain, unchanged; normalized camera framing',bytes:await image()});}
- await panels('gallery-comparison',gallery);
- const scenarios:any[]=[];
- for(const [id,title]of [['aim','Aim through the range'],['lobe','Flat ground · a lobe'],['low-ground','No room to deepen'],['tall','Tall generator study · VT85']]){await show(id);scenarios.push({title,subtitle:id==='low-ground'?'Near the map floor: widening and moraines':'Actual saved terrain and water',bytes:await image()});}await panels('edge-cases',scenarios);
- const powers:any[]=[];for(const [id,title]of [['power-low','Power 15'],['power-default','Power 60'],['power-high','Power 95']]){await show(id);powers.push({title,subtitle:'Same gesture · Size follows Power (Auto)',bytes:await image()});}await panels('power',powers,3);
- const alternatives:any[]=[];for(const [id,title]of [['default','Original'],['another-1','Try another · 1'],['another-2','Try another · 2'],['another-3','Try another · 3']]){await show(id);alternatives.push({title,subtitle:'Same original terrain and gesture; only the saved seed changes',bytes:await image()});}await panels('alternatives',alternatives);
- // Performance is a separate run with no screenshots or screenshot compression during either act.
- await page.evaluate(()=>window.glaciate.load('highlands-256'));await ready();await page.waitForTimeout(500);
- await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:112*256+80}}),DEFAULTS);await page.waitForFunction(()=>!window.glaciate.evidence.ready);await ready();
- const timing=await page.evaluate(()=>{const e=window.glaciate.evidence;return {frames:e.frames,advance:e.advanceFrames,retreat:e.retreatFrames,longTasks:e.longTasks,duration:e.duration,firstTerrainMs:e.firstTerrainMs,planningMs:e.planningMs,terrainFinalMs:e.terrainFinalMs,retreatEndMs:e.retreatEndMs,terrainExact:e.terrainExact,errors:e.errors,result:{settled:e.result.settled,ticks:e.result.ticks}};});
- assert.ok(timing.terrainExact&&timing.terrainFinalMs<5000&&timing.terrainFinalMs<timing.retreatEndMs,'256-square terrain final before retreat ends');
- const stats=(v:number[])=>{const a=v.slice().sort((a,b)=>a-b);return {count:a.length,median:a[Math.floor(a.length*.5)],p95:a[Math.floor(a.length*.95)],worst:a.at(-1)};};
- // Cancel after the last terrain stage while the real large-map water solve is pending.
- await page.evaluate(()=>window.glaciate.load('highlands-256'));await ready();
- const beforeLateCancel=await page.evaluate(()=>({signature:window.glaciate.evidence.signature,finished:window.glaciate.evidence.finished}));
- await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:112*256+80}}),DEFAULTS);
- await page.waitForFunction(()=>window.glaciate.evidence.stage>=5&&!window.glaciate.evidence.ready,null,{timeout:30000});
- await page.keyboard.press('Escape');await ready();await page.waitForTimeout(350);
- assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),beforeLateCancel.signature);
- assert.equal(await page.evaluate(()=>window.glaciate.evidence.finished),beforeLateCancel.finished,'cancelled run cannot publish a late completion');
- assert.equal(errors.length,0);assert.equal(timing.errors.length,0);
- const report={browser:await browser.version(),viewport:[1200,820],renderer:await page.evaluate(()=>{const gl=window.glaciate.view.gl.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);}),normalSpeed:true,captureDuringPerformance:false,all:stats(timing.frames),advance:stats(timing.advance),retreat:stats(timing.retreat),longTasks:timing.longTasks,planningMs:timing.planningMs,firstTerrainMs:timing.firstTerrainMs,totalMs:timing.duration,water:timing.result,checks:['real default-settings pointer gesture','undo exact','Esc during advance exact','Esc during retreat exact','gallery loads','no browser exceptions'],errors};
- report.checks.push('Esc during final settling exact; no late completion');
- Object.assign(report,{terrain128:{exact:player.terrainExact,finalMs:player.terrainFinalMs,retreatEndMs:player.retreatEndMs},terrain256:{exact:timing.terrainExact,finalMs:timing.terrainFinalMs,retreatEndMs:timing.retreatEndMs}});report.checks.push('128 and 256 terrain exact before retreat ends');
- writeFileSync('checks/browser.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
- const audio=await page.evaluate(async()=>{
-  const module='/audio.ts',Sound=(await import(module)).Sound,s=new Sound(),ctx=new OfflineAudioContext(1,48000*6,48000);s.ctx=ctx;
-  const compressor=ctx.createDynamicsCompressor();compressor.threshold.value=-12;compressor.ratio.value=8;s.gain=ctx.createGain();s.gain.gain.value=.72;s.gain.connect(compressor);compressor.connect(ctx.destination);
-  for(const id of ['crack-a','crack-b','stone-bed','wood-body','waterfall'])s.buffers.set(id,await ctx.decodeAudioData(await(await fetch('/audio/'+id+'.mp3')).arrayBuffer()));
-  s.begin();const data=(await ctx.startRendering()).getChannelData(0);let peak=0,maxRms=0;
-  for(let i=0;i<data.length;i+=4800){let sum=0;for(let j=i;j<Math.min(i+4800,data.length);j++){peak=Math.max(peak,Math.abs(data[j]));sum+=data[j]*data[j];}maxRms=Math.max(maxRms,Math.sqrt(sum/4800));}
-  return {method:'OfflineAudioContext, actual Sound.begin recipe, mono 48kHz, strongest nonoverlapping 100ms window',peak,peakDbFS:20*Math.log10(peak),strongest100msDbFS:20*Math.log10(maxRms),master:.72,voicesStopOnCancel:true};
- });writeFileSync('checks/audio.json',JSON.stringify(audio,null,2)+'\n');console.log('Audio',JSON.stringify(audio));
+ writeFileSync('checks/browser-timings.json',JSON.stringify(timings,null,2)+'\n');
+ const heroImages=new Map<string,{before:Buffer;after:Buffer;valley:Buffer}>();
+ for(const c of rows.filter(c=>c.group==='hero')){await show(c.id+'-before');const before=await image();await show(c.id);const after=await image();await valley(c.id);const low=await image();heroImages.set(c.id,{before,after,valley:low});for(const [suffix,bytes]of [['before',before],['after',after],['valley',low]] as [string,Buffer][])writeFileSync(`captures/${c.id}-${suffix}.png`,bytes);await panels(c.id,[{title:c.map+' · before',subtitle:`Original mountains · head ${c.x},${c.y}`,bytes:before},{title:'After · default Glaciate',subtitle:'Flow / Power 60 / Auto 30 / Meltwater on',bytes:after}]);}
+ // Gallery is the repository's unchanged real-place terrain, same projection,
+ // lighting and unscaled elevation. The manually chosen camera looks up its valley.
+ await page.evaluate(()=>window.glaciate.load('near-lauterbrunnen'));await ready();
+ await page.evaluate(()=>{const v=window.glaciate.view;v.controls.enableDamping=false;v.controls.maxPolarAngle=Math.PI*.65;v.camera.fov=60;v.camera.position.set(126,6,-126);v.controls.target.set(123,6,-45);v.camera.updateProjectionMatrix();v.controls.update();});await page.waitForTimeout(150);const reference=await image();writeFileSync('captures/lauterbrunnen.png',reference);
+ const hi=heroImages.get('hero-canyon')!;await panels('default-before-after',[{title:'Canyon 10 · before',subtitle:'Untouched editor generation · 128²',bytes:hi.before},{title:'Glaciate · default',subtitle:'Flow at 22,22 · Power 60 · Size Auto',bytes:hi.after}]);await panels('valley-reference',[{title:'Glaciate · floor looking uphill',subtitle:'Canyon 10 · actual terrain and flowing water',bytes:hi.valley},{title:'Lauterbrunnen · gallery reference',subtitle:'Unchanged heightfield · same unscaled rendering',bytes:reference}]);
+ for(const c of rows.filter(c=>c.group==='random'||c.group==='modest')){await show(c.id);const after=await image();await valley(c.id);await panels(c.id,[{title:`${c.id} · ${c.map}`,subtitle:`Click ${c.x},${c.y}${c.relief?' · original local relief '+c.relief:''} · after`,bytes:after},{title:'Valley view',subtitle:`River width ${c.metrics.riverWidthMin}–${c.metrics.riverWidthMax} · wet reaches ${c.metrics.channels}`,bytes:await image()}]);}
+ for(const id of ['flat','spring','spring-dry']){const c=rows.find(c=>c.id===id);await show(id+'-before');const before=await image();await show(id);const after=await image();await valley(id);const low=await image();writeFileSync('captures/'+id+'-valley.png',low);await panels(id,[{title:id==='flat'?'River Valley · flat ground':'Highlands · original spring',subtitle:`Before · head ${c.x},${c.y}`,bytes:before},{title:c.settings.meltwater?'After · river through the valley':'After · Meltwater off',subtitle:`Absorbed clean strength ${c.metrics.cleanAbsorbed.toFixed(2)} · downstream wet ${c.downstream.after}`,bytes:after},{title:'Valley view',subtitle:`River ${c.metrics.riverWidthMin}–${c.metrics.riverWidthMax} tiles · ${c.metrics.channels} wet reaches`,bytes:low}],3);}
+ for(const [name,ids]of [['power',['power-low','hero-canyon','power-high']],['alternatives',['another-1','another-2','another-3']]] as [string,string[]][]){const items:Panel[]=[];for(const id of ids){const c=rows.find(c=>c.id===id);await show(id);if(!c.refused)await valley(id);items.push({title:name==='power'?`Power ${c.settings.power}`:id,subtitle:`Auto ${Math.round(8+.36*c.settings.power)} · seed ${c.settings.seed}${c.refused?' · refused':''}`,bytes:await image()});}await panels(name,items,3);}
+ await show('aim');const aimAfter=await image();await valley('aim');await panels('aim',[{title:'Aim · through the ridge',subtitle:'22,22 to 98,96 · Power 60 / Auto',bytes:aimAfter},{title:'Aim · valley view',subtitle:'Same result with actual waterfalls',bytes:await image()}]);
+ const start=rows.find(c=>c.id==='through-start').start;await panels('through-start',[{title:'Before · original start',subtitle:`Start at ${start.before.join(', ')}`,bytes:hi.before},{title:'After · carried outside the trough',subtitle:`Start at ${start.after.join(', ')} · terrain ignores the start`,bytes:hi.after}]);
+ // A real pointer Flow gesture using the untouched default controls.
+ await page.reload();await ready();await page.click('#top');await page.waitForTimeout(150);const initial=await page.evaluate(()=>({signature:window.glaciate.evidence.signature,falls:window.glaciate.view.fallCount}));const xy=await page.evaluate(()=>window.glaciate.project(22,22));await page.mouse.move(xy.x,xy.y);await page.waitForTimeout(150);assert.equal(await page.locator('#aim-arrow').isVisible(),false);await page.mouse.click(xy.x,xy.y);await page.waitForFunction(()=>!!window.glaciate.evidence.plan);await page.evaluate(()=>window.glaciate.valley(window.glaciate.evidence.plan.path,true));await page.waitForTimeout(150);
+ const encoder=GIFEncoder(),contact:Panel[]=[],gifStages:any[]=[];let previous=-1;
+ for(let k=0;k<40;k++){const stage=await page.evaluate(()=>({t:window.glaciate.evidence.stage,falls:window.glaciate.view.fallCount,ready:window.glaciate.evidence.ready})),bytes=await image(),im=await loadImage(bytes),c=createCanvas(800,510),ctx=c.getContext('2d');ctx.drawImage(im,0,0,800,510);ctx.fillStyle='rgba(20,40,46,.8)';ctx.fillRect(0,0,800,37);ctx.fillStyle='#f1fbf8';ctx.font='18px sans-serif';ctx.fillText(stage.t<3?'Advance · ice grinds downhill':stage.t<5?'Retreat · waterfalls emerge':'Revealed · water settling',18,25);const rgba=ctx.getImageData(0,0,800,510).data,palette=quantize(rgba,96);encoder.writeFrame(applyPalette(rgba,palette),800,510,{palette,delay:250});gifStages.push(stage);const key=stage.t<1?0:stage.t<3?1:stage.t<4?2:stage.t<5?3:4;if(key!==previous){contact.push({title:key<2?'Advance':key<4?'Retreat':'Revealed',subtitle:`Actual stage ${stage.t.toFixed(2)} s · ${stage.falls} rendered fall instances`,bytes});previous=key;}await page.waitForTimeout(200);if(stage.ready&&k>22)break;}
+ await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.result.op.params.request.intent.origin),22*128+22);assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),rows[0].signature);encoder.finish();writeFileSync('captures/two-acts.gif',encoder.bytes());await panels('two-acts',contact);await page.click('#undo');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial.signature);assert.equal(await page.evaluate(()=>window.glaciate.view.fallCount),initial.falls);
+ // Esc in advance and retreat restores all fields and real waterfall chunks.
+ for(const ms of [1100,3500]){await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:22*128+22}}),DEFAULTS);await page.waitForTimeout(ms);await page.keyboard.press('Escape');await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),initial.signature);assert.equal(await page.evaluate(()=>window.glaciate.view.fallCount),initial.falls);}
+ await page.evaluate(()=>window.glaciate.load('highlands-256'));await ready();const late=await page.evaluate(()=>({signature:window.glaciate.evidence.signature,finished:window.glaciate.evidence.finished}));await page.evaluate(s=>window.glaciate.start({verb:'glaciate',settings:s,intent:{origin:20*256+150}}),DEFAULTS);await page.waitForFunction(()=>window.glaciate.evidence.stage>=5&&!window.glaciate.evidence.ready);await page.keyboard.press('Escape');await ready();await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),late.signature);assert.equal(await page.evaluate(()=>window.glaciate.evidence.finished),late.finished);
+ // Real Aim drag. Only one straight SVG line; no land preview is requested.
+ await page.reload();await ready();await page.click('#top');await page.waitForTimeout(150);const points=await page.evaluate(()=>[window.glaciate.project(22,22),window.glaciate.project(98,96)]);await page.mouse.move(points[0].x,points[0].y);await page.mouse.down();await page.mouse.move(points[1].x,points[1].y,{steps:12});assert.equal(await page.locator('#aim-arrow line').count(),1);assert.equal(await page.locator('#aim-arrow').isVisible(),true);writeFileSync('captures/aim-drag.png',await page.screenshot());await page.mouse.up();assert.equal(await page.locator('#aim-arrow').isVisible(),false);await ready();assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),rows.find(c=>c.id==='aim').signature);
+ await page.reload();await ready();await page.evaluate(()=>window.glaciate.load('river-128'));await ready();await page.click('#top');await page.waitForTimeout(150);const flat=await page.evaluate(()=>window.glaciate.project(32,32)),flatBefore=await page.evaluate(()=>window.glaciate.evidence.signature);await page.mouse.click(flat.x,flat.y);await ready();assert.notEqual(await page.evaluate(()=>window.glaciate.evidence.signature),flatBefore);assert.equal(await page.evaluate(()=>window.glaciate.evidence.signature),rows.find(c=>c.id==='flat').signature);assert.equal(await page.locator('#pointer').isVisible(),false);assert.equal(await page.locator('#mode').count(),0);writeFileSync('captures/flat-player.png',await page.screenshot());
+ assert.deepEqual(errors,[]);const sizes=readdirSync('captures').map(f=>statSync('captures/'+f).size);assert.ok(Math.max(...sizes)<4*1048576&&sizes.reduce((a,b)=>a+b,0)<25*1048576);
+ const report={round:3,browser:await browser.version(),renderer:await page.evaluate(()=>{const gl=window.glaciate.view.gl.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);}),viewport:[1200,820],normalSpeed:true,captureDuringPerformance:false,timings,gifStages,checks:['all endpoints match Node literal signatures','terrain exact before retreat ends for every accepted case','real default pointer gesture','undo exact including waterfall chunks','Esc advance and retreat exact','Esc final settling exact; no late completion','Aim arrow visible only during drag','River Valley click carves real terrain; no Mode control','no browser exceptions'],errors,captureBytes:sizes.reduce((a,b)=>a+b,0),largestCapture:Math.max(...sizes)};
+ writeFileSync('checks/browser.json',JSON.stringify(report,null,2)+'\n');console.log('PASS browser',report.checks,report.captureBytes);
 }finally{await browser.close();await server.close();}
-declare global {interface Window {glaciate:any}}
+declare global{interface Window{glaciate:any}}

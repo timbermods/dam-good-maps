@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run.mjs tests/core.ts && node scripts/run.mjs tests/schema.ts && node scripts/run.mjs tests/export.ts",
     "maps": "node scripts/run.mjs scripts/maps.ts",
-    "captures": "node scripts/round1-reference.mjs && node scripts/run.mjs scripts/reproduce.ts && npm run comparison && node scripts/run.mjs tests/browser.ts",
-    "comparison": "node scripts/carve-reference.mjs && node scripts/run.mjs tests/comparison.ts"
+    "captures": "node scripts/run.mjs tests/browser.ts",
+    "report": "node scripts/audit.mjs && node scripts/report.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

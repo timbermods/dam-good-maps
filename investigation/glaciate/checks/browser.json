@@ -1,57 +1,931 @@
 {
+  "round": 3,
   "browser": "153.0.8010.48",
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
   "viewport": [
     1200,
     820
   ],
-  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
   "normalSpeed": true,
   "captureDuringPerformance": false,
-  "all": {
-    "count": 1177,
-    "median": 6.099999999998545,
-    "p95": 6.200000000000728,
-    "worst": 18.200000000000728
-  },
-  "advance": {
-    "count": 528,
-    "median": 6.099999999998545,
-    "p95": 6.200000000000728,
-    "worst": 6.900000000001455
-  },
-  "retreat": {
-    "count": 320,
-    "median": 6.099999999998545,
-    "p95": 6.200000000000728,
-    "worst": 18.200000000000728
-  },
-  "longTasks": [],
-  "planningMs": 191.70000004768372,
-  "firstTerrainMs": 296.2999999523163,
-  "totalMs": 7169.400000035763,
-  "water": {
-    "settled": true,
-    "ticks": 2304
-  },
+  "timings": [
+    {
+      "id": "hero-canyon",
+      "signature": "3850691f2bfe77e6",
+      "refusal": null,
+      "terrainFinalMs": 2989.899999976158,
+      "terrainExact": true,
+      "retreatEndMs": 4945.799999952316,
+      "planningMs": 71.80000001192093,
+      "duration": 5474.200000047684,
+      "frames": {
+        "count": 901,
+        "median": 6.099999999999454,
+        "p95": 6.199999999999818,
+        "worst": 8.599999999999909
+      },
+      "advance": {
+        "count": 492,
+        "median": 6.099999999999909,
+        "p95": 6.199999999999818,
+        "worst": 8.599999999999909
+      },
+      "retreat": {
+        "count": 322,
+        "median": 6.099999999999454,
+        "p95": 6.199999999999818,
+        "worst": 6.700000000000728
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 233
+    },
+    {
+      "id": "hero-highlands",
+      "signature": "78653ad92ed671e9",
+      "refusal": null,
+      "terrainFinalMs": 3156.600000023842,
+      "terrainExact": true,
+      "retreatEndMs": 5129.200000047684,
+      "planningMs": 154.30000001192093,
+      "duration": 8826.5,
+      "frames": {
+        "count": 1453,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 13.399999999999636
+      },
+      "advance": {
+        "count": 520,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 9.099999999998545
+      },
+      "retreat": {
+        "count": 325,
+        "median": 6.099999999998545,
+        "p95": 6.199999999998909,
+        "worst": 6.300000000001091
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 2944
+      },
+      "fallMeshes": 158
+    },
+    {
+      "id": "hero-tall",
+      "signature": "75f838cbb4f0b63e",
+      "refusal": null,
+      "terrainFinalMs": 2931.599999964237,
+      "terrainExact": true,
+      "retreatEndMs": 4910.5,
+      "planningMs": 64.59999996423721,
+      "duration": 5413.799999952316,
+      "frames": {
+        "count": 892,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 8.700000000000728
+      },
+      "advance": {
+        "count": 483,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 6.400000000001455
+      },
+      "retreat": {
+        "count": 326,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 8.700000000000728
+      },
+      "longTasks": [],
+      "water": {
+        "settled": false,
+        "ticks": 3072
+      },
+      "fallMeshes": 21
+    },
+    {
+      "id": "random-1",
+      "signature": "9ae0d4de04a2806b",
+      "refusal": null,
+      "terrainFinalMs": 2940.899999976158,
+      "terrainExact": true,
+      "retreatEndMs": 4930,
+      "planningMs": 39,
+      "duration": 5249.800000011921,
+      "frames": {
+        "count": 865,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 7.700000000000728
+      },
+      "advance": {
+        "count": 484,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 6.799999999999272
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 7.700000000000728
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 36
+    },
+    {
+      "id": "random-2",
+      "signature": "7a2a93449c41d95c",
+      "refusal": null,
+      "terrainFinalMs": 3062.2999999523163,
+      "terrainExact": true,
+      "retreatEndMs": 5037.399999976158,
+      "planningMs": 85.19999998807907,
+      "duration": 6802,
+      "frames": {
+        "count": 1119,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 9.200000000000728
+      },
+      "advance": {
+        "count": 504,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 9.200000000000728
+      },
+      "retreat": {
+        "count": 326,
+        "median": 6.099999999998545,
+        "p95": 6.200000000000728,
+        "worst": 7.200000000004366
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 2560
+      },
+      "fallMeshes": 81
+    },
+    {
+      "id": "random-3",
+      "signature": "c87436dee8a408c6",
+      "refusal": null,
+      "terrainFinalMs": 2929.699999988079,
+      "terrainExact": true,
+      "retreatEndMs": 4917.599999964237,
+      "planningMs": 41.40000003576279,
+      "duration": 5339.800000011921,
+      "frames": {
+        "count": 879,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 7.799999999995634
+      },
+      "advance": {
+        "count": 482,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 7.799999999995634
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 7
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 512
+      },
+      "fallMeshes": 164
+    },
+    {
+      "id": "random-4",
+      "signature": "5bad802ab7f8200f",
+      "refusal": null,
+      "terrainFinalMs": 2906,
+      "terrainExact": true,
+      "retreatEndMs": 4889.200000047684,
+      "planningMs": 42.89999997615814,
+      "duration": 5149.599999964237,
+      "frames": {
+        "count": 849,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 11.80000000000291
+      },
+      "advance": {
+        "count": 478,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 11.80000000000291
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 8.700000000004366
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 768
+      },
+      "fallMeshes": 16
+    },
+    {
+      "id": "random-5",
+      "signature": "c8c34b83c7fd2c11",
+      "refusal": null,
+      "terrainFinalMs": 2944.100000023842,
+      "terrainExact": true,
+      "retreatEndMs": 4928.800000011921,
+      "planningMs": 38.80000001192093,
+      "duration": 5326.5,
+      "frames": {
+        "count": 877,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 8.5
+      },
+      "advance": {
+        "count": 484,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 8.5
+      },
+      "retreat": {
+        "count": 327,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 6.299999999995634
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 768
+      },
+      "fallMeshes": 65
+    },
+    {
+      "id": "random-6",
+      "signature": "a98471d9983a5a05",
+      "refusal": null,
+      "terrainFinalMs": 3075.100000023842,
+      "terrainExact": true,
+      "retreatEndMs": 5043.200000047684,
+      "planningMs": 72.5,
+      "duration": 6744.099999964237,
+      "frames": {
+        "count": 1110,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 9
+      },
+      "advance": {
+        "count": 506,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 9
+      },
+      "retreat": {
+        "count": 325,
+        "median": 6.099999999998545,
+        "p95": 6.200000000004366,
+        "worst": 6.5
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 1280
+      },
+      "fallMeshes": 304
+    },
+    {
+      "id": "modest-1",
+      "signature": "f0307248ff412230",
+      "refusal": null,
+      "terrainFinalMs": 2923.699999988079,
+      "terrainExact": true,
+      "retreatEndMs": 4924.399999976158,
+      "planningMs": 37.5,
+      "duration": 5336.400000035763,
+      "frames": {
+        "count": 879,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 7.600000000005821
+      },
+      "advance": {
+        "count": 481,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 7.600000000005821
+      },
+      "retreat": {
+        "count": 330,
+        "median": 6.099999999998545,
+        "p95": 6.19999999999709,
+        "worst": 6.600000000005821
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 64
+    },
+    {
+      "id": "modest-2",
+      "signature": "b2e431ad89baa13f",
+      "refusal": null,
+      "terrainFinalMs": 2952.199999988079,
+      "terrainExact": true,
+      "retreatEndMs": 4935.800000011921,
+      "planningMs": 65.19999998807907,
+      "duration": 5290.400000035763,
+      "frames": {
+        "count": 871,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7.7000000000116415
+      },
+      "advance": {
+        "count": 485,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7.600000000005821
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7.7000000000116415
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 512
+      },
+      "fallMeshes": 155
+    },
+    {
+      "id": "modest-3",
+      "signature": "6d356fd0302b6f2c",
+      "refusal": null,
+      "terrainFinalMs": 2866.100000023842,
+      "terrainExact": true,
+      "retreatEndMs": 4864.400000035763,
+      "planningMs": 18.600000023841858,
+      "duration": 5063.400000035763,
+      "frames": {
+        "count": 834,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.200000000011642
+      },
+      "advance": {
+        "count": 472,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.200000000011642
+      },
+      "retreat": {
+        "count": 329,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7.7000000000116415
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 256
+      },
+      "fallMeshes": 0
+    },
+    {
+      "id": "power-low",
+      "signature": "9bbefb31976e295f",
+      "refusal": null,
+      "terrainFinalMs": 2926.300000011921,
+      "terrainExact": true,
+      "retreatEndMs": 4924,
+      "planningMs": 42.09999996423721,
+      "duration": 5471.999999940395,
+      "frames": {
+        "count": 900,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.30000000000291
+      },
+      "advance": {
+        "count": 480,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.30000000000291
+      },
+      "retreat": {
+        "count": 330,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.30000000000291
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 896
+      },
+      "fallMeshes": 191
+    },
+    {
+      "id": "power-high",
+      "signature": "118fccd0bf225127",
+      "refusal": null,
+      "terrainFinalMs": 2994.899999976158,
+      "terrainExact": true,
+      "retreatEndMs": 4986.799999952316,
+      "planningMs": 119.69999998807907,
+      "duration": 5474.199999988079,
+      "frames": {
+        "count": 901,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.599999999991269
+      },
+      "advance": {
+        "count": 493,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.599999999991269
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.5
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 768
+      },
+      "fallMeshes": 148
+    },
+    {
+      "id": "another-1",
+      "signature": "796de3dd62c05ae2",
+      "refusal": null,
+      "terrainFinalMs": 2974.300000011921,
+      "terrainExact": true,
+      "retreatEndMs": 4947,
+      "planningMs": 73.69999998807907,
+      "duration": 5367.699999988079,
+      "frames": {
+        "count": 884,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.10000000000582
+      },
+      "advance": {
+        "count": 489,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.10000000000582
+      },
+      "retreat": {
+        "count": 326,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.599999999991269
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 154
+    },
+    {
+      "id": "another-2",
+      "signature": "429e69a9f2e0b378",
+      "refusal": null,
+      "terrainFinalMs": 2966.800000011921,
+      "terrainExact": true,
+      "retreatEndMs": 4959,
+      "planningMs": 76.5,
+      "duration": 5315.699999988079,
+      "frames": {
+        "count": 875,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.899999999994179
+      },
+      "advance": {
+        "count": 488,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.5
+      },
+      "retreat": {
+        "count": 329,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.899999999994179
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 97
+    },
+    {
+      "id": "another-3",
+      "signature": "0b6accb40d485b7a",
+      "refusal": null,
+      "terrainFinalMs": 2981,
+      "terrainExact": true,
+      "retreatEndMs": 4951.700000047684,
+      "planningMs": 75.19999998807907,
+      "duration": 5432.899999976158,
+      "frames": {
+        "count": 894,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.80000000000291
+      },
+      "advance": {
+        "count": 490,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.399999999994179
+      },
+      "retreat": {
+        "count": 326,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.80000000000291
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 896
+      },
+      "fallMeshes": 163
+    },
+    {
+      "id": "aim",
+      "signature": "870f92bd97ac89f8",
+      "refusal": null,
+      "terrainFinalMs": 2975.7999999523163,
+      "terrainExact": true,
+      "retreatEndMs": 4949.399999976158,
+      "planningMs": 74.39999997615814,
+      "duration": 5387.800000011921,
+      "frames": {
+        "count": 887,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.60000000000582
+      },
+      "advance": {
+        "count": 490,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.400000000008731
+      },
+      "retreat": {
+        "count": 324,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8.30000000000291
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 512
+      },
+      "fallMeshes": 271
+    },
+    {
+      "id": "through-start",
+      "signature": "3850691f2bfe77e6",
+      "refusal": null,
+      "terrainFinalMs": 2946.800000011921,
+      "terrainExact": true,
+      "retreatEndMs": 4930.100000023842,
+      "planningMs": 56.5,
+      "duration": 5408.699999988079,
+      "frames": {
+        "count": 890,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8
+      },
+      "advance": {
+        "count": 485,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 8
+      },
+      "retreat": {
+        "count": 327,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7.80000000000291
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 640
+      },
+      "fallMeshes": 233
+    },
+    {
+      "id": "performance-256",
+      "signature": "78653ad92ed671e9",
+      "refusal": null,
+      "terrainFinalMs": 3119.5,
+      "terrainExact": true,
+      "retreatEndMs": 5096.600000023842,
+      "planningMs": 132.69999998807907,
+      "duration": 8491.899999976158,
+      "frames": {
+        "count": 1398,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.900000000008731
+      },
+      "advance": {
+        "count": 514,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 9.900000000008731
+      },
+      "retreat": {
+        "count": 326,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.30000000000291
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 2944
+      },
+      "fallMeshes": 158
+    },
+    {
+      "id": "flat",
+      "signature": "e478b2134d8633c0",
+      "refusal": null,
+      "terrainFinalMs": 2929.5,
+      "terrainExact": true,
+      "retreatEndMs": 4921,
+      "planningMs": 35.40000003576279,
+      "duration": 5184.100000023842,
+      "frames": {
+        "count": 853,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 7
+      },
+      "advance": {
+        "count": 482,
+        "median": 6.099999999991269,
+        "p95": 6.19999999999709,
+        "worst": 6.30000000000291
+      },
+      "retreat": {
+        "count": 328,
+        "median": 6.099999999976717,
+        "p95": 6.199999999982538,
+        "worst": 7
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 384
+      },
+      "fallMeshes": 14
+    },
+    {
+      "id": "spring",
+      "signature": "64d1df742c534bef",
+      "refusal": null,
+      "terrainFinalMs": 3076.099999964237,
+      "terrainExact": true,
+      "retreatEndMs": 5046.300000011921,
+      "planningMs": 77.89999997615814,
+      "duration": 7860.799999952316,
+      "frames": {
+        "count": 1294,
+        "median": 6.099999999976717,
+        "p95": 6.2000000000116415,
+        "worst": 7.2000000000116415
+      },
+      "advance": {
+        "count": 506,
+        "median": 6.099999999976717,
+        "p95": 6.199999999982538,
+        "worst": 7
+      },
+      "retreat": {
+        "count": 325,
+        "median": 6.099999999976717,
+        "p95": 6.2000000000116415,
+        "worst": 7.2000000000116415
+      },
+      "longTasks": [],
+      "water": {
+        "settled": false,
+        "ticks": 3072
+      },
+      "fallMeshes": 96
+    },
+    {
+      "id": "spring-dry",
+      "signature": "d41bcb0beeded009",
+      "refusal": null,
+      "terrainFinalMs": 3076.399999976158,
+      "terrainExact": true,
+      "retreatEndMs": 5034.699999988079,
+      "planningMs": 84,
+      "duration": 7507.800000011921,
+      "frames": {
+        "count": 1236,
+        "median": 6.099999999976717,
+        "p95": 6.2000000000116415,
+        "worst": 8.800000000017462
+      },
+      "advance": {
+        "count": 506,
+        "median": 6.099999999976717,
+        "p95": 6.2000000000116415,
+        "worst": 8.800000000017462
+      },
+      "retreat": {
+        "count": 323,
+        "median": 6.100000000005821,
+        "p95": 6.199999999982538,
+        "worst": 6.5
+      },
+      "longTasks": [],
+      "water": {
+        "settled": true,
+        "ticks": 2560
+      },
+      "fallMeshes": 78
+    }
+  ],
+  "gifStages": [
+    {
+      "t": 0.16666666666666666,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 0.5,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 0.8333333333333334,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 1,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 1.3333333333333333,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 1.5,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 1.8333333333333333,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 2,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 2.3333333333333335,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 2.5,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 2.8333333333333335,
+      "falls": 23,
+      "ready": false
+    },
+    {
+      "t": 3,
+      "falls": 71,
+      "ready": false
+    },
+    {
+      "t": 3.3333333333333335,
+      "falls": 151,
+      "ready": false
+    },
+    {
+      "t": 3.6666666666666665,
+      "falls": 249,
+      "ready": false
+    },
+    {
+      "t": 3.8333333333333335,
+      "falls": 276,
+      "ready": false
+    },
+    {
+      "t": 4.166666666666667,
+      "falls": 346,
+      "ready": false
+    },
+    {
+      "t": 4.333333333333333,
+      "falls": 376,
+      "ready": false
+    },
+    {
+      "t": 4.666666666666667,
+      "falls": 441,
+      "ready": false
+    },
+    {
+      "t": 5,
+      "falls": 462,
+      "ready": false
+    },
+    {
+      "t": 5,
+      "falls": 462,
+      "ready": false
+    },
+    {
+      "t": 5,
+      "falls": 233,
+      "ready": true
+    },
+    {
+      "t": 5,
+      "falls": 233,
+      "ready": true
+    },
+    {
+      "t": 5,
+      "falls": 233,
+      "ready": true
+    },
+    {
+      "t": 5,
+      "falls": 233,
+      "ready": true
+    }
+  ],
   "checks": [
-    "real default-settings pointer gesture",
-    "undo exact",
-    "Esc during advance exact",
-    "Esc during retreat exact",
-    "gallery loads",
-    "no browser exceptions",
-    "Esc during final settling exact; no late completion",
-    "128 and 256 terrain exact before retreat ends"
+    "all endpoints match Node literal signatures",
+    "terrain exact before retreat ends for every accepted case",
+    "real default pointer gesture",
+    "undo exact including waterfall chunks",
+    "Esc advance and retreat exact",
+    "Esc final settling exact; no late completion",
+    "Aim arrow visible only during drag",
+    "River Valley click carves real terrain; no Mode control",
+    "no browser exceptions"
   ],
   "errors": [],
-  "terrain128": {
-    "exact": true,
-    "finalMs": 3056.900000035763,
-    "retreatEndMs": 5024
-  },
-  "terrain256": {
-    "exact": true,
-    "finalMs": 3212.699999988079,
-    "retreatEndMs": 5164.599999964237
-  }
+  "captureBytes": 23462814,
+  "largestCapture": 1873620
 }

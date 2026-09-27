@@ -1,5 +1,4 @@
 import { snapshot,storedMap,json,type ForceMap } from '../forces-core/core/map';
-import { startProblem } from '../forces-core/core/objects';
 import { makePlan,reveal,Valley,nextSeed,waterRun,type Plan,type Request } from './model';
 import { operation,applyOperation,type ForceOperation } from './operation';
 export class Session {
@@ -18,7 +17,6 @@ export class Session {
  frame(seconds:number){if(this.active){this.active.step=Math.round(seconds*10);this.map=reveal(this.active.plan,seconds);}return this.map;}
  finish(water:{settled:boolean;ticks:number}){
   const a=this.active;if(!a)throw Error('No glacier');this.map=snapshot(a.plan.map);
-  const problem=startProblem(this.map);if(problem){this.cancel();throw Error(problem+' · glacier reverted');}
   const op=operation(a.before,this.map,a.plan.request,50,water,a.replaces);
   op.params.lake=structuredClone(a.plan.retained); // fresh canonical settle and export preserve the basin initial state
   this.past.push({op,base:snapshot(a.plan.before),next:a.plan.request.settings.seed});this.future=[];this.active=null;this.valley=new Valley(this.map);return op;

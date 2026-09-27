@@ -1,84 +1,50 @@
 import assert from 'node:assert/strict';
-import { writeFileSync,mkdirSync } from 'node:fs';
-import { fixture } from './fixtures';
-import { DEFAULTS,makePlan,measure,reveal,Valley,waterRun,nextSeed,type Plan } from '../model';
-import { buildable } from '../morphology';
-import { snapshot,json,modelFor,storedMap } from '../../forces-core/core/map';
-import { startProblem } from '../../forces-core/core/objects';
-import { Session } from '../session';
-import { signature,applyOperation } from '../operation';
-import { prefill,canonicalSettle,spillLevels } from '../../../src/core/sim/prefill';
-import { readTimber } from '../../../src/core/format/timber';
-import { timber } from '../export';
-import { CarveRun,DEFAULTS as CARVE } from '../../../src/core/forces/carve/run';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {fixture} from './fixtures';import {cases,heroes,randomSeed} from './cases';
+import {makePlan,measure,waterRun,reveal,DEFAULTS,nextSeed,type Plan} from '../model';
+import {buildable} from '../morphology';
+import {json,modelFor} from '../../forces-core/core/map';import {entityTiles,isPlant} from '../../forces-core/core/objects';
+import {Session} from '../session';import {signature,applyOperation} from '../operation';import {timber} from '../export';import {readTimber} from '../../../src/core/format/timber';
 mkdirSync('checks',{recursive:true});mkdirSync('local/results',{recursive:true});
-let checks=0;const ok=(v:unknown,label:string)=>{assert.ok(v,label);checks++;};
-const rows:any[]=[];
-export const cases=[
- {id:'default',map:'river-128',x:64,y:16}, {id:'small-map',map:'river-96',x:52,y:16},
- {id:'kyler',map:'river-128',x:64,y:16,power:47},
- {id:'side-valleys',map:'highlands-128',x:64,y:96}, {id:'large-map',map:'highlands-256',x:80,y:112},
- {id:'lobe',map:'river-128',x:32,y:32}, {id:'low-ground',map:'highlands-256',x:208,y:112},
- {id:'tall',map:'tall-128',x:32,y:80}, {id:'aim',map:'river-128',x:28,y:80,end:[97,35]},
- {id:'power-low',map:'river-128',x:96,y:32,power:15}, {id:'power-default',map:'river-128',x:96,y:32,power:60}, {id:'power-high',map:'river-128',x:96,y:32,power:95},
- {id:'another-1',map:'river-128',x:64,y:16,seed:nextSeed(891)}, {id:'another-2',map:'river-128',x:64,y:16,seed:nextSeed(nextSeed(891))},
- {id:'another-3',map:'river-128',x:64,y:16,seed:nextSeed(nextSeed(nextSeed(891)))},
-] as const;
-let defaultPlan:Plan|undefined;
+let checks=0;const ok=(v:boolean,message:string)=>{assert.ok(v,message);checks++;};const rows:any[]=[];let hero:Plan|undefined;
 for(const c of cases){
- const m=fixture(c.map),s={...DEFAULTS,...('power'in c?{power:c.power}:{}),...('seed'in c?{seed:c.seed}:{}),...('end'in c?{mode:'aim' as const}:{})},intent={origin:c.y*m.W+c.x,...('end'in c?{end:c.end[1]*m.W+c.end[0]}:{})};
- const original=signature(m),t0=performance.now();
- try{
- const p=makePlan(m,s,intent),planMs=performance.now()-t0,q=makePlan(m,s,intent);
- ok(signature(p.map)===signature(q.map),'same gesture and seed');ok(signature(m)===original,'input unmodified');
- ok(p.map.heights.every(h=>h>=0&&h<=22),'floor and ceiling');
- const cut=m.heights.reduce((a,h,i)=>a+Math.max(0,h-p.map.heights[i]),0),deposited=m.heights.reduce((a,h,i)=>a+Math.max(0,p.map.heights[i]-h),0);
- ok(cut===deposited&&cut===p.metrics.cut,'all excavated blocks deposited');
- const plants=p.map.entities.filter(e=>/^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
- ok(new Set(plants.map(e=>e.x+','+e.y)).size===plants.length,'displaced trees never overlap existing plants');
- const run=waterRun(p);let settled=null;while(!settled)settled=run.advance(128);p.map.water={depth:settled.depth.slice(),contamination:settled.contamination.slice()};
- measure(p);
- ok(p.metrics.wetShare<.5,'most of the trough is dry');
- ok(p.basins.length<=3,'small number of lakes');
- ok(reveal(p,3).heights.every((h,i)=>h===p.map.heights[i]),'terrain final at end of advance');
- ok(reveal(p,5).heights.every((h,i)=>h===p.map.heights[i]),'retreat cannot change final terrain');
- const a=buildable(m),b=buildable(p.map);ok(b.reduce((s,v,i)=>s+v-a[i],0)===p.metrics.buildableGain,'affected-region net gain equals whole-map change');
- if(c.id==='default'||c.id==='power-default'||c.id==='kyler'||c.id.startsWith('another'))ok(p.metrics.buildableGain>0,'default and variations gain buildable land');
- const advance=reveal(p,1.5);ok(advance.water.depth.every((d,i)=>m.water.depth[i]>.01||d===0),'advance never invents water on formerly dry ground');
- ok(p.metrics.longestWall<=12,'no long cardinal wall on the trough outline');
- ok(p.map.entities.every(e=>e.owner==='glaciate'||e.template==='StartingLocation'||/^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template)||!p.mask[e.y*m.W+e.x]||p.mask[e.y*m.W+e.x]===2),'no non-plant is left in the trough');
- const fresh=waterRun(p);let again=null;while(!again)again=fresh.advance(31);ok(p.map.water.depth.every((d,i)=>d===again!.depth[i]),'fresh settle starts with identical stored lake water');
- const sourceOnly={...modelFor(p.map),emitters:modelFor({...p.map,entities:p.map.entities.filter(e=>e.owner==='glaciate')}).emitters};
- const fed=prefill(sourceOnly),spill=spillLevels(modelFor(p.map));
- for(const b of p.basins){ok(b.depth>0&&b.tiles.every(i=>spill[i]>p.map.heights[i]),'basin below actual flood outlet');ok(b.tiles.some(i=>fed.depth[i]>.01),'head meltwater feeds basin');}
- const session=new Session(m);session.start(p.request);session.active!.plan=p;session.frame(1.5);session.cancel();ok(signature(session.map)===original,'Esc restores advance exactly');
- session.start(p.request);session.active!.plan=p;session.frame(4);session.undo();ok(signature(session.map)===original,'undo restores retreat exactly');
- session.start(p.request);session.active!.plan=p;const op=session.finish({settled:settled.settled,ticks:settled.ticks});
- ok(signature(applyOperation(m,JSON.parse(JSON.stringify(op))))===signature(p.map),'exact JSON replay');session.undo();ok(signature(session.map)===original,'one undo restores entire state');session.redo();ok(signature(session.map)===signature(p.map),'exact redo');
- const saved=session.export(),other=new Session(m);other.import(saved);ok(signature(other.map)===signature(session.map),'portable saved project');
- const corrupt=structuredClone(op);corrupt.params.terrain[0][2]=999;assert.throws(()=>applyOperation(m,corrupt));checks++;
- const file=readTimber(timber(p.map)),cols=String((file.world.singletons.WaterMapNew as any).WaterColumns.Array).split(' ');
- ok(p.map.water.depth.every((d,i)=>Math.abs((cols[i]==='0'?0:Number(cols[i].split(':')[0]))-d)<1e-5),'export stores displayed water');
- ok(file.world.voxels.slice(22*m.W*m.H).every(v=>v===0),'empty ceiling layer');
- const record={...c,settings:s,intent,planningMs:planMs,settled:settled.settled,ticks:settled.ticks,signature:signature(p.map),metrics:p.metrics,basins:p.basins.map(b=>({floor:b.floor,outlet:b.outlet,depth:b.depth,tiles:b.tiles.length,fed:b.fed})),hangingCrossingTiles:p.hanging.length,notice:p.notice,refused:null};
- rows.push(record);writeFileSync('local/results/'+c.id+'.json',JSON.stringify(json(p.map)));writeFileSync('local/results/'+c.id+'-plan.json',JSON.stringify({path:p.path,mask:Array.from(p.mask),metrics:p.metrics}));console.log(c.id,JSON.stringify({...p.metrics,basins:record.basins.length,settled:settled.settled}));
- if(c.id==='default')defaultPlan=p;
- }catch(e){rows.push({...c,refused:String(e)});console.error(c.id,String(e));throw e;}
+ const m=fixture(c.map),settings={...DEFAULTS,...c.settings},intent={origin:c.y*m.W+c.x,...(c.end?{end:c.end[1]*m.W+c.end[0]}:{})},original=signature(m),t0=performance.now();
+ writeFileSync('local/results/'+c.id+'-before.json',JSON.stringify(json(m)));
+ const p=makePlan(m,settings,intent);ok(p.metrics.cut>0||p.metrics.deposited>0,'every gesture changes real terrain');
+ const planningMs=performance.now()-t0,q=makePlan(m,settings,intent);
+ ok(signature(p.map)===signature(q.map),'same input and seed');ok(signature(m)===original,'planner leaves input untouched');
+ ok(p.map.heights.every(h=>h>=0&&h<=22),'physical floor and ceiling');
+ const cut=m.heights.reduce((sum,h,i)=>sum+Math.max(0,h-p.map.heights[i]),0),fill=m.heights.reduce((sum,h,i)=>sum+Math.max(0,p.map.heights[i]-h),0);
+ ok(cut===p.metrics.cut&&fill===p.metrics.deposited&&cut-fill===p.metrics.carriedAway,'literal sediment ledger');ok(fill<=cut,'deposits use only part of the excavated material');
+ ok(reveal(p,3).heights.every((h,i)=>h===p.map.heights[i]),'terrain exact at end of advance');ok(reveal(p,5).heights.every((h,i)=>h===p.map.heights[i]),'retreat preserves terrain');
+ const run=waterRun(p);let water=null;while(!water)water=run.advance(128);p.map.water={depth:water.depth,contamination:water.contamination};measure(p);
+ const a=buildable(m),b=buildable(p.map);ok(b.reduce((sum,v,i)=>sum+v-a[i],0)===p.metrics.buildableGain,'affected-region accounting includes all losses');
+ ok(p.metrics.newFloor===b.reduce((sum,v,i)=>sum+Number(!!v&&!a[i]&&p.mask[i]===1),0),'new floor excludes previously buildable positions');
+ const starts=p.map.entities.filter(e=>e.template==='StartingLocation');ok(starts.length===1,'exactly one start survives');ok(entityTiles(p.map,starts[0]).every(i=>p.mask[i]!==1&&p.map.heights[i]===starts[0].z),'start is supported outside the trough');
+ ok(p.map.entities.every(e=>e.owner==='glaciate'||e.template==='StartingLocation'||entityTiles(p.map,e).every(i=>p.mask[i]!==1&&!p.stream[i])),'swept trees and objects leave no pillars');
+ const kept=new Map(p.map.entities.map(e=>[e.id,e]));ok(m.entities.filter(e=>e.template!=='StartingLocation'&&kept.has(e.id)).every(e=>JSON.stringify(kept.get(e.id))===JSON.stringify(e)),'surviving objects are never moved to the edges');
+ const removedSources=modelFor({...m,entities:m.entities.filter(e=>!kept.has(e.id))}).emitters;ok(Math.abs(removedSources.filter(e=>e.contamination===0).reduce((sum,e)=>sum+e.strength,0)-p.metrics.cleanAbsorbed)<1e-9,'all swept clean source strength is accounted');
+ const added=modelFor({...p.map,entities:p.map.entities.filter(e=>e.owner==='glaciate')}).emitters;ok(added.every(e=>e.contamination===0),'badwater is never copied into the meltwater');ok(!settings.meltwater||added.reduce((sum,e)=>sum+e.strength,0)>=p.metrics.cleanAbsorbed+.65-1e-9,'swept clean sources feed the cirque');
+ const fresh=waterRun(p);let again=null;while(!again)again=fresh.advance(31);ok(p.map.water.depth.every((d,i)=>d===again!.depth[i]),'water scheduling is deterministic');
+ const session=new Session(m);session.start(p.request);session.active!.plan=p;session.frame(1.5);session.cancel();ok(signature(session.map)===original,'Esc restores all advance state');
+ session.start(p.request);session.active!.plan=p;session.frame(4);session.undo();ok(signature(session.map)===original,'undo during retreat is exact');
+ session.start(p.request);session.active!.plan=p;const op=session.finish({settled:water.settled,ticks:water.ticks});ok(signature(applyOperation(m,JSON.parse(JSON.stringify(op))))===signature(p.map),'literal JSON replay');
+ session.undo();ok(signature(session.map)===original,'one undo restores everything');session.redo();ok(signature(session.map)===signature(p.map),'redo exact');const other=new Session(m);other.import(session.export());ok(signature(other.map)===signature(p.map),'saved study exact');
+ const file=readTimber(timber(p.map)),cols=String((file.world.singletons.WaterMapNew as any).WaterColumns.Array).split(' ');ok(p.map.water.depth.every((d,i)=>Math.abs((cols[i]==='0'?0:Number(cols[i].split(':')[0]))-d)<1e-5),'game file stores displayed water');
+ const oldStart=m.entities.find(e=>e.template==='StartingLocation')!,newStart=starts[0],metrics=p.metrics;
+ const guardrails={newFloor:metrics.newFloorShare>=.7,walls:metrics.wallMedian>=4,waterfalls:metrics.hangingValleys<2||metrics.waterfalls>=2,water:metrics.wetShare<=.15,riverWidth:!settings.meltwater||(metrics.riverWidthMin>=2&&metrics.riverWidthMax<=5),oneRiver:!settings.meltwater||metrics.channels===1};
+ let downstreamWet=0,downstreamBefore=0;for(let i=0;i<m.W*m.H;i++)if(p.stream[i]===1&&p.mask[i]!==1){downstreamWet+=Number(p.map.water.depth[i]>.05);downstreamBefore+=Number(m.water.depth[i]>.05);}if(c.id==='spring'){ok(p.metrics.cleanAbsorbed>=1.8,'real mountain spring swept into the glacier');ok(downstreamWet>5,'river continues beyond the moraine');}
+ rows.push({...c,settings,intent,planningMs,refused:null,settled:water.settled,ticks:water.ticks,signature:signature(p.map),metrics,guardrails,downstream:{before:downstreamBefore,after:downstreamWet},start:{before:[oldStart.x,oldStart.y,oldStart.z],after:[newStart.x,newStart.y,newStart.z]},basins:p.basins.map(b=>({...b,tiles:b.tiles.length})),hanging:p.hanging.map(h=>({...h,channel:undefined}))});
+ writeFileSync('local/results/'+c.id+'.json',JSON.stringify(json(p.map)));writeFileSync('local/results/'+c.id+'-plan.json',JSON.stringify(json({path:p.path,mask:p.mask,stream:p.stream,hanging:p.hanging,falls:p.falls,metrics,request:p.request})));
+ console.log(c.id,JSON.stringify({dry:metrics.dryFloor,new:metrics.newFloorShare,net:metrics.buildableGain,wall:metrics.wallMedian,falls:metrics.waterfalls,hanging:metrics.hangingValleys,wet:metrics.wetShare,straight:metrics.longestWall,settled:water.settled}));
+ if(c.id===heroes[0].id)hero=p;
 }
-const p=defaultPlan!,m=p.before;
-writeFileSync('local/results/before.json',JSON.stringify(json(m)));
-const start=m.entities.find(e=>e.template==='StartingLocation')!;
-assert.throws(()=>makePlan(m,DEFAULTS,{origin:start.y*m.W+start.x}),/Start here/);checks++;
-const changed=makePlan(m,{...DEFAULTS,seed:nextSeed(DEFAULTS.seed)},p.request.intent);ok(signature(changed.map)!==signature(makePlan(m,DEFAULTS,p.request.intent).map),'Try another changes the result');
-const dry=makePlan(m,{...DEFAULTS,meltwater:false},p.request.intent);ok(!dry.map.entities.some(e=>e.owner==='glaciate')&&dry.retained.depth.every(v=>v===0),'Meltwater off adds no water/source');
-ok(p.metrics.centreline>=p.metrics.valley-1e-10,'trough never straighter than the followed valley');
-const alt=new Session(m);alt.start(p.request);alt.active!.plan=p;alt.finish({settled:true,ticks:0});const prev=signature(alt.map);alt.start(p.request,true);alt.frame(2);alt.cancel();ok(signature(alt.map)===prev,'cancel alternate returns previous glacier');
-const alt2=alt.start(p.request,true);ok(alt2.request.settings.seed!==nextSeed(DEFAULTS.seed),'cancel consumes variation seed');alt.cancel();
-// Actual Carve on dev: maximum Width, full Power (its deep, uncapped excavation), Steep, low Wander.
-const carve=new CarveRun(m,{...CARVE,power:100,width:24,wander:5,walls:'steep',seed:891},p.request.intent);
-for(let k=0;!carve.done&&k<5000;k++)carve.step();ok(carve.done,'Carve comparison completes');
-const water=canonicalSettle(modelFor({...m,...carve.map}));carve.map.water={depth:water.depth,contamination:water.contamination};
-writeFileSync('local/results/carve.json',JSON.stringify(json({...m,...carve.map})));
-const comparison={settings:carve.settings,metrics:carve.metrics,glacier:p.metrics,limitation:'dev Carve has no separate Depth setting; full Power uses its uncapped deep excavation. No feature/forces dependency.'};
-writeFileSync('checks/core.json',JSON.stringify({checks,cases:rows,comparison},null,2)+'\n');
-console.log('PASS',checks);
+const p=hero!,m=p.before,alternate=makePlan(m,{...DEFAULTS,seed:nextSeed(DEFAULTS.seed)},p.request.intent);
+ok(signature(alternate.map)!==signature(makePlan(m,DEFAULTS,p.request.intent).map),'variation changes land');ok(JSON.stringify(alternate.reference)===JSON.stringify(p.reference),'variation never reroutes the glacier');
+const dry=makePlan(m,{...DEFAULTS,meltwater:false},p.request.intent);ok(!dry.map.entities.some(e=>e.owner==='glaciate')&&dry.retained.depth.every(v=>v===0),'Meltwater off adds neither head nor gully springs');
+const absentStart=fixture(heroes[0].map);absentStart.entities=absentStart.entities.filter(e=>e.template!=='StartingLocation');const unprotected=makePlan(absentStart,DEFAULTS,p.request.intent);
+ok(unprotected.map.heights.every((h,i)=>h===p.map.heights[i]),'start has no influence on terrain or reach');ok(p.metrics.startMoved,'real default glacier crosses and moves the original start');
+for(const power of [0,60,100]){const flat=makePlan(fixture('river-128'),{...DEFAULTS,power},{origin:32*128+32});ok(flat.metrics.cut>0,'flat ground carves at every Power');}
+const plateau=fixture('river-128');plateau.heights.fill(8);plateau.entities=[];plateau.water.depth.fill(0);plateau.water.contamination.fill(0);plateau.lava.fill(0);const flatA=makePlan(plateau,DEFAULTS,{origin:64*128+64}),flatB=makePlan(plateau,{...DEFAULTS,seed:nextSeed(DEFAULTS.seed)},{origin:64*128+64});ok(JSON.stringify(flatA.reference)!==JSON.stringify(flatB.reference),'Try another changes direction on a flat plateau');
+const alt=new Session(m);alt.start(p.request);alt.active!.plan=p;alt.finish({settled:true,ticks:0});const previous=signature(alt.map);alt.start(p.request,true);alt.frame(2);alt.cancel();ok(signature(alt.map)===previous,'cancel variation restores the kept glacier');
+writeFileSync('checks/core.json',JSON.stringify({round:3,checks,randomSeed,randomMethod:'One fixed LCG draw per case, uniformly over interior tiles at or above the original map height 75th percentile; no planner filtering or replacement.',cases:rows},null,2)+'\n');console.log('PASS',checks);

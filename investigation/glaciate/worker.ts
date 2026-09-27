@@ -1,8 +1,7 @@
 import { Session } from './session';
 import { loadMap } from './maps';
-import { route,flatAt,sizeOf,waterRun,measure,DEFAULTS,type Request } from './model';
+import { waterRun,measure } from './model';
 import { snapshot,json,modelFor,type ForceMap } from '../forces-core/core/map';
-import { protectedGround } from '../forces-core/core/objects';
 import { changedChunks,frameContext,makeChunk } from '../forces-core/core/meshes';
 import { skyVisibility,shadowMap,objectCasters,tileData } from '../../src/render3d/light';
 import { entityView,soilView } from '../../src/render3d/model';
@@ -20,23 +19,20 @@ async function frame(e:number,fullLight=false){
  if(e!==epoch)return;
  if(fullLight||!last){const sky=skyVisibility(m.W,m.H,m.heights),wet=moisture(m.heights,m.water.depth,m.water.contamination,m.W,m.H);
   const lighting={tiles:tileData(m.W,m.H,m.heights,sky,soilView(wet,m.water.contamination),ctx.surface),light:shadowMap(m.W,m.H,m.heights,objectCasters(m.W,m.H,entityView(m.entities)))};send({type:'lighting',lighting},e);}
- last=m;send({type:'frame',heights:m.heights,keep:protectedGround(m),signature:signature(m)},e);
+ last=m;send({type:'frame',heights:m.heights,keep:new Uint8Array(m.W*m.H),signature:signature(m)},e);
 }
 self.onmessage=async({data:a})=>{
  if(a.type==='snapshot'){send({type:'snapshot',map:session.map});return;}
  if(a.type==='cancel'||a.type==='undo'){
   const cancelledEpoch=++epoch;session?.undo();busy=false;last=null;send({type:'cancelled',signature:signature(session.map)},cancelledEpoch);await frame(cancelledEpoch,true);if(cancelledEpoch===epoch)send({type:'ready'},cancelledEpoch);return;
  }
- if(a.type==='preview'){if(!busy&&session){try{const m=session.map,r=sizeOf(a.settings)/2,shallow=m.heights[a.intent.origin]<=2;
-  const lobe=a.settings.mode==='flow'&&flatAt(m,a.intent.origin,Math.min(10,r)),full=route(m,a.settings,a.intent,session.valley),path=lobe?full.slice(0,Math.max(6,Math.round(r*2.2))):full;
-  send({type:'preview',id:a.id,path,shallow});}catch{}}return;}
  if(a.type==='load'){epoch++;session?.cancel();busy=false;last=null;}
  if(busy)return;busy=true;const e=++epoch;send({type:'begin'});
  try{
   if(a.type==='load'){const loaded=await loadMap(a.id);if(e!==epoch)return;session=new Session(loaded);last=null;send({type:'reset',map:session.map});await frame(e,true);}
   if(a.type==='show'){session=new Session(a.map);last=null;send({type:'reset',map:session.map});await frame(e,true);}
   if(a.type==='start'||a.type==='reroll'){
-   const plannedAt=performance.now(),p=session.start(a.request,a.type==='reroll');send({type:'planned',path:p.path,mask:p.mask,baseHeights:p.before.heights,finalHeights:p.map.heights,lobe:p.lobe,notice:p.notice,settings:p.request.settings,metrics:p.metrics,basins:p.basins,planningMs:performance.now()-plannedAt});
+   const plannedAt=performance.now(),p=session.start(a.request,a.type==='reroll');send({type:'planned',path:p.path,mask:p.mask,baseHeights:p.before.heights,finalHeights:p.map.heights,notice:p.notice,settings:p.request.settings,metrics:p.metrics,basins:p.basins,hanging:p.hanging,planningMs:performance.now()-plannedAt});
    const run=waterRun(p);let water:ReturnType<typeof run.advance>=null;const began=performance.now();
    for(let step=1;step<=30;step++){
     if(e!==epoch)return;

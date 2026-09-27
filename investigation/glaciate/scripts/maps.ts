@@ -9,9 +9,9 @@ import { snapLevelsV2,relaxEdges,naturalRamps } from '../../generative/v2/levels
 import { planHydro } from '../../generative/v2/hydro';
 import { mergeSmallRegions,cleanPitsAndSpikes,fillDryHollows } from '../../generative/proto/levels';
 mkdirSync('maps',{recursive:true});mkdirSync('checks',{recursive:true});const records:any[]=[];
-for(const [id,theme,seed,W] of [['river-128','riverValley',18,128],['river-96','riverValley',18,96],['highlands-128','highlands',7,128],['highlands-256','highlands',7,256],['delta-128','delta',39,128]] as [string,ThemeId,number,number][]){
+for(const [id,theme,seed,W] of [['river-128','riverValley',18,128],['highlands-128','highlands',7,128],['highlands-256','highlands',7,256],['canyon-128','canyon',10,128]] as [string,ThemeId,number,number][]){
  const g=generate(makeSpec({theme,seed,size:{x:W,y:W}})),b=g.built;
- const m=normalize({name:id,W,H:W,heights:b.heights,entities:b.entities,water:{depth:b.water,contamination:b.contamination},maxHeight:22});
+ const m=normalize({name:id==='canyon-128'?'Canyon · 10':id,W,H:W,heights:b.heights,entities:b.entities,water:{depth:b.water,contamination:b.contamination},maxHeight:22});
  writeFileSync('maps/'+id+'.json.gz',gzipSync(strToU8(JSON.stringify(json(m)))));
  records.push({id,seed,W,source:'src/core/gen/generate.ts (editor runGenerate)',passed:g.report.passed,attempts:g.attempts,min:Math.min(...m.heights),max:Math.max(...m.heights)});console.log(records.at(-1));
 }

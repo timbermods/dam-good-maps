@@ -1,290 +1,151 @@
 import {snapshot,plainEntities,modelFor,type ForceMap} from '../forces-core/core/map';
-import {protectedGround,entityTiles,isPlant,ride} from '../forces-core/core/objects';
-import {trimRock} from '../forces-core/core/rock';
-import {MinHeap} from '../../src/core/math/grid';
+import {entityTiles,isPlant,ride} from '../forces-core/core/objects';
+import {trimRock,hardAt} from '../forces-core/core/rock';
 import {prefill,spillLevels} from '../../src/core/sim/prefill';
 import {waterSource} from '../../src/core/format/entities';
 import {guidFrom} from '../../src/core/math/hash';
 import {slopeHighSide} from '../../src/core/format/footprints';
-import {Valley,validate,route,flatAt,sizeOf,noise,clamp,sinuosity,CEILING,type Plan,type Settings,type Intent,type Point,type Station,type Basin} from './model';
-
+import {EMITTERS} from '../../src/core/sim/model';
+import {Valley,validate,route,sizeOf,noise,clamp,sinuosity,type Plan,type Settings,type Intent,type Point,type Station,type Basin,type Hanging} from './model';
+export const PHYSICAL='At the map floor: no ground left to carve';
 export const lengthOf=(p:Point[])=>p.reduce((s,q,k)=>s+(k?Math.hypot(q.x-p[k-1].x,q.y-p[k-1].y):0),0);
-const quantile=(a:number[],q:number)=>a.sort((a,b)=>a-b)[Math.floor((a.length-1)*q)];
+const quantile=(a:number[],q:number)=>a.length?a.sort((a,b)=>a-b)[Math.floor((a.length-1)*q)]:0;
+const N4=[[-1,0],[1,0],[0,-1],[0,1]];
+const texture=(seed:number,x:number,y:number,scale:number)=>{const gx=Math.floor(x/scale),gy=Math.floor(y/scale),tx=x/scale-gx,ty=y/scale-gy,u=tx*tx*(3-2*tx),v=ty*ty*(3-2*ty),at=(xx:number,yy:number)=>noise(seed,Math.imul(xx,73856093)^Math.imul(yy,19349663))*2-1;return (at(gx,gy)*(1-u)+at(gx+1,gy)*u)*(1-v)+(at(gx,gy+1)*(1-u)+at(gx+1,gy+1)*u)*v;};
 
 export function makePlan(input:ForceMap,settings:Settings,intent:Intent,valley=new Valley(input)):Plan {
  validate(input,settings,intent);
- const before=snapshot(input),m=snapshot(input),s={...settings},W=m.W,H=m.H,n=W*H,p=s.power/100;
- const keep=protectedGround(m),tile=(q:Point)=>clamp(Math.floor(q.y),0,H-1)*W+clamp(Math.floor(q.x),0,W-1);
- if(keep[intent.origin])throw Error('Start here');
- let reference=route(m,s,intent,valley),r=sizeOf(s)/2;
- const lobe=s.mode==='flow'&&flatAt(m,intent.origin,Math.min(10,r)),shallow=m.heights[intent.origin]<=2;
- if(shallow)r*=1.3;
- if(lobe)reference=reference.slice(0,Math.max(6,Math.round(r*2.2)));
- if(reference.length<3)throw Error('Choose ground farther from the edge');
- const length=lengthOf(reference),phase=noise(s.seed,7)*Math.PI*2;
- // The bank follows the original drainage elevation. It is a dry terrace above a
- // separate incised stream, not the bottom of a full-width longitudinal basin.
- const raw=reference.map(q=>before.heights[tile(q)]),datum=raw.map((_,k)=>{
-  const level=quantile(raw.slice(Math.max(0,k-4),Math.min(raw.length,k+7)),.35);
-  return clamp(level+1-(p>.85?1:0),2,20);
+ const before=snapshot(input),m=snapshot(input),s={...settings},W=m.W,H=m.H,n=W*H,p=s.power/100,r=sizeOf(s)/2,phase=noise(s.seed,7)*Math.PI*2;
+ const tile=(q:Point)=>clamp(Math.floor(q.y),0,H-1)*W+clamp(Math.floor(q.x),0,W-1),sample=(x:number,y:number)=>before.heights[tile({x,y})];
+ let reference=route(m,s,intent,valley);const head=reference[0],regional:number[]=[],radius=Math.max(16,Math.min(W*.2,r*2));
+ for(let y=Math.max(0,Math.floor(head.y-radius));y<Math.min(H,head.y+radius);y+=2)for(let x=Math.max(0,Math.floor(head.x-radius));x<Math.min(W,head.x+radius);x+=2)regional.push(sample(x,y));
+ const base=quantile(Array.from(m.heights),.08),relief=quantile(regional,.9)-Math.min(base,quantile(regional,.15));
+ // Relief chooses depth, never permission. Even a plateau gets three levels of
+ // excavation where its ground allows it; only the physical map floor stops it.
+ const depth=Math.max(3,Math.round(relief*(.28+.48*p))),headFloor=Math.max(0,Math.min(sample(head.x,head.y)-4,quantile(regional,.8)-depth-1));
+ let arc=0,bar=8+noise(s.seed,80)*15,level=headFloor,barIndex=0;
+ const preliminary:Station[]=reference.map((q,k)=>{if(k)arc+=Math.hypot(q.x-reference[k-1].x,q.y-reference[k-1].y);if(arc>=bar&&level>0){level--;bar+=8+noise(s.seed,81+barIndex++)*17;}
+  const a=reference[Math.max(0,k-3)],b=reference[Math.min(reference.length-1,k+3)],len=Math.hypot(b.x-a.x,b.y-a.y)||1,nx=-(b.y-a.y)/len,ny=(b.x-a.x)/len;
+  const rim=Math.max(sample(q.x+nx*r*1.15,q.y+ny*r*1.15),sample(q.x-nx*r*1.15,q.y-ny*r*1.15)),hard=hardAt(m,tile(q),Math.round(rim))?1:m.rockLayers[Math.round(rim)]??0,confluence=Math.min(.1,Math.log2(1+valley.area[tile(q)])*.011);
+  const width=clamp(.94+.14*Math.sin(arc*.11+phase)+.10*Math.sin(arc*.27-phase)+confluence-hard*.10,.7,1.3),cirque=1+.72*Math.exp(-((arc/(r*.95))**2));
+  return {...q,s:arc,r:Math.max(2,Math.min(r*width*cirque,Math.max(2,Math.min(q.x,q.y,W-q.x,H-q.y)-1)*.9)),floor:level,outlet:rim};
  });
- let acc=0,previous=shallow?2:22;
- const path:Station[]=reference.map((q,k)=>{
-  if(k)acc+=Math.hypot(q.x-reference[k-1].x,q.y-reference[k-1].y);
-  const t=acc/length;previous=Math.min(previous,lobe?Math.max(2,raw[0]-1):datum[k]);
-  const width=(lobe?(.62+.65*Math.sin(t*Math.PI*.78)):(.83+.13*Math.sin(t*8+phase)+.08*Math.sin(t*21+phase)))+.055*Math.sin(t*39+phase);
-  return {...q,s:t,r:Math.max(1.8,Math.min(r*width,(Math.min(q.x,q.y,W-q.x,H-q.y)-1.8)/1.15)),floor:previous,outlet:previous};
+ let lowRun=0,end=preliminary.length;
+ if(s.mode==='flow')for(let k=0;k<preliminary.length;k++){const q=preliminary[k];lowRun=q.outlet<base+1+relief*.35?lowRun+1:0;if(q.s>Math.max(16,sizeOf(s)*1.15)&&(lowRun>=7||Math.min(q.x,q.y,W-q.x,H-q.y)<r*.5)){end=Math.max(8,k-(lowRun>=7?5:0));break;}}
+ const path=preliminary.slice(0,end);reference=reference.slice(0,end);const length=lengthOf(reference)||1;for(const q of path)q.s/=length;
+ // A new floor cannot dam an old river crossing below its proposed datum.
+ // Lower the terrace sequence together, retaining single-level bars, rather
+ // than cutting a separate deep drainage slot through the new valley.
+ let riverClearance=0;for(const q of path)for(let y=Math.max(0,Math.floor(q.y-q.r));y<Math.min(H,q.y+q.r);y++)for(let x=Math.max(0,Math.floor(q.x-q.r));x<Math.min(W,q.x+q.r);x++){const i=y*W+x;if(before.water.depth[i]>.05&&Math.hypot(x+.5-q.x,y+.5-q.y)<=q.r)riverClearance=Math.max(riverClearance,q.floor-before.heights[i]);}
+ for(const q of path)q.floor=Math.max(0,q.floor-riverClearance);
+ const nearest=new Int32Array(n).fill(-1),closest=new Float64Array(n).fill(Infinity),dist=new Float64Array(n).fill(Infinity),mask=new Uint8Array(n),arrival=new Float32Array(n).fill(1),floor=new Uint8Array(n),fan=new Uint8Array(n),stream=new Uint8Array(n);
+ for(let k=0;k<path.length;k++){const q=path[k],rr=q.r+7;for(let y=Math.max(0,Math.floor(q.y-rr));y<Math.min(H,q.y+rr);y++)for(let x=Math.max(0,Math.floor(q.x-rr));x<Math.min(W,q.x+rr);x++){
+  const i=y*W+x,angle=Math.atan2(y+.5-q.y,x+.5-q.x),rim=1+.045*Math.sin(angle*3+q.s*11+phase)+.1*texture(s.seed,x,y,9)+.045*texture(s.seed^812,x,y,3),physical=Math.hypot(x+.5-q.x,y+.5-q.y),d=physical/(q.r*rim);if(d<dist[i])dist[i]=d;if(physical<closest[i]){closest[i]=physical;nearest[i]=k;}
+ }}
+ for(let i=0;i<n;i++){if(nearest[i]<0)continue;const k=nearest[i],q=path[k],d=dist[i],shift=Math.round(2.2*Math.sin((i%W)*.22+Math.floor(i/W)*.16+phase)),f=path[clamp(k+shift,0,path.length-1)].floor;floor[i]=f;
+  if(d<=1){m.heights[i]=Math.min(22,f+1);mask[i]=1;arrival[i]=q.s;}
+  else if(d<1+3/q.r){const M=before.heights[i],hard=hardAt(m,i,M)?1:m.rockLayers[Math.max(f+1,Math.floor((f+M)/2))]??0;if(M-f>=5&&hard<.5&&Math.sin(q.s*19+phase)>.15){m.heights[i]=Math.min(M,f+Math.round((M-f)*.58));mask[i]=2;arrival[i]=q.s;}}
+ }
+ // Original drainage intersections supply hanging mouths. Sparse fed mouths
+ // guide broad river bends; unfed gullies remain high and dry rather than ducts.
+ const incoming:{lip:number;landing:number;k:number;area:number;oldWet:boolean}[]=[];
+ for(let i=0;i<n;i++)if(mask[i]!==1&&nearest[i]>=0){const k=nearest[i],q=path[k];if(q.s<.12||q.s>.88)continue;const x=i%W,y=Math.floor(i/W),inside=N4.map(([dx,dy])=>({x:x+dx,y:y+dy})).filter(a=>a.x>=0&&a.y>=0&&a.x<W&&a.y<H).map(a=>a.y*W+a.x).filter(j=>mask[j]===1);if(!inside.length||before.heights[i]-q.floor<4)continue;
+  const parent=valley.parent[i],oldWet=before.water.depth[i]>.03&&before.water.contamination[i]<.01;if(!oldWet&&(parent<0||mask[parent]!==1||valley.area[i]<10))continue;incoming.push({lip:i,landing:inside[0],k,area:valley.area[i],oldWet});
+ }
+ incoming.sort((a,b)=>(b.oldWet?100000:0)+b.area-((a.oldWet?100000:0)+a.area)||a.lip-b.lip);
+ const mouths:typeof incoming=[];for(const c of incoming)if(!mouths.some(h=>Math.hypot(h.lip%W-c.lip%W,Math.floor(h.lip/W)-Math.floor(c.lip/W))<7))mouths.push(c);
+ const bends:typeof incoming=[];for(const c of mouths)if((c.oldWet||c.area>=20)&&!bends.some(b=>Math.abs(path[b.k].s-path[c.k].s)*length<Math.max(14,r*1.2)))bends.push(c);
+ const streamPath:Point[]=path.map((q,k)=>{const a=path[Math.max(0,k-3)],b=path[Math.min(path.length-1,k+3)],len=Math.hypot(b.x-a.x,b.y-a.y)||1,nx=-(b.y-a.y)/len,ny=(b.x-a.x)/len;let off=Math.sin(q.s*8+phase)*q.r*.35*Math.sin(Math.PI*q.s),weight=0;
+  for(const c of bends){const d=(q.s-path[c.k].s)*length,w=Math.exp(-((d/Math.max(10,r*.85))**2)),target=(c.landing%W+.5-q.x)*nx+(Math.floor(c.landing/W)+.5-q.y)*ny;off+=clamp(target,-q.r*.82,q.r*.82)*w;weight+=w;}off=clamp(off/(1+weight*.18),-q.r*.84,q.r*.84);return {x:q.x+nx*off,y:q.y+ny*off};
  });
- const nearest=new Int32Array(n).fill(-1),dist=new Float64Array(n).fill(Infinity),mask=new Uint8Array(n),arrival=new Float32Array(n).fill(1),fan=new Uint8Array(n),stream=new Uint8Array(n);
- for(let k=0;k<path.length;k++){
-  const q=path[k],rr=q.r*4;
-  for(let y=Math.max(0,Math.floor(q.y-rr));y<Math.min(H,q.y+rr);y++)for(let x=Math.max(0,Math.floor(q.x-rr));x<Math.min(W,q.x+rr);x++){
-   const i=y*W+x,angle=Math.atan2(y+.5-q.y,x+.5-q.x);
-   const rim=1+.07*Math.sin(angle*3+q.s*12+phase)+.04*Math.sin(angle*5-phase);
-   const d=Math.hypot(x+.5-q.x,y+.5-q.y)/(q.r*rim);
-   if(d<dist[i]){dist[i]=d;nearest[i]=k;}
-  }
+ const channel=(points:Point[],beds:number[],width:number,at:number,kind=2,record?:number[],exact=false)=>{for(let k=0;k<points.length;k++){const a=points[Math.max(0,k-1)],b=points[k],steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)*3));for(let j=0;j<=steps;j++){const t=j/steps,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t,bed=Math.min(beds[Math.max(0,k-1)],beds[k]);for(let yy=Math.max(0,Math.floor(y-width));yy<Math.min(H,y+width+1);yy++)for(let xx=Math.max(0,Math.floor(x-width));xx<Math.min(W,x+width+1);xx++){if(Math.hypot(xx+.5-x,yy+.5-y)>width)continue;const i=yy*W+xx;if(kind<=2&&at<1&&mask[i]!==1)continue;m.heights[i]=exact?bed:Math.min(m.heights[i],bed);stream[i]=kind;arrival[i]=at>=0?at:path[Math.min(k,path.length-1)].s;record?.push(i);}}}};
+ // Swept sources contribute their effective clean strength to the new head.
+ // Badwater contributes nothing. Outside sources and forests are never moved.
+ let cleanAbsorbed=0,badSwept=0;const sweptSourceIds=new Set<string>();
+ const absorb=()=>{for(const e of before.entities){if(!EMITTERS[e.template]||sweptSourceIds.has(e.id)||!entityTiles(m,e).some(i=>mask[i]===1||before.heights[i]!==m.heights[i]||stream[i]))continue;const emitters=modelFor({...before,entities:[e]}).emitters;if(!emitters.length)continue;sweptSourceIds.add(e.id);for(const emitter of emitters)if(emitter.contamination>0)badSwept+=emitter.strength;else cleanAbsorbed+=emitter.strength;}};absorb();
+ const potentialCleanFlow=modelFor(before).emitters.filter(e=>e.contamination===0).reduce((sum,e)=>sum+e.strength,0);
+ const riverRadius=clamp(1+sizeOf(s)/32+Math.sqrt(potentialCleanFlow)*.2,1,2.5);
+ // The river occupies the lowest floor datum, with broad banks a single voxel
+ // above it. There is no F-2/F-3 slot and no raised levee or collector network.
+ channel(streamPath,path.map(q=>q.floor),riverRadius,-1,1,undefined,true);
+ const riverCells=Uint8Array.from(stream,v=>v===1?1:0);
+ for(let i=0;i<n;i++)if(riverCells[i])for(const [dx,dy]of N4){const x=i%W+dx,y=Math.floor(i/W)+dy,j=y*W+x;if(x>=0&&y>=0&&x<W&&y<H&&mask[j]===1&&!riverCells[j])m.heights[j]=Math.min(22,floor[j]+1);}
+ const tarn=streamPath[Math.min(3,path.length-1)],lakeSeeds:number[]=[];
+ for(let y=Math.max(0,Math.floor(tarn.y-4));y<Math.min(H,tarn.y+4);y++)for(let x=Math.max(0,Math.floor(tarn.x-5));x<Math.min(W,tarn.x+5);x++){const i=y*W+x;if(((x+.5-tarn.x)/4.2)**2+((y+.5-tarn.y)/3.1)**2<1&&mask[i]===1){m.heights[i]=Math.max(0,path[0].floor-1);lakeSeeds.push(i);stream[i]=2;arrival[i]=0;}}
+ const hanging:Hanging[]=[],upstream:number[][]=Array.from({length:n},()=>[]);for(let i=0;i<n;i++)if(valley.parent[i]>=0)upstream[valley.parent[i]].push(i);
+ for(const c of mouths){const chain=[c.lip];let at=c.lip;for(let k=0;k<Math.max(18,r*2.5);k++){const options=upstream[at].filter(j=>mask[j]!==1);if(!options.length)break;at=options.reduce((a,b)=>valley.area[a]>valley.area[b]?a:b);chain.push(at);if(k>8&&before.heights[at]>=before.heights[c.lip]+2)break;}
+  const head=chain.at(-1)!,from={x:c.landing%W+.5,y:Math.floor(c.landing/W)+.5},near=streamPath.reduce((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)<Math.hypot(b.x-from.x,b.y-from.y)?a:b),gap=Math.max(0,Math.hypot(near.x-from.x,near.y-from.y)-riverRadius-1.5),enough=chain.length>=4&&c.area>=18&&before.heights[head]>=before.heights[c.lip],feed=s.meltwater&&enough&&!c.oldWet&&gap<=5,cells:number[]=[];
+  if(feed||c.oldWet){channel(chain.slice().reverse().map(i=>({x:i%W+.5,y:Math.floor(i/W)+.5})),chain.slice().reverse().map(i=>Math.max(0,before.heights[i]-1)),.76,path[c.k].s,3,cells);for(const i of cells)if(mask[i]!==1)m.heights[i]=Math.max(m.heights[i],before.heights[i]-2);}
+  m.heights[c.lip]=before.heights[c.lip]-(feed||c.oldWet?1:0);arrival[c.lip]=path[c.k].s;
+  // Small plunge pool; only a short AT-GRADE joining reach. Far mouths are left
+  // without invented springs rather than connected by long excavation ditches.
+  if(feed||c.oldWet){channel([from],[Math.max(0,path[c.k].floor-1)],1.8,path[c.k].s,2,cells);if(gap<=5)channel([from,near],[path[c.k].floor,path[c.k].floor],Math.max(1,riverRadius*.7),path[c.k].s,2,cells,true);}
+  hanging.push({mouth:c.lip,lip:c.lip,landing:c.landing,source:feed?head:null,catchment:c.area,drop:m.heights[c.lip]-m.heights[c.landing],s:path[c.k].s,wet:false,channel:[...new Set(cells)],joinLength:feed||c.oldWet?gap:0});
  }
- for(let i=0;i<n;i++){
-  if(nearest[i]<0||dist[i]>1.32)continue;
-  const q=path[nearest[i]],d=dist[i];
-  if(keep[i]){if(d<.9)throw Error('Start here');continue;}
-  const bed=q.floor;
-  if(d<=1){m.heights[i]=bed;mask[i]=1;}
-  else mask[i]=2; // Preserve the upper shoulder; the broad bed meets a steep curved wall.
-  arrival[i]=q.s;
+ const scree=hanging.filter(h=>h.source!==null||before.water.depth[h.mouth]>.03).map(h=>h.landing);for(let k=6;k<path.length;k+=7)if(noise(s.seed,k+550)>.68){const q=path[k],a=path[k-2],b=path[Math.min(k+2,path.length-1)],len=Math.hypot(b.x-a.x,b.y-a.y)||1,side=noise(s.seed,k+900)>.5?1:-1;scree.push(tile({x:q.x-(b.y-a.y)/len*q.r*.87*side,y:q.y+(b.x-a.x)/len*q.r*.87*side}));}
+ for(const centre of scree){const cx=centre%W+.5,cy=Math.floor(centre/W)+.5,rad=2.5+noise(s.seed,centre)*2;for(let y=Math.max(0,Math.floor(cy-rad));y<Math.min(H,cy+rad);y++)for(let x=Math.max(0,Math.floor(cx-rad));x<Math.min(W,cx+rad);x++){const i=y*W+x,d=Math.hypot(x+.5-cx,y+.5-cy);if(mask[i]!==1||stream[i]||d>rad)continue;m.heights[i]=Math.max(floor[i],Math.min(before.heights[i],floor[i]+Math.floor((1-d/rad)*3)));}}
+ const snout=path.at(-1)!,prior=path[Math.max(0,path.length-7)],dl=Math.hypot(snout.x-prior.x,snout.y-prior.y)||1,dx=(snout.x-prior.x)/dl,dy=(snout.y-prior.y)/dl;
+ for(let i=0;i<n;i++){const ex=i%W+.5-snout.x,ey=Math.floor(i/W)+.5-snout.y,along=ex*dx+ey*dy,rad=Math.hypot(ex,ey),angle=Math.atan2(ey,ex);if(along>0&&Math.abs(rad-snout.r*.92*(1+.10*Math.sin(angle*3+phase)))<1.6&&!stream[i]){m.heights[i]=Math.max(m.heights[i],Math.min(22,snout.floor+1+(noise(s.seed,i)>.73?1:0)));mask[i]=2;arrival[i]=1;}
+  const across=-ex*dy+ey*dx,width=r*(.75+along/(r*3));if(along>snout.r&&along<snout.r+r*2.8&&Math.abs(across)<width*(1+.1*Math.sin(along*.2+phase))&&before.heights[i]<snout.floor&&!stream[i]){const target=Math.max(0,snout.floor-Math.floor((along-snout.r)/(10+noise(s.seed,19)*7)));if(target>before.heights[i]){m.heights[i]=target;fan[i]=1;arrival[i]=1;}}
  }
- // Narrow stream and a complete drainage continuation. At the snout it passes
- // through a notch in the moraine, rather than damming the entire broad floor.
- const streamPath:Point[]=path.map((q,k)=>{
-  const a=path[Math.max(0,k-2)],b=path[Math.min(path.length-1,k+2)],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
-  const off=Math.sin(q.s*11+phase)*q.r*.08*Math.sin(q.s*Math.PI);
-  return {x:q.x-(b.y-a.y)/len*off,y:q.y+(b.x-a.x)/len*off};
- });
- const end=path.at(-1)!,prior=path[Math.max(0,path.length-6)],dl=Math.hypot(end.x-prior.x,end.y-prior.y)||1,dx=(end.x-prior.x)/dl,dy=(end.y-prior.y)/dl;
- const tail=valley.path(tile(end),W*H);
- // Valley previews stop inside the edge. Hydrology must reach the actual open
- // boundary, otherwise the untouched last two rows become an accidental dam.
- let tailIndex=tile(tail.at(-1)!);
- while(valley.parent[tailIndex]>=0){tailIndex=valley.parent[tailIndex];tail.push({x:tailIndex%W+.5,y:Math.floor(tailIndex/W)+.5});}
- const tailLength=lengthOf(tail);let tailArc=0;
- const softened=tail.map((q,k)=>{
-  if(k)tailArc+=Math.hypot(q.x-tail[k-1].x,q.y-tail[k-1].y);
-  if(k<2||k>tail.length-3)return q;
-  const group=tail.slice(Math.max(0,k-4),Math.min(tail.length,k+5)),a=tail[k-2],b=tail[k+2],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
-  const off=Math.sin(tailArc*.22+phase)*.8*Math.sin(Math.PI*tailArc/(tailLength||1));
-  return {x:clamp(group.reduce((s,p)=>s+p.x,0)/group.length-(b.y-a.y)/len*off,.5,W-.5),y:clamp(group.reduce((s,p)=>s+p.y,0)/group.length+(b.x-a.x)/len*off,.5,H-.5)};
- });
- const drain=[...streamPath,...softened.slice(1)];
- const channelWidth=shallow?3.8:Math.max(1.1,Math.min(1.6,sizeOf(s)*.045))*Math.max(1,W/128);
- const channelDepth=lobe?2:3;
- let bed=Math.max(0,path[0].floor-channelDepth);
- for(let k=0;k<drain.length;k++){
-  const q=drain[k];bed=Math.min(bed,k<path.length?Math.max(0,path[k].floor-channelDepth):Math.max(0,before.heights[tile(q)]-1));
-  for(let y=Math.max(0,Math.floor(q.y-channelWidth));y<Math.min(H,q.y+channelWidth+1);y++)for(let x=Math.max(0,Math.floor(q.x-channelWidth));x<Math.min(W,q.x+channelWidth+1);x++){
-   const i=y*W+x;if(Math.hypot(x+.5-q.x,y+.5-q.y)>channelWidth)continue;
-   if(keep[i])throw Error('Start here');
-   m.heights[i]=Math.min(m.heights[i],bed);stream[i]=1;arrival[i]=k<path.length?path[k].s:1;
-  }
+ // One open downstream river, continuing to the original drainage outlet.
+ // This is a broad extension at its floor level, not several fan braids.
+ const tail=valley.path(tile(snout),n);let tailIndex=tile(tail.at(-1)!);while(valley.parent[tailIndex]>=0){tailIndex=valley.parent[tailIndex];tail.push({x:tailIndex%W+.5,y:Math.floor(tailIndex/W)+.5});}
+ let bed=snout.floor;const beds=tail.map(q=>bed=Math.min(bed,before.heights[tile(q)]));channel([streamPath.at(-1)!,...tail],[snout.floor,...beds],riverRadius,1,1);
+ // Seal only the banks, including the tarn and plunge pools. Keeping a bank at
+ // the adjacent higher datum prevents a bar's one-level drop opening a second
+ // accidental river across the dry floor. The river itself remains at F.
+ for(let i=0;i<n;i++)if(mask[i]===1&&!stream[i])m.heights[i]=Math.max(m.heights[i],Math.min(22,floor[i]+1));
+ absorb();let treesRemoved=0,objectsRemoved=0,startMoved=false;const originalStart=m.entities.find(e=>e.template==='StartingLocation');
+ m.entities=m.entities.filter(e=>{if(e.template==='StartingLocation')return true;const cells=entityTiles(m,e);if(cells.some(i=>mask[i]===1||stream[i]||before.heights[i]!==m.heights[i])){if(isPlant(e))treesRemoved++;else objectsRemoved++;return false;}return true;});
+ if(originalStart&&entityTiles(m,originalStart).some(i=>mask[i]===1||before.heights[i]!==m.heights[i])){const old={x:originalStart.x,y:originalStart.y};let best=Infinity,dest:Point|null=null;const occupied=new Uint8Array(n);for(const e of m.entities)if(e!==originalStart)for(const i of entityTiles(m,e))occupied[i]=1;
+  for(let y=0;y<H-2;y++)for(let x=0;x<W-2;x++){const cells=entityTiles(m,{...originalStart,x,y}),d=(x-old.x)**2+(y-old.y)**2;if(d>=best||cells.length!==9||cells.some(i=>mask[i]===1||occupied[i]||m.heights[i]!==m.heights[cells[0]]))continue;best=d;dest={x,y};}
+  if(!dest)throw Error('No level ground remains for the map’s start');originalStart.x=dest.x;originalStart.y=dest.y;ride(originalStart,m.heights[dest.y*W+dest.x]);delete originalStart.raw;startMoved=true;const cells=new Set(entityTiles(m,originalStart));m.entities=m.entities.filter(e=>e===originalStart||!entityTiles(m,e).some(i=>cells.has(i)));
  }
- // Reconnect wet side-valley entrances before raising a dry floor over the old
- // channel. Otherwise an existing river can back up against its new bank.
- const entrances=new Uint8Array(n),visited=new Uint8Array(n);
- for(let i=0;i<n;i++)if(mask[i]===2&&before.water.depth[i]>.05)entrances[i]=1;
- for(let i=0;i<n;i++)if(entrances[i]&&!visited[i]){
-  const group=[i];visited[i]=1;
-  for(let k=0;k<group.length;k++){const j=group[k],x=j%W,y=Math.floor(j/W);for(const [xx,yy]of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){const a=yy*W+xx;if(xx<0||yy<0||xx>=W||yy>=H||visited[a]||!entrances[a])continue;visited[a]=1;group.push(a);}}
-  const entry=group.reduce((best,j)=>before.water.depth[j]>before.water.depth[best]?j:best,group[0]),k=nearest[entry],to=streamPath[k],from={x:entry%W+.5,y:Math.floor(entry/W)+.5},len=Math.hypot(to.x-from.x,to.y-from.y),floor=m.heights[tile(to)];
-  for(let step=0;step<=Math.ceil(len*3);step++){
-   const t=step/Math.max(1,Math.ceil(len*3)),x=from.x+(to.x-from.x)*t,y=from.y+(to.y-from.y)*t,bed=Math.floor(before.heights[entry]+(floor-before.heights[entry])*t);
-   const radius=W>128?1.6:1.15;
-   for(let yy=Math.max(0,Math.floor(y-radius));yy<Math.min(H,y+radius);yy++)for(let xx=Math.max(0,Math.floor(x-radius));xx<Math.min(W,x+radius);xx++){
-    const j=yy*W+xx;if(keep[j]||Math.hypot(xx+.5-x,yy+.5-y)>radius)continue;m.heights[j]=Math.min(m.heights[j],bed);stream[j]=1;arrival[j]=path[k].s;
-   }
-  }
- }
- // A small head tarn and one narrow terminal lake. The valley banks remain above
- // both outlets; no cross-valley sills are stamped across the buildable floor.
- const lakeSeeds:number[]=[];
- const lakePositions=lobe?[.2]:length<r*3.5?[]:[.1+noise(s.seed,31)*.04,.76+noise(s.seed,32)*.09];
- for(const t of lakePositions){
-  const k=path.findIndex(q=>q.s>=t),q=path[Math.max(0,k)],c=streamPath[Math.max(0,k)];
-  if(q.floor<channelDepth+1)continue;
-  const a=path[Math.max(0,k-2)],b=path[Math.min(path.length-1,k+2)],len=Math.hypot(b.x-a.x,b.y-a.y)||1,ux=(b.x-a.x)/len,uy=(b.y-a.y)/len;
-  const longitudinal=lobe?3:t<.3?3:Math.min(6,q.r*.55),transverse=lobe?1.6:Math.max(1.6,Math.min(2.6,q.r*.2));
-  for(let y=Math.max(0,Math.floor(c.y-longitudinal));y<Math.min(H,c.y+longitudinal+1);y++)for(let x=Math.max(0,Math.floor(c.x-longitudinal));x<Math.min(W,c.x+longitudinal+1);x++){
-   const i=y*W+x,ex=x+.5-c.x,ey=y+.5-c.y,along=ex*ux+ey*uy,across=-ex*uy+ey*ux;
-   if(mask[i]!==1||(along/longitudinal)**2+(across/transverse)**2>1+.09*Math.sin(along+phase))continue;
-   m.heights[i]=Math.min(m.heights[i],q.floor-channelDepth-1);lakeSeeds.push(i);
-  }
- }
- // Grade a rounded, downstream fan as part of the cut/fill ledger. Its banks are
- // above the outlet stream. Forward room is a property of this terrain, not a knob.
- const fanLevel=Math.min(CEILING,end.floor),candidates:{i:number;cap:number;score:number;fan:boolean}[]=[];
- for(let i=0;i<n;i++){
-  if(keep[i]||mask[i]||stream[i]||before.water.depth[i]>.05)continue;
-  const ex=i%W+.5-end.x,ey=Math.floor(i/W)+.5-end.y,along=ex*dx+ey*dy,across=-ex*dy+ey*dx;
-  const centre=r*1.65,reach=r*1.55,width=r*1.45;
-  const oval=((along-centre)/reach)**2+(across/width)**2;
-  if(along>r*.3&&oval<1+.09*Math.sin(across*.22+phase)&&before.heights[i]<=fanLevel+2){
-   if(oval<.78){m.heights[i]=fanLevel;fan[i]=1;arrival[i]=1;}
-   else if(m.heights[i]<fanLevel)candidates.push({i,cap:fanLevel,score:0,fan:true});
-  }
- }
- // Low irregular moraine arcs and lateral ridges, open at the stream. No closed
- // circular rim and no uniform radial apron. Deposition follows the full tongue.
- for(let i=0;i<n;i++){
-  if(keep[i]||mask[i]||stream[i]||fan[i]||before.water.depth[i]>.05)continue;
-  const ex=i%W+.5-end.x,ey=Math.floor(i/W)+.5-end.y,along=ex*dx+ey*dy,rad=Math.hypot(ex,ey),angle=Math.atan2(ey,ex);
-  const terminal=along>0&&Math.abs(rad-r*1.12*(1+.11*Math.sin(angle*3+phase)))<r*.23;
-  const side=nearest[i]>=0&&dist[i]>1.32&&dist[i]<2.7;
-  if(terminal||side){
-   const bump=terminal?3:Math.max(1,Math.round(3.5*Math.sin((dist[i]-1.32)/1.38*Math.PI)));
-   candidates.push({i,cap:Math.min(CEILING,before.heights[i]+bump),score:terminal?1:3+Math.abs(dist[i]-1.85)*3,fan:false});
-  }
- }
- let cut=0,filled=0;for(let i=0;i<n;i++){cut+=Math.max(0,before.heights[i]-m.heights[i]);filled+=Math.max(0,m.heights[i]-before.heights[i]);}
- if(filled>cut){
-  // Near level zero, widening also shears the higher shoulder for the fill that
-  // raises dry ground. This is literal cut material, never created sediment.
-  const borrow=[...nearest.keys()].filter(i=>nearest[i]>=0&&!keep[i]&&!stream[i]&&dist[i]>1&&dist[i]<1.75&&m.heights[i]>path[nearest[i]].floor);
-  borrow.sort((a,b)=>dist[a]-dist[b]||a-b);
-  for(const i of borrow){const take=Math.min(filled-cut,m.heights[i]-path[nearest[i]].floor);m.heights[i]-=take;cut+=take;mask[i]=2;if(cut>=filled)break;}
-  if(filled>cut)throw Error('Not enough ice-cut material to build the dry valley here');
- }
- // Fill narrow low ledges against existing terraces before adding free-standing
- // ridges. Completing each pad makes usable ground instead of scattered humps.
- for(let i=0;i<n;i++){
-  if(nearest[i]<0||dist[i]<1.32||dist[i]>3.8||keep[i]||stream[i]||fan[i]||mask[i]||before.water.depth[i]>.05)continue;
-  const x=i%W,y=Math.floor(i/W);let target=before.heights[i];
-  for(let yy=Math.max(0,y-3);yy<=Math.min(H-1,y+3);yy++)for(let xx=Math.max(0,x-3);xx<=Math.min(W-1,x+3);xx++)target=Math.max(target,before.heights[yy*W+xx]);
-  const cap=Math.min(CEILING,before.heights[i]+4,target);
-  if(cap>m.heights[i])candidates.push({i,cap,score:-4+(cap-m.heights[i])*.1,fan:false});
- }
- const by=new Map(candidates.map(c=>[c.i,c])),heap=new MinHeap();
- for(const c of by.values())if(m.heights[c.i]<c.cap)heap.push(c.score+(c.cap-m.heights[c.i])*.1,c.i);
- let left=cut-filled;
- while(left&&heap.size){const i=heap.pop(),c=by.get(i)!;m.heights[i]++;left--;arrival[i]=nearest[i]>=0?path[nearest[i]].s:1;if(c.fan)fan[i]=1;
-  if(m.heights[i]<c.cap)heap.push(c.score+(c.cap-m.heights[i])*.1,i);
- }
- if(left)throw Error('Not enough room to deposit the moraine · choose a smaller glacier');
- // Pair one-block cuts and fills to join broken ledges into connected building
- // pads. Each accepted side improves local flat ground; the pair conserves mass.
- // Keep the stream, lakes, fan and protected/entity footprints out of this pass.
- const occupied=new Uint8Array(keep);for(const e of m.entities)if(!isPlant(e))for(const i of entityTiles(m,e))occupied[i]=1;
- const pad=(x:number,y:number,at:number,changed:number)=>{
-  const h=(i:number)=>i===at?changed:m.heights[i];
-  for(let yy=y-1;yy<=y;yy++)for(let xx=x-1;xx<=x;xx++){
-   if(xx<0||yy<0||xx>=W-1||yy>=H-1)continue;
-   const j=yy*W+xx;if([j+1,j+W,j+W+1].every(k=>h(k)===h(j)))return 1;
-  }return 0;
- };
- const benefit=(i:number,delta:number)=>{
-  const x=i%W,y=Math.floor(i/W),h=m.heights[i],to=h+delta;
-  if(to<0||to>CEILING)return 0;
-  let neighbours=0;for(let yy=y-1;yy<=y+1;yy++)for(let xx=x-1;xx<=x+1;xx++)if((xx!==x||yy!==y)&&xx>=0&&yy>=0&&xx<W&&yy<H&&m.heights[yy*W+xx]===to)neighbours++;
-  if(neighbours<3)return 0;
-  let gain=0;for(let yy=Math.max(0,y-1);yy<=Math.min(H-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(W-1,x+1);xx++)gain+=pad(xx,yy,i,to)-pad(xx,yy,i,h);
-  return gain;
- };
- const grading=[...nearest.keys()].filter(i=>nearest[i]>=0&&dist[i]>1.02&&dist[i]<3.8&&!occupied[i]&&!fan[i]&&!stream[i]&&before.water.depth[i]<.01);
- for(let pass=0;pass<6;pass++){
-  const donors=grading.filter(i=>benefit(i,-1)>0),receivers=grading.filter(i=>benefit(i,1)>0);
-  let a=0,b=0;
-  while(a<donors.length&&b<receivers.length){const from=donors[a++];if(benefit(from,-1)<=0)continue;m.heights[from]--;
-   while(b<receivers.length&&benefit(receivers[b],1)<=0)b++;
-   if(b>=receivers.length){m.heights[from]++;break;}const to=receivers[b++];
-   m.heights[to]++;arrival[from]=path[nearest[from]].s;arrival[to]=path[nearest[to]].s;
-  }
- }
- cut=0;for(let i=0;i<n;i++)cut+=Math.max(0,before.heights[i]-m.heights[i]);
- const hanging:number[]=[];for(let i=0;i<n;i++)if(mask[i]===2&&before.water.depth[i]>.03&&before.heights[i]-m.heights[i]>=2)hanging.push(i);
- // Non-plants in the swept trough are removed, never kept as pillars/islands.
- // Trees are carried to dry supported moraine ground with real exported positions.
- const used=new Set<number>();for(const e of m.entities)if(!isPlant(e)||entityTiles(m,e).every(i=>!mask[i]))for(const i of entityTiles(m,e))used.add(i);
- let treesMoved=0,objectsRemoved=0;
- const treeSites=[...by.keys()].filter(i=>!mask[i]&&!stream[i]&&!keep[i]&&m.heights[i]>=before.heights[i]);
- m.entities=m.entities.filter(e=>{
-  const cells=entityTiles(m,e),swept=cells.some(i=>mask[i]===1||stream[i]),changed=cells.some(i=>before.heights[i]!==m.heights[i]);
-  if(e.template==='StartingLocation')return true;
-  if(e.owner.startsWith('pinned:')&&(swept||changed))throw Error('Pinned object here');
-  if(isPlant(e)&&cells.some(i=>mask[i]||stream[i])){
-   let dest=-1,best=Infinity;for(const i of treeSites){if(used.has(i))continue;const d=(i%W-e.x)**2+(Math.floor(i/W)-e.y)**2;if(d<best){best=d;dest=i;}}
-   if(dest<0)throw Error('Not enough room for trees at the ice edge');
-   e.x=dest%W;e.y=Math.floor(dest/W);ride(e,m.heights[dest]);delete e.raw;used.add(dest);treesMoved++;return true;
-  }
-  if(!isPlant(e)&&swept){objectsRemoved++;return false;}
-  if(!changed)return true;
-  if(cells.every(i=>m.heights[i]===m.heights[cells[0]])){ride(e,m.heights[cells[0]]);return true;}
-  objectsRemoved++;return false;
- });
- let removed=true;while(removed){removed=false;const slopes=new Map(m.entities.filter(e=>e.template==='Slope').map(e=>[e.y*W+e.x,e]));
-  m.entities=m.entities.filter(e=>{if(e.template!=='Slope')return true;const [dx,dy]=slopeHighSide(e.orientation),hx=e.x+dx,hy=e.y+dy,lx=e.x-dx,ly=e.y-dy;
-   if(hx>=0&&hy>=0&&hx<W&&hy<H&&lx>=0&&ly>=0&&lx<W&&ly<H&&m.heights[hy*W+hx]===e.z+1&&(m.heights[ly*W+lx]===e.z||slopes.get(ly*W+lx)?.z===e.z-1))return true;
-   if(e.owner.startsWith('pinned:'))throw Error('Pinned slope would lose its connection');removed=true;objectsRemoved++;return false;
-  });
- }
+ let removed=true;while(removed){removed=false;const slopes=new Map(m.entities.filter(e=>e.template==='Slope').map(e=>[e.y*W+e.x,e]));m.entities=m.entities.filter(e=>{if(e.template!=='Slope')return true;const [dx,dy]=slopeHighSide(e.orientation),hx=e.x+dx,hy=e.y+dy,lx=e.x-dx,ly=e.y-dy;if(hx>=0&&hy>=0&&hx<W&&hy<H&&lx>=0&&ly>=0&&lx<W&&ly<H&&m.heights[hy*W+hx]===e.z+1&&(m.heights[ly*W+lx]===e.z||slopes.get(ly*W+lx)?.z===e.z-1))return true;removed=true;objectsRemoved++;return false;});}
  m.fallen=m.fallen.filter(f=>m.entities.some(e=>e.id===f.id));trimRock(m);
- if(s.meltwater){let serial=0,id=guidFrom('glaciate',s.seed,intent.origin,serial);while(m.entities.some(e=>e.id===id))id=guidFrom('glaciate',s.seed,intent.origin,++serial);
-  const i=tile(streamPath[0]);m.entities.push(waterSource({id,owner:'glaciate',x:i%W,y:Math.floor(i/W),z:m.heights[i],strength:Math.min(2,.4+sizeOf(s)*.025)}));
- }
- m.entities=plainEntities(m.entities);
+ let serial=0;const addSource=(i:number,strength:number)=>{let id=guidFrom('glaciate',s.seed,intent.origin,serial++);while(m.entities.some(e=>e.id===id))id=guidFrom('glaciate',s.seed,intent.origin,serial++);m.entities.push(waterSource({id,owner:'glaciate',x:i%W,y:Math.floor(i/W),z:m.heights[i],strength}));};
+ if(s.meltwater){let strength=.65+cleanAbsorbed;const sites=[tile(tarn),...lakeSeeds.filter(i=>i!==tile(tarn))];let index=0;while(strength>0){const amount=Math.min(8,strength);addSource(sites[index++%sites.length],amount);strength-=amount;}for(const h of hanging)if(h.source!==null)addSource(h.source,.25+Math.min(.35,h.catchment/800));}m.entities=plainEntities(m.entities);
  const model=modelFor(m),spill=spillLevels(model),feed=prefill(model),seen=new Uint8Array(n),basins:Basin[]=[],retained={tiles:[] as number[],floor:[] as number[],depth:[] as number[],contamination:[] as number[]};
- for(const i of lakeSeeds){if(seen[i]||spill[i]<=m.heights[i])continue;
-  const level=spill[i],queue=[i];seen[i]=1;
-  for(let k=0;k<queue.length;k++){const j=queue[k],x=j%W,y=Math.floor(j/W);for(const [xx,yy]of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){
-   const a=yy*W+xx;if(xx<0||yy<0||xx>=W||yy>=H||seen[a]||spill[a]!==level||m.heights[a]>=level)continue;seen[a]=1;queue.push(a);}}
-  if(queue.length<3)continue;const floor=Math.min(...queue.map(j=>m.heights[j]));basins.push({tiles:queue.sort((a,b)=>a-b),floor,outlet:level,depth:level-floor,fed:queue.some(j=>feed.depth[j]>.01)});
- }
- for(const i of [...new Set(basins.flatMap(b=>b.tiles))].sort((a,b)=>a-b)){
-  retained.tiles.push(i);retained.floor.push(m.heights[i]);retained.depth.push(s.meltwater?Math.max(0,spill[i]-m.heights[i]-.04):0);retained.contamination.push(0);
- }
- m.water=prefill({...model,retained:[retained]});
- let outwash=0;for(let i=0;i<n;i++)if(fan[i])outwash+=Math.max(0,m.heights[i]-before.heights[i]);
- const result:Plan={before,map:m,request:{verb:'glaciate',settings:s,intent:{...intent}},path,reference,arrival,mask,stream,fan,retained,basins,lobe,shallow,hanging,
-  notice:shallow?'No room to deepen here · widening and building dry ground':lobe?'A shallow sweep of land':'',
-  metrics:{cut,deposited:cut,ratio:1,floorWidth:0,requestedWidth:sizeOf(s)*(shallow?1.3:1),crossRange:0,flatShare:0,centreline:sinuosity(path),valley:sinuosity(reference),outwash,treesMoved,treesUnmoved:0,objectsRemoved,dryFloor:0,troughTiles:0,wetShare:0,length,valleyLength:lengthOf(reference),longestWall:0,buildableBefore:0,buildableAfter:0,buildableGain:0,directGain:0,outwashDry:0}};
+ for(const i of lakeSeeds){if(seen[i]||spill[i]<=m.heights[i])continue;const level=spill[i],queue=[i];seen[i]=1;for(let k=0;k<queue.length;k++){const j=queue[k],x=j%W,y=Math.floor(j/W);for(const [dx,dy]of N4){const xx=x+dx,yy=y+dy,a=yy*W+xx;if(xx<0||yy<0||xx>=W||yy>=H||seen[a]||spill[a]!==level||m.heights[a]>=level)continue;seen[a]=1;queue.push(a);}}if(queue.length<3)continue;const floor=Math.min(...queue.map(j=>m.heights[j]));basins.push({tiles:queue.sort((a,b)=>a-b),floor,outlet:level,depth:level-floor,fed:queue.some(j=>feed.depth[j]>.01)});}
+ for(const i of [...new Set(basins.flatMap(b=>b.tiles))].sort((a,b)=>a-b)){retained.tiles.push(i);retained.floor.push(m.heights[i]);retained.depth.push(s.meltwater?Math.max(0,spill[i]-m.heights[i]-.04):0);retained.contamination.push(0);}m.water=prefill({...model,retained:[retained]});
+ let cut=0,deposited=0,outwash=0;for(let i=0;i<n;i++){cut+=Math.max(0,before.heights[i]-m.heights[i]);deposited+=Math.max(0,m.heights[i]-before.heights[i]);if(fan[i])outwash+=Math.max(0,m.heights[i]-before.heights[i]);}
+ if(!cut&&!deposited&&m.entities.length===before.entities.length)throw Error(PHYSICAL);
+ const result:Plan={before,map:m,request:{verb:'glaciate',settings:s,intent:{...intent}},path,reference,arrival,mask,floor,nearest,streamPath,stream,fan,retained,basins,hanging,notice:'',metrics:{cut,deposited,carriedAway:cut-deposited,ratio:cut?deposited/cut:0,floorWidth:0,widthMin:0,widthMax:0,requestedWidth:sizeOf(s),crossRange:0,flatShare:0,centreline:sinuosity(path),valley:sinuosity(reference),outwash,treesMoved:0,treesUnmoved:0,treesRemoved,objectsRemoved,cleanAbsorbed,badSwept,riverWidthMin:0,riverWidthMax:0,channels:0,maxPoolJoin:Math.max(0,...hanging.map(h=>h.joinLength)),startMoved,dryFloor:0,newFloor:0,newFloorShare:0,wallMedian:0,wallMax:0,hangingValleys:0,waterfalls:0,troughTiles:0,wetShare:0,length,valleyLength:lengthOf(reference),longestWall:0,buildableBefore:0,buildableAfter:0,buildableGain:0,directGain:0,outwashDry:0}};
  measure(result);return result;
 }
-
-/** Dry tiles belonging to a level 2×2 pad. Trees can be cleared; other objects
- * occupy their actual footprints. This measures building space, not path access. */
-export function buildable(m:ForceMap){
- const {W,H}=m,blocked=protectedGround(m),flat=new Uint8Array(W*H);
- for(const e of m.entities)if(!isPlant(e))for(const i of entityTiles(m,e))blocked[i]=1;
- for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
-  const i=y*W+x,a=[i,i+1,i+W,i+W+1];
-  if(a.every(j=>!blocked[j]&&m.water.depth[j]<=.05&&m.heights[j]===m.heights[i]))for(const j of a)flat[j]=1;
- }return flat;
-}
-
+/** Round 2's dry 2×2-pad definition, without a protected start collar. */
+export function buildable(m:ForceMap){const {W,H}=m,blocked=new Uint8Array(W*H),flat=new Uint8Array(W*H);for(const e of m.entities)if(!isPlant(e))for(const i of entityTiles(m,e))blocked[i]=1;
+ for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){const i=y*W+x,a=[i,i+1,i+W,i+W+1];if(a.every(j=>!blocked[j]&&m.water.depth[j]<=.05&&m.heights[j]===m.heights[i]))for(const j of a)flat[j]=1;}return flat;}
 export function measure(p:Plan){
  const {map:m,before,mask,fan}=p,{W,H}=m,a=buildable(before),b=buildable(m),q=p.metrics;
- q.troughTiles=0;q.dryFloor=0;q.wetShare=0;q.buildableBefore=0;q.buildableAfter=0;q.outwashDry=0;q.directGain=0;
- // Count the same affected region before and after: changed ground, wet/dry
- // transitions and changed object footprints, plus the one-tile pad collar.
+ q.troughTiles=0;q.dryFloor=0;q.newFloor=0;q.wetShare=0;q.buildableBefore=0;q.buildableAfter=0;q.outwashDry=0;q.directGain=0;
  const region=new Uint8Array(W*H),mark=(i:number)=>{const x=i%W,y=Math.floor(i/W);for(let yy=Math.max(0,y-1);yy<=Math.min(H-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(W-1,x+1);xx++)region[yy*W+xx]=1;};
  for(let i=0;i<W*H;i++)if(mask[i]||before.heights[i]!==m.heights[i]||(before.water.depth[i]>.05)!==(m.water.depth[i]>.05))mark(i);
- const oldEntities=new Map(before.entities.map(e=>[e.id,e])),newEntities=new Map(m.entities.map(e=>[e.id,e]));
- for(const e of [...before.entities,...m.entities]){if(isPlant(e))continue;const old=oldEntities.get(e.id),now=newEntities.get(e.id);if(!old||!now||old.x!==now.x||old.y!==now.y||old.z!==now.z)for(const i of entityTiles(m,e))mark(i);}
- let wet=0,level=0;const widths:number[]=[],ranges:number[]=[];
- for(let i=0;i<W*H;i++){
-  if(mask[i]===1){q.troughTiles++;wet+=Number(m.water.depth[i]>.05);q.dryFloor+=b[i];level+=Number([i-1,i+1,i-W,i+W].every(j=>j>=0&&j<W*H&&m.heights[j]===m.heights[i]));}
-  if(mask[i]||before.heights[i]!==m.heights[i])q.directGain+=b[i]-a[i];
-  if(region[i]){q.buildableBefore+=a[i];q.buildableAfter+=b[i];}
-  if(fan[i]&&m.heights[i]>before.heights[i])q.outwashDry+=b[i];
+ const oldEntities=new Map(before.entities.map(e=>[e.id,e])),newEntities=new Map(m.entities.map(e=>[e.id,e]));for(const e of [...before.entities,...m.entities]){if(isPlant(e))continue;const old=oldEntities.get(e.id),now=newEntities.get(e.id);if(!old||!now||old.x!==now.x||old.y!==now.y||old.z!==now.z)for(const i of entityTiles(m,e))mark(i);}
+ let wet=0,level=0;const widths:number[]=[],ranges:number[]=[],walls:number[]=[];
+ for(let i=0;i<W*H;i++){if(mask[i]===1){q.troughTiles++;wet+=Number(m.water.depth[i]>.05);q.dryFloor+=b[i];q.newFloor+=b[i]&&!a[i]?1:0;level+=Number([i-1,i+1,i-W,i+W].every(j=>j>=0&&j<W*H&&m.heights[j]===m.heights[i]));}if(mask[i]||before.heights[i]!==m.heights[i])q.directGain+=b[i]-a[i];if(region[i]){q.buildableBefore+=a[i];q.buildableAfter+=b[i];}if(fan[i]&&m.heights[i]>before.heights[i])q.outwashDry+=b[i];}
+ q.wetShare=wet/(q.troughTiles||1);q.flatShare=level/(q.troughTiles||1);q.newFloorShare=q.newFloor/(q.dryFloor||1);q.buildableGain=q.buildableAfter-q.buildableBefore;
+ let longest=0;for(let y=0;y<=H;y++){let run=0,last=0;for(let x=0;x<W;x++){const side=(y>0&&mask[(y-1)*W+x]===1?1:0)-(y<H&&mask[y*W+x]===1?1:0);run=side&&side===last?run+1:side?1:0;last=side;longest=Math.max(longest,run);}}for(let x=0;x<=W;x++){let run=0,last=0;for(let y=0;y<H;y++){const side=(x>0&&mask[y*W+x-1]===1?1:0)-(x<W&&mask[y*W+x]===1?1:0);run=side&&side===last?run+1:side?1:0;last=side;longest=Math.max(longest,run);}}q.longestWall=longest;
+ for(let k=3;k<p.path.length-3;k+=3){const pt=p.path[k],aa=p.path[k-3],bb=p.path[k+3],len=Math.hypot(bb.x-aa.x,bb.y-aa.y)||1,nx=-(bb.y-aa.y)/len,ny=(bb.x-aa.x)/len,heights:number[]=[];let count=0;
+  for(let u=-Math.ceil(pt.r*1.25);u<=pt.r*1.25;u++){const x=clamp(Math.floor(pt.x+nx*u),0,W-1),y=clamp(Math.floor(pt.y+ny*u),0,H-1),i=y*W+x;if(mask[i]===1){count++;if(!p.stream[i])heights.push(m.heights[i]);}}
+  widths.push(count);if(heights.length)ranges.push(Math.max(...heights)-Math.min(...heights));
+  for(const side of [-1,1])for(let u=pt.r*.5;u<pt.r*1.5;u+=.5){const x=clamp(Math.floor(pt.x+nx*u*side),0,W-1),y=clamp(Math.floor(pt.y+ny*u*side),0,H-1),i=y*W+x;if(mask[i]!==1){walls.push(Math.max(0,before.heights[i]-pt.floor-1));break;}}
  }
- q.wetShare=wet/(q.troughTiles||1);q.flatShare=level/(q.troughTiles||1);q.buildableGain=q.buildableAfter-q.buildableBefore;
- // Longest exact cardinal wall run on the rasterized trough outline. Include
- // the whole perimeter (not just the freshly excavated vertical faces).
- let longest=0;
- for(let y=0;y<=H;y++){let run=0,last=0;for(let x=0;x<W;x++){const side=(y>0&&mask[(y-1)*W+x]===1?1:0)-(y<H&&mask[y*W+x]===1?1:0);run=side&&side===last?run+1:side?1:0;last=side;longest=Math.max(longest,run);}}
- for(let x=0;x<=W;x++){let run=0,last=0;for(let y=0;y<H;y++){const side=(x>0&&mask[y*W+x-1]===1?1:0)-(x<W&&mask[y*W+x]===1?1:0);run=side&&side===last?run+1:side?1:0;last=side;longest=Math.max(longest,run);}}
- q.longestWall=longest;
- for(let k=2;k<p.path.length-2;k+=3){const pt=p.path[k],a=p.path[k-2],b=p.path[k+2],len=Math.hypot(b.x-a.x,b.y-a.y)||1,nx=-(b.y-a.y)/len,ny=(b.x-a.x)/len,heights:number[]=[];let run=0,best=0,previous=-1;
-  for(let u=-Math.floor(pt.r);u<=pt.r;u++){const x=clamp(Math.floor(pt.x+nx*u),0,W-1),y=clamp(Math.floor(pt.y+ny*u),0,H-1),i=y*W+x,h=m.heights[i];heights.push(h);run=m.water.depth[i]<=.05?(h===previous?run+1:1):0;previous=h;best=Math.max(best,run);}
-  widths.push(best);ranges.push(Math.max(...heights)-Math.min(...heights));
- }
- q.floorWidth=widths.length?quantile(widths,.5):0;q.crossRange=ranges.length?quantile(ranges,.5):0;
- return q;
+ q.floorWidth=quantile(widths,.5);q.widthMin=widths.length?Math.min(...widths):0;q.widthMax=widths.length?Math.max(...widths):0;q.crossRange=quantile(ranges,.5);q.wallMedian=quantile(walls,.5);q.wallMax=walls.length?Math.max(...walls):0;
+ // Water can spill a few pixels along an irregular lip. Count the actual wet
+ // top-to-bottom edge near that original mouth, not a planned source or dry lip.
+ // Inspect the entire wet cliff boundary: existing rivers can reach a different
+ // lip than a predicted catchment mouth. Exclude main-river cascades inside the
+ // floor and the outgoing river. Adjacent wet edge pixels form one waterfall.
+ const edges:{lip:number;landing:number;drop:number}[]=[];
+ for(let i=0;i<W*H;i++)if(mask[i]!==1&&m.water.depth[i]>.015)for(const [dx,dy]of N4){const x=i%W+dx,y=Math.floor(i/W)+dy,j=y*W+x;if(x<0||y<0||x>=W||y>=H||mask[j]!==1||m.water.depth[j]<=.01)continue;const drop=m.heights[i]-m.heights[j];if(drop>=3)edges.push({lip:i,landing:j,drop});}
+ edges.sort((a,b)=>b.drop-a.drop||a.lip-b.lip);const falls:typeof edges=[];for(const e of edges)if(!falls.some(f=>Math.hypot(f.lip%W-e.lip%W,Math.floor(f.lip/W)-Math.floor(e.lip/W))<5))falls.push(e);p.falls=falls;
+ for(const h of p.hanging){const edge=falls.find(f=>Math.hypot(f.lip%W-h.mouth%W,Math.floor(f.lip/W)-Math.floor(h.mouth/W))<8);h.wet=!!edge;if(edge){h.lip=edge.lip;h.landing=edge.landing;h.drop=edge.drop;}}
+ q.hangingValleys=Math.max(p.hanging.length,falls.length);q.waterfalls=falls.length;
+ const riverWidths:number[]=[];let channels=0;
+ for(let k=5;k<p.path.length-5;k+=3){const pt=p.streamPath[k],aa=p.streamPath[k-3],bb=p.streamPath[k+3],len=Math.hypot(bb.x-aa.x,bb.y-aa.y)||1,nx=-(bb.y-aa.y)/len,ny=(bb.x-aa.x)/len;let run=0,total=0,main=false;const seen=new Set<number>();
+  const finish=()=>{if(run){total++;if(main)riverWidths.push(run);}run=0;main=false;};
+  for(let u=-Math.ceil(p.path[k].r*2);u<=p.path[k].r*2;u++){const x=Math.floor(pt.x+nx*u),y=Math.floor(pt.y+ny*u),i=y*W+x;if(x<0||y<0||x>=W||y>=H||seen.has(i))continue;seen.add(i);if(mask[i]===1&&m.water.depth[i]>.05){run++;main||=p.stream[i]===1;}else finish();}finish();channels=Math.max(channels,total);
+ }q.riverWidthMin=riverWidths.length?Math.min(...riverWidths):0;q.riverWidthMax=riverWidths.length?Math.max(...riverWidths):0;q.channels=channels;return q;
 }

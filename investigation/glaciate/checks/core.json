@@ -1,11 +1,15 @@
 {
-  "checks": 392,
+  "round": 3,
+  "checks": 587,
+  "randomSeed": 3032026,
+  "randomMethod": "One fixed LCG draw per case, uniformly over interior tiles at or above the original map height 75th percentile; no planner filtering or replacement.",
   "cases": [
     {
-      "id": "default",
-      "map": "river-128",
-      "x": 64,
-      "y": 16,
+      "id": "hero-canyon",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "hero",
       "settings": {
         "mode": "flow",
         "power": 60,
@@ -14,63 +18,186 @@
         "seed": 891
       },
       "intent": {
-        "origin": 2112
+        "origin": 2838
       },
-      "planningMs": 126.71589999999998,
+      "planningMs": 103.17220000000003,
+      "refused": null,
       "settled": true,
-      "ticks": 896,
-      "signature": "a432b53250206f35",
+      "ticks": 640,
+      "signature": "3850691f2bfe77e6",
       "metrics": {
-        "cut": 2638,
-        "deposited": 2638,
-        "ratio": 1,
-        "floorWidth": 11,
+        "cut": 22593,
+        "deposited": 55,
+        "carriedAway": 22538,
+        "ratio": 0.0024343823308104282,
+        "floorWidth": 33,
+        "widthMin": 28,
+        "widthMax": 44,
         "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.747279322853688,
-        "centreline": 1.2940925707562898,
-        "valley": 1.2940925707562898,
-        "outwash": 1434,
-        "treesMoved": 553,
+        "crossRange": 1,
+        "flatShare": 0.7448446521858675,
+        "centreline": 1.1927928053191756,
+        "valley": 1.1927928053191756,
+        "outwash": 0,
+        "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 111,
-        "dryFloor": 2149,
-        "troughTiles": 2481,
-        "wetShare": 0.12978637646110439,
-        "length": 75.665803978065,
-        "valleyLength": 75.665803978065,
-        "longestWall": 11,
-        "buildableBefore": 5105,
-        "buildableAfter": 5239,
-        "buildableGain": 134,
-        "directGain": 51,
-        "outwashDry": 798
+        "treesRemoved": 591,
+        "objectsRemoved": 59,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 19,
+        "channels": 4,
+        "maxPoolJoin": 3.0085606596986896,
+        "startMoved": true,
+        "dryFloor": 2863,
+        "newFloor": 221,
+        "newFloorShare": 0.07719175689835836,
+        "wallMedian": 7,
+        "wallMax": 10,
+        "hangingValleys": 8,
+        "waterfalls": 2,
+        "troughTiles": 3637,
+        "wetShare": 0.1930162221611218,
+        "length": 86.62336961493331,
+        "valleyLength": 86.62336961493331,
+        "longestWall": 16,
+        "buildableBefore": 4399,
+        "buildableAfter": 3839,
+        "buildableGain": -560,
+        "directGain": -484,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 147,
+        "after": 185
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          23,
+          71,
+          8
+        ]
       },
       "basins": [
         {
+          "tiles": 42,
           "floor": 6,
           "outlet": 7,
           "depth": 1,
-          "tiles": 23,
-          "fed": true
-        },
-        {
-          "floor": 5,
-          "outlet": 6,
-          "depth": 1,
-          "tiles": 50,
           "fed": true
         }
       ],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
+      "hanging": [
+        {
+          "mouth": 5816,
+          "lip": 5691,
+          "landing": 5819,
+          "source": 3771,
+          "catchment": 179,
+          "drop": 5,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 3.0085606596986896
+        },
+        {
+          "mouth": 6211,
+          "lip": 6211,
+          "landing": 6210,
+          "source": null,
+          "catchment": 176,
+          "drop": 9,
+          "s": 0.8091271185744319,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10045,
+          "lip": 10045,
+          "landing": 9917,
+          "source": null,
+          "catchment": 172,
+          "drop": 9,
+          "s": 0.8328163860975107,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9898,
+          "lip": 9898,
+          "landing": 9770,
+          "source": null,
+          "catchment": 111,
+          "drop": 8,
+          "s": 0.5754392911881159,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10163,
+          "lip": 10163,
+          "landing": 10035,
+          "source": null,
+          "catchment": 79,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5673,
+          "lip": 4909,
+          "landing": 4908,
+          "source": 3887,
+          "catchment": 35,
+          "drop": 3,
+          "s": 0.3111221721640953,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4013,
+          "lip": 4909,
+          "landing": 4908,
+          "source": null,
+          "catchment": 22,
+          "drop": 3,
+          "s": 0.15610300077971745,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5808,
+          "lip": 4909,
+          "landing": 4908,
+          "source": null,
+          "catchment": 17,
+          "drop": 3,
+          "s": 0.6216905222385996,
+          "wet": true,
+          "joinLength": 0
+        }
+      ]
     },
     {
-      "id": "small-map",
-      "map": "river-96",
-      "x": 52,
-      "y": 16,
+      "id": "hero-highlands",
+      "map": "highlands-256",
+      "x": 150,
+      "y": 20,
+      "group": "hero",
       "settings": {
         "mode": "flow",
         "power": 60,
@@ -79,237 +206,3105 @@
         "seed": 891
       },
       "intent": {
-        "origin": 1588
+        "origin": 5270
       },
-      "planningMs": 105.33519999999999,
+      "planningMs": 160.9808999999998,
+      "refused": null,
       "settled": true,
-      "ticks": 896,
-      "signature": "d5bfa64628ad1f19",
+      "ticks": 2944,
+      "signature": "78653ad92ed671e9",
       "metrics": {
-        "cut": 3834,
-        "deposited": 3834,
-        "ratio": 1,
-        "floorWidth": 12,
+        "cut": 22936,
+        "deposited": 0,
+        "carriedAway": 22936,
+        "ratio": 0,
+        "floorWidth": 34,
+        "widthMin": 27,
+        "widthMax": 47,
         "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7299834345665378,
-        "centreline": 1.2638263861262862,
-        "valley": 1.2638263861262862,
+        "crossRange": 0,
+        "flatShare": 0.7503192848020435,
+        "centreline": 1.1474160341168116,
+        "valley": 1.1474160341168116,
         "outwash": 0,
-        "treesMoved": 318,
+        "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 34,
-        "dryFloor": 1579,
-        "troughTiles": 1811,
-        "wetShare": 0.11871893981225842,
-        "length": 48.57370017259173,
-        "valleyLength": 48.57370017259173,
+        "treesRemoved": 205,
+        "objectsRemoved": 52,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 4,
+        "riverWidthMax": 11,
+        "channels": 2,
+        "maxPoolJoin": 3.894044659526619,
+        "startMoved": false,
+        "dryFloor": 3955,
+        "newFloor": 61,
+        "newFloorShare": 0.015423514538558787,
+        "wallMedian": 4,
+        "wallMax": 11,
+        "hangingValleys": 7,
+        "waterfalls": 1,
+        "troughTiles": 4698,
+        "wetShare": 0.1392081736909323,
+        "length": 110.12408662008724,
+        "valleyLength": 110.12408662008724,
+        "longestWall": 10,
+        "buildableBefore": 6171,
+        "buildableAfter": 5021,
+        "buildableGain": -1150,
+        "directGain": -1077,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 417,
+        "after": 688
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [],
+      "hanging": [
+        {
+          "mouth": 12944,
+          "lip": 12690,
+          "landing": 12689,
+          "source": 15510,
+          "catchment": 190,
+          "drop": 3,
+          "s": 0.3778410213811743,
+          "wet": true,
+          "joinLength": 2.046170157673738
+        },
+        {
+          "mouth": 21902,
+          "lip": 21902,
+          "landing": 21901,
+          "source": 19350,
+          "catchment": 50,
+          "drop": 4,
+          "s": 0.7182253830085178,
+          "wet": false,
+          "joinLength": 3.894044659526619
+        },
+        {
+          "mouth": 13420,
+          "lip": 13420,
+          "landing": 13421,
+          "source": null,
+          "catchment": 26,
+          "drop": 3,
+          "s": 0.42284238657591805,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 14952,
+          "lip": 14952,
+          "landing": 14953,
+          "source": null,
+          "catchment": 21,
+          "drop": 3,
+          "s": 0.49309971343891157,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 17768,
+          "lip": 17768,
+          "landing": 17769,
+          "source": null,
+          "catchment": 19,
+          "drop": 3,
+          "s": 0.5444629377340627,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 24945,
+          "lip": 24945,
+          "landing": 24946,
+          "source": null,
+          "catchment": 18,
+          "drop": 3,
+          "s": 0.7825103582837579,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 2938,
+          "lip": 2938,
+          "landing": 2939,
+          "source": null,
+          "catchment": 16,
+          "drop": 5,
+          "s": 0.18455751196839643,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "hero-tall",
+      "map": "tall-128",
+      "x": 36,
+      "y": 92,
+      "group": "hero",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 11812
+      },
+      "planningMs": 55.44129999999859,
+      "refused": null,
+      "settled": false,
+      "ticks": 3072,
+      "signature": "75f838cbb4f0b63e",
+      "metrics": {
+        "cut": 28870,
+        "deposited": 268,
+        "carriedAway": 28602,
+        "ratio": 0.009282992726013163,
+        "floorWidth": 35,
+        "widthMin": 30,
+        "widthMax": 54,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.762426714249299,
+        "centreline": 1.079575582282719,
+        "valley": 1.079575582282719,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 0,
+        "objectsRemoved": 0,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 2,
+        "riverWidthMax": 14,
+        "channels": 2,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 3415,
+        "newFloor": 383,
+        "newFloorShare": 0.11215226939970717,
+        "wallMedian": 7,
+        "wallMax": 14,
+        "hangingValleys": 3,
+        "waterfalls": 0,
+        "troughTiles": 3923,
+        "wetShare": 0.11241396890135101,
+        "length": 65.52005160644508,
+        "valleyLength": 65.52005160644508,
         "longestWall": 8,
-        "buildableBefore": 5733,
-        "buildableAfter": 5811,
-        "buildableGain": 78,
+        "buildableBefore": 4626,
+        "buildableAfter": 4152,
+        "buildableGain": -474,
+        "directGain": -322,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 0,
+        "after": 222
+      },
+      "start": {
+        "before": [
+          71,
+          64,
+          8
+        ],
+        "after": [
+          71,
+          64,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 41,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 12354,
+          "lip": 12354,
+          "landing": 12353,
+          "source": null,
+          "catchment": 44,
+          "drop": 5,
+          "s": 0.19575536019389195,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6686,
+          "lip": 6686,
+          "landing": 6687,
+          "source": null,
+          "catchment": 34,
+          "drop": 4,
+          "s": 0.6452623707806107,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 7615,
+          "lip": 7615,
+          "landing": 7614,
+          "source": null,
+          "catchment": 15,
+          "drop": 3,
+          "s": 0.4953703012639873,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "random-1",
+      "map": "highlands-128",
+      "x": 16,
+      "y": 73,
+      "group": "random",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 9360
+      },
+      "planningMs": 54.9976000000006,
+      "refused": null,
+      "settled": true,
+      "ticks": 640,
+      "signature": "9ae0d4de04a2806b",
+      "metrics": {
+        "cut": 4331,
+        "deposited": 10,
+        "carriedAway": 4321,
+        "ratio": 0.0023089355806972986,
+        "floorWidth": 22,
+        "widthMin": 16,
+        "widthMax": 26,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7209677419354839,
+        "centreline": 1.0285110758618625,
+        "valley": 1.0285110758618625,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 35,
+        "objectsRemoved": 4,
+        "cleanAbsorbed": 2.16,
+        "badSwept": 0,
+        "riverWidthMin": 0,
+        "riverWidthMax": 0,
+        "channels": 1,
+        "maxPoolJoin": 2.485610273985624,
+        "startMoved": false,
+        "dryFloor": 527,
+        "newFloor": 93,
+        "newFloorShare": 0.17647058823529413,
+        "wallMedian": 5,
+        "wallMax": 6,
+        "hangingValleys": 1,
+        "waterfalls": 1,
+        "troughTiles": 620,
+        "wetShare": 0.12741935483870967,
+        "length": 14.435840866904623,
+        "valleyLength": 14.435840866904623,
+        "longestWall": 9,
+        "buildableBefore": 923,
+        "buildableAfter": 1182,
+        "buildableGain": 259,
         "directGain": 45,
         "outwashDry": 0
       },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": true
+      },
+      "downstream": {
+        "before": 5,
+        "after": 9
+      },
+      "start": {
+        "before": [
+          56,
+          55,
+          7
+        ],
+        "after": [
+          56,
+          55,
+          7
+        ]
+      },
       "basins": [],
-      "hangingCrossingTiles": 11,
-      "notice": "",
-      "refused": null
+      "hanging": [
+        {
+          "mouth": 7562,
+          "lip": 7562,
+          "landing": 7690,
+          "source": null,
+          "catchment": 18,
+          "drop": 5,
+          "s": 0.3962703352811123,
+          "wet": false,
+          "joinLength": 2.485610273985624
+        }
+      ]
     },
     {
-      "id": "kyler",
-      "map": "river-128",
-      "x": 64,
-      "y": 16,
-      "power": 47,
+      "id": "random-2",
+      "map": "highlands-256",
+      "x": 20,
+      "y": 140,
+      "group": "random",
       "settings": {
         "mode": "flow",
-        "power": 47,
+        "power": 60,
         "size": null,
         "meltwater": true,
         "seed": 891
       },
       "intent": {
-        "origin": 2112
+        "origin": 35860
       },
-      "planningMs": 71.77420000000029,
+      "planningMs": 136.4979000000003,
+      "refused": null,
       "settled": true,
-      "ticks": 1152,
-      "signature": "6463cb39a3a7cfd5",
+      "ticks": 2560,
+      "signature": "7a2a93449c41d95c",
       "metrics": {
-        "cut": 2164,
-        "deposited": 2164,
-        "ratio": 1,
-        "floorWidth": 9,
-        "requestedWidth": 25,
-        "crossRange": 3,
-        "flatShare": 0.7344199424736337,
-        "centreline": 1.2895088358790074,
-        "valley": 1.2895088358790074,
-        "outwash": 1168,
-        "treesMoved": 455,
+        "cut": 5517,
+        "deposited": 0,
+        "carriedAway": 5517,
+        "ratio": 0,
+        "floorWidth": 24,
+        "widthMin": 13,
+        "widthMax": 33,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.7576961271102284,
+        "centreline": 1.0560862662859296,
+        "valley": 1.0560862662859296,
+        "outwash": 0,
+        "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 109,
-        "dryFloor": 1812,
-        "troughTiles": 2086,
-        "wetShare": 0.12703739213806328,
-        "length": 75.49961359909594,
-        "valleyLength": 75.49961359909594,
-        "longestWall": 7,
-        "buildableBefore": 4244,
-        "buildableAfter": 4301,
-        "buildableGain": 57,
-        "directGain": 71,
-        "outwashDry": 639
+        "treesRemoved": 18,
+        "objectsRemoved": 5,
+        "cleanAbsorbed": 2.163,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 5,
+        "channels": 2,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 868,
+        "newFloor": 244,
+        "newFloorShare": 0.28110599078341014,
+        "wallMedian": 5,
+        "wallMax": 6,
+        "hangingValleys": 1,
+        "waterfalls": 1,
+        "troughTiles": 1007,
+        "wetShare": 0.1221449851042701,
+        "length": 20.80248692615979,
+        "valleyLength": 20.80248692615979,
+        "longestWall": 12,
+        "buildableBefore": 1448,
+        "buildableAfter": 2676,
+        "buildableGain": 1228,
+        "directGain": 170,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": true,
+        "riverWidth": true,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 6,
+        "after": 9
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [],
+      "hanging": []
+    },
+    {
+      "id": "random-3",
+      "map": "canyon-128",
+      "x": 45,
+      "y": 14,
+      "group": "random",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 1837
+      },
+      "planningMs": 67.9965000000011,
+      "refused": null,
+      "settled": true,
+      "ticks": 512,
+      "signature": "c87436dee8a408c6",
+      "metrics": {
+        "cut": 22956,
+        "deposited": 31,
+        "carriedAway": 22925,
+        "ratio": 0.0013504094790033107,
+        "floorWidth": 34,
+        "widthMin": 27,
+        "widthMax": 43,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7199205448354143,
+        "centreline": 1.3243472069783333,
+        "valley": 1.3243472069783333,
+        "outwash": 14,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 691,
+        "objectsRemoved": 64,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 2,
+        "riverWidthMax": 14,
+        "channels": 3,
+        "maxPoolJoin": 3.9783935951342277,
+        "startMoved": false,
+        "dryFloor": 2611,
+        "newFloor": 215,
+        "newFloorShare": 0.08234392952891613,
+        "wallMedian": 8,
+        "wallMax": 10,
+        "hangingValleys": 10,
+        "waterfalls": 3,
+        "troughTiles": 3524,
+        "wetShare": 0.23978433598183882,
+        "length": 87.14566897817458,
+        "valleyLength": 87.14566897817458,
+        "longestWall": 14,
+        "buildableBefore": 4388,
+        "buildableAfter": 3632,
+        "buildableGain": -756,
+        "directGain": -717,
+        "outwashDry": 4
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 121,
+        "after": 156
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          24,
+          70,
+          8
+        ]
       },
       "basins": [
         {
+          "tiles": 40,
           "floor": 6,
           "outlet": 7,
           "depth": 1,
-          "tiles": 21,
           "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 6601,
+          "lip": 6601,
+          "landing": 6600,
+          "source": 4297,
+          "catchment": 215,
+          "drop": 9,
+          "s": 0.8368023156518858,
+          "wet": true,
+          "joinLength": 2.3804118251188235
         },
         {
+          "mouth": 5816,
+          "lip": 5816,
+          "landing": 5815,
+          "source": null,
+          "catchment": 179,
+          "drop": 6,
+          "s": 0.3014658067216204,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5955,
+          "lip": 6601,
+          "landing": 6600,
+          "source": null,
+          "catchment": 170,
+          "drop": 9,
+          "s": 0.7543279735966356,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10301,
+          "lip": 10167,
+          "landing": 10168,
+          "source": null,
+          "catchment": 168,
+          "drop": 5,
+          "s": 0.7779239855592486,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10181,
+          "lip": 10181,
+          "landing": 10053,
+          "source": null,
+          "catchment": 130,
+          "drop": 9,
+          "s": 0.859888993461118,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9511,
+          "lip": 9769,
+          "landing": 9641,
+          "source": 11563,
+          "catchment": 115,
+          "drop": 8,
+          "s": 0.548936160537841,
+          "wet": false,
+          "joinLength": 2.374951967303719
+        },
+        {
+          "mouth": 5149,
+          "lip": 5149,
+          "landing": 5150,
+          "source": null,
+          "catchment": 105,
+          "drop": 7,
+          "s": 0.3496763751532947,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10163,
+          "lip": 10034,
+          "landing": 10035,
+          "source": 12977,
+          "catchment": 79,
+          "drop": 6,
+          "s": 0.6488884656827967,
+          "wet": true,
+          "joinLength": 3.9783935951342277
+        },
+        {
+          "mouth": 3736,
+          "lip": 3736,
+          "landing": 3737,
+          "source": null,
+          "catchment": 18,
+          "drop": 8,
+          "s": 0.19515106988126765,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6042,
+          "lip": 6042,
+          "landing": 6043,
+          "source": null,
+          "catchment": 13,
+          "drop": 6,
+          "s": 0.39651103765157997,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "random-4",
+      "map": "tall-128",
+      "x": 24,
+      "y": 71,
+      "group": "random",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 9112
+      },
+      "planningMs": 33.891200000001845,
+      "refused": null,
+      "settled": true,
+      "ticks": 768,
+      "signature": "5bad802ab7f8200f",
+      "metrics": {
+        "cut": 15219,
+        "deposited": 3365,
+        "carriedAway": 11854,
+        "ratio": 0.22110519745055524,
+        "floorWidth": 36,
+        "widthMin": 29,
+        "widthMax": 49,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.8002455996725337,
+        "centreline": 1.0623978223906576,
+        "valley": 1.0623978223906576,
+        "outwash": 2198,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 0,
+        "objectsRemoved": 0,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 2,
+        "riverWidthMax": 5,
+        "channels": 1,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 2180,
+        "newFloor": 275,
+        "newFloorShare": 0.12614678899082568,
+        "wallMedian": 4,
+        "wallMax": 9,
+        "hangingValleys": 0,
+        "waterfalls": 0,
+        "troughTiles": 2443,
+        "wetShare": 0.09455587392550144,
+        "length": 35.68702734517327,
+        "valleyLength": 35.68702734517327,
+        "longestWall": 8,
+        "buildableBefore": 3988,
+        "buildableAfter": 3675,
+        "buildableGain": -313,
+        "directGain": -214,
+        "outwashDry": 780
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": true,
+        "riverWidth": true,
+        "oneRiver": true
+      },
+      "downstream": {
+        "before": 0,
+        "after": 355
+      },
+      "start": {
+        "before": [
+          71,
+          64,
+          8
+        ],
+        "after": [
+          71,
+          64,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 42,
+          "floor": 6,
+          "outlet": 7,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": []
+    },
+    {
+      "id": "random-5",
+      "map": "highlands-128",
+      "x": 19,
+      "y": 84,
+      "group": "random",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 10771
+      },
+      "planningMs": 50.3624000000018,
+      "refused": null,
+      "settled": true,
+      "ticks": 768,
+      "signature": "c8c34b83c7fd2c11",
+      "metrics": {
+        "cut": 5799,
+        "deposited": 23,
+        "carriedAway": 5776,
+        "ratio": 0.003966201069149853,
+        "floorWidth": 22,
+        "widthMin": 16,
+        "widthMax": 27,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.7442116868798236,
+        "centreline": 1.0271970611318009,
+        "valley": 1.0271970611318009,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 131,
+        "objectsRemoved": 6,
+        "cleanAbsorbed": 2.16,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 5,
+        "channels": 2,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 733,
+        "newFloor": 50,
+        "newFloorShare": 0.06821282401091405,
+        "wallMedian": 6,
+        "wallMax": 6,
+        "hangingValleys": 1,
+        "waterfalls": 1,
+        "troughTiles": 907,
+        "wetShare": 0.18302094818081588,
+        "length": 20.259492815289022,
+        "valleyLength": 20.259492815289022,
+        "longestWall": 7,
+        "buildableBefore": 1448,
+        "buildableAfter": 1818,
+        "buildableGain": 370,
+        "directGain": -79,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": true,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 5,
+        "after": 10
+      },
+      "start": {
+        "before": [
+          56,
+          55,
+          7
+        ],
+        "after": [
+          56,
+          55,
+          7
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 39,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 8458,
+          "lip": 8458,
+          "landing": 8586,
+          "source": null,
+          "catchment": 12,
+          "drop": 6,
+          "s": 0.7708791737922968,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "random-6",
+      "map": "highlands-256",
+      "x": 46,
+      "y": 120,
+      "group": "random",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 30766
+      },
+      "planningMs": 135.78590000000258,
+      "refused": null,
+      "settled": true,
+      "ticks": 1280,
+      "signature": "a98471d9983a5a05",
+      "metrics": {
+        "cut": 10760,
+        "deposited": 2,
+        "carriedAway": 10758,
+        "ratio": 0.0001858736059479554,
+        "floorWidth": 32,
+        "widthMin": 25,
+        "widthMax": 47,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7640970735189151,
+        "centreline": 1.0454216442462725,
+        "valley": 1.0454216442462725,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 147,
+        "objectsRemoved": 6,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 9,
+        "channels": 4,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 1210,
+        "newFloor": 153,
+        "newFloorShare": 0.12644628099173555,
+        "wallMedian": 1,
+        "wallMax": 6,
+        "hangingValleys": 3,
+        "waterfalls": 3,
+        "troughTiles": 2802,
+        "wetShare": 0.5496074232690935,
+        "length": 48.09940322927698,
+        "valleyLength": 48.09940322927698,
+        "longestWall": 11,
+        "buildableBefore": 3807,
+        "buildableAfter": 3683,
+        "buildableGain": -124,
+        "directGain": -1495,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": false,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 653,
+        "after": 979
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 42,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": []
+    },
+    {
+      "id": "modest-1",
+      "map": "highlands-128",
+      "x": 84,
+      "y": 87,
+      "group": "modest",
+      "relief": 3,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 11220
+      },
+      "planningMs": 52.63849999999729,
+      "refused": null,
+      "settled": true,
+      "ticks": 640,
+      "signature": "f0307248ff412230",
+      "metrics": {
+        "cut": 15230,
+        "deposited": 0,
+        "carriedAway": 15230,
+        "ratio": 0,
+        "floorWidth": 36,
+        "widthMin": 32,
+        "widthMax": 56,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.8005671077504726,
+        "centreline": 1.046394788460859,
+        "valley": 1.046394788460859,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 593,
+        "objectsRemoved": 52,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 4,
+        "riverWidthMax": 9,
+        "channels": 2,
+        "maxPoolJoin": 4.812106541109919,
+        "startMoved": false,
+        "dryFloor": 2665,
+        "newFloor": 471,
+        "newFloorShare": 0.17673545966228893,
+        "wallMedian": 5,
+        "wallMax": 8,
+        "hangingValleys": 5,
+        "waterfalls": 5,
+        "troughTiles": 3174,
+        "wetShare": 0.14681789540012602,
+        "length": 42.615268902048896,
+        "valleyLength": 42.615268902048896,
+        "longestWall": 12,
+        "buildableBefore": 3471,
+        "buildableAfter": 3406,
+        "buildableGain": -65,
+        "directGain": -39,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 45,
+        "after": 54
+      },
+      "start": {
+        "before": [
+          56,
+          55,
+          7
+        ],
+        "after": [
+          56,
+          55,
+          7
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 23,
+          "floor": 0,
+          "outlet": 1,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 9914,
+          "lip": 9786,
+          "landing": 9787,
+          "source": null,
+          "catchment": 2753,
+          "drop": 3,
+          "s": 0.1273920785211449,
+          "wet": true,
+          "joinLength": 4.812106541109919
+        },
+        {
+          "mouth": 7494,
+          "lip": 7245,
+          "landing": 7244,
+          "source": 6079,
+          "catchment": 580,
+          "drop": 5,
+          "s": 0.3760424443992527,
+          "wet": true,
+          "joinLength": 3.6158083017960614
+        },
+        {
+          "mouth": 6742,
+          "lip": 6740,
+          "landing": 6868,
+          "source": 6224,
+          "catchment": 115,
+          "drop": 4,
+          "s": 0.6026256431432129,
+          "wet": true,
+          "joinLength": 3.442859650527705
+        },
+        {
+          "mouth": 7245,
+          "lip": 7245,
+          "landing": 7244,
+          "source": 5965,
+          "catchment": 60,
+          "drop": 5,
+          "s": 0.4585686186475178,
+          "wet": true,
+          "joinLength": 3.3976867744971635
+        }
+      ]
+    },
+    {
+      "id": "modest-2",
+      "map": "canyon-128",
+      "x": 31,
+      "y": 34,
+      "group": "modest",
+      "relief": 2,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 4383
+      },
+      "planningMs": 57.82709999999861,
+      "refused": null,
+      "settled": true,
+      "ticks": 512,
+      "signature": "b2e431ad89baa13f",
+      "metrics": {
+        "cut": 31567,
+        "deposited": 9,
+        "carriedAway": 31558,
+        "ratio": 0.00028510786580923116,
+        "floorWidth": 34,
+        "widthMin": 27,
+        "widthMax": 54,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7608794197642792,
+        "centreline": 1.1772650952973807,
+        "valley": 1.1772650952973807,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 846,
+        "objectsRemoved": 61,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 27,
+        "channels": 2,
+        "maxPoolJoin": 3.031094040150638,
+        "startMoved": false,
+        "dryFloor": 3347,
+        "newFloor": 262,
+        "newFloorShare": 0.07827905587092919,
+        "wallMedian": 10,
+        "wallMax": 12,
+        "hangingValleys": 11,
+        "waterfalls": 2,
+        "troughTiles": 4412,
+        "wetShare": 0.22756119673617406,
+        "length": 87.41143784248376,
+        "valleyLength": 87.41143784248376,
+        "longestWall": 15,
+        "buildableBefore": 4795,
+        "buildableAfter": 4044,
+        "buildableGain": -751,
+        "directGain": -718,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 66,
+        "after": 86
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          24,
+          70,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 40,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 5961,
+          "lip": 5961,
+          "landing": 6089,
+          "source": null,
+          "catchment": 210,
+          "drop": 10,
+          "s": 0.6657076547746853,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6200,
+          "lip": 6200,
+          "landing": 6199,
+          "source": null,
+          "catchment": 188,
+          "drop": 9,
+          "s": 0.49006258032798977,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10429,
+          "lip": 10429,
+          "landing": 10430,
+          "source": null,
+          "catchment": 165,
+          "drop": 11,
+          "s": 0.6186926084097747,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10583,
+          "lip": 10583,
+          "landing": 10455,
+          "source": 12502,
+          "catchment": 119,
+          "drop": 11,
+          "s": 0.8731747020018794,
+          "wet": true,
+          "joinLength": 1.0676883140836146
+        },
+        {
+          "mouth": 10821,
+          "lip": 10821,
+          "landing": 10693,
+          "source": null,
+          "catchment": 115,
+          "drop": 11,
+          "s": 0.712569990249763,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6484,
+          "lip": 6484,
+          "landing": 6483,
+          "source": null,
+          "catchment": 114,
+          "drop": 11,
+          "s": 0.8395541449992129,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9524,
+          "lip": 9524,
+          "landing": 9525,
+          "source": null,
+          "catchment": 106,
+          "drop": 9,
+          "s": 0.49006258032798977,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5824,
+          "lip": 5824,
+          "landing": 5952,
+          "source": null,
+          "catchment": 103,
+          "drop": 10,
+          "s": 0.5599503387603842,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10830,
+          "lip": 10830,
+          "landing": 10702,
+          "source": null,
+          "catchment": 84,
+          "drop": 11,
+          "s": 0.7937521270582335,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9515,
+          "lip": 9514,
+          "landing": 9386,
+          "source": 11565,
+          "catchment": 64,
+          "drop": 5,
+          "s": 0.375544522579887,
+          "wet": true,
+          "joinLength": 3.031094040150638
+        },
+        {
+          "mouth": 7051,
+          "lip": 7051,
+          "landing": 7052,
+          "source": null,
+          "catchment": 21,
+          "drop": 4,
+          "s": 0.2103343965576574,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "modest-3",
+      "map": "tall-128",
+      "x": 91,
+      "y": 12,
+      "group": "modest",
+      "relief": 4,
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 1627
+      },
+      "planningMs": 25.473300000001473,
+      "refused": null,
+      "settled": true,
+      "ticks": 256,
+      "signature": "6d356fd0302b6f2c",
+      "metrics": {
+        "cut": 2363,
+        "deposited": 1,
+        "carriedAway": 2362,
+        "ratio": 0.00042319085907744394,
+        "floorWidth": 21,
+        "widthMin": 14,
+        "widthMax": 23,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.6828193832599119,
+        "centreline": 1.1840021820421383,
+        "valley": 1.1840021820421383,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 0,
+        "objectsRemoved": 0,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 3,
+        "riverWidthMax": 5,
+        "channels": 1,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 544,
+        "newFloor": 14,
+        "newFloorShare": 0.025735294117647058,
+        "wallMedian": 2,
+        "wallMax": 5,
+        "hangingValleys": 0,
+        "waterfalls": 0,
+        "troughTiles": 681,
+        "wetShare": 0.1894273127753304,
+        "length": 25.421604945874897,
+        "valleyLength": 25.421604945874897,
+        "longestWall": 12,
+        "buildableBefore": 857,
+        "buildableAfter": 730,
+        "buildableGain": -127,
+        "directGain": -121,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": false,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": true,
+        "oneRiver": true
+      },
+      "downstream": {
+        "before": 0,
+        "after": 3
+      },
+      "start": {
+        "before": [
+          71,
+          64,
+          8
+        ],
+        "after": [
+          71,
+          64,
+          8
+        ]
+      },
+      "basins": [],
+      "hanging": []
+    },
+    {
+      "id": "power-low",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "flow",
+        "power": 50,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 51.6877999999997,
+      "refused": null,
+      "settled": true,
+      "ticks": 896,
+      "signature": "9bbefb31976e295f",
+      "metrics": {
+        "cut": 19448,
+        "deposited": 46,
+        "carriedAway": 19402,
+        "ratio": 0.002365281777046483,
+        "floorWidth": 30,
+        "widthMin": 24,
+        "widthMax": 42,
+        "requestedWidth": 26,
+        "crossRange": 1,
+        "flatShare": 0.7403754374801146,
+        "centreline": 1.2026136147212807,
+        "valley": 1.2026136147212807,
+        "outwash": 2,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 454,
+        "objectsRemoved": 61,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 11,
+        "channels": 5,
+        "maxPoolJoin": 3.826781301021698,
+        "startMoved": false,
+        "dryFloor": 2125,
+        "newFloor": 139,
+        "newFloorShare": 0.06541176470588235,
+        "wallMedian": 7,
+        "wallMax": 9,
+        "hangingValleys": 6,
+        "waterfalls": 4,
+        "troughTiles": 3143,
+        "wetShare": 0.30066815144766146,
+        "length": 76.6094134987215,
+        "valleyLength": 76.6094134987215,
+        "longestWall": 21,
+        "buildableBefore": 3944,
+        "buildableAfter": 3021,
+        "buildableGain": -923,
+        "directGain": -875,
+        "outwashDry": 1
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 189,
+        "after": 226
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          24,
+          70,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 43,
+          "floor": 6,
+          "outlet": 7,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 5928,
+          "lip": 5929,
+          "landing": 6057,
+          "source": 3885,
+          "catchment": 306,
+          "drop": 5,
+          "s": 0.36506784859557156,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5816,
+          "lip": 5816,
+          "landing": 5944,
+          "source": 3771,
+          "catchment": 179,
+          "drop": 8,
+          "s": 0.7949659084925167,
+          "wet": true,
+          "joinLength": 3.199106625168824
+        },
+        {
+          "mouth": 9511,
+          "lip": 9511,
+          "landing": 9512,
+          "source": null,
+          "catchment": 115,
+          "drop": 8,
+          "s": 0.6118055729809483,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9907,
+          "lip": 9907,
+          "landing": 9779,
+          "source": null,
+          "catchment": 85,
+          "drop": 8,
+          "s": 0.7817632119817033,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 3884,
+          "lip": 4013,
+          "landing": 4012,
+          "source": 1324,
+          "catchment": 21,
+          "drop": 6,
+          "s": 0.15062767420369685,
+          "wet": true,
+          "joinLength": 2.4164627240201204
+        },
+        {
+          "mouth": 5936,
+          "lip": 5929,
+          "landing": 6057,
+          "source": 3888,
+          "catchment": 18,
+          "drop": 5,
+          "s": 0.7029544469084581,
+          "wet": false,
+          "joinLength": 3.826781301021698
+        }
+      ]
+    },
+    {
+      "id": "power-high",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "flow",
+        "power": 95,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 86.46869999999763,
+      "refused": null,
+      "settled": true,
+      "ticks": 768,
+      "signature": "118fccd0bf225127",
+      "metrics": {
+        "cut": 49790,
+        "deposited": 61,
+        "carriedAway": 49729,
+        "ratio": 0.001225145611568588,
+        "floorWidth": 46,
+        "widthMin": 32,
+        "widthMax": 52,
+        "requestedWidth": 42,
+        "crossRange": 0,
+        "flatShare": 0.7797940166748406,
+        "centreline": 1.1889034082710592,
+        "valley": 1.1889034082710592,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 973,
+        "objectsRemoved": 75,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 2,
+        "riverWidthMax": 22,
+        "channels": 6,
+        "maxPoolJoin": 5.205177557663903,
+        "startMoved": true,
+        "dryFloor": 4533,
+        "newFloor": 376,
+        "newFloorShare": 0.08294727553496581,
+        "wallMedian": 11,
+        "wallMax": 13,
+        "hangingValleys": 17,
+        "waterfalls": 5,
+        "troughTiles": 6117,
+        "wetShare": 0.24211214647703122,
+        "length": 124.47199803542242,
+        "valleyLength": 124.47199803542242,
+        "longestWall": 15,
+        "buildableBefore": 6551,
+        "buildableAfter": 5413,
+        "buildableGain": -1138,
+        "directGain": -1113,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 12,
+        "after": 19
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          21,
+          77,
+          9
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 40,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 8073,
+          "lip": 8200,
+          "landing": 8201,
+          "source": null,
+          "catchment": 33,
+          "drop": 5,
+          "s": 0.2771776492989287,
+          "wet": true,
+          "joinLength": 5.205177557663903
+        },
+        {
+          "mouth": 5961,
+          "lip": 5960,
+          "landing": 6088,
+          "source": 4297,
+          "catchment": 210,
+          "drop": 7,
+          "s": 0.612629842149115,
+          "wet": true,
+          "joinLength": 2.2999312156841007
+        },
+        {
+          "mouth": 10557,
+          "lip": 10557,
+          "landing": 10556,
+          "source": null,
+          "catchment": 162,
+          "drop": 12,
+          "s": 0.5796131567270785,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5316,
+          "lip": 5960,
+          "landing": 6088,
+          "source": null,
+          "catchment": 154,
+          "drop": 7,
+          "s": 0.563093053570112,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9363,
+          "lip": 10007,
+          "landing": 10008,
+          "source": 10513,
+          "catchment": 152,
+          "drop": 5,
+          "s": 0.30743574896445447,
+          "wet": true,
+          "joinLength": 4.881356555886319
+        },
+        {
+          "mouth": 5472,
+          "lip": 5472,
+          "landing": 5600,
+          "source": 3425,
+          "catchment": 123,
+          "drop": 13,
+          "s": 0.8393147332360855,
+          "wet": true,
+          "joinLength": 4.300990222267854
+        },
+        {
+          "mouth": 10789,
+          "lip": 10793,
+          "landing": 10792,
+          "source": null,
+          "catchment": 121,
+          "drop": 6,
+          "s": 0.36101327050732535,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10821,
+          "lip": 10821,
+          "landing": 10693,
+          "source": null,
+          "catchment": 115,
+          "drop": 13,
+          "s": 0.6455392851498424,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6100,
+          "lip": 6100,
+          "landing": 6101,
+          "source": null,
+          "catchment": 111,
+          "drop": 12,
+          "s": 0.7347480836758793,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 11479,
+          "lip": 11479,
+          "landing": 11480,
+          "source": null,
+          "catchment": 104,
+          "drop": 13,
+          "s": 0.7508174963510819,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4794,
+          "lip": 4794,
+          "landing": 4922,
+          "source": null,
+          "catchment": 100,
+          "drop": 12,
+          "s": 0.4892817096400948,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 11214,
+          "lip": 11214,
+          "landing": 11086,
+          "source": null,
+          "catchment": 81,
+          "drop": 13,
+          "s": 0.7025500780796238,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 11870,
+          "lip": 11870,
+          "landing": 11742,
+          "source": null,
+          "catchment": 67,
+          "drop": 13,
+          "s": 0.799095761849409,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4530,
+          "lip": 4530,
+          "landing": 4529,
+          "source": null,
+          "catchment": 65,
+          "drop": 9,
+          "s": 0.16653861727204042,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10137,
+          "lip": 10007,
+          "landing": 10008,
+          "source": null,
+          "catchment": 65,
+          "drop": 5,
+          "s": 0.31935254137804114,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10803,
+          "lip": 10803,
+          "landing": 10675,
+          "source": null,
+          "catchment": 64,
+          "drop": 12,
+          "s": 0.49742171792767265,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 11877,
+          "lip": 11877,
+          "landing": 11749,
+          "source": null,
+          "catchment": 26,
+          "drop": 13,
+          "s": 0.8714567007849464,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "another-1",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 2496995998
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 84.66220000000249,
+      "refused": null,
+      "settled": true,
+      "ticks": 640,
+      "signature": "796de3dd62c05ae2",
+      "metrics": {
+        "cut": 25840,
+        "deposited": 20,
+        "carriedAway": 25820,
+        "ratio": 0.0007739938080495357,
+        "floorWidth": 34,
+        "widthMin": 26,
+        "widthMax": 45,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.748688352570829,
+        "centreline": 1.1927928053191756,
+        "valley": 1.1927928053191756,
+        "outwash": 13,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 602,
+        "objectsRemoved": 73,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 9,
+        "channels": 4,
+        "maxPoolJoin": 4.548049852319838,
+        "startMoved": true,
+        "dryFloor": 2909,
+        "newFloor": 266,
+        "newFloorShare": 0.09144035751117223,
+        "wallMedian": 8,
+        "wallMax": 10,
+        "hangingValleys": 10,
+        "waterfalls": 7,
+        "troughTiles": 3812,
+        "wetShare": 0.22691500524658972,
+        "length": 86.62336961493331,
+        "valleyLength": 86.62336961493331,
+        "longestWall": 12,
+        "buildableBefore": 4578,
+        "buildableAfter": 3834,
+        "buildableGain": -744,
+        "directGain": -702,
+        "outwashDry": 9
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 137,
+        "after": 175
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          22,
+          77,
+          13
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 42,
           "floor": 5,
           "outlet": 6,
           "depth": 1,
-          "tiles": 45,
           "fed": true
         }
       ],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "side-valleys",
-      "map": "highlands-128",
-      "x": 64,
-      "y": 96,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 12352
-      },
-      "planningMs": 103.53810000000021,
-      "settled": true,
-      "ticks": 896,
-      "signature": "1cd7dcc56fd46426",
-      "metrics": {
-        "cut": 2865,
-        "deposited": 2865,
-        "ratio": 1,
-        "floorWidth": 11,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.6967717140661029,
-        "centreline": 1.0607259013481687,
-        "valley": 1.0607259013481687,
-        "outwash": 0,
-        "treesMoved": 637,
-        "treesUnmoved": 0,
-        "objectsRemoved": 36,
-        "dryFloor": 2132,
-        "troughTiles": 2602,
-        "wetShare": 0.1740968485780169,
-        "length": 76.56354531296543,
-        "valleyLength": 76.56354531296543,
-        "longestWall": 12,
-        "buildableBefore": 6622,
-        "buildableAfter": 6829,
-        "buildableGain": 207,
-        "directGain": 177,
-        "outwashDry": 0
-      },
-      "basins": [
+      "hanging": [
         {
-          "floor": 2,
-          "outlet": 3,
-          "depth": 1,
-          "tiles": 23,
-          "fed": true
-        }
-      ],
-      "hangingCrossingTiles": 1,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "large-map",
-      "map": "highlands-256",
-      "x": 80,
-      "y": 112,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 28752
-      },
-      "planningMs": 116.6841000000004,
-      "settled": true,
-      "ticks": 2304,
-      "signature": "8960612033cd2045",
-      "metrics": {
-        "cut": 3962,
-        "deposited": 3962,
-        "ratio": 1,
-        "floorWidth": 10,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7766393442622951,
-        "centreline": 1.060002983884646,
-        "valley": 1.060002983884646,
-        "outwash": 0,
-        "treesMoved": 145,
-        "treesUnmoved": 0,
-        "objectsRemoved": 13,
-        "dryFloor": 1809,
-        "troughTiles": 2440,
-        "wetShare": 0.25245901639344265,
-        "length": 66.11224249361487,
-        "valleyLength": 66.11224249361487,
-        "longestWall": 11,
-        "buildableBefore": 6371,
-        "buildableAfter": 6677,
-        "buildableGain": 306,
-        "directGain": -65,
-        "outwashDry": 0
-      },
-      "basins": [
-        {
-          "floor": 1,
-          "outlet": 2,
-          "depth": 1,
-          "tiles": 23,
-          "fed": true
+          "mouth": 6072,
+          "lip": 6072,
+          "landing": 6200,
+          "source": 3771,
+          "catchment": 185,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 1.1674343950706323
         },
         {
-          "floor": 1,
-          "outlet": 2,
+          "mouth": 6211,
+          "lip": 6340,
+          "landing": 6339,
+          "source": 4165,
+          "catchment": 176,
+          "drop": 6,
+          "s": 0.8091271185744319,
+          "wet": true,
+          "joinLength": 3.1057897713958313
+        },
+        {
+          "mouth": 10045,
+          "lip": 10045,
+          "landing": 9917,
+          "source": null,
+          "catchment": 172,
+          "drop": 10,
+          "s": 0.8328163860975107,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10277,
+          "lip": 10028,
+          "landing": 9900,
+          "source": 13095,
+          "catchment": 133,
+          "drop": 5,
+          "s": 0.5187519637841765,
+          "wet": true,
+          "joinLength": 1.175581313287985
+        },
+        {
+          "mouth": 9881,
+          "lip": 9881,
+          "landing": 9882,
+          "source": 11161,
+          "catchment": 130,
+          "drop": 3,
+          "s": 0.4588882778367695,
+          "wet": true,
+          "joinLength": 0.34273933041945615
+        },
+        {
+          "mouth": 9524,
+          "lip": 9524,
+          "landing": 9396,
+          "source": null,
+          "catchment": 106,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4906,
+          "lip": 4906,
+          "landing": 4905,
+          "source": null,
+          "catchment": 105,
+          "drop": 7,
+          "s": 0.25131275538199116,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10029,
+          "lip": 10028,
+          "landing": 9900,
+          "source": 13101,
+          "catchment": 60,
+          "drop": 5,
+          "s": 0.6101150438831946,
+          "wet": true,
+          "joinLength": 4.383913919688669
+        },
+        {
+          "mouth": 7051,
+          "lip": 6794,
+          "landing": 6795,
+          "source": 6794,
+          "catchment": 21,
+          "drop": 6,
+          "s": 0.34585076598062797,
+          "wet": true,
+          "joinLength": 4.548049852319838
+        },
+        {
+          "mouth": 5552,
+          "lip": 5552,
+          "landing": 5680,
+          "source": null,
+          "catchment": 15,
+          "drop": 9,
+          "s": 0.6216905222385996,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "another-2",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 410691941
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 66.23589999999967,
+      "refused": null,
+      "settled": true,
+      "ticks": 640,
+      "signature": "429e69a9f2e0b378",
+      "metrics": {
+        "cut": 25680,
+        "deposited": 8,
+        "carriedAway": 25672,
+        "ratio": 0.00031152647975077883,
+        "floorWidth": 33,
+        "widthMin": 27,
+        "widthMax": 45,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.7343021661639704,
+        "centreline": 1.1927928053191756,
+        "valley": 1.1927928053191756,
+        "outwash": 6,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 615,
+        "objectsRemoved": 60,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 14,
+        "channels": 3,
+        "maxPoolJoin": 4.769851027251126,
+        "startMoved": false,
+        "dryFloor": 2890,
+        "newFloor": 208,
+        "newFloorShare": 0.07197231833910035,
+        "wallMedian": 8,
+        "wallMax": 11,
+        "hangingValleys": 9,
+        "waterfalls": 4,
+        "troughTiles": 3647,
+        "wetShare": 0.19221277762544559,
+        "length": 86.62336961493331,
+        "valleyLength": 86.62336961493331,
+        "longestWall": 13,
+        "buildableBefore": 4334,
+        "buildableAfter": 3759,
+        "buildableGain": -575,
+        "directGain": -544,
+        "outwashDry": 6
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 154,
+        "after": 192
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          24,
+          70,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 40,
+          "floor": 5,
+          "outlet": 6,
           "depth": 1,
-          "tiles": 51,
           "fed": true
         }
       ],
-      "hangingCrossingTiles": 15,
-      "notice": "",
-      "refused": null
+      "hanging": [
+        {
+          "mouth": 6089,
+          "lip": 6089,
+          "landing": 6217,
+          "source": 4297,
+          "catchment": 211,
+          "drop": 10,
+          "s": 0.8792720555288421,
+          "wet": true,
+          "joinLength": 2.6113614599732307
+        },
+        {
+          "mouth": 9764,
+          "lip": 9764,
+          "landing": 9636,
+          "source": null,
+          "catchment": 207,
+          "drop": 6,
+          "s": 0.507905611053748,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5944,
+          "lip": 5815,
+          "landing": 5943,
+          "source": null,
+          "catchment": 182,
+          "drop": 5,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10170,
+          "lip": 10170,
+          "landing": 10171,
+          "source": null,
+          "catchment": 168,
+          "drop": 9,
+          "s": 0.7972679814643113,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5952,
+          "lip": 5953,
+          "landing": 6081,
+          "source": 4033,
+          "catchment": 106,
+          "drop": 6,
+          "s": 0.7735887180461465,
+          "wet": true,
+          "joinLength": 4.769851027251126
+        },
+        {
+          "mouth": 9907,
+          "lip": 9907,
+          "landing": 9779,
+          "source": null,
+          "catchment": 85,
+          "drop": 9,
+          "s": 0.6913887260565565,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 7053,
+          "lip": 7053,
+          "landing": 7054,
+          "source": null,
+          "catchment": 74,
+          "drop": 3,
+          "s": 0.34585076598062797,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5546,
+          "lip": 5419,
+          "landing": 5418,
+          "source": 3887,
+          "catchment": 34,
+          "drop": 7,
+          "s": 0.29926265445734956,
+          "wet": true,
+          "joinLength": 0.46336539178252867
+        },
+        {
+          "mouth": 5809,
+          "lip": 5419,
+          "landing": 5418,
+          "source": null,
+          "catchment": 16,
+          "drop": 7,
+          "s": 0.6332748258825391,
+          "wet": true,
+          "joinLength": 0
+        }
+      ]
     },
     {
-      "id": "lobe",
+      "id": "another-3",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 3842296704
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 73.03620000000228,
+      "refused": null,
+      "settled": true,
+      "ticks": 896,
+      "signature": "0b6accb40d485b7a",
+      "metrics": {
+        "cut": 28840,
+        "deposited": 0,
+        "carriedAway": 28840,
+        "ratio": 0,
+        "floorWidth": 36,
+        "widthMin": 26,
+        "widthMax": 41,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7316195372750642,
+        "centreline": 1.1927928053191756,
+        "valley": 1.1927928053191756,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 579,
+        "objectsRemoved": 68,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 4,
+        "riverWidthMax": 27,
+        "channels": 4,
+        "maxPoolJoin": 4.184182454759024,
+        "startMoved": true,
+        "dryFloor": 2479,
+        "newFloor": 132,
+        "newFloorShare": 0.053247277127874144,
+        "wallMedian": 9,
+        "wallMax": 12,
+        "hangingValleys": 9,
+        "waterfalls": 6,
+        "troughTiles": 3890,
+        "wetShare": 0.33624678663239077,
+        "length": 86.62336961493331,
+        "valleyLength": 86.62336961493331,
+        "longestWall": 10,
+        "buildableBefore": 4495,
+        "buildableAfter": 3260,
+        "buildableGain": -1235,
+        "directGain": -1186,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 143,
+        "after": 181
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          22,
+          71,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 41,
+          "floor": 4,
+          "outlet": 5,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 6345,
+          "lip": 6215,
+          "landing": 6343,
+          "source": 4297,
+          "catchment": 213,
+          "drop": 6,
+          "s": 0.8792720555288421,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6072,
+          "lip": 6072,
+          "landing": 6200,
+          "source": 3771,
+          "catchment": 185,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 4.184182454759024
+        },
+        {
+          "mouth": 10557,
+          "lip": 10557,
+          "landing": 10429,
+          "source": null,
+          "catchment": 162,
+          "drop": 11,
+          "s": 0.8328163860975107,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10021,
+          "lip": 10020,
+          "landing": 9892,
+          "source": 11686,
+          "catchment": 139,
+          "drop": 6,
+          "s": 0.5187519637841765,
+          "wet": true,
+          "joinLength": 0.9877907418845622
+        },
+        {
+          "mouth": 6080,
+          "lip": 6079,
+          "landing": 6207,
+          "source": 4033,
+          "catchment": 109,
+          "drop": 6,
+          "s": 0.7854206489140172,
+          "wet": true,
+          "joinLength": 0.5464369947139085
+        },
+        {
+          "mouth": 9780,
+          "lip": 9773,
+          "landing": 9772,
+          "source": null,
+          "catchment": 100,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9773,
+          "lip": 9773,
+          "landing": 9772,
+          "source": 11565,
+          "catchment": 62,
+          "drop": 9,
+          "s": 0.6101150438831946,
+          "wet": true,
+          "joinLength": 2.7300654441203793
+        },
+        {
+          "mouth": 3883,
+          "lip": 2987,
+          "landing": 2986,
+          "source": 2859,
+          "catchment": 38,
+          "drop": 8,
+          "s": 0.13321460281120698,
+          "wet": false,
+          "joinLength": 0.7601426399709537
+        },
+        {
+          "mouth": 4911,
+          "lip": 4911,
+          "landing": 4910,
+          "source": null,
+          "catchment": 29,
+          "drop": 8,
+          "s": 0.2633254233799203,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "aim",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "variant",
+      "settings": {
+        "mode": "aim",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "end": [
+        98,
+        96
+      ],
+      "intent": {
+        "origin": 2838,
+        "end": 12386
+      },
+      "planningMs": 81.62869999999384,
+      "refused": null,
+      "settled": true,
+      "ticks": 512,
+      "signature": "870f92bd97ac89f8",
+      "metrics": {
+        "cut": 44171,
+        "deposited": 0,
+        "carriedAway": 44171,
+        "ratio": 0,
+        "floorWidth": 32,
+        "widthMin": 25,
+        "widthMax": 49,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.7660322714108398,
+        "centreline": 1.0177534063041458,
+        "valley": 1.0177534063041458,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 666,
+        "objectsRemoved": 59,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 3,
+        "riverWidthMax": 18,
+        "channels": 4,
+        "maxPoolJoin": 1.6095205639160017,
+        "startMoved": false,
+        "dryFloor": 3444,
+        "newFloor": 188,
+        "newFloorShare": 0.0545876887340302,
+        "wallMedian": 9,
+        "wallMax": 13,
+        "hangingValleys": 10,
+        "waterfalls": 6,
+        "troughTiles": 4834,
+        "wetShare": 0.2689284236657013,
+        "length": 107.95864532071352,
+        "valleyLength": 107.95864532071352,
+        "longestWall": 11,
+        "buildableBefore": 5967,
+        "buildableAfter": 4661,
+        "buildableGain": -1306,
+        "directGain": -1288,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 106,
+        "after": 156
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          24,
+          70,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 41,
+          "floor": 5,
+          "outlet": 6,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 5577,
+          "lip": 5577,
+          "landing": 5576,
+          "source": 4297,
+          "catchment": 207,
+          "drop": 9,
+          "s": 0.4756016985235771,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10429,
+          "lip": 10564,
+          "landing": 10436,
+          "source": null,
+          "catchment": 165,
+          "drop": 7,
+          "s": 0.5884505938958465,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10565,
+          "lip": 10564,
+          "landing": 10436,
+          "source": 12101,
+          "catchment": 121,
+          "drop": 7,
+          "s": 0.7110563881089773,
+          "wet": true,
+          "joinLength": 0.3097589544636925
+        },
+        {
+          "mouth": 6868,
+          "lip": 6223,
+          "landing": 6351,
+          "source": null,
+          "catchment": 117,
+          "drop": 5,
+          "s": 0.648174698030864,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9524,
+          "lip": 9524,
+          "landing": 9525,
+          "source": null,
+          "catchment": 106,
+          "drop": 9,
+          "s": 0.541099628688034,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4794,
+          "lip": 4929,
+          "landing": 5057,
+          "source": 2364,
+          "catchment": 100,
+          "drop": 9,
+          "s": 0.38189629562359395,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 6222,
+          "lip": 5577,
+          "landing": 5576,
+          "source": 4689,
+          "catchment": 94,
+          "drop": 9,
+          "s": 0.6274286180221882,
+          "wet": true,
+          "joinLength": 1.131528680845399
+        },
+        {
+          "mouth": 4929,
+          "lip": 4929,
+          "landing": 5057,
+          "source": 2497,
+          "catchment": 81,
+          "drop": 9,
+          "s": 0.41272000844546375,
+          "wet": true,
+          "joinLength": 1.6095205639160017
+        },
+        {
+          "mouth": 11213,
+          "lip": 11724,
+          "landing": 11725,
+          "source": 11851,
+          "catchment": 38,
+          "drop": 11,
+          "s": 0.8141807281316089,
+          "wet": true,
+          "joinLength": 1.0764795102766964
+        },
+        {
+          "mouth": 3128,
+          "lip": 3895,
+          "landing": 3894,
+          "source": null,
+          "catchment": 15,
+          "drop": 4,
+          "s": 0.23579254859204526,
+          "wet": true,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "through-start",
+      "map": "canyon-128",
+      "x": 22,
+      "y": 22,
+      "group": "start",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 2838
+      },
+      "planningMs": 55.6900999999998,
+      "refused": null,
+      "settled": true,
+      "ticks": 640,
+      "signature": "3850691f2bfe77e6",
+      "metrics": {
+        "cut": 22593,
+        "deposited": 55,
+        "carriedAway": 22538,
+        "ratio": 0.0024343823308104282,
+        "floorWidth": 33,
+        "widthMin": 28,
+        "widthMax": 44,
+        "requestedWidth": 30,
+        "crossRange": 1,
+        "flatShare": 0.7448446521858675,
+        "centreline": 1.1927928053191756,
+        "valley": 1.1927928053191756,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 591,
+        "objectsRemoved": 59,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 1,
+        "riverWidthMax": 19,
+        "channels": 4,
+        "maxPoolJoin": 3.0085606596986896,
+        "startMoved": true,
+        "dryFloor": 2863,
+        "newFloor": 221,
+        "newFloorShare": 0.07719175689835836,
+        "wallMedian": 7,
+        "wallMax": 10,
+        "hangingValleys": 8,
+        "waterfalls": 2,
+        "troughTiles": 3637,
+        "wetShare": 0.1930162221611218,
+        "length": 86.62336961493331,
+        "valleyLength": 86.62336961493331,
+        "longestWall": 16,
+        "buildableBefore": 4399,
+        "buildableAfter": 3839,
+        "buildableGain": -560,
+        "directGain": -484,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": true,
+        "water": false,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 147,
+        "after": 185
+      },
+      "start": {
+        "before": [
+          24,
+          70,
+          8
+        ],
+        "after": [
+          23,
+          71,
+          8
+        ]
+      },
+      "basins": [
+        {
+          "tiles": 42,
+          "floor": 6,
+          "outlet": 7,
+          "depth": 1,
+          "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 5816,
+          "lip": 5691,
+          "landing": 5819,
+          "source": 3771,
+          "catchment": 179,
+          "drop": 5,
+          "s": 0.7030651459509942,
+          "wet": true,
+          "joinLength": 3.0085606596986896
+        },
+        {
+          "mouth": 6211,
+          "lip": 6211,
+          "landing": 6210,
+          "source": null,
+          "catchment": 176,
+          "drop": 9,
+          "s": 0.8091271185744319,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10045,
+          "lip": 10045,
+          "landing": 9917,
+          "source": null,
+          "catchment": 172,
+          "drop": 9,
+          "s": 0.8328163860975107,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 9898,
+          "lip": 9898,
+          "landing": 9770,
+          "source": null,
+          "catchment": 111,
+          "drop": 8,
+          "s": 0.5754392911881159,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 10163,
+          "lip": 10163,
+          "landing": 10035,
+          "source": null,
+          "catchment": 79,
+          "drop": 9,
+          "s": 0.7030651459509942,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5673,
+          "lip": 4909,
+          "landing": 4908,
+          "source": 3887,
+          "catchment": 35,
+          "drop": 3,
+          "s": 0.3111221721640953,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 4013,
+          "lip": 4909,
+          "landing": 4908,
+          "source": null,
+          "catchment": 22,
+          "drop": 3,
+          "s": 0.15610300077971745,
+          "wet": true,
+          "joinLength": 0
+        },
+        {
+          "mouth": 5808,
+          "lip": 4909,
+          "landing": 4908,
+          "source": null,
+          "catchment": 17,
+          "drop": 3,
+          "s": 0.6216905222385996,
+          "wet": true,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "performance-256",
+      "map": "highlands-256",
+      "x": 150,
+      "y": 20,
+      "group": "performance",
+      "settings": {
+        "mode": "flow",
+        "power": 60,
+        "size": null,
+        "meltwater": true,
+        "seed": 891
+      },
+      "intent": {
+        "origin": 5270
+      },
+      "planningMs": 147.0940999999948,
+      "refused": null,
+      "settled": true,
+      "ticks": 2944,
+      "signature": "78653ad92ed671e9",
+      "metrics": {
+        "cut": 22936,
+        "deposited": 0,
+        "carriedAway": 22936,
+        "ratio": 0,
+        "floorWidth": 34,
+        "widthMin": 27,
+        "widthMax": 47,
+        "requestedWidth": 30,
+        "crossRange": 0,
+        "flatShare": 0.7503192848020435,
+        "centreline": 1.1474160341168116,
+        "valley": 1.1474160341168116,
+        "outwash": 0,
+        "treesMoved": 0,
+        "treesUnmoved": 0,
+        "treesRemoved": 205,
+        "objectsRemoved": 52,
+        "cleanAbsorbed": 0,
+        "badSwept": 0,
+        "riverWidthMin": 4,
+        "riverWidthMax": 11,
+        "channels": 2,
+        "maxPoolJoin": 3.894044659526619,
+        "startMoved": false,
+        "dryFloor": 3955,
+        "newFloor": 61,
+        "newFloorShare": 0.015423514538558787,
+        "wallMedian": 4,
+        "wallMax": 11,
+        "hangingValleys": 7,
+        "waterfalls": 1,
+        "troughTiles": 4698,
+        "wetShare": 0.1392081736909323,
+        "length": 110.12408662008724,
+        "valleyLength": 110.12408662008724,
+        "longestWall": 10,
+        "buildableBefore": 6171,
+        "buildableAfter": 5021,
+        "buildableGain": -1150,
+        "directGain": -1077,
+        "outwashDry": 0
+      },
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": false
+      },
+      "downstream": {
+        "before": 417,
+        "after": 688
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [],
+      "hanging": [
+        {
+          "mouth": 12944,
+          "lip": 12690,
+          "landing": 12689,
+          "source": 15510,
+          "catchment": 190,
+          "drop": 3,
+          "s": 0.3778410213811743,
+          "wet": true,
+          "joinLength": 2.046170157673738
+        },
+        {
+          "mouth": 21902,
+          "lip": 21902,
+          "landing": 21901,
+          "source": 19350,
+          "catchment": 50,
+          "drop": 4,
+          "s": 0.7182253830085178,
+          "wet": false,
+          "joinLength": 3.894044659526619
+        },
+        {
+          "mouth": 13420,
+          "lip": 13420,
+          "landing": 13421,
+          "source": null,
+          "catchment": 26,
+          "drop": 3,
+          "s": 0.42284238657591805,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 14952,
+          "lip": 14952,
+          "landing": 14953,
+          "source": null,
+          "catchment": 21,
+          "drop": 3,
+          "s": 0.49309971343891157,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 17768,
+          "lip": 17768,
+          "landing": 17769,
+          "source": null,
+          "catchment": 19,
+          "drop": 3,
+          "s": 0.5444629377340627,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 24945,
+          "lip": 24945,
+          "landing": 24946,
+          "source": null,
+          "catchment": 18,
+          "drop": 3,
+          "s": 0.7825103582837579,
+          "wet": false,
+          "joinLength": 0
+        },
+        {
+          "mouth": 2938,
+          "lip": 2938,
+          "landing": 2939,
+          "source": null,
+          "catchment": 16,
+          "drop": 5,
+          "s": 0.18455751196839643,
+          "wet": false,
+          "joinLength": 0
+        }
+      ]
+    },
+    {
+      "id": "flat",
       "map": "river-128",
       "x": 32,
       "y": 32,
+      "group": "flat",
       "settings": {
         "mode": "flow",
         "power": 60,
@@ -320,284 +3315,118 @@
       "intent": {
         "origin": 4128
       },
-      "planningMs": 110.19419999999991,
+      "planningMs": 48.95939999999973,
+      "refused": null,
       "settled": true,
-      "ticks": 512,
-      "signature": "c895d0c3ab2fa867",
+      "ticks": 384,
+      "signature": "e478b2134d8633c0",
       "metrics": {
-        "cut": 1492,
-        "deposited": 1492,
-        "ratio": 1,
-        "floorWidth": 12,
+        "cut": 10183,
+        "deposited": 0,
+        "carriedAway": 10183,
+        "ratio": 0,
+        "floorWidth": 38,
+        "widthMin": 21,
+        "widthMax": 52,
         "requestedWidth": 30,
-        "crossRange": 2,
-        "flatShare": 0.7686980609418282,
-        "centreline": 1.1316175810906426,
-        "valley": 1.1316175810906426,
+        "crossRange": 1,
+        "flatShare": 0.796875,
+        "centreline": 1.0862608101446394,
+        "valley": 1.0862608101446394,
         "outwash": 0,
-        "treesMoved": 271,
-        "treesUnmoved": 0,
-        "objectsRemoved": 18,
-        "dryFloor": 1278,
-        "troughTiles": 1444,
-        "wetShare": 0.11149584487534626,
-        "length": 36.22943980493313,
-        "valleyLength": 36.22943980493313,
-        "longestWall": 7,
-        "buildableBefore": 4441,
-        "buildableAfter": 5231,
-        "buildableGain": 790,
-        "directGain": 261,
-        "outwashDry": 0
-      },
-      "basins": [
-        {
-          "floor": 5,
-          "outlet": 6,
-          "depth": 1,
-          "tiles": 13,
-          "fed": true
-        }
-      ],
-      "hangingCrossingTiles": 4,
-      "notice": "A shallow sweep of land",
-      "refused": null
-    },
-    {
-      "id": "low-ground",
-      "map": "highlands-256",
-      "x": 208,
-      "y": 112,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 28880
-      },
-      "planningMs": 109.56390000000101,
-      "settled": true,
-      "ticks": 2944,
-      "signature": "279a6a88c42fff5c",
-      "metrics": {
-        "cut": 2925,
-        "deposited": 2925,
-        "ratio": 1,
-        "floorWidth": 11,
-        "requestedWidth": 39,
-        "crossRange": 2,
-        "flatShare": 0.7946181242580135,
-        "centreline": 1.0700560698243393,
-        "valley": 1.0700560698243393,
-        "outwash": 344,
-        "treesMoved": 237,
-        "treesUnmoved": 0,
-        "objectsRemoved": 9,
-        "dryFloor": 1798,
-        "troughTiles": 2527,
-        "wetShare": 0.28413138108428965,
-        "length": 50.83656089887944,
-        "valleyLength": 50.83656089887944,
-        "longestWall": 11,
-        "buildableBefore": 7155,
-        "buildableAfter": 7230,
-        "buildableGain": 75,
-        "directGain": 86,
-        "outwashDry": 344
-      },
-      "basins": [],
-      "hangingCrossingTiles": 0,
-      "notice": "No room to deepen here · widening and building dry ground",
-      "refused": null
-    },
-    {
-      "id": "tall",
-      "map": "tall-128",
-      "x": 32,
-      "y": 80,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 10272
-      },
-      "planningMs": 105.18839999999909,
-      "settled": false,
-      "ticks": 3072,
-      "signature": "0df6454116f4f126",
-      "metrics": {
-        "cut": 5296,
-        "deposited": 5296,
-        "ratio": 1,
-        "floorWidth": 11,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7372589531680441,
-        "centreline": 1.2565849922297487,
-        "valley": 1.2565849922297487,
-        "outwash": 110,
         "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 0,
-        "dryFloor": 2608,
-        "troughTiles": 2904,
-        "wetShare": 0.09263085399449036,
-        "length": 88.07755505899641,
-        "valleyLength": 88.07755505899641,
+        "treesRemoved": 430,
+        "objectsRemoved": 114,
+        "cleanAbsorbed": 2.7,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 14,
+        "channels": 2,
+        "maxPoolJoin": 4.3143931945036025,
+        "startMoved": false,
+        "dryFloor": 2262,
+        "newFloor": 378,
+        "newFloorShare": 0.16710875331564987,
+        "wallMedian": 3,
+        "wallMax": 4,
+        "hangingValleys": 2,
+        "waterfalls": 1,
+        "troughTiles": 2624,
+        "wetShare": 0.12728658536585366,
+        "length": 34.76819700530273,
+        "valleyLength": 34.76819700530273,
         "longestWall": 10,
-        "buildableBefore": 8680,
-        "buildableAfter": 8819,
-        "buildableGain": 139,
-        "directGain": 92,
-        "outwashDry": 109
+        "buildableBefore": 3136,
+        "buildableAfter": 3744,
+        "buildableGain": 608,
+        "directGain": 88,
+        "outwashDry": 0
       },
-      "basins": [],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "aim",
-      "map": "river-128",
-      "x": 28,
-      "y": 80,
-      "end": [
-        97,
-        35
-      ],
-      "settings": {
-        "mode": "aim",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
+      "guardrails": {
+        "newFloor": false,
+        "walls": false,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": false
       },
-      "intent": {
-        "origin": 10268,
-        "end": 4577
+      "downstream": {
+        "before": 12,
+        "after": 20
       },
-      "planningMs": 128.4445999999989,
-      "settled": true,
-      "ticks": 1280,
-      "signature": "79f975b0f5dd8fac",
-      "metrics": {
-        "cut": 5040,
-        "deposited": 5040,
-        "ratio": 1,
-        "floorWidth": 12,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7115448230234867,
-        "centreline": 1.0655133069139808,
-        "valley": 1.0655133069139808,
-        "outwash": 570,
-        "treesMoved": 470,
-        "treesUnmoved": 0,
-        "objectsRemoved": 44,
-        "dryFloor": 2557,
-        "troughTiles": 3023,
-        "wetShare": 0.1458815745947734,
-        "length": 87.77398286811568,
-        "valleyLength": 87.77398286811568,
-        "longestWall": 10,
-        "buildableBefore": 8060,
-        "buildableAfter": 8180,
-        "buildableGain": 120,
-        "directGain": -138,
-        "outwashDry": 274
+      "start": {
+        "before": [
+          69,
+          88,
+          8
+        ],
+        "after": [
+          69,
+          88,
+          8
+        ]
       },
       "basins": [
         {
-          "floor": 6,
-          "outlet": 7,
+          "tiles": 41,
+          "floor": 4,
+          "outlet": 5,
           "depth": 1,
-          "tiles": 62,
           "fed": true
+        }
+      ],
+      "hanging": [
+        {
+          "mouth": 8355,
+          "lip": 8355,
+          "landing": 8227,
+          "source": 9251,
+          "catchment": 31,
+          "drop": 4,
+          "s": 0.5391890125415816,
+          "wet": true,
+          "joinLength": 4.3143931945036025
         },
         {
-          "floor": 3,
-          "outlet": 4,
-          "depth": 1,
-          "tiles": 51,
-          "fed": true
+          "mouth": 6575,
+          "lip": 6575,
+          "landing": 6574,
+          "source": null,
+          "catchment": 12,
+          "drop": 3,
+          "s": 0.23185061452213368,
+          "wet": false,
+          "joinLength": 0
         }
-      ],
-      "hangingCrossingTiles": 1,
-      "notice": "",
-      "refused": null
+      ]
     },
     {
-      "id": "power-low",
-      "map": "river-128",
-      "x": 96,
-      "y": 32,
-      "power": 15,
-      "settings": {
-        "mode": "flow",
-        "power": 15,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 4192
-      },
-      "planningMs": 25.404099999999744,
-      "settled": true,
-      "ticks": 640,
-      "signature": "485b5dfa1a72bfff",
-      "metrics": {
-        "cut": 1336,
-        "deposited": 1336,
-        "ratio": 1,
-        "floorWidth": 4,
-        "requestedWidth": 13,
-        "crossRange": 3,
-        "flatShare": 0.5019607843137255,
-        "centreline": 1.2267482386089936,
-        "valley": 1.2267482386089936,
-        "outwash": 0,
-        "treesMoved": 13,
-        "treesUnmoved": 0,
-        "objectsRemoved": 3,
-        "dryFloor": 394,
-        "troughTiles": 510,
-        "wetShare": 0.21372549019607842,
-        "length": 36.86863205026538,
-        "valleyLength": 36.86863205026538,
-        "longestWall": 7,
-        "buildableBefore": 1917,
-        "buildableAfter": 1860,
-        "buildableGain": -57,
-        "directGain": -45,
-        "outwashDry": 0
-      },
-      "basins": [
-        {
-          "floor": 2,
-          "outlet": 3,
-          "depth": 1,
-          "tiles": 15,
-          "fed": true
-        }
-      ],
-      "hangingCrossingTiles": 2,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "power-default",
-      "map": "river-128",
-      "x": 96,
-      "y": 32,
-      "power": 60,
+      "id": "spring",
+      "map": "highlands-256",
+      "x": 61,
+      "y": 222,
+      "group": "spring",
       "settings": {
         "mode": "flow",
         "power": 60,
@@ -606,347 +3435,219 @@
         "seed": 891
       },
       "intent": {
-        "origin": 4192
+        "origin": 56893
       },
-      "planningMs": 61.99430000000211,
-      "settled": true,
-      "ticks": 896,
-      "signature": "42ce11cadb154d1a",
+      "planningMs": 127.80600000000413,
+      "refused": null,
+      "settled": false,
+      "ticks": 3072,
+      "signature": "64d1df742c534bef",
       "metrics": {
-        "cut": 4369,
-        "deposited": 4369,
-        "ratio": 1,
-        "floorWidth": 9,
+        "cut": 19071,
+        "deposited": 6,
+        "carriedAway": 19065,
+        "ratio": 0.0003146138115463269,
+        "floorWidth": 43,
+        "widthMin": 32,
+        "widthMax": 52,
         "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7414050822122571,
-        "centreline": 1.2273268279756617,
-        "valley": 1.2273268279756617,
+        "crossRange": 0,
+        "flatShare": 0.833842627960275,
+        "centreline": 1.0003119978972848,
+        "valley": 1.0003119978972848,
         "outwash": 0,
-        "treesMoved": 140,
+        "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 22,
-        "dryFloor": 1182,
-        "troughTiles": 1338,
-        "wetShare": 0.1038863976083707,
-        "length": 37.88843595298394,
-        "valleyLength": 37.88843595298394,
-        "longestWall": 9,
-        "buildableBefore": 5007,
-        "buildableAfter": 5009,
-        "buildableGain": 2,
-        "directGain": 2,
-        "outwashDry": 0
-      },
-      "basins": [],
-      "hangingCrossingTiles": 4,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "power-high",
-      "map": "river-128",
-      "x": 96,
-      "y": 32,
-      "power": 95,
-      "settings": {
-        "mode": "flow",
-        "power": 95,
-        "size": null,
-        "meltwater": true,
-        "seed": 891
-      },
-      "intent": {
-        "origin": 4192
-      },
-      "planningMs": 51.506499999999505,
-      "settled": true,
-      "ticks": 768,
-      "signature": "eb827bce97a52f25",
-      "metrics": {
-        "cut": 9200,
-        "deposited": 9200,
-        "ratio": 1,
-        "floorWidth": 12,
-        "requestedWidth": 42,
-        "crossRange": 2,
-        "flatShare": 0.822716049382716,
-        "centreline": 1.2236572559620802,
-        "valley": 1.2236572559620802,
-        "outwash": 0,
-        "treesMoved": 270,
-        "treesUnmoved": 0,
-        "objectsRemoved": 36,
-        "dryFloor": 1642,
-        "troughTiles": 2025,
-        "wetShare": 0.1782716049382716,
-        "length": 38.88843595298394,
-        "valleyLength": 38.88843595298394,
-        "longestWall": 12,
-        "buildableBefore": 8676,
-        "buildableAfter": 8389,
-        "buildableGain": -287,
-        "directGain": -282,
-        "outwashDry": 0
-      },
-      "basins": [],
-      "hangingCrossingTiles": 2,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "another-1",
-      "map": "river-128",
-      "x": 64,
-      "y": 16,
-      "seed": 2496995998,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 2496995998
-      },
-      "intent": {
-        "origin": 2112
-      },
-      "planningMs": 111.46960000000036,
-      "settled": true,
-      "ticks": 768,
-      "signature": "88cbafb223227a44",
-      "metrics": {
-        "cut": 2352,
-        "deposited": 2352,
-        "ratio": 1,
-        "floorWidth": 10,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7623939258597588,
-        "centreline": 1.2940925707562898,
-        "valley": 1.2940925707562898,
-        "outwash": 1498,
-        "treesMoved": 487,
-        "treesUnmoved": 0,
-        "objectsRemoved": 111,
-        "dryFloor": 1915,
-        "troughTiles": 2239,
-        "wetShare": 0.1397945511389013,
-        "length": 75.665803978065,
-        "valleyLength": 75.665803978065,
-        "longestWall": 9,
-        "buildableBefore": 4271,
-        "buildableAfter": 4456,
-        "buildableGain": 185,
-        "directGain": 98,
-        "outwashDry": 826
-      },
-      "basins": [
-        {
-          "floor": 6,
-          "outlet": 7,
-          "depth": 1,
-          "tiles": 21,
-          "fed": true
-        },
-        {
-          "floor": 5,
-          "outlet": 6,
-          "depth": 1,
-          "tiles": 40,
-          "fed": true
-        }
-      ],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
-    },
-    {
-      "id": "another-2",
-      "map": "river-128",
-      "x": 64,
-      "y": 16,
-      "seed": 410691941,
-      "settings": {
-        "mode": "flow",
-        "power": 60,
-        "size": null,
-        "meltwater": true,
-        "seed": 410691941
-      },
-      "intent": {
-        "origin": 2112
-      },
-      "planningMs": 93.92000000000189,
-      "settled": true,
-      "ticks": 1536,
-      "signature": "512c6eb000943376",
-      "metrics": {
-        "cut": 2924,
-        "deposited": 2924,
-        "ratio": 1,
-        "floorWidth": 11,
-        "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7330618289522399,
-        "centreline": 1.2940925707562898,
-        "valley": 1.2940925707562898,
-        "outwash": 1218,
-        "treesMoved": 597,
-        "treesUnmoved": 0,
-        "objectsRemoved": 113,
-        "dryFloor": 2283,
-        "troughTiles": 2701,
-        "wetShare": 0.1495742317660126,
-        "length": 75.665803978065,
-        "valleyLength": 75.665803978065,
+        "treesRemoved": 122,
+        "objectsRemoved": 29,
+        "cleanAbsorbed": 1.8,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 8,
+        "channels": 1,
+        "maxPoolJoin": 2.2461080690050848,
+        "startMoved": false,
+        "dryFloor": 2359,
+        "newFloor": 86,
+        "newFloorShare": 0.03645612547689699,
+        "wallMedian": 5,
+        "wallMax": 5,
+        "hangingValleys": 2,
+        "waterfalls": 1,
+        "troughTiles": 2618,
+        "wetShare": 0.08938120702826585,
+        "length": 29.850853621934068,
+        "valleyLength": 29.850853621934068,
         "longestWall": 8,
-        "buildableBefore": 5623,
-        "buildableAfter": 5634,
-        "buildableGain": 11,
-        "directGain": -9,
-        "outwashDry": 670
+        "buildableBefore": 3725,
+        "buildableAfter": 3200,
+        "buildableGain": -525,
+        "directGain": -500,
+        "outwashDry": 0
       },
-      "basins": [
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": false,
+        "oneRiver": true
+      },
+      "downstream": {
+        "before": 705,
+        "after": 1035
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [],
+      "hanging": [
         {
-          "floor": 6,
-          "outlet": 7,
-          "depth": 1,
-          "tiles": 24,
-          "fed": true
+          "mouth": 50736,
+          "lip": 50226,
+          "landing": 50227,
+          "source": 50973,
+          "catchment": 183,
+          "drop": 3,
+          "s": 0.3019184442081333,
+          "wet": true,
+          "joinLength": 2.2461080690050848
         },
         {
-          "floor": 5,
-          "outlet": 6,
-          "depth": 1,
-          "tiles": 43,
-          "fed": true
+          "mouth": 56666,
+          "lip": 56666,
+          "landing": 56665,
+          "source": null,
+          "catchment": 114,
+          "drop": 5,
+          "s": 0.6901714331948507,
+          "wet": false,
+          "joinLength": 0
         }
-      ],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
+      ]
     },
     {
-      "id": "another-3",
-      "map": "river-128",
-      "x": 64,
-      "y": 16,
-      "seed": 3842296704,
+      "id": "spring-dry",
+      "map": "highlands-256",
+      "x": 61,
+      "y": 222,
+      "group": "spring",
       "settings": {
         "mode": "flow",
         "power": 60,
         "size": null,
-        "meltwater": true,
-        "seed": 3842296704
+        "meltwater": false,
+        "seed": 891
       },
       "intent": {
-        "origin": 2112
+        "origin": 56893
       },
-      "planningMs": 72.67349999999715,
+      "planningMs": 161.11499999999796,
+      "refused": null,
       "settled": true,
-      "ticks": 1152,
-      "signature": "5b91ff0ff1679203",
+      "ticks": 2560,
+      "signature": "d41bcb0beeded009",
       "metrics": {
-        "cut": 2459,
-        "deposited": 2459,
-        "ratio": 1,
-        "floorWidth": 10,
+        "cut": 19043,
+        "deposited": 6,
+        "carriedAway": 19037,
+        "ratio": 0.0003150764060284619,
+        "floorWidth": 43,
+        "widthMin": 32,
+        "widthMax": 52,
         "requestedWidth": 30,
-        "crossRange": 3,
-        "flatShare": 0.7451705713111385,
-        "centreline": 1.2940925707562898,
-        "valley": 1.2940925707562898,
-        "outwash": 1266,
-        "treesMoved": 534,
+        "crossRange": 0,
+        "flatShare": 0.8342245989304813,
+        "centreline": 1.0003119978972848,
+        "valley": 1.0003119978972848,
+        "outwash": 0,
+        "treesMoved": 0,
         "treesUnmoved": 0,
-        "objectsRemoved": 111,
-        "dryFloor": 2085,
-        "troughTiles": 2433,
-        "wetShare": 0.1381011097410604,
-        "length": 75.665803978065,
-        "valleyLength": 75.665803978065,
-        "longestWall": 12,
-        "buildableBefore": 4460,
-        "buildableAfter": 4542,
-        "buildableGain": 82,
-        "directGain": 81,
-        "outwashDry": 698
+        "treesRemoved": 122,
+        "objectsRemoved": 29,
+        "cleanAbsorbed": 1.8,
+        "badSwept": 0,
+        "riverWidthMin": 5,
+        "riverWidthMax": 8,
+        "channels": 1,
+        "maxPoolJoin": 0,
+        "startMoved": false,
+        "dryFloor": 2357,
+        "newFloor": 86,
+        "newFloorShare": 0.03648705982180738,
+        "wallMedian": 5,
+        "wallMax": 5,
+        "hangingValleys": 2,
+        "waterfalls": 0,
+        "troughTiles": 2618,
+        "wetShare": 0.09014514896867838,
+        "length": 29.850853621934068,
+        "valleyLength": 29.850853621934068,
+        "longestWall": 8,
+        "buildableBefore": 3678,
+        "buildableAfter": 3178,
+        "buildableGain": -500,
+        "directGain": -478,
+        "outwashDry": 0
       },
-      "basins": [
+      "guardrails": {
+        "newFloor": false,
+        "walls": true,
+        "waterfalls": false,
+        "water": true,
+        "riverWidth": true,
+        "oneRiver": true
+      },
+      "downstream": {
+        "before": 705,
+        "after": 1035
+      },
+      "start": {
+        "before": [
+          116,
+          177,
+          6
+        ],
+        "after": [
+          116,
+          177,
+          6
+        ]
+      },
+      "basins": [],
+      "hanging": [
         {
-          "floor": 6,
-          "outlet": 7,
-          "depth": 1,
-          "tiles": 23,
-          "fed": true
+          "mouth": 50736,
+          "lip": 50736,
+          "landing": 50737,
+          "source": null,
+          "catchment": 183,
+          "drop": 5,
+          "s": 0.3019184442081333,
+          "wet": false,
+          "joinLength": 0
         },
         {
-          "floor": 5,
-          "outlet": 6,
-          "depth": 1,
-          "tiles": 32,
-          "fed": true
+          "mouth": 56666,
+          "lip": 56666,
+          "landing": 56665,
+          "source": null,
+          "catchment": 114,
+          "drop": 5,
+          "s": 0.6901714331948507,
+          "wet": false,
+          "joinLength": 0
         }
-      ],
-      "hangingCrossingTiles": 0,
-      "notice": "",
-      "refused": null
+      ]
     }
-  ],
-  "comparison": {
-    "settings": {
-      "mode": "unleash",
-      "power": 100,
-      "wander": 5,
-      "width": 24,
-      "seed": 891,
-      "walls": "steep",
-      "defyGravity": false,
-      "dry": false,
-      "layers": true
-    },
-    "metrics": {
-      "cut": 18334,
-      "deposited": 0,
-      "exported": 18334,
-      "suspended": 0,
-      "bankCuts": 7922,
-      "bendCuts": 1,
-      "steps": 149,
-      "stable": true,
-      "distance": 74.25,
-      "reason": "map edge",
-      "splits": 1,
-      "waterfalls": 1,
-      "rapids": 16,
-      "oxbows": 0
-    },
-    "glacier": {
-      "cut": 2638,
-      "deposited": 2638,
-      "ratio": 1,
-      "floorWidth": 11,
-      "requestedWidth": 30,
-      "crossRange": 3,
-      "flatShare": 0.747279322853688,
-      "centreline": 1.2940925707562898,
-      "valley": 1.2940925707562898,
-      "outwash": 1434,
-      "treesMoved": 553,
-      "treesUnmoved": 0,
-      "objectsRemoved": 111,
-      "dryFloor": 2149,
-      "troughTiles": 2481,
-      "wetShare": 0.12978637646110439,
-      "length": 75.665803978065,
-      "valleyLength": 75.665803978065,
-      "longestWall": 11,
-      "buildableBefore": 5105,
-      "buildableAfter": 5239,
-      "buildableGain": 134,
-      "directGain": 51,
-      "outwashDry": 798
-    },
-    "limitation": "dev Carve has no separate Depth setting; full Power uses its uncapped deep excavation. No feature/forces dependency."
-  }
+  ]
 }
