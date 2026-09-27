@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D306), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D307), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your fifty-five decisions since the restart are recorded (D252–D306, below) and in the living docs.
+Your fifty-six decisions since the restart are recorded (D252–D307, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -16,12 +16,7 @@ Your fifty-five decisions since the restart are recorded (D252–D306, below) an
    accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
 2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
-3. **M9b: a floodplain question, with a default** (from D302's handed-on findings). After a drought the refill overtops a big
-   river's floor (one level above its bed, PLAN §7.4) and leaves a thin sheet on it a day into the badtide: River Valley seeds 1
-   and 4 have 284 and 491 such tiles, Any 4 and 5 about 70 (M9b's broader floors make more of it). Options: (a) big rivers' floors
-   two levels over the bed (moisture reach along them 16 → 10 tiles); (b) wider channels for the same flow, about 0.5 deep instead
-   of 0.7 (the floor rule unchanged); (c) accept it as a floodplain that floods, and say so in the Drought and Badtide view.
-   **Default being built: (b).** Say if you prefer (a) or (c). (The side-pool finding is fixed: ditches cut two below the ground.)
+3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
 4. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
@@ -394,6 +389,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D307: a floodplain floods, as the game plays it: the floor rule and the channels stay; the day strip's hover says "Floods when the river refills"; M9b's default (b) reverted.
 - D306: Real places rebuilt at 256² with each signature centred at its current scale and its full height range (the edges compressed); Pick a place's square defaults to 256²; the tall versions next round.
 - D305: a ruin seen from afar reads as the same ruin: the far version in the skeleton's muted rust with a lattice, the swap unnoticeable while orbiting; on `feature/high-look` (`build-light`).
 - D304: clean water's shades fitted to the game's own (sampled from your screenshot): one teal-blue body, deep only a little darker, shallows never grey; badwater unchanged; on `feature/high-look` (`build-light`).
@@ -513,7 +509,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D306.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D307.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
