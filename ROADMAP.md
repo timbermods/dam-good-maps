@@ -854,15 +854,18 @@ Rivers, not floods (Kyler, 2026-09-26; PLAN §20 D214): each place's water stays
 maps' range for its size (at most 2× the generator's strength at 96² and 128², 3.75× at 256²);
 where that is too little, the start moves to the water and the land keeps fewer, larger rivers; a
 place that still can't work takes another row of its region or is dropped. A region's second map is
-named by a real feature in its square or a direction, never "Centre". Badwater on every map (D200)
-follows once M9a is on `dev`.
+named by a real feature in its square or a direction, never "Centre". A place short of the
+starting-logs floor grows groves that read its own land within the walk: along its river, across a
+stream, on a plateau, in a side valley (D229); one that still can't meet it is dropped. Badwater on
+every map (D200) follows once M9a is on `dev`.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
 D151 (no edge walls), and the starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start).
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
-the rebuild and D214 done (150 places, none dropped by D214). Waiting on Kyler's list of places to
-drop and on M9a for the badwater stage; released as `real-places-2-done` after both.
+the rebuild, D214 and the starting-logs floor done (150 places, none dropped by either). Waiting on
+Kyler's list of places to drop (the review sheet on #35) and on M9a for the badwater stage; released
+as `real-places-2-done` after both.
 
 **Tall places** (D172): Real places and Pick a place get a height option, standard (up to 16) or
 tall (up to 22, top layer empty); dramatic places default to tall. Tall versions come in the round

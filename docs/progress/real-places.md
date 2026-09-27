@@ -376,26 +376,28 @@ are gone. Built after merging `dev` (Live editing, waterfalls, the forces' inves
   first-round place its first-round fallbacks, title kept; an addition the region's other rows,
   best first; always other land than the region's other map, checked against the maps as they end
   up), and is dropped, with the reason, when none passes.
-- **What changed** (`VERSION` 2; 231 conversions, 20 minutes on 4 threads):
-  - The 76 places at 2× are the same files (their data unchanged).
-  - Of the 74 at 4× or 8×, 39 keep their row, at 2× (36) or 3.75× (3, at 256²): the start moved to
-    the water on 13, and 35 have fewer rivers (3 or 1 source groups).
-  - 35 are made from another row of their region, because their own fails at the cap (18 the water
-    does not settle, 13 no start has pumpable water, 4 no start has its wood). 13 are the same land
-    with another height mapping (Badlands National Park, Crater Lake, Twelve Apostles, Lena Delta,
-    Mount Roraima, Drumheller, Aso Caldera, Niagara Falls, Aysen Fjord, Kinabatangan River, Ennedi
-    Plateau, Skeidara Outwash, Victoria Falls); 22 show other land of their region: Death Valley,
+- **What changed** (with the starting-logs floor below, in one conversion: `VERSION` 3, 234
+  conversions, 8 minutes on 4 threads):
+  - Of the 76 places at 2×, 70 keep their data as it was; 6 moved their start for the floor.
+  - Of the 74 at 4× or 8×, 40 keep their row, at 2× (39) or 3.75× (Kunlun Alluvial Fan, 256²). In
+    all, 54 places have fewer rivers (3 or 1 source groups) and 11 starts moved to the water; the
+    other place at 3.75× is Victoria Falls Southwest, now 256².
+  - 34 are made from another row of their region, because their own fails at the cap (16 no start
+    has pumpable water, 15 the water does not settle, 3 too little wood). 13 are the same land with
+    another height mapping (Badlands National Park, Crater Lake, Twelve Apostles, Lena Delta, Mount
+    Roraima, Drumheller, Aso Caldera, Niagara Falls, Aysen Fjord, Kinabatangan River, Ennedi Plateau,
+    Skeidara Outwash, Victoria Falls); 21 show other land of their region: Death Valley,
     Geirangerfjord, Lofoten, Danube Delta, Glencoe, Lake Saimaa, Na Pali Coast, Iguazu Falls,
-    Yosemite Valley, Tsingy de Bemaraha, Temagami, Mississippi Delta, Phong Nha Southwest (now
-    256²), Danube Delta Southwest, Fish River Canyon North, and seven second maps that now show
-    another part (below). First-round titles are kept.
-  - **None dropped**: every place that failed found a row that passes. The one drop is still the
-    first rebuild's Majuli, Brahmaputra.
-  - Flow: 149 places at 2×, 1 at 3.75×. Water covers a median 22% of a map (at most 45%).
-  - Advisories, as information: plants.drought 136, water.reservoir 101, start.reach 77,
-    water.clean_exists 27 (was 9: less water, so less of it stays clean through a badtide),
-    water.clean_reach 4. Every place passes the export profile and every check of the generate
-    profile.
+    Yosemite Valley, Tsingy de Bemaraha, Temagami, Mississippi Delta, Phong Nha Southwest and Victoria
+    Falls Southwest (now 256²), Danube Delta Southwest, Fish River Canyon North, and five second maps
+    that now show another part (below). First-round titles are kept.
+  - **None dropped** by D214 or the floor: every place that failed found a row that passes. The one
+    drop is still the first rebuild's Majuli, Brahmaputra.
+  - Flow: 148 places at 2×, 2 at 3.75×. Water covers a median 18% of a map (at most 45%).
+  - Advisories, as information: plants.drought 136, water.reservoir 101, start.reach 74,
+    water.clean_exists 26 (was 9: less water, so less of it stays clean through a badtide),
+    water.clean_reach 4. Every place passes the export profile, every check of the generate
+    profile, and the floor.
 - **Titles** (D214): a region's second map is named by its own part of the place: a real feature
   only where OpenStreetMap's named features in the map's square (queried for each square) and its
   heights make it sure, else a plain position or direction (tools/places/titles.ts `SECOND`; a
@@ -415,36 +417,85 @@ are gone. Built after merging `dev` (Live editing, waterfalls, the forces' inves
   - Glencoe Centre → **River Coe, Glencoe**: now the same centre at 60 m a tile (the 30 m one fails
     at the cap), the whole glen, the Three Sisters and Bidean nam Bian;
   - Blyde River Canyon Centre → **Blyde River Canyon Southwest**, Ilulissat Icefjord Centre →
-    **Ilulissat Icefjord North**: their centre fails at the cap, so they are the region's
-    southwest and north samples, named by the part sampled;
-  - also by the part sampled, other second maps whose row changed: Victoria Falls Southwest →
-    **Victoria Falls North**, Plitvice Lakes Southwest → **Plitvice Lakes East**, Rhine and Moselle
-    North → **Rhine and Moselle Southwest**, Ngorongoro North → **Ngorongoro East**.
+    **Ilulissat Icefjord East**: their centre fails at the cap, so they are the region's southwest
+    and east samples, named by the part sampled;
+  - also by the part sampled, second maps whose row changed: Plitvice Lakes Southwest → **Plitvice
+    Lakes East**, Ngorongoro North → **Ngorongoro East**.
 - **Pictures**: every card drawn again on the GPU (`npm run places:thumbs -- --all --port 4832
   --threads 4`). The tool follows `dev`'s editor: the view's canvas now sits in its own box beside a
   minimap, so the tool shows only the main canvas; and the editor shows its preview's water first,
   so the tool waits for the background check's exact settle (the checks dot stops waiting) before
   drawing. The water in every picture is the map's settled water as `dev`'s renderer draws it now
   (D212, D215: thin films read differently), so unchanged maps' pictures changed too.
-- **Kyler's own list of places to drop** waits for him. He chose it from the sheet before D214; 35
-  places now show other land or other water, so it wants a look at the new sheet
-  (`docs/sheets/real-places.png`; locally `investigation/landscapes/local/places-sheet/sheet.html`).
+- **Kyler's own list of places to drop** waits for him. He chose it from the sheet before D214; 34
+  places now show other land, 46 other water or start, and 69 more trees, so it wants the new
+  review sheet (below).
 - **Badwater (D200, D213)**: still waits for M9a on `dev`, which carries #54. #54 gives
   `planMapResources` a `badwater: { setting, within }` input and returns the water settled again
   with the badwater springs. What is left: in `buildPlace` (src/core/places/place.ts), pass
   `badwater: { setting: "normal", within: DIFFICULTY_RULES.normal.badwaterWithin }` and write
-  `resources.water` (the settle, moisture and soil) into the file when it is there; take #54's
-  changes to places.test.ts and placesCommon.ts; raise `VERSION` to 3 (the start's checks then
-  include start.badwater and resources.badwater_source), then `npm run places:convert`, `npm run
-  places`, `npm run places:thumbs -- --all`, `npm run places -- --check` and the sheet.
-  `PlaceData.badwater` stays for springs a place's data fixes itself (none now).
+  `resources.water` (the settle, moisture and soil) into the file when it is there, before the floor's
+  groves are counted; take #54's changes to places.test.ts and placesCommon.ts; raise `VERSION` to 4
+  (the start's checks then include start.badwater and resources.badwater_source), then `npm run
+  places:convert`, `npm run places`, `npm run places:thumbs -- --all`, `npm run places -- --check`,
+  the sheet and the review sheet. `PlaceData.badwater` stays for springs a place's data fixes itself
+  (none now).
 
-Tests updated to D214 (D148), none weakened:
+## The starting-logs floor (Kyler, 2026-09-26, D224, D227, D229)
+
+Every place has at least the floor's logs within its walk, at every difficulty: 178 logs within 40
+tiles' walk for game 1.1.2.4 (`src/core/data/log-floor.json`, D227 after D224's 167 within 20,
+merged from `dev` at 9e5e73a and 7360e32). A blocking rule for the places until M9a's validators carry
+it.
+
+- **The count** (`startLogs`, src/core/places/place.ts): every grown tree (dead ones too; a
+  sapling's logs never) by its species' yield from the floor's data, within 40 tiles' walk of the
+  district center over the map's ground and its natural slopes, round what blocks walking (the start
+  requirements' walk). Places have no slopes, so the walk stays on the start's own level.
+- **Where a place is short** (D229: meet it in varied, natural ways, reading the place's real land;
+  `plantForFloor`, src/core/places/wood.ts): the resources are planned as before, then the land
+  within the walk is read as stands, each with its own trees: the river bank (moist ground within 4
+  tiles of the water, on the start's side: birches, some pines), across the water (ground near the
+  water whose straight line to the start crosses it: a pine forest, some oaks), a plateau (flat
+  ground where the start stands high on the map: oaks), a side valley (ground most of whose
+  surroundings stand higher, away from the river: pines), and plain woodland (the map's mix). The
+  stands the land offers are drawn in a seeded order (one not used yet weighs more), and each gives
+  a grove grown as the baseline grows its groves, seeded mostly 10–38 tiles out, apart from the other
+  groves and the trees already there, until the logs lacking and a tenth more are there; when the
+  stands run out, the last groves grow on at the edge of the trees already there. Grown trees, alive
+  on moist soil and dead on dry, as the baseline's. The conversion then chooses only starts that meet
+  the floor.
+- **What it did**: 92 of the D214 gallery's places were under the floor within 20 tiles and 71
+  within 40. In the final gallery **69 places got groves for the floor** (2,011 trees, 4,597 logs;
+  2 to 4 groves a place mostly, 1 to 8 in all): 69 river-bank groves, 52 across the water, 23 in side
+  valleys, 8 on plateaus and 67 in woodland; 111 of pines, 69 of birches, 39 of oaks. Every place
+  meets the floor (the lowest has 178). **None dropped** for it; 6 places at 2× moved their start
+  to meet it.
+- **Minimum starting wood** (within 20 tiles, D227) stays the validators' `start.wood` at the
+  difficulty the places are built for (Normal), as before; M9a's new defaults reach the places when
+  they land.
+- Default #79 (the stands, their trees, the tenth's margin).
+
+## The review sheet (Kyler, 2026-09-26)
+
+`python tools/places-review.py docs/sheets/real-places-review --changed-since 04e90ef` draws every
+place in the gallery, numbered in its order, with its title and both card pictures, as JPEG pages
+Kyler can read on a phone (30 places a page, each under 800 KB); cards changed since the sheet Kyler
+saw are marked (new land, new water, the title it had). The places no longer in the gallery follow,
+with the reason each went. Posted on PR #35 as "Review sheet: which places should go?"; Kyler replies
+with the numbers to drop. Run it again after his drops.
+
+Tests updated to D214 and the floor (D148), none weakened:
 - `places.test.ts`: the first round's 85 are the first-round places plus the first-round drops (an
-  addition D214 dropped would be listed with its status and a D214 reason); new: each place's
+  addition D214 or the floor dropped would be listed with its status and its rule); new: each place's
   flow and its sources' total strength within the cap for its size; titles: every place's sentence
   is its survey place, a region's first map is titled by its place and its second by its own part
   (the titles module), never "Centre"; the title examples follow D214 (a centre map named by its
   land, one without a name stops the tool).
+- `placesCommon.ts` (every place, nightly and in the release check; the sample on every push): the
+  written file's logs within the floor's walk of its start are at least the floor.
+- New `tests/unit/places-wood.test.ts`: the floor's groves on a made-up river map (the logs asked
+  for; stands read apart; free dry reachable ground; grown; the same every time; clear of the trees
+  already there).
 - `carve.test.ts` (from `dev`): its real place is read by its new file name (grand-canyon).
 

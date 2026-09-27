@@ -31,7 +31,7 @@ import type { WaterModel } from "../sim/water";
 import { DIFFICULTY_RULES, defaultSettings } from "../spec/mapspec";
 import { validateMap, type Validation } from "../validate/checks";
 import { CREDITS_URL, fileNotices } from "./attribution";
-import logFloor from "../data/log-floor.json";
+import logFloor from "../data/log-floor.json" with { type: "json" };
 import { reachAt, walkDistance } from "../analysis/walk";
 import { isSapling, treeLogs } from "../analysis/wood";
 import { FOOTPRINTS, footprintTiles, slopeHighSide } from "../format/footprints";
