@@ -25,8 +25,12 @@ Your forty decisions since the restart are recorded (D252–D291, below) and in 
      practice one rule: evaporation on a dry tile that receives water) or the two stop agreeing bit for bit. Options: add that rule to the
      Python check, or keep today's rules on heightfields and use the game's only under roofs. It only matters when the engine is wired in
      (after the forces and M9b merge); until then heightfield water is unchanged.
-4. **Glaciate (#69):** pre-approved for round 4 (D291). Round 3 (405e7e4) is what's there now; when round 4 lands I check its report
-   (one river on the floor, no camera motion; round 3's camera still follows the ice) and merge or hold it for your look.
+4. **Glaciate (#69), round 4 held for your look** (D291; f487591, CI green but one test job still running when checked):
+   - **The camera: met.** No follow, recenter or load reposition; the two-act GIF is from a fixed camera.
+   - **One river on the floor: not met.** Wet share is under 15% in your Canyon cases (default 11.8%, your cross-valley Aim 13.9%), but
+     the floor still has **6 separate wet passages** in the default Canyon case and **3** in the Aim (goal 1); random-3 is 16.4% wet.
+     Its report says so itself: long side joins, one-tile narrowings and several wet spans remain. Falls went up (7, 7, 3 on the heroes).
+   - Not merged. Your call: merge it as it is (the magic is there, the river isn't one yet), or another round.
 5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
 6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
