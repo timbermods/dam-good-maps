@@ -27,7 +27,7 @@ issue (#57, D221) and the summary at the top of `docs/STATUS.md` are how he catc
 6. **Placing objects by brush** (D235): right after the forces round 2, on the preview. Build it on a branch from
    `feature/forces` (so the preview keeps the forces), e.g. `feature/object-brush`.
 7. **The page is the editor** (D232–D234: 3D everywhere, the landing page's map editable with a full-screen editor, Your
-   maps), after the forces round 2 and M9a's release; on the preview, then tell Kyler: his editor UI audit follows, and
+   maps; and D237: "Without pre-filled water" off the page, kept internal), after the forces round 2 and M9a's release; on the preview, then tell Kyler: his editor UI audit follows, and
    **the design pass comes straight after it** (D236).
 8. **M9b and M9c** (Opus 5.5 at high) **in parallel with 7**, not waiting for it (the generator and the page are separate
    code); M9b and M9c take the machine first when the two compete (D236). Then the rest of `ROADMAP.md`.
@@ -224,7 +224,7 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D237), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D238), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #80. **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b and M9c. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.

@@ -1035,7 +1035,8 @@ after Generate, the essentials around it (brushes, Water source and Badwater sou
 full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser window elsewhere), Generate and settings
 changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
 way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
-exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. Put on the preview; then Kyler runs
+exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
 his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
 M9b and M9c don't wait for this step: they run in parallel with it and take the machine first when the two compete
 (D236).
