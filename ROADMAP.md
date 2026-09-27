@@ -1419,6 +1419,10 @@ D146).
 After the Map quality checkpoint and just before the Frame pass (Kyler, 2026-09-25; PLAN §20 D147,
 made smaller by Kyler the same day).
 
+**Map look 3's investigation** (D228): Codex's phase 1 of a higher-fidelity High look (`investigation/maplook3`:
+lighting and post-processing, terrain materials, a small vegetation sketch) is merged as proposals only. The effects
+Kyler keeps after reviewing its demo join High mode here; nothing is adopted before his review.
+
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).
