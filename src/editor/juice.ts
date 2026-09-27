@@ -93,6 +93,10 @@ export interface SoundEngine {
   setSettings(s: Partial<{ enabled: boolean; volume: number; ambience: boolean }>): void;
   pause(): void;
   dispose(): Promise<void> | void;
+  /** Decoded and running (tests). */
+  readonly ready?: boolean;
+  /** Recordings playing now (tests). */
+  readonly playing?: number;
 }
 
 export class Juice {
@@ -245,6 +249,11 @@ export class Juice {
       this.engine.stop(`force-${f.run}`);
       this.engine.stop(`force-${f.run}-slide`);
     } else if (f.verb === "erupt" && last) this.engine.play("erupt", { ...this.place(last.x, last.y), size: soundSize(last.size), strength: 0.3 + (0.7 * last.power) / 100 }, { id: `force-${f.run}`, phase: "cool" });
+  }
+
+  /** The sound as it is now (tests): the bank ready, and how many recordings are playing. */
+  status(): { ready: boolean; playing: number } {
+    return { ready: !!this.engine.ready, playing: this.engine.playing ?? 0 };
   }
 
   dispose(): void {

@@ -163,13 +163,67 @@ test("Erupt: a vent on a click, a fissure painted; each one step; undo takes it 
 
   // a fissure, painted
   await row.getByRole("button", { name: "Fissure" }).click();
-  await paint(page, [far[0] - 8, far[1] + 10], [far[0] + 8, far[1] + 12]);
+  // (on whichever side of the vent the map takes the pointer, clear of the bars over it)
+  const onMap = (x: number, y: number) =>
+    page.evaluate(([a, b]) => {
+      const p = window.dgmEditor!.tileToClient(a, b);
+      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+    }, [x, y] as [number, number]);
+  const dy = (await onMap(far[0] - 8, far[1] + 10)) && (await onMap(far[0] + 8, far[1] + 12)) ? 1 : -1;
+  await paint(page, [far[0] - 8, far[1] + 10 * dy], [far[0] + 8, far[1] + 12 * dy]);
+  await expect(page.getByRole("group", { name: "Erupt at work" })).toBeVisible();
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Erupt a fissure");
   expect(await worker(page)).toEqual(await heights(page));
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(vent);
+});
+
+test("Erupt near the ceiling (D226): it completes, keeps a peak, never a mesa; again on its summit it breaks out on the flank", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("0");
+  const row = page.getByRole("group", { name: "Erupt options" });
+  // a steep volcano with a peak, as Kyler made them
+  await row.getByRole("combobox", { name: "Summit" }).selectOption("peak");
+  const { far } = await places(page);
+  const W = (await info(page)).W;
+  const topAround = (h: number[], x: number, y: number, r: number) => {
+    let peak = 0;
+    let at = 0;
+    for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) peak = Math.max(peak, h[yy * W + xx]);
+    for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (h[yy * W + xx] === peak) at++;
+    return { peak, at };
+  };
+  for (let k = 0; k < 2; k++) {
+    const h = await heights(page);
+    // the summit so far (the first time, where it is asked)
+    let at: [number, number] = [far[0], far[1]];
+    if (k) {
+      let best = -1;
+      for (let yy = far[1] - 6; yy <= far[1] + 6; yy++)
+        for (let xx = far[0] - 6; xx <= far[0] + 6; xx++)
+          if (h[yy * W + xx] > best) {
+            best = h[yy * W + xx];
+            at = [xx, yy];
+          }
+      // hovered, it says where it will go
+      const p = await client(page, at[0], at[1]);
+      await page.mouse.move(p.x + 3, p.y);
+      await page.mouse.move(p.x, p.y);
+      await expect(page.locator(".shape-note")).toContainText(/breaks out on the flank|grows broader/);
+    }
+    await clickTile(page, at[0], at[1]);
+    await expect(page.getByRole("group", { name: "Erupt at work" })).toBeVisible();
+    await settled(page);
+    expect((await labels(page)).filter((l) => l === "Erupt").length).toBe(k + 1);
+    const after = await heights(page);
+    expect(await worker(page)).toEqual(after);
+    // under the ceiling, and a peak: a few tiles at its top, not a plateau
+    expect(Math.max(...after)).toBeLessThanOrEqual(16);
+    const t = topAround(after, far[0], far[1], 8);
+    expect(t.at, `eruption ${k + 1}`).toBeLessThanOrEqual(40);
+  }
 });
 
 test("Quake: a painted Lift follows the stroke and is kept when let go; X flips the side; a Slide carries the land; a fault through the start is refused", async ({ page }) => {

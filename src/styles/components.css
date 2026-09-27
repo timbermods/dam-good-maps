@@ -384,6 +384,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* a force's options flow on from its mode switch, wrapping a control at a time when the row is
+   long (Carve's), never leaving the switch alone on a line */
+.force-options {
+  column-gap: 10px;
+  row-gap: 6px;
+}
+
+.force-options > .bar-group {
+  display: contents;
+}
+
 /* a size with its slider and its number, and for a force its Auto (pressed: it follows Power) */
 .size-control {
   display: inline-flex;

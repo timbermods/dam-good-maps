@@ -129,7 +129,7 @@ export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 /** A force's options row: its mode switch first, then the force's own options. */
 export function ForceOptions(p: { force: Force; mode: string; onMode(mode: string): void; children?: ComponentChildren }) {
   return (
-    <div class="map-bar options-row" role="group" aria-label={`${p.force.name} options`}>
+    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} options`}>
       <div class="segmented" role="group" aria-label="Mode">
         {p.force.modes.map((m) => (
           <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode(m)}>

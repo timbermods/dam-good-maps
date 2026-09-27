@@ -115,6 +115,8 @@ declare global {
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
       startHint(): { x: number; y: number; strong: boolean; ms: number } | null;
+      /** The editor's sounds (D226): the recorded bank ready, and recordings playing now. */
+      sound(): { ready: boolean; playing: number } | null;
 
     };
   }
@@ -2787,6 +2789,7 @@ export default function Editor(props: EditorProps) {
       carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
+      sound: () => juice.current?.status() ?? null,
     };
     return () => {
       delete window.dgmEditor;
@@ -2903,7 +2906,7 @@ export default function Editor(props: EditorProps) {
                     Sound
                   </button>
                   <label class="slider-field reveal" title="Volume">
-                    <input type="range" min="0" max="1" step="0.05" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
+                    <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
                   </label>
                 </span>
               </>
