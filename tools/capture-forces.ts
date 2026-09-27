@@ -4,6 +4,11 @@
 //
 //   npx tsx tools/capture-forces.ts [--out docs/progress/forces] [--port 4812] [--only erupt]
 //
+// Round 2 (D226): Erupt as Kyler makes it (steep, a peak, the default power) on the same map, where the
+// ceiling is 16: a peak within the room it has, rising with its plume; and `rows`, every force's options
+// row and a brush's, stacked (forces-rows.png). tools/erupt-compare.ts draws Erupt before and after on
+// the demo's own seeds.
+//
 // The site is built from this checkout as the preview builds it (the forces show), opened in the
 // installed Chrome drawing on the GPU (the view's full look, the forces' moments); each force on a fresh
 // copy of the same generated map (our own: Highlands 4242, 128²), the water speed at its slowest (ten
@@ -180,12 +185,42 @@ async function main(): Promise<void> {
     if (want("erupt")) {
       const { start } = await open(page);
       const at: [number, number] = [start[0] < 64 ? 92 : 36, start[1] < 64 ? 90 : 38];
-      await look(page, at[0], at[1], 120, 38);
+      await look(page, at[0], at[1], 110, 34);
+      // Kyler's case: steep, with a peak, at the default power, the map's ceiling 16
       await pick(page, "0", "Erupt options", async (r) => {
-        await r.getByRole("slider", { name: "Power" }).fill("100");
+        await r.getByRole("combobox", { name: "Summit" }).selectOption("peak");
       });
       const p = await client(page, at[0], at[1]);
-      save("erupt", await record(page, () => page.mouse.click(p.x, p.y), 4500, 80));
+      save("erupt", await record(page, () => page.mouse.click(p.x, p.y), 3000, 90));
+    }
+    if (want("rows")) {
+      await open(page);
+      const strips: Rgba[] = [];
+      for (const [key, name] of [
+        ["7", "Carve options"],
+        ["8", "Craterize options"],
+        ["9", "Quake options"],
+        ["0", "Erupt options"],
+        ["2", "Lower options"],
+      ] as const) {
+        await page.keyboard.press(key);
+        const row = page.getByRole("group", { name });
+        await row.waitFor();
+        await page.mouse.move(5, 400);
+        const box = (await row.boundingBox())!;
+        strips.push(readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x - 4, y: box.y - 4, width: Math.min(1000, box.width + 8), height: box.height + 8 } }))));
+        await page.keyboard.press(key);
+      }
+      const width = Math.max(...strips.map((s) => s.width));
+      const height = strips.reduce((n, s) => n + s.height + 6, 6);
+      const rgb = new Uint8Array(width * height * 3).fill(246);
+      let y0 = 6;
+      for (const s of strips) {
+        for (let y = 0; y < s.height; y++) for (let x = 0; x < s.width; x++) rgb.set(s.data.subarray((y * s.width + x) * 4, (y * s.width + x) * 4 + 3), ((y0 + y) * width + x) * 3);
+        y0 += s.height + 6;
+      }
+      writeFileSync(join(OUT, "forces-rows.png"), encodePng(rgb, width, height));
+      console.log(`${OUT}/forces-rows.png`);
     }
     for (const mode of ["lift", "slide"] as const) {
       if (!want(`quake-${mode}`)) continue;

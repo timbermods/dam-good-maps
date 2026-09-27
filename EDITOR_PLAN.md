@@ -59,15 +59,22 @@ editor is desktop-first (D185).
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
-- **Juice** (D205, D220): small satisfying feedback on every action (a soft thud as land rises, a
-  puff of dust when it's lowered, a pop and a wiggle when something is placed, a splash when a
-  source starts, each force's own moment). The sounds are synthesised as they play (Codex's engine,
-  #58): a brush's texture for as long as its stroke lasts, a pop for a tree, a gurgle for a source,
-  a soft rewind for undo, and each force's (a torrent, a whistle and an impact, a rumble and a crack,
-  grinding earth, a rising plume and a cooling hiss). They are on by default at a clearly audible
-  level (D226 raised it), with a volume and an off switch the player keeps (D212); water ambience is
-  off unless turned on. Micro-animations follow the reduced-motion setting. Nothing new stays on
-  screen unless in use.
+- **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land
+  rises, a puff of dust when it's lowered, a pop and a wiggle when something is placed, a splash when
+  a source starts, each force's own moment). The sounds are Codex's second round (#64): recorded CC0
+  foley with a crisp, musical reward. A brush's recorded bed for as long as its stroke changes the
+  land (packed earth for Raise, loose stone for Lower, a mineral scrape for Flatten, leaves for Smooth
+  and Naturalize); an accent for each thing placed by its material (hollow wood and leaves for a
+  tree, damped metal for a ruin, heavy timber for the mine site, a splash and bubbles for a source,
+  murkier for badwater); an earth puff for Remove; a reversed wooden catch for undo; and each force's
+  own, phase by phase (a torrent for Carve; a breath, a crack, a boom and falling stone for
+  Craterize; a fault's crack and grind for Quake and its Slide; pressure, a roaring plume and a
+  cooling hiss for Erupt). Repeating an action climbs a small pentatonic ladder (to a fifth) and
+  resets after a pause; a held stroke rises gently. On by default at the mix's own clearly audible
+  level (D226), limited and never harsh, with a volume and an off switch the player keeps (D212);
+  water ambience is off unless turned on. The recordings load on the first click or key, never with
+  the page, and nothing waits on them. Micro-animations follow the reduced-motion setting. Nothing
+  new stays on screen unless in use.
 - **Visible layers, identical to Timberborn** (D207): a compact layer widget with the view buttons,
   showing the visible level (∞ when everything shows) with up and down arrows, quiet at ∞ until used.
   Everything above the chosen level is hidden (terrain, water, objects) and the cut surfaces show as
@@ -88,7 +95,9 @@ editor is desktop-first (D185).
 ## 4. Shaping the land
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"); Ramp is a Smooth
-  option ("make walkable": the game's natural slopes). Pen pressure on drawing tablets.
+  option ("make walkable": the game's natural slopes). Pen pressure on drawing tablets. Every brush's
+  options row starts with its **Size**, a number and a slider, as well as hold F to drag the size on
+  the map and [ and ] to step it (D226).
 - **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines, exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
@@ -147,7 +156,7 @@ editor is desktop-first (D185).
   changes terrain, and it refuses removals that would break a rule (such as deleting the start).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16.
 
-(D180, D182, D183, D184, D193, D202, D203, D206, D216, D219, D220.)
+(D180, D182, D183, D184, D193, D202, D203, D206, D216, D219, D220, D226.)
 
 ## 5. Water
 
@@ -157,7 +166,8 @@ Make a valley, drop a source, and there's a river.
   The brush ring itself turns a clear water-blue and slightly thicker, with a faint fill as a second
   cue; ordinary Lower keeps the white ring. Readable over water, badwater, every ground and in
   colour-blind views (D198).
-- **Water source and Badwater source** (D212): on the left shelf, right after the start. Click to
+- **Water source and Badwater source** (D212): first on the left shelf, before the start (D226's
+  order). Click to
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
   Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
   past the official range); drag to move. A click on a placed source selects it and shows its
@@ -599,10 +609,18 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     eruption's plume and its heat on the terrain shader; a render-only shake, added before a frame and
     taken off after) plays on its own clock from fixed pools. None of them play with reduced motion or
     in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
-    are synthesised in an AudioWorklet (`src/editor/juice/`, Codex's engine from #58): one engine for
-    the editor's lifetime, made at the first click or key, never waited on, bounded (64 voices, four
-    textures, excess accents dropped), paused when the page is hidden; the player's volume and off
-    switch are kept (`dgm.sound`).
+    are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
+    `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 818,400 bytes, in
+    `public/sounds/juice-2/` with their manifest and provenance, `SOUNDS.md`), fetched and decoded on
+    the first click or key (four at a time) and played by the browser's own audio thread (buffer
+    sources, held beds as pre-crossfaded loops): no synthesis on the page, no worklet. One engine for
+    the editor's lifetime, never waited on: a sound asked for while the bank loads, while paused or
+    off, or past the limits (72 recordings, 20 sounds, four held beds, ten accents a second) is
+    dropped, never played late. A compressor and a bounded curve keep every sample below 0.92 of
+    full scale. A force's phases play under its run's id, so Esc or undo stops all of it at once; the
+    page hidden stops everything and sleeps. A sound's distance comes from where it is in the view:
+    on screen, what is being edited, it plays at its full level at any zoom; off screen it fades and
+    softens. The player's volume (0.72 by default) and off switch are kept as saved (`dgm.sound`).
 - The forces (D203, D206, D220): one shared core in `src/core/forces/`, from Codex's forces core (#59):
   `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve,
   whatever the frame rate), the shared numbers, rock and object rules (`random.ts`, `rock.ts`,
@@ -610,14 +628,27 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   `tools/carve-equiv.ts`; `craterize.ts`, `erupt.ts`, `quake.ts`, ported from #59 and pinned to its
   45 parity cases), the staged runs that show Craterize, Erupt and Quake a stage at a time
   (`runs.ts`: planned a few rows a step, then the bowl and its debris, the swell, the fault's front or
-  the slide), the operation (`op.ts`) and its literal result (`result.ts`). The map's hidden rock is
+  the slide), the operation (`op.ts`) and its literal result (`result.ts`). Erupt is the prototype's
+  volcano exactly where it has the room under the map's ceiling (16, or the map's own top up to 22);
+  where it hasn't, `eruptAnatomy` fits it (D226): every level it raises (cone, apron, ridges) scaled
+  together so its summit reaches the ceiling at most, broader rather than taller while Size follows
+  Power (at most 1.6 times, never so broad that a low peak's top spreads past a few tiles), Auto's
+  summit a peak when it keeps less than three quarters of its rise; with too little room at the vent
+  (under four levels) it breaks out on the flank, the nearest place with room (the seed choosing
+  among the nearest); a fissure rises less where its line is high; at the ceiling with no flank near,
+  "No room to rise here". The page previews the same fit under the pointer. Its swell is 28 stages
+  over about four seconds at the normal speed, as the demo's, so the land rises with its plume and
+  glow. Each size control (Carve's Width and Depth, Craterize's and Erupt's Size) follows Power (Auto)
+  until its slider sets it; a set size is kept in the operation's settings (`depth`, `size`; absent
+  in operations from before D226, which replay as they were). The map's hidden rock is
   derived once from the map as opened (never rerolled); fresh volcanic rock comes from the forces'
   operations. What is kept is always the plan's final map, touched by the build's own integrity pass
   in the worker, so the last stage is exactly what the build keeps. The editor's worker runs a force
   a few steps a frame (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`,
   `forceAgain`; no second history or water owner); the page shows its frames and moments
-  (`forceDriver.ts`, paced by the water speed). Which builds show the forces: `src/editor/release.ts`
-  (D219).
+  (`forceDriver.ts`, paced by the water speed; a frame that fails to show never stops a force, and a
+  worker that fails takes all of it back, as Esc would). Which builds show the forces:
+  `src/editor/release.ts` (D219).
 - "The start fits here" (D204): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a

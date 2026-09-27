@@ -897,11 +897,13 @@ Start (Water source, Badwater source); clear water only under or around the brus
 and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Both
 changes are built, and Carve with them, for the preview (`docs/progress/live-editing.md`).
 
-**The forces** (D216, D219, D220): Carve, Craterize, Erupt and Quake (with both Lift and Slide) are
-built as the forces group's four buttons on one shared forces core (Codex's, #59), with the editor's
-sounds on Codex's synthesised engine (#58), on branch `feature/forces`
-(`docs/progress/forces.md`). They go to the preview, and are released (and the branch merged) only
-after Kyler has tried them.
+**The forces** (D216, D219, D220, D226): Carve, Craterize, Erupt and Quake (with both Lift and Slide)
+are built as the forces group's four buttons on one shared forces core (Codex's, #59), on branch
+`feature/forces` (`docs/progress/forces.md`). Kyler's review (D226) is built in its second round:
+Erupt kept to the demo (a peak within the room it has, new cones on the flanks, always complete),
+Power and size separate in every force (Carve's Depth), the brush size in its row, the shelf's order,
+and the editor's sounds on Codex's second round (#64: recorded CC0 foley, clearly audible by default).
+They go to the preview, and are released (and the branch merged) only after Kyler has tried them.
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):

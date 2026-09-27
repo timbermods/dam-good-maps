@@ -51,12 +51,12 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
   // the top bar: the five brushes, the forces and Remove, and a row with only the picked tool's
-  // options; the sources are on the shelf, right after the start (D212)
+  // options; the sources are on the shelf, first, then the start (D212, D226's order)
   const bar = page.getByRole("toolbar", { name: "Tools" });
   for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Remove (X)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
+  expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
   // the forces, all four ready (D216, D219), in their own group between the brushes and Remove
   const forces = bar.getByRole("group", { name: "Forces" });
@@ -69,7 +69,7 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("r");
   await page.waitForTimeout(150);
   expect(await distance()).toBe(d0);
-  // the sounds: on and quiet by default, an off switch, the volume beside it (D212)
+  // the sounds: on by default (clearly audible since D226), an off switch, the volume beside it (D212)
   const soundButton = page.getByRole("button", { name: "Sound", exact: true });
   await expect(soundButton).toHaveAttribute("aria-pressed", "true");
   await soundButton.hover();
