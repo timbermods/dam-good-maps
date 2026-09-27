@@ -5,33 +5,38 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-26, 18:10, after his answers)
+## Summary for Kyler (updated 2026-09-27, at the pause for the session restart)
 
 The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
 
 ### 1. Needs your decision or your eyes
 
-1. **The forces, round 2 (D226), being fixed now** on `feature/forces`, then back on the preview for you: Erupt matched to
-   the demo (a peak within its headroom, never a flat mesa; cones on the flanks; it always completes), a size control
-   beside Power in every force (Carve's Width and new Depth, Craterize's Size, Erupt's Size), the brush size back in the
-   options row, the shelf starting Water source, Badwater source, Start, Pine, and louder sounds. #74 is accepted.
-2. **Real places: being rebuilt to your D245** (places kept on their own land; only the correctness checks and the floor
-   gate a place; a few plain words on the card for what would sink a player). A new review sheet will replace the one
-   below, which is out of date: pick drops from the new one only. The old sheet was on PR #35:
-   [Review sheet: which places should go?](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5851924825)
-   (five pages of 30; changed cards marked). Reply there with the numbers to drop. Worth your eye: 21 places now show other
-   land of their region under their first-round titles (Yosemite Valley, Geirangerfjord, Iguazu Falls among them), since
-   their own land couldn't meet D214 or the floor. The round's release waits for your drops and the badwater stage (after
-   M9a). Its defaults: pending #80 (the strength cap per size), #81 (the titles), #82 (the floor's groves).
-3. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
+1. **Real places (#35): pick the drops from the new review sheet**, judging whether each place is interesting enough to
+   play: [the new sheet](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852893380) (six pages; each card
+   shows its note in amber and its floor groves, dead trees apart). The D245 rebuild is done (33f7050, green): 151 places,
+   none dropped; 68 carry a note ("The water keeps moving" 44, "No water a pump can reach from the start" 28, "Too little
+   wood near the start" 1). Also on #35:
+   - [every version choice](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852892041) for the 34 and the
+     off-centre samples (35 moved to their centre, 10 swapped names with a second map that was their centre, 23 kept on a
+     sample that shows the place as well or better, Death Valley kept: its centre drains inward), one line each;
+   - 7 regions whose two maps overlap by more than 25% (Aso Caldera, Lake Toba and Samosir, Ngorongoro, Mount Roraima,
+     Hooker Valley, Monument Valley, Fish River Canyon): drop one of each if you like;
+   - the floor's dead trees: 67 of 1,693 grove trees, on 9 places;
+   - defaults #80–#82, #84 (the versions) and #85 (what blocks, the note wording, where notes show).
+2. **Starts look alike at Normal, but not because of the floor** (your D229 question; M9a's start-area sheet,
+   `docs/sheets/m9a-start-areas.png` on `feature/m9a`, which I looked at): on Normal the floor adds no wood; on Hard its
+   groves follow each map's own water and land, in every direction. What recurs beside nearly every start is the start
+   rules' own planting for Minimum starting wood and bushes (D85): groves and berry patches within about 10 tiles, bigger
+   since Normal's 200 logs. The fix would spread that planting over the 20-tile walk the way the floor's wood reads the
+   land. Not changed: your call.
+3. **Flatten's Ramped edges lay almost no slopes** (found while removing Smooth's walkable, D247): 0–2 slopes per pad
+   against 17–62 one-level steps, because the slope planner places them by its own rules. The cause and one recommendation
+   are pending #84 on `feature/forces` (#86 once merged). Flatten is unchanged.
+4. **Glaciate (#69)** is held while you and Codex do another round (D246).
+5. **Coming to you:** the forces sitting (your checklist below) once D249 and the ceiling are built; M9a's release after its
+   probe batch. **Later:** #83 (the new trees in Standard, at the Map look work).
 
-**The forces are built on the shared forces core** (checked 2026-09-26, as you asked): `feature/forces` was started from
-`dev` after Codex's forces core (#59) had landed, and its first commit ports Craterize, Erupt and Quake from
-`investigation/forces-core`; all four import the core's modules (`src/core/forces/force.ts`, `op.ts`, `result.ts`,
-`rock.ts`, `runs.ts`), so nothing had to move. Codex's #58 and #59 were merged into `dev` at the Live editing boundary
-(D220). The forces reached the preview about 20 minutes before your message, after this check of the agent's report.
-
-### Your checklist for the forces sitting (on the preview when round 2b is up)
+### Your checklist for the forces sitting (on the preview once D249 and the ceiling are built)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
 1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
@@ -88,18 +93,16 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 
 ### 3. On the preview for you to try
 
-**The four forces, with the new sounds** (D219, D220): <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this
-map** → the Forces group on the top bar: **Carve** (7), **Craterize** (8), **Quake** (9, Lift and Slide), **Erupt** (0). Built
-on Codex's shared forces core (#59) with #58's synthesised sounds (on, quiet, with the Sound switch). From `feature/forces`
-(a88d7d2, CI green); not on `dev` and not released until you've tried them. Captures: `docs/progress/forces/` on that branch;
-the full report: `docs/progress/forces.md`. I tried one Craterize strike there: at its default power the crater is 54 tiles
-wide on a 128² map and swallowed the river valley; one undo brought it all back. The defaults are pending #74.
+The preview still shows the forces' first round (a88d7d2). Round 2, Unleash (2b), D247 and D248 are done on
+`feature/forces` (c1438df); it goes back on the preview for your sitting once D249 and the ceiling (D244 step 2) are in.
 
 ### 4. Probe batches
 
-None yet. The probe is set up here (runner tests pass, the mod builds against this install, your game settings are backed
-up in `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\`). The first batch will be M9a's 15 maps once its generator is
-frozen (D218 lets it run without asking on this machine).
+None has run yet. Three are prepared, to run after the restart, M9a's first (D218; each reported here and on #57):
+- **M9a** (the gate for its release): 15 maps on the frozen generator in `C:\dgm-probe\maps\20260927-0424-batch`, about
+  93 minutes.
+- **Ceiling** (D244 step 1): three editor-made tall maps in `C:\dgm-probe\ceiling\`, about 24 minutes.
+- **Real places whose water keeps moving** (the grey area, optional confirmation): Paricutin, Badlands and Lake Toba.
 
 ### 5. Defaults I chose (your answers: D222)
 
@@ -130,17 +133,16 @@ frozen (D218 lets it run without asking on this machine).
   touched. HANDOFF now says to build with `--no-install`.
 - **Timberborn was open when I arrived;** you closed it (12:05).
 
-### 7. Still running
+### 7. Paused for the restart (nothing is running)
 
-- **M9a** in `DamGoodMaps-m9a` (an Opus 5.5 agent; first on the machine): the settings and test fixes, full batches, the
-  contact sheet, the Claude suite re-tune, docs, CI, then the frozen generator's probe maps. The `.claude/agents/`
-  definitions didn't load (this session started outside the repository folder), so it follows this session's effort, which
-  is xhigh (checked).
-- **Live editing** in `DamGoodMaps-live` (an Opus 5.5 agent): the Carve re-port to #47's final commit, the forces hidden on
-  the public site (#69), D212's two changes, docs, captures and CI. Then I release it as `live-editing-done`.
-- **Waiting their turn:** waterfalls (#53) after Live editing lands (both change the water renderer); Real places' D214
-  rebuild after that (heavy on the machine, and M9a comes first); the forces after the Live editing release.
-- Keeping the machine awake (`tools/keep-awake.ps1`, no settings changed).
+Every agent stopped at a clean point with its work pushed; nothing is uncommitted. Where each resumes (HANDOFF §1):
+- **M9a** (`feature/m9a`, 0f70fcb): the rest of the Normal batches (96², and parts of 128² and 192²; every map so far
+  passes; commands in `docs/progress/m9a.md`), CI on #56, then its probe batch. Done: the starting-logs floor in both
+  validators, the Claude suite at 103 of 120, `docs/sheets/m9a.png` and the start-area sheet, Hard at 128² 100% final.
+- **The forces** (`feature/forces`, c1438df): D249, then the ceiling (after the Ceiling batch), then the preview.
+- **Real places** (`feature/real-places-2`, 33f7050): waits for your drops, then badwater after M9a.
+- The session restarts in `C:\Users\krams\code\DamGoodMaps` at Opus 5.5, high, so each kind of work runs on its own
+  agent definition (D251).
 
 ## The takeover, 2026-09-26
 
@@ -361,23 +363,11 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 
 ## Running
 
-In the order of work (HANDOFF.md §1; M9a first on the machine, D210):
-- **M9a**, the generator from design version 2 (D209), on `feature/m9a` ([#56](https://github.com/timbermods/dam-good-maps/pull/56)):
-  the settings and test fixes, full batches, the contact sheet, the Claude suite re-tune, docs and CI, then its probe batch.
-- **Live editing** on `feature/live-editing`: the Carve port (WIP, green), then D212's two changes, then the
-  `live-editing-done` release (approved).
-- **Next:** the four forces (#47, #51, #50, #52; D216, D219) on one forces core, to the preview; waterfalls (#53, D215),
-  then `look-waterfalls-done` (approved); Real places round 2 (#35, D214).
-- **Held:** #54 (inside M9a, D213). Dependabot majors #24 and #25 wait for the upgrade step (D150).
+Nothing, at the pause for the restart. The order of work is in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
 
 ## Waiting on Kyler
 
-1. M9a's release, after its probe batch (the release needs your yes).
-2. Try the forces on the preview once they're there; they're released after you've tried them (D219).
-3. Real places: the places to drop, from the sheet on your main PC (D214).
-4. Pending #66 (the candidate intentions), and any default the session chose while you were away
-   ([decisions-pending.md](decisions-pending.md)).
-5. Optional: the pending in-game checks ([ingame-log.md](ingame-log.md)).
+See the summary's section 1.
 
 ## Where to look next
 
