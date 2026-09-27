@@ -1485,10 +1485,12 @@ made smaller by Kyler the same day).
 
 **Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
 `investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
-into High here, with #38's water and soft shadows. Phase 3, "finish the world" (`investigation/maplook-finish`: the
+into High here, with #38's water and soft shadows. Phase 3, "finish the world" (#67, `investigation/maplook-finish`: the
 diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
-visible seasons for drought and badtide), is merged as proposals only; nothing from it is adopted until Kyler has
-reviewed its stages (D243).
+visible seasons for drought and badtide, the High poisoned soil), is approved too (D250) and adopted here, following its
+INTEGRATION.md, with two additions: in a badtide, plants on contaminated ground wither as plants on dry ground do in a
+drought (by the ground's own contamination); and every stage's cost measured on this machine's RTX 2070 SUPER on dense
+256² maps, orbiting and painting, with which effects the lower-cost mode drops.
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather

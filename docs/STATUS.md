@@ -39,11 +39,21 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 2. **Power and size apart:** Carve's Width and new **Depth**, Craterize's **Size**, Erupt's **Size**.
 3. **Quake:** Lift and Slide; Lift on a high map once the ceiling is in.
 4. **Unleash on a source** (D239): select a source, **Unleash** (or U); from a pool; drag to aim; Try another.
-5. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level <!-- retired-terms:allow --><!-- /retired-terms:allow -->
+5. **Brushes and sources** (D249): raise land over a group of sources with **Clear sources** on (they glow red and go with
+   the stroke) and off (they ride the ground: no pits, no pillars); hover near a source with any tool and press Delete; a
+   Remove drag that starts on a source takes only sources. Captures of both strokes will be in the forces' progress log.
+6. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level <!-- retired-terms:allow --><!-- /retired-terms:allow -->
    lines** now in the view bar beside Height colours, working with any tool (D248).
-6. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
-7. **Sounds:** louder by default; #64's recorded sounds for every action and force.
-8. Anything from the ceiling probe that needs your hands (the camera near a summit, building on one), once it has run.
+7. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
+8. **Sounds:** louder by default; #64's recorded sounds for every action and force.
+9. From the ceiling probe (D244), what the probe can't do:
+   - the camera close to a summit (the volcano's peak, the 256² plateau): no dipping into the peak; the layer slider
+     shows and hides the top levels;
+   - building on the upper slopes (paths, stairs, a lodge, a pump, a tank at levels 17–22): builders reach them (stairs
+     are likely needed); stacking at 22 stops at level 32;
+   - the waterfall from 21 in play (dries in a drought, turns bad in a badtide);
+   - Timberborn's own map editor, two minutes: open a Ceiling map, save it under a new name, reopen: the summit stays 22.
+   The maps are in `C:\dgm-probe\ceiling\`.
 
 ### 2. Released or merged
 
@@ -295,6 +305,9 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
 - D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
+- D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
+- D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
 - D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting. <!-- retired-terms:allow --><!-- /retired-terms:allow -->
 - D246: Glaciate, a new force (a valley made glacial: a level floor, a chain of lakes, hanging valleys, moraines; Flow or Aim, Power, Size, Meltwater, Try another); Codex's `investigation/glaciate` is held until you've tried its demo, then built on the forces core after round 2.
