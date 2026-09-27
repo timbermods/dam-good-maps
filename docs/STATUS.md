@@ -32,7 +32,7 @@ Your nine decisions since the restart are recorded (D252–D260, below) and in t
    against 17–62 one-level steps, because the slope planner places them by its own rules. The cause and one recommendation
    are pending #84 on `feature/forces` (#86 once merged). Flatten is unchanged.
 4. **Glaciate (#69)** is held while you and Codex do another round (D246).
-5. **A default I chose, #91:** locks and regenerate area are gone from the plan (D253), but their operations
+5. **A default I chose, #91:** locks and regrowing part of a map are gone from the plan (D253), but their operations
    (`setLock`, `regenerateRegion`) and the stamp origin value still sit in the code, unused by any interface. I've left
    them and scheduled their removal for the refinement phase; say "remove it now" if you'd rather.
 6. **Coming to you:** the forces sitting (your checklist below) once D249, D257–D260 and the ceiling are built; M9a's review
@@ -331,7 +331,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D256: M12 works through whole maps and the forces: no regrowing or locking areas; "make the north mountainous" is Quake or Erupt, "add a big waterfall" Carve or Unleash; the brushes for precise edits.
 - D255: Pick a place takes over the conversion (from Real places', in the browser); the framed land is kept (D245's rule, with notes); retries never replace the player's framing, size or scale; no heightmap upload planned.
 - D254: the working area (amended by D259: it is Select's selection).
-- D253: M10 and M11 removed: no symmetry, stamps, regenerate area or locks; Naturalize's checks kept as tests; the steps after them follow the Weather view.
+- D253: M10 and M11 removed: no symmetry, stamps, regrowing an area, or locks; Naturalize's checks kept as tests; the steps after them follow the Weather view.
 - D252: M9 is judged by your eye against PERFECT before each stage's release: starts stop looking alike (M9a); a review set on #56 before M9a's release; M9b's and M9c's acceptance adds your eye as blocking.
 - D251: every task on its own agent definition's model and effort.
 - D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
