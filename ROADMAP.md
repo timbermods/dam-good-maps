@@ -82,8 +82,8 @@ differently, this file wins.
 | Weather | Weather view: the full cycle's timeline, after the 3D stages, before M10 | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186 | a probe batch (calibration) | xhigh |
 | M10 | Symmetry, and the brushes' extras (the brushes came with Live editing) | EDITOR_PLAN Part 1 §4, §9; Stamps and symmetry · D158, D182 | no | high |
 | M11 | Stamps painted as brushes, heightmap import, regenerate area, locks | EDITOR_PLAN: The map document (conflict rules), Stamps and symmetry · D182 | no | high |
-| Refine | Refinement phase, after M11, before the design pass | Kyler's refinement notes · decisions-pending #2, #12, #21, #29 (#13 is moot: D184 removed drawn rivers) | short (a dam at a new narrows holds) | xhigh |
-| Design | Design pass, after M11 and the refinement phase | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
+| Refine | Refinement phase, after M11 | Kyler's refinement notes · decisions-pending #2, #12, #21, #29 (#13 is moot: D184 removed drawn rivers) | short (a dam at a new narrows holds) | xhigh |
+| Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b and M9c | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
 | M13 | Usability, problem reports, versioned deploys | EDITOR_PLAN: Testing (usability tasks) · PLAN §2.3, §14, §15, old milestone 6 | yes (full journey) | high |
 | Later | See the end of this file | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
@@ -107,7 +107,8 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   public only after its probe batch passes, T7 included; D145); 3D-c: 3D editing (tagged
   `3d-c-done`);
 - the Weather view: tagged `weather-view-done`;
-- the refinement phase and the design pass: tagged `design-done`;
+- the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236); the refinement phase:
+  tagged `refinement-done` (D238);
 - after M12: Claude.
 
 M9 depends only on M2 and can run alongside M8. The 3D stages follow the M9 build and the Frame
@@ -947,6 +948,9 @@ they conflict):
      Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
+   - **Unleash, on a source** (D239, with or right after the forces round 2): a selected source's small Unleash action
+     (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; drag to aim;
+     strength sets width, a quick Power sets how hard it cuts; Try another; one undo step; Esc stops it.
    - **Water is never an object** (D196): no river selection, panel or deletion; flow and clean or
      bad belong to sources; generated rivers are their sources and land. Hovering water shows its
      depth, bed level and contamination, and highlights the sources feeding it.
@@ -975,7 +979,9 @@ they conflict):
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
    where it fits and red where it doesn't, with a quiet reason ("needs flat ground"). Click places,
-   R rotates, Esc puts it back. Trees and bushes: click places one, drag paints many, naturally
+   R rotates, Esc puts it back. Scatter-type items (trees, bushes, ruins, thorns) place like a brush (D235, after the
+   forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
+   trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
 4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Markers, and the overlays
    (moisture, contamination, drought). The legend appears only while an overlay is on.
@@ -1018,6 +1024,13 @@ shared styles and components (D176).
 
 Built in pushes, water first, each put on the preview for Kyler.
 
+**Alive, not mechanical** (D240, after the forces round 2, alongside the other editor work): short, visual-only animations
+for the land (grow, sink and crumble, a ripple from the brush's centre, grass creeping over fresh earth, rock layers in
+new walls), the water (gliding surfaces, a foaming front, rising basins, bursting falls, wet sheen and damp ground,
+pulsing sources) and the moments (Generate's reveal, pops and topples, undo in reverse, a breathing brush ring, Save to
+Timberborn's send-off, optional cloud shadows); synced with the sounds; off with reduced motion; GPU effects with capped
+particles, measured on dense 256² maps and scaled down on weaker hardware. The final map and water never change.
+
 **Blocking:** responsiveness (visible within one or two frames of the input; the display's frame
 rate while painting on 256²; no main-thread stalls; cancel, undo and tool switches at once), and
 breakage (strokes replay exactly; undo and redo always correct; nothing crashes; no edit lost; after
@@ -1027,6 +1040,39 @@ it feels right.
 **Later:** every future editing tool is live and brush-first from the start (D179, D182): M10's
 symmetry mirrors strokes live, M11's stamps are painted onto the land, and the 3D terrain steps
 extend the same brushes to caves and tunnels.
+
+---
+
+## The page is the editor (D232–D234)
+
+After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
+automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
+after Generate, the essentials around it (brushes, Water source and Badwater source, the forces), an expand button to the
+full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser window elsewhere), Generate and settings
+changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
+way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
+exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
+his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
+M9b and M9c don't wait for this step: they run in parallel with it and take the machine first when the two compete
+(D236).
+
+**Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
+always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
+the page never freezes; the editor never slows for the history).
+
+## Design pass
+
+Straight after Kyler's editor UI audit of the combined page and editor, which follows "The page is the editor" on the
+preview (Kyler, 2026-09-26; PLAN §20 D236; before that it came after M11 and the refinement phase). It runs alongside
+M9b and M9c, which take the machine first. It is the Impeccable design pass with the timbermods design system, moved
+from M13 and then forward to here. It follows the impeccable-app-flow skill
+(timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
+MEANING.md behind: the design records every later interface follows (D176, D236).
+
+From the workshop study (D87): the panel gains Variety and a **Surprise me** button beside
+Generate (and Reservoir help, if Kyler adopts it: decisions-pending #31); the map card names the
+premise and its landmark. Copy uses the catalogue's words (M9's list).
 
 ---
 
@@ -1425,10 +1471,12 @@ D146).
 After the Map quality checkpoint and just before the Frame pass (Kyler, 2026-09-25; PLAN §20 D147,
 made smaller by Kyler the same day).
 
-**Map look 3's investigation** (D228): Codex's phase 1 of a higher-fidelity High look (`investigation/maplook3`:
-lighting and post-processing, terrain materials, a small vegetation sketch) is merged as proposals only, and so is its
-phase 2, `investigation/vegetation` (D230). The effects Kyler keeps after reviewing both demos join High mode here;
-nothing is adopted before his review.
+**Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
+`investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
+into High here, with #38's water and soft shadows. Phase 3, "finish the world" (`investigation/maplook-finish`: the
+diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
+visible seasons for drought and badtide), is merged as proposals only; nothing from it is adopted until Kyler has
+reviewed its stages (D243).
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
@@ -1437,26 +1485,33 @@ than bubbly.
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).
-- High adds only the two biggest effects:
-  - a proper water shader: colour by depth, clear shallows, gentle ripples catching the light,
+- High, each effect switchable (D242):
+  - a proper water shader (#38): colour by depth, clear shallows, gentle ripples catching the light,
     shore and fall foam, badwater distinct; Kyler's direction: fewer, subtler sparkle flecks
     than the clean look, and more depth and transparency;
-  - soft real-time shadows from a warm sun.
+  - soft real-time shadows from a warm sun (#38);
+  - Map look 3's lighting and materials (#65): warm sunlight, ambient occlusion, the colour-preserving tone mapping and
+    colour grade, the subtle distance haze, the sky, rock strata, soil edges and colour variation;
+  - the new vegetation (#66): distinct pine, birch and oak, blue-berried bushes, white birch trunks, bare dead branches,
+    with its sway, its colours tuned to this lighting; the shelf icons and placement ghosts use the same models (D241).
+- **Standard stays exactly as it is** (D242). Its trees switch to #66's models, without the sway, only if they cost little
+  on real hardware (D241; the threshold is pending #83).
 - High's water reads the shared water palette (`src/render3d/waterPalette.ts`, D177): the same
   colours, opacity, badwater blend and calibration as Standard, so the two never drift apart.
 - Today's grass and dirt textures stay exactly as they are (Kyler likes them).
 
-**Later, optional** (not part of this step): ambient occlusion, colour grading, richer or
-higher-resolution textures, softened block edges and grass lips, full-resolution rendering and
-anti-aliasing, more detailed tree, bush and ruin models, and dry contaminated ground's cracks a
-little more visible from far away.
+**Later, optional** (not part of this step): richer or higher-resolution textures, softened block edges and grass lips,
+full-resolution rendering and anti-aliasing, more detailed bush and ruin models, and dry contaminated ground's cracks a
+little more visible from far away. (Ambient occlusion, colour grading and the new trees came into this step with D241 and
+D242.)
 
 **Rules:** still our own art only, generated or modelled by us; never game assets. No map file
 changes.
 
 **Acceptance:** judged by eye against Kyler's reference screenshots: captures are shown to Kyler
 and he decides. Speed numbers are information only, but no mode may feel sluggish on the machines
-it's chosen for (blocking: what a player feels).
+it's chosen for (blocking: what a player feels). **High's frame rate is measured on dense 256² maps before release**
+(D242), on this machine's GPU and with the automatic fallback checked.
 
 **Release:** tag `map-look-2-done` and release it like a milestone.
 ---
@@ -1465,13 +1520,15 @@ it's chosen for (blocking: what a player feels).
 
 **Before and after it** (D176): until this step creates the design records, new interface is built
 with the existing shared styles and components, with no one-off styling, so the design pass
-restyles it rather than rebuilds it; after it, all new interface follows its records.
+restyles it rather than rebuilds it; after it, all new interface follows its records. Since D236 the design pass
+comes first and creates the records.
 
 After the M9 build (all its stages), the Map quality checkpoint and Map look 2, and before the
 3D stages and M10 (Kyler, 2026-09-25; PLAN §20 D113, D146, D147). It follows
 the impeccable-app-flow skill (timbermods/.github, `claude-skills/impeccable-app-flow/`) in
-redesign mode, scoped to the frame zone. This overrides the flow's gate, which waits for M11. The
-full design pass after M11 stays, and continues in update mode from the records this step creates.
+redesign mode, scoped to the frame zone. This overrides the flow's gate, which waits for M11. Since D236
+the full design pass comes earlier (straight after Kyler's editor UI audit) and creates the records; this step works
+from them in update mode, scoped to the frame zone (D238).
 
 **Why:** Dam Good Maps should catch the eye as soon as its new generator exists, for sharing with
 testers, without redesigning an interface that M10 and M11 are still adding to.
@@ -1670,7 +1727,7 @@ while water settles). Budgets and measures are information.
 ## Weather view
 
 After the 3D stages and before M10 (Kyler, 2026-09-25; PLAN §20 D133). The refinement phase stays
-before the design pass, M12 and M13.
+before M12 and M13 (the design pass now comes earlier, D236).
 
 **Why:** players should see how a map behaves through droughts and badtides before playing it, and
 what that means for their colony. The exact cycle model (`investigation/cycles/`, merged from PR
@@ -1859,7 +1916,7 @@ never a frozen wait.
 
 Right after M11 and before the refinement phase, as one of the final features (Kyler, 2026-09-25;
 PLAN §20 D160, D166, D175; this replaces the earlier placement right after Live editing). It reuses
-M11's heightmap import pipeline (D159), and the design pass later restyles it with everything else.
+M11's heightmap import pipeline (D159); it is built to the design pass's records (D176, D236).
 One smooth flow inside Dam Good Maps, from exploring the real world to a finished map in one click:
 
 1. **Explore:** a **Pick a place** page beside Generate and Real places, with a 3D map to fly, tilt
@@ -1908,7 +1965,7 @@ shown).
 
 ## Refinement phase
 
-After M11 and before the design pass. It works through Kyler's refinement notes: things to
+After M11 (the design pass now comes earlier, D236). It works through Kyler's refinement notes: things to
 improve once every tool exists. Each note is its own item, with its own tests.
 
 **Kyler's notes**
@@ -2038,21 +2095,8 @@ the basin fills without leaking round the spurs.
 
 **Effort:** xhigh.
 
-**Release:** CLAUDE.md names no tag for this phase. It reaches `main` with the design pass
-(`design-done`), which follows it.
-
----
-
-## Design pass
-
-After M11 and the refinement phase, and before M12. It is the Impeccable design pass with the
-timbermods design system, moved here from M13. It follows the impeccable-app-flow skill
-(timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
-MEANING.md behind.
-
-From the workshop study (D87): the panel gains Variety and a **Surprise me** button beside
-Generate (and Reservoir help, if Kyler adopts it: decisions-pending #31); the map card names the
-premise and its landmark. Copy uses the catalogue's words (M9's list).
+**Release:** tagged `refinement-done` once Kyler approves (D236, D238; it used to reach `main` with the design pass,
+`design-done`, which now comes earlier).
 
 ---
 
@@ -2272,7 +2316,7 @@ the new screens; no second full design pass.
 - The usability tasks (EDITOR_PLAN.md, Testing), a shortcuts reference, a help page, an
   accessibility pass and a final performance pass. The first-run hints came with Live editing
   (D184).
-- The rest of old PLAN milestone 6 (its design pass is now the Design pass step, before M12):
+- The rest of old PLAN milestone 6 (its design pass is now the Design pass step, straight after Kyler's editor UI audit, D236):
   - install help, including the extract step of the artifact edition;
   - a mobile layout for the generator page and the Real places gallery; the editor is
     desktop-first (D185);

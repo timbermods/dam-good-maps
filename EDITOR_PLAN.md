@@ -54,6 +54,15 @@ editor is desktop-first (D185).
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
   place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
+  **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
+  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
+  size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
+  naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
+  field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
+  trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
+  have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
+  is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
+  relics and geothermal fields.
 - **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
@@ -175,6 +184,13 @@ Make a valley, drop a source, and there's a river.
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196).
+- **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
+  small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
+  downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
+  the water would spill over (its rim's lowest point) and carves on. Drag from the source to a point to aim it. The source's
+  strength sets the width, a quick **Power** beside it sets how hard it cuts, the rest is Carve's defaults (one click);
+  **Try another** re-rolls the course. The source stays the river's origin; one undo step; Esc stops it. The Carve tool
+  stays as it is.
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
@@ -235,6 +251,29 @@ Waterfalls leave the lip and arc into the pool as one sheet, round the corners o
 foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
 as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 
+## 6a. Alive, not mechanical (D240; after the forces round 2)
+
+Visual only: the final map and water are exactly as they'd be without it. Every animation is short, never delays the next
+action, never makes the editor feel sluggish, switches off with reduced motion, and is synced with the sounds.
+
+- **Land:** raised blocks grow up from below with a tiny overshoot and settle; lowered blocks sink and crumble, with a puff
+  of dust and a few pebbles; a stroke's changes ripple outward from the brush's centre over a few milliseconds, so it feels
+  organic, not stamped; fresh ground starts as bare earth and grass creeps over it in about a second where it's moist;
+  cutting down reveals rock layers in the new walls.
+- **Water:** the surface glides between states instead of jumping tile by tile; advancing water has a thin line of foam
+  and shimmer at its front; basins fill with a smoothly rising surface and ripples; water tipping over a new edge bursts
+  into a waterfall with a splash; ground darkens with a wet sheen where water touches it, and draining water leaves damp
+  ground and fading puddles; sources pulse with a gentle upwelling, stronger for stronger sources.
+- **Moments:** Generate reveals the new map in about a second and a half (the land rises into its shape, water flows in,
+  trees pop up; a click skips to the finished map); placed trees and bushes pop in with a bounce and a rustle, removed ones
+  topple or shrink away with a poof, ruins crumble, and painting a forest is a cascade of tiny pops; undo plays the change
+  quickly in reverse; the brush ring breathes while hovering, squashes slightly on press and eases as it moves; Save to
+  Timberborn ends with a small send-off (a flourish, a sound, "Ready to play in Timberborn"); optional ambience: soft
+  cloud shadows drifting across the land.
+- **Performance:** GPU and shader effects where possible, never per-tile work on the main thread; particles and
+  simultaneous pops capped, so a huge stroke over a dense forest stays smooth; the frame rate measured before and after on
+  dense 256² maps; effects scale down automatically on weaker hardware rather than stutter.
+
 ## 7. Controls
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms,
@@ -248,6 +287,26 @@ alone stay the brush shortcuts; bookmarks are saved with the project. Every tool
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
 
 ## 8. The generator, Claude and the first run
+
+**Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
+- **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
+  fallback for computers that can't run 3D well.
+- **The page is the editor** (D233): after Generate, the map on the landing page is already editable, with no separate
+  step or screen. Around it, compact and unobtrusive, only the essentials: the brushes, Water source and Badwater source,
+  and the forces. An expand button in the map's bottom-right corner opens the full editor (the whole shelf, the view
+  buttons, layers and the rest) in true full screen, with the same map and edits and no reload; with Keyboard Lock in
+  Chrome and Edge, Esc still cancels and holding Esc exits; elsewhere it fills the window so Esc keeps working; a button
+  returns to the page. Generating over edits is simply undoable, with a quiet note ("New map. Undo to get <map name>
+  back."); changing a setting regenerates, also undoable. The legend is a small Legend button, collapsed by default (a
+  one-time hint for first visitors; it opens by itself when an overlay is on). Save to Timberborn works from the page and
+  full screen; Real places open the same way; on phones the map is view-only.
+- **Your maps** (D234): every edited map is kept in this browser (settings, seed, edits and a small top-down thumbnail),
+  saved quietly after edits settle; a row of thumbnails on the landing page and the same list in the "…" menu reopen
+  each exactly as left; rename, copy, delete (undoable), a mark for maps already saved to Timberborn; the last 30 kept,
+  stars kept forever; running out of storage is said plainly; it says it lives in this browser, and Download project
+  file and Save to Timberborn stay the permanent ways. No folders, tags or search.
+
+**As built today:**
 
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
   what the player has painted, showing it grow, never a frozen wait.
