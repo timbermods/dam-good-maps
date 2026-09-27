@@ -2,7 +2,7 @@ import { generate } from '../../src/core/gen/generate';
 import { makeSpec, type ThemeId } from '../../src/core/spec/mapspec';
 import { buildPlace, decodePlaceFile } from '../../src/core/places/place';
 import { readTimber, writeTimber } from '../../src/core/format/timber';
-import { openTimber, closeSession, listen, startWeather, stopWeather } from '../../src/worker/session';
+import { openTimber, closeSession } from '../../src/worker/session';
 import { entityView, emptyColumns, soilView, waterFromDepth, surfaceWater, type MapView } from '../../src/render3d/model';
 import { WaterSim } from '../../src/core/sim/water';
 import { waterModelFromWorld } from '../../src/core/sim/model';
@@ -12,25 +12,24 @@ import { galleryMap } from '../../tools/waterfall-gallery';
 import { canonicalSettle } from '../../src/core/sim/prefill';
 import { moisture } from '../../src/core/sim/moisture';
 import { soilContamination } from '../../src/core/sim/contamination';
+import { weatherSnapshots, type WeatherBase } from './weather';
 
 export type MapRequest = { id: number; kind: 'generated'|'place'|'falls'|'objects'|'weather'; theme?: ThemeId; size?: number; seed?: number; name?: string; dense?: boolean; hazard?: 'drought'|'badtide'|'normal' };
 let current: MapView | undefined, id = 0;
-listen(e => {
-  if(e.kind !== 'weather') return;
-  // Keep exact daily snapshots from the actual editor run. Omit intermediate frames
-  // from the demo UI to bound transfer/memory costs on dense maps.
-  if(e.soil && (e.phase === 'drought' || e.phase === 'badtide')) self.postMessage({id, weather: e});
-  if(e.phase === 'end') self.postMessage({id, weatherDone:true});
-});
+let weatherBase:WeatherBase|undefined,weatherToken=0;
 export const objectTypes = ['RuinColumnH4','UndergroundRuins','SmallRelic','MediumRelic','LargeRelic','StartingLocation','GeothermalField','Thorns','Slope','NaturalDam','Blockage','WaterSource','BadwaterSource'];
 self.onmessage = async ({data:r}:MessageEvent<MapRequest>) => {
   try {
     if(r.kind === 'weather') {
-      if(r.hazard === 'normal') { stopWeather(); self.postMessage({id, restored:true}); }
-      else startWeather(r.hazard!);
+      const token=++weatherToken;
+      if(r.hazard === 'normal')self.postMessage({id,restored:true});
+      else if(weatherBase){
+        await weatherSnapshots(weatherBase,r.hazard!,weather=>self.postMessage({id,weather}),()=>token!==weatherToken);
+        if(token===weatherToken)self.postMessage({id,weatherDone:true});
+      }
       return;
     }
-    closeSession(); id=r.id;
+    closeSession(); id=r.id;weatherToken++;weatherBase=undefined;
     let bytes:Uint8Array, label:string, settled:{depth:Float64Array;out?:Float64Array}|undefined;
     if(r.kind === 'falls' || r.kind === 'objects') {
       let view:MapView, velocity:Float32Array;
@@ -67,6 +66,8 @@ self.onmessage = async ({data:r}:MessageEvent<MapRequest>) => {
     }
     const {view}=openTimber(bytes,label+'.timber');current=view;
     const world=readTimber(bytes).world;
+    const sw=surfaceWater(view.W,view.H,view.water);
+    weatherBase={view,model:waterModelFromWorld(world,view.heights),depth:Float64Array.from(sw.depth),contamination:Float64Array.from(sw.contamination),difficulty:'normal'};
     if(!settled?.out){
       const sw=surfaceWater(view.W,view.H,view.water);
       const sim=new WaterSim(waterModelFromWorld(world,view.heights),{depth:Float64Array.from(sw.depth),contamination:Float64Array.from(sw.contamination)});

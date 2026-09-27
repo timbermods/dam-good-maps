@@ -16,3 +16,6 @@ Stage 2: world-space crown detail, a dissolving pool contact, small circular bub
 
 Stage 3: original roof shingles, log courses, windows and a start banner; fluted and broken relic columns; dark vent stones; thorn canes; a stone-and-wood natural dam; blockage boulders; spring bowls; and worn slopes. Ruins retain their approved scaffold, pale panels and moisture-gated ivy, with gussets and bolts. The mine retains its real framed pit, roots and corner platforms, with pulley and joinery detail. Each object family can be switched off. All 13 object types have side/top paired captures; TypeScript and browser shader checks pass.
 
+
+Stage 4: daily Drought/Badtide snapshots use WaterSim, hazardDays, badtideContamination and the editor's exact tick and soil rules. The unedited-import wrapper pins displayed water, so the demo reads live simulator arrays directly (regression-tested). Soil browns/cracks and former grass yellows only on truly dry, exposed tiles. Heat is a subpixel dry-ground distortion; sky tint is slight and only in a badtide. Clean disconnected basins stay clean. Normal restores the original arrays. Five mechanics tests pass. Matched normal, day-9 drought and day-4 badtide captures are included.
+
