@@ -1465,10 +1465,9 @@ D146).
 After the Map quality checkpoint and just before the Frame pass (Kyler, 2026-09-25; PLAN §20 D147,
 made smaller by Kyler the same day).
 
-**Map look 3's investigation** (D228): Codex's phase 1 of a higher-fidelity High look (`investigation/maplook3`:
-lighting and post-processing, terrain materials, a small vegetation sketch) is merged as proposals only, and so is its
-phase 2, `investigation/vegetation` (D230). The effects Kyler keeps after reviewing both demos join High mode here;
-nothing is adopted before his review.
+**Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
+`investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
+into High here, with #38's water and soft shadows.
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
@@ -1477,26 +1476,33 @@ than bubbly.
 **Delivers**
 - A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
   (today's clean look) and **Light** (the existing software-rendering look).
-- High adds only the two biggest effects:
-  - a proper water shader: colour by depth, clear shallows, gentle ripples catching the light,
+- High, each effect switchable (D242):
+  - a proper water shader (#38): colour by depth, clear shallows, gentle ripples catching the light,
     shore and fall foam, badwater distinct; Kyler's direction: fewer, subtler sparkle flecks
     than the clean look, and more depth and transparency;
-  - soft real-time shadows from a warm sun.
+  - soft real-time shadows from a warm sun (#38);
+  - Map look 3's lighting and materials (#65): warm sunlight, ambient occlusion, the colour-preserving tone mapping and
+    colour grade, the subtle distance haze, the sky, rock strata, soil edges and colour variation;
+  - the new vegetation (#66): distinct pine, birch and oak, blue-berried bushes, white birch trunks, bare dead branches,
+    with its sway, its colours tuned to this lighting; the shelf icons and placement ghosts use the same models (D241).
+- **Standard stays exactly as it is** (D242). Its trees switch to #66's models, without the sway, only if they cost little
+  on real hardware (D241; the threshold is pending #80).
 - High's water reads the shared water palette (`src/render3d/waterPalette.ts`, D177): the same
   colours, opacity, badwater blend and calibration as Standard, so the two never drift apart.
 - Today's grass and dirt textures stay exactly as they are (Kyler likes them).
 
-**Later, optional** (not part of this step): ambient occlusion, colour grading, richer or
-higher-resolution textures, softened block edges and grass lips, full-resolution rendering and
-anti-aliasing, more detailed tree, bush and ruin models, and dry contaminated ground's cracks a
-little more visible from far away.
+**Later, optional** (not part of this step): richer or higher-resolution textures, softened block edges and grass lips,
+full-resolution rendering and anti-aliasing, more detailed bush and ruin models, and dry contaminated ground's cracks a
+little more visible from far away. (Ambient occlusion, colour grading and the new trees came into this step with D241 and
+D242.)
 
 **Rules:** still our own art only, generated or modelled by us; never game assets. No map file
 changes.
 
 **Acceptance:** judged by eye against Kyler's reference screenshots: captures are shown to Kyler
 and he decides. Speed numbers are information only, but no mode may feel sluggish on the machines
-it's chosen for (blocking: what a player feels).
+it's chosen for (blocking: what a player feels). **High's frame rate is measured on dense 256² maps before release**
+(D242), on this machine's GPU and with the automatic fallback checked.
 
 **Release:** tag `map-look-2-done` and release it like a milestone.
 ---
