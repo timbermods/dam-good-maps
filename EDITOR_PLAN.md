@@ -197,13 +197,21 @@ Make a valley, drop a source, and there's a river.
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196).
-- **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
-  small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
-  downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
-  the water would spill over (its rim's lowest point) and carves on. Drag from the source to a point to aim it. The source's
-  strength sets the width, a quick **Power** beside it sets how hard it cuts, the rest is Carve's defaults (one click);
-  **Try another** re-rolls the course. The source stays the river's origin; one undo step; Esc stops it. The Carve tool
-  stays as it is.
+- **Unleash, on a source** (D239): select a placed water or badwater source and a small **Unleash** action sits beside it,
+  next to its strength, with a quick **Power** (or press U). Clicked, the source's own water carves its course downhill
+  with Carve's engine (momentum, wander, waterfalls, the carving moment, the follow camera's effects); where it stands in
+  a pool or a lake (water half a level deep or more round it) it breaks out where the water would spill over, the lowest
+  point of its rim (an outlet it already has, or its lowest bank), like a lake breaching, and carves on. Pressed and
+  dragged out onto the land, it aims there (a line from the source follows the pointer; aimed from a pool, it breaks out
+  where the rim is nearest the aim; uphill, it says the water runs downhill); the source's own drag still moves it. Its
+  width is the width whose Carve source would have the source's strength (a stronger source, a wider river); the rest is
+  Carve's defaults, so it's one click. The source stays the river's origin: the carve is a dry one and adds no other
+  source; a badwater source carves a badwater river. While it works the row is Carve's own (Pause, Stop keeps what is
+  carved, Revert); Esc takes it all back, as with Carve; the whole carve is one undo step ("Unleash a source");
+  **Try another** re-rolls the course in its place ("Try another course"). Stored literally like every force (the
+  carve's `forceResult`, with the source it unleashed), so projects replay exactly; the retained oxbow water (#70) and the
+  settle rule (D222) apply as to any carve. The Carve tool stays as it is. Claude's `carve` step takes a `source` to
+  unleash one.
 - **Water is never an object.** It is the result of sources and land: never selectable or deletable,
   with no river panel or selection. A river's flow is its sources' strength; clean or bad belongs to
   each source; water changes only through its causes (a source removed, moved or weakened, or the
@@ -542,7 +550,7 @@ Words without a measurable meaning ("more interesting," "nicer") are answered wi
 
 `find_sites` plans every candidate with the real builders, checks it with a real build, ranks the candidates, and returns the nearest alternative when none fits.
 
-**Steps.** Claude proposes steps, not raw operations (`PLAN.md` §20, D89; decisions-pending #41). A step names what to build and where, in words or numbers ("addSetPiece damSite halfway down, size huge"), or takes a site `find_sites` returned, ready to use. The app expands it with the editor's own planners, so a step fails with the planner's reason, never with a broken map. The groundwork (`investigation/claude/`) has 17 step kinds: `changeSettings`, `addSetPiece`, `changeSetPiece`, `changeFeature`, `addSource`, `changeSource`, `addResource`, `removeResources`, `placeObject`, `remove`, `moveFeature`, `moveStart`, `deleteFeature`, `sculpt`, `brush`, `carve` and `undoLast`. `brush` paints a place, or one stroke along a path; a Lower stroke from water, or from a source, carves a bed the water follows (D184). It takes the brush kit's options: Flatten's `steps` (terraces) and ramped `edges` (D204), Smooth's `walkable`. `changeSource` sets sources' strength, a river's at its mouth (D196). `placeObject` places one of the shelf's objects, at a tile or where it fits in a place, turned; `remove` is Remove over a place, with its filters; `moveStart` takes a `facing`, the start's door (D184). `carve` is the editor's Carve (D199), from a tile or the highest dry ground of a place, with its options and a `path` (Try another path); given a place, a course that would break a check passing now tries another path, then the next highest dry ground there. A river is a source and such a stroke; a lake is a hollow dug with `brush` and filled by `addSource` with `fillHollow`. Steps that add landforms, rivers or lakes as objects are refused with that advice. M12 adds `addMapObject` and the M7 set pieces (`ROADMAP.md` M12). A proposal has at most 12 steps and changes at most 30% of the map.
+**Steps.** Claude proposes steps, not raw operations (`PLAN.md` §20, D89; decisions-pending #41). A step names what to build and where, in words or numbers ("addSetPiece damSite halfway down, size huge"), or takes a site `find_sites` returned, ready to use. The app expands it with the editor's own planners, so a step fails with the planner's reason, never with a broken map. The groundwork (`investigation/claude/`) has 17 step kinds: `changeSettings`, `addSetPiece`, `changeSetPiece`, `changeFeature`, `addSource`, `changeSource`, `addResource`, `removeResources`, `placeObject`, `remove`, `moveFeature`, `moveStart`, `deleteFeature`, `sculpt`, `brush`, `carve` and `undoLast`. `brush` paints a place, or one stroke along a path; a Lower stroke from water, or from a source, carves a bed the water follows (D184). It takes the brush kit's options: Flatten's `steps` (terraces) and ramped `edges` (D204); Smooth lays no slopes (D247: a slope is `placeObject`'s slope). `changeSource` sets sources' strength, a river's at its mouth (D196). `placeObject` places one of the shelf's objects, at a tile or where it fits in a place, turned; `remove` is Remove over a place, with its filters; `moveStart` takes a `facing`, the start's door (D184). `carve` is the editor's Carve (D199), from a tile or the highest dry ground of a place, with its options and a `path` (Try another path); given a place, a course that would break a check passing now tries another path, then the next highest dry ground there. A river is a source and such a stroke; a lake is a hollow dug with `brush` and filled by `addSource` with `fillHollow`. Steps that add landforms, rivers or lakes as objects are refused with that advice. M12 adds `addMapObject` and the M7 set pieces (`ROADMAP.md` M12). A proposal has at most 12 steps and changes at most 30% of the map.
 
 Tool results stay small. The artifact caps a tool result at 32 KB, a tool's input schema at 4 KB and a whole request at 64 KiB. So the map summary Claude starts from is feature-level and at most about 16 KB, and details come through the tools. A text version of the same messages remains as a fallback for a view where tools are unavailable.
 
@@ -713,7 +721,11 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   over about four seconds at the normal speed, as the demo's, so the land rises with its plume and
   glow. Each size control (Carve's Width and Depth, Craterize's and Erupt's Size) follows Power (Auto)
   until its slider sets it; a set size is kept in the operation's settings (`depth`, `size`; absent
-  in operations from before D226, which replay as they were). The map's hidden rock is
+  in operations from before D226, which replay as they were). Unleash (D239, `carve/unleash.ts`) is a
+  Carve run from a placed source: `breakout` finds where the water it stands in would spill over (or
+  where the rim is nearest an aim), `unleashWidth` its width from its strength; the run keeps the
+  source (`unleashed`, adding none) and paints its water as the source's (badwater for a badwater
+  source); its operation names the source (`where.source`). The map's hidden rock is
   derived once from the map as opened (never rerolled); fresh volcanic rock comes from the forces'
   operations. What is kept is always the plan's final map, touched by the build's own integrity pass
   in the worker, so the last stage is exactly what the build keeps. The editor's worker runs a force

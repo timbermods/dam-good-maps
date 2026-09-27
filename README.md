@@ -37,9 +37,10 @@ The editor:
   painting swaps Raise and Lower. Esc cancels a stroke.
 - **Flatten** levels the ground to the height where you start. Ctrl+click picks another level; on
   water, the riverbed's.
-- The row under the brushes holds their options: **Square**, **Precise**, **Straight lines** and
-  **Level lines**. **Flatten** adds **In steps** and **Edges**. **Smooth** adds **Make walkable**,
-  which lays the game's slopes.
+- The row under the brushes holds their options: their **Size** (a number and a slider), **Square**,
+  **Precise** and **Straight lines**. **Flatten** adds **In steps** and **Edges** (ramped edges lay
+  the game's slopes on its rim). **Level lines** is a view switch beside **Height colours**. A
+  natural slope goes exactly where you want it from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,

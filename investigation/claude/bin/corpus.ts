@@ -1154,14 +1154,14 @@ R("B14", "simple", "flatten a spot in the southwest into a plateau beavers can w
   },
 });
 R("B15", "simple", "wear down the steep steps in the south so beavers can walk there", "rv96", {
-  note: "the brush kit (D184): Smooth with make walkable",
-  goals: [G("g1", "the south's steps worn to one level, with slopes on them")],
-  report: { mustSay: ["how many tiles it smoothed, and the steepest step before and after", "that the game's natural slopes join the steps"] },
+  note: "the brush kit (D184, D247): Smooth wears the steps to one level; Smooth lays no slopes now, so a beaver's way up a 1-level step is the shelf's Slope, placed where it joins one",
+  goals: [G("g1", "the south's steps worn to one level")],
+  report: { mustSay: ["how many tiles it smoothed, and the steepest step before and after", "that a slope from the shelf joins a 1-level step where beavers should climb (Smooth lays none)"] },
   pass: [VALID, START_RULES_HOLD],
   reference: {
     calls: [call("resolve_region", { where: "the south third" })],
-    proposal: { steps: [{ op: "brush", tool: "smooth", where: "the south third", size: "medium", walkable: true, passes: 3 }] },
-    checks: [chk("propose", "steps.0.report.1", "matches", "^made walkable")],
+    proposal: { steps: [{ op: "brush", tool: "smooth", where: "the south third", size: "medium", passes: 3 }] },
+    checks: [chk("propose", "steps.0.report.0", "matches", "^smooths [0-9]+ of [0-9]+ tiles in 3 passes: the steepest step there goes from [0-9]+ to 1 levels")],
   },
 });
 R("B16", "simple", "put a medium relic in the east third, turned sideways", "rv96", {

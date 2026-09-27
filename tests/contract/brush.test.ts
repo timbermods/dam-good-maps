@@ -264,7 +264,7 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     expect(brushProblems({ tool: "raise", size: 3, strength: 5, steps: 3, dabs: tile(5, 5) }, W, H)).not.toEqual([]);
   });
 
-  it("smooth, make walkable wears cliffs to 1-level steps, and the build puts natural slopes on the steps under it", () => {
+  it("a Smooth stroke saved with walkable (the editor offers it no more, D247) still wears cliffs to 1-level steps, the build still puts natural slopes on them, and a project replays it exactly", () => {
     const g = new Uint8Array(W * H).fill(4);
     for (let y = 0; y < H; y++) for (let x = 20; x < W; x++) g[y * W + x] = 8;
     const dabs: number[] = [];
@@ -287,6 +287,11 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     expect(s.built.entities.filter((e) => e.template === "Slope").length).toBeGreaterThan(slopesBefore);
     // a full build agrees
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    // saved and opened again, it replays exactly: the same ground, the same slopes
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
+    const slopes = (m: MapSession) => m.built.entities.filter((e) => e.template === "Slope").map((e) => `${e.x},${e.y},${e.orientation}`).sort();
+    expect(slopes(again)).toEqual(slopes(s));
   });
 
   it("a precise one-tile pit stays a pit through the build, and the page paints what the build makes", () => {

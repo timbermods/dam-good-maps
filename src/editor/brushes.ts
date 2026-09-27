@@ -9,9 +9,11 @@
 // edges, vertical walls, one level at a time, and held still it digs or builds a level more at a
 // steady pace tied to the strength, down to a "stop at" level when one is set); straight lines (the
 // stroke runs from where it started to the pointer, its length beside it); Flatten "in steps"
-// (terraces) and its edges, a cliff or ramped (D204); Smooth "make walkable" (the game's natural
-// slopes). Flatten's level is the ground where the stroke starts unless one was picked. A pen's
-// pressure sets each dab's strength.
+// (terraces) and its edges, a cliff or ramped (D204). A natural slope is the shelf's Slope, placed
+// exactly where wanted (D247: Smooth offers no walkable option; a stroke saved with one still
+// replays). Level lines are a view switch beside Height colours (D248), whatever tool is picked;
+// its state is kept here with the brush's. Flatten's level is the ground where the stroke starts
+// unless one was picked. A pen's pressure sets each dab's strength.
 //
 // Controls: left-drag paints; right- or middle-drag and the wheel move the camera; Shift inverts
 // (raise ↔ lower); Ctrl+click picks flatten's level, or precise's stop level, from the ground (on
@@ -42,15 +44,13 @@ export interface BrushSettings {
   levelLines: boolean;
   /** Flatten in steps: benches every `steps` levels, or null. */
   steps: number | null;
-  /** Smooth, make walkable. */
-  walkable: boolean;
   /** Flatten's edges: ramped (a rim beavers can climb), or a cliff (the default). */
   ramped: boolean;
   /** Precise raise and lower: the level a hold stops at, or null (off). */
   stop: number | null;
 }
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, level: null, square: false, precise: false, straight: false, levelLines: false, steps: null, walkable: false, ramped: false, stop: null };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, level: null, square: false, precise: false, straight: false, levelLines: false, steps: null, ramped: false, stop: null };
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
   { tool: "raise", name: "Raise", key: "1", hint: "Raise the ground. Hold still to raise it more." },
@@ -387,7 +387,6 @@ export class BrushPainter {
       ...(s.square ? { shape: "square" as const } : {}),
       ...(precise ? { precise: true } : {}),
       ...(tool === "flatten" && s.steps ? { steps: s.steps } : {}),
-      ...(tool === "smooth" && s.walkable ? { walkable: true } : {}),
       ...(tool === "flatten" && s.ramped ? { edges: "ramped" as const } : {}),
       ...(stop !== null ? { stop } : {}),
       ...(keep.length ? { keep } : {}),

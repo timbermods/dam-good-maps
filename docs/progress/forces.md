@@ -16,6 +16,110 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
 
+## Round 2b: Unleash on sources (D239), the brush row (D247, D248)
+
+Built on this branch after round 2, with `dev` merged in again (eb3f103: D244-D248, #68).
+
+### Unleash, on a source (D239)
+
+A selected water or badwater source has a small **Unleash** beside its strength, with a quick
+**Power** (and U). Clicked, the source's own water carves its course with Carve's engine; pressed
+and dragged out onto the land, it aims there (the source's own drag still moves it, D196). The
+source's strength sets the width; everything else is Carve's defaults. While it works the row is
+Carve's (Pause, Stop keeps what is carved, Revert); Esc takes it all back; one undo step, "Unleash a
+source"; **Try another** re-rolls the course in its place ("Try another course"). The source stays:
+the carve is a dry one, adding no other source; a badwater source's river is badwater (its preview
+ribbon too). [The row](forces/unleash-row.png), and [a source on the hills carving its
+river](forces/unleash.gif).
+
+- **From a pool** (`carve/unleash.ts`, `breakout`): where the water at the source stands half a level
+  deep or more, the pool is its level water round it; it breaks out at the lowest tile of that
+  water's rim (an outlet it already has, or its lowest bank; the nearest of them), like a lake
+  breaching. Aimed, it breaks out where the rim is nearest the aim. Never on the start's ground.
+- **Its width** (`unleashWidth`): the width whose Carve "Keep river" source has that strength
+  (Carve's own `sourceStrength` inverted: 1.5 water/s 4.1 tiles, 3 6.1, 4 7.5, 8 12.8; 2 to 24).
+- **The operation**: the carve's `forceResult` as every force keeps it, with `where.source` (the
+  source it unleashed) and the carve's own start; the engine and the schema check it (only a carve
+  names one, and adds none). Projects replay it exactly; the oxbow water (#70) and the settle rule
+  (D222) apply as to any carve.
+- **Claude** (D134): the `carve` step takes `source: [x, y]` (a placed source's tile) instead of
+  `from` or `where`, with `to` to aim; request B28 (a source placed on the hill and unleashed).
+- Found while building it: starting the carve on pointer-up let the row turn into "Unleash at work"
+  before the click landed, so the click pressed its Stop (nothing carved); it starts from the
+  button's click now. And a shallow sheet of water round a new source first read as a pool (0.25):
+  a pool is half a level deep.
+
+### Smooth's "Make walkable" removed (D247)
+
+The toggle has left Smooth's row and new strokes never set it (the page and Claude's `brush` step:
+it now says to smooth the steps, then place a Slope where beavers should climb). Strokes saved with
+it still replay exactly: the engine and the build keep honouring the flag (tested: its steps, its
+slopes, the project reopened). <!-- retired-terms:allow -->"Make walkable"<!-- /retired-terms:allow --> is a retired term now
+(`tools/retired-terms.json`: instead, the shelf's Slope and Flatten's ramped edges). Two lines of
+`docs/STATUS.md` named it: they carry an allow marker now (the text is unchanged).
+
+**Flatten's ramped edges, checked** (they use the same planner): ten ramped pads on three standard
+maps (River Valley 3, Highlands 7, Canyon 10) got 0 to 2 slopes each (five got none), against 17 to
+62 one-level steps round each pad. The cause and one recommendation are `docs/decisions-pending.md`
+#84; Flatten is not changed.
+
+### Level lines, a view switch (D248)
+
+**Level lines** is in the view bar beside Height colours (the same words and tooltip), off by default
+and remembered as before, and works whatever tool is picked (or none): it only changes what shows.
+
+### The nightly's sweep
+
+`tests/contract/properties.test.ts` (the heavy project) draws every log operation; `randomOps` now
+draws a `forceResult` too: a small, low-power Craterize, Erupt or Quake Lift planned on the map as its
+build stands and kept literally, the way the product keeps one (only planned, not played through its
+stages, so it stays fast). The heavy project passes (4 of 4).
+
+### Sounds: the audio context while idle
+
+Making a page's first audio context opens the audio device, 200-350 ms on the page's thread: on the
+first key it stalled the view (CI's camera test caught it once). The engine's context is now made
+while the editor is idle, a moment after it opens; the first gesture only resumes it (and starts the
+bank's load). The first key now costs nothing (the worst frame 6.2 ms, no long task).
+
+### Tests (round 2b)
+
+- `tests/contract/unleash.test.ts`: the breakout at a pool's lowest rim tile, aimed at the nearest,
+  at the source out of water, never on the start's ground; width from strength; in the worker: one
+  step, the source kept and no other, its width, aimed by an end (uphill refused in plain words), Esc,
+  Try another, undo, a badwater source's badwater river; the operation's source checked alike by the
+  engine and the schema.
+- `tests/e2e/unleash.spec.ts`: a source placed and selected; Unleash beside its strength; Stop keeps
+  one step; Try another; undo; U then Esc; dragged from Unleash onto lower land, aimed.
+- `tests/contract/brush.test.ts`: a stroke saved with walkable replays exactly through a project.
+- `tests/e2e/brushKit.spec.ts`: Smooth's row without it; Level lines in the view bar beside Height
+  colours, with a brush out or none.
+- `tests/unit/juiceSounds.test.ts`: the context made ready while idle fetches nothing.
+
+**Tests changed to the new decisions (D148), none weakened:** `brushKit.spec` checked Smooth's
+walkable toggle and a walkable stroke, and Level lines in the brush row: it checks Smooth has no such
+toggle and its stroke carries none, and Level lines in the view bar (D247, D248). `brush.test`'s
+walkable case is named for a saved stroke now, and also reopens the project. Claude's B15 ("wear down
+the steep steps so beavers can walk there") used Smooth's walkable: its reference is the Smooth stroke
+(steps worn to one level), and its report must say a Slope joins a step where beavers climb.
+
+### Defaults chosen in round 2b (for `docs/decisions-pending.md`)
+
+- Unleash's aim: pressed on Unleash and dragged out onto the land (the source's own drag still moves
+  it); a click unleashes it downhill; U too.
+- A pool: water half a level deep or more at the source, its level water round it; the breakout at
+  the rim's lowest tile, the nearest of them; aimed, the rim nearest the aim.
+- Its width: Carve's Keep river width for that strength (as above).
+- Esc takes an unleash back, as with Carve (Stop keeps what is carved).
+- History words: "Unleash a source", "Try another course".
+- Level lines' state is kept with the brush's settings, as before.
+
+### What's left after round 2b
+
+- Claude's `placeObject` for a slope doesn't choose a way that joins a step (so B15 can't place one
+  for the player yet); decisions-pending #84's recommendation would give Ramped its own slopes.
+- D244 (one height ceiling everywhere) waits for its in-game probe (step 1) before it is built here.
+
 ## Round 2: Kyler's review (D226)
 
 Kyler tried the forces and the sounds on the preview (a88d7d2): Quake and Craterize great; Erupt

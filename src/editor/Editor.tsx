@@ -3001,6 +3001,12 @@ export default function Editor(props: EditorProps) {
             legendExtra={legendExtra}
             markersWanted={damSites !== null || shelf?.id === "Slope"}
             togglesInButtons
+            besideHeight={
+              // a view switch (D248): what shows, never how a brush works; whatever tool is picked
+              <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A thin line wherever the ground steps down a level">
+                Level lines
+              </button>
+            }
             showLegend={layer !== "none" || damSites !== null}
             viewButtons={
               <>

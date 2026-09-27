@@ -7837,18 +7837,18 @@
    "setup": "rv96",
    "feasible": "yes",
    "expressible": true,
-   "note": "the brush kit (D184): Smooth with make walkable",
+   "note": "the brush kit (D184, D247): Smooth wears the steps to one level; Smooth lays no slopes now, so a beaver's way up a 1-level step is the shelf's Slope, placed where it joins one",
    "goals": [
     {
      "id": "g1",
-     "text": "the south's steps worn to one level, with slopes on them",
+     "text": "the south's steps worn to one level",
      "expect": []
     }
    ],
    "report": {
     "mustSay": [
      "how many tiles it smoothed, and the steepest step before and after",
-     "that the game's natural slopes join the steps"
+     "that a slope from the shelf joins a 1-level step where beavers should climb (Smooth lays none)"
     ]
    },
    "pass": [
@@ -7871,7 +7871,6 @@
        "tool": "smooth",
        "where": "the south third",
        "size": "medium",
-       "walkable": true,
        "passes": 3
       }
      ]
@@ -7879,9 +7878,9 @@
     "checks": [
      {
       "on": "propose",
-      "path": "steps.0.report.1",
+      "path": "steps.0.report.0",
       "op": "matches",
-      "value": "^made walkable"
+      "value": "^smooths [0-9]+ of [0-9]+ tiles in 3 passes: the steepest step there goes from [0-9]+ to 1 levels"
      }
     ]
    }

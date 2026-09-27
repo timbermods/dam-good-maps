@@ -41,6 +41,8 @@ export interface View3DProps {
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
+  /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
+  besideHeight?: ComponentChildren;
   /** Whether the legend shows (the editor: only while an overlay is on, D184). */
   showLegend?: boolean;
 }
@@ -260,6 +262,7 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={ground === "height"} onClick={toggleGround} title="Colour the ground by height instead of by soil">
         Height colours
       </button>
+      {props.besideHeight}
       <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show dam sites, slope arrows and a line at every level, and draw small far-off objects larger">
         Markers
       </button>

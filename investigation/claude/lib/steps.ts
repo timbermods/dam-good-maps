@@ -98,7 +98,8 @@ export type Step =
    *  beside a source, carves a bed that keeps flowing downhill, and the water follows it (smart
    *  Lower, D184). The brush kit's options (D184, D204): flatten `steps` (terraces every so many
    *  levels) and `edges` "ramped" (the rim's steps get the game's natural slopes, so beavers walk
-   *  up); smooth `walkable` (steps worn to one level, with the natural slopes on them). */
+   *  up). Smooth has no walkable option (D247): a natural slope is placeObject's slope, where a
+   *  beaver should climb a 1-level step. */
   | { op: "brush"; tool: BrushTool; where?: Where; path?: Point[]; amount?: number; level?: number; passes?: number; size?: SizeWord | number; edges?: "slope" | "cliff" | "ramped"; steps?: number; walkable?: boolean }
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
@@ -324,7 +325,7 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.edges !== undefined && s.edges !== "slope" && s.edges !== "cliff" && s.edges !== "ramped") errs.push("edges is slope, cliff or ramped (flatten)");
       if (s.edges === "ramped" && s.tool !== "flatten") errs.push("ramped edges are flatten's: its rim steps down to the ground round it with the game's natural slopes");
       if (s.steps !== undefined && (s.tool !== "flatten" || !(Number.isInteger(s.steps) && num(s.steps, 2, 8)))) errs.push("steps is flatten's: terraces every 2–8 levels");
-      if (s.walkable !== undefined && (s.tool !== "smooth" || typeof s.walkable !== "boolean")) errs.push("walkable is smooth's: true wears steps to one level and puts the game's natural slopes on them");
+      if (s.walkable !== undefined) errs.push("Smooth has no walkable option (D247): smooth the steps to one level, then placeObject a slope where beavers should climb a 1-level step");
       return [...errs, ...checkPlace(s.where, "where", W, H)];
     case "carve":
       if (s.source !== undefined) {
@@ -1201,7 +1202,6 @@ function expandBrush(s: MapSession, conv: Conversation, step: Extract<Step, { op
     const before = steepest(pre, tiles, W, H);
     const now = steepest(after, tiles, W, H);
     report.push(`${tool === "smooth" ? "smooths" : "weathers"} ${moved} of ${tiles.length} tiles in ${strokes.length} passes: the steepest step there ${now < before ? `goes from ${before} to ${now} levels` : `stays ${now} levels`}${roof}`);
-    if (step.walkable) report.push("made walkable: the game's natural slopes join the steps it leaves, so beavers can walk up");
   }
   const ops = strokes.map((params) => ({ op: "brush", params }) as EditOp);
   return { ok: true, step, ops, made: [], report, resolved: { ...resolved, tiles: tiles.length, strokes: strokes.length }, errors: [], tiles: tiles.length };
@@ -1413,14 +1413,13 @@ function expandBrushPath(s: MapSession, step: Extract<Step, { op: "brush" }>): E
   return { ok: true, step, ops, made: [], report, resolved, errors: [], tiles: changed };
 }
 
-/** A stroke with the brush kit's options the step asks for (flatten's steps and ramped edges,
- *  smooth's make walkable), as a player's stroke carries them. */
+/** A stroke with the brush kit's options the step asks for (flatten's steps and ramped edges), as a
+ *  player's stroke carries them. */
 function withKit(p: BrushParams, step: Extract<Step, { op: "brush" }>): BrushParams {
   return {
     ...p,
     ...(p.tool === "flatten" && step.steps ? { steps: step.steps } : {}),
     ...(p.tool === "flatten" && step.edges === "ramped" ? { edges: "ramped" as const } : {}),
-    ...(p.tool === "smooth" && step.walkable ? { walkable: true } : {}),
   };
 }
 

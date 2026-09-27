@@ -27,12 +27,12 @@
 //   precise stroke changed out of its integrity pass, so a one-tile pit stays a pit. Smooth and
 //   naturalize move each tile one step per stroke.
 // - Flatten in steps (D184's Terrace): benches every `steps` levels from the flatten level, each tile
-//   to its nearest bench. Smooth, make walkable (D184's Ramp): steps of 2 levels or more wear down to
+//   to its nearest bench. Smooth's walkable option (D184's Ramp; retired from the editor, D247: a stroke saved with it still replays): steps of 2 levels or more wear down to
 //   1, and the build's derived slopes join the 1-level steps under the stroke (the game's natural
 //   slopes). Flatten cuts and fills (D204): tiles above the level come down to it, tiles below rise
 //   to it. Its edges are a cliff (the brush's own: a precise stroke's straight walls) or, `ramped`,
 //   a rim that steps down a level a tile to the ground round it (precise too), which the derived
-//   slopes join as they do make walkable's.
+//   slopes join as a walkable Smooth stroke's do.
 // - Smart Lower (D184): a Lower stroke that starts in or beside water (`channel`) carves a bed that
 //   keeps flowing downhill, so the water follows the brush. Its bed starts at the lowest ground
 //   round the first dab (the water's bed) and never rises along the stroke: over lower ground it
@@ -70,7 +70,7 @@ export interface BrushParams {
   keep?: [number, number, number][];
   /** Flatten in steps: benches every `steps` levels (2–8) from the flatten level. */
   steps?: number;
-  /** Smooth, make walkable: steps of 2 levels or more wear down to 1, and the game's natural slopes
+  /** Smooth, walkable (a saved stroke's; the editor no longer offers it, D247): steps of 2 levels or more wear down to 1, and the game's natural slopes
    *  join the steps under the stroke. */
   walkable?: boolean;
   /** Flatten's edges (D204): absent, a cliff (the brush's own edge); `ramped`, a rim stepping down a
@@ -347,7 +347,7 @@ export class BrushStroke {
       const h = heights[i];
       if (this.settings.tool === "smooth") {
         if (this.settings.walkable) {
-          // make walkable: a step of 2 levels or more wears down to 1 first
+          // walkable: a step of 2 levels or more wears down to 1 first
           let lo = h;
           let hi = h;
           if (x > 0) ({ lo, hi } = mm(heights[i - 1], lo, hi));
