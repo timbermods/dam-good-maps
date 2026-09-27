@@ -70,7 +70,7 @@ export interface GlaciatePlan {
   metrics: GlaciateMetrics;
   /** The floor's water as one river (D292): the falls' pools and inflows the river could visit, and
    *  the ones it reached. */
-  finished: { style: string; visits: number; reached: number; floods?: number };
+  finished: { style: string; visits: number; reached: number; floods?: number; floodTicks?: number };
   /** The channels led across the floor to the river: from a fall's pool, a lip's other face, an
    *  inflow; where from, and how long. */
   joins: { kind: "fall" | "spill" | "inflow"; from: number; length: number }[];
@@ -121,9 +121,11 @@ export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, i
   let best: GlaciatePlan | null = null;
   for (const style of FLOOR_STYLES) {
     const plan = yield* planOnce(input, settings, intent, valley, style);
-    const floods = yield* floorFloods(plan);
+    const { floods, ticks } = yield* floorFloods(plan);
     plan.finished.floods = floods;
-    if (!best || floods < best.finished.floods!) best = plan;
+    plan.finished.floodTicks = ticks;
+    const f = best?.finished;
+    if (!f || ticks > f.floodTicks! || (ticks === f.floodTicks && floods < f.floods!)) best = plan;
     if (floods <= floodAllowance(plan)) break;
   }
   return best!;

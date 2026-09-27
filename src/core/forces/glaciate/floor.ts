@@ -53,17 +53,27 @@ export const floodAllowance = (p: Pick<GlaciatePlan, "mask">) => {
 };
 
 /** How many of the floor's dry tiles (not a channel, a pool or the river) the game's water wets
- *  within FLOOD_TICKS of the plan's water, a slice at a time. */
-export function* floodsOf(p: GlaciatePlan): Generator<void, number, void> {
+ *  within FLOOD_TICKS of the plan's water, a slice at a time; a floor past its allowance says so as
+ *  soon as it is (the ticks it took: the later, the slower it floods). */
+export function* floodsOf(p: GlaciatePlan): Generator<void, { floods: number; ticks: number }, void> {
   const model = { ...modelOf(p.map), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) };
   const sim = new WaterSim(model, { depth: p.map.water.depth.slice(), contamination: p.map.water.contamination.slice() });
+  const count = () => {
+    let n = 0;
+    for (let i = 0; i < sim.D.length; i++) if (p.mask[i] === 1 && !p.stream[i] && sim.D[i] > 0.001) n++;
+    return n;
+  };
+  const allowed = floodAllowance(p);
   for (let t = 0; t < FLOOD_TICKS; t += 25) {
     sim.run(25);
+    // (a floor already wet well past its allowance needs no more ticks to say so)
+    if (t % 100 === 75) {
+      const n = count();
+      if (n > allowed * 4) return { floods: n, ticks: t + 25 };
+    }
     yield;
   }
-  let n = 0;
-  for (let i = 0; i < sim.D.length; i++) if (p.mask[i] === 1 && !p.stream[i] && sim.D[i] > 0.001) n++;
-  return n;
+  return { floods: count(), ticks: FLOOD_TICKS };
 }
 
 const smooth = (v: number) => {
