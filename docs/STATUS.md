@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D298), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D299), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your forty-seven decisions since the restart are recorded (D252–D298, below) and in the living docs.
+Your forty-eight decisions since the restart are recorded (D252–D299, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -47,10 +47,8 @@ Your forty-seven decisions since the restart are recorded (D252–D298, below) a
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
 6. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
-   the ceiling (D244 step 2) waits for the Ceiling probe batch, then the preview for your sitting. Two small questions from it:
-   - the generator page's flat 2D preview keeps its own **Moist soil** switch (not the editor's view bar, so D287 didn't reach it):
-     should it go too?
-   - Quake's Left/Right control is gone (D289: X flips the side, and the status line says so): want the control back?
+   the ceiling (D244 step 2) is built too (73809c2). The preview for your sitting goes up with Glaciate's adoption. Your answers on its
+   two questions are D299 (the generator page's Moist soil switch stays for now; Quake's Left/Right stays gone).
 7. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
 8. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
@@ -388,6 +386,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D299: the generator page's Moist soil switch stays until "The page is the editor"; Quake's Left/Right control stays gone (X flips the side).
 - D298: the game's own soil rules adopted in M9b (with the Python moisture check); M9b reports plants moved or changed and generation times.
 - D297: D295's line reads on the new depth under the game's rules.
 - D296: the frame's touch-up to the High look is done in the design pass; the High look adoption changes no interface styling.
@@ -499,7 +498,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D298.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D299.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
