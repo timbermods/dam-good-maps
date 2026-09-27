@@ -17,7 +17,15 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
 2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
 3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
-4. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
+4. **M9b: the game's water rules and D297's line, a question with a default.** M9b has switched open-ground water to the game's rules
+   (D308; 434dcd12), with the Python check agreeing bit for bit. On 18 sample maps at 128², 10 stay within D297's line; 8 don't:
+   River Valley 2 has 139 tiles flipping wet/dry outside 0.04–0.06 (volume −0.36%), Delta 3 has 30 (−0.85%), Lake Basin 3 has 156
+   thin-sheet tiles going from 0.057 to dry. One rule causes it: the game's evaporation on a dry tile that receives water (off, the
+   flips are 0). So thin spreading sheets now form less or take other routes, as the game's own water does; the old port was wrong
+   there. M9b's maps have more flat, film-prone ground than M9a's (29 of 30 passed). **Default, being built:** accept the game's
+   rules with this departure, and let the pooled probe batch at M9b's release candidate (D308) check the water against the game
+   itself instead of against the old port. Say if you want something else (e.g. keep the band and investigate further).
+5. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
    Every result drops 0 voxels under the game's support rule (also 160 random gestures); reach from support at most 3; 15–130 ms to the
@@ -25,7 +33,7 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
    one sweeping curve); small arches (thin ridges are rare on today's maps); faces under about four levels can't be worn, so on the
    terraced Highlands 24 of 40 random gestures say "No rock to wear here", which may feel like refusing; water under new roofs is an
    approximation (said on screen); not yet checked in the game; the view follows the Standard look but isn't its shader.
-5. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
+6. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
    a sitting of its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). Two findings:
    - **"The worst day at once" doesn't hold on water-rich maps.** Time to the last day on this machine: 256² River Valley, drought
      1.8–3.8 s, badtide 14–22 s; 128² Lake Basin and Islands 16–48 s. The cost is the game's own water rules (9 days of plain
@@ -41,7 +49,7 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
      its flows; and the game's 0.1 spill threshold where a river leaves the map at floor 0). **Default #125 for you:** that last
      rule is used by the drought run only, so no map changes today; the agent recommends adding it to all water with D293's move to
      the game's rules (the 3D engine's game mode should already carry it).
-6. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
+7. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
    Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
    shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
    switchable, in four groups on a Look menu. Standard is unchanged (its shader sources hash as `dev`'s; 12 views differ no more than
@@ -51,14 +59,14 @@ Your fifty-seven decisions since the restart are recorded (D252–D308, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-7. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
+8. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
    the ceiling (D244 step 2) is built too (73809c2). The preview for your sitting goes up with Glaciate's adoption. Your answers on its
    two questions are D299 (the generator page's Moist soil switch stays for now; Quake's Left/Right stays gone).
-8. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+9. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-9. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+10. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-10. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+11. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
