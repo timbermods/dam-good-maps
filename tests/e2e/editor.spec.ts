@@ -20,7 +20,10 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("generate → refine → back to settings → regenerate → refine keeps the player's edits", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
+  // river's outlet, and the spring below floods it, halving the land it walks to: the checks then
+  // warn of its berries and wood, rightly)
+  await page.goto("./#s=4244&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
 
   // refine: the editor opens the generated map in 3D
@@ -79,8 +82,7 @@ test("generate → refine → back to settings → regenerate → refine keeps t
 
   // an edit of what the generator made: drag the start two tiles on the map
   const before = i.features.find((f) => f.kind === "start")!.params as { position: [number, number] };
-  // (west: the berry bushes this map plants for its start stay within reach; two tiles east, 12
-  // of them fall outside the 20 tiles start.food counts, and export would warn)
+  // (west: the berries, wood and water this map has for its start stay within reach)
   await drag(page, before.position, [before.position[0] - 2, before.position[1]]);
   await expect.poll(async () => (await info(page)).history.length, { timeout: 30_000 }).toBe(3);
   await page.evaluate(() => window.dgmEditor!.idle());
@@ -105,7 +107,7 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("River Valley (4242).timber");
+  expect((await download).suggestedFilename()).toBe("River Valley (4244).timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // back to settings: the card shows the edited map; change a setting and generate again
@@ -113,9 +115,14 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   await page.getByRole("menuitem", { name: "Back to settings" }).click();
   await expect(page.getByRole("button", { name: "Generate, keeping my edits" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(/Your 3 edits stay/)).toBeVisible();
-  await page.getByLabel("Designed for").selectOption("hard");
+  // (a setting that leaves the land as it is, so the edits stand on the same ground: on M9a's maps
+  // Designed for reshapes the valley, a harder drought asking for more stored water, PLAN §11.4)
+  await page.locator("summary", { hasText: /^Resources$/ }).click();
+  await page.getByLabel("Grove size").selectOption("bigWoods");
   await page.getByRole("button", { name: "Generate, keeping my edits" }).click();
-  await expect(page.getByText(/seed 4242 · designed for hard/)).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("button", { name: "Generating…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Generate, keeping my edits" })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText(/seed 4244 · designed for normal/)).toBeVisible();
   // export from the settings page too
   await page.getByRole("button", { name: /^Export River Valley/ }).click();
   await expect(page.getByRole("dialog").getByText(/checks pass|Warnings/)).toBeVisible({ timeout: 60_000 });
@@ -125,7 +132,7 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
   i = await info(page);
-  expect(i.spec!.designedFor).toBe("hard");
+  expect(i.spec!.settings.resources.groveSize).toBe("bigWoods");
   expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start", "Change settings and regenerate"]);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);

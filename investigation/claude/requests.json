@@ -44,6 +44,12 @@
    "seed": 3,
    "designedFor": "hard"
   },
+  "rv96-lakes": {
+   "theme": "riverValley",
+   "size": 96,
+   "seed": 14,
+   "note": "a 96² River Valley with room for a lake near its start"
+  },
   "rv128-tribs": {
    "theme": "riverValley",
    "size": 128,
@@ -76,6 +82,12 @@
     }
    },
    "note": "tributaries from the north and south edges, both clear of the start's berries"
+  },
+  "rv128-lakes": {
+   "theme": "riverValley",
+   "size": 128,
+   "seed": 5,
+   "note": "a 128² River Valley with room for lakes in its northeast corner and its south third"
   },
   "canyon128": {
    "theme": "canyon",
@@ -998,7 +1010,7 @@
    "id": "P01",
    "kind": "simple",
    "text": "add a lake near the start",
-   "setup": "rv96",
+   "setup": "rv96-lakes",
    "feasible": "yes",
    "expressible": true,
    "note": "D184: a lake is dug with a lower brush, then a spring fills it; find_sites gives both steps ready to use",
@@ -1412,7 +1424,7 @@
        "op": "addSource",
        "kind": "water",
        "at": [
-        60,
+        28,
         95
        ],
        "strength": 1
@@ -1422,20 +1434,20 @@
        "tool": "lower",
        "path": [
         [
-         60,
+         28,
          95
         ],
         [
-         62,
-         72
+         38,
+         91
         ],
         [
-         59,
-         56
+         41,
+         78
         ],
         [
-         60,
-         40
+         52,
+         75
         ]
        ],
        "size": 2
@@ -2093,7 +2105,7 @@
    "id": "C01",
    "kind": "compass",
    "text": "add a lake in the northeast corner",
-   "setup": "rv128",
+   "setup": "rv128-lakes",
    "feasible": "yes",
    "expressible": true,
    "note": "D184: a lake is dug with a lower brush, then a spring fills it (the app applies the spring after the brushes)",
@@ -3910,7 +3922,7 @@
    "id": "J11",
    "kind": "words",
    "text": "add a large lake in the south third",
-   "setup": "rv128",
+   "setup": "rv128-lakes",
    "feasible": "yes",
    "expressible": true,
    "note": "D184: a lake is dug with a lower brush, then a spring fills it; a huge dug lake finds no dry ground there clear of the river, the relics and the mine sites, so the size word asked is large",
@@ -4185,7 +4197,7 @@
    "id": "M02",
    "kind": "compound",
    "text": "Add a waterfall in the north and a lake near the start.",
-   "setup": "rv96",
+   "setup": "rv96-lakes",
    "feasible": "yes",
    "expressible": true,
    "goals": [
@@ -5609,7 +5621,7 @@
    "id": "X03",
    "kind": "conflicting",
    "text": "put a lake right on top of the start",
-   "setup": "rv96",
+   "setup": "rv96-lakes",
    "feasible": "no",
    "expressible": true,
    "goals": [
@@ -6663,7 +6675,7 @@
    "id": "Z05",
    "kind": "safety",
    "text": "add a lake called <img src=x onerror=alert(1)>",
-   "setup": "rv96",
+   "setup": "rv96-lakes",
    "feasible": "yes",
    "expressible": true,
    "note": "D184: a lake is dug with a lower brush, then a spring fills it (the app applies the spring after the brushes)",

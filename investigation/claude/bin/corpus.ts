@@ -35,11 +35,17 @@ const setups: Record<string, Setup> = {
   rv128b: { theme: "riverValley", size: 128, seed: 17, note: "a second 128² River Valley: no dam site built near the start, room for one" },
   rv128c: { theme: "riverValley", size: 128, seed: 3, note: "a third 128² River Valley: its own badwater drains to the map edge, so the lower river runs clean" },
   "rv96-hard": { theme: "riverValley", size: 96, seed: 3, designedFor: "hard" },
+  // (M9a: a lake is dug and a spring fills it, D184; seed 3's start stands on a low bench by its
+  // river, where every lake near it floods the start's berries and wood: seed 14 has room for one)
+  "rv96-lakes": { theme: "riverValley", size: 96, seed: 14, note: "a 96² River Valley with room for a lake near its start" },
   "rv128-tribs": { theme: "riverValley", size: 128, seed: 7, settings: { water: { rivers: 3 } }, note: "tributaries: one flows north to south from the north edge, one south to north from the south edge" },
   // (M9a: on 0.7.0's maps a River Valley's inflows enter on the main river's edge or one beside it,
   // and no seed has tributaries from both the north and south edges: the south one has its own map)
   "rv128-tribs-south": { theme: "riverValley", size: 128, seed: 23, settings: { water: { rivers: 3 } }, note: "a tributary from the south edge joining the main river, which flows from the west" },
   "rv128-tribs8": { theme: "riverValley", size: 128, seed: 8, settings: { water: { rivers: 3 } }, note: "tributaries from the north and south edges, both clear of the start's berries" },
+  // (M9a: rv128's northeast corner holds relics beside every hollow a lake could fill, and its south
+  // third a river everywhere; seed 5 has room for both lakes)
+  "rv128-lakes": { theme: "riverValley", size: 128, seed: 5, note: "a 128² River Valley with room for lakes in its northeast corner and its south third" },
   canyon128: { theme: "canyon", size: 128, seed: 2 },
   lake128: { theme: "lakeBasin", size: 128, seed: 3, note: "inflows from the south edge (flowing north) and the west edge; the outlet river runs east" },
   "rv128-east": {
@@ -189,7 +195,7 @@ R("S10", "suite", "make the map harder", "rv128", {
 
 // -------------------------------------------------------------------------- simple placements
 
-R("P01", "simple", "add a lake near the start", "rv96", {
+R("P01", "simple", "add a lake near the start", "rv96-lakes", {
   note: "D184: a lake is dug with a lower brush, then a spring fills it; find_sites gives both steps ready to use",
   goals: [G("g1", "a lake near the start", m("new:lake", "distanceToStart", { max: 28 }), m("new:lake", "area", { min: 25 }))],
   report: { mustSay: ["how deep the hollow was dug, over how many tiles", "the spring, and the level its water fills the hollow to before it spills"] },
@@ -248,7 +254,9 @@ R("P08", "simple", "draw a small creek from the north edge down into the main ri
   pass: [VALID, "a bed from a source on the north edge into the main river"],
   reference: {
     calls: [call("limits", { kind: "river" })],
-    proposal: { steps: [{ op: "addSource", kind: "water", at: [60, 95], strength: 1 }, { op: "brush", tool: "lower", path: [[60, 95], [62, 72], [59, 56], [60, 40]], size: 2 }] },
+    // (M9a: rv96's main river now flows southwest to northeast; the creek runs from the north edge
+    // into it, the line rv96-creeks' north creek takes)
+    proposal: { steps: [{ op: "addSource", kind: "water", at: [28, 95], strength: 1 }, { op: "brush", tool: "lower", path: [[28, 95], [38, 91], [41, 78], [52, 75]], size: 2 }] },
     checks: [chk("propose", "steps.1.resolved.channel", "true"), chk("propose", "steps.1.resolved.joins", "equals", "the main river")],
   },
 });
@@ -355,7 +363,7 @@ R("F09", "followup", "plant a grove next to it", "rv128-fall", {
 
 // -------------------------------------------------------------------------------- compass
 
-R("C01", "compass", "add a lake in the northeast corner", "rv128", {
+R("C01", "compass", "add a lake in the northeast corner", "rv128-lakes", {
   note: "D184: a lake is dug with a lower brush, then a spring fills it (the app applies the spring after the brushes)",
   goals: [G("g1", "a lake in the northeast corner", inPlace("new:lake", "northeast corner"))],
   report: { mustSay: ["'northeast corner' read as the east third of the north third"] },
@@ -565,7 +573,7 @@ for (const [id, text, setup, word, degree, expect] of WORD_CASES) {
     reference: { calls: [], proposal: { steps: [{ op: "changeSettings", word, ...(degree ? { degree } : {}) }] } },
   });
 }
-R("J11", "words", "add a large lake in the south third", "rv128", {
+R("J11", "words", "add a large lake in the south third", "rv128-lakes", {
   note: "D184: a lake is dug with a lower brush, then a spring fills it; a huge dug lake finds no dry ground there clear of the river, the relics and the mine sites, so the size word asked is large",
   goals: [G("g1", "a large lake in the south", m("new:lake", "area", { min: 197 }), inPlace("new:lake", "south third"))],
   report: { mustSay: ["'large' read as 1.2–3% of the map (197–492 tiles here)", "the lake's area and level, and where it spills"] },
@@ -618,7 +626,7 @@ R("M01", "compound", HEADLINE, "rv128", {
     expect: { tradeoffs: ["less-flow", "map-wide"] },
   },
 });
-R("M02", "compound", "Add a waterfall in the north and a lake near the start.", "rv96", {
+R("M02", "compound", "Add a waterfall in the north and a lake near the start.", "rv96-lakes", {
   goals: [G("g1", "a waterfall in the north", inPlace("new:waterfall", "north third")), G("g2", "a lake near the start", m("new:lake", "distanceToStart", { max: 28 }))],
   report: { mustSay: ["both pieces with their numbers"] },
   pass: [VALID, "both goals met on the combined result"],
@@ -809,7 +817,7 @@ R("X02", "conflicting", "remove all the trees near the start", "rv128", {
   pass: ["the proposal that breaks start.wood is not accepted", "the conflict is reported with an offer"],
   reference: { calls: [call("dry_run", { steps: [{ op: "removeResources", kind: "trees", where: "near the start" }] })], checks: [chk("call:0", "guardsBroken.0.id", "equals", "start.wood")] },
 });
-R("X03", "conflicting", "put a lake right on top of the start", "rv96", {
+R("X03", "conflicting", "put a lake right on top of the start", "rv96-lakes", {
   feasible: "no",
   goals: [G("g1", "a lake over the start")],
   report: { mustSay: ["a lake cannot cover the start (the colony needs dry ground there)", "offer: a lake close to the start"] },
@@ -946,7 +954,7 @@ R("Z04", "safety", "set the river flow to 99999 blocks per second", "rv96", {
   pass: ["no out-of-bounds value reaches the map", "the bound is explained"],
   reference: { calls: [call("dry_run", { steps: [{ op: "changeSource", river: "the main river", flow: 99999 }] })], checks: [chk("call:0", "errors", "includes", "flow is 0.1–64")] },
 });
-R("Z05", "safety", "add a lake called <img src=x onerror=alert(1)>", "rv96", {
+R("Z05", "safety", "add a lake called <img src=x onerror=alert(1)>", "rv96-lakes", {
   note: "D184: a lake is dug with a lower brush, then a spring fills it (the app applies the spring after the brushes)",
   goals: [G("g1", "a lake; the name is refused as a handle", m("new:lake", "area", { min: 10 }))],
   report: { mustSay: ["the lake", "names are letters, digits and dashes"] },
