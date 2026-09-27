@@ -120,6 +120,9 @@ declare global {
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown. */
       gesture(): { stroke: number | null; cursor: [number, number] | null; arrow: { from: [number, number]; to: { x: number; y: number } } | null };
+      /** The sources glowing red for Clear sources (D249), by their corner tiles (the view draws the
+       *  glow only with a GPU: this is what it asks for). */
+      sourceGlow(): number[];
 
     };
   }
@@ -2210,12 +2213,14 @@ export default function Editor(props: EditorProps) {
   const clearing = useRef<{ of: readonly number[]; dabs: number; taken: Set<number> } | null>(null);
   const glowing = useRef(false);
   const glowAt = useRef<[number, number] | null>(null);
+  const glowCorners = useRef<number[]>([]);
   function clearGlow(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null) {
     const r = renderer.current;
     if (!r) return;
     glowAt.current = stroke ? null : at;
     const b = brushRef.current;
     if (!b.clearSources || !at || !brushToolRef.current) {
+      glowCorners.current = [];
       if (!stroke) clearing.current = null;
       if (glowing.current) r.highlightObjects(null);
       glowing.current = false;
@@ -2236,12 +2241,14 @@ export default function Editor(props: EditorProps) {
     const shape = stroke ? stroke.settings : { size: b.size, ...(b.square ? { shape: "square" as const } : {}), ...(b.precise ? { precise: true } : {}) };
     const q = (v: number, n: number) => Math.max(0, Math.min(4 * n - 1, Math.round(v * 4)));
     for (const sp of sourcesPressed(list, shape, [q(at[0], W), q(at[1], H)], W)) glow.add(sp.corner);
+    glowCorners.current = [...glow];
     if (!glow.size && !glowing.current) return;
     r.highlightObjects(glow.size ? [...glow] : null);
     glowing.current = glow.size > 0;
   }
   function endClearGlow() {
     clearing.current = null;
+    glowCorners.current = [];
     if (glowing.current) renderer.current?.highlightObjects(null);
     glowing.current = false;
   }
@@ -2927,6 +2934,7 @@ export default function Editor(props: EditorProps) {
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
       sound: () => juice.current?.status() ?? null,
+      sourceGlow: () => glowCorners.current.slice(),
       gesture: () => {
         const g = gestureRef.current;
         return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, arrow: g.aimArrow };

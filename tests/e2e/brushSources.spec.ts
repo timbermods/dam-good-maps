@@ -20,8 +20,8 @@ const sources = (page: Page) =>
     for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource") out.push({ x: e.x[k], y: e.y[k], z: e.z[k], ground: m.heights[e.y[k] * m.W + e.x[k]] });
     return out;
   });
-/** How many objects glow red (Remove's highlight). */
-const glowing = (page: Page) => page.evaluate(() => (window.dgm3d!.renderer as unknown as { lit: unknown[] }).lit.length);
+/** How many sources glow red for Clear sources (what the page asks the view to light). */
+const glowing = (page: Page) => page.evaluate(() => window.dgmEditor!.sourceGlow().length);
 
 /** A stroke held over a tile, in small moves round it. */
 async function hold(page: Page, x: number, y: number) {
