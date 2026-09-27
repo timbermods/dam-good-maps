@@ -46,11 +46,16 @@ Your forty-seven decisions since the restart are recorded (D252–D298, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-6. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+6. **The forces' queue is built** (`feature/forces`, b56c7a5, CI green): D249, D257–D261, D263–D266, D270 (#84), D287–D290; only
+   the ceiling (D244 step 2) waits for the Ceiling probe batch, then the preview for your sitting. Two small questions from it:
+   - the generator page's flat 2D preview keeps its own **Moist soil** switch (not the editor's view bar, so D287 didn't reach it):
+     should it go too?
+   - Quake's Left/Right control is gone (D289: X flips the side, and the status line says so): want the control back?
+7. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-7. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+8. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-8. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+9. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
