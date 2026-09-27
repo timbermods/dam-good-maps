@@ -46,6 +46,14 @@ own way to its own edge. Now (`land/hydro.ts`):
     mouth; a tie with the exit counted too, since the near edge takes it all): the edge row there
     gets a lip a level over the water, at most two levels high and a quarter of the side long, else
     the plan is made again; the mouth's own tiles never;
+  - **a lake standing higher than an inflow's mouth could hold** (its water would stand over the
+    mouth's edge beside it): a lake on a river stands no higher than the lowest spill of every
+    inflow mouth whose water reaches it;
+  - **an inflow's mouth** keeps a level block three tiles wide and three deep at its lowest bed
+    (the edge's banks beside it are kept now; a narrower mouth held no BadwaterSource when the
+    player turned the river to badwater in the editor: 4 of 16 River Valley mains could, now all);
+  - **a spring lake's water** joins the rivers already traced, as a spring's does (a spring lake
+    with a way out of its own was a second system, sometimes larger than the river's);
   - **a hollow on the course above the river's reach** (a pit on a shoulder the course crosses, its
     water standing over the channel's banks upstream, where they drain away lower): no lake of that
     river's, so its channel runs on through it (it was left uncarved, then dropped as unreached,

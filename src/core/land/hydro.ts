@@ -433,16 +433,6 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
     // (M9b: an inflow heads inland from its mouth, never along its edge first)
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
-    // (M9b: nor where the land along its edge lies as low as its mouth: the game drains every edge
-    // tile but the mouth's own, and the water at the mouth would run back out beside it; the
-    // Rivers setting's relaxed search may still take one)
-    if (natural && hd.kind === "edge" && !alongUp) {
-      const e = hd.edge!;
-      const alongOf = (i: number) => (e === "west" || e === "east" ? Math.floor(i / W) : i % W);
-      const a0 = alongOf(hd.cell);
-      const back = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && Math.abs(alongOf(i) - a0) > 5 });
-      if (back.filled[hd.cell] <= h[hd.cell]) return false;
-    }
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
     traced.push({ k, head: hd, cells, joins });
@@ -592,7 +582,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const x = hl.head % W;
       const y = (hl.head - x) / W;
       if (x < 6 || y < 6 || x > W - 7 || y > H - 7) continue;
-      trace({ cell: hl.head, kind: "spring", flow: 0 });
+      // (M9b: its water joins the rivers already traced, as a spring's does: a spring lake with a
+      // way out of its own was a second water system, sometimes larger than the river's)
+      trace({ cell: hl.head, kind: "spring", flow: 0 }, false, natural && heads.length > 0);
     }
   }
   // the map's flow goes to the heads that made it: inflows carry most, springs a share each
@@ -1034,6 +1026,27 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
     }
     carve(st, bedOf, L, n, half, floorHalf);
+    // (M9b: an inflow's mouth stays three tiles wide and level for its first three rows, its bed
+    // there: the edge's banks beside it are kept now, and a narrower mouth held no BadwaterSource
+    // when the player turns the river to badwater, EDITOR_PLAN §4)
+    if (natural && hd.kind === "edge") {
+      const e = hd.edge!;
+      const block: number[] = [];
+      for (let t = 0; t < 3; t++)
+        for (let a = -1; a <= 1; a++) {
+          const x = e === "west" ? t : e === "east" ? W - 1 - t : hx + a;
+          const y = e === "south" ? t : e === "north" ? H - 1 - t : hy + a;
+          if (x < 0 || y < 0 || x >= W || y >= H || protect?.[y * W + x]) continue;
+          block.push(y * W + x);
+        }
+      // (at its lowest tile: the bed only ever lowers)
+      let lo = bedOf[0];
+      for (const i of block) lo = Math.min(lo, h[i]);
+      for (const i of block) {
+        h[i] = lo;
+        if (water[i] !== 2) water[i] = 1;
+      }
+    }
     // the feature's bed profile only steps down: where the course dips through a lake and rises to
     // its outlet, it keeps the outlet's level through the lake (the feature describes the bed the
     // river runs on; the lake's floor below it is the lake's)
