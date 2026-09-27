@@ -290,7 +290,9 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     const route = { tiles: wound, end: wound[wound.length - 1] };
     // its water must never pass the start's water on the way out
     if (passesStart(route.end)) continue;
-    // bed levels: the sill one above the floor, then never rising, cut one below the ground beside
+    // bed levels: the sill one above the floor, then never rising, cut two below the ground beside
+    // (M9b, D302: cut one below, the water refilling it after a drought rose over its banks and
+    // spread a sheet of badwater over the flat beside it, which stayed until the badtide)
     const tiles = route.tiles.slice(0, goal[route.end] ? route.tiles.length - 1 : route.tiles.length);
     if (tiles.length < 2) continue;
     const onDitch = new Set(tiles);
@@ -307,7 +309,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         if (pit[n] || onDitch.has(n) || hy.water[n] === 1 || hy.water[n] === 2) continue;
         ring = Math.min(ring, hh[n]);
       }
-      run = Math.min(run, ring - 1);
+      run = Math.min(run, ring - 2);
       if (run < 0) run = 0;
       levels.push(run);
     }
