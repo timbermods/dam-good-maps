@@ -22,7 +22,12 @@ export interface PlugPlan {
 export function planPlug(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers" | "lakes" | "water">, seed: number, protect: Uint8Array | null): PlugPlan | null {
   const N = W * H;
   const areaK = N / (128 * 128);
-  const lakes = hy.lakes.filter((l) => l.tiles.length >= 350 * areaK).sort((a, b) => b.tiles.length - a.tiles.length || a.tiles[0] - b.tiles[0]);
+  // (a lake on a side river first: below the plug its river runs dry until the plug is opened, and
+  // the main river keeps flowing)
+  const mainId = hy.rivers.find((r) => r.role === "river/main")?.id;
+  const lakes = hy.lakes
+    .filter((l) => l.tiles.length >= 350 * areaK)
+    .sort((a, b) => (a.river === mainId ? 1 : 0) - (b.river === mainId ? 1 : 0) || b.tiles.length - a.tiles.length || a.tiles[0] - b.tiles[0]);
   for (const lake of lakes) {
     const inLake = new Uint8Array(N);
     for (const i of lake.tiles) inLake[i] = 1;

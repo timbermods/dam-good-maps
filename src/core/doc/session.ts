@@ -291,7 +291,11 @@ export class MapSession {
 
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field), r.built);
+    const doc = toDocument(r.spec, r.features, r.built, file, r.field);
+    // (M9b, D278 (1b): the map's own name and how it plays)
+    if (r.name) doc.meta.name = r.name;
+    if (r.description) doc.meta.premise = r.description;
+    return new MapSession(doc, r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */

@@ -1010,10 +1010,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   //      below the river's bed, joined to the channel at its downstream end: the river fills it, and
   //      in a drought it keeps the water below that join. Only ground is taken away (D111).
   const mainRiverId = (): string => (rivers.find((r) => r.role === "river/main") ?? rivers[0]).id;
-  const oxbow = (m: { path: Point[]; prof: Float64Array; L: number; n: number; width: number }): void => {
+  const oxbow = (m: { path: Point[]; prof: Float64Array; L: number; n: number; width: number }, rid: string): boolean => {
     const pts = resample(m.path, 1);
     const n = pts.length;
-    if (n < 40) return;
+    if (n < 40) return false;
     // the turning over twelve tiles at each point of the course (the cross product of the ways in
     // and out), strongest first, in its middle stretch, off the map's border and any lake
     const bends: { k: number; turn: number }[] = [];
@@ -1028,18 +1028,21 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const vy = c[1] - b[1];
       const lu = Math.sqrt(ux * ux + uy * uy) || 1;
       const lv = Math.sqrt(vx * vx + vy * vy) || 1;
-      bends.push({ k, turn: (ux * vy - uy * vx) / (lu * lv) });
+      // (only where the bed stands a level or more above the map's bottom: the lake's floor lies a
+      // level below the bed, and in a drought it keeps the water below its join)
+      const jb = Math.min(m.n, Math.max(0, Math.round((k / (n - 1)) * m.n)));
+      if (m.prof[jb] >= 1) bends.push({ k, turn: (ux * vy - uy * vx) / (lu * lv) });
     }
     bends.sort((p, q) => Math.abs(q.turn) - Math.abs(p.turn) || p.k - q.k);
     const halfW = m.width / 2;
     for (const bend of bends.slice(0, 12)) {
-      if (Math.abs(bend.turn) < 0.2) return;
+      if (Math.abs(bend.turn) < 0.2) return false;
       // the outside of the bend: away from the side it turns to
       const out = bend.turn > 0 ? -1 : 1;
       const span = 9 + Math.round(3 * Math.abs(bend.turn));
       const j = Math.min(m.n, Math.max(0, Math.round((bend.k / (n - 1)) * m.n)));
       const bed = m.prof[j];
-      if (bed < 2) continue;
+      if (bed < 1) continue;
       const floor = bed - 1;
       const crescent: number[] = [];
       let ok = true;
@@ -1102,13 +1105,19 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         if (h[i] > bed) h[i] = bed;
         if (!water[i]) water[i] = 1;
       }
-      lakes.push({ tiles: crescent.slice().sort((a, b) => a - b), outletBed: bed, river: mainRiverId() });
-      return;
+      lakes.push({ tiles: crescent.slice().sort((a, b) => a - b), outletBed: bed, river: rid });
+      return true;
     }
+    return false;
   };
+  // (the main river first, then the others by length: a river that runs at the map's bottom level
+  // cannot keep one)
   if (natural && g.hydro.oxbow && rivers.length) {
-    const m = exits.get(mainRiverId());
-    if (m) oxbow(m);
+    const order = rivers.slice().sort((a, b) => (a.id === mainRiverId() ? -1 : b.id === mainRiverId() ? 1 : 0) || (exits.get(b.id)?.L ?? 0) - (exits.get(a.id)?.L ?? 0) || (a.id < b.id ? -1 : 1));
+    for (const r of order) {
+      const m = exits.get(r.id);
+      if (m && oxbow(m, r.id)) break;
+    }
   }
 
   // ---- a river splits round an island: a second arm leaves it and rejoins it downstream

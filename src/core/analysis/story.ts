@@ -155,6 +155,14 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
     } else ponds++;
   });
   const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater);
+  // a plug's river runs dry below it until the plug is opened (the plug-lake intention, D274): its
+  // course's water is not asked for
+  const plugTiles = new Set<number>();
+  for (const f of features) {
+    if (f.kind !== "mapObject" || (f.params as { kind: string }).kind !== "plug") continue;
+    const area = (f.params as { placement: { area?: [number, number, number][] } }).placement.area ?? [];
+    for (const [y, x0, x1] of area) for (let x = x0; x <= x1; x++) plugTiles.add(y * W + x);
+  }
   let heads = 0;
   let separate = 0;
   let mainWet = 1;
@@ -168,7 +176,13 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       const l = sys.labels[i];
       if (l >= 0) count.set(l, (count.get(l) ?? 0) + 1);
     }
-    const share = tiles.length ? w / tiles.length : 1;
+    const plugged = plugTiles.size > 0 && tiles.some((i) => {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (plugTiles.has((y + dy) * W + x + dx)) return true;
+      return false;
+    });
+    const share = tiles.length && !plugged ? w / tiles.length : 1;
     if (r.role === "river/main") mainWet = share;
     if (share < leastWet) leastWet = share;
     // the system most of its course's water lies in

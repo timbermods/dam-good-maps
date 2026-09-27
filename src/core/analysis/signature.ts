@@ -9,8 +9,8 @@
 // - Highlands, high, rugged ground with plateaus and valleys among it: the share of the dry land 4+
 //   levels over the rivers, the cliffs, and the plateaus (broad level ground standing over the land
 //   round it).
-// - Lake Basin, big lakes that dominate the water: the share of the water standing in lakes, and
-//   the largest lake.
+// - Lake Basin, big lakes that dominate the water: the share of the water standing in the natural
+//   lakes the generator found, and the largest of them.
 // - Delta, a river splitting into several channels as it reaches low ground: the main system's
 //   separate mouths on the edge it leaves by.
 // - Islands, land broken by water into islands: the water's share, the largest body, the land apart
@@ -18,6 +18,7 @@
 
 import type { Feature, RiverFeature } from "../features/schema";
 import { wetSystems } from "./story";
+import { polygonMask } from "../features/geometry";
 
 export interface Signature {
   /** River Valley: the median width of the main river's valley floor, as a share of the side. */
@@ -206,51 +207,28 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
     }
     if (q.length >= minPlateau && L >= waterLevel + 3 && rim > 0 && drop >= 0.5 * rim) plateaus++;
   }
-  // ---- lakes: level water bodies of 150+ tiles (at 128²)
+  // ---- lakes: the natural lakes the generator found (its read-back lake features), as far as they
+  //      hold water; a wide slow river is level too, so the water's shape alone cannot tell them
   const sys = wetSystems(W, H, D);
-  const lakeMin = Math.round(150 * areaK);
   let inLakes = 0;
   let bigLake = 0;
   let wetTiles = 0;
+  for (let i = 0; i < N; i++) if (wet(i)) wetTiles++;
   {
-    const lab = new Uint8Array(N);
-    for (let s = 0; s < N; s++) {
-      if (!wet(s)) continue;
-      wetTiles++;
-      if (lab[s] || !(D[s] >= 0.3)) continue;
-      // a level body: the surface within a quarter level of this tile's, 0.3+ deep
-      const surf = h[s] + D[s];
-      const inBody = (j: number, _q: number[], sf: number) => wet(j) && Math.abs(h[j] + D[j] - sf) <= 0.25;
-      const q = [s];
-      lab[s] = 1;
-      for (let k = 0; k < q.length; k++) {
-        const i = q[k];
-        const x = i % W;
-        const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-          const j = yy * W + xx;
-          if (lab[j] || !wet(j) || Math.abs(h[j] + D[j] - surf) > 0.25) continue;
-          lab[j] = 1;
-          q.push(j);
+    const counted = new Uint8Array(N);
+    for (const f of features) {
+      if (f.kind !== "lake") continue;
+      const m = polygonMask(f.params.outline, W, H);
+      let n = 0;
+      for (let i = 0; i < N; i++)
+        if (m[i] && wet(i)) {
+          n++;
+          if (!counted[i]) {
+            counted[i] = 1;
+            inLakes++;
+          }
         }
-      }
-      // a lake has open water, not only a level surface (a slow river on flat ground is level too):
-      // a fifth of it or more lies 2 tiles from every shore (its 5×5 all in the body)
-      let open = 0;
-      for (const i of q) {
-        const x = i % W;
-        const y = (i - x) / W;
-        let all = x >= 2 && y >= 2 && x < W - 2 && y < H - 2;
-        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2 && all; dx++) if (!inBody(i + dy * W + dx, q, surf)) all = false;
-        if (all) open++;
-      }
-      if (q.length >= lakeMin && open >= 0.2 * q.length) {
-        inLakes += q.length;
-        if (q.length > bigLake) bigLake = q.length;
-      }
+      if (n > bigLake) bigLake = n;
     }
   }
   // ---- the main system's mouths on the edge it leaves by

@@ -129,8 +129,12 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
 }
 
 /** The document of a map the generator just made, with its field (format 3). */
-export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null }): MapDocument {
-  return toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null);
+export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; name?: string; description?: string }): MapDocument {
+  const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null);
+  // (M9b, D278 (1b): a generated map keeps its own name and how it plays)
+  if (r.name) doc.meta.name = r.name;
+  if (r.description) doc.meta.premise = r.description;
+  return doc;
 }
 
 /** The document of an imported map: normalized once, with the changes listed (PLAN §19.6).
