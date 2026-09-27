@@ -211,6 +211,16 @@ moved. The time is the same within the machine's noise (game mode ~20 ms at 128�
 game's rules: the Real places conversion (`places/place.ts`), `planMapResources` (Real places and
 Pick a place) and the editor's soil view; decisions-pending #109.
 
+### Chaos (D273 (6))
+
+Any at Variety 100 and Verticality 100 (`tools/batches.ts --set "vy=100&vt=100"`, 4 jobs, the
+results in `investigation/m9b/local/chaos/`): 100 seeds at 128², 98% final (the gate), 17% at the
+first attempt, 5.4 attempts on average, a median 15 s a map (p90 41 s). **Breakage found and
+fixed:** 10 of 98 maps' project files did not reopen: on land above 16 a river's natural fall can
+drop more than 15 levels, and the feature schema's bed step allowed 15 (its start already 22). A
+bed step's drop now goes to 22, as its start (`features.schema.json`); the waterfall set piece
+keeps its own 15 (PLAN §9.10).
+
 ## Tools
 
 - `tools/look.ts` (+ `look-grid.py`): chosen maps drawn large with their water story, signature,
