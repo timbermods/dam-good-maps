@@ -17,11 +17,22 @@ Your forty-five decisions since the restart are recorded (D252–D296, below) an
    9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
 2. **M9a: approved** (D294). Its probe batch runs when the machine is quiet, then `m9a-done` and the release. The review
    set's shortfalls are M9b's starting list; my read is on #56 and in the Progress log.
-3. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+3. **Two questions from the 3D engine** (`feature/terrain3d-a`; neither changes anything that runs today):
+   - **D295's line, one tile to read.** On 30 generated maps at 128², 29 have no tile changing wet/dry and volumes move 0.058% at
+     most. Highlands seed 3 has 94 such tiles (volume 0.016%); 93 have both depths inside 0.04–0.06. One tile, (105, 53), goes
+     from 0.000 today to 0.0512 under the game's rules. Does "within 0.01 of the wet line" mean the new depth (it passes) or both
+     depths (it fails by that tile)? My suggestion: the new depth, since the game's is the reference.
+   - **Soil: adopt the game's own soil rules?** A game-rule soil model now matches the 19 official maps' stored soil on
+     99.79–100% of slots, against 87–99.8% for today's. Today's leaks moisture through badwater: on generated maps (seeds 1–3)
+     it keeps 0–376 tiles a map moist that the game dries, and 114 of 36,453 plants on 18 maps stand on them, so the game would
+     dry them. Adopting it changes generated maps' stored soil and maybe where resources go. My suggestion: yes, as D293 did for
+     water, and in M9b (which changes generated maps anyway) rather than waiting for the 3D wiring, since it's a what-you-see
+     issue today.
+4. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-4. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-5. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
