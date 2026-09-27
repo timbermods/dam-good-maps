@@ -99,16 +99,22 @@ for id, pattern in [('earth-bed', 'footstep_concrete_00*.ogg'),
                      ('leaf-bed', 'footstep_grass_00*.ogg'),
                      ('stone-bed', 'impactMining_00*.ogg')]:
     paths = sorted(SOURCES.rglob(pattern))
-    grains = [decode(p) for p in paths]
+    grains = []
+    for path in paths:
+        g = decode(path)
+        active = np.flatnonzero(abs(g) > max(abs(g))*.025)
+        if len(active):
+            g = g[max(0, active[0]-48):min(len(g), active[-1]+480)]
+        grains.append(g)
     data = np.zeros(SR*3, np.float32)
     pos = 0
     while pos < len(data)-SR//4:
         g = grains[int(rng.integers(len(grains)))]
-        g = g[int(len(g)*0.2):int(len(g)*0.9)].copy()
+        g = g[int(len(g)*0.18):int(len(g)*0.95)].copy()
         g *= np.sin(np.linspace(0, np.pi, len(g)))**2
         length = min(len(g), len(data)-pos)
         data[pos:pos+length] += g[:length] * rng.uniform(.7, 1)
-        pos += max(2000, int(len(g)*rng.uniform(.3, .5)))
+        pos += max(240, int(len(g)*rng.uniform(.3, .5)))
     save(id, data, 'kenney', paths, 'Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.')
 
 (ROOT/'bank.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')

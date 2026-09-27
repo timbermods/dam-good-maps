@@ -363,9 +363,9 @@
     ],
     "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
     "duration": 3.0,
-    "gainDb": 20.93,
+    "gainDb": 14.08,
     "bytes": 73196,
-    "sha256": "4cf6187a3bd3fe5ff78330e7873b9b1c1e42b492be817406494aeb1874e66a3e"
+    "sha256": "5ebb1c22312ae2ef00c3a812fc2b3c350176a5ae67c7eac0688d26169d8dfc82"
   },
   {
     "id": "leaf-bed",
@@ -395,9 +395,9 @@
     ],
     "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
     "duration": 3.0,
-    "gainDb": 33.98,
+    "gainDb": 12.09,
     "bytes": 73196,
-    "sha256": "b6ba8133c13c2ed6dc3f6f6b165fbbf69852af82bb90ff66eb2f1adc2bf78032"
+    "sha256": "ede8d423928cb97862eaad4e75740c4cd3c4485cfa81aacbcd58f8f7163ae245"
   },
   {
     "id": "stone-bed",
@@ -427,8 +427,8 @@
     ],
     "edits": "Three-second friction bed assembled from overlapping recorded tails (seed 4218), cosine grain fades; same level/encoding pass as impacts.",
     "duration": 3.0,
-    "gainDb": 8.58,
+    "gainDb": 9.61,
     "bytes": 73196,
-    "sha256": "6de6fea7fb213edbf24171298db8688db254121667ea0c109c3c8f5b4633f907"
+    "sha256": "945019cf000617c43353bd5436c299e897717d63f220fe7bf6689396b4a19eff"
   }
 ]

@@ -68,7 +68,7 @@ export function recipe(name, p = {}, { semitones = 0, random = Math.random, phas
     case 'lower': add('grit', 1.0); add(earth, .65); rubble(3, .09); break;
     case 'flatten': add('scrape', 1.1, 0, { duration: .48 }); add(earth, .65); break;
     case 'smooth': add('leaf-bed', 1.35, 0, { offset: .5, duration: .48, attack: .035, release: .18 }); break;
-    case 'naturalize': add(leaf, 1.3); add('leaf-bed', .4, .03, { duration: .48, attack: .03 }); break;
+    case 'naturalize': add(leaf, 1.3); add('leaf-bed', .8, .03, { offset: .4, duration: .48, attack: .03 }); break;
     case 'remove': add(earth, 1.1, 0, { rate: r*1.25, duration: .24 }); add(leaf, .45, .015, { duration: .22 }); break;
     case 'tree': add(wood, 1.55); add('wood-body', .5, .012); add(leaf, .42, .04); reward(); break;
     case 'berry': add(wood, 1.1, 0, { rate: r*1.23 }); add(leaf, .8, .024); reward(.15); break;

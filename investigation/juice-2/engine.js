@@ -188,8 +188,12 @@ export class JuiceEngine {
     const p = parameters(params), step = this.runs.next(name, now);
     const layers = recipe(name, p, { semitones: step, phase });
     if (!layers.length || this.sources+layers.length > LIMITS.sources) return null;
-    const event = this.makeEvent(id, name, p, false, TRIM[name] ?? 1);
+    // A force run may append real-clock phases under one cancellation id.
+    const existing = this.events.get(id);
+    if (existing && (existing.name !== name || existing.sustained || existing.stopped || !phase)) return null;
+    const event = existing || this.makeEvent(id, name, p, false, TRIM[name] ?? 1);
     if (!event) return null;
+    if (existing) { event.p = p; this.position(event); }
     this.tokens--;
     if (!this.add(event, layers)) return null;
     this.onReward({ name, semitones: step }); return id;
@@ -263,7 +267,7 @@ export class JuiceEngine {
     this.disposed = true; this.stopAll(); clearTimeout(this.pauseTimer);
     globalThis.document?.removeEventListener('visibilitychange', this.visibility);
     await this.context?.close().catch(() => {});
-    for (const e of this.events.values()) { for (const v of e.voices) v.disconnect(); this.remove(e); }
+    for (const e of this.events.values()) { for (const v of e.voices) { v.source.onended = null; v.disconnect(); } this.remove(e); }
     this.sources = 0; this.graph?.disconnect(); this.bank = null;
   }
 }
