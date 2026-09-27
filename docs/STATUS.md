@@ -12,9 +12,14 @@ Your forty-eight decisions since the restart are recorded (D252–D299, below) a
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35):** your D271 is being built: the 15 drops, then the water made to follow each real place (observed
-   rivers and lakes, dry places dry, D214's fewer, larger rivers where it keeps moving). Then a new sheet on #35 with the
-   9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
+1. **Real places (#35): the new sheet is up** ([sheet](https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5857007960);
+   D271 built, c715e88, CI green; the old sheet is marked out of date). 15 places dropped, 136 left. Water now follows the real place
+   (ESA WorldCover's permanent water, and OpenStreetMap's permanent rivers where WorldCover misses a narrow one; both credited):
+   "The water keeps moving" fell from 37 to 7, but "No water a pump can reach from the start" rose from 25 to 66, because 40 places
+   are now dry as they really are and 26 have their real water spread thinner than a pump needs on land the 16 levels make flat.
+   Two land fixes wait for your say: lower the bed one level under the real water (as Pick a place does), and take out the land's
+   overall tilt before fitting the 16 levels (the stripes on 42, 48, 116, 118 are the conversion's, not the real terrain). Your
+   held 9 and 29 are marked in purple. Its rules are default #94. The badwater stage waits for your answer.
 2. **M9a: approved** (D294). Its probe batch runs when the machine is quiet, then `m9a-done` and the release. The review
    set's shortfalls are M9b's starting list; my read is on #56 and in the Progress log.
 3. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
