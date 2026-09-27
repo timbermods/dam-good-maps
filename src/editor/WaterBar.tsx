@@ -94,14 +94,14 @@ function DayStrip({ hz, onLength, speed, onSpeed }: { hz: HazardBar; onLength: W
             aria-label={`Day ${d}`}
             aria-current={on === d ? "true" : undefined}
             title={d === 0 ? "Day 0: the map as it is" : hz.marker?.day === d ? hz.marker.words : `Day ${d}`}
-            disabled={!dp}
+            disabled={!dp || d > dp.ready}
             onClick={() => dp?.goTo(d)}
           >
             {d}
           </button>
         ))}
       </span>
-      <button type="button" class="icon-button" title="The next day" aria-label="Next day" disabled={!dp || on === days} onClick={() => dp?.next()}>
+      <button type="button" class="icon-button" title="The next day" aria-label="Next day" disabled={!dp || on === null || on >= dp.ready} onClick={() => dp?.next()}>
         ›
       </button>
       <button type="button" class="icon-button" aria-pressed={!!dp?.playing} title={dp?.playing ? "Stop on this day" : "Play through the days"} disabled={!dp} onClick={() => dp?.play()}>

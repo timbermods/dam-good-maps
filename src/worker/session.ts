@@ -53,7 +53,7 @@ import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { bakeLandforms } from "../core/doc/bake";
 import type { Hazard } from "../core/sim/weather";
 import { framesPerDay, HazardRun } from "../core/sim/hazard";
-import { badtideReaches, startHasWater, startMiddle as startMiddleOf, startWalk, startWater } from "../core/analysis/startWater";
+import { startHasWater, startMarker, startMiddle as startMiddleOf, startNote, startWalk, startWater } from "../core/analysis/startWater";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
 import { patchFeature } from "../core/doc/ops";
@@ -538,8 +538,9 @@ export type EditorEvent =
    *  ticks of the game (close together at first, where the water moves most), for the page to play
    *  at a pace the eye can follow. `done` is how far the settle has come (0–1). */
   | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean }
-  /** A drought or a badtide being worked out (D267 (1)): how far it has come (0–1). */
-  | { kind: "hazard"; version: number; hazard: Hazard; done: number }
+  /** A drought or a badtide being worked out (D267 (1)): how far it has come (0–1), the days ready
+   *  to show so far, and the page's id for the request. */
+  | { kind: "hazard"; version: number; hazard: Hazard; done: number; ready: number; id: number }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | { kind: "settled"; version: number; view: ViewUpdate; info: SessionInfo }
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
@@ -782,7 +783,8 @@ function dayZero(s: MapSession): { model: WaterModel; depth: Float64Array; conta
  *  notes for the water and the start's marker. Waits for the water to settle after the last
  *  edit first. Tells the page how far it has come (`hazard` events); null when an edit or another
  *  hazard came first. */
-export async function showHazard(h: Hazard, days: number, framesCap?: number): Promise<HazardSummary | null> {
+export async function showHazard(h: Hazard, days: number, opts: { id?: number; framesCap?: number } = {}): Promise<HazardSummary | null> {
+  const { id = 0, framesCap } = opts;
   const s = need();
   const token = ++hazardToken;
   hazard = null;
@@ -790,10 +792,11 @@ export async function showHazard(h: Hazard, days: number, framesCap?: number): P
   // the water after the last edit settles first: the hazard starts from the map's own water
   if (waterJob && waterJob.session === s && !autoWater) settleWater();
   let lastTell = 0;
+  let ready = 0;
   const tell = (done: number, force = false) => {
     if (!force && performance.now() - lastTell < HAZARD_PROGRESS_MS) return;
     lastTell = performance.now();
-    listener?.({ kind: "hazard", version, hazard: h, done });
+    listener?.({ kind: "hazard", version, hazard: h, done, ready, id });
   };
   tell(0, true);
   while (waterJob && waterJob.session === s) {
@@ -824,6 +827,9 @@ export async function showHazard(h: Hazard, days: number, framesCap?: number): P
   const run = new HazardRun({ model: zero.model, depth: zero.depth, contamination: zero.contamination, hazard: h, days, framesPerDay: framesCap ? Math.min(framesCap, framesPerDay(days, wet)) : framesPerDay(days, wet) });
   const dayViews: HazardDay[] = [{ day: 0, water: waterOf(s), soil: soilOf(s) }];
   const frames: WaterView[][] = [[]];
+  // each day can be shown as soon as it has been worked out (the page may look at the first days
+  // while the rest are on their way)
+  hazard = { token, session: s, version: v, hazard: h, days: run.days, day: dayViews, frames };
   // the marker: a drought's day the start's water leaves a pump's reach; a badtide's day badwater
   // reaches the start's water or its farmland
   const hadWater = sw ? startHasWater(sw, b.heights, W, H, zero.depth, zero.contamination) : false;
@@ -837,21 +843,18 @@ export async function showHazard(h: Hazard, days: number, framesCap?: number): P
       if (at.frame !== run.framesPerDay - 1) continue;
       const soil = soilNow(run.sim.D, run.sim.C);
       dayViews.push({ day: at.day, water: view, soil: soil.view });
+      ready = at.day;
+      tell(run.progress, true);
       if (!sw || marker) continue;
-      if (h === "drought") {
-        if (hadWater && !startHasWater(sw, b.heights, W, H, run.sim.D, run.sim.C)) marker = { day: at.day, words: `Day ${at.day}: your start's water is gone` };
-      } else {
-        const reached = badtideReaches(sw, run.sim.C, soil.contamination);
-        if (reached) marker = { day: at.day, words: reached === "water" ? `Day ${at.day}: badwater reaches your start's water` : `Day ${at.day}: badwater reaches your start's farmland` };
-      }
+      const words = startMarker(h, sw, hadWater, at.day, b.heights, W, H, run.sim.D, run.sim.C, soil.contamination);
+      if (words) marker = { day: at.day, words };
     }
     tell(run.progress);
     await breathe();
     if (!current() || version !== v) return null;
   }
-  hazard = { token, session: s, version: v, hazard: h, days: run.days, day: dayViews, frames };
   tell(1, true);
-  const note = marker ? null : !sw ? null : h === "drought" ? (hadWater ? "Your start's water lasts the drought" : "No water a pump reaches near your start") : "Badwater doesn't reach your start";
+  const note = marker || !sw ? null : startNote(h, hadWater);
   const last = dayViews[run.days];
   return { hazard: h, days: run.days, version: v, change: run.change.slice(), startWater: Int32Array.from(sw?.body ?? []), marker, note, last: { day: last.day, water: copyWater(last.water), soil: copySoil(last.soil) } };
 }
@@ -859,8 +862,10 @@ export async function showHazard(h: Hazard, days: number, framesCap?: number): P
 /** A day of the hazard shown (0 is the map as it is), or null when it has ended. */
 export function hazardDay(day: number): HazardDay | null {
   const z = hazard;
-  if (!z || z.session !== session || z.version !== version) return null;
-  const d = z.day[Math.max(0, Math.min(z.days, Math.round(day)))];
+  if (!z || z.session !== session || z.version !== version || z.token !== hazardToken) return null;
+  // (a day still being worked out: not yet)
+  const d = z.day[Math.max(0, Math.round(day))];
+  if (!d) return null;
   return { day: d.day, water: copyWater(d.water), soil: copySoil(d.soil) };
 }
 
@@ -868,7 +873,7 @@ export function hazardDay(day: number): HazardDay | null {
  *  itself), for the step to it; null when the hazard has ended. */
 export function hazardSteps(day: number): WaterView[] | null {
   const z = hazard;
-  if (!z || z.session !== session || z.version !== version || day < 1 || day > z.days) return null;
+  if (!z || z.session !== session || z.version !== version || z.token !== hazardToken || day < 1 || day >= z.day.length) return null;
   return z.frames[day].map(copyWater);
 }
 

@@ -54,8 +54,6 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
 
   // an impact: its sounds as it strikes; Esc takes it back and every sound of it stops at once
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 5_000 }).toBe(0);
-  // (at the slowest pace, so Esc comes while it is still at work)
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("slower");
   const kept = (await info(page)).history.filter((h) => h.applied).length;
   await page.keyboard.press("8");
   const c = await client(page, at[0], at[1] + 8);

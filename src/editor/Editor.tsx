@@ -245,9 +245,10 @@ export default function Editor(props: EditorProps) {
   const [hazardBar, setHazardBarState] = useState<HazardBar | null>(null);
   const hazardRef = useRef<{ bar: HazardBar; token: number; change: Uint8Array | null; startWater: Int32Array | null } | null>(null);
   const hazardToken = useRef(0);
-  const setHazardBar = (bar: HazardBar | null, extra?: { change: Uint8Array; startWater: Int32Array }) => {
+  /** (`extra`: the notes and the start's water, null while being worked out; left out, kept) */
+  const setHazardBar = (bar: HazardBar | null, extra?: { change: Uint8Array | null; startWater: Int32Array | null }) => {
     if (!bar) hazardRef.current = null;
-    else hazardRef.current = { bar, token: hazardToken.current, change: extra?.change ?? hazardRef.current?.change ?? null, startWater: extra?.startWater ?? hazardRef.current?.startWater ?? null };
+    else hazardRef.current = { bar, token: hazardToken.current, change: extra ? extra.change : (hazardRef.current?.change ?? null), startWater: extra ? extra.startWater : (hazardRef.current?.startWater ?? null) };
     setHazardBarState(bar);
   };
   /** The day strip's Speed and each hazard's length, remembered (D267 (3), D268). */
@@ -412,23 +413,29 @@ export default function Editor(props: EditorProps) {
     const token = ++hazardToken.current;
     // the edit's journey gives way (its settled water still comes, and is kept quietly)
     player.current?.clear();
-    setHazardBar({ hazard: h, working: 0, days, player: null, marker: null, note: null });
+    // the strip from the start: its days become ready as they are worked out, and the view follows
+    // them to the last day unless the player picks one meanwhile (#124)
+    const dp = new DayPlayer(
+      {
+        day: (d) => api.hazardDay(d),
+        steps: (d) => api.hazardSteps(d),
+        show: (w, soil) => token === hazardToken.current && showHazardWater(w, soil),
+        changed: () => token === hazardToken.current && setPlayerTick((n) => n + 1),
+      },
+      days,
+      daySpeedRef.current,
+      { day: 0, water: mirror.current.mapWater },
+      0,
+    );
+    setHazardBar({ hazard: h, working: 0, days, player: dp, marker: null, note: null }, { change: null, startWater: null });
+    // (another hazard's day on screen: Day 0, the map's own water, until this one's days come)
+    if (mirror.current.hazardWater) showHazardWater(mirror.current.mapWater, mirror.current.soil);
     const at = infoRef.current.version;
-    void api.showHazard(h, days).then((sum) => {
+    void api.showHazard(h, days, token).then((sum) => {
       if (!mounted.current || token !== hazardToken.current || !hazardRef.current) return;
       if (!sum || sum.version !== at || at !== infoRef.current.version) return endHazardView();
-      const dp = new DayPlayer(
-        {
-          day: (d) => api.hazardDay(d),
-          steps: (d) => api.hazardSteps(d),
-          show: (w, soil) => token === hazardToken.current && showHazardWater(w, soil),
-          changed: () => token === hazardToken.current && setPlayerTick((n) => n + 1),
-        },
-        sum.days,
-        daySpeedRef.current,
-        { day: sum.days, water: sum.last.water },
-      );
-      showHazardWater(sum.last.water, sum.last.soil);
+      dp.setReady(sum.days);
+      if (!dp.touched) dp.jumpTo(sum.days);
       setHazardBar({ hazard: h, working: null, days, player: dp, marker: sum.marker, note: sum.note }, { change: sum.change, startWater: sum.startWater });
     });
   }
@@ -789,9 +796,15 @@ export default function Editor(props: EditorProps) {
             },
           });
         } else if (e.kind === "hazard") {
-          // how far the hazard has been worked out
+          // how far the hazard has been worked out: the days ready so far, the view following them
           const z = hazardRef.current;
-          if (z && z.bar.hazard === e.hazard && z.bar.working !== null && e.done < 1) setHazardBar({ ...z.bar, working: e.done });
+          if (!z || e.id !== hazardToken.current || z.bar.working === null) return;
+          const dp = z.bar.player;
+          if (dp && e.ready > dp.ready) {
+            dp.setReady(e.ready);
+            if (!dp.touched) dp.jumpTo(e.ready);
+          }
+          if (e.done < 1) setHazardBar({ ...z.bar, working: e.done });
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

@@ -4,7 +4,8 @@
 // is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets strength; a source is
 // always findable (its marker with a source picked on the shelf, and the sources feeding the water
 // under the pointer); a selected source's Delete makes its water recede; clean or bad belongs to
-// the source; the water flows on a stroke while it is painted, and its speed is the player's.
+// the source; the water flows on a stroke while it is painted, at the one brisk pace: no speed
+// control on the water bar (D268).
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -143,12 +144,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await idle(page);
   await expect.poll(async () => (await info(page)).history.at(-1)!.label).toBe("Remove a badwater source");
 
-  // the water's speed: normal by default, instant straight to the result
-  const speed = page.getByRole("combobox", { name: "Water speed" });
-  await expect(speed).toHaveValue("normal");
-  await speed.selectOption("instant");
-  await expect(speed).toHaveValue("instant");
-  await speed.selectOption("normal");
+  // no speed control on the water bar (D268: Speed is on the Drought and Badtide day strip alone)
+  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("combobox")).toHaveCount(0);
 
   // the water flows on a stroke while it is painted (D197): a Lower stroke out of the river, and
   // water in its channel before the button comes up

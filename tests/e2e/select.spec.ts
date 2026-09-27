@@ -23,7 +23,6 @@ async function refine(page: Page) {
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 }
 
 /** Dry land with room round it where the map (not a bar) takes the pointer. */

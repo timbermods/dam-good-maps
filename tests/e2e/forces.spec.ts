@@ -379,13 +379,18 @@ test("the camera moves only when the player moves it (D265): no Follow anywhere,
   expect([...views]).toEqual([v0]);
 });
 
-test("a force keeps its own pace whatever the water's speed (D266)", async ({ page }) => {
+test("a force keeps its own pace whatever the day strip's Speed (D266, D268)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");
   await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
   const timed = async (speed: string) => {
-    await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
+    // Speed lives on the Drought day strip (D268): set it there, then back to the map's own water
+    await bar.getByRole("button", { name: "Drought" }).click();
+    await bar.getByRole("group", { name: "Drought days" }).getByRole("combobox", { name: "Speed" }).selectOption(speed);
+    await bar.getByRole("button", { name: "Drought" }).click();
+    await expect(bar.getByRole("group", { name: "Drought days" })).toHaveCount(0);
     const t0 = Date.now();
     await clickTile(page, far[0], far[1]);
     await expect.poll(() => status(page), { timeout: 30_000, intervals: [20] }).toBeNull();
@@ -397,7 +402,7 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // the same moment either way (the water's speed is about the water only)
+  // the same moment either way (Speed is about the hazard's days only)
   expect(quick / slow).toBeGreaterThan(0.6);
   expect(quick / slow).toBeLessThan(1.6);
 });

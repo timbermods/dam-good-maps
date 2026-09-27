@@ -7,7 +7,8 @@
 //
 // The worker keeps each day's water and a few frames within it (worker/session.ts `showHazard`);
 // the player asks for them as it goes and blends between the frames, so a step is smooth at any
-// speed.
+// speed. While the hazard is still being worked out only the days ready so far can be shown
+// (`ready`); until the player picks a day the page follows the days as they come (`touched`).
 
 import type { SoilView, WaterView } from "../render3d/model";
 import { blendWater } from "./waterPlayer";
@@ -40,6 +41,10 @@ export class DayPlayer {
   playing = false;
   paused = false;
   speed: DaySpeed;
+  /** Days worked out so far (the last one ready to show). */
+  ready: number;
+  /** The player has moved the strip (a day, previous or next, play, skip). */
+  touched = false;
   /** Moves made; an older move's answers are dropped. */
   private move = 0;
   private timer: ReturnType<typeof setTimeout> | 0 = 0;
@@ -53,12 +58,28 @@ export class DayPlayer {
     private readonly host: DayHost,
     readonly days: number,
     speed: DaySpeed,
-    /** The day on screen when the strip opens (the last: the worst day), with its water. */
+    /** The day on screen when the strip opens, with its water. */
     shown: { day: number; water: WaterView },
+    ready = days,
   ) {
     this.day = shown.day;
     this.speed = speed;
     this.water = shown.water;
+    this.ready = ready;
+  }
+
+  /** More days are ready; a Play waiting for them carries on. */
+  setReady(n: number): void {
+    this.ready = Math.min(this.days, Math.max(this.ready, n));
+    if (this.playing && !this.paused && this.target === null && !this.timer) this.continuePlay();
+    this.host.changed();
+  }
+
+  /** Straight to a day, as the page follows the days being worked out (not the player's move). */
+  jumpTo(day: number): void {
+    day = Math.max(0, Math.min(this.ready, Math.round(day)));
+    if (day === this.day && this.target === null) return;
+    this.jump(day, ++this.move);
   }
 
   /** How far the step playing has come (0–1), or null. */
@@ -71,15 +92,17 @@ export class DayPlayer {
 
   /** Go to a day: the next one plays its water at the speed; any other goes straight there. */
   goTo(day: number): void {
-    day = Math.max(0, Math.min(this.days, Math.round(day)));
+    day = Math.max(0, Math.min(this.ready, Math.round(day)));
+    this.touched = true;
     this.playing = false;
     this.paused = false;
     this.moveTo(day);
   }
 
   next(): void {
-    if (this.target !== null) return this.goTo(this.target + 1);
-    this.goTo(this.day + 1);
+    const from = this.target ?? this.day;
+    if (from + 1 > this.ready) return;
+    this.goTo(from + 1);
   }
 
   prev(): void {
@@ -88,6 +111,7 @@ export class DayPlayer {
 
   /** Run through the days in order to the last (from Day 0 when on the last), or stop. */
   play(): void {
+    this.touched = true;
     if (this.playing) {
       this.playing = false;
       this.host.changed();
@@ -101,7 +125,8 @@ export class DayPlayer {
       this.moveTo(0);
       return;
     }
-    if (this.target === null) return this.moveTo(this.day + 1);
+    // (the next day still being worked out: Play waits for it)
+    if (this.target === null) return this.day < this.ready ? this.moveTo(this.day + 1) : this.host.changed();
     // a step under way carries on (held: from where it was held)
     if (held && this.step) {
       this.step.t0 = performance.now();
@@ -126,7 +151,8 @@ export class DayPlayer {
 
   /** Finish the step playing at once; while playing, straight to the last day. */
   skip(): void {
-    const to = this.playing ? this.days : this.target;
+    this.touched = true;
+    const to = this.playing ? this.ready : this.target;
     this.playing = false;
     this.paused = false;
     if (to === null) return;
@@ -171,8 +197,11 @@ export class DayPlayer {
     this.target = day;
     this.host.changed();
     void this.host.day(day).then((d) => {
-      if (m !== this.move || this.ended || !d) return;
-      this.arrive(day, d.water, d.soil);
+      if (m !== this.move || this.ended) return;
+      if (d) return this.arrive(day, d.water, d.soil);
+      // (not there: the day on screen stays)
+      this.target = null;
+      this.host.changed();
     });
   }
 
@@ -181,7 +210,12 @@ export class DayPlayer {
     this.target = day;
     this.host.changed();
     const [frames, d] = await Promise.all([this.host.steps(day), this.host.day(day)]);
-    if (m !== this.move || this.ended || !frames || !d) return;
+    if (m !== this.move || this.ended) return;
+    if (!frames || !d) {
+      this.target = null;
+      this.host.changed();
+      return;
+    }
     this.step = { frames: [this.water, ...frames.slice(0, -1), d.water], soil: d.soil, elapsed: 0, t0: performance.now() };
     if (!this.paused) this.tick();
   }
@@ -224,6 +258,8 @@ export class DayPlayer {
       this.host.changed();
       return;
     }
+    // (the next day is still being worked out: Play waits for it, `setReady`)
+    if (this.day >= this.ready) return;
     const m = this.move;
     const go = () => {
       if (m !== this.move || !this.playing || this.paused || this.ended) return;

@@ -970,9 +970,11 @@ they conflict):
      map, at one brisk pace (small edits settle nearby in a second or two; D197, D268); the journey
      with pause, skip and replay (no follow: the camera only moves when the player moves it, D265);
      the Drought and Badtide buttons, day by day since D267 (the worst day at once, a day strip with
-     play and Speed, the start's-water marker; an edit ends the hazard view, D269; the game's rules,
-     from `investigation/cycles`); moisture spreading as the land greens; optional sounds of our own. The
-     final water is always the game's settled result, at any speed.
+     play and Speed, a length of 1 to 30 days, the start's water highlighted and its marker, hovering
+     water says when it dries or turns bad; an edit ends the hazard view, D269; the game's rules,
+     from `investigation/cycles`; built on `feature/weather-days`, held for Kyler's sitting of its own);
+     moisture spreading as the land greens; optional sounds of our own. The final water is always the
+     game's settled result.
    - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
      Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
      (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,

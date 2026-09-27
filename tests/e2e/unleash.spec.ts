@@ -26,7 +26,6 @@ test("Unleash: a selected source carves its own course; Stop keeps it as one ste
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("faster");
 
   // a source on dry high ground far from the start, where the map (not a bar) takes the pointer,
   // with lower ground 12 to 20 tiles from it to aim at

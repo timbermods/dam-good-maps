@@ -112,8 +112,8 @@ const api = {
   /** A drought or a badtide of so many days on the map as it is (D267): its last day, the notes
    *  for its water and the start's marker (how far it has come: hazard events); null when an edit
    *  or another hazard came first. */
-  async showHazard(hazard: "drought" | "badtide", days: number, framesCap?: number) {
-    const r = await ed.showHazard(hazard, days, framesCap);
+  async showHazard(hazard: "drought" | "badtide", days: number, id?: number) {
+    const r = await ed.showHazard(hazard, days, { id });
     return r ? transfer(r, [r.change.buffer, r.startWater.buffer, ...dayBuffers(r.last)] as Transferable[]) : null;
   },
   /** A day of the hazard shown (0: the map as it is), or null once it has ended. */

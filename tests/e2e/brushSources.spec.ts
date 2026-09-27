@@ -44,7 +44,6 @@ test("brushes and sources (D249): they ride the ground; Clear sources takes them
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 
   // two dry, low spots far from the start, where the map (not a bar) takes the pointer, with room
   const spot = await page.evaluate(() => {

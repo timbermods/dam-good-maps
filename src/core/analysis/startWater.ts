@@ -124,3 +124,18 @@ export function badtideReaches(sw: StartWater, C: ArrayLike<number>, soilContami
   for (const i of sw.farmland) if (soilContamination[i] > 0) return "farmland";
   return null;
 }
+
+/** The day strip's marker on `day` (D267 (4)), or null: in a drought, the first day the start's
+ *  water is gone (`hadWater`: it had water a pump reaches on Day 0); in a badtide, the first day
+ *  badwater reaches the start's water or its farmland. */
+export function startMarker(hazard: "drought" | "badtide", sw: StartWater, hadWater: boolean, day: number, h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, soilContamination: ArrayLike<number>): string | null {
+  if (hazard === "drought") return hadWater && !startHasWater(sw, h, W, H, D, C) ? `Day ${day}: your start's water is gone` : null;
+  const reached = badtideReaches(sw, C, soilContamination);
+  return reached === "water" ? `Day ${day}: badwater reaches your start's water` : reached === "farmland" ? `Day ${day}: badwater reaches your start's farmland` : null;
+}
+
+/** The strip's words when no day is marked: the start's water lasts, or there was none to lose. */
+export function startNote(hazard: "drought" | "badtide", hadWater: boolean): string {
+  if (hazard === "drought") return hadWater ? "Your start's water lasts the drought" : "No water a pump reaches near your start";
+  return "Badwater doesn't reach your start";
+}
