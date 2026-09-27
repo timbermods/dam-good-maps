@@ -13,7 +13,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
-import { CREDITS_URL, fileNotices, PROVIDERS } from "../../src/core/places/attribution";
+import { CREDITS_URL, fileNotices, PROVIDERS, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
 import { decodeHeights, PLACE_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -258,6 +258,9 @@ describe("credits and the in-game description (docs/real-places-credits.md)", ()
     expect(fileNotices(-33.87, 151.2)).toEqual([]); // Sydney
     const verdicts = readFileSync("docs/real-places-credits.md", "utf8");
     for (const p of PROVIDERS) expect(verdicts, p.licence).toContain(p.licenceUrl);
+    // the water data (D271): its verdict and its notice, verbatim
+    expect(verdicts).toContain(WATER_LICENCE_URL);
+    expect(verdicts).toContain(WATER_NOTICE);
     expect(readFileSync("real-places/credits/index.html", "utf8")).toContain("/src/places/credits-main.tsx");
     expect(readFileSync("vite.config.ts", "utf8")).toContain("./real-places/credits/index.html");
   });
