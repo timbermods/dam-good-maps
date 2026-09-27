@@ -3,12 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D291), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D293), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your forty decisions since the restart are recorded (D252–D291, below) and in the living docs.
+Your forty-two decisions since the restart are recorded (D252–D293, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -19,18 +19,13 @@ Your forty decisions since the restart are recorded (D252–D291, below) and in 
    14 random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. The
    start planting is spread over the 20-tile walk (starts with a full ring within 10 tiles: 14 of 112 → 3). My honest read
    against PERFECT's "Maps" and "Water" follows here once the set exists. #90 (dead groves) waits for it.
-3. **A question for you, not urgent** (housekeeping's merge is answered: yours for it alone):
-   - **3D and the Python check** (D280): D280 keeps heightfield water's Python check exactly as today, but the game's full rules on
-     heightfields (D120) move every generated map's water in its last digits, so `prototype/watersim.py` would need the same change (in
-     practice one rule: evaporation on a dry tile that receives water) or the two stop agreeing bit for bit. Options: add that rule to the
-     Python check, or keep today's rules on heightfields and use the game's only under roofs. It only matters when the engine is wired in
-     (after the forces and M9b merge); until then heightfield water is unchanged.
-4. **Glaciate (#69), round 4 held for your look** (D291; f487591, CI green but one test job still running when checked):
-   - **The camera: met.** No follow, recenter or load reposition; the two-act GIF is from a fixed camera.
-   - **One river on the floor: not met.** Wet share is under 15% in your Canyon cases (default 11.8%, your cross-valley Aim 13.9%), but
-     the floor still has **6 separate wet passages** in the default Canyon case and **3** in the Aim (goal 1); random-3 is 16.4% wet.
-     Its report says so itself: long side joins, one-tile narrowings and several wet spans remain. Falls went up (7, 7, 3 on the heroes).
-   - Not merged. Your call: merge it as it is (the magic is there, the river isn't one yet), or another round.
+3. **A question for you, not urgent** (it matters only when the stacked engine is wired in): with the game's rules on heightfields
+   (D293), 29 of 30 generated maps keep every wet tile, but Highlands 128² seed 3 has a 5 cm sheet on flat ground that sits at 0.049
+   today and spreads to 0.054 / 0 under the game's rules: 94 tiles cross the 0.05 wet line (volume moves 0.02%). That fails the 3D
+   acceptance line "no wet tile differs" (ROADMAP, 3D step 1). Accept thin-sheet flips like this as the game's own result, or keep the
+   line and treat such maps as a finding to look at?
+4. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+   water led into one river.
 5. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
 6. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
@@ -349,6 +344,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D293: one water model everywhere, the game's: the Python check gets the game's evaporation rule when the stacked engine is wired in; heightfield water unchanged until then.
+- D292: Glaciate merged as it is (#69, 8ef9842); adopted on `feature/glaciate`, its floor's water led into one river, for your sitting.
 - D291: Glaciate's round 4 pre-approved: merged when its report shows one river on the floor (wet share under 15%, one wet passage) and no camera motion, with CI green; then adopted on its own branch from the forces, for your sitting.
 - D290: a badwater source on uneven ground cuts its 3×3 down to the lowest tile (a small spring pool) instead of refusing; refusals give one plain reason. On feature/forces.
 - D289: every force's row is Power, Size, at most one signature choice, Try another; Carve's Defy gravity and keep-carved button gone. On feature/forces.
@@ -453,7 +450,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D291.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D293.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
