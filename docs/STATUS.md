@@ -62,6 +62,14 @@ Your fifty-eight decisions since the restart are recorded (D252–D309, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
+   - **D304 and D305 are built on it** (65a56075, CI green): captures `docs/look/high/d304-water.jpg`, `d304-water-checks.jpg`,
+     `d305-ruins.jpg`. The far ruins now read as the same ruin (muted rust with a lattice; swap point and frame time unchanged).
+     **The water needs your eye:** it keeps the game's relationships (a small lightness span, near-constant hue) but sits about
+     15–18 L* lighter than your screenshot, because the game's own shades would fall too close to badwater's fixed darkness for the
+     colour-blind rule (D201). In greyscale, clean shallow water and 10% badwater now look almost alike (full badwater stays clearly
+     darker), and two readability tests were loosened to fit (badwater's blend step 6 → 12 L*, the shallow-over-badwater margin
+     0.3 → 0.15). Options: accept it; or darken clean water toward the game and darken badwater's floor too, so both keep their gap.
+     The badwater calibration drift was a measuring-tool bug (it measured High against Standard's targets), now fixed.
 8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
    on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
    Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
