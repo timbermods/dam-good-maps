@@ -11,7 +11,7 @@
     { "term": "resource brush", "retired": "D184", "instead": "trees and bushes from the left shelf" },
     { "term": "live shape tool", "retired": "D182", "instead": "the brushes" },
     { "term": "Terrace brush", "retired": "D184", "instead": "Flatten's \"in steps\" option" },
-    { "term": "Ramp brush", "retired": "D184", "instead": "Smooth's \"make walkable\" option" },
+    { "term": "Ramp brush", "retired": "D184", "instead": "the shelf's Slope and Flatten's ramped edges (D247)" },
     { "term": "Demolish tool", "retired": "D184", "instead": "Remove" },
     { "term": "Show dropdown", "retired": "D184", "instead": "the view buttons" },
     { "term": "Advanced checkbox", "retired": "D184", "instead": "smart defaults, with options hidden until wanted" },

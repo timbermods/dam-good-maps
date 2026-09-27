@@ -1,0 +1,1210 @@
+{
+  "date": "2026-09-27T03:20:36.025Z",
+  "browser": "153.0.8010.48",
+  "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+  "gpu": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "viewport": {
+    "width": 1440,
+    "height": 980
+  },
+  "maps": [
+    {
+      "index": 2,
+      "label": "riverValley · 128² · seed 4242",
+      "costs": {
+        "draws": [
+          72,
+          75
+        ],
+        "triangles": [
+          521786,
+          982058
+        ],
+        "vegetation": {
+          "plants": 3373,
+          "near": 0,
+          "far": 3373,
+          "triangles": 138594,
+          "draws": 7,
+          "lodMs": 1.0999999642372131
+        },
+        "ambient": {
+          "milliseconds": 21.69999998807907,
+          "trees": 1009,
+          "ruins": 874,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 2,
+          "particles": 10,
+          "rings": 9,
+          "bytes": 327680
+        },
+        "landmarks": {
+          "buildMs": 14.199999988079071,
+          "draws": 29,
+          "triangles": 826704,
+          "instances": 2959
+        },
+        "seasons": {
+          "dry": 9457,
+          "wet": 1133,
+          "contaminated": 165,
+          "bytes": 65536,
+          "buildMs": 0.19999998807907104
+        }
+      },
+      "runs": [
+        {
+          "name": "foundation",
+          "pass": 0,
+          "mode": "high",
+          "frames": 296,
+          "fps": 164.3440119926712,
+          "frameP95": 6.300000000000182,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage1",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89007328447704,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.2999999523162842,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage2",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494031,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            507454
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            true,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage3",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494031,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            982040
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage4",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89007328447713,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "standard",
+          "frames": 297,
+          "fps": 164.89007328447695,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.19999998807907104,
+          "completedRenderP95": 0.3999999761581421,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89007328447695,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            982058
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "both",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.5,
+          "completedRenderP95": 0.800000011920929,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            982058
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "foundation",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.299999999999272,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage1",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89922824940328,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage2",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89922824940294,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            507454
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            true,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage3",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89922824940294,
+          "frameP95": 6.200000000000728,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            982040
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage4",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "standard",
+          "frames": 297,
+          "fps": 164.89922824940328,
+          "frameP95": 6.200000000004366,
+          "completedRenderP50": 0.19999998807907104,
+          "completedRenderP95": 0.30000001192092896,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            507436
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            982058
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "both",
+          "frames": 297,
+          "fps": 164.89922824940328,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.5,
+          "completedRenderP95": 0.800000011920929,
+          "draws": [
+            72,
+            75
+          ],
+          "triangles": [
+            521786,
+            982058
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "drought-baseline",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            59,
+            61
+          ],
+          "triangles": [
+            518502,
+            978756
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "drought-finish",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8900732844766,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            59,
+            61
+          ],
+          "triangles": [
+            518502,
+            978756
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "lower-cost",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.200000000004366,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            72,
+            73
+          ],
+          "triangles": [
+            521786,
+            982040
+          ],
+          "size": [
+            591,
+            475
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": true
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "label": "riverValley · 256² · seed 4242",
+      "costs": {
+        "draws": [
+          133,
+          136
+        ],
+        "triangles": [
+          830537,
+          1443681
+        ],
+        "vegetation": {
+          "plants": 7154,
+          "near": 0,
+          "far": 7154,
+          "triangles": 291790,
+          "draws": 7,
+          "lodMs": 0.30000001192092896
+        },
+        "ambient": {
+          "milliseconds": 89.60000002384186,
+          "trees": 2006,
+          "ruins": 1235,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 4.699999988079071,
+          "particles": 29,
+          "rings": 21,
+          "bytes": 1310720
+        },
+        "landmarks": {
+          "buildMs": 14,
+          "draws": 30,
+          "triangles": 1112911,
+          "instances": 3987
+        },
+        "seasons": {
+          "dry": 51884,
+          "wet": 3894,
+          "contaminated": 1479,
+          "bytes": 262144,
+          "buildMs": 0.5999999642372131
+        }
+      },
+      "runs": [
+        {
+          "name": "foundation",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89922824940328,
+          "frameP95": 6.299999999995634,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage1",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.299999999995634,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.6000000238418579,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage2",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.91754122938585,
+          "frameP95": 6.200000000004366,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            807813
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            true,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage3",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            1443639
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage4",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "standard",
+          "frames": 297,
+          "fps": 164.91754122938585,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8900732844773,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            1443681
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 0,
+          "mode": "both",
+          "frames": 297,
+          "fps": 164.88091933603482,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.699999988079071,
+          "completedRenderP95": 1.100000023841858,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            1443681
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "foundation",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.93585827733685,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage1",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.6000000238418579,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            false,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage2",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.92669924477985,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            807813
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            true,
+            false,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage3",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            1443639
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "stage4",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "standard",
+          "frames": 297,
+          "fps": 164.89922824940393,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.30000001192092896,
+          "completedRenderP95": 0.5,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            807771
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            1443681
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "all",
+          "pass": 1,
+          "mode": "both",
+          "frames": 297,
+          "fps": 164.9083842309828,
+          "frameP95": 6.19999999999709,
+          "completedRenderP50": 0.699999988079071,
+          "completedRenderP95": 1.0999999642372131,
+          "draws": [
+            133,
+            136
+          ],
+          "triangles": [
+            830537,
+            1443681
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "drought-baseline",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.2000000000116415,
+          "completedRenderP50": 0.3999999761581421,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            114,
+            116
+          ],
+          "triangles": [
+            819881,
+            1432983
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "low": false
+        },
+        {
+          "name": "drought-finish",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.8992282494026,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            114,
+            116
+          ],
+          "triangles": [
+            819881,
+            1432983
+          ],
+          "size": [
+            696,
+            559
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": false
+        },
+        {
+          "name": "lower-cost",
+          "mode": "high",
+          "frames": 297,
+          "fps": 164.89922824940393,
+          "frameP95": 6.30000000000291,
+          "completedRenderP50": 0.40000003576278687,
+          "completedRenderP95": 0.699999988079071,
+          "draws": [
+            133,
+            134
+          ],
+          "triangles": [
+            830537,
+            1443639
+          ],
+          "size": [
+            591,
+            475
+          ],
+          "stages": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "low": true
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

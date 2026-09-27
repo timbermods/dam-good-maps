@@ -600,6 +600,7 @@ Tests updated to D245 (D148), none weakened; the absolutes stay blocking:
   comparison still checks both validators check by check; its pass expectation allows the
   playability checks (was: every sample place passes everything).
 - `places.spec.ts`: new, a card lists its notes, and a card without any shows none.
-- `randomOps.ts` (from `dev`, the nightly's property test): the random edits now include a short
-  Carve run, so the sweep finds every operation in LOG_OPS (`carve` joined it with Live editing; the
-  nightly failed on #35 without it).
+- `randomOps.ts` (from `dev`, the nightly's property test): the random edits lacked a Carve run, so
+  its sweep never found `carve` (in LOG_OPS since Live editing) and the nightly failed on #35. This
+  branch drew one first; `dev` fixed it the same way (its `randomCarve`), which this branch took at
+  the merge.

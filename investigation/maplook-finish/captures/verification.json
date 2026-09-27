@@ -1,0 +1,1640 @@
+{
+  "browser": "153.0.8010.48",
+  "gpu": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "parity": {
+    "channels": 1556256,
+    "rightChannels": 1556256,
+    "different": 0,
+    "max": 0
+  },
+  "toggles": [
+    {
+      "key": "geology",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 705979,
+        "max": 46,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "soil",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 55791,
+        "max": 140,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "section",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 7779,
+        "max": 64,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "crown",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 114201,
+        "max": 188,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "landing",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 48719,
+        "max": 19,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "bubbles",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 18,
+        "max": 1,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 18,
+        "max": 1,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 113575,
+        "max": 127,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "mist",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 15362,
+        "max": 16,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "rings",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 7717,
+        "max": 10,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "riverfoam",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 87384,
+        "max": 51,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "ruins",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 97483,
+        "max": 182,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "mine",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 246832,
+        "max": 164,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "relics",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 91417,
+        "max": 151,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "start",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 272719,
+        "max": 212,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "geothermal",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 206287,
+        "max": 221,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "thorns",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 80180,
+        "max": 212,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "slopes",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 165033,
+        "max": 82,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "dams",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 120609,
+        "max": 174,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "blocks",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 98486,
+        "max": 150,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "sources",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 66529,
+        "max": 204,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "objectdetail",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 30227,
+        "max": 151,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "dry",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 46992,
+        "max": 72,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "heat",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 21212,
+        "max": 40,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "plants",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 3145,
+        "max": 60,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "sickly",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 420380,
+        "max": 11,
+        "channels": 1556256
+      }
+    },
+    {
+      "key": "poison",
+      "standardNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "highNeutral": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "standard": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "restored": {
+        "count": 0,
+        "max": 0,
+        "channels": 1556256
+      },
+      "effect": {
+        "count": 347735,
+        "max": 118,
+        "channels": 1556256
+      }
+    }
+  ],
+  "maps": [
+    {
+      "label": "riverValley · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 4577,
+      "counts": {
+        "draws": [
+          72,
+          75
+        ],
+        "triangles": [
+          521786,
+          977998
+        ],
+        "vegetation": {
+          "plants": 3373,
+          "near": 0,
+          "far": 3373,
+          "triangles": 138594,
+          "draws": 7,
+          "lodMs": 1.399999976158142,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 21.899999976158142,
+          "trees": 1009,
+          "ruins": 874,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 4.800000011920929,
+          "particles": 10,
+          "rings": 9,
+          "bytes": 327680,
+          "rough": {
+            "falls": 27,
+            "rapids": 9,
+            "obstacles": 0,
+            "wet": 1132
+          }
+        },
+        "landmarks": {
+          "buildMs": 17.30000001192093,
+          "draws": 29,
+          "triangles": 822644,
+          "instances": 2959
+        },
+        "seasons": {
+          "dry": 9457,
+          "wet": 1133,
+          "contaminated": 165,
+          "bytes": 65536,
+          "buildMs": 0.699999988079071
+        }
+      }
+    },
+    {
+      "label": "riverValley · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8939,
+      "counts": {
+        "draws": [
+          133,
+          136
+        ],
+        "triangles": [
+          830537,
+          1437909
+        ],
+        "vegetation": {
+          "plants": 7154,
+          "near": 0,
+          "far": 7154,
+          "triangles": 291790,
+          "draws": 7,
+          "lodMs": 1.800000011920929,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 94.30000001192093,
+          "trees": 2006,
+          "ruins": 1235,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 17.400000035762787,
+          "particles": 29,
+          "rings": 21,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 64,
+            "rapids": 98,
+            "obstacles": 18,
+            "wet": 3894
+          }
+        },
+        "landmarks": {
+          "buildMs": 14.599999964237213,
+          "draws": 30,
+          "triangles": 1107139,
+          "instances": 3987
+        },
+        "seasons": {
+          "dry": 51884,
+          "wet": 3894,
+          "contaminated": 1479,
+          "bytes": 262144,
+          "buildMs": 2.599999964237213
+        }
+      }
+    },
+    {
+      "label": "canyon · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 4594,
+      "counts": {
+        "draws": [
+          79,
+          82
+        ],
+        "triangles": [
+          514046,
+          914108
+        ],
+        "vegetation": {
+          "plants": 3406,
+          "near": 0,
+          "far": 3406,
+          "triangles": 146888,
+          "draws": 7,
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 21.69999998807907,
+          "trees": 404,
+          "ruins": 939,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 5.300000011920929,
+          "particles": 26,
+          "rings": 16,
+          "bytes": 327680,
+          "rough": {
+            "falls": 67,
+            "rapids": 32,
+            "obstacles": 0,
+            "wet": 654
+          }
+        },
+        "landmarks": {
+          "buildMs": 9,
+          "draws": 28,
+          "triangles": 753716,
+          "instances": 2855
+        },
+        "seasons": {
+          "dry": 13747,
+          "wet": 654,
+          "contaminated": 79,
+          "bytes": 65536,
+          "buildMs": 0.19999998807907104
+        }
+      }
+    },
+    {
+      "label": "canyon · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8913,
+      "counts": {
+        "draws": [
+          144,
+          147
+        ],
+        "triangles": [
+          838345,
+          1378303
+        ],
+        "vegetation": {
+          "plants": 7163,
+          "near": 0,
+          "far": 7163,
+          "triangles": 313334,
+          "draws": 7,
+          "lodMs": 0.6000000238418579,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 83.29999995231628,
+          "trees": 592,
+          "ruins": 1266,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 10.299999952316284,
+          "particles": 46,
+          "rings": 38,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 132,
+            "rapids": 0,
+            "obstacles": 0,
+            "wet": 2789
+          }
+        },
+        "landmarks": {
+          "buildMs": 12.100000023841858,
+          "draws": 29,
+          "triangles": 1035119,
+          "instances": 3908
+        },
+        "seasons": {
+          "dry": 59465,
+          "wet": 2789,
+          "contaminated": 751,
+          "bytes": 262144,
+          "buildMs": 0.5
+        }
+      }
+    },
+    {
+      "label": "highlands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 4429,
+      "counts": {
+        "draws": [
+          111,
+          114
+        ],
+        "triangles": [
+          457635,
+          850745
+        ],
+        "vegetation": {
+          "plants": 3318,
+          "near": 0,
+          "far": 3318,
+          "triangles": 136680,
+          "draws": 7,
+          "lodMs": 0.09999996423721313,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 19.400000035762787,
+          "trees": 1009,
+          "ruins": 712,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 3.699999988079071,
+          "particles": 37,
+          "rings": 28,
+          "bytes": 327680,
+          "rough": {
+            "falls": 105,
+            "rapids": 26,
+            "obstacles": 0,
+            "wet": 1554
+          }
+        },
+        "landmarks": {
+          "buildMs": 15.399999976158142,
+          "draws": 49,
+          "triangles": 688761,
+          "instances": 2331
+        },
+        "seasons": {
+          "dry": 7628,
+          "wet": 1555,
+          "contaminated": 212,
+          "bytes": 65536,
+          "buildMs": 0.20000004768371582
+        }
+      }
+    },
+    {
+      "label": "highlands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8903,
+      "counts": {
+        "draws": [
+          173,
+          176
+        ],
+        "triangles": [
+          839199,
+          1398139
+        ],
+        "vegetation": {
+          "plants": 7129,
+          "near": 0,
+          "far": 7129,
+          "triangles": 290098,
+          "draws": 7,
+          "lodMs": 0.800000011920929,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 85,
+          "trees": 2126,
+          "ruins": 1217,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 12.699999988079071,
+          "particles": 70,
+          "rings": 59,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 177,
+            "rapids": 51,
+            "obstacles": 14,
+            "wet": 4626
+          }
+        },
+        "landmarks": {
+          "buildMs": 13.199999988079071,
+          "draws": 30,
+          "triangles": 1057857,
+          "instances": 3948
+        },
+        "seasons": {
+          "dry": 45316,
+          "wet": 4758,
+          "contaminated": 730,
+          "bytes": 262144,
+          "buildMs": 0.5
+        }
+      }
+    },
+    {
+      "label": "lakeBasin · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 4460,
+      "counts": {
+        "draws": [
+          80,
+          83
+        ],
+        "triangles": [
+          482806,
+          849452
+        ],
+        "vegetation": {
+          "plants": 3406,
+          "near": 0,
+          "far": 3406,
+          "triangles": 138856,
+          "draws": 7,
+          "lodMs": 0.30000001192092896,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 21,
+          "trees": 936,
+          "ruins": 829,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 3.199999988079071,
+          "particles": 29,
+          "rings": 22,
+          "bytes": 327680,
+          "rough": {
+            "falls": 74,
+            "rapids": 956,
+            "obstacles": 42,
+            "wet": 4040
+          }
+        },
+        "landmarks": {
+          "buildMs": 10.300000011920929,
+          "draws": 29,
+          "triangles": 688996,
+          "instances": 2588
+        },
+        "seasons": {
+          "dry": 7743,
+          "wet": 4040,
+          "contaminated": 97,
+          "bytes": 65536,
+          "buildMs": 0.3999999761581421
+        }
+      }
+    },
+    {
+      "label": "lakeBasin · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8888,
+      "counts": {
+        "draws": [
+          181,
+          184
+        ],
+        "triangles": [
+          840399,
+          1391493
+        ],
+        "vegetation": {
+          "plants": 7168,
+          "near": 0,
+          "far": 7168,
+          "triangles": 294664,
+          "draws": 7,
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 83.5,
+          "trees": 1819,
+          "ruins": 1227,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 10.099999964237213,
+          "particles": 68,
+          "rings": 51,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 178,
+            "rapids": 3007,
+            "obstacles": 162,
+            "wet": 9176
+          }
+        },
+        "landmarks": {
+          "buildMs": 10.400000035762787,
+          "draws": 30,
+          "triangles": 1047815,
+          "instances": 3941
+        },
+        "seasons": {
+          "dry": 47755,
+          "wet": 9177,
+          "contaminated": 1597,
+          "bytes": 262144,
+          "buildMs": 0.5
+        }
+      }
+    },
+    {
+      "label": "delta · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 4517,
+      "counts": {
+        "draws": [
+          69,
+          72
+        ],
+        "triangles": [
+          504168,
+          903304
+        ],
+        "vegetation": {
+          "plants": 3423,
+          "near": 0,
+          "far": 3423,
+          "triangles": 142416,
+          "draws": 7,
+          "lodMs": 0.5,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 22,
+          "trees": 716,
+          "ruins": 894,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 2.900000035762787,
+          "particles": 15,
+          "rings": 9,
+          "bytes": 327680,
+          "rough": {
+            "falls": 35,
+            "rapids": 0,
+            "obstacles": 7,
+            "wet": 1560
+          }
+        },
+        "landmarks": {
+          "buildMs": 10.100000023841858,
+          "draws": 28,
+          "triangles": 744808,
+          "instances": 2825
+        },
+        "seasons": {
+          "dry": 10745,
+          "wet": 1560,
+          "contaminated": 451,
+          "bytes": 65536,
+          "buildMs": 0.09999996423721313
+        }
+      }
+    },
+    {
+      "label": "delta · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8942,
+      "counts": {
+        "draws": [
+          148,
+          151
+        ],
+        "triangles": [
+          828389,
+          1375097
+        ],
+        "vegetation": {
+          "plants": 7118,
+          "near": 0,
+          "far": 7118,
+          "triangles": 294334,
+          "draws": 7,
+          "lodMs": 1.100000023841858,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 74.80000001192093,
+          "trees": 1688,
+          "ruins": 1289,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 9.899999976158142,
+          "particles": 17,
+          "rings": 10,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 49,
+            "rapids": 257,
+            "obstacles": 8,
+            "wet": 4223
+          }
+        },
+        "landmarks": {
+          "buildMs": 10.300000011920929,
+          "draws": 29,
+          "triangles": 1038923,
+          "instances": 3924
+        },
+        "seasons": {
+          "dry": 53549,
+          "wet": 4234,
+          "contaminated": 1688,
+          "bytes": 262144,
+          "buildMs": 0.40000003576278687
+        }
+      }
+    },
+    {
+      "label": "islands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "entities": 3718,
+      "counts": {
+        "draws": [
+          83,
+          86
+        ],
+        "triangles": [
+          361618,
+          605924
+        ],
+        "vegetation": {
+          "plants": 3001,
+          "near": 0,
+          "far": 3001,
+          "triangles": 118800,
+          "draws": 7,
+          "lodMs": 0.3999999761581421,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 23.400000035762787,
+          "trees": 1009,
+          "ruins": 526,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 5.600000023841858,
+          "particles": 43,
+          "rings": 37,
+          "bytes": 327680,
+          "rough": {
+            "falls": 90,
+            "rapids": 1056,
+            "obstacles": 18,
+            "wet": 5434
+          }
+        },
+        "landmarks": {
+          "buildMs": 11,
+          "draws": 29,
+          "triangles": 460522,
+          "instances": 1716
+        },
+        "seasons": {
+          "dry": 6128,
+          "wet": 5434,
+          "contaminated": 151,
+          "bytes": 65536,
+          "buildMs": 0.19999998807907104
+        }
+      }
+    },
+    {
+      "label": "islands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "entities": 8880,
+      "counts": {
+        "draws": [
+          166,
+          169
+        ],
+        "triangles": [
+          870669,
+          1414829
+        ],
+        "vegetation": {
+          "plants": 7193,
+          "near": 0,
+          "far": 7193,
+          "triangles": 291266,
+          "draws": 7,
+          "lodMs": 0.8999999761581421,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 89.19999998807907,
+          "trees": 2126,
+          "ruins": 1238,
+          "bytes": 262144
+        },
+        "water": {
+          "buildMs": 19.19999998807907,
+          "particles": 92,
+          "rings": 70,
+          "bytes": 1310720,
+          "rough": {
+            "falls": 318,
+            "rapids": 5148,
+            "obstacles": 135,
+            "wet": 15520
+          }
+        },
+        "landmarks": {
+          "buildMs": 14.399999976158142,
+          "draws": 30,
+          "triangles": 1040525,
+          "instances": 3913
+        },
+        "seasons": {
+          "dry": 39253,
+          "wet": 15584,
+          "contaminated": 375,
+          "bytes": 262144,
+          "buildMs": 1.5
+        }
+      }
+    },
+    {
+      "label": "near-victoria-falls",
+      "W": 128,
+      "H": 128,
+      "entities": 2294,
+      "counts": {
+        "draws": [
+          92,
+          95
+        ],
+        "triangles": [
+          234144,
+          345532
+        ],
+        "vegetation": {
+          "plants": 1890,
+          "near": 0,
+          "far": 1890,
+          "triangles": 79040,
+          "draws": 5,
+          "lodMs": 0.09999996423721313,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 34.80000001192093,
+          "trees": 696,
+          "ruins": 395,
+          "bytes": 65536
+        },
+        "water": {
+          "buildMs": 5.099999964237213,
+          "particles": 38,
+          "rings": 28,
+          "bytes": 327680,
+          "rough": {
+            "falls": 107,
+            "rapids": 1143,
+            "obstacles": 245,
+            "wet": 6729
+          }
+        },
+        "landmarks": {
+          "buildMs": 4.900000035762787,
+          "draws": 6,
+          "triangles": 215780,
+          "instances": 799
+        },
+        "seasons": {
+          "dry": 2645,
+          "wet": 8121,
+          "contaminated": 0,
+          "bytes": 65536,
+          "buildMs": 1.5
+        }
+      }
+    },
+    {
+      "label": "near-yosemite-valley",
+      "W": 96,
+      "H": 96,
+      "entities": 1604,
+      "counts": {
+        "draws": [
+          55,
+          58
+        ],
+        "triangles": [
+          167956,
+          235742
+        ],
+        "vegetation": {
+          "plants": 1360,
+          "near": 0,
+          "far": 1360,
+          "triangles": 57100,
+          "draws": 5,
+          "lodMs": 0,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 13.5,
+          "trees": 486,
+          "ruins": 235,
+          "bytes": 36864
+        },
+        "water": {
+          "buildMs": 1.899999976158142,
+          "particles": 93,
+          "rings": 67,
+          "bytes": 184320,
+          "rough": {
+            "falls": 421,
+            "rapids": 601,
+            "obstacles": 63,
+            "wet": 2776
+          }
+        },
+        "landmarks": {
+          "buildMs": 3.800000011920929,
+          "draws": 6,
+          "triangles": 130580,
+          "instances": 479
+        },
+        "seasons": {
+          "dry": 3601,
+          "wet": 2864,
+          "contaminated": 0,
+          "bytes": 36864,
+          "buildMs": 0.19999998807907104
+        }
+      }
+    },
+    {
+      "label": "near-danube-delta",
+      "W": 96,
+      "H": 96,
+      "entities": 1620,
+      "counts": {
+        "draws": [
+          47,
+          50
+        ],
+        "triangles": [
+          164860,
+          237142
+        ],
+        "vegetation": {
+          "plants": 1360,
+          "near": 0,
+          "far": 1360,
+          "triangles": 57100,
+          "draws": 5,
+          "lodMs": 0.19999998807907104,
+          "drought": {
+            "dry": 0,
+            "dying": 0,
+            "killed": 0
+          }
+        },
+        "ambient": {
+          "milliseconds": 11.5,
+          "trees": 486,
+          "ruins": 251,
+          "bytes": 36864
+        },
+        "water": {
+          "buildMs": 4.399999976158142,
+          "particles": 16,
+          "rings": 11,
+          "bytes": 184320,
+          "rough": {
+            "falls": 232,
+            "rapids": 1400,
+            "obstacles": 541,
+            "wet": 4215
+          }
+        },
+        "landmarks": {
+          "buildMs": 5.099999964237213,
+          "draws": 6,
+          "triangles": 139064,
+          "instances": 511
+        },
+        "seasons": {
+          "dry": 2013,
+          "wet": 4372,
+          "contaminated": 0,
+          "bytes": 36864,
+          "buildMs": 0.19999998807907104
+        }
+      }
+    }
+  ],
+  "camera": [
+    {
+      "side": "standard",
+      "synced": true
+    },
+    {
+      "side": "high",
+      "synced": true
+    }
+  ],
+  "weather": {
+    "original": {
+      "depth": 717.5508566666394,
+      "bad": 165,
+      "soil": 963314
+    },
+    "restored": {
+      "depth": 717.5508566666394,
+      "bad": 165,
+      "soil": 963314
+    }
+  },
+  "errors": []
+}

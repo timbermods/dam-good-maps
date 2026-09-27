@@ -952,9 +952,9 @@ they conflict):
    Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
    another); built from `investigation/craterize` (#51, ready, D216). A small row
    beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
-   only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines,
-   level lines. Flatten has "in steps" (terraces); Smooth has "make walkable" (the game's natural slopes;
-   the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
+   only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines (level lines moved
+   to the view buttons, D248). Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
+   puts the shelf's Slope (D247 removed Smooth's walkable option; the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
    slot. Pen pressure sets strength on a drawing tablet.
    Hold to dig (D193): in precise mode, holding Lower or Raise keeps working a level at a time,
    with an optional "stop at" level (a faint plane, a pulse on arrival); never below the map's bottom
@@ -973,6 +973,10 @@ they conflict):
      Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
+   - **Glaciate** (D246), after the forces round 2: a fifth force that turns a valley into a glacial valley (a level floor
+     between steep walls, a chain of lakes, hanging valleys, moraines and an outwash plain); Flow or Aim, Power, Size,
+     Meltwater, Try another; about five seconds in two acts. Codex's `investigation/glaciate` is held until Kyler has tried
+     its demo, then adopted onto the shared forces core.
    - **One height ceiling** (D244): after an in-game probe check of editor-made tall maps, every tool can raise land to
      D172's tall maximum on any map; a map above 16 becomes tall, and standard again at 16 or below; built with Unleash,
      on the preview, not released until Kyler has tried it.
@@ -1011,7 +1015,7 @@ they conflict):
    forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
    trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
-4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Markers, and the overlays
+4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Level lines (D248), Markers, and the overlays
    (moisture, contamination, drought). The legend appears only while an overlay is on.
    Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
    that hides everything above the level, the layer pick, and tools that act on the visible land.
@@ -1501,10 +1505,12 @@ made smaller by Kyler the same day).
 
 **Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
 `investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
-into High here, with #38's water and soft shadows. Phase 3, "finish the world" (`investigation/maplook-finish`: the
+into High here, with #38's water and soft shadows. Phase 3, "finish the world" (#67, `investigation/maplook-finish`: the
 diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
-visible seasons for drought and badtide), is merged as proposals only; nothing from it is adopted until Kyler has
-reviewed its stages (D243).
+visible seasons for drought and badtide, the High poisoned soil), is approved too (D250) and adopted here, following its
+INTEGRATION.md, with two additions: in a badtide, plants on contaminated ground wither as plants on dry ground do in a
+drought (by the ground's own contamination); and every stage's cost measured on this machine's RTX 2070 SUPER on dense
+256² maps, orbiting and painting, with which effects the lower-cost mode drops.
 
 **Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
 pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
@@ -1838,7 +1844,7 @@ background start after generation, caching under the full input hash, cancellabl
 ## M10. Symmetry, and the brushes' extras
 
 The brushes are largely done: Live editing brought them forward from M10 (D158, D182, D184).
-Raise, Lower (smart near water), Flatten ("in steps"), Smooth ("make walkable") and Naturalize,
+Raise, Lower (smart near water), Flatten ("in steps", Ramped edges), Smooth and Naturalize,
 circle and square shapes, precise mode, straight lines, level lines, pen pressure and the Select
 tool are built there, and 3D-a moves them onto runs. M10 adds symmetry, live and brush-first (D179,
 D182), and the extras the brushes still lack.

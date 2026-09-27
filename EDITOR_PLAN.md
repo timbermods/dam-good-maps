@@ -61,7 +61,8 @@ editor is desktop-first (D185).
   have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
   is one undo step, and Remove erases the same way. Unique landmarks stay single-placement: the start, the mine site,
   relics and geothermal fields.
-- **The view buttons:** Orbit, Top-down, Reset view, Height colours, Markers, Clear water and the
+- **The view buttons:** Orbit, Top-down, Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin
+  line wherever the ground steps down a level, off by default, whatever tool is picked), Markers, Clear water and the
   overlays (moisture, contamination, drought). The legend appears only while an overlay is on.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
@@ -90,9 +91,13 @@ editor is desktop-first (D185).
 
 ## 4. Shaping the land
 
-- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"); Ramp is a Smooth
-  option ("make walkable": the game's natural slopes). Pen pressure on drawing tablets.
-- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines, exact
+- **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
+  slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
+  preview, released with the forces). Pen pressure on drawing tablets. **Clear sources** (D249): one toggle in the options
+  row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
+  in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
+  the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
+- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
   (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
   length, the level while flattening).
@@ -127,8 +132,17 @@ editor is desktop-first (D185).
   headroom it has: near the height ceiling it grows broader rather than taller, never flat-topped;
   overlapping eruptions build new cones on the flanks; an eruption always completes, as in the demo
   Kyler approved (D226). Prototyped on `investigation/erupt` (#50, ready: D216).
+- **Glaciate, a force of nature** (D246; after the forces round 2, once Kyler has tried Codex's demo): it turns a valley
+  that's already there into a glacial valley: a broad, level floor between steep walls; basins that dip below their own
+  outlet, a chain of lakes; hanging side valleys with waterfalls; moraines and an outwash plain from the material it cut.
+  "Carve gives you water; Glaciate gives you land." **Flow** (click high ground, and it follows the valleys) or **Aim**
+  (drag, and it grinds through ridges into a pass); **Power**; **Size** (Auto, D226); **Meltwater** (on by default); **Try
+  another**; nothing more without Kyler's say. Two acts, about five seconds: the ice advances, then melts back and reveals
+  the valley as its lakes fill. It refuses to run over the start, respects the height ceiling (D244), and keeps and feeds
+  its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
 - **Remove:** click one object or drag to remove many; filters; a red highlight on hover. It never
-  changes terrain, and it refuses removals that would break a rule (such as deleting the start).
+  changes terrain, and it refuses removals that would break a rule (such as deleting the start). A drag that starts on a
+  source (within its targeting range) takes only the sources in its rectangle, whatever the filters say (D249).
 - **Heights:** up to 16, or 22 on tall maps (D172); the game's own editor edits up to 16. **Decided (D244), being
   checked in game before it's built:** one ceiling on every map, D172's tall maximum, for the brushes, the forces and
   Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
@@ -152,7 +166,10 @@ Make a valley, drop a source, and there's a river.
   strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
-  with its strength; Markers shows every source (D196).
+  with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
+  pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
+  another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
+  receding live.
 - **Unleash, on a source** (D239; with or right after the forces round 2): select a placed water or badwater source and a
   small **Unleash** action sits beside it, next to its strength (or press U). It makes that source carve its own course
   downhill with Carve's engine (momentum, wander, waterfalls, the carving moment); from a pool or lake it breaks out where
@@ -362,7 +379,7 @@ never rises along the stroke, so the replay carves the same bed. A stroke also r
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
 keeps (a precise hold's objects; the footprints a Flatten's rim would leave on a step, D204),
 Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges, Smooth's make walkable, and a pen's pressure per dab. A source's strength changed in
+edges, Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
 steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Remove is `deleteEntities`, with `removeSlope` for the slopes the
@@ -725,7 +742,7 @@ These were planned or built before Kyler's current decisions. They must not come
 | The river tool (clicked or drawn from source to outlet, its start and end rules, Natural or exact, width, depth and strength) and the lake tool (basin, rim and sill, click-fill) | D184: smart Lower and Source; lakes, falls, joins and branches emerge |
 | The Channel tool; separate plant brushes (forest, berry) | D184: smart Lower; trees and bushes from the shelf, click one or drag many |
 | The name Demolish | D184: Remove |
-| Terrace and Ramp as separate brushes | D184: Flatten "in steps", Smooth "make walkable" |
+| Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |
 | The legend always beside the map | D184: only while an overlay is on |
