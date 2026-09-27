@@ -3,13 +3,16 @@
 // Power, or set by hand), Steep or Terraced walls, its centre, Light or Heavy debris and Rays; Erupt's
 // Vent or Fissure, Power, Size (its breadth: following Power, or set by hand), Steep or Broad, its
 // summit, Light or Heavy flows and Ridges; Quake's Lift or Slide, Power (its drawn line sets its length),
-// Sheer or Stepped scarp and the side that moves (X flips it). Try another once one is kept. While a
-// force is at work its row is its status and Revert (Esc). Carve's row is its own (CarveRow.tsx).
+// Sheer or Stepped scarp and the side that moves (X flips it); Glaciate's Power, Size and Meltwater
+// alone (D289: a click Flows, a drag Aims, so it needs no mode switch; everything else is the land's
+// and the seed's). Try another once one is kept. While a force is at work its row is its status and
+// Revert (Esc). Carve's row is its own (CarveRow.tsx).
 // Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
 import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
+import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
 import { ForceOptions, SizeControl, Toggle, type Force } from "./TopBar";
 
@@ -46,15 +49,25 @@ export interface QuakeUi {
 }
 export const DEFAULT_QUAKE: QuakeUi = { mode: QUAKE_DEFAULTS.mode, power: QUAKE_DEFAULTS.power, scarp: QUAKE_DEFAULTS.scarp, side: 1 };
 
+export interface GlaciateUi {
+  power: number;
+  /** The trough's width in tiles, or null: it follows Power (D226). */
+  size: number | null;
+  meltwater: boolean;
+}
+export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater };
+
 /** A new series' settings (its first personality: the prototypes' own default seeds). */
 export const craterSettingsOf = (u: CraterUi): CraterSettings => ({ ...u, seed: CRATER_DEFAULTS.seed });
 export const eruptSettingsOf = (u: EruptUi): EruptSettings => ({ ...u, seed: ERUPT_DEFAULTS.seed });
 export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed });
+/** (A glacier's mode is its gesture's: the worker sets it, D258.) */
+export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, seed: GLACIATE_DEFAULTS.seed });
 
 /** A force at work: what it is doing, and Revert (Esc). */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : st.painting ? "Paint the fault; let go to keep it" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it" : "The ground is moving…";
   return (
     <div class="map-bar options-row" role="group" aria-label={`${p.force.name} at work`}>
       <div class="bar-group">
@@ -69,7 +82,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   );
 }
 
-function Power(p: { verb: "craterize" | "erupt" | "quake"; value: number; onChange(v: number): void; title: string }) {
+function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
     <label class="slider-field" title={p.title}>
@@ -234,6 +247,30 @@ export function QuakeRow(p: RowProps<QuakeUi>) {
         ]}
       />
       <Again show={p.canAgain} onAgain={p.onAgain} what="quake" />
+    </ForceOptions>
+  );
+}
+
+/** Glaciate's row (D289): Power, Size, Meltwater and Try another; nothing else. */
+export function GlaciateRow(p: RowProps<GlaciateUi>) {
+  const u = p.ui;
+  const set = (patch: Partial<GlaciateUi>) => p.onUi({ ...u, ...patch });
+  const size = u.size ?? glacierSize(u);
+  return (
+    <ForceOptions force={p.force}>
+      <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice: a deeper, longer valley" />
+      <SizeControl
+        label="Size"
+        title="The valley's width, in tiles (Auto: the width Power gives)"
+        value={Math.round(size / 2) * 2}
+        min={GLACIATE_SIZE_MIN}
+        max={GLACIATE_SIZE_MAX}
+        step={2}
+        onChange={(v) => set({ size: v })}
+        auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
+      />
+      <Toggle label="Meltwater" title="Springs feed its river, its falls and its lakes; off, the valley is left dry" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} />
+      <Again show={p.canAgain} onAgain={p.onAgain} what="glacier" />
     </ForceOptions>
   );
 }

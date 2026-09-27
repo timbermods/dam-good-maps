@@ -143,12 +143,15 @@ describe("the force driver", () => {
     expect(h.log).toContain("error:Start here");
   });
 
-  it("keeps a force's own pace whatever the water's speed (D266): a carve at twice its ten steps a second, an eruption over about four seconds", () => {
+  it("keeps a force's own pace whatever the water's speed (D266): a carve at twice its ten steps a second, an eruption over about four seconds, a glacier over five", () => {
     expect((CARVE_PACE.steps * 1000) / CARVE_PACE.ms).toBe(20);
     expect(paceOf("craterize")).toEqual(CARVE_PACE);
     expect(paceOf("quake")).toEqual(CARVE_PACE);
     // (an eruption's 28 stages over about four seconds)
     expect((28 * paceOf("erupt").ms) / 1000).toBeCloseTo(3.9, 1);
+    // (a glacier's 30 stages of advance and 20 of retreat: three seconds and two, D246)
+    expect((50 * paceOf("glaciate").ms) / 1000).toBeCloseTo(5, 1);
+    expect([0, 30, 60, 90].map((p) => forcePowerWord("glaciate", p))).toEqual(["Cirque", "Glacier", "Great glacier", "Ice age"]);
     expect([0, 30, 60, 90].map(powerWord)).toEqual(["Creek", "Torrent", "River", "Catastrophe"]);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("craterize", p))).toEqual(["Pebble", "Meteor", "Asteroid", "Cataclysm"]);
   });

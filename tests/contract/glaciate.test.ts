@@ -19,6 +19,10 @@ import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
 import { makePlan } from "../../src/core/forces/glaciate/plan";
+import { floodAllowance } from "../../src/core/forces/glaciate/floor";
+import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
+import { modelOf } from "../../src/core/forces/runs";
+import { canonicalSettle } from "../../src/core/sim/prefill";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -92,11 +96,17 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
     }
   });
 
-  it("finishes the floor's water (D292): the river visits the falls' pools and inflows, and no join runs along a wall's foot", () => {
+  it("finishes the floor's water (D292): the river visits the falls' pools and inflows, no join runs along a wall's foot, and the game's water keeps off the dry floor", () => {
     const m = fixture("canyon-128");
     const p = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
+    expect(p.finished.style).toBe("visits");
     expect(p.finished.reached).toBeGreaterThan(0);
+    expect(p.finished.floods).toBeLessThanOrEqual(floodAllowance(p));
     for (const j of p.joins) expect(j.length, j.kind).toBeLessThanOrEqual(j.kind === "inflow" ? 40 : 12);
+    // the settled water: fewer separate wet passages across the floor than round 4 left
+    const round4 = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 }, undefined, false);
+    const settle = (q: typeof p) => measureGlaciate(q, canonicalSettle({ ...modelOf(q.map), retained: [q.retained] }));
+    expect(settle(p).passages).toBeLessThan(settle(round4).passages);
   });
 
   it("is sliced without changing its result, and never goes past the ceiling", () => {
@@ -185,7 +195,7 @@ describe("Glaciate in the editor's worker", () => {
     expect(history().length).toBe(n0 + 1);
     const s = open();
     // it went through the start's ground
-    const p = s.logOps.findLast((o) => o.op === "forceResult")!.params as ForceResultParams;
+    const p = [...s.logOps].reverse().find((o) => o.op === "forceResult")!.params as ForceResultParams;
     const cut = new Set(p.tiles);
     let under = 0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cut.has((st.y + dy) * W + st.x + dx)) under++;

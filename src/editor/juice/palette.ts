@@ -4,7 +4,9 @@
 // a mineral scrape for Flatten, leaves for Smooth and Naturalize, hollow wood and leaves for a tree,
 // a splash and bubbles for a source, a reversed wooden catch for undo, a torrent for Carve, a crack,
 // a boom and falling stone for Craterize, a grinding fault for Quake, a roaring plume and a cooling
-// hiss for Erupt. Repeating an action climbs a small ladder (0, 2, 4, 7 semitones) and resets after
+// hiss for Erupt; for Glaciate, investigation/glaciate's recipe from the same bank (#69: a low grinding
+// bed of stone and pitched wood as the ice advances, two slow cracks, falling meltwater as it retreats;
+// its bank.json lists the same five recordings, byte for byte). Repeating an action climbs a small ladder (0, 2, 4, 7 semitones) and resets after
 // a pause; a held stroke is a looping bed that rises gently to the fifth. Distance lowers the level
 // and the brightness. Ported as it is: the recipes, the balance and the calibration are the round's.
 
@@ -40,6 +42,7 @@ export const SOUNDS: readonly SoundInfo[] = (
     ["quake", "Quake · lift", "Forces", "A fault opens · heavy crack · grinding earth"],
     ["slide", "Quake · slide", "Forces", "Splintering rock · a long, weighty grind"],
     ["erupt", "Erupt", "Forces", "Pressure builds · roaring plume · cooling hiss"],
+    ["glaciate", "Glaciate", "Forces", "Grinding stone · a low wooden groan · slow cracks · meltwater"],
     ["undo", "Undo", "Utility", "A short reversed wooden catch"],
     ["waterfall", "Waterfall", "Ambience", "Recorded falling water · a broad, quiet bed"],
     ["stream", "Stream", "Ambience", "A close trickle · a few gentle bubbles"],
@@ -225,6 +228,15 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
       }
       break;
     }
+    case "glaciate": {
+      // (investigation/glaciate `audio.ts`: its runtime edits, as bank.json records them)
+      if (!phase || phase === "advance") {
+        add("crack-a", 0.45, 0, { rate: 0.55, duration: 2, lowpass: 1100, attack: 0.04, release: 0.15 });
+        add("crack-b", 0.3, 1.75, { rate: 0.7, duration: 1, lowpass: 7000, attack: 0.04, release: 0.15 });
+      }
+      if (!phase || phase === "retreat") add("waterfall", 0.8, phase ? 0 : 3, { rate: 1.05, duration: 2.2, lowpass: 7000, offset: random() * 2, attack: 0.04, release: 0.15 });
+      break;
+    }
     case "undo":
       add(wood, 1.2, 0, { reverse: true, duration: 0.22, rate: r * 1.1, attack: 0.025, release: 0.025 });
       break;
@@ -262,6 +274,9 @@ export function texture(name: string): Layer[] {
       return [bed("stone-bed", 1.2, 0.65), bed("boom", 0.75, 0.5, 480)];
     case "erupt":
       return [bed("waterfall", 1.3, 0.8), bed("boom", 0.85, 0.5, 650)];
+    case "glaciate":
+      // the ice's grind while it advances: stone, and a low groan of pitched wood
+      return [bed("stone-bed", 0.8, 0.42, 1100), bed("wood-body", 0.8, 0.28, 1100)];
     case "waterfall":
       return [bed("waterfall", 0.48)];
     case "stream":

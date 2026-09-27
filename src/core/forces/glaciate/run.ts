@@ -20,8 +20,12 @@ import { planGlaciate, type GlaciatePlan } from "./plan";
 export const ADVANCE_STEPS = 30;
 export const RETREAT_STEPS = 20;
 
+/** A build for the floor's before-and-after pictures (tools/capture-glaciate.ts) leaves the floor's
+ *  water as round 4 left it (D292's "before"); every other build finishes it. */
+const ROUND4 = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_GLACIATE_ROUND4 === "1";
+
 /** A planning step's budget (ms): at least one slice, then more while they fit. */
-const PLAN_MS = 30;
+const PLAN_MS = 80;
 
 export class GlaciateRun implements StagedRun {
   readonly verb = "glaciate" as const;
@@ -29,6 +33,8 @@ export class GlaciateRun implements StagedRun {
   steps = 0;
   finalize: Finalize | null = null;
   private plan0: GlaciatePlan | null = null;
+  /** The plan being given its last touches (its footprint is protected while they are made). */
+  private pending: GlaciatePlan | null = null;
   private readonly slices: Generator<void, GlaciatePlan, void>;
   private stage = 0;
   private ended = false;
@@ -43,7 +49,7 @@ export class GlaciateRun implements StagedRun {
   ) {
     this.map = snapshotMap(before);
     // (its settings and gesture are checked now: a bad one never starts)
-    this.slices = planGlaciate(before, settings, intent, valley);
+    this.slices = planGlaciate(before, settings, intent, valley, !ROUND4);
   }
 
   get done(): boolean {
@@ -55,6 +61,18 @@ export class GlaciateRun implements StagedRun {
   get planned(): boolean {
     return this.plan0 !== null;
   }
+  /** The glacier's own ground (its trough, benches, moraine, channels and outwash): every level
+   *  there is the glacier's, the ones it left as they were included (its banks), so the build's
+   *  integrity pass never wears a bank down and opens a spillway. Null before it is planned. */
+  footprint(): Uint8Array | null {
+    const p = this.plan0 ?? this.pending;
+    if (!p) return null;
+    const out = new Uint8Array(p.mask.length);
+    for (let i = 0; i < out.length; i++) if (p.mask[i] || p.stream[i] || p.fan[i]) out[i] = 1;
+    if (this.keep) for (let i = 0; i < out.length; i++) if (this.keep[i]) out[i] = 0;
+    return out;
+  }
+
   /** The plan, once made (the effects' ice follows its stations). */
   get plan(): GlaciatePlan | null {
     return this.plan0;
@@ -80,7 +98,9 @@ export class GlaciateRun implements StagedRun {
     const m = p.map;
     trimRock(m);
     respectKeep(this.before, m, this.keep);
+    this.pending = p;
     this.finalize?.(m);
+    this.pending = null;
     // (the tarn keeps only the tiles still at its floor)
     const r = p.retained;
     const keepAt = r.tiles.map((i, k) => m.heights[i] === r.floor[k]);

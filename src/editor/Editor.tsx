@@ -36,6 +36,8 @@ import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice"
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
 import { CarveRow, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
+import { DEFAULT_GLACIATE, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
+import { sizeOf as glacierSize } from "../core/forces/glaciate/model";
 import { naturalSize as craterNaturalSize } from "../core/forces/craterize";
 import { eruptAnatomy, type EruptAnatomy } from "../core/forces/erupt";
 import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
@@ -1458,6 +1460,9 @@ export default function Editor(props: EditorProps) {
     quakeUiRef.current = u;
     setQuakeUiState(u);
   };
+  const [glaciateUi, setGlaciateUi] = useState<GlaciateUi>(DEFAULT_GLACIATE);
+  const glaciateUiRef = useRef(glaciateUi);
+  glaciateUiRef.current = glaciateUi;
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -1868,7 +1873,7 @@ export default function Editor(props: EditorProps) {
   // only word is Erupt's when a vent can't rise at all.
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !tool || tool === "carve") return;
+    if (!r || !tool || tool === "carve" || tool === "glaciate") return;
     const verb = tool;
     let down: TileHit | null = null;
     let brush: FaultBrush | null = null;
@@ -2034,6 +2039,88 @@ export default function Editor(props: EditorProps) {
       setForceCursor(null);
       setAimArrow(null);
       setShapeNote(null);
+    };
+  }, [tool, ready]);
+
+  // Glaciate takes the map's clicks and drags while picked (D258, D291): the ice gathers under the
+  // pointer the moment it is pressed; a click Flows (the glacier follows the valleys down from there);
+  // a drag of six pixels or more Aims, with only a thin arrow from where it began to the pointer, and
+  // on release it grinds that way through the ridges. Nothing predicts its valley on the land; the
+  // camera never moves (D265).
+  useEffect(() => {
+    const r = renderer.current;
+    if (!r || tool !== "glaciate") return;
+    let down: { hit: TileHit; x: number; y: number } | null = null;
+    let aiming = false;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const point = (hit: TileHit): [number, number] => [Math.max(0, Math.min(W - 1, hit.x)), Math.max(0, Math.min(H - 1, hit.y))];
+    const gather = (at: [number, number] | null) => {
+      if (!at) return renderer.current?.clearForce();
+      const u = glaciateUiRef.current;
+      const z = mirror.current.heights[at[1] * W + at[0]] ?? 0;
+      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u), power: u.power, glaciate: { seconds: 0 } });
+    };
+    const t: PointerTool = {
+      down: (hit, ev) => {
+        if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        down = { hit, x: ev.clientX, y: ev.clientY };
+        aiming = false;
+        notePointer(ev);
+        showForceCursor(null);
+        gather(point(hit));
+        return true;
+      },
+      move: (_hit, ev) => {
+        notePointer(ev);
+        if (!down) return;
+        if (!aiming && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) >= 6) {
+          aiming = true;
+          gather(null);
+        }
+        if (aiming) setAimArrow({ from: point(down.hit), to: { x: ev.clientX, y: ev.clientY } });
+      },
+      up: (hit) => {
+        const d = down;
+        const aimed = aiming;
+        down = null;
+        aiming = false;
+        setAimArrow(null);
+        if (!d) return;
+        const from = point(d.hit);
+        const to = hit ? point(hit) : null;
+        // (an Aim needs somewhere to go: let go off the map, or where it began, and nothing happens)
+        if (aimed && (!to || (to[0] === from[0] && to[1] === from[1]))) return void gather(null);
+        startForce({ verb: "glaciate", settings: glaciateSettingsOf(glaciateUiRef.current), origin: from, ...(aimed ? { end: to! } : {}), cut: renderer.current?.slice ?? null });
+      },
+      hover: (hit, ev) => {
+        notePointer(ev);
+        if (down) return;
+        showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
+      },
+      cancel: () => {
+        if (down && !forcer.current?.running) gather(null);
+        down = null;
+        aiming = false;
+        setAimArrow(null);
+      },
+    };
+    r.tool = t;
+    forceEscRef.current = () => {
+      if (!down) return false;
+      down = null;
+      aiming = false;
+      setAimArrow(null);
+      if (!forcer.current?.running) gather(null);
+      return true;
+    };
+    return () => {
+      if (r.tool === t) r.tool = null;
+      forceEscRef.current = null;
+      cancelAnimationFrame(cursorFrame.current);
+      if (down && !forcer.current?.running) renderer.current?.clearForce();
+      setAimArrow(null);
+      setForceCursor(null);
     };
   }, [tool, ready]);
 
@@ -2211,6 +2298,7 @@ export default function Editor(props: EditorProps) {
     const again = () => void forceAgain();
     if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} />;
     if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} />;
+    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} />;
     return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} />;
   }
 
@@ -2916,7 +3004,7 @@ export default function Editor(props: EditorProps) {
         pickShelf(shelfRef.current?.id === "water-source" ? null : SHELF.find((it) => it.id === "water-source")!);
         return;
       }
-      // 7, 8, 9, 0: Carve, Craterize, Quake, Erupt (again: put it away)
+      // 7, 8, 9, 0, -: Carve, Craterize, Quake, Erupt, Glaciate (again: put it away)
       const forceKey = FORCES.find((f) => f.key === ev.key);
       if (!mod && !ev.altKey && forceKey && painter.current && forceShown(forceKey.id)) {
         pickTop(toolRef.current === forceKey.id ? null : forceKey.id);

@@ -2,7 +2,9 @@
 // investigation's shared effects (PR #59: Craterize's impact, Quake's rupture, Erupt's plume and
 // heat): an impactor streaking down, its flash, a shock ring, dust and thrown blocks; a fault's crack
 // racing along it with dust at its head; a volcano's plume of soft rolling puffs, bigger and darker
-// the more powerful the eruption (D216), the lava's glow on the ground, cooling to a crust. Fixed
+// the more powerful the eruption (D216), the lava's glow on the ground, cooling to a crust; a glacier's
+// ice gathering where it was asked, its tongue advancing down the valley and melting back (D246, from
+// investigation/glaciate `effects.ts`: fixed cross sections, a travelling nose and streaks). Fixed
 // pools, no allocation in the frame loop; each plays on its own clock and leaves when it is done.
 // The camera never shakes or moves with them (D265: it moves only when the player moves it). None
 // of them plays with reduced motion or in software rendering (the renderer decides); the land's
@@ -12,6 +14,7 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  Float32BufferAttribute,
   CylinderGeometry,
   DoubleSide,
   Group,
@@ -381,12 +384,191 @@ class Plume {
   }
 }
 
+type Stations = NonNullable<NonNullable<ForceMoment["glaciate"]>["path"]>;
+
+/** Glaciate's moment: the ice gathers where it was asked while the glacier is planned; then its
+ *  tongue (fixed cross sections over the land as it was, a curved nose and streaks flowing down it)
+ *  advances for three seconds and melts back for two, on its own clock (it never waits for the
+ *  water or the worker). */
+class Glacier {
+  readonly group = new Group();
+  private gatherMat = new MeshBasicMaterial({ color: css(JUICE.ice), transparent: true, opacity: 0.55, depthWrite: false });
+  private gather = new Mesh(new IcosahedronGeometry(1, 2), this.gatherMat);
+  private crystals = new InstancedMesh(new IcosahedronGeometry(1, 0), new MeshBasicMaterial({ color: css(JUICE.ice), transparent: true, opacity: 0.8, depthWrite: false }), 24);
+  private dummy = new Object3D();
+  private material = new ShaderMaterial({
+    transparent: true,
+    depthWrite: true,
+    side: DoubleSide,
+    uniforms: { front: { value: 0 }, back: { value: 1 }, clock: { value: 0 }, deep: { value: new Vector3(...JUICE.iceDeep) }, white: { value: new Vector3(...JUICE.ice) } },
+    vertexShader: /* glsl */ `
+      attribute float station; attribute float across; varying float s; varying float v;
+      void main() { s = station; v = across; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform float front; uniform float back; uniform float clock; uniform vec3 deep; uniform vec3 white;
+      varying float s; varying float v;
+      void main() {
+        float nose = front + 0.04 * (1.0 - v * v);
+        if (s > nose || s > back) discard;
+        float flow = sin((s - clock * 0.13) * 85.0 + v * 4.0 + sin(v * 13.0) * 0.8);
+        float crevasse = smoothstep(0.91, 1.0, flow) * 0.13;
+        float streak = pow(abs(sin(v * 21.0 + sin(s * 8.0 - clock * 0.6) * 0.35)), 16.0);
+        vec3 color = mix(deep, white, 0.68 - 0.2 * abs(v));
+        color -= crevasse;
+        color += streak * 0.1;
+        float lip = 1.0 - smoothstep(0.0, 0.025, nose - s);
+        color = mix(color, white * 0.98, lip * 0.5);
+        gl_FragColor = vec4(color, 0.92);
+      }`,
+  });
+  private tongue: Mesh | null = null;
+  private at = { x: 0, y: 0, z: 0, r: 4 };
+  private t0 = 0;
+  /** When the tongue began (null: the ice is still gathering), and when it ended. */
+  private began: number | null = null;
+  private ended: number | null = null;
+  private live = false;
+
+  constructor() {
+    this.gather.frustumCulled = this.crystals.frustumCulled = false;
+    this.gather.renderOrder = this.crystals.renderOrder = 5;
+    this.group.add(this.gather, this.crystals);
+    this.group.visible = false;
+  }
+
+  /** The ice gathers at (x, y) (the pointer's press, then while it is planned). */
+  gatherAt(m: ForceMoment, now: number): void {
+    if (this.live && this.began === null && this.at.x === m.x && this.at.y === m.y) return;
+    this.clear();
+    this.live = true;
+    this.at = { x: m.x, y: m.y, z: m.z, r: Math.max(3, m.size * 0.22) };
+    this.t0 = now;
+  }
+
+  /** Its tongue from the stations, over the land as it is now; its clock starts. */
+  advance(path: Stations, ground: Ground, now: number): void {
+    if (this.began !== null) return;
+    this.live = true;
+    this.began = now;
+    this.ended = null;
+    const vertices: number[] = [];
+    const st: number[] = [];
+    const across: number[] = [];
+    const index: number[] = [];
+    const profile = [-1, -0.84, -0.5, 0, 0.5, 0.84, 1];
+    for (let k = 0; k < path.length; k++) {
+      const p = path[k];
+      const a = path[Math.max(0, k - 2)];
+      const b = path[Math.min(path.length - 1, k + 2)];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = -(b.y - a.y) / len;
+      const ny = (b.x - a.x) / len;
+      const taper = Math.min(1, 0.4 + Math.min(p.s, 1 - p.s) * 9);
+      const r = p.r * taper * 0.96;
+      const centre = ground(p.x - 0.5, p.y - 0.5);
+      for (const c of profile) {
+        const x = p.x + nx * r * c;
+        const y = p.y + ny * r * c;
+        const z = Math.max(p.floor + 0.8, centre + 0.8, ground(x - 0.5, y - 0.5) + 0.4) + (1 - c * c) * 2.8;
+        vertices.push(x, z, -y);
+        st.push(p.s);
+        across.push(c);
+      }
+      if (k)
+        for (let j = 0; j < profile.length - 1; j++) {
+          const i = k * profile.length + j;
+          index.push(i - profile.length, i, i + 1, i - profile.length, i + 1, i - profile.length + 1);
+        }
+    }
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+    g.setAttribute("station", new Float32BufferAttribute(st, 1));
+    g.setAttribute("across", new Float32BufferAttribute(across, 1));
+    g.setIndex(index);
+    this.dropTongue();
+    this.tongue = new Mesh(g, this.material);
+    this.tongue.frustumCulled = false;
+    this.tongue.renderOrder = 4;
+    this.group.add(this.tongue);
+  }
+
+  finish(now: number): void {
+    if (this.live) this.ended ??= now;
+  }
+
+  get active(): boolean {
+    if (!this.live) return false;
+    const now = performance.now();
+    if (this.began === null) return true;
+    return (now - this.began) / 1000 < 5.2 && (this.ended === null || now - this.ended < 1200);
+  }
+
+  update(now: number): void {
+    this.group.visible = this.active;
+    if (!this.group.visible) return;
+    const growing = this.began === null ? (now - this.t0) / 1000 : Math.max(0, 0.9 - (now - this.began) / 1000 / 0.6);
+    const g = smooth(Math.min(1, growing / 0.9));
+    this.gather.visible = this.crystals.visible = g > 0.01;
+    const x = this.at.x + 0.5;
+    const z = -this.at.y - 0.5;
+    const r = this.at.r * (0.35 + 0.65 * g);
+    this.gather.position.set(x, this.at.z + 0.2, z);
+    this.gather.scale.set(r, r * 0.32, r);
+    this.gatherMat.opacity = 0.35 + 0.25 * g;
+    const t = (now - this.t0) / 1000;
+    const d = this.dummy;
+    for (let k = 0; k < 24; k++) {
+      const a = k * 2.399 + t * (0.6 + (k % 5) * 0.08);
+      const rad = r * (0.5 + (k % 7) / 9);
+      d.position.set(x + Math.cos(a) * rad, this.at.z + 0.6 + ((k * 0.37 + t * 0.5) % 1) * 2.2 * g, z + Math.sin(a) * rad);
+      d.scale.setScalar(g * (0.12 + (k % 4) * 0.05));
+      d.rotation.set(t + k, k, t * 0.7);
+      d.updateMatrix();
+      this.crystals.setMatrixAt(k, d.matrix);
+    }
+    this.crystals.instanceMatrix.needsUpdate = true;
+    if (this.tongue && this.began !== null) {
+      const s = (now - this.began) / 1000;
+      const u = this.material.uniforms;
+      u.front.value = Math.min(1, s / 3);
+      u.back.value = s <= 3 ? 1 : Math.max(-0.01, 1 - (s - 3) / 2);
+      u.clock.value = s;
+    }
+  }
+
+  private dropTongue(): void {
+    if (!this.tongue) return;
+    this.group.remove(this.tongue);
+    this.tongue.geometry.dispose();
+    this.tongue = null;
+  }
+
+  clear(): void {
+    this.dropTongue();
+    this.live = false;
+    this.began = null;
+    this.ended = null;
+    this.group.visible = false;
+  }
+
+  dispose(): void {
+    this.dropTongue();
+    this.material.dispose();
+    this.gather.geometry.dispose();
+    this.gatherMat.dispose();
+    this.crystals.geometry.dispose();
+    (this.crystals.material as MeshBasicMaterial).dispose();
+    this.crystals.dispose();
+  }
+}
+
 /** The forces' moments together, on the renderer's scene. The renderer asks each frame for the
  *  eruption's heat (the terrain shader's). */
 export class ForceEffects {
   private impact = new Impact();
   private rupture = new Rupture();
   private plume = new Plume();
+  private glacier = new Glacier();
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
 
@@ -395,7 +577,7 @@ export class ForceEffects {
     private readonly render: () => void,
     private readonly ground: Ground,
   ) {
-    scene.add(this.impact.group, this.rupture.group, this.plume.group);
+    scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group);
   }
 
   /** A force's latest moment (from its frame). */
@@ -409,6 +591,10 @@ export class ForceEffects {
     } else if (m.verb === "erupt") {
       if (this.verb !== "erupt" || !this.plume.active) this.plume.begin(m, now);
       if (m.phase === "done") this.plume.finish(now);
+    } else if (m.verb === "glaciate") {
+      if (m.phase === "gather") this.glacier.gatherAt(m, now);
+      else if (m.glaciate?.path) this.glacier.advance(m.glaciate.path, this.ground, now);
+      if (m.phase === "done") this.glacier.finish(now);
     }
     this.verb = m.verb;
     this.kick();
@@ -419,6 +605,7 @@ export class ForceEffects {
     const now = performance.now();
     this.rupture.finish(now);
     this.plume.finish(now);
+    this.glacier.finish(now);
     this.impact.strike(now);
     this.kick();
   }
@@ -428,6 +615,7 @@ export class ForceEffects {
     this.impact.clear();
     this.rupture.clear();
     this.plume.clear();
+    this.glacier.clear();
     this.verb = null;
     this.render();
   }
@@ -438,7 +626,7 @@ export class ForceEffects {
   }
 
   get active(): boolean {
-    return this.impact.active || this.rupture.active || this.plume.active;
+    return this.impact.active || this.rupture.active || this.plume.active || this.glacier.active;
   }
 
   private kick(): void {
@@ -451,6 +639,7 @@ export class ForceEffects {
     this.impact.update(now);
     this.rupture.update(now);
     this.plume.update(now, this.ground);
+    this.glacier.update(now);
     this.render();
     if (this.active) this.frame = requestAnimationFrame(this.tick);
   };
@@ -458,9 +647,10 @@ export class ForceEffects {
   dispose(): void {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    this.scene.remove(this.impact.group, this.rupture.group, this.plume.group);
+    this.scene.remove(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group);
     this.impact.dispose();
     this.rupture.dispose();
     this.plume.dispose();
+    this.glacier.dispose();
   }
 }

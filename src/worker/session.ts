@@ -1888,18 +1888,21 @@ function stagedForceMap(m: FullForceMap): FullForceMap {
 /** The build's integrity pass (its step 7) on a force's final map, round what the force changed:
  *  the map then shows exactly what the build keeps (a one-tile pit or spike the force left beside
  *  its tiles is worn away, levels past the editor's limit are clipped). `state` is the terrain the
- *  build starts its last steps from, before the force; `ground` the heights the force started on. */
-function buildTouches(state: TerrainState, ground: Uint8Array): Finalize {
+ *  build starts its last steps from, before the force; `ground` the heights the force started on;
+ *  `owned` the ground a force sets even where it left its level as it was (a glacier's banks: its
+ *  operation lists them, so the build keeps them too). */
+function buildTouches(state: TerrainState, ground: Uint8Array, owned?: () => Uint8Array | null): Finalize {
   return (m) => {
     const { W, H } = m;
     const pre = state.pre.slice();
     const protect = state.protect.slice();
+    const own = owned?.() ?? null;
     let x0 = W;
     let y0 = H;
     let x1 = -1;
     let y1 = -1;
     for (let i = 0; i < m.heights.length; i++)
-      if (m.heights[i] !== ground[i]) {
+      if (m.heights[i] !== ground[i] || own?.[i]) {
         pre[i] = m.heights[i];
         protect[i] = 1;
         const x = i % W;
@@ -2017,8 +2020,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
         map = stagedForceMap(base);
         const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
-        staged = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) }, keep);
-        staged.finalize = buildTouches(state, base.heights);
+        const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) }, keep);
+        run.finalize = buildTouches(state, base.heights, () => run.footprint());
+        staged = run;
         break;
       }
       case "quake": {
@@ -2251,8 +2255,9 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!after) return refused(["Nothing changed"]);
     params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
-    // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246)
-    if (r instanceof GlaciateRun && r.plan) params = { ...params, ...glacierSprings(f.before, after, r.plan.retained) };
+    // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
+    // its whole ground, the levels it left as they were included (the build keeps its banks whole)
+    if (r instanceof GlaciateRun && r.plan) params = { ...withOwned(params, after.heights, r.footprint()), ...glacierSprings(f.before, after, r.plan.retained) };
     water = r.liveWater();
   }
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
@@ -2287,6 +2292,15 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
 }
 
 export const carveStop = forceStop;
+
+/** A force's result with the ground it owns listed too, at its level (unchanged ones included). */
+function withOwned(p: ForceResultParams, heights: Uint8Array, owned: Uint8Array | null): ForceResultParams {
+  if (!owned) return p;
+  const at = new Map(p.tiles.map((i, k) => [i, p.heights[k]]));
+  for (let i = 0; i < owned.length; i++) if (owned[i] && !at.has(i)) at.set(i, heights[i]);
+  const tiles = [...at.keys()].sort((a, b) => a - b);
+  return { ...p, tiles, heights: tiles.map((i) => at.get(i)!) };
+}
 
 /** The springs a glacier added and the tarn it keeps, as its operation keeps them. */
 function glacierSprings(before: FullForceMap, after: FullForceMap, lake: { tiles: readonly number[]; floor: readonly number[]; depth: readonly number[]; contamination: readonly number[] }): Pick<ForceResultParams, "sources" | "lake"> {
