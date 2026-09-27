@@ -583,8 +583,10 @@ a note. Built after merging `dev` at 248ac1b (D244, D245).
   water, sampled hourly, with the model.
 - **The review sheet**, drawn again (`python tools/places-review.py docs/sheets/real-places-review
   --changed-since b2d9d2a`): each place's notes under its title in amber, the floor's groves with
-  their dead trees apart, what changed since the sheet Kyler saw. Posted on #35; the old one is
-  marked out of date. Kyler picks drops from the new one only.
+  their dead trees apart, what changed since the sheet Kyler saw. Posted on #35
+  (https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852893380); the old one is
+  marked out of date. Kyler picks drops from the new one only. The versions:
+  https://github.com/timbermods/dam-good-maps/pull/35#issuecomment-5852892041.
 - **Pictures**: every card drawn again on the GPU.
 
 Tests updated to D245 (D148), none weakened; the absolutes stay blocking:
