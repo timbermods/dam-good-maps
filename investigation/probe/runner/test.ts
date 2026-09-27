@@ -139,7 +139,7 @@ async function main(): Promise<void> {
     const tz = require('node:zlib') as typeof import('node:zlib');
     const { terrainColumns } = require('../../../src/core/sim/columns') as typeof import('../../../src/core/sim/columns');
     const { soil3d } = require('../../../src/core/sim/soil3d') as typeof import('../../../src/core/sim/soil3d');
-    const fake = (p: (typeof t3dGames)[number], dir: string, tamper?: (s: import('./job').MapSnapshot) => void) => {
+    const fake = (p: (typeof t3dGames)[number], dir: string, tamper?: (s: import('./job').MapSnapshot) => void, tamperStart?: (s: import('./job').MapSnapshot) => void) => {
       mkdirSync(dir, { recursive: true });
       const m = t3d.modelOf(p.info);
       const { N, W, L } = m.cols;
@@ -164,6 +164,7 @@ async function main(): Promise<void> {
           if (n > 1) s.terrainLayered!.push({ x: i % W, y: (i / W) | 0, runs: Array.from({ length: n }, (_, k) => [runs.floor[k * N + i], runs.ceil[k * N + i], soil.moisture[k * N + i], soil.contamination[k * N + i]] as [number, number, number, number]) });
         }
         if (mo.id === 'end') tamper?.(s);
+        if (mo.id === 'start') tamperStart?.(s);
         const f = `${p.game.id}-${mo.id.replace(/[^A-Za-z0-9_-]/g, '_')}.snapshot.json.gz`;
         writeFileSync(join(dir, f), tz.gzipSync(JSON.stringify(s)));
         snaps.push(f);
@@ -190,6 +191,26 @@ async function main(): Promise<void> {
         s.terrain[i] = 19;
       }).find((x) => x.id === 't3d-support')!;
       check('terrain 3D: a voxel the rule keeps but the game lost fails the support check', v.verdict === 'failed', v.detail);
+      // at the load the probe's view can still show the file's terrain (run terrain3d-20260927): that passes;
+      // a load record that is neither the file's terrain nor ours fails
+      const fileRuns = terrainColumns(t3d.modelOf(t1.info).file);
+      const asFile = (s: import('./job').MapSnapshot) => {
+        const { N, W } = fileRuns;
+        s.terrainLayered = [];
+        for (let i = 0; i < N; i++) {
+          const n = fileRuns.count[i];
+          s.terrainColumns[i] = n;
+          s.terrain[i] = fileRuns.ceil[(n - 1) * N + i];
+          if (n > 1) s.terrainLayered.push({ x: i % W, y: (i / W) | 0, runs: Array.from({ length: n }, (_, k) => [fileRuns.floor[k * N + i], fileRuns.ceil[k * N + i], 0, 0] as [number, number, number, number]) });
+        }
+      };
+      const v2 = fake(t1, join(sandbox, 'compare-t1-file-at-load'), undefined, asFile).find((x) => x.id === 't3d-support')!;
+      check("terrain 3D: the file's terrain at the load, ours after, passes the support check", v2.verdict === 'passed' && /still show the file's terrain/.test(v2.detail), v2.detail);
+      const v3 = fake(t1, join(sandbox, 'compare-t1-odd-at-load'), undefined, (s) => {
+        asFile(s);
+        s.terrain[s.terrain.findIndex((h) => h === 20)] = 18;
+      }).find((x) => x.id === 't3d-support')!;
+      check('terrain 3D: a load record that is neither the file nor ours fails the support check', v3.verdict === 'failed', v3.detail);
     }
     const t3 = t3dGames.find((x) => x.game.id === 't3-cave-water');
     if (t3) {

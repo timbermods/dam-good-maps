@@ -67,7 +67,7 @@ const BUILD = 'needs a building placed and built by beavers (a pump); the probe 
 /** The group's checks; compare.ts evaluates them (T3D_EVALS). */
 export const T3D: Record<string, CheckDef> = {
   't3d-load': { id: 't3d-load', title: 'Loads: no error or exception in the log, the start placed; loading issues exactly when our rules predict the game deletes terrain or plants', how: 'measure' },
-  't3d-support': { id: 't3d-support', title: "The game keeps exactly the terrain our support rule keeps: every tile's terrain columns (each one on layered tiles) at the load and at the end", how: 'measure' },
+  't3d-support': { id: 't3d-support', title: "The game keeps exactly the terrain our support rule keeps: every tile's terrain columns (each one on layered tiles) at every record after the load; at the load each tile is the file's (the probe's view refreshes on the first tick) or ours", how: 'measure' },
   't3d-objects': { id: 't3d-objects', title: 'Every object in the file is in the game at its tile and level', how: 'measure' },
   't3d-water': { id: 't3d-water', title: "Water columns at each record against the stacked engine run from the file's water: 95% of wet columns within 0.1 deep, wet columns IoU ≥ 0.95, volume within 10%, and 90% of the columns the engine pressurises under pressure", how: 'measure' },
   't3d-soil': { id: 't3d-soil', title: "Soil moisture and contamination on every terrain run against our soil rules on the game's own water: moist and dry agree on 99.5% of runs, 99% within 0.05", how: 'measure' },
@@ -267,40 +267,62 @@ function loadCheck(c: Ctx): Result {
   };
 }
 
+/** The tiles whose terrain in a record differs from `runs`: its column count and top, and on layered tiles
+ *  every run (when the record has them). */
+function terrainDiffers(s: MapSnapshot, runs: TerrainColumns): number[] {
+  const { N, W, count, floor, ceil } = runs;
+  const layered = new Map((s.terrainLayered ?? []).map((t) => [t.y * W + t.x, t.runs] as const));
+  const out: number[] = [];
+  for (let i = 0; i < N; i++) {
+    const n = count[i];
+    let same = s.terrainColumns[i] === n && s.terrain[i] === ceil[(n - 1) * N + i];
+    if (same && n > 1 && s.terrainLayered) {
+      const g = layered.get(i);
+      same = !!g && g.length === n && g.every((r, k) => r[0] === floor[k * N + i] && r[1] === ceil[k * N + i]);
+    }
+    if (!same) out.push(i);
+  }
+  return out;
+}
+
+/**
+ * The game deletes unsupported terrain while it loads the map (`BlockAndTerrainBatchLoader` runs the support
+ * pass as the entities are batch-loaded, and logs each voxel), but the probe reads the terrain from the game's
+ * thread-safe column map, which copied the columns when it loaded, before that pass, and refreshes them only
+ * on each tick (run terrain3d-20260927: at the load record T1's terrain was the file's on every tile, from the
+ * first records after it our rule's). So every record after the load decides: the game's terrain must be the
+ * terrain our rule keeps, tile for tile and run for run. At the load record each tile must be one or the
+ * other (the file's, not yet refreshed, or ours); anything else fails.
+ */
 function supportCheck(c: Ctx): Result {
   const info = c.L.info;
   const m = modelOf(info);
-  const { N, W, count, floor, ceil } = m.keptRuns;
-  const snaps = [c.L.snapshot('start'), c.L.snapshot('end')].filter((s): s is MapSnapshot => !!s);
-  if (!snaps.length) return { verdict: 'not measurable', detail: 'the start and end records are missing' };
-  const parts: string[] = [];
-  let bad = 0;
-  let runsChecked = true;
-  for (const s of snaps) {
-    let differ = 0;
-    const ex: string[] = [];
-    const layered = new Map((s.terrainLayered ?? []).map((t) => [t.y * W + t.x, t.runs] as const));
-    if (!s.terrainLayered) runsChecked = false;
-    for (let i = 0; i < N; i++) {
-      const n = count[i];
-      const top = ceil[(n - 1) * N + i];
-      let same = s.terrainColumns[i] === n && s.terrain[i] === top;
-      if (same && n > 1 && s.terrainLayered) {
-        const g = layered.get(i);
-        same = !!g && g.length === n && g.every((r, k) => r[0] === floor[k * N + i] && r[1] === ceil[k * N + i]);
-      }
-      if (!same) {
-        differ++;
-        if (ex.length < 4) ex.push(`(${i % W}, ${(i / W) | 0}) ours ${n} run(s) to ${top}, game ${s.terrainColumns[i]} to ${s.terrain[i]}`);
-      }
-    }
-    bad += differ;
-    parts.push(`${s.momentId === 'start' ? 'at the load' : `after ${(s.day - D0).toFixed(2)} days`}: ${differ} tiles differ${ex.length ? ` (${ex.join('; ')})` : ''}`);
-  }
+  const { N, W, count, ceil } = m.keptRuns;
+  const fileRuns = terrainColumns(m.file);
+  const start = c.L.snapshot('start');
+  const later = laterSnapshots(c);
+  if (!later.length) return { verdict: 'not measurable', detail: 'no record after the load' };
   const t = c.L.prepared.game.terrain3d!;
+  const parts: string[] = [];
+  let ok = true;
+  const runsChecked = later.every((s) => !!s.terrainLayered) && (!start || !!start.terrainLayered);
+  const example = (s: MapSnapshot, i: number) => `(${i % W}, ${(i / W) | 0}) ours ${count[i]} run(s) to ${ceil[(count[i] - 1) * N + i]}, game ${s.terrainColumns[i]} to ${s.terrain[i]}`;
+  if (start) {
+    const vsOurs = terrainDiffers(start, m.keptRuns);
+    const vsFile = new Set(terrainDiffers(start, fileRuns));
+    const neither = vsOurs.filter((i) => vsFile.has(i));
+    const asFile = vsOurs.length - neither.length;
+    if (neither.length) ok = false;
+    parts.push(`at the load: ${neither.length ? `${neither.length} tiles are neither the file's terrain nor ours (${neither.slice(0, 4).map((i) => example(start, i)).join('; ')})` : vsOurs.length ? `${asFile} tiles still show the file's terrain (the probe's view of the terrain refreshes on the first tick), every other tile ours` : 'every tile ours'}`);
+  }
+  for (const s of later) {
+    const differ = terrainDiffers(s, m.keptRuns);
+    if (differ.length) ok = false;
+    parts.push(`after ${(s.day - D0).toFixed(2)} days: ${differ.length} tiles differ from ours${differ.length ? ` (${differ.slice(0, 4).map((i) => example(s, i)).join('; ')})` : ''}`);
+  }
   return {
-    verdict: bad === 0 ? 'passed' : 'failed',
-    detail: `our rule deletes ${t.predicted.dropped} of the file's voxels and keeps ${t.layeredTiles} layered tiles' runs; ${parts.join('; ')}${runsChecked ? '' : ' (the record has no terrain runs: a mod before 0.3.0, compared by count and top only)'}`,
+    verdict: ok ? 'passed' : 'failed',
+    detail: `our rule deletes ${t.predicted.dropped} of the file's voxels and keeps ${t.layeredTiles} layered tiles' runs; ${parts.join('; ')}${runsChecked ? '' : ' (a record has no terrain runs: a mod before 0.3.0, compared by count and top only)'}`,
   };
 }
 

@@ -23,15 +23,15 @@
 >   5. **The support rule** (`terrain/support.ts`): the 38 shapes as tests, equal to the rule's queue on random
 >      terrain, nothing falls on the 22 official maps (with their stackables' tops); 0.2–28 ms at 256².
 >   6. **T1–T6 and the Terrain 3D probe group** (`tools/probe-3d.ts` → `C:\dgm-probe\terrain3d\`,
->      `investigation/probe/runner/terrain3d.ts`, DGM Probe 0.3.0 with overflow and every run's soil). The runner's
->      self-tests pass. The batch (about 12 minutes) is the milestone session's to run: `npm --prefix
->      C:\Users\krams\code\DamGoodMaps-3d\investigation\probe run batch -- --group "Terrain 3D"`, then again with
->      the code it prints.
->   7. **Golden fixtures, pending the batch** (`tools/stack-golden.ts`, `tests/golden/terrain3d.json`,
->      `tests/unit/stack-golden.test.ts`): the engine's results on T1–T5 and two cave maps, hashed, checked on every
->      push (about 5 s). Their `verified` field becomes the probe run's id once its records agree.
-> - **Next:** the Terrain 3D batch (queued third, after M9a's and Ceiling's), then its verdicts: mark the fixtures
->   verified, or fix the engine and regenerate them.
+>      `investigation/probe/runner/terrain3d.ts`, DGM Probe 0.3.0 with overflow and every run's soil). **Played:
+>      run `terrain3d-20260927`** (see "The game's verdict" below): every measured check passes, the support
+>      check once it reads the game's terrain after the load (its view refreshes on the first tick).
+>   7. **Golden fixtures, verified** (`tools/stack-golden.ts`, `tests/golden/terrain3d.json`,
+>      `tests/unit/stack-golden.test.ts`): the engine's results on T1–T6 and two cave maps of our own, hashed and
+>      checked on every push (about 15 s, most of it T6 at 256²). Each T case records what run
+>      `terrain3d-20260927` confirmed of it, keyed to the file it played and the case it verified.
+> - **Next:** the wiring step on `build`, after the forces and M9b have merged into `dev` (D286 (3)): runs through
+>   the core, the build and the validator, the engine wired in (see "Design findings").
 > - **Decided since:** D295 and D297 (a tile may change between wet and dry only where its depth under the game's
 >   rules is within 0.04–0.06, volume within 0.1%): all 30 sampled generated maps pass, Highlands seed 3
 >   included. D298: game-mode soil is adopted in M9b. Until the wiring step nothing that runs today changes: game
@@ -47,10 +47,38 @@ In this order, each a new module beside the existing code until the wiring step:
 4. ~~**The multi-slot writer.**~~ Done.
 5. ~~**The support check.**~~ Done. The validators keep today's check until the wiring step, which gates it on
    "any tile not one plain run from z = 0" (`allPlain`) rather than the floor count (INVENTORY bug 1).
-6. ~~**T1–T6 and the probe group.**~~ Written; the batch waits for the milestone session.
-7. **Golden fixtures.** Built and checked in CI; marked verified once the Terrain 3D batch's records agree with the
-   engine (the official maps' saved water already does: "Findings"). Regenerate with `npx tsx tools/stack-golden.ts`
-   only when the engine is meant to change.
+6. ~~**T1–T6 and the probe group.**~~ Done and played (run `terrain3d-20260927`).
+7. ~~**Golden fixtures.**~~ Done and verified. Regenerate with `npx tsx tools/stack-golden.ts` only when the engine is
+   meant to change: a changed case loses its verification and needs the Terrain 3D batch again.
+
+## The game's verdict: run terrain3d-20260927
+
+Played 2026-09-27 by the milestone session, DGM Probe 0.3.0, with Kyler's installed mods (Harmony, Hungry Pathing,
+MixedStorage, Mod Settings, Late Game Performance, Optimized Local Housing, Persistent Work Areas, The Tipsy Tail,
+Timber Together), settings restored clean. Records: `C:\dgm-probe\results\terrain3d-20260927\` (`summary.md`,
+`verdicts.json`), contact sheet `C:\dgm-probe\sheet\terrain3d-20260927.html`. 22 checks passed, 1 failed (below), 2 not
+measurable (T2's walking and T5's pumps: the probe neither directs beavers nor builds), 6 screenshot sets recorded.
+
+| Map | What agreed with our models |
+|---|---|
+| T1 support | The game deleted exactly the 24 voxels our rule deletes: its log names each one, its loading issue counts 24 (`TerrainPhysicsPostLoader.TerrainHasNoSupport`), and its terrain from the first records after the load is our rule's, tile for tile and run for run. |
+| T2 walking | Loads with no issue; every voxel and run kept; 5 of 5 objects. Walking not measured. |
+| T3 cave water | Water after 1, 3 and 3.18 days from the file's (the canonical settle's): 100% of 342 wet columns within 0.1 (the largest difference 0.002), wet IoU 1.000, the same 44 columns under pressure (overflow within 0.001), volume 724.5 → 724.6. Soil on all 4,194 runs as ours (largest difference 0.000). |
+| T4 soil | Water after 0.5 and 1 day exactly the engine's (198 columns under pressure, roofs 1–3 thick over a full cave); soil on all 3,301 runs as ours, the roofs' 16, 10 and 4 included. |
+| T5 plants | The 5 plants our clearance rule removes were removed on load (loading issues for 2 pines, 2 oaks, 1 birch); the other 10 loaded and lived 3 days; the district center placed on the start under its roof at z + 5, 9 adults and 4 children. |
+| T6 heights | 256² to 22: loads with no issue, every voxel and all 2,526 objects kept; water after 0.5, 1 and 1.48 days: 100% of wet columns within 0.1 (the largest difference 0.034 at half a day), wet IoU 0.999–1.000, volume within 0.2%. |
+
+**The one failure was the check, not the game.** T1's support check failed at the load record: 24 tiles still
+showed the file's terrain there. The game deletes unsupported terrain while it loads the map
+(`BlockAndTerrainBatchLoader` runs `TerrainPhysicsPostLoader.ValidateAll` as the entities are batch-loaded, and logs
+each voxel), but the probe reads the terrain from the game's thread-safe column map
+(`ThreadSafeColumnTerrainMap`), which copies the columns when it loads, before that pass, and refreshes them only on
+each tick. So the probe's view shows the deletions from the first tick on. The check now decides on every record
+after the load (the game's terrain must be our rule's), and at the load record accepts each tile as the file's
+or ours, failing anything else. Re-run on this run's own records with `--compare-only` against a copy (so the run's
+recorded verdicts stay as they were): T1's support check passes ("at the load: 24 tiles still show the file's
+terrain …; after 0.48 days: 0 tiles differ from ours"), and every other verdict is unchanged. The runner's
+self-tests cover both sides (a load record that is the file's passes; one that is neither fails).
 
 ## Findings
 
@@ -139,3 +167,7 @@ In this order, each a new module beside the existing code until the wiring step:
   3D group and DGM Probe 0.3.0 (a5a612e); the maps written to `C:\dgm-probe\terrain3d\`, the batch command sent
   to the coordinator. Step 7's fixtures and their CI test (4db3e2a), pending the batch. Merged `origin/dev`
   (b24fb6f: D293–D298 recorded).
+- **2026-09-27, after run terrain3d-20260927.** The batch's verdicts recorded above. The support check reads the
+  game's terrain after the load (the probe's view refreshes on the first tick), confirmed on the run's own records
+  with `--compare-only` against a copy; the runner's self-tests extended. The golden fixtures gained T6 and a
+  per-case verification by the run, keyed to the file played and the case verified.
