@@ -1002,15 +1002,26 @@ they conflict):
 8. **Remove:** click one, drag many; filters; a red highlight on hover; Delete removes a selection;
    one undo step each; water re-flows live; never changes terrain; a removal that breaks a rule is
    refused live; instant on 256².
-9. **The working area** (D254, after the forces round 2, alongside the object brush D235, before Kyler's
-   editor UI audit): the player paints an area with a brush ring, or the Select tool's rectangle; while
-   it is active every tool (the brushes, the forces, Clear sources) works only inside it, and land
-   outside is locked, exactly as it is. A feathered edge tapers a tool's effect toward the boundary, so
+9. **Select, and the working area** (D254, D259; on `feature/forces` with the forces round 2, for Kyler's
+   forces sitting): Select gets a small button on the bar beside the brushes (M and Ctrl+drag still open
+   it), with Circle and Brush beside Rectangle, Freehand and Same level; Set level reaches the map's
+   ceiling, and Ctrl+click takes a tile's level as the target. Its actions stay exact, with hard edges.
+   The working area is Select's open selection, with no second way of marking an area: while it is
+   open every tool (the brushes, the forces, Clear sources) works only inside it, and land
+   outside is locked, exactly as it is. Ctrl+drag with a brush out makes the selection and the same
+   brush keeps painting inside it; with a brush or force picked, the Select row shrinks to a chip
+   ("Working inside 40 × 40 · Esc to clear"), never two full rows; the selection stays open after a
+   Select action until Esc or the × closes it. A feathered edge tapers a tool's effect toward the boundary, so
    edited land meets locked land naturally, never a cliff. To the forces, locked land is unbreakable
    rock: Carve turns away from it, lava pools against it, a crater's rim stops at it. Water is never
-   locked: it follows the land inside and out. The locked land is visibly dimmed while the area is
-   active, and one key clears it. Marking or clearing the area is not an edit; every edit inside it is
+   locked: it follows the land inside and out. The locked land is visibly dimmed while the selection is
+   open, and Esc clears it. Marking or clearing the area is not an edit; every edit inside it is
    still one undo step.
+   **Water no source feeds recedes at once** (D260, on `feature/forces`): after an edit that changes what
+   water is fed, the water no running source can reach drains away as part of the edit's own journey
+   (within about a second on 128², two on 256², at once at Instant), a removed source's marker and label
+   go the moment it is removed, and a stored oxbow lake keeps its water only while its hollow holds it.
+   The preview's water once it stops still matches the canonical settle's.
 10. **First run:** three one-line hints (paint the land, place things, add water), then never again.
 
 <!-- retired-terms:allow -->

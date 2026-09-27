@@ -3,11 +3,12 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D258), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D260), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-27, at the pause for the session restart)
+## Summary for Kyler (updated 2026-09-27, after the restart)
 
-The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
+The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
+Your nine decisions since the restart are recorded (D252–D260, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
@@ -23,20 +24,21 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
      Hooker Valley, Monument Valley, Fish River Canyon): drop one of each if you like;
    - the floor's dead trees: 67 of 1,693 grove trees, on 9 places;
    - defaults #80–#82, #84 (the versions) and #85 (what blocks, the note wording, where notes show).
-2. **Starts look alike at Normal, but not because of the floor** (your D229 question; M9a's start-area sheet,
-   `docs/sheets/m9a-start-areas.png` on `feature/m9a`, which I looked at): on Normal the floor adds no wood; on Hard its
-   groves follow each map's own water and land, in every direction. What recurs beside nearly every start is the start
-   rules' own planting for Minimum starting wood and bushes (D85): groves and berry patches within about 10 tiles, bigger
-   since Normal's 200 logs. The fix would spread that planting over the 20-tile walk the way the floor's wood reads the
-   land. Not changed: your call.
+2. **M9a's review set is coming to you on #56** (D252): the contact sheet at the frozen generator beside 0.6.x, 12
+   random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. First,
+   M9a spreads the start planting over the 20-tile walk (your yes to the starts looking alike), merges `dev`, re-freezes
+   and re-runs every batch. My honest read against PERFECT's "Maps" and "Water" follows here once the set exists.
 3. **Flatten's Ramped edges lay almost no slopes** (found while removing Smooth's walkable, D247): 0–2 slopes per pad
    against 17–62 one-level steps, because the slope planner places them by its own rules. The cause and one recommendation
    are pending #84 on `feature/forces` (#86 once merged). Flatten is unchanged.
 4. **Glaciate (#69)** is held while you and Codex do another round (D246).
-5. **Coming to you:** the forces sitting (your checklist below) once D249 and the ceiling are built; M9a's release after its
-   probe batch. **Later:** #83 (the new trees in Standard, at the Map look work).
+5. **A default I chose, #91:** locks and regenerate area are gone from the plan (D253), but their operations
+   (`setLock`, `regenerateRegion`) and the stamp origin value still sit in the code, unused by any interface. I've left
+   them and scheduled their removal for the refinement phase; say "remove it now" if you'd rather.
+6. **Coming to you:** the forces sitting (your checklist below) once D249, D257–D260 and the ceiling are built; M9a's review
+   set, then its release. **Later:** #83 (the new trees in Standard, at the Map look work).
 
-### Your checklist for the forces sitting (on the preview once D249 and the ceiling are built)
+### Your checklist for the forces sitting (on the preview once D249, D257–D260 and the ceiling are built)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
 1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
@@ -59,6 +61,17 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
    - the waterfall from 21 in play (dries in a drought, turns bad in a badtide);
    - Timberborn's own map editor, two minutes: open a Ceiling map, save it under a new name, reopen: the summit stays 22.
    The maps are in `C:\dgm-probe\ceiling\`.
+10. **Bound only by nature** (D257): run Carve, Craterize, Erupt and Quake straight through the start: each completes, and
+    the start lands on the nearest level ground; the checks dot says what broke, and its one-click fixes mend it.
+11. **Clean gestures** (D258): no route line, outline or footprint on the land before or during a force; Unleash, Strike,
+    Vent and Unleash on a source start on one click; Aim is a drag with only a thin arrow, gone as the force starts;
+    Quake's fault and Erupt's fissure still show as you draw them.
+12. **Select** (D259): its button on the bar; Circle and Brush shapes; Set level up to the ceiling and Ctrl+click for the
+    level; then, with a selection open, paint and use a force: nothing changes outside it, the edge meets the locked land
+    without a cliff, water still flows across; Ctrl+drag with a brush out, then keep painting; one row (the chip), Esc to
+    clear.
+13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
+    water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 
 ### 2. Released or merged
 
@@ -133,16 +146,14 @@ None has run yet. Three are prepared, to run after the restart, M9a's first (D21
   touched. HANDOFF now says to build with `--no-install`.
 - **Timberborn was open when I arrived;** you closed it (12:05).
 
-### 7. Paused for the restart (nothing is running)
+### 7. Running (2026-09-27)
 
-Every agent stopped at a clean point with its work pushed; nothing is uncommitted. Where each resumes (HANDOFF §1):
-- **M9a** (`feature/m9a`, 0f70fcb): the rest of the Normal batches (96², and parts of 128² and 192²; every map so far
-  passes; commands in `docs/progress/m9a.md`), CI on #56, then its probe batch. Done: the starting-logs floor in both
-  validators, the Claude suite at 103 of 120, `docs/sheets/m9a.png` and the start-area sheet, Hard at 128² 100% final.
-- **The forces** (`feature/forces`, c1438df): D249, then the ceiling (after the Ceiling batch), then the preview.
+- **M9a** (`m9a-build`, Opus 5.5 xhigh; `feature/m9a`; CI was green at 0f70fcb): merging `dev` (#56 was 69 commits
+  behind, with 4 conflicts), then the start planting (D252), a re-freeze, every batch again, the probe maps rebuilt;
+  then the review set for you and the probe batch (the session runs it).
+- **The forces** (`build`, Opus 5.5 high; `feature/forces`; CI was red at c1438df on `forces.spec.ts:183`, the Erupt
+  fit words D258 removes): CI, D249, D257/D258, D259 with the working area, D260; D244 step 2 after the Ceiling batch.
 - **Real places** (`feature/real-places-2`, 33f7050): waits for your drops, then badwater after M9a.
-- The session restarts in `C:\Users\krams\code\DamGoodMaps` at Opus 5.5, high, so each kind of work runs on its own
-  agent definition (D251).
 
 ## The takeover, 2026-09-26
 
@@ -313,6 +324,16 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D260: water no source feeds recedes at once, as part of the edit's own journey (stored oxbow lakes stay while their hollow holds them); a removed source's marker and label go at once. On feature/forces, for your forces sitting.
+- D259: Select is findable (a bar button; Circle and Brush shapes; Set level to the ceiling; Ctrl+click for the level) and its open selection is the working area: tools work only inside it, a feathered edge, the forces treat the outside as rock; Ctrl+drag with a brush fences and keeps painting; one row, a chip. On feature/forces.
+- D258: clean, magic gestures: no force draws a predicted route, outline or footprint; click modes are one click; Aim is a drag with only a thin arrow; drawn strokes (Quake's fault, Erupt's fissure) stay visible. On feature/forces.
+- D257: the forces are bound only by nature: they never refuse or reshape for playability; the checks dot and its one-click fixes make the result fit a good start; the start is carried to the nearest valid level ground. On feature/forces.
+- D256: M12 works through whole maps and the forces: no regrowing or locking areas; "make the north mountainous" is Quake or Erupt, "add a big waterfall" Carve or Unleash; the brushes for precise edits.
+- D255: Pick a place takes over the conversion (from Real places', in the browser); the framed land is kept (D245's rule, with notes); retries never replace the player's framing, size or scale; no heightmap upload planned.
+- D254: the working area (amended by D259: it is Select's selection).
+- D253: M10 and M11 removed: no symmetry, stamps, regenerate area or locks; Naturalize's checks kept as tests; the steps after them follow the Weather view.
+- D252: M9 is judged by your eye against PERFECT before each stage's release: starts stop looking alike (M9a); a review set on #56 before M9a's release; M9b's and M9c's acceptance adds your eye as blocking.
+- D251: every task on its own agent definition's model and effort.
 - D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
@@ -376,7 +397,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D258.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D260.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

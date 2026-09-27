@@ -99,7 +99,7 @@ editor is desktop-first (D185).
   the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
 - **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
   levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
-  (a key or a modifier-drag opens it), and live dimensions (a selection's size, a straight line's
+  (a small button on the bar beside the brushes; M and Ctrl+drag still open it, D259), and live dimensions (a selection's size, a straight line's
   length, the level while flattening).
 - **Hold to dig:** in precise mode, holding Lower (or Raise) keeps working, one level at a time at a
   steady pace tied to strength, with vertical walls, until let go; each hold is one undo step. An
@@ -148,16 +148,24 @@ editor is desktop-first (D185).
   Claude's steps, with nothing about it in the interface; a map whose land goes above 16 becomes a tall map (its
   description's note, exported and validated as tall) and a standard map again when it's back at 16 or below; generation
   is unchanged.
-- **The working area** (D254; after the forces round 2, alongside the object brush D235): the player paints an area with
-  a brush ring, or the Select tool's rectangle. While it is active every tool works only inside it (the brushes, the
-  forces, Clear sources); everything outside is locked, exactly as it is. A **feathered edge**: inside the area a tool's
-  effect tapers off toward the boundary, so edited land meets locked land naturally, never a cliff or a straight wall.
-  To the forces, locked land is unbreakable rock (the forces core's hardness): Carve's river turns away from it, lava
-  pools against it, a crater's rim stops at it. Water is never locked: it follows the land inside and out. While it is
-  active the locked land is visibly dimmed, and one key clears it, so it is never on unnoticed. Every edit is one undo
-  step as always; marking or clearing the area is not an edit.
+- **Select** (D259; on `feature/forces`, for Kyler's forces sitting): a small button on the bar beside the brushes; M
+  and Ctrl+drag still open it. Shapes: Rectangle, Freehand, Same level, **Circle** (drag from the centre outward, the
+  radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
+  Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
+  takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
+  Dig out, Clear objects) are exact, with hard edges: precision tools. The selection stays open after an action until
+  Esc or the × closes it.
+- **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
+  selection is open, the brushes, the forces and Clear sources work only inside it; everything outside is locked, exactly
+  as it is, and dimmed. A **feathered edge**: inside the area a tool's effect tapers off toward the boundary, so edited
+  land meets locked land naturally, never a cliff or a straight wall. To the forces, locked land is unbreakable rock (the
+  forces core's hardness): Carve's river turns away from it, lava pools against it, a crater's rim stops at it. Water is
+  never locked: it follows the land inside and out. "Fence off an area, then paint inside it" is one motion: Ctrl+drag
+  with a brush out makes the selection, and on release the same brush keeps painting inside it. One row at a time: with
+  a brush or force picked, the Select row shrinks to a chip beside it ("Working inside 40 × 40 · Esc to clear") that
+  expands when clicked. Every edit is one undo step as always; marking or clearing the area is not an edit.
 
-(D180, D182, D183, D184, D193, D202, D203, D206, D254.)
+(D180, D182, D183, D184, D193, D202, D203, D206, D254, D259.)
 
 ## 5. Water
 
@@ -441,6 +449,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
   - **Approximate under roofs** (imported caves, tunnels, overhang bridges, badtide drains). There the editor keeps the water the file stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. As built (M8, D100): the tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and **Show → Water under roofs** marks them; the roofed columns are never edited (D40), so they are not simulated again.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds, which the canonical settle would start dry. The carve stores the water the game settles there just before its mouths closed (`RetainedWater`, part of the water model); every settle starts the lake from it, then runs the game's rules, so the lake evaporates as an unfed one does in the game. The same document still always settles to the same bytes. Its evaporation is not the water still changing (D222): while the lake is sealed (no running source and no map edge in its water), the tiles of it that only lost water are left out of the settle's test, so `water.settles` passes and the quiet dot settles once the rest of the water has; the preview's water stops then too. The canonical settle still runs on to its own test, so the water written is unchanged (`PLAN.md` §10, §11.3).
+  - **Water changes only through its causes** (D260; on `feature/forces`): after every edit that can change what water is fed (a source removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles no running source can reach on the new ground start dry in the warm start, so their water drains away as part of the edit's own journey (within about a second on 128² and two on 256² at normal speed; at once at Instant). A removed source's upwelling, marker and strength label go the moment it is removed. A stored lake (`RetainedWater`) keeps its water only while its hollow holds it: breached, it drains through the breach; filled in, its water is gone. The preview's water once it stops matches the canonical settle's, except under roofs.
   - **Speed:** after an edit the preview re-settles from its previous state. The target is ≤ 2 s for a local edit on 256². A full re-settle runs in the background with progress. As built (M8, D99): 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node; the background check is debounced by 0.7 s and dropped when a newer edit arrives.
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes, and the worker runs the water on it at once (the simulation steps only wet tiles and their neighbours, about 0.7–1.6 ms a tick on 256², so the water nearest the edit is what moves first) and sends each frame as soon as the water has answered. On release, the stroke's operation carries that water on into the journey; Esc drops it. On 256² River Valley, the water in a new channel moves 25–36 ms after its ground changes (it moved 80–95 ms after the release before, and not at all while painting).
   - **The journey's speed** (D197): slower, normal (the default, three times the slowest: a small edit settles nearby in a second or two), faster, or instant (the latest water there is).
