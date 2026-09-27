@@ -10,7 +10,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
-import type { Look } from "../render3d/renderer";
 import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
 import { presentEntries, type PresentEntry } from "./legendMap";
@@ -45,6 +44,8 @@ export interface View3DProps {
   togglesInButtons?: boolean;
   /** Whether the legend shows (the editor: only while an overlay is on, D184). */
   showLegend?: boolean;
+  /** The look's menu among the view's buttons (the editor has it in its header instead). */
+  lookMenu?: boolean;
 }
 
 const GROUND_KEY = "dgm.groundColours";
@@ -108,9 +109,8 @@ export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const compass = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
-  /** The renderer, for the look's menu, and the look it draws (High or Standard, D284). */
+  /** The renderer, for the look's menu (High or Standard, D284). */
   const [made, setMade] = useState<MapRenderer | null>(null);
-  const [look, setLook] = useState<Look>("standard");
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
   const [markers, setMarkers] = useState<boolean>(() => savedMarkers() || !!props.markersWanted);
@@ -133,8 +133,6 @@ export function View3D(props: View3DProps) {
     }
     renderer.current = r;
     setMade(r);
-    setLook(r.look);
-    r.onLook = (l) => setLook(l);
     r.setGroundMode(ground);
     r.setMarkers(markers);
     r.onHover = (hit) => onHover.current?.(hit);
@@ -276,7 +274,7 @@ export function View3D(props: View3DProps) {
   );
 
   return (
-    <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} look-${look === "lower" ? "high" : look} ${props.class ?? ""}`}>
+    <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
@@ -292,7 +290,7 @@ export function View3D(props: View3DProps) {
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
-        <LookMenu renderer={made} look={look} />
+        {props.lookMenu === false ? null : <LookMenu renderer={made} />}
       </div>
       <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
         <div ref={compass} class="needle">

@@ -138,6 +138,13 @@ describe("the automatic choice (the fallback)", () => {
     expect(g.tier).toBe("high");
   });
 
+  it("leaves High at once, on its first reading, for a GPU far too slow for it", () => {
+    expect(new LookGovernor("high").probe([5, 6, 7, 6, 5])).toBe("high");
+    expect(new LookGovernor("high").probe([40, 41, 39, 40, 42])).toBe("lower");
+    expect(new LookGovernor("high").probe([80, 90, 85, 88, 86])).toBe("standard");
+    expect(new LookGovernor("lower").probe([40, 41, 39, 40, 42])).toBe("lower");
+  });
+
   it("starts where it settled last time on the same GPU at about the same size", () => {
     const saved = { gpu: "GPU A", pixels: 1_000_000, tier: "standard" as const };
     expect(startTier("GPU A", 1_100_000, saved)).toBe("standard");

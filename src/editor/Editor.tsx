@@ -23,6 +23,7 @@ import { FLIPPED, ORIENTATION_NAMES, surfaceWater, type EntityView, type MapView
 import { damLegendSwatch } from "../render3d/palette";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
+import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, DamSiteView, EditorEvent, EntityInfo, ExportCheck, ForceFrame, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
@@ -2394,6 +2395,7 @@ export default function Editor(props: EditorProps) {
         historyOpen={showHistory}
         onHistory={() => setShowHistory(!showHistory)}
         onBack={() => props.onBack(info)}
+        look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       />
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!carver.current?.running} />
@@ -2406,6 +2408,7 @@ export default function Editor(props: EditorProps) {
             legendExtra={legendExtra}
             markersWanted={damSites !== null || shelf?.id === "Slope"}
             togglesInButtons
+            lookMenu={false}
             showLegend={layer !== "none" || damSites !== null}
             viewButtons={
               <>

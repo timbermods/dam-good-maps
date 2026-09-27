@@ -51,6 +51,15 @@ export class LookGovernor {
     this.samples = [];
   }
 
+  /** A first quick reading (a few frames timed at once): a tier a GPU is far too slow for is left at
+   *  once (its median above 1.5 times the limit), without waiting for the windows. */
+  probe(ms: readonly number[]): Tier {
+    const m = percentile(ms, 0.5);
+    if (this.tier !== "standard" && m > this.limits.standardAt * 1.5) this.tier = "standard";
+    else if (this.tier === "high" && m > this.limits.lowerAt * 1.5) this.tier = "lower";
+    return this.tier;
+  }
+
   /** One frame's cost (ms), measured at `now`; returns the tier after it. */
   sample(ms: number, now: number): Tier {
     if (this.tier === "standard" || now < this.from || !(ms >= 0)) return this.tier;

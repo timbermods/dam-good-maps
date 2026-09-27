@@ -173,11 +173,19 @@ export function softwareRendering(): boolean {
 
 /** Test hooks for the look (tests/e2e/look-high.spec.ts), set before the view is made: `gpu`
  *  treats a browser drawing in software as if it had a GPU (CI's has none), so the High look and its
- *  fallback can be tried there; `limits` replaces the fallback's limits (fewer frames to wait). */
+ *  fallback can be tried there; `limits` replaces the fallback's limits (fewer frames to wait);
+ *  `cost` reports every frame as costing that many milliseconds (`simulateFrameCost`). */
 declare global {
   interface Window {
-    dgmLookTest?: { gpu?: boolean; limits?: Partial<GovernorLimits> };
+    dgmLookTest?: { gpu?: boolean; limits?: Partial<GovernorLimits>; cost?: number };
   }
+}
+
+/** The window's size in device pixels: what the automatic look remembers its verdict by (the view
+ *  fills most of it). */
+function screenPixels(): number {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  return Math.round(window.innerWidth * window.innerHeight * dpr * dpr);
 }
 
 /** Timberborn's camera keys: WASD and the arrows move, Q and E turn. */
@@ -229,11 +237,11 @@ export class MapRenderer {
   private choice: LookChoice = "auto";
   private chosenEffects: HighEffects = allEffects();
   private governor: LookGovernor | null = null;
-  /** Frame costs for the governor: GPU timer queries in flight, or (without them) every tenth frame
+  /** Frame costs for the governor: GPU timer queries in flight, or (without them) every fourth frame
    *  timed to its end. */
   private costTimer: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null; pending: WebGLQuery[]; frame: number } | null = null;
   /** A frame cost to report instead of the measured one (tests of the fallback), or null. */
-  private simulatedCost: number | null = null;
+  private simulatedCost: number | null = window.dgmLookTest?.cost ?? null;
   /** The GPU's name (the automatic choice remembers its verdict per GPU). */
   private gpuName = "";
   private sky: Mesh;
@@ -514,8 +522,18 @@ export class MapRenderer {
 
   // -------------------------------------------------------------------------------------- the look
 
-  /** Told when the look drawn changes (the view's look menu). */
-  onLook: ((look: Look) => void) | null = null;
+  private lookListeners = new Set<(look: Look) => void>();
+
+  /** Be told when the look drawn or the High effects change (the view, the look's menu); returns
+   *  the way to stop. */
+  listenLook(fn: (look: Look) => void): () => void {
+    this.lookListeners.add(fn);
+    return () => this.lookListeners.delete(fn);
+  }
+
+  private tellLook(): void {
+    for (const fn of this.lookListeners) fn(this.lookNow);
+  }
 
   /** The look drawn now. */
   get look(): Look {
@@ -539,6 +557,8 @@ export class MapRenderer {
     if (this.software) return;
     this.choice = c;
     if (save) saveChoice(c);
+    // (choosing automatic again gives High another try)
+    if (save && c === "auto") saveVerdict(null);
     if (c === "standard" || !this.canHigh) {
       this.governor = null;
       this.applyLook("standard");
@@ -549,7 +569,7 @@ export class MapRenderer {
       this.applyLook("high");
       return;
     }
-    const tier = startTier(this.gpuName, this.gl.domElement.width * this.gl.domElement.height || window.innerWidth * window.innerHeight);
+    const tier = startTier(this.gpuName, screenPixels());
     this.governor = new LookGovernor(tier, { ...LIMITS, ...window.dgmLookTest?.limits });
     this.governor.hold(performance.now());
     this.applyLook(tier);
@@ -572,7 +592,7 @@ export class MapRenderer {
     saveOff(HIGH_EFFECTS.filter((e) => !this.chosenEffects[e.key]).map((e) => e.key));
     this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
     this.requestRender();
-    this.onLook?.(this.lookNow);
+    this.tellLook();
   }
 
   /** The High look's numbers (the menu's details, the measurements), or null. */
@@ -649,7 +669,7 @@ export class MapRenderer {
     }
     this.governor?.hold(performance.now());
     this.requestRender();
-    if (was !== tier) this.onLook?.(tier);
+    if (was !== tier) this.tellLook();
   }
 
   /** Every mesh drawn with the look's materials takes these. */
@@ -691,6 +711,33 @@ export class MapRenderer {
     return m.heights[i] - g[i];
   }
 
+  private probeTimer = 0;
+  /** A quick first reading of the automatic look (once a session, a second after the first map):
+   *  the view drawn five times as it is, each timed to the GPU's end. Frames far too slow for High
+   *  step down at once, without the governor's wait; the governor watches every frame after it. */
+  private scheduleProbe(): void {
+    if (!this.governor || this.probed || this.lookNow === "standard" || this.lookNow === "light") return;
+    clearTimeout(this.probeTimer);
+    this.probeTimer = window.setTimeout(() => {
+      if (this.disposed || !this.governor || !this.map || this.lookNow === "standard") return;
+      this.probed = true;
+      const ctx = this.gl.getContext();
+      const times: number[] = [];
+      for (let k = 0; k < 5; k++) {
+        const t0 = performance.now();
+        this.renderNow();
+        ctx.finish();
+        times.push(this.simulatedCost ?? performance.now() - t0);
+      }
+      const tier = this.governor.probe(times);
+      if (tier !== this.lookNow) {
+        saveVerdict({ gpu: this.gpuName, pixels: screenPixels(), tier });
+        this.applyLook(tier);
+      }
+    }, 1000);
+  }
+  private probed = false;
+
   /** One frame's cost for the governor (automatic look only). */
   private sampleCost(ms: number): void {
     const gov = this.governor;
@@ -698,7 +745,7 @@ export class MapRenderer {
     const before = gov.tier;
     const tier = gov.sample(this.simulatedCost ?? ms, performance.now());
     if (tier === before) return;
-    saveVerdict({ gpu: this.gpuName, pixels: this.gl.domElement.width * this.gl.domElement.height, tier });
+    saveVerdict({ gpu: this.gpuName, pixels: screenPixels(), tier });
     this.applyLook(tier);
   }
 
@@ -725,8 +772,8 @@ export class MapRenderer {
     if (q && t.ext) {
       ctx.endQuery(t.ext.TIME_ELAPSED_EXT);
       t.pending.push(q);
-    } else if (!t.ext && t.frame % 10 === 0) {
-      // no timer queries: every tenth frame, timed to the GPU's end of it
+    } else if (!t.ext && t.frame % 4 === 0) {
+      // no timer queries: every fourth frame, timed to the GPU's end of it
       ctx.finish();
       this.sampleCost(performance.now() - cpuStart);
     }
@@ -801,6 +848,7 @@ export class MapRenderer {
     ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
     const ms = performance.now() - t0;
     this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
+    this.scheduleProbe();
     this.highlight = null;
     this.pageOverlay = null;
     this.onMapChange?.();
@@ -1705,6 +1753,8 @@ export class MapRenderer {
     const h = this.canvas.clientHeight;
     if (!w || !h) return;
     this.gl.setSize(w, h, false);
+    // (frames right after a resize don't count toward the automatic look's verdict)
+    this.governor?.hold(performance.now());
     this.requestRender();
   }
 
@@ -2093,6 +2143,7 @@ export class MapRenderer {
     this.disposed = true;
     if (this.frame) cancelAnimationFrame(this.frame);
     clearTimeout(this.animTimer);
+    clearTimeout(this.probeTimer);
     this.resize.disconnect();
     this.seen?.disconnect();
     for (const [target, type, fn, opts] of this.listeners) target.removeEventListener(type, fn, opts);

@@ -1,18 +1,27 @@
 // The look's menu on the 3D view (Map look 2, PLAN §20 D284): High, the default where this computer
 // runs it smoothly (it falls back to Standard by itself where it doesn't), or Standard, held; and
-// High's effects, each switchable (D242, D250). Hidden where the browser draws in software (the
-// light look: there is no choice to make). Built from the shared panel styles (D176).
+// High's four parts, each switchable (D242, D250: every single effect is switchable too, through the
+// renderer's `setHighEffect`). Hidden where the browser draws in software (the light look: there is
+// no choice to make). Built from the shared styles only; the design pass styles it (D176, D296).
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { MapRenderer } from "../render3d";
-import { HIGH_EFFECTS } from "../render3d/high/effects";
+import { HIGH_EFFECTS, type HighEffect } from "../render3d/high/effects";
 import type { LookChoice } from "../render3d/high/fallback";
 import type { Look } from "../render3d/renderer";
 
 const CHOICES: { key: LookChoice; label: string; note: string }[] = [
   { key: "auto", label: "Automatic", note: "High where this computer draws it smoothly, Standard where it doesn't" },
   { key: "high", label: "High", note: "Warm light, soft shadows, deeper water and new trees" },
-  { key: "standard", label: "Standard", note: "The clean look, lightest to draw" },
+  { key: "standard", label: "Standard", note: "The clean look, the lightest to draw" },
+];
+
+/** High's parts as the menu offers them: the four investigations it came from. */
+const PARTS: { from: HighEffect["from"]; label: string }[] = [
+  { from: "#38", label: "Water and soft shadows" },
+  { from: "#65", label: "Light and materials" },
+  { from: "#66", label: "Trees and bushes" },
+  { from: "#67", label: "Finishing touches" },
 ];
 
 /** What the look is doing, in a line. */
@@ -26,12 +35,13 @@ export function lookWords(choice: LookChoice, look: Look): string {
   return look === "standard" ? "Drawing Standard." : look === "lower" ? "Drawing High with a few effects off." : "Drawing High.";
 }
 
-/** `look`: the look drawn, as the view last heard it (the menu redraws when it changes). */
-export function LookMenu(props: { renderer: MapRenderer | null; look: Look }) {
+/** `buttonClass`: its button's class, as its neighbours' (the editor's header: "ghost"). */
+export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: string }) {
   const r = props.renderer;
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => (r ? r.listenLook(() => setTick((n) => n + 1)) : undefined), [r]);
   useEffect(() => {
     if (!open) return;
     const off = (e: PointerEvent) => {
@@ -50,18 +60,16 @@ export function LookMenu(props: { renderer: MapRenderer | null; look: Look }) {
   const look = r.look;
   const high = look === "high" || look === "lower";
   const effects = r.highEffects;
-  const now = r.highEffectsNow;
   return (
-    <div class="menu-wrap look-menu" ref={wrap}>
-      <button type="button" aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title={lookWords(choice, look)}>
+    <div class="menu-wrap" ref={wrap}>
+      <button type="button" class={props.buttonClass} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title={lookWords(choice, look)}>
         Look: {high ? "High" : "Standard"}
       </button>
       {open ? (
-        <div class="checks-list look-list" id="look-menu" role="group" aria-label="Look">
-          <fieldset>
-            <legend class="checks-head">How the map is drawn</legend>
-            {CHOICES.map((c) => (
-              <label key={c.key} class="look-choice">
+        <div class="menu" id="look-menu" role="group" aria-label="Look">
+          {CHOICES.map((c) => (
+            <div key={c.key}>
+              <label title={c.note}>
                 <input
                   type="radio"
                   name="look"
@@ -70,39 +78,35 @@ export function LookMenu(props: { renderer: MapRenderer | null; look: Look }) {
                     r.setLookChoice(c.key);
                     setTick((n) => n + 1);
                   }}
-                />
-                <span>
-                  <b>{c.label}</b> <span class="note">{c.note}</span>
-                </span>
+                />{" "}
+                {c.label}
               </label>
-            ))}
-          </fieldset>
+            </div>
+          ))}
           <p class="note" role="status">
             {lookWords(choice, look)}
           </p>
-          {high ? (
-            <details>
-              <summary>High's effects</summary>
-              <ul class="look-effects">
-                {HIGH_EFFECTS.map((e) => (
-                  <li key={e.key}>
+          {high
+            ? PARTS.map((p) => {
+                const keys = HIGH_EFFECTS.filter((e) => e.from === p.from).map((e) => e.key);
+                return (
+                  <div key={p.from}>
                     <label>
                       <input
                         type="checkbox"
-                        checked={effects[e.key]}
+                        checked={keys.every((k) => effects[k])}
                         onChange={(ev) => {
-                          r.setHighEffect(e.key, (ev.target as HTMLInputElement).checked);
+                          const on = (ev.target as HTMLInputElement).checked;
+                          for (const k of keys) r.setHighEffect(k, on);
                           setTick((n) => n + 1);
                         }}
                       />{" "}
-                      {e.label}
-                      {effects[e.key] && now && !now[e.key] ? <span class="note"> (off to keep it smooth)</span> : null}
+                      {p.label}
                     </label>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+                  </div>
+                );
+              })
+            : null}
         </div>
       ) : null}
     </div>
