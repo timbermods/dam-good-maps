@@ -6,6 +6,8 @@
 //   git archive --output=.scratch/before.tar <the branch's base on dev> index.html real-places src public vite.config.ts tsconfig.json package.json
 //   mkdir -p .scratch/before && tar -xf .scratch/before.tar -C .scratch/before
 //   npx tsx tools/capture-high.ts [--before .scratch/before] [--port 4951] [--out docs/look/high] [--only a,b]
+//   npx tsx tools/capture-high.ts --identity [--before .scratch/before]   (the Standard comparison only,
+//     with dev's site drawn twice as the baseline: two page loads differ a little, as the water settles)
 //
 // Our own renders only: generated maps opened in the editor, each view found on the map (`FIND_JS`),
 // the water held at one moment and the wind with it, the page's buttons hidden. The camera is placed
@@ -25,6 +27,9 @@ const OUT = arg("out") ?? "docs/look/high";
 const ONLY = arg("only")?.split(",");
 const QUALITY = Number(arg("quality") ?? 82);
 const PORT = Number(arg("port") ?? 4951);
+/** Only the Standard comparison, with a baseline: dev's site drawn twice (two page loads) beside
+ *  dev's against this checkout's. */
+const IDENTITY = process.argv.includes("--identity");
 const VIEWPORT = { width: 1280, height: 800 };
 const CLOCK = 12.5;
 const GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"];
@@ -52,7 +57,7 @@ const LABELS: Record<Want, string> = {
   whole: "the whole map, the default camera",
   start: "the start, close",
   forest: "the densest forest, close",
-  edge: "the map's edge, low",
+  edge: "the map's west edge, low",
   fall: "the tallest fall's landing",
   badwater: "where badwater meets clean water",
   cliff: "the tallest cliff, low",
@@ -87,10 +92,10 @@ const FIND_JS = `([wants, defaultYaw, defaultPitch]) => {
       for (let i = 0; i < n.length; i++) { const x = i % cw, y = Math.floor(i / cw); const v = n[i] + (n[i + 1] ?? 0) + (n[i + cw] ?? 0) + (n[i + cw + 1] ?? 0); if (x < cw - 1 && y < Math.ceil(H / 8) - 1 && v > best) { best = v; bi = i; } }
       out[w] = bi >= 0 ? around((bi % cw) * 8 + 8, Math.floor(bi / cw) * 8 + 8, 30, 0.62) : null;
     } else if (w === "edge") {
-      // the south edge at its wettest or highest stretch, from low down
-      let best = -1, bx = W / 2;
-      for (let x = 8; x < W - 8; x++) { const i = x; const v = (wet(i) ? 20 : 0) + h[i]; if (v > best) { best = v; bx = x; } }
-      out[w] = { mode: "orbit", yaw: 0.35, pitch: 0.2, distance: 34, target: [bx + 0.5, h[bx] * 0.5, -1] };
+      // the west edge (the sunny side) at its wettest or highest stretch, from low down and outside
+      let best = -1, by = H / 2;
+      for (let y = 8; y < H - 8; y++) { const i = y * W; const v = (wet(i) ? 20 : 0) + h[i]; if (v > best) { best = v; by = y; } }
+      out[w] = { mode: "orbit", yaw: -Math.PI / 2 + 0.45, pitch: 0.22, distance: 30, target: [0, h[by * W] * 0.6, -(by + 0.5)] };
     } else if (w === "fall") {
       let best = -1, v = null;
       for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) { const i = y * W + x; if (!wet(i)) continue; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const j = (y + dy) * W + x + dx; if (!wet(j)) continue; const drop = s.surface[i] - s.surface[j]; if (drop > best) { best = drop; v = { mode: "orbit", yaw: Math.atan2(dx, -dy) - 0.5, pitch: 0.42, distance: Math.max(18, drop * 2.4 + 9), target: [x + 0.5 + dx * 1.2, s.surface[j] + drop * 0.3, -(y + 0.5 + dy * 1.2)] }; } } }
@@ -241,7 +246,7 @@ async function main() {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
     // the Standard look held to begin with (the after site would pick High by itself)
-    await context.addInitScript("localStorage.setItem('dgm.look', 'standard')");
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
@@ -249,6 +254,29 @@ async function main() {
     const tool = await browser.newPage();
     await tool.goto(`http://localhost:${PORT}/`);
     const highShots: { label: string; png: Buffer; angled: boolean }[] = [];
+    if (IDENTITY) {
+      const read = async () => (await page.evaluate(`(() => { const a = window.__px; let s = ""; const step = 0x8000; for (let i = 0; i < a.length; i += step) s += String.fromCharCode.apply(null, Array.from(a.subarray(i, i + step))); return btoa(s); })()`)) as string;
+      for (const m of MAPS) {
+        if (ONLY && !ONLY.includes(m.id)) continue;
+        console.log(m.name);
+        await open(page, PORT + 1, m.fragment);
+        const views = (await page.evaluate(`(${FIND_JS})(${JSON.stringify([m.views, DEFAULT_YAW, DEFAULT_PITCH])})`)) as Record<Want, View | null>;
+        const dev: Record<string, string> = {};
+        for (const w of m.views) if (views[w]) (await shot(page, views[w]!), (dev[w] = await read()));
+        for (const [label, port] of [["dev again", PORT + 1], ["this checkout", PORT]] as const) {
+          await open(page, port, m.fragment);
+          for (const w of m.views) {
+            if (!views[w]) continue;
+            await shot(page, views[w]!);
+            const c = (await page.evaluate(`(${COMPARE_JS})(${JSON.stringify(dev[w])})`)) as { same: boolean; share: number; max: number };
+            identity.push({ view: `${m.id} ${w}: dev against ${label}`, ...c });
+          }
+        }
+      }
+      writeFileSync(join(".scratch", "capture-high-identity.json"), JSON.stringify({ identity, errors }, null, 2) + "\n");
+      for (const r of identity) console.log(`  ${r.view}: ${r.same ? "identical" : `${(r.share * 100).toFixed(4)}% of values differ, by at most ${r.max}`}`);
+      return;
+    }
     for (const m of MAPS) {
       if (ONLY && !ONLY.includes(m.id)) continue;
       console.log(m.name);

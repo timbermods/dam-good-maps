@@ -332,6 +332,8 @@ export class MapRenderer {
     this.reducedMotion = !!motion?.matches;
     motion?.addEventListener?.("change", () => {
       this.reducedMotion = motion.matches;
+      // (the High look's wind stops and starts with it)
+      this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
       this.requestRender();
     });
     if (typeof IntersectionObserver !== "undefined") {

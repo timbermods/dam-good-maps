@@ -105,9 +105,9 @@ export const WATER_SURFACE = {
  *  calibrated through High's light to the targets in `WATER_CALIBRATION` (the same targets as the
  *  Standard look's badwater). The High look's tone curve and grade then brighten them a little,
  *  as #65 intends (its final colours are judged from captures). Clean water by depth (shallow, a
- *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; water partly
- *  bad through the warm mixing colour to crimson; badwater's troughs and streaks as offsets on its
- *  body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
+ *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; badwater's
+ *  body (water partly bad blends to it as the Standard look's does: `WATER_BLEND`, `waterBlend` in
+ *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
  *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
 export const HIGH_WATER = {
   shallow: [34 / 255, 71.5 / 255, 86 / 255] as Rgb,
@@ -117,7 +117,6 @@ export const HIGH_WATER = {
   streakLow: [56 / 255, 86 / 255, 98 / 255] as Rgb,
   grazing: [51 / 255, 79 / 255, 91 / 255] as Rgb,
   streakGrazing: [82.5 / 255, 127.5 / 255, 137 / 255] as Rgb,
-  mix: [44 / 255, 66 / 255, 76 / 255] as Rgb,
   bad: [107 / 255, 51 / 255, 49 / 255] as Rgb,
   badTrough: [-21 / 255, -8 / 255, -7 / 255] as Rgb,
   badStreak: [12 / 255, 15 / 255, 5 / 255] as Rgb,

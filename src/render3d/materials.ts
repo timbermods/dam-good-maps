@@ -356,6 +356,8 @@ export interface ShaderHooks {
   /** After the light, before the overlays (c, light, n, h0, d0). */
   lit?: string;
   // the water
+  /** Functions after the shared water palette's GLSL (they may use it). */
+  waterDecl?: string;
   /** A water surface of its own, before clear water (c, alpha, foam, n, g, depth, cont, shore, V, lit). */
   water?: string;
   // falls
@@ -822,7 +824,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vNormal;
       varying vec3 vWorld;
       ${common(h)}
-      ${WATER_GLSL}
+      ${WATER_GLSL}${hook(h, "waterDecl")}
       /** The slope of the ripples (gentle, moving) at q. */
       vec2 ripple(vec2 q, float t) {
         float a1 = q.x * 1.3 + q.y * 0.35 + t * 1.1;

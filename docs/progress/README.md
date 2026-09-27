@@ -27,6 +27,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [live-editing.md](live-editing.md) | Live editing: triage, terrain brushes, the water, smart Lower and Source, the top bar and brush kit, the left shelf and Remove (branch `feature/live-editing`) | 2026-09-25 |
 | [resources.md](resources.md) | Resources like the official maps: measured baselines, groves, patches, ruin fields, a mine site on every map (generator 0.6.2) | 2026-09-25 |
 | [docs-sweep.md](docs-sweep.md) | Docs sweep: the living docs against the editor vision, and the retired-terms guard (D188) | 2026-09-26 |
+| [high-look.md](high-look.md) | The High look (Map look 2): #38, #65, #66 and #67 adopted beside Standard, the default where it runs smoothly (branch `feature/high-look`) | 2026-09-27 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
 
 A milestone's date is the day of its `m<N>-done` tag.

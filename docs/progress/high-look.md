@@ -65,33 +65,43 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
 ## The measurements (information, D115; D250 (2))
 
 `npx tsx tools/measure-high.ts` on this machine: RTX 2070 SUPER (ANGLE, Direct3D 11), Chrome headed at 1600×900
-(the view 1425×833 device pixels), the display's refresh 165 Hz; two dense 256² maps: River Valley 4242 with forests at
-double density in big woods and ruins ×3 (8,939 objects, 29 falls) and Highlands 2, the generated map with the most falls
-(9,518 objects, 141 falls). Measured while M9a's batches were running on the CPU. **Drawn**: the view drawn 40 times back
-to back, each waited for to its end (the median, CPU and GPU, no vsync); **GPU**: the GPU's time per frame from timer
-queries while orbiting the whole map for 5 s (median and 95th percentile); **painting**: frame intervals during a
-three-second raise stroke (median and 95th percentile).
+(the view 1425×833 device pixels; and at twice the pixel density, 2850×1666, for the first map), the display's refresh
+165 Hz; two dense 256² maps: River Valley 4242 with forests at double density in big woods and ruins ×3 (8,939 objects,
+29 falls) and Highlands 2, the generated map with the most falls (9,518 objects, 141 falls). Measured while M9a's
+batches kept the CPU busy (the painting numbers carry that noise). **Drawn**: the view drawn 40 times back to back, each
+waited for to its end by reading a pixel back (the median; CPU, GPU and the read's own round trip, no vsync); **GPU**:
+the GPU's time per frame from timer queries while orbiting for 5 s, the whole map and close in (median and 95th
+percentile); **painting**: frame intervals during a three-second raise stroke (median and 95th percentile; 5.9 ms is one
+refresh).
 
-| Map | Look | Drawn (whole / close) | GPU orbit, whole map | GPU orbit, close | Orbit frame rate | Painting frames |
+| Map | Look | Drawn (whole / close) | GPU, whole map | GPU, close in | Orbit | Painting frames |
 |---|---|---|---|---|---|---|
-| River Valley 4242 | Standard | 0.4 / 0.3 ms | 1.3 / 4.5 ms | 1.1 / 4.0 ms | 169 fps (the cap) | 5.9 / 11.7 ms |
-| River Valley 4242 | High, every effect | 0.5 / 0.4 ms | 3.2 / 4.3 ms | 1.7 / 3.7 ms | 169 fps | 5.9 / 11.9 ms |
-| River Valley 4242 | High, lower-cost tier | 0.4 / 0.3 ms | 1.5 / 4.4 ms | 1.6 / 4.0 ms | 169 fps | 5.9 / 23.5 ms |
-| Highlands 2 | Standard | 0.4 / 0.3 ms | 1.1 / 4.0 ms | 1.1 / 3.9 ms | 169 fps | 5.9 / 6.0 ms |
-| Highlands 2 | High, every effect | 0.6 / 0.4 ms | 1.5 / 4.8 ms | 1.7 / 3.3 ms | 169 / 158 fps | 5.9 / 6.0 ms |
-| Highlands 2 | High, lower-cost tier | 0.5 / 0.3 ms | 1.3 / 5.7 ms | 1.6 / 3.4 ms | 169 fps | 5.9 / 6.0 ms |
+| River Valley 4242 | Standard | 4.8 / 4.0 ms | 1.2 / 4.3 ms | 1.1 / 3.9 ms | 147–162 fps | 5.9 / 17.7 ms |
+| River Valley 4242 | High, every effect | 5.7 / 5.8 ms | 3.3 / 4.4 ms | 2.3 / 3.9 ms | 153–163 fps | 5.9 / 17.7 ms |
+| River Valley 4242 | High, lower-cost tier | 4.6 / 5.0 ms | 1.6 / 6.5 ms | 1.6 / 4.4 ms | 165 fps | 5.9 / 41.2 ms |
+| Highlands 2 | Standard | 4.2 / 3.6 ms | 1.2 / 4.3 ms | 1.1 / 4.1 ms | 165–167 fps | 5.9 / 6.0 ms |
+| Highlands 2 | High, every effect | 5.5 / 5.1 ms | 1.7 / 4.3 ms | 2.2 / 6.3 ms | 159–163 fps | 5.9 / 6.0 ms |
+| Highlands 2 | High, lower-cost tier | 4.9 / 4.7 ms | 1.4 / 3.9 ms | 1.5 / 3.5 ms | 165–167 fps | 5.9 / 6.0 ms |
+| River Valley 4242, 2850×1666 | Standard | 4.8 / 5.2 ms | 1.9 / 4.5 ms | 1.6 / 3.3 ms | 161–168 fps | 5.9 / 11.8 ms |
+| River Valley 4242, 2850×1666 | High, every effect | 6.1 / 5.7 ms | 3.7 / 4.8 ms | 3.8 / 4.3 ms | 165–166 fps | 5.9 / 11.8 ms |
+| River Valley 4242, 2850×1666 | High, lower-cost tier | 5.5 / 5.6 ms | 1.8 / 4.3 ms | 2.3 / 4.5 ms | 168 fps | 5.9 / 11.9 ms |
 
-Each stage's cost, on top of the foundation (#38, #65 and #66) on the same maps: every configuration draws in 0.3–0.6 ms
-and orbits at the display's 165 Hz; the differences between stages are within the run's noise (GPU medians 1.0–1.7 ms,
-95th percentiles 2.3–6.6 ms, the spikes being the sun's depth map redrawn after an edit and uploads). The full table,
-with every stage and the High look's own timings (the ambient occlusion's bake in the worker, 0.2–0.4 s at 256²; the flow,
-18–54 ms, in the worker), is in `.scratch/measure-high.json` when the tool runs (gitignored; it takes about 35 minutes).
+**Each stage's cost** (D250 (2)), the foundation (#38's water and shadows, #65, #66) with one of #67's stages on, the
+same maps and views: every one draws in 4.4–5.7 ms (drawn) with GPU medians of 1.3–2.3 ms, within about a millisecond of
+the foundation alone and of each other, below this machine's noise between runs. High with every effect costs this GPU
+about 1–2 ms a frame more than Standard, at both pixel densities; every configuration orbits at or near the display's
+165 Hz. The painting spikes (up to about 50 ms at the 95th percentile in a few runs, Standard's included) come and go
+with the CPU's other work, not with the look. The ambient occlusion is baked in the worker (0.3–0.7 s at 256², the page
+never waits) and the flow in 20–150 ms (the same). The lower-cost tier drops the soft shadows, mist, splash rings, the
+wind, the trees' close-up models and the landmarks' fine detail, and draws 85% of the pixels (pending #114).
 
-**Where the fallback starts** (pending #113): High's frames cost this GPU well under 1 ms of work and at most about 6.6 ms
+**Where the fallback starts** (pending #113): High's frames cost this GPU 1–4 ms at the median and at most about 6.5 ms
 at their slowest 5%; the automatic choice steps down only when a window's 95th percentile passes 22 ms twice in a row
-(then 30 ms in the lower tier), so a GPU several times slower than this one still gets High, and one that can't hold
-about 45 frames a second in High gets the lower tier. No weaker GPU is on this machine: the fallback is tested with
-simulated frame times (unit and browser tests).
+(then 30 ms in the lower tier), so a GPU about four times slower than this one still gets High with room to spare, and
+one that can't hold about 45 frames a second in High gets the lower tier, then Standard below about 33. No weaker GPU is
+on this machine: the fallback is tested with simulated frame times (unit and browser tests). The full numbers are in
+`.scratch/measure-high.json` and `.scratch/measure-high-dpr2.json` when the tool runs (gitignored; about 35 minutes for
+both maps, 8 more for the high-density pass: `--dpr 2 --configs 1,2,3 --only generated --tag -dpr2`).
 
 ## Captures
 
@@ -100,9 +110,16 @@ colour-blindness sheet of the High views, and the pixel comparison of the Standa
 
 ## The forces' effects in High
 
-The forces' preview effects (dust, the impactor's flash and shock ring, the plume's puffs, the lava's glow, the fault's
-crack, Carve's surge; `src/render3d/forces.ts` and `effects.ts` on `feature/forces`) are drawn with their own materials,
-which High leaves exactly as they are (no grade, no shadows cast). See "Notes for the forces" below for what was checked.
+The forces' preview effects (dust, the impactor's flash and shock ring, the plume's puffs, the fault's crack, Carve's
+surge; `src/render3d/forces.ts` and `effects.ts` on `feature/forces`) are drawn with their own materials, which High
+leaves exactly as they are (no grade, no shadows cast); the lava's heat is drawn by the terrain shader, which High
+builds from the Standard one, so it comes with it. Checked in a scratch merge of `feature/forces` into this branch
+(not pushed): Craterize and Erupt at full power, in Standard and in High, look the same apart from the land round them
+([forces-craterize.jpg](../look/high/forces-craterize.jpg), [forces-erupt.jpg](../look/high/forces-erupt.jpg)). **Nothing
+is needed on the forces' side.** Merging the two branches meets three small conflicts, each keeping both sides:
+`renderer.ts`'s `renderNow` (the forces render with `cam`; High's `beginCost`, `beforeRender` and `endCost` go round it)
+and `dispose` (the forces' `forceFx` and High's materials), `Editor.tsx`'s View3D props (`lookMenu={false}` beside the
+forces' `besideHeight`), and EDITOR_PLAN's architecture list (the forces' juice bullet and the High look's).
 
 ## Notes
 

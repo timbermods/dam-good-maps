@@ -18,7 +18,10 @@
 // chose: docs/decisions-pending.md #110).
 
 import { WATER } from "../palette";
-import { HIGH_WATER_GLSL } from "../waterPalette";
+import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
+
+/** A number as GLSL writes a float. */
+const g = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 import type { ShaderHooks } from "../materials";
 
 /** The switches' uniform names (render3d/high/effects.ts maps the effects onto them). */
@@ -286,9 +289,11 @@ ${HIGH_WATER_GLSL}
     float twinkle = smoothstep(0.1, 0.85, sin(t * (1.1 + speed * 1.2) + fleckHash(cell) * 51.0));
     return spot * step(mix(0.96, 0.82, speed), fleckHash(cell + 91.0)) * twinkle;
   }
+  /** #38's badwater opacity at its own depth (already shallower toward a bank), with the shared
+   *  palette's numbers (BADWATER). */
   float badwaterOpacity(float depth, float shore, float grazing) {
-    float edge = (1.0 - smoothstep(0.03, 0.18, depth)) * (1.0 - smoothstep(0.04, 0.30, shore));
-    return max(mix(0.975, 0.995, smoothstep(0.25, 1.80, depth)) - 0.52 * edge, grazing * 0.85);
+    float edge = (1.0 - smoothstep(${g(B.edgeDepth[0])}, ${g(B.edgeDepth[1])}, depth)) * (1.0 - smoothstep(${g(B.edgeShore[0])}, ${g(B.edgeShore[1])}, shore));
+    return max(mix(${g(B.opacity[0])}, ${g(B.opacity[1])}, smoothstep(${g(B.opacityFrom)}, ${g(B.opacityTo)}, depth)) - ${g(B.edge)} * edge, grazing * ${g(B.grazing)});
   }
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
@@ -300,9 +305,10 @@ ${HIGH_WATER_GLSL}
     body = mix(body, HW_GRAZING, grazing);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 mixedBody = HW_MIX + (body - HW_BODY) * 0.25;
     vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
-    body = contamination <= 0.25 ? mix(body, mixedBody, contamination / 0.25) : mix(mixedBody, badBody, (contamination - 0.25) / 0.75);
+    // water partly bad as the Standard look has it (D177: one shared blend, through the game's
+    // mixing zone and a warm brown to crimson, a tenth bad already warm)
+    body = waterBlend(body, badBody, contamination);
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
     streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
     vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
@@ -352,7 +358,9 @@ ${HIGH_WATER_GLSL}
 
 export function waterHooks(): ShaderHooks {
   return {
-    ...lit(["hlWater", "hlSection", "hlRiver"], WATER_FUNCTIONS),
+    ...lit(["hlWater", "hlSection", "hlRiver"]),
+    // (after the shared palette's GLSL: the surface uses its blend)
+    waterDecl: WATER_FUNCTIONS,
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
     // and the sources' upwelling (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
