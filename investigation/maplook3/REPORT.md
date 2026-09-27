@@ -29,3 +29,5 @@ port and prints it. This is an isolated experiment from dev `7360e32`; nothing i
 
 1. Read CLAUDE.md, docs/PERFECT.md, PLAN §20, EDITOR_PLAN.md, maplook2 and the current renderer.
    Created the isolated runner and dependency manifest. Three.js stays at 0.186.0.
+
+2. Added cached horizon/canopy ambient occlusion, a low-strength neutral tone shoulder and linear-light grade, distance haze and a procedural sky. Reused calibrated maplook2 water; cached static shadows and excluded the current renderer's transparent falls from shadow casting.

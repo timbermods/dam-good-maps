@@ -5,12 +5,12 @@ import {
 } from 'three';
 import { MapRenderer } from '../../src/render3d/renderer';
 import { SUN, waterMaterial, type SceneUniforms } from '../../src/render3d/materials';
-import { highWater } from './water';
+import { highWater } from '../maplook2/water';
 
 // Investigation-only bridge. Integration should make these explicit extension points.
 interface Internals {
-  gl: WebGLRenderer; scene: Scene; sky: Mesh; water: Map<string, Mesh>;
-  uniforms: SceneUniforms; terrainMat: ShaderMaterial; objectMat: ShaderMaterial; waterMat: ShaderMaterial;
+  gl: WebGLRenderer; scene: Scene; sky: Mesh; water: Map<string, Mesh>; falls: Map<string, Mesh>;
+  uniforms: SceneUniforms; terrainMat: ShaderMaterial; objectMat: ShaderMaterial; waterMat: ShaderMaterial; fallMat: ShaderMaterial; skyMat: ShaderMaterial;
 }
 export const bridge = (renderer: MapRenderer) => renderer as unknown as Internals;
 
@@ -59,6 +59,9 @@ export class Effects {
   shadows = false;
   water = false;
   passes = 0;
+  dirty = true;
+  private restoreRender: WebGLRenderer['render'];
+  get materials() { return [this.b.terrainMat, this.b.objectMat, this.standard, this.high, this.b.fallMat]; }
   private center = new Vector3();
   constructor(private renderer: MapRenderer) {
     this.b = bridge(renderer);
@@ -71,7 +74,7 @@ export class Effects {
     this.target.depthTexture = new DepthTexture(2048, 2048, UnsignedIntType);
     this.sun = this.b.uniforms.sunColor.value.clone();
     this.sky = this.b.uniforms.skyColor.value.clone();
-    for (const material of [this.b.terrainMat, this.b.objectMat, this.standard, this.high]) {
+    for (const material of this.materials) {
       this.originalShaders.set(material, material.fragmentShader);
       material.uniforms = { ...material.uniforms,
         mlDepth: { value: this.target.depthTexture }, mlMatrix: { value: this.matrix },
@@ -84,11 +87,12 @@ export class Effects {
       material.needsUpdate = true;
     }
     const render = this.b.gl.render.bind(this.b.gl);
+    this.restoreRender = render;
     this.b.gl.render = (scene, camera) => {
-      if (scene === this.b.scene && this.shadows) {
+      if (scene === this.b.scene && this.shadows && this.dirty) {
         const oldTarget = this.b.gl.getRenderTarget();
         const override = this.b.scene.overrideMaterial;
-        const hidden = [this.b.sky, ...this.b.water.values()];
+        const hidden = [this.b.sky, ...this.b.water.values(), ...this.b.falls.values()];
         const visible = hidden.map(m => m.visible);
         const clear = this.b.gl.getClearColor(new Color());
         const alpha = this.b.gl.getClearAlpha();
@@ -99,6 +103,7 @@ export class Effects {
           this.b.gl.setClearColor(0xffffff, 1);
           render(scene, this.camera);
           this.passes++;
+          this.dirty = false;
         } finally {
           this.b.scene.overrideMaterial = override;
           hidden.forEach((m, i) => { m.visible = visible[i]; });
@@ -118,6 +123,7 @@ export class Effects {
     this.apply();
   }
   sunAngle(degrees: number) {
+    this.dirty = true;
     const dir = SUN.clone().applyAxisAngle(new Vector3(0, 1, 0), degrees * Math.PI / 180);
     this.b.uniforms.sunDir.value.copy(this.shadows ? dir : SUN);
     this.camera.position.copy(this.center).addScaledVector(dir, 330);
@@ -137,5 +143,5 @@ export class Effects {
     if (!this.shadows) this.b.uniforms.sunDir.value.copy(SUN);
     this.renderer.requestRender();
   }
-  dispose() { this.standard.dispose(); this.high.dispose(); this.target.dispose(); this.depth.dispose(); }
+  dispose() { this.b.gl.render = this.restoreRender; this.standard.dispose(); this.high.dispose(); this.target.dispose(); this.depth.dispose(); }
 }
