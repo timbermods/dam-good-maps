@@ -10,13 +10,10 @@
 > 3. **D257/D258: done** (the section below; `dev` merged at 052aa69 first).
 > 4. **D265 + D266: done** (the camera still; the forces at their own pace: the section below).
 > 5. **D260: done** (the section below).
-> 6. **D259 with the working area (D254), D261 Wand, D264**: work in progress in `git stash`
->    ("d259-wip": the brush's `area`, the forces' feathered working area, the new Select tool with
->    Circle, Brush and Wand, its button and chip, Ctrl+A, Set level's Set / Cut down / Fill up, Max
->    water depth, `applySelection`); tests and docs still to write. Then **D263** (smart Lower's
->    depth from strokes).
-> 7. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
-> 8. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
+> 6. **D259 with the working area (D254), D261 Wand, D264: done** (the section below).
+> 7. **D263** (next): smart Lower's depth from strokes, new channels about one tile deep.
+> 8. **D270** (Kyler's answer to #84): Flatten's Ramped lays its own natural slopes along the rim.
+> 9. **D244 step 2 waits** for the Ceiling probe batch (the milestone session runs it after M9a's).
 >
 > **D277: M12 is deferred.** No Claude steps, limits, tool entries or suite requests for any tool from
 > here on (Select, Wand, Max water depth, Ramped…), and the Claude reference suite isn't run again;
@@ -31,6 +28,60 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Select, the working area, the Wand and the map-wide actions (D259, D254, D261, D264)
+
+- **Findable**: a **Select** button on the bar after the brushes (a dashed square); M and a brush's
+  Ctrl+drag still open it; the button or M again closes it (the selection with it).
+- **Shapes** (`src/editor/select.ts`): Rectangle, **Circle** (from the middle out, "radius N" beside the
+  pointer), Freehand, **Brush** (painted in with a ring at the brushes' size, filled along a quick drag)
+  and **Wand** (D261: a click on water takes the water joined to it that the view draws, clean or bad:
+  the view's own test, a surface on the tile, so no bank tile; a click on land, the ground at its
+  level joined to it; a snapshot). Shift adds and Alt takes away in every mode. "Same level" is gone
+  from the interface.
+- **Set level**: its list follows the height ceiling's constant (16 until D244 step 2); Ctrl+click on
+  the land takes that tile's level; its three ways, **Set**, **Cut down** (only the ground above the
+  level) and **Fill up** (only below), share the picker. **Ctrl+A** selects the whole map (in Select, or
+  with a brush out). **Max water depth** (a number from 1 to the selection's deepest water): the ground
+  under deeper water rises so the water sits that deep (`depthLevels`: each tile to its water's
+  surface less the number, grouped by level into exact flatten operations); once the water settles
+  again, a few words if any of it ended deeper (a river's surface can rise).
+- **Every Select action** is exact and one step through the worker's `applySelection`: objects and
+  sources ride the changed ground (the build stands them on it), and the start, only if its own ground
+  can no longer hold it, is carried to the nearest level ground in the same step (D257's rule). Labels:
+  "Cut 4,210 tiles down to level 8", "Water no deeper than 3 on 1,832 tiles".
+- **The working area** is the open selection: a brush stroke records it (`BrushParams.area`, runs, in
+  the schema) and changes only its tiles, each at most as many levels as it is steps inside the area
+  (`areaDepth`), so the edit meets the locked land a level a tile (smooth and naturalize keep within it
+  too); page and build alike, so it replays exactly. A force gets it with its request: the land outside
+  is kept, as unbreakable ground, and its kept result eases to the edge the same way (`featherForce`;
+  its frames show it unfeathered until it's kept); a force started outside the area is refused with
+  "Outside the working area: Esc clears it". Clear sources takes only sources wholly inside. The land
+  outside is dimmed (an overlay). Water is never locked.
+- **One row at a time**: with a brush or a force out, the Select row is a chip, "Working inside 40 × 40 ·
+  Esc to clear"; a click on it opens the Select tool (the brush or force goes back). Esc clears the
+  selection first.
+
+Tests: `tests/unit/select.test.ts` (circle, Wand on water and on dry ground, Max water depth's levels),
+`tests/contract/workingArea.test.ts` (every brush across the area's edge changes only inside, feathered;
+page equals build, rebuild equals full build, the project replays; a Craterize with the area; one
+outside refused), `tests/contract/maxWaterDepth.test.ts` (a lake six deep made three deep with its
+surface kept, one step; a river's deeper stretch ends no deeper than about the number),
+`tests/e2e/select.spec.ts` (the button and the shapes; a circle set to a level changes exactly its
+tiles, one step, undone; Ctrl+click's level; the chip with Raise out and a stroke across the circle's
+edge changing nothing outside, its edge a level at most; the Wand on a river selecting exactly its
+drawn water, on land its level; a Raise across the river's selection changing no bank tile; Set level
+on it; Ctrl+A with Cut down and Fill up). **Changed to the decision (D148):** `brushKit.spec`'s
+"Ctrl+drag with a brush out selects too" looked for the Selection row; with a brush out it's the chip
+now, and the brush stays picked.
+
+Not done: the forces' frames show the land unfeathered until the force is kept (then the kept land
+eases to the edge); a note for Kyler's sitting.
+
+For Kyler's forces sitting: the Select button; a circle set to a level; Ctrl+A with Cut down to 16;
+Max water depth on a lake; the Wand on a river, then Raise across it (the banks stay); Ctrl+drag with
+a brush out, then paint across the edge (it eases to the edge, nothing outside changes); a force
+inside a selection (it stops at the edge).
 
 ## Water that no source feeds recedes at once (D260)
 

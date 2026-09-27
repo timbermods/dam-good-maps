@@ -134,6 +134,9 @@ export interface PainterHost {
    *  [x0, y0, x1, y1]; a stroke that changes one of their tiles takes the piece to its middle's
    *  level. */
   rides?(): [number, number, number, number][];
+  /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
+   *  a stroke changes only its tiles, feathered toward its edge. */
+  area?(): [number, number, number][] | null;
   /** Where the ring is (null: off the map), and the stroke being painted with its dabs so far
    *  (Clear sources' red glow, D249). */
   ring?(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null): void;
@@ -389,6 +392,7 @@ export class BrushPainter {
     const precise = s.precise;
     const heaps = tool === "raise" || tool === "lower";
     const keep = [...(precise && heaps ? (h.keep?.() ?? []) : []), ...(cut !== null ? above(h.heights(), cut, h.W) : [])];
+    const area = h.area?.() ?? null;
     const stop = tool === "raise" && cut !== null ? Math.min(16, cut, precise && s.stop !== null ? s.stop : cut) : precise && heaps && s.stop !== null ? s.stop : null;
     const settings: Omit<BrushParams, "dabs"> = {
       tool,
@@ -402,6 +406,7 @@ export class BrushPainter {
       ...(tool === "flatten" && s.ramped ? { edges: "ramped" as const } : {}),
       ...(stop !== null ? { stop } : {}),
       ...(keep.length ? { keep } : {}),
+      ...(area ? { area } : {}),
       // smart Lower (D184): a stroke that starts in or beside water carves a bed it follows
       ...(tool === "lower" && !precise && this.byWater(x, y) ? { channel: true } : {}),
     };

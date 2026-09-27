@@ -676,3 +676,15 @@ button[aria-pressed="true"] {
 .aim-arrow-head {
   fill: #fbf8ef;
 }
+
+/* the Select row as a chip while a brush or a force is out (D259: one row at a time) */
+.select-chip-bar {
+  align-self: flex-start;
+  padding: 3px;
+}
+
+.select-chip {
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+}

@@ -48,7 +48,7 @@ import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
 import { FORCES, forceShown, REMOVE_KINDS, TopBar, type TopTool } from "./TopBar";
-import { SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
+import { depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
 import { WaterBar, type HazardBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
 import { DayPlayer, type DaySpeed } from "./dayPlayer";
@@ -60,8 +60,8 @@ import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettin
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesOn, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
-import type { BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, START_WATER, START_WATER_FILL, type OverlayLayer, type ToolOptions } from "./tools";
+import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, START_WATER, START_WATER_FILL, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -130,6 +130,8 @@ declare global {
       /** The sources glowing red for Clear sources (D249), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
       sourceGlow(): number[];
+      /** The Select tool's selection (the working area while it is open, D259), its tiles. */
+      selection(): number[];
 
     };
   }
@@ -773,10 +775,19 @@ export default function Editor(props: EditorProps) {
         } else if (e.kind === "settled" && hazardRef.current) {
           // the map's settled water while a hazard is shown: kept, not shown
           applyView(e.view);
+          checkDepthRef.current();
         } else if (e.kind === "settled") {
           // (no water in it: the map's water was sent before, so it is the last put in place, not the
           // frame on screen)
-          player.current?.push({ water: e.view.water ?? mirror.current.mapWater, done: 1, final: () => applyView(e.view) });
+          player.current?.push({
+            water: e.view.water ?? mirror.current.mapWater,
+            done: 1,
+            final: () => {
+              applyView(e.view);
+              // (Max water depth's few words, once the water has settled, D264)
+              checkDepthRef.current();
+            },
+          });
         } else if (e.kind === "hazard") {
           // how far the hazard has been worked out
           const z = hazardRef.current;
@@ -867,7 +878,14 @@ export default function Editor(props: EditorProps) {
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
-    if (selection.current.count) layers.push({ tiles: selection.current.tiles(), color: SELECTED, outline: true });
+    if (selection.current.count) {
+      // the working area (D254): the land outside it is locked, and dimmed
+      const out: number[] = [];
+      const mask = selection.current.mask;
+      for (let i = 0; i < mask.length; i++) if (!mask[i]) out.push(i);
+      if (out.length) layers.push({ tiles: out, color: LOCKED });
+      layers.push({ tiles: selection.current.tiles(), color: SELECTED, outline: true });
+    }
     if (selectDraw) layers.push({ tiles: selectDraw, color: DRAWING });
     // a force's painted stroke (the gesture itself), and its small cursor where a click would act
     if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
@@ -1783,6 +1801,9 @@ export default function Editor(props: EditorProps) {
 
   /** Start the force picked with `req`. */
   function startForce(req: ForceRequest, painting = false) {
+    // the working area (D254, D259): outside it the land is unbreakable rock to the force
+    const area = workingArea();
+    if (area) req = { ...req, area };
     forceReq.current = req;
     clearForForce();
     // (the arrow goes as the force starts; a painted Lift keeps its stroke while it is painted)
@@ -2323,13 +2344,13 @@ export default function Editor(props: EditorProps) {
       let c = clearing.current;
       // (a straight line is painted again from its start each time)
       if (!c || c.of !== stroke.dabs || c.dabs > stroke.dabs.length) c = clearing.current = { of: stroke.dabs, dabs: 0, taken: new Set() };
-      for (const sp of sourcesPressed(list, stroke.settings, stroke.dabs.slice(c.dabs), W)) c.taken.add(sp.corner);
+      for (const sp of sourcesPressed(list, stroke.settings, stroke.dabs.slice(c.dabs), W)) if (inArea(sp.tiles)) c.taken.add(sp.corner);
       c.dabs = stroke.dabs.length;
       for (const k of c.taken) glow.add(k);
     } else clearing.current = null;
     const shape = stroke ? stroke.settings : { size: b.size, ...(b.square ? { shape: "square" as const } : {}), ...(b.precise ? { precise: true } : {}) };
     const q = (v: number, n: number) => Math.max(0, Math.min(4 * n - 1, Math.round(v * 4)));
-    for (const sp of sourcesPressed(list, shape, [q(at[0], W), q(at[1], H)], W)) glow.add(sp.corner);
+    for (const sp of sourcesPressed(list, shape, [q(at[0], W), q(at[1], H)], W)) if (inArea(sp.tiles)) glow.add(sp.corner);
     glowCorners.current = [...glow];
     if (!glow.size && !glowing.current) return;
     r.highlightObjects(glow.size ? [...glow] : null);
@@ -2365,7 +2386,7 @@ export default function Editor(props: EditorProps) {
         hintJob.current++;
         setStartHint(null);
         // Clear sources (D249): the sources the brush pressed on go with the stroke, one step
-        const clear = brushRef.current.clearSources ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W) : [];
+        const clear = brushRef.current.clearSources ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W).filter((c) => inArea(c.tiles)) : [];
         endClearGlow();
         const op: EditOp = { op: "brush", params: stroke.params };
         const done = sendTerrain(() => (clear.length ? api.strokeClearing(op, stroke.label, clear.flatMap((c) => c.tiles)) : api.apply(op, "user", stroke.label)));
@@ -2378,7 +2399,9 @@ export default function Editor(props: EditorProps) {
       footprints: () => objectFootprints(),
       // sources ride a stroke's ground (D249): a 3 × 3 one whole and level (with Clear sources on,
       // every one the stroke changes goes with it instead)
-      rides: () => (brushRef.current.clearSources ? [] : spots().filter((c) => c.tiles.length > 1).map((c) => c.rect)),
+      rides: () => (brushRef.current.clearSources ? [] : spots().filter((c) => c.tiles.length > 1 && inArea(c.tiles)).map((c) => c.rect)),
+      // the working area (D254, D259): the open selection
+      area: () => workingArea(),
       ring: (at, stroke) => clearGlow(at, stroke),
       select: (hit, ev) => {
         // Ctrl+drag: a rectangle (the Select tool opens with it)
@@ -2466,33 +2489,70 @@ export default function Editor(props: EditorProps) {
         if (ev) notePointer(ev);
         setShapeNote({ text: words, ok: true, warn: false, ...pointerAt.current });
       },
+      // Wand on water (D261): the tiles the view draws as water, clean or bad
+      wet: (i: number) => {
+        const w = mirror.current.water;
+        return !!w && w.surface[i] === w.surface[i];
+      },
+      brushSize: () => brushRef.current.size,
+      ring: (at: [number, number] | null, radius: number) => {
+        if (brushToolRef.current) return;
+        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
+      },
+      // Ctrl+click on the land: Set level's target (as Flatten's sampling)
+      sample: (level: number) => {
+        setFlattenTo(level);
+        flashNote(`level ${level}`);
+      },
     };
   }
-  // the Select tool takes the map's left button while it is open and no brush is out
+  // the Select tool takes the map's left button while it is open and no brush or force is out
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !selecting || brushTool) return;
+    if (!r || !selecting || brushTool || tool) return;
     const t = selectTool(selection.current, selectHost());
     r.tool = t;
     return () => {
       if (r.tool === t) r.tool = null;
+      if (!brushToolRef.current) r.setBrushCursor(null);
     };
-  }, [selecting, brushTool, ready]);
+  }, [selecting, brushTool, tool, ready]);
+  /** Open the Select tool (its button, M): the brush or force out goes back, the selection stays. */
+  function openSelect() {
+    pickTop(null);
+    pickShelf(null);
+    setSelecting((m) => m ?? "rect");
+  }
   function closeSelect() {
     selection.current.clear();
     setSelecting(null);
     setSelectDraw(null);
     setSelectionTick((n) => n + 1);
   }
-  /** What the Select tool does to the selection: one operation, one undo step each. */
-  function selectAction(what: "raise" | "lower" | "flatten" | "dig" | "clear", level?: number) {
+  /** Ctrl+A (D264): the whole map, in the Select tool or with any brush out. */
+  function selectAll() {
+    const N = infoRef.current.W * infoRef.current.H;
+    selection.current.apply(Array.from({ length: N }, (_, i) => i), "set");
+    if (!brushToolRef.current && !toolRef.current) setSelecting((m) => m ?? "rect");
+    setSelectionTick((n) => n + 1);
+  }
+  /** The working area (D254, D259): the open selection as runs, or null. */
+  function workingArea(): [number, number, number][] | null {
+    return selection.current.count ? tilesToRuns(selection.current.tiles(), infoRef.current.W) : null;
+  }
+  /** Whether every tile of these lies in the working area (or there is none). */
+  const inArea = (tiles: readonly number[]) => !selection.current.count || tiles.every((i) => selection.current.mask[i]);
+  /** A water depth Max water depth's check waits for once the water settles (D264). */
+  const depthCheck = useRef<{ tiles: number[]; depth: number } | null>(null);
+  /** What the Select tool does to the selection: exact, one undo step each; the start is carried
+   *  only if its own ground can no longer hold it (D264). */
+  function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "dig" | "clear" | "depth", level?: number) {
     const h = mirror.current.heights;
+    const W = info.W;
     // under a cut (D207), only the visible land: the ground above the cut stays as it is
     const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (!tiles.length) return;
-    const cells = tilesToRuns(tiles, info.W);
-    const n = tiles.length;
     if (what === "clear") {
       // everything standing there but the start and the sources (the water is theirs)
       const at = entitiesAt();
@@ -2500,7 +2560,7 @@ export default function Editor(props: EditorProps) {
       void (async () => {
         for (const i of tiles) {
           if (!at.get(i)?.length) continue;
-          const list = await enqueue(() => api.entitiesAt(i % info.W, Math.floor(i / info.W)));
+          const list = await enqueue(() => api.entitiesAt(i % W, Math.floor(i / W)));
           for (const x of list) if (x.template !== "StartingLocation" && x.template !== "WaterSource" && x.template !== "BadwaterSource" && !ids.includes(x.id)) ids.push(x.id);
         }
         if (!ids.length) return setMessage({ kind: "info", text: "Nothing stands there to clear." });
@@ -2508,7 +2568,8 @@ export default function Editor(props: EditorProps) {
       })();
       return;
     }
-    let op: EditOp;
+    const count = (n: number) => n.toLocaleString("en-GB");
+    let ops: EditOp[];
     let label: string;
     if (what === "raise" || what === "lower") {
       // (raised under a cut: up to it, never past it)
@@ -2516,48 +2577,107 @@ export default function Editor(props: EditorProps) {
       for (const i of tiles) top = Math.max(top, h[i]);
       const amount = what === "raise" && cut !== null ? Math.min(selectAmount, cut - top) : selectAmount;
       if (amount <= 0) return flashNote("Nothing can rise under the cut: show a layer more");
-      op = { op: "sculpt", params: { mode: what, cells, amount } };
-      label = `${what === "raise" ? "Raise" : "Lower"} ${n} tiles by ${amount}`;
+      ops = [{ op: "sculpt", params: { mode: what, cells: tilesToRuns(tiles, W), amount } }];
+      label = `${what === "raise" ? "Raise" : "Lower"} ${count(tiles.length)} tiles by ${amount}`;
     } else if (what === "dig") {
       // dig out: down to the selection's lowest ground
       let lo = 99;
       for (const i of tiles) lo = Math.min(lo, h[i]);
-      op = { op: "sculpt", params: { mode: "flatten", cells, level: lo } };
-      label = `Dig out ${n} tiles to level ${lo}`;
+      ops = [{ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level: lo } }];
+      label = `Dig out ${count(tiles.length)} tiles to level ${lo}`;
+    } else if (what === "depth") {
+      // water no deeper than `level` (D264): the ground under deeper water rises so the water sits
+      // that deep; shallower water, and the land, as they are; the water settles again after
+      const w = mirror.current.water;
+      const D = level!;
+      if (!w) return;
+      const by = depthLevels(tiles, h, w.depth, w.surface, D);
+      const raised = [...by.values()].flat();
+      if (!raised.length) return flashNote(`No water there is deeper than ${D}`);
+      ops = [...by.entries()].sort((a, b) => a[0] - b[0]).map(([to, list]) => ({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(list, W), level: to } }) as EditOp);
+      label = `Water no deeper than ${D} on ${count(raised.length)} tiles`;
+      depthCheck.current = { tiles: raised, depth: D };
+      tiles = raised;
     } else {
-      op = { op: "sculpt", params: { mode: "flatten", cells, level: level! } };
-      label = `Set ${n} tiles to level ${level}`;
+      // Set (cut and fill), Cut down (only the ground above the level) or Fill up (only below it)
+      const L = level!;
+      if (what === "cut") tiles = tiles.filter((i) => h[i] > L);
+      if (what === "fill") tiles = tiles.filter((i) => h[i] < L);
+      if (!tiles.length) return flashNote(what === "cut" ? `No ground there is above level ${L}` : `No ground there is below level ${L}`);
+      ops = [{ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level: L } }];
+      label = what === "cut" ? `Cut ${count(tiles.length)} tiles down to level ${L}` : what === "fill" ? `Fill ${count(tiles.length)} tiles up to level ${L}` : `Set ${count(tiles.length)} tiles to level ${L}`;
     }
     // the land's answer, at the selection's middle
     let sx = 0;
     let sy = 0;
     for (const i of tiles) {
-      sx += i % info.W;
-      sy += Math.floor(i / info.W);
+      sx += i % W;
+      sy += Math.floor(i / W);
     }
+    const n = tiles.length;
     const mid: [number, number] = [Math.round(sx / n), Math.round(sy / n)];
     const size = Math.max(1, Math.sqrt(n) / 2);
+    const lowers = what === "lower" || what === "dig" || what === "cut";
     void run(
-      () => api.apply(op, "user", label),
-      (u) => u.ok && feel(what === "raise" ? "raise" : what === "lower" || what === "dig" ? "lower" : "shape", mid[0], mid[1], size),
+      () => api.applySelection(ops, label, tiles),
+      (u) => u.ok && feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size),
     );
   }
-  /** The selection's middle level (flatten's default). */
+  /** After Max water depth, once the water has settled again: a few words if any of it ended deeper
+   *  than asked (a river's surface can rise a little, D264). */
+  function checkDepth() {
+    const c = depthCheck.current;
+    const w = mirror.current.water;
+    if (!c || !w) return;
+    depthCheck.current = null;
+    let deeper = 0;
+    for (const i of c.tiles) if (w.depth[i] > c.depth + 0.25) deeper++;
+    if (deeper) setMessage({ kind: "info", text: `The water rose a little: ${deeper.toLocaleString("en-GB")} tile${deeper > 1 ? "s are" : " is"} still deeper than ${c.depth}.` });
+  }
+  const checkDepthRef = useRef(checkDepth);
+  checkDepthRef.current = checkDepth;
+  /** The selection's middle level (Set level's default). */
   function selectMedian(): number {
     const h = mirror.current.heights;
     const v = selection.current.tiles().map((i) => h[i]).sort((a, b) => a - b);
     return v.length ? v[v.length >> 1] : 0;
   }
   const [flattenTo, setFlattenTo] = useState<number | null>(null);
+  /** Set level's way (D264): Set (cut and fill), Cut down, Fill up. */
+  const [levelWay, setLevelWay] = useState<"flatten" | "cut" | "fill">("flatten");
+  const [maxDepth, setMaxDepth] = useState(2);
+  /** The deepest water in the selection (Max water depth's top). */
+  function deepestIn(): number {
+    const w = mirror.current.water;
+    let d = 0;
+    if (w) for (const i of selection.current.tiles()) if (w.depth[i] > d) d = w.depth[i];
+    return Math.floor(d);
+  }
+  /** With a brush or a force out, the Select row is a small chip (D259: one row at a time); a click
+   *  on it opens the Select tool again. */
+  function selectChip(): ComponentChildren {
+    const z = selection.current.size();
+    if (!z || (!brushTool && !tool)) return null;
+    void selectionTick;
+    return (
+      <button type="button" class="select-chip" title="Open the Select tool (the brush or force goes back)" onClick={openSelect}>
+        Working inside {z.w} × {z.h} · Esc to clear
+      </button>
+    );
+  }
   function selectRow() {
     if (!selecting && !selection.current.count) return null;
+    // (with a brush or a force out, only the chip)
+    if (brushTool || tool) return null;
     void selectionTick;
     const z = selection.current.size();
     const level = flattenTo ?? selectMedian();
+    const deepest = z ? deepestIn() : 0;
+    const depth = Math.max(1, Math.min(maxDepth, Math.max(1, deepest)));
     return (
       <div class="bar-group">
         <span class="bar-status" role="status">
-          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt subtracts)"}
+          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt takes away; Ctrl+A: the whole map)"}
         </span>
         <label>
           Select
@@ -2587,17 +2707,30 @@ export default function Editor(props: EditorProps) {
             <button type="button" onClick={() => selectAction("lower")}>
               Lower
             </button>
-            <label>
+            <label title="Ctrl+click the land to take its level">
               to level
               <select aria-label="Level" value={String(level)} onChange={(e) => setFlattenTo(Number((e.target as HTMLSelectElement).value))}>
-                {Array.from({ length: 17 }, (_, k) => k).map((k) => (
+                {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
                   <option key={k} value={String(k)}>
                     {k}
                   </option>
                 ))}
               </select>
             </label>
-            <button type="button" onClick={() => selectAction("flatten", level)}>
+            <span class="segmented" role="group" aria-label="Set level's way">
+              {(
+                [
+                  ["flatten", "Set", "Cut the ground above the level and fill the ground below it"],
+                  ["cut", "Cut down", "Only lower the ground above the level; the ground below stays"],
+                  ["fill", "Fill up", "Only raise the ground below the level; the ground above stays"],
+                ] as const
+              ).map(([v, word, title]) => (
+                <button type="button" key={v} aria-pressed={levelWay === v} title={title} onClick={() => setLevelWay(v)}>
+                  {word}
+                </button>
+              ))}
+            </span>
+            <button type="button" onClick={() => selectAction(levelWay, level)}>
               Set level
             </button>
             <button type="button" title="Down to the selection's lowest ground" onClick={() => selectAction("dig")}>
@@ -2606,6 +2739,17 @@ export default function Editor(props: EditorProps) {
             <button type="button" title="Trees, bushes, ruins and the other objects there (not the start or the sources)" onClick={() => selectAction("clear")}>
               Clear objects
             </button>
+            {deepest >= 1 ? (
+              <>
+                <label title="Where the water is deeper, the ground under it rises so the water sits this deep">
+                  water
+                  <input type="number" aria-label="Max water depth" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />
+                </label>
+                <button type="button" onClick={() => selectAction("depth", depth)}>
+                  Max water depth
+                </button>
+              </>
+            ) : null}
           </>
         ) : null}
         <button type="button" class="linkish" aria-label="Close the selection" title="Close (Esc)" onClick={closeSelect}>
@@ -2885,12 +3029,14 @@ export default function Editor(props: EditorProps) {
         return;
       }
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "m") {
-        if (selectingRef.current) closeSelect();
-        else {
-          pickBrush(null);
-          setTool(null);
-          setSelecting("rect");
-        }
+        if (selectingRef.current && !brushToolRef.current && !toolRef.current) closeSelect();
+        else openSelect();
+        return;
+      }
+      // Ctrl+A (D264): the whole map, in the Select tool or with any brush out
+      if (mod && !ev.altKey && ev.key.toLowerCase() === "a" && (selectingRef.current || brushToolRef.current)) {
+        ev.preventDefault();
+        selectAll();
         return;
       }
       // { and }: the strength (as Shift+scroll)
@@ -3026,6 +3172,7 @@ export default function Editor(props: EditorProps) {
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
+      selection: () => selection.current.tiles(),
       gesture: () => {
         const g = gestureRef.current;
         return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, arrow: g.aimArrow };
@@ -3198,6 +3345,9 @@ export default function Editor(props: EditorProps) {
               onSettings={setBrush}
               loading={!ready}
               selectRow={selectRow()}
+              selectChip={selectChip()}
+              selecting={!!selecting && !brushTool && !tool}
+              onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current ? closeSelect() : openSelect())}
             />
             {player.current ? <WaterBar player={player.current} hazard={hazardBar} onHazard={toggleHazard} onLength={setLength} speed={daySpeed} onSpeed={setDaySpeed} /> : null}
             {sourceMarkers()}

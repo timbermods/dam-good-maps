@@ -23,7 +23,7 @@ const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
  *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano; a
  *  cross. */
-function Icon({ tool }: { tool: BrushTool | "remove" | Verb }) {
+function Icon({ tool }: { tool: BrushTool | "remove" | "select" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -83,6 +83,12 @@ function Icon({ tool }: { tool: BrushTool | "remove" | Verb }) {
       return (
         <svg {...ICON}>
           <path d="M5 5l10 10M15 5L5 15" />
+        </svg>
+      );
+    case "select":
+      return (
+        <svg {...ICON}>
+          <path d="M3 3h3M9 3h2M14 3h3v3M17 9v2M17 14v3h-3M11 17H9M6 17H3v-3M3 11V9M3 6V3" />
         </svg>
       );
   }
@@ -162,6 +168,11 @@ export interface TopBarProps {
   loading?: boolean;
   /** A selection's own row (its size, its actions), when there is one. */
   selectRow?: ComponentChildren;
+  /** With a brush or a force out while a selection is open: the Select row as a chip (D259). */
+  selectChip?: ComponentChildren;
+  /** The Select tool is open (its button, D259), and its button's click. */
+  selecting?: boolean;
+  onSelect?(): void;
   /** Another row beneath the bar: the shelf's object's options (a source's strength), a selected
    *  source's. */
   row?: { label: string; content: ComponentChildren } | null;
@@ -246,6 +257,20 @@ export function TopBar(p: TopBarProps) {
             <span class="icon-word">{b.name}</span>
           </button>
         ))}
+        {p.onSelect ? (
+          <button
+            type="button"
+            class="icon-button"
+            aria-pressed={!!p.selecting}
+            aria-label="Select (M)"
+            title={off ? why : "Select (M): mark an area, then set it to a level or work only inside it (Ctrl+A: the whole map)"}
+            disabled={off}
+            onClick={p.onSelect}
+          >
+            <Icon tool="select" />
+            <span class="icon-word">Select</span>
+          </button>
+        ) : null}
         {SHOWN_FORCES.length ? (
           <>
             <span class="bar-divider" aria-hidden="true" />
@@ -374,6 +399,7 @@ export function TopBar(p: TopBarProps) {
           {p.selectRow}
         </div>
       ) : null}
+      {p.selectChip ? <div class="map-bar select-chip-bar">{p.selectChip}</div> : null}
       {p.hints ?? null}
     </div>
   );

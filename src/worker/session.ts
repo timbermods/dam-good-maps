@@ -84,6 +84,7 @@ import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
+import { areaDepth } from "../core/features/raster/brush";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, WET as WET_VIEW, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -1547,6 +1548,27 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[])
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
 }
 
+/** A Select action (D259, D264): its operations as one step, exact; objects and sources on the
+ *  changed ground ride it (the build stands them on their ground), and the start, only if its own
+ *  ground (`tiles` changed) can no longer hold it, is carried to the nearest level ground in the same
+ *  step (D257's rule). */
+export function applySelection(ops: EditOp[], label: string, tiles: readonly number[]): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = s.applyAll(ops, "user", label);
+  if (!r.ok) return changed(s, false, r.errors, t0);
+  if (startBrokenBy(s, new Set(tiles))) {
+    const at = startMiddle(s);
+    const carry = at ? moveStartNear(s, at[0], at[1], true) : null;
+    if (carry) {
+      s.undo();
+      const again = s.applyAll([...ops, ...carry], "user", label);
+      if (!again.ok) s.applyAll(ops, "user", label);
+    }
+  }
+  return changed(s, true, [], t0);
+}
+
 /** A brush stroke with **Clear sources** on (D249): the stroke and the removal of every water or
  *  badwater source standing on `tiles` (the tiles it pressed), one undo step; the water recedes
  *  live. Without a source there it is the stroke alone. */
@@ -1804,11 +1826,17 @@ export function damSiteLayer(): { sites: DamSiteView[]; ms: number } {
  *  a painted fissure, a painted fault and the side that moves), and the layer showing (D207: the
  *  ground above it is left as it is). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
-export type ForceRequest =
+export type ForceRequest = (
   | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; cut: number | null; source?: string }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
-  | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean };
+  | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
+) & {
+  /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the land
+   *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
+   *  locked land a level a tile. */
+  area?: [number, number, number][];
+};
 
 /** A carve to start: the carve's own request (kept for the carve's calls). */
 export type CarveRequest = Omit<Extract<ForceRequest, { verb: "carve" }>, "verb">;
@@ -2024,9 +2052,13 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const keep = new Uint8Array(N);
   if (cut !== null) for (let i = 0; i < N; i++) if (base.heights[i] > cut) keep[i] = 1;
   for (const i of s.columns.keys()) keep[i] = 1;
+  // the working area (D254, D259): the land outside it is locked, unbreakable rock to the force
+  const inside = req.area ? areaDepth(req.area, W, H) : null;
+  if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
   const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
+  if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
   let carve: CarveRun | null = null;
   let staged: StagedRun | null = null;
@@ -2303,6 +2335,12 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!params) return refused(["Nothing changed"]);
     water = r.liveWater();
   }
+  // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
+  // tile, never in a cliff along its edge
+  if (f.request.area) {
+    params = featherForce(params, f.before.heights, areaDepth(f.request.area, f.before.W, f.before.H));
+    if (!params) return refused(["Nothing changed inside the working area"]);
+  }
   // objects the map placed again while the force worked (its settled water re-planted the trees) may
   // be gone by now: the force's object changes are for the ones still there
   const here = new Set(s.built.entities.map((e) => e.id));
@@ -2329,6 +2367,33 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
 }
 
 export const carveStop = forceStop;
+
+/** A force's result eased to the working area's edge (D254): a tile changes at most as many levels as
+ *  it is steps inside the area (`inside`, 0 outside it), so the edit meets the locked land a level a
+ *  tile; tiles it leaves as they were drop out, and fresh rock keeps only the levels still standing.
+ *  Null when nothing is left changed. */
+function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Array): ForceResultParams | null {
+  const tiles: number[] = [];
+  const heights: number[] = [];
+  const now = new Map<number, number>();
+  p.tiles.forEach((i, k) => {
+    const room = inside[i];
+    const h0 = before[i];
+    const h = Math.max(h0 - room, Math.min(h0 + room, p.heights[k]));
+    now.set(i, h);
+    if (h === h0) return;
+    tiles.push(i);
+    heights.push(h);
+  });
+  if (!tiles.length) return null;
+  const rock = p.rock
+    ? { tiles: p.rock.tiles.slice(), bits: p.rock.bits.map((b, k) => {
+        const h = now.get(p.rock!.tiles[k]);
+        return h === undefined || h >= 31 ? b : b & ((1 << h) - 1);
+      }) }
+    : undefined;
+  return { ...p, tiles, heights, ...(rock ? { rock } : {}) };
+}
 
 /** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on
  *  an object) carries the start to the nearest level ground where it stands well, in the same undo

@@ -68,6 +68,8 @@ export const PROBLEM: Rgba = [230, 60, 50, 150];
  *  edge and a faint white tint, on water and on its drying bed alike, in any colours. */
 export const START_WATER: Rgba = [255, 255, 255, 200];
 export const START_WATER_FILL: Rgba = [255, 255, 255, 40];
+/** The locked land outside the working area (D254): dimmed. */
+export const LOCKED: Rgba = [16, 20, 28, 120];
 
 export interface OverlayLayer {
   tiles: ArrayLike<number>;

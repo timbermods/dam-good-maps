@@ -137,6 +137,8 @@ const api = {
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
+  applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
   /** A brush stroke that clears the sources it passed over (D249): one undo step. */
   strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
   instantCheck: () => ed.instantCheck(),
