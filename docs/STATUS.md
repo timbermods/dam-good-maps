@@ -5,15 +5,25 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D221), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-26, 12:45, after the takeover)
+## Summary for Kyler (updated 2026-09-26, 18:10, after his answers)
 
 The milestone session moved to the dedicated computer on 2026-09-26 and started working through your brief.
 
 ### 1. Needs your decision or your eyes
 
-1. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
-2. **Real places (#35), the places to drop:** `C:\dgm-workshop\places\sheet.html` is on your main PC, not here. The D214
-   water changes and the "Centre" titles go ahead without it; the drops and the release wait for you.
+1. **Try the four forces and the juice sounds on the preview** (section 3). Their defaults are pending **#74**
+   ([decisions-pending.md](decisions-pending.md)); a Craterize strike at its default power is 54 tiles wide on a 128² map.
+2. **Real places: the places to drop.** The numbered review sheet is being rendered as an image on
+   [PR #35](https://github.com/timbermods/dam-good-maps/pull/35) so you can pick from any device (D222); reply there with
+   the numbers. The D214 rebuild and the new titles are under way; the round's release waits for your drops and the
+   badwater stage (after M9a).
+3. **M9a's release** waits for your yes, once it's built and its probe batch has passed. Not ready yet.
+
+**The forces are built on the shared forces core** (checked 2026-09-26, as you asked): `feature/forces` was started from
+`dev` after Codex's forces core (#59) had landed, and its first commit ports Craterize, Erupt and Quake from
+`investigation/forces-core`; all four import the core's modules (`src/core/forces/force.ts`, `op.ts`, `result.ts`,
+`rock.ts`, `runs.ts`), so nothing had to move. Codex's #58 and #59 were merged into `dev` at the Live editing boundary
+(D220). The forces reached the preview about 20 minutes before your message, after this check of the agent's report.
 
 ### 2. Released or merged
 
@@ -26,7 +36,8 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
   gone (an L-shaped lip is one sheet wrapping its corner, a staircase lip one zigzag sheet), with a wider white splash and a
   crown of whitewater where falls land. Captures, before and after: `docs/look/waterfalls/d215-*.jpg`. My read: nothing
   looks broken; close up, the foam lace's dark bubble cells read a little like cracked tiles, which is a matter of taste
-  for you. **Releasing as `look-waterfalls-done`** (approved, D215).
+  for you. **Released as `look-waterfalls-done`** ([#62](https://github.com/timbermods/dam-good-maps/pull/62), a73b4b8;
+  tagged at ee83466); the deploy and the live check passed.
 - **Released: `live-editing-done`** ([#61](https://github.com/timbermods/dam-good-maps/pull/61), a7e0a9b; tagged at 985e1cf).
   The deploy and the live check passed. I opened the public site's editor in a browser: Water source and Badwater source
   are on the shelf and there are no forces; the preview shows the same editor with Carve. It also carries everything
@@ -34,9 +45,12 @@ The milestone session moved to the dedicated computer on 2026-09-26 and started 
 
 ### 3. On the preview for you to try
 
-<https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**: the released editor plus **Carve** (key 7),
-from `feature/live-editing`. The four forces with the new juice sounds replace it on the preview once `feature/forces` is
-ready.
+**The four forces, with the new sounds** (D219, D220): <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this
+map** → the Forces group on the top bar: **Carve** (7), **Craterize** (8), **Quake** (9, Lift and Slide), **Erupt** (0). Built
+on Codex's shared forces core (#59) with #58's synthesised sounds (on, quiet, with the Sound switch). From `feature/forces`
+(a88d7d2, CI green); not on `dev` and not released until you've tried them. Captures: `docs/progress/forces/` on that branch;
+the full report: `docs/progress/forces.md`. I tried one Craterize strike there: at its default power the crater is 54 tiles
+wide on a 128² map and swallowed the river valley; one undo brought it all back. The defaults are pending #74.
 
 ### 4. Probe batches
 
@@ -44,7 +58,14 @@ None yet. The probe is set up here (runner tests pass, the mod builds against th
 up in `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\`). The first batch will be M9a's 15 maps once its generator is
 frozen (D218 lets it run without asking on this machine).
 
-### 5. Defaults I chose
+### 5. Defaults I chose (your answers: D222)
+
+#69, #70, #71 and #73 are confirmed; #72 is changed (below, being built). Still pending: #74, and two new ones for
+D224:
+
+- **#75:** Minimum starting wood's defaults above the floor: Easy 250, Normal 200, Hard 167 (the floor itself).
+- **#76:** the floor counts within 20 tiles' walk at every difficulty, over the start water's walk (ground and natural
+  slopes); in the editor it shows on the quiet dot and never blocks export.
 
 - **#69: the forces stay hidden on the public site** until you've tried them (D219), so Live editing can be released now with
   the Carve port inside it: the preview, the dev server and the tests show the forces group; one switch turns it on at the
@@ -75,8 +96,8 @@ frozen (D218 lets it run without asking on this machine).
 
 - **M9a** in `DamGoodMaps-m9a` (an Opus 5.5 agent; first on the machine): the settings and test fixes, full batches, the
   contact sheet, the Claude suite re-tune, docs, CI, then the frozen generator's probe maps. The `.claude/agents/`
-  definitions didn't load (this session started outside the repository folder), so it runs at this session's effort rather
-  than a set xhigh.
+  definitions didn't load (this session started outside the repository folder), so it follows this session's effort, which
+  is xhigh (checked).
 - **Live editing** in `DamGoodMaps-live` (an Opus 5.5 agent): the Carve re-port to #47's final commit, the forces hidden on
   the public site (#69), D212's two changes, docs, captures and CI. Then I release it as `live-editing-done`.
 - **Waiting their turn:** waterfalls (#53) after Live editing lands (both change the water renderer); Real places' D214
@@ -243,6 +264,10 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D219: Quake is ready with both Lift and Slide; all four forces go to the preview, released after Kyler tries them.
 - D220: Codex's forces-core and juice investigations merged once green and adopted as proposals.
 - D221: a "Progress log" issue (#57) gets a short comment at each step, release, probe batch or parked item.
+- D222: #69–#71 and #73 confirmed; #72 changed (evaporation from sealed basins isn't "water still changing"); the waterfalls' foam softened to soft white water; the Real places review sheet as an image on #35.
+- D224: **the starting-logs floor**, 167 logs for 1.1.2.4 (Iron Teeth's worst route to a Forester, 99, plus a pump and a Barrack, 52, plus 10%), computed from the game's blueprints by `tools/log-floor.ts`; blocking for generated maps, Real places and Pick a place; applied in M9a.
+- D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
+- D223: a seed's candidates: the best wins by the quality score; variety breaks near ties only; only true near-duplicates are rejected, resemblance is information (replaces #53's default).
 
 ## Done and released
 

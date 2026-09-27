@@ -858,7 +858,7 @@ named by a real feature in its square or a direction, never "Centre". Badwater o
 follows once M9a is on `dev`.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone,
-and D151 (no edge walls).
+D151 (no edge walls), and the starting-logs floor (D224: at least 167 logs reachable on foot from the start).
 
 **Status:** built on `feature/real-places-2` (docs/progress/real-places.md), PR #35 into `dev`;
 the rebuild and D214 done (150 places, none dropped by D214). Waiting on Kyler's list of places to
@@ -1227,7 +1227,9 @@ become recipes inside the system (design §3).
   - Acceptance (Kyler's one rule, D115):
     - Blocking: **zero built dam walls on every theme, size, difficulty and setting** (the
       dam-wall check on every batch map, and a contract test that no planned feature list holds a
-      dam-site ridge), and nothing stamped; batches ≥ 98% final per theme at 96², 128², 192² and
+      dam-site ridge), and nothing stamped; **the starting-logs floor on every map** (D224: at least the
+      floor, 167 logs for 1.1.2.4, reachable on foot from the start, at every difficulty; Minimum starting
+      wood only goes up from it); batches ≥ 98% final per theme at 96², 128², 192² and
       256² (a seed that makes no map is breakage); the same bytes for the same seed in Node and
       Chrome, and share links that reproduce; 0 disagreements with the Python oracle, A1's file
       included, and A2's timestamp writing the same bytes in every time zone; every speedup
@@ -1247,11 +1249,13 @@ become recipes inside the system (design §3).
 - **After M9a: the agent guide** (Kyler, 2026-09-25; D142): how a Claude Code session generates,
   edits, validates and exports maps, and runs the contact sheet and the DGM Probe (under the
   probe rule, D117), written once M9a has settled the generator's code.
-- **M9b: composition and variety** (tag `m9b-done`).
+- **M9b: composition and variety** (tag `m9b-done`). **Read [docs/PERFECT.md](docs/PERFECT.md) first** (D225): its
+  Challenge section changes how difficulty shapes the terrain (a harder map makes trees, easy land and easy dam sites hard
+  to come by early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle pays off).
   - Delivers: the recipes (the named premises as forced parts), Variety (`vy`) and Surprise me, the
     8 flow directions (all appear in 100 seeds of each theme, none over 25%), river-network variety
-    (splits, deltas, meanders and oxbows), no clones (K candidates ranked against reference
-    signatures), the openings with the weather-cycle signature and the strategy axes (design
+    (splits, deltas, meanders and oxbows), no clones (only true near-duplicates rejected; resemblance as
+    information, D223), the openings with the weather-cycle signature and the strategy axes (design
     version 2), and the measures as permanent measures (information, D115; the dam-wall check
     blocks). Surprise me and high Variety may reach high Verticality now and then; most maps
     never do (D132).
@@ -1262,10 +1266,10 @@ become recipes inside the system (design §3).
     direction as tool entries; suite requests for them; every reference solution re-run.
   - Acceptance (D115): blocking: M6, the dam-wall check, finds no built wall; information: the
     design's measures M1–M5 on 200 seeds per theme at 128², against their targets.
-- **M9c: score, names and candidates** (tag `m9c-done`).
-  - Delivers: the 12-component score with its default weights, only a mild tiebreaker among a
-    seed's candidates and for ordering a contact sheet, never a gate on quality (D137; how
-    candidates are chosen first is decisions-pending #53); K = 3 candidates with progressive
+- **M9c: score, names and candidates** (tag `m9c-done`). **Read [docs/PERFECT.md](docs/PERFECT.md) first** (D225).
+  - Delivers: the 12-component score with its default weights, which picks the best of a seed's
+    passing candidates (variety breaks near ties only; D223) and orders a contact sheet, never a
+    gate on quality (D137); K = 3 candidates with progressive
     preview; names and descriptions from the read-back features and the opening ("how it
     plays"); the place resolver and judgement words (D84, D88); the settings bands.
   - **Variations of this map** (Kyler, 2026-09-25; D143): a button on the generator page and in
@@ -1332,17 +1336,18 @@ From the workshop study (D87), M9 grows from "the score" to "maps that diverge":
   settings' targets wander within the workshop's p10–p90 bands (`settings-bands.json`) as a share
   of Variety, and the flow axis (always drawn at 30+). Surprise me draws a theme and sets Variety
   to 100; the share link carries the resolved spec, so the map reproduces.
-- **No clones.** The K candidates (PLAN §7.9) are ranked by score, and among those within 5
-  points of the best, the one farthest (variety score, `variety-scale.json`) from the theme's
-  reference maps wins (D137 makes the score a mild tiebreaker; decisions-pending #53). The
-  reference maps are seeds 1–30 of the theme at default settings, stored as 16×16 signatures and
-  feature vectors (about 4 KB per theme).
+- **Candidates and no clones** (D223). The best of the K candidates (PLAN §7.9) wins, by score. Variety
+  breaks near ties only: when the scores are close, the candidate farthest (variety score,
+  `variety-scale.json`) from the theme's reference maps is preferred; a clearly better candidate never
+  loses for being more ordinary. Only true near-duplicates of other maps are rejected; resemblance is
+  otherwise information (the largest look-alike cluster). The reference maps are seeds 1–30 of the theme
+  at default settings, stored as 16×16 signatures and feature vectors (about 4 KB per theme).
 - **The score** (`score/score.ts`), ported from `investigation/workshop/lib/score.ts`: 12
   components (engineering, height variety, landmarks, river character, resource pacing, regions,
   trade-off, frontier, surprise, verticality, naturalness, water), each 0–1 (decisions-pending
   #35, W5; PLAN §12). Its parameters are `data/score-params.json`, a copy of the study's default
   `score-params.json`: `fit-score.ts` and `ratings.json` are not used (Kyler, 2026-09-25; D137).
-  The score is only a mild tiebreaker. The score's inputs from a
+  The score picks among a seed's passing candidates (D223), never gates quality. The score's inputs from a
   built map (plateaus, gorges, the main watercourse through the settled water, resource rings,
   regions, trade-off, frontier, dam sites near the start) move into `analysis/` from
   `lib/measures.ts` (`scoreInputs`), and the naturalness metric from `lib/naturalness.ts` (the
@@ -1905,7 +1910,7 @@ official-like trees, ruins, mines and clusters (D167–D170). When the quiet ret
 player's framing, size or scale, the page says so plainly.
 
 **Blocking:** breakage (the map passes the validators and exports; the share link rebuilds it
-exactly; attribution present; no edge walls) and what a player feels (the explore view and the
+exactly; attribution present; no edge walls; the starting-logs floor, D224) and what a player feels (the explore view and the
 live preview stay smooth; progress while it builds; never a frozen page; never a failed attempt
 shown).
 
