@@ -15,10 +15,34 @@ Your forty-two decisions since the restart are recorded (D252–D293, below) and
 1. **Real places (#35):** your D271 is being built: the 15 drops, then the water made to follow each real place (observed
    rivers and lakes, dry places dry, D214's fewer, larger rivers where it keeps moving). Then a new sheet on #35 with the
    9 held places and the 5 for your eye (the striped 42, 50, 128, 131, and 29); the badwater stage waits for your answer.
-2. **M9a's review set is coming to you on #56** (D252): the contact sheet at the frozen generator (ca63a56) beside 0.6.2,
-   14 random maps in 3D with the start visible, and the start-area sheet. M9a isn't released until you've said yes. The
-   start planting is spread over the 20-tile walk (starts with a full ring within 10 tiles: 14 of 112 → 3). My honest read
-   against PERFECT's "Maps" and "Water" follows here once the set exists. #90 (dead groves) waits for it.
+2. **M9a's review set is on #56 for your yes** (D252; frozen generator 788c145; `review/m9a-set`). My read against
+   PERFECT's "Maps" and "Water", from the contact sheet, the comparison and the 14 random maps in 3D (eyeball counts, not
+   measures; M9b adds the water measure):
+   - **Much better than what's live.** Every 0.6.2 map is one template (River Valley: the same sine river and a
+     ruler-straight wall, 30 times; Islands: a round lake with five oval islands and straight channels, 30 times). 0.7.0 has
+     none of that: no ruler-straight channels or walls, and seeds genuinely differ within a theme (Maps 1, 2).
+   - **Water is often a tangle, rarely one readable river** (planning chat's point: agree). In Any, River Valley, Highlands
+     and Lake Basin most maps show several thin channels and blotchy lakes; I'd call a main river readable at a glance on
+     roughly a third of them. Canyon reads best: a long winding river on most seeds (Canyon 2, 5, 20, 22, 24). Fails Water 2.
+   - **The themes blur** (agree, with one exception): River Valley, Highlands and Lake Basin are hard to tell apart; Delta
+     almost never shows a river splitting into channels at low ground; Canyon is the exception (its rivers do run between
+     cliffs), so "Canyon rarely shows canyons" is too harsh.
+   - **Islands is one layout thirty times** (agree, and worse): 0.7.0's Islands aren't islands. Every seed is a central
+     green landmass crossed by rivers inside a ring of lower ground; there is no sea (D209: M9b).
+   - **Circles read as stamped** (agree): near-perfect round lakes or rings on Any 24, Delta 13 and 27, River Valley 23,
+     Lake Basin 30, and round lakes on about ten more (Highlands 2, 10, 26; Lake Basin 3, 8, 26; River Valley 20, 30). In 3D
+     the badwater hollows are round red discs too (Lake Basin 324). Fails Maps 1.
+   - **Few maps have a character you'd describe** (agree): the most describable ones are the round craters, the stamped
+     ones. Maps 3 mostly unmet.
+   - **Mine:** in 3D much of the land is bare dry rock with the water in one part of the map (Canyon 437 is nearly all dry
+     rock, its water in one corner; Canyon 734 similar). Whether that's the canvas you want is your eye's call.
+   - **Starts:** starts with a full ring of planting within 10 tiles fell from 14 to 3 of 112; **11 of 240 starts** (Any,
+     River Valley, Canyon, Highlands at Normal and Hard, seeds 1–30) have a standing dead grove (#90).
+   - **Captures:** the 3D views show the editor as it is on M9a's branch (Orbit, Dam sites, Moisture, Drought, Remove,
+     Follow); the lean editor is on the forces branch. Judge the land.
+   My view: 0.7.0 is a clear step up and a good canvas under D282, with its shortfalls squarely in M9b's five outcomes
+   (readable water, themes, character, nothing stamped, Islands). Release M9a and fix them in M9b, unless you want the
+   circles or Islands fixed first.
 3. **A question for you, not urgent** (it matters only when the stacked engine is wired in): with the game's rules on heightfields
    (D293), 29 of 30 generated maps keep every wet tile, but Highlands 128² seed 3 has a 5 cm sheet on flat ground that sits at 0.049
    today and spreads to 0.054 / 0 under the game's rules: 94 tiles cross the 0.05 wet line (volume moves 0.02%). That fails the 3D
