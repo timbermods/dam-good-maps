@@ -1,14 +1,14 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **State (2026-09-26, round 2 in progress: Kyler's review, D226).** Branch `feature/forces`, dev
-> merged in (f3f8a39, then e1fe89e with #63 and #64). Done and committed: Erupt kept to the demo
-> (the prototype's exactly where it has room; a peak within the room it has near the ceiling,
-> broader rather than taller; new cones on the flanks; it always completes, at the demo's pace);
-> Power and size separate in every force (Carve's new Depth, Erupt's Size, the shared size control);
-> the brush size in the row; the shelf's order; the editor's sounds on Codex's round two (#64,
-> recorded CC0 foley, `public/sounds/juice-2/`). Round one's forces build is below (D219).
-> Left: the browser tests for round 2, the captures, EDITOR_PLAN and this log's D226 section, a
-> final merge of `origin/dev`, CI.
+> **State (2026-09-26, round 2 done: Kyler's review, D226).** Branch `feature/forces`, `dev` merged in
+> (last at 3e19e3b). Round 2 is built and pushed: Erupt kept to the demo (the prototype's exactly where
+> it has room; a peak within the room it has near the ceiling, broader rather than taller; new cones
+> on the flanks; it always completes, at the demo's pace), Power and size separate in every force
+> (Carve's new Depth, Erupt's Size, one size control), the brush size in the row, the shelf's order,
+> and the editor's sounds on Codex's round two (#64, recorded CC0 foley, lazily loaded). Checked:
+> typecheck clean; `npm run test:quick` 667 passed, 13 skipped; `npx playwright test` 55 passed,
+> 1 skipped; the Claude reference suite 134 of 147. Next: round 2b, Unleash on water sources (D239),
+> on this branch. Round 1's forces build is below the round-2 section (D219).
 
 Kyler's decisions: D194, D199 (Carve), D202 (Craterize), D203 and D219 (Quake, with both Lift and
 Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high power), D205 and D212
@@ -146,7 +146,7 @@ switch yet.
 The `carve` step takes `depth` (1–12) and the `erupt` step `size` (6–140), each described in `limits`;
 the erupt step reports the fit (the flank it broke out on, or that it grew broader near the height
 limit). Requests B26 (a wide, shallow river: power 90, width 16, depth 2) and B27 (a broad volcano
-about 60 tiles across). The reference suite: {CLAUDE}.
+about 60 tiles across). The reference suite: 134 of 147 (the six force requests B22-B27 pass; the 13 that fail on `dev` still fail).
 
 ### What a player feels at 256²
 
@@ -173,7 +173,8 @@ painted Lift 5.9 / 29.3 / 88.2, three of 52–62 ms at keeping.
   a placement's accent, Esc silencing an impact), `tests/e2e/sizes.spec.ts` (the shelf's order, every
   brush's Size and a stroke of that size, each force's Auto), and in `forces.spec.ts` Erupt near the
   ceiling (a peak, no mesa; again on its summit, the flank).
-- Totals at the last push: {TOTALS}.
+- Totals at round 2's push: typecheck clean; `npm run test:quick` 667 passed, 13 skipped;
+  `npx playwright test` 55 passed, 1 skipped; the Claude reference suite 134 of 147.
 
 **Tests changed to the new decisions (D148), none weakened:**
 
