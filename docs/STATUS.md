@@ -3,35 +3,19 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D301), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D303), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your fifty decisions since the restart are recorded (D252–D301, below) and in the living docs.
+Your fifty-two decisions since the restart are recorded (D252–D303, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
 1. **Real places (#35): answered (D300)** and being finished on `feature/real-places-2`: both land fixes, a water floor, #94
    accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
-2. **M9a's release: your call on four probe findings.** You said yes (D294) with the probe batch as the gate. It ran twice. The first
-   run (98/103) found a real fault, now fixed: our files stored the water's flows as zero, so the game reset them at load and Delta's
-   water didn't hold; the files now store the settled flows (0d9e473) and the water holds on all 15 maps. The probe's own model was
-   then corrected to start from those flows as the game does (464a2be). Judged again: **99 passed, 4 failed**, and in each the game and
-   the model agree on the substance:
-   - **Any 128² s1:** after the drought, a clean side pool on badwater's way down refills with badwater (up to 21%) and keeps it until
-     the badtide; the start's water stays at 0%, the pool is 42 tiles away; the model agrees with the game to 0.1%. A map behaviour.
-   - **Delta 128² s1:** after the drought, thin films on its flats pick their own route, and during the badtide spread a shallow sheet
-     (0.06–0.10 deep) over part of the plain; the model drains it; wet tiles differ 19%, water 1.7%.
-   - **No badwater s6 and Islands 128² s1:** on one day, wet-tile counts differ 6.5% and 5.8% (the check allows 5%), all within
-     0.002 of the 0.05 wet line, while the water agrees within 0.3% and 1.7%; hours later the counts are equal. The model itself
-     swings more than the gap under changes too small for a file to store.
-   - **A product question:** `start.water` counts a sealed one-tile hole (0.9 water, touching the river only diagonally) as a start's
-     nearest water on Canyon s1. That start also has the river and a 19-tile pool, so it passes either way.
-   **My recommendation:** release M9a now. Judge the model's wet-tile counts the way D297 judges water (tiles within 0.01 of the
-   wet line don't count), which clears the last item; M9b takes the side pool (keep badwater's way down clear of pools, outcome 1) and
-   Delta's flats (its outcome 2 delta); and `start.water` ignores sealed bodies smaller than a few tiles (M9b, a generator rule). Say
-   "release", or name what to fix first.
+2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
+   count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
 3. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
@@ -404,6 +388,8 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D303: the game's edge-spill rule adopted everywhere with D293's switch (#125).
+- D302: M9a released once the tall maps' reopen check is clean and no start meets `start.water` only through a sealed puddle (else the rule is fixed first); wet-tile counts judged as D297; the side pool and Delta's flats go to M9b.
 - D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
 - D300: Real places finished without another sheet: the bed lowered under real water, most of the tilt taken out, a water floor (a small natural spring near the start where a place has no water), #94 accepted; checked by the session; then badwater after M9a, and the release.
 - D299: the generator page's Moist soil switch stays until "The page is the editor"; Quake's Left/Right control stays gone (X flips the side).
@@ -518,7 +504,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D301.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D303.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
