@@ -21,7 +21,10 @@
     { "term": "Resources tab", "retired": "D184", "instead": "the top bar and the left shelf" },
     { "term": "Start tab", "retired": "D184", "instead": "the start on the left shelf" },
     { "term": "Source tool", "retired": "D212", "instead": "the Water source and Badwater source on the left shelf, right after the start" },
-    { "term": "make walkable", "retired": "D247", "instead": "the shelf's Slope and Flatten's ramped edges" }
+    { "term": "make walkable", "retired": "D247", "instead": "the shelf's Slope and Flatten's ramped edges" },
+    { "term": "regenerate area", "retired": "D253", "instead": "the working area (D254): the player protects what they like and keeps shaping the rest with the same tools" },
+    { "term": "Stamps and symmetry", "retired": "D253", "instead": "the forces reshape land instead; symmetry is not planned" },
+    { "term": "symmetric layout", "retired": "D253", "instead": "not planned; the forces make dramatic land far better" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [
