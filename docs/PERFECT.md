@@ -33,7 +33,8 @@ The game's difficulty setting governs the game's difficulty. On the map, challen
 ## Real places
 1. Someone who knows the place recognises it, and its signature feature is there.
 2. It's a great Timberborn map within a few edits (a water source, a moved start, some trees), not just a pretty copy.
-3. The beauty of real places is the unique composition of terrain features. It's wonderful if it's playable, but not meeting the cutoff should not disqualify the place; the editor can fix shortcomings if a place is interesting enough to want to play.
+3. It's a canvas to reimagine: every tool and force works on it like any map, so a player can put a crater in Yosemite Valley and build a mega dam.
+4. The beauty of real places is the unique composition of terrain features. It's wonderful if it's playable, but not meeting the cutoff should not disqualify the place; the editor can fix shortcomings if a place is interesting enough to want to play.
 
 ## The look
 1. It reads instantly as Timberborn, only cleaner.
