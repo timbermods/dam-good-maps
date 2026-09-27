@@ -82,9 +82,10 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
 
 describe("generated outlines past the map edge are edited and locked (decisions-pending #30, D103)", () => {
   it("a natural lake at the map's edge: locked, changed and moved in the editor; the unedited map keeps its bytes", () => {
-    // (generator 0.7.0 reads the natural lakes back out of the field; this one's outline runs along
-    // the edge, through the tile corners at −0.5)
-    const r = gen("lakeBasin", 96, 4);
+    // (the generator reads the natural lakes back out of the field; this one's outline runs along
+    // the edge, through the tile corners at −0.5; seed 6 at 0.8.0, whose lakes keep off the edges
+    // more often, D148)
+    const r = gen("lakeBasin", 96, 6);
     const s = MapSession.fromGenerated(r, r.file);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;

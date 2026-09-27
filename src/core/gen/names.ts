@@ -15,30 +15,31 @@ import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
 import type { ThemeId } from "../spec/mapspec";
 
-/** Titles per standout, a few each; `{land}` is the land's noun. */
+/** Titles per standout, five each (two maps of one standout seldom share one); `{land}` is the
+ *  land's noun. */
 const TITLES: Record<IntentionId, string[]> = {
-  "under-cliff": ["Cliff Shelter", "Under the Bluff", "Bluff Hollow {land}"],
-  landmark: ["Lone Spire", "The Watchstone", "Needle {land}"],
-  "farmland-past-gorge": ["Beyond the Gorge", "Far Fields", "Gorge Crossing"],
+  "under-cliff": ["Cliff Shelter", "Under the Bluff", "Bluff Hollow {land}", "Crag Foot", "Sheltered Ledge"],
+  landmark: ["Lone Spire", "The Watchstone", "Needle {land}", "Standing Stone", "Sentinel {land}"],
+  "farmland-past-gorge": ["Beyond the Gorge", "Far Fields", "Gorge Crossing", "Fields Past the Chasm", "Across the Cut"],
   "safe-water-uphill": ["Uphill Water", "The High Well"],
-  "falls-shield": ["Falls Guard", "Behind the Falls", "Falls Watch {land}"],
-  "hidden-valley": ["Hidden Vale", "The Secret Shelf", "High Hollow"],
-  "high-lake": ["Sky Lake", "Perched Lake", "Upper Pool {land}"],
-  "meeting-waters": ["Two Rivers Meet", "The Confluence", "River Fork {land}"],
-  "long-view": ["The Overlook", "High Watch", "Lookout {land}"],
-  "snaking-river": ["Winding Water", "Serpent Run", "Snakeback {land}"],
-  "crater-rivers": ["Crater Meet", "The Gathering Bowl", "Crater of Rivers"],
-  "cliff-falls-lake": ["Plunge Lake", "Fallwater Lake", "Cliff Pool {land}"],
-  oxbow: ["Oxbow Bend", "The Cutoff", "Old Bend {land}"],
-  "stepped-lakes": ["Stair Lakes", "Step Lakes", "Terrace Waters"],
-  "split-island": ["Midstream Isle", "River Isle", "The Parting Isle"],
-  "twin-falls": ["Paired Falls", "Double Cascade", "Twin Drops {land}"],
-  "upper-lower": ["The Great Step", "Two Tier {land}", "Upper and Lower"],
-  "hanging-valleys": ["Hanging Vales", "Perched Valleys", "Side Falls {land}"],
-  "two-ways": ["Fields and Heights", "Two Roads", "Fork in the Land"],
-  "badwater-rich": ["Tainted Meadows", "Bitter Bottoms", "Poisoned Plenty"],
-  "relic-pinnacle": ["Relic Spire", "The Relic Pillar", "Summit Relic"],
-  "plug-lake": ["The Plug", "Stopper Lake", "Held Water {land}"],
+  "falls-shield": ["Falls Guard", "Behind the Falls", "Falls Watch {land}", "Curtain Falls", "Waterfall Ward"],
+  "hidden-valley": ["Hidden Vale", "The Secret Shelf", "High Hollow", "Tucked Vale", "Lost Shelf {land}"],
+  "high-lake": ["Sky Lake", "Perched Lake", "Upper Pool {land}", "Hanging Tarn", "Summit Water"],
+  "meeting-waters": ["Two Rivers Meet", "The Confluence", "River Fork {land}", "Joining Waters", "Where Waters Meet"],
+  "long-view": ["The Overlook", "High Watch", "Lookout {land}", "Far Sight", "Watch Ridge"],
+  "snaking-river": ["Winding Water", "Serpent Run", "Snakeback {land}", "Coiled River", "Twisting Stream"],
+  "crater-rivers": ["Crater Meet", "The Gathering Bowl", "Crater of Rivers", "Rim Lake", "Bowl of Streams"],
+  "cliff-falls-lake": ["Plunge Lake", "Fallwater Lake", "Cliff Pool {land}", "Cascade Basin", "Roaring Pool"],
+  oxbow: ["Oxbow Bend", "The Cutoff", "Old Bend {land}", "Horseshoe Lake", "Crescent Water"],
+  "stepped-lakes": ["Stair Lakes", "Step Lakes", "Terrace Waters", "Cascade Lakes", "Ladder Lakes"],
+  "split-island": ["Midstream Isle", "River Isle", "The Parting Isle", "Fork Island", "Twin Channel {land}"],
+  "twin-falls": ["Paired Falls", "Double Cascade", "Twin Drops {land}", "Sister Falls", "Two Veils"],
+  "upper-lower": ["The Great Step", "Two Tier {land}", "Upper and Lower", "The Long Cliff", "Split Level {land}"],
+  "hanging-valleys": ["Hanging Vales", "Perched Valleys", "Side Falls {land}", "Ledge Valleys", "Falling Vales"],
+  "two-ways": ["Fields and Heights", "Two Roads", "Fork in the Land", "Choice of Ways", "Crossroads {land}"],
+  "badwater-rich": ["Tainted Meadows", "Bitter Bottoms", "Poisoned Plenty", "Fouled Fields", "Sour Lowlands"],
+  "relic-pinnacle": ["Relic Spire", "The Relic Pillar", "Summit Relic", "Relic Perch", "Crowned Rock"],
+  "plug-lake": ["The Plug", "Stopper Lake", "Held Water {land}", "Bottled Lake", "Pent Lake"],
 };
 
 /** When a map has no standout (the best candidate after the cap): its land. */

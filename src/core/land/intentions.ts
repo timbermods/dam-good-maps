@@ -1616,8 +1616,8 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       return { ok: false, note: "no two directions that offer different riches" };
     }
     case "badwater-rich": {
-      // 400+ tiles (at 128²) of low land beside badwater within 60 tiles of the start, the start's
-      // own water clean
+      // 400+ tiles (at 128²) of low, moist land beside badwater within 60 tiles of the start, the
+      // start's own water clean
       const bad = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05 && eu(i) <= 60) bad[i] = 1;
       const dist = distanceTo(bad, W, H);
@@ -1631,11 +1631,12 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       if (!n) return { ok: false, note: "no badwater within 60 tiles" };
       const level = surf / n;
       let land = 0;
-      for (let i = 0; i < N; i++) if (!(D[i] >= 0.05) && dist[i] <= 5 && eu(i) <= 60 && h[i] <= level + 1.5) land++;
+      // (the richest: moist land, which the badwater's soil stains until it is tamed)
+      for (let i = 0; i < N; i++) if (!(D[i] >= 0.05) && dist[i] <= 5 && eu(i) <= 60 && h[i] <= level + 1.5 && c.moist[i] > 0) land++;
       let clean = false;
       for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
       const want = (400 * N) / 16384;
-      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: `Badwater runs beside ${land} tiles of the richest low land near the start: tame it and the land is yours.` } : {}) };
+      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: `Badwater runs through ${land} tiles of moist low land near the start: tame it and the land is yours.` } : {}) };
     }
     case "relic-pinnacle": {
       // a medium or large relic within 60 tiles on dry land no one walks to from the start

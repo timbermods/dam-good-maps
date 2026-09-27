@@ -273,7 +273,8 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     applyBrush({ tool: "smooth", size: 4, strength: 10, walkable: true, dabs }, walk, W, H);
     for (let y = 12; y <= 18; y++) for (let x = 16; x < 24; x++) expect(Math.abs(walk[y * W + x] - walk[y * W + x + 1]), `(${x}, ${y})`).toBeLessThanOrEqual(1);
     // on a map: a walkable stroke over a cliff near the start gets slopes on its steps
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 4 since 0.8.0, D148: seed 3 has no cliff near the start where this stroke goes)
+    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const st = s.built.start!;
@@ -362,7 +363,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   });
 
   it("on a map: a ramped flatten gets the natural slopes on its rim, and the trees on it ride the ground", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 4 since 0.8.0, D148: seed 3 has no open dry ground far from the start where this flatten goes)
+    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");

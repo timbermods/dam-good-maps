@@ -268,10 +268,10 @@ const P: Record<Leaning, Prior> = {
     partCount: { lo: 2, hi: 5 }, knollsPer128: { lo: 3, hi: 12 },
     erosion: { iterations: { lo: 6, hi: 16 }, k: { lo: 0.008, hi: 0.025 }, diffusion: { lo: 0.03, hi: 0.12 } },
     terrace: { step: [1, 1, 2, 2, 3], share: { lo: 0.05, hi: 0.55 } },
-    inflows: [0, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 1.1, hi: 2.6 }, lakeBudget: { lo: 0.1, hi: 0.4 }, lakes: { lo: 1, hi: 4 }, lakeSprings: 1,
-    split: 0.25, delta: 0.02, incise: { lo: 0, hi: 1 }, floor: { lo: 0, hi: 4 }, cap: { lo: 0, hi: 0.2 },
+    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 1, hi: 4 }, flowMul: { lo: 0.8, hi: 1.7 }, lakeBudget: { lo: 0.2, hi: 0.45 }, lakes: { lo: 2, hi: 5 }, lakeSprings: 1,
+    split: 0.25, delta: 0.02, incise: { lo: 0, hi: 1 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0, hi: 0.2 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.2,
-    troughs: 1.3, sea: 0, woods: [0.25, 0.35],
+    troughs: 2.2, sea: 0, woods: [0.25, 0.35],
   },
   delta: {
     base: { lo: 0.3, hi: 1.3 }, top: { lo: 12.3, hi: 17.8 }, eq: { lo: 0.35, hi: 0.8 }, lean: { lo: 0.8, hi: 1.45 },

@@ -321,8 +321,9 @@ function walkFromStart(b: BuildResult): { labels: Int32Array; root: number } {
 describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
-    // maps with a site at generator 0.7.0 (D77: a site only where one fits)
-    for (const [theme, seed] of [["islands", 2], ["islands", 3], ["islands", 5], ["canyon", 10]] as [ThemeId, number][]) {
+    // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
+    // maps, D148)
+    for (const [theme, seed] of [["islands", 2], ["islands", 10], ["canyon", 7], ["canyon", 12]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -354,9 +355,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
 
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
-    // have one (generator 0.7.0)
+    // have one (generator 0.8.0; re-seeded for M9b's maps, D148)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 1], ["islands", 2], ["lakeBasin", 2], ["delta", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 7], ["islands", 6], ["lakeBasin", 2], ["islands", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -388,8 +389,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
 
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
-    // maps with a weir at generator 0.7.0 (half the maps try one, where a river's channel takes it)
-    for (const [theme, seed] of [["islands", 3], ["canyon", 3], ["lakeBasin", 4], ["highlands", 3], ["islands", 4]] as [ThemeId, number][]) {
+    // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
+    // re-seeded for M9b's maps, D148)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["islands", 10], ["highlands", 3], ["highlands", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;
