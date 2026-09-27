@@ -122,7 +122,11 @@ export class JuiceEngine {
   unlock() {
     if (this.disposed) return Promise.resolve(false);
     this.paused = false; clearTimeout(this.pauseTimer);
-    if (this.context) return this.context.resume().then(() => this.loading ?? !!this.bank).catch(() => false);
+    if (this.context) return this.context.resume().then(async () => {
+      const ready = await (this.loading ?? !!this.bank);
+      if (ready && !this.paused && !this.disposed) this.onState('Ready · recorded foley');
+      return ready;
+    }).catch(() => false);
     const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!Audio) { this.onState('Web Audio is unavailable.'); return Promise.resolve(false); }
     try {
@@ -132,7 +136,7 @@ export class JuiceEngine {
       this.onState('Loading local recordings…');
       this.loading = Promise.all([resumed, loadBank(context)]).then(([, bank]) => {
         if (this.disposed) return false;
-        this.bank = bank; this.onState('Ready · recorded foley'); return true;
+        this.bank = bank; this.onState(this.paused ? 'Paused' : 'Ready · recorded foley'); return true;
       }).catch(async error => {
         this.onState(`Audio unavailable: ${error.message}`);
         await context.close().catch(() => {});

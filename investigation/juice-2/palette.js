@@ -61,7 +61,7 @@ export function recipe(name, p = {}, { semitones = 0, random = Math.random, phas
     { rate: r*.74, duration: .36, lowpass: 5200, release: .18 });
   const rubble = (count = 6, at = .3) => {
     for (let i = 0; i < count; i++) add(i%2 ? 'grit' : 'stone', .33*(1-i/(count+2)),
-      at+i*.13+random()*.09, { rate: r*(.85+random()*.7), duration: .32, pan: (random()-.5)*1.2 });
+      at === 0 && i === 0 ? 0 : at+i*.13+random()*.09, { rate: r*(.85+random()*.7), duration: .32, pan: (random()-.5)*1.2 });
   };
   switch (name) {
     case 'raise': add(earth, 1.8); add('stone', .38, .018); break;
