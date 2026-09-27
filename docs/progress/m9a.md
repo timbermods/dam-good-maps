@@ -1,27 +1,30 @@
 # M9a: terrain and water from processes
 
-> **Ready for the probe batch and the release (2026-09-27).** Kyler said yes to M9a on D252 (2)'s
+> **Waiting on the probe batch's second run (2026-09-27).** Kyler said yes to M9a on D252 (2)'s
 > review set (D294); its shortfalls go to M9b. Kyler's D252 (1) unfroze the generator: starts stop
 > looking alike (37b2f50; see "Starts stop looking alike" under What was built and under Results).
 > **The generator is frozen at 788c145** (its code as of 5e15143, which keeps a walk short of moist
-> land for the start's wood; every later commit is tests, docs or merges of `dev` without code). An
-> earlier freeze, ca63a56, made River Valley 96² seed 1333 (an e2e determinism seed) mapless and was
-> dropped; the batches at 0f70fcb, 37b2f50 and ca63a56 were stopped (only this worktree's processes)
-> and re-run. M9a's pending #77–#80 became #87–#90 and the start planting's default is #93; Kyler
-> answered them (D270, D294: #87, #88, #90 and #93 accepted; #89 for the feature operations and
-> Claude only). D277 took the Claude suite off M9a's gates. **Done on 788c145's generator:** every
-> settings experiment moves its target (seeds 1–4); the quick suite; every batch, 100 seeds of every
-> option at 96², 128², 192² and 256² at Normal and at 128² on Hard: every option and size at 98%
-> final or better (the tables under Results); the probe group M9a's 15 maps rebuilt in
-> `C:\dgm-probe\maps\20260927-0853-batch` (run id `20260927-0853-batch`; `tools/check-maps.ts`:
-> every check passes in TypeScript and the Python load checks, the Hard map at Hard; 250–1,494 logs
-> within the floor's walk), never launched by this session; CI green (the heavy rivers case at 256²
-> skipped under D277). **Left:** the orchestrator's DGM Probe batch on those maps, then the merge
-> into `dev`, `m9a-done` and the release. **Caveats** for Kyler (see "Found and parked"): a river
-> that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood
-> as known faults for Real places 2, River style (braided) and Berries near start at their
-> thresholds, and a start whose walk is mostly moist land still gets the start rules' trees on every
-> side.
+> land for the start's wood). An earlier freeze, ca63a56, made River Valley 96² seed 1333 (an e2e
+> determinism seed) mapless and was dropped; the batches at 0f70fcb, 37b2f50 and ca63a56 were
+> stopped (only this worktree's processes) and re-run. M9a's pending #77–#80 became #87–#90 and the
+> start planting's default is #93; Kyler answered them (D270, D294: #87, #88, #90 and #93 accepted;
+> #89 for the feature operations and Claude only). D277 took the Claude suite off M9a's gates.
+> **Done on 788c145's generator:** every settings experiment moves its target (seeds 1–4); every
+> batch, 100 seeds of every option at 96², 128², 192² and 256² at Normal and at 128² on Hard: every
+> option and size at 98% final or better (the tables under Results). **The probe batch
+> 20260927-0853-batch** (the orchestrator's) failed 5 of 103 checks; the main cause was the file
+> writing its water's outflows as 0 (see "The DGM Probe batch 20260927-0853-batch" under Results).
+> **0d9e473 writes the settled outflows into the file** (FORMAT.md §4.3): depths, checks and the
+> generator's decisions unchanged, every file's bytes new; CI green on it (push 36327168832, PR
+> 36327171912, Nightly 36327171917 with the heavy tests). The probe group's 15 maps are rebuilt on it
+> in `C:\dgm-probe\maps\20260927-1443-batch` (run id `20260927-1443-batch`; `tools/check-maps.ts`:
+> every check passes, the Hard map at Hard), never launched by this session. **Left:** the
+> orchestrator's second probe run on those maps, then the merge into `dev`, `m9a-done` and the
+> release. **Caveats** for Kyler (see "Found and parked" and the probe section): a river that stands
+> in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood as known
+> faults for Real places 2, River style (braided) and Berries near start at their thresholds, a
+> start whose walk is mostly moist land still gets the start rules' trees on every side, and, if they
+> persist, the probe's Delta refill (2) and the post-drought badwater pool (5).
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
