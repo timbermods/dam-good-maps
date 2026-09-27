@@ -43,7 +43,9 @@ async function paint(page: Page, from: [number, number], to: [number, number], o
 }
 
 /** The start's middle, and dry ground far from it where the map (not a bar over it) takes the
- *  clicks, with room round it. */
+ *  clicks, with room round it: above and below too, since a force's row gains a line (Try another)
+ *  once one is kept, and the view bar can wrap to a second row (D248), pushing the rows down over
+ *  the map. */
 async function places(page: Page): Promise<{ start: [number, number]; far: [number, number] }> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -59,6 +61,7 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
       for (let y = 20; y < m.H - 20; y += 2)
         for (let x = 20; x < m.W - 20; x += 2) {
           if (m.surface.depth[y * m.W + x] > 0 || !onMap(x, y) || !onMap(x - 10, y) || !onMap(x + 10, y)) continue;
+          if ([-12, -9, -6, -3, 3, 6, 9, 12].some((d) => !onMap(x, y + d))) continue;
           const s = Math.hypot(x - s0, y - s1) - Math.hypot(x - m.W / 2, y - m.H / 2) * 0.5;
           if (s > score) {
             score = s;
