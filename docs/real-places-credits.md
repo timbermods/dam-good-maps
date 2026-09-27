@@ -31,6 +31,19 @@ Each provider's licence or terms were read on 2026-09-25, from the official page
 Kyler confirmed the two judgement calls (2026-09-25): Austria's data under CC BY 4.0, and New
 Zealand's notice kept in the file.
 
+## The water data (D271)
+
+Since Kyler's D271 (2026-09-27: a place's water follows the real place), the conversion puts water
+sources only where ESA WorldCover 10 m 2021 v200 shows permanent water (class 80), as Pick a place's
+signature water does (D192, `investigation/pickplace-water2/ATTRIBUTION.md`). No WorldCover data is
+in the maps themselves: it decides where the sources go, and the water is simulated on the map's
+terrain. The credits page has its own "Water data" section (`src/places/Credits.tsx`,
+`attribution.ts` `WATER_*`).
+
+| Provider | Licence or terms | Verdict | Deciding words |
+|---|---|---|---|
+| ESA WorldCover (ESA, VITO and the WorldCover consortium) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [the provider's data access page](https://esa-worldcover.org/en/data-access) | Link | As Australia (§3(a)(2)). The provider's notice, verbatim: "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium". The credits page says how the data was used and that the provider does not endorse the maps. |
+
 Not needed: Mapzen (only for Mapzen's hosted service; the data came from AWS), and Natural Earth
 (public domain, and used only for the survey's random-land controls, which are not published).
 

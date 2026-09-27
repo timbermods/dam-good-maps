@@ -125,11 +125,11 @@ export interface Head {
 }
 
 /** Where water begins on the map: rivers that come in across its edge (their water gathered in
- *  the halo), and channel heads inside it (a tile where a channel's flow first passes the
+ *  the halo), and channel heads inside it (and the routing, on the patch with its halo) (a tile where a channel's flow first passes the
  *  threshold, fed by no channel above it). The threshold is the survey's: 1% of the map's tiles,
  *  at least 32. A river is one entry: the strongest crossing, the weaker ones within 4 tiles along
  *  the edge dropped; a head within 3 tiles of the edge is left to the edge. */
-export function rivers(raw: Float32Array, size: number, halo: number, threshold = Math.max(32, size * size * 0.01)): { entries: Entry[]; heads: Head[] } {
+export function rivers(raw: Float32Array, size: number, halo: number, threshold = Math.max(32, size * size * 0.01)): { entries: Entry[]; heads: Head[]; drainage: { to: Int32Array; acc: Float64Array } } {
   const W = size + 2 * halo;
   const d = drainage(raw, W, W);
   const inPatch = (i: number) => {
@@ -162,5 +162,5 @@ export function rivers(raw: Float32Array, size: number, halo: number, threshold 
     heads.push({ x, y, area: d.acc[i] });
   }
   heads.sort((a, b) => b.area - a.area || a.y - b.y || a.x - b.x);
-  return { entries: rivers, heads };
+  return { entries: rivers, heads, drainage: d };
 }

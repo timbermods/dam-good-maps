@@ -10,6 +10,10 @@ gallery's.
     python tools/places-review.py docs/sheets/real-places-review --changed-since 04e90ef
     python tools/places-review.py <dir> --per-page 30
 
+--marks <json> adds Kyler's marks under a title ({"<id>": ["Held for the water (D271)", ...]}), in
+purple; --was <git ref> gives each card its number on the sheet at that commit; --title <text> the
+pages' title.
+
 --changed-since <git ref> marks each card whose place changed since that commit: "new land" (made
 from another survey row), "new heights" (the same land, another height mapping), "new water" (the
 same row, its sources or start changed), "more trees" (the same data, a different map: the
@@ -46,6 +50,8 @@ LINE = (216, 207, 189)
 NOTE = (190, 110, 0)
 DEAD = (120, 95, 70)
 TAG = {"new land": (178, 70, 30), "new heights": (150, 90, 20), "new water": (30, 100, 170), "more trees": (40, 120, 50), "was": (110, 110, 110)}
+MARK = (120, 40, 150)
+WAS = (110, 110, 110)
 
 
 def font(size, bold=False):
@@ -118,18 +124,30 @@ def changes(ref, places):
 
 
 def lines_of(p, tag):
-    """The lines under a card's title: its notes, the floor's groves, what changed."""
-    out = [("note", n) for n in p.get("notes", [])]
+    """The lines under a card's title: Kyler's marks (--marks), its notes, the floor's groves, what
+    changed, and its number on the sheet before (--was)."""
+    out = [("mark", m) for m in MARKS.get(p["id"], [])]
+    out += [("note", n) for n in p.get("notes", [])]
     t = p.get("floorTrees")
     if t:
         out.append(("floor", t))
     if tag:
         out.append(("tag", tag))
+    if p["id"] in WAS_NUMBERS:
+        out.append(("was", f"No. {WAS_NUMBERS[p['id']]} on the last sheet"))
     return out
 
 
+PROBE = None
+
+
 def head_of(p, tag):
-    return 84 + LINE_H * len(lines_of(p, tag)) + 6
+    global PROBE
+    PROBE = PROBE or ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    n = 0
+    for kind, v in lines_of(p, tag):
+        n += len(wrap(PROBE, v, font(21, True), CELL - 24)) if kind == "mark" else 1
+    return 84 + LINE_H * n + 6
 
 
 def card(draw, img, p, k, x, y, head, height, tag):
@@ -148,6 +166,13 @@ def card(draw, img, p, k, x, y, head, height, tag):
             draw.ellipse((x + 14, ly + 7, x + 26, ly + 19), fill=NOTE)
             words, wf = fitted(draw, v, CELL - 44, 22, 18)
             draw.text((x + 34, ly), words, fill=NOTE, font=wf)
+        elif kind == "mark":
+            for part in wrap(draw, v, font(21, True), CELL - 24):
+                draw.text((x + 12, ly), part, fill=MARK, font=font(21, True))
+                ly += LINE_H
+            ly -= LINE_H
+        elif kind == "was":
+            draw.text((x + 12, ly), v, fill=WAS, font=font(20))
         elif kind == "floor":
             first = f"Groves for the starting logs: {v['trees']} trees"
             f = font(21)
@@ -178,6 +203,8 @@ PLAIN = {
 
 def plain(d):
     """A dropped place's reason in plain words: the rule that took it, and what failed."""
+    if "(D271)" in d["reason"]:
+        return f"{d['name']}: {d['reason'].replace(' (D271)', '')} (D271)"
     why = sorted({words for check, words in PLAIN.items() if check in d["reason"]})
     rule = "the starting-logs floor" if "(D224" in d["reason"] else "rivers, not floods" if "(D214)" in d["reason"] else "the rebuild"
     return f"{d['name']} ({rule}): {'; '.join(why) if why else d['reason']}"
@@ -200,9 +227,9 @@ def page(places, first, count, pages, number, title, tags, gone):
     img = Image.new("RGB", (WIDTH, height), PAPER)
     d = ImageDraw.Draw(img)
     d.text((GAP, 16), title, fill=INK, font=font(38, True))
-    d.text((GAP, 66), f"Page {number} of {pages}: places {first + 1}–{first + len(places)} of {count}. Reply with the numbers to drop.", fill=INK, font=font(26))
+    d.text((GAP, 66), f"Page {number} of {pages}: places {first + 1}–{first + len(places)} of {count}. {ASK}", fill=INK, font=font(26))
     d.text((GAP, 102), "Each card: the 3D overview, and the map from above turned to match.", fill=SOFT, font=font(20))
-    d.text((GAP, 126), "In amber: what would sink a player who goes straight to the game.", fill=NOTE, font=font(20))
+    d.text((GAP, 126), "In amber: what would sink a player who goes straight to the game." + (" In purple: your marks." if MARKS else ""), fill=NOTE, font=font(20))
     y = top
     for r, (row, hd) in enumerate(zip(rows, heads)):
         for c, p in enumerate(row):
@@ -226,12 +253,26 @@ def save(img, path):
     return q, buf.tell()
 
 
+MARKS = {}
+WAS_NUMBERS = {}
+ASK = "Reply with the numbers to drop."
+
+
 def main():
+    global MARKS, WAS_NUMBERS, ASK
     args = sys.argv[1:]
     opt = lambda name, default=None: args[args.index(name) + 1] if name in args else default
     dst = args[0]
     per = int(opt("--per-page", 30))
     ref = opt("--changed-since")
+    if opt("--marks"):
+        with open(opt("--marks"), encoding="utf-8") as f:
+            MARKS = json.load(f)
+    if opt("--was"):
+        before = json.loads(git("show", f"{opt('--was')}:{PLACES}/index.json").decode("utf-8"))["places"]
+        WAS_NUMBERS = {q["id"]: k + 1 for k, q in enumerate(before)}
+    title = opt("--title", "Real places: which should go?")
+    ASK = opt("--ask", ASK)
     with open(os.path.join(PLACES, "index.json"), encoding="utf-8") as f:
         index = json.load(f)
     with open(SELECTION, encoding="utf-8") as f:
@@ -248,7 +289,7 @@ def main():
     pages = math.ceil(len(places) / per)
     for n in range(pages):
         chunk = places[n * per : (n + 1) * per]
-        img = page(chunk, n * per, len(places), pages, n + 1, "Real places: which should go?", tags, gone if n == pages - 1 else None)
+        img = page(chunk, n * per, len(places), pages, n + 1, title, tags, gone if n == pages - 1 else None)
         path = os.path.join(dst, f"page-{n + 1}.jpg")
         q, size = save(img, path)
         print(f"{path}: places {n * per + 1}–{n * per + len(chunk)}, {img.width}×{img.height}, quality {q}, {size // 1024} KB")

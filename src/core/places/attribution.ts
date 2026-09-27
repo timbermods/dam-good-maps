@@ -2,7 +2,7 @@
 // (real-places/credits/) and the gallery show them in full: the source, what was changed, that the
 // providers do not endorse the maps, and every provider's notice, verbatim, with its licence (the
 // Terrain Tiles attribution, tilezen/joerd docs/attribution.md, "Required attribution";
-// investigation/landscapes/ATTRIBUTION.md). Each map's in-game description links to the credits
+// investigation/landscapes/ATTRIBUTION.md), and the water data's (ESA WorldCover, D271). Each map's in-game description links to the credits
 // page, and carries a provider's notice itself only where the provider's terms need it in the file
 // (Kyler, 2026-09-25). Each provider's verdict, with its licence and the deciding words, is in
 // docs/real-places-credits.md.
@@ -16,7 +16,18 @@ export const ELEVATION_SOURCE_URL = "https://registry.opendata.aws/terrain-tiles
 
 /** What was changed to make a playable map (ATTRIBUTION.md, "Changes"), in plain words. */
 export const CHANGES =
-  "The heights were resampled, cropped and fitted to 16 levels, and the edges sealed. Water sources, trees, bushes and ruins were added, and the water settled.";
+  "The heights were resampled, cropped and fitted to 16 levels. Water sources were added where the real place has water, trees, bushes and ruins were added, and the water settled.";
+
+/** Where the water comes from (Kyler, 2026-09-27, D271: a place's water follows the real place):
+ *  ESA WorldCover's permanent water bodies, as Pick a place uses it (D192). CC BY 4.0: credit by
+ *  link (docs/real-places-credits.md), its notice verbatim from the provider. */
+export const WATER_SOURCE = "ESA WorldCover 10 m 2021 v200";
+export const WATER_SOURCE_URL = "https://registry.opendata.aws/esa-worldcover-vito/";
+export const WATER_NOTICE = "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium";
+export const WATER_LICENCE = "CC BY 4.0";
+export const WATER_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
+/** What the water data was used for, in plain words. */
+export const WATER_USE = "Its permanent water bodies decide where water sources go; the water is then simulated on the map. The provider does not endorse these maps.";
 
 export const NOT_ENDORSED = "The data providers do not endorse these maps.";
 
