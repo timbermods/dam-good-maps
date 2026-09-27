@@ -1,12 +1,25 @@
 # M9a: terrain and water from processes
 
-> **Work in progress (resumed 2026-09-26 on the dedicated machine).** Done in this session: the
-> settings experiments move their targets on CI's seeds 1–4 at 96² (D211 applied: Start area and
-> Theme are information; Start area reads as a preference and the map card shows the bench), the
-> two reshape tests, and the quick tests re-seeded for the generator as it now is (see "Tests
-> updated"). Next: the full batches (step 3 of "Next session"), the contact sheet, the Claude suite,
-> docs and browser tests, the merge of `dev`, and the probe maps. The latest state of each step is
-> in "Next session" at the end.
+> **Paused for a session restart (2026-09-27), at a clean point: resume here.** The generator is
+> frozen (its code as of 652d4e2; every later commit is tests, docs, sheets or the Claude corpus).
+> **Done:** the starting-logs floor (D224, D227, D229: `start.wood_floor` in both validators, 178 logs
+> within 40 tiles' walk, Minimum starting wood 250 / 200 / 0 within 20, the floor's wood added the way
+> the land offers it); every settings experiment moves its target on CI's seeds 1–4 (braided on 12);
+> the quick suite (670) and CI green at 022a967; the e2e tests re-seeded for 0.7.0's maps (D148);
+> the contact sheet (`docs/sheets/m9a.png`) and D229's start-area sheet (`docs/sheets/m9a-start-areas.png`,
+> done; for the orchestrator and Kyler to look at: see "The starting-logs floor" under Results); the
+> Any measures; the Claude suite at **103 of 120** (118 of 141); the Hard batch at 128² (100% final on
+> every option); the batches at Normal for 256² (100% on every option), 192² River Valley, Canyon,
+> Highlands (100%) and Any (99%), and 128² River Valley (100%); the probe group M9a's 15 maps prepared
+> and checked. **Left, in order:** (1) the rest of the Normal batches, stopped cleanly for the
+> restart (every map made so far passed): the commands are in "Next session", step 1; (2) the batch
+> table under Results from their summary; (3) push, and CI green on #56 (camera.spec's held-key timing
+> failed once on CI and passed on the next run: timing, not a regression); (4) the orchestrator's
+> DGM Probe batch on the prepared maps (`C:\dgm-probe\maps\20260927-0424-batch`), never launched
+> by this session. **Caveats** for Kyler (see "Found and parked"): at Normal the start's own groves
+> and berry patches recur beside every start (D85's planting, larger with D227's 200 logs), a river
+> that stands in pools (River Valley 96² 4242), Designed for reshapes the land, the Real places' wood
+> as known faults for Real places 2, and River style (braided) at its threshold.
 
 **Built** on branch `feature/m9a` from `dev` at f04674d, after Kyler approved design version 2
 (PLAN §20 D209). The generator grows every map from the processes of design version 2 (the genome,
@@ -222,6 +235,83 @@ Relief 4.5 (at least 3), Verticality 0.036 (0.03, 8 seeds), Buildable land and i
 are information (D211): −23 and 0.066. Verticality and Braided pass at their thresholds; M9b's
 changes will need them looked at again.
 
+### The full batches at Normal (ROADMAP M9a: ≥ 98% final per option and size, blocking)
+
+On the frozen generator (`tools/batches.ts --seeds 1-100`, reports in
+`investigation/m9a/local/batches-final/`, out of git). Stopped part-way for the session restart; the
+rest is step 1 of "Next session". Finished runs:
+
+| Size | Option | Final | First attempt | Time median / p90 (ms) | Longest straight bank (limit 44) | Longest canal (limit 34.3) | Floor wood added |
+|---|---|---|---|---|---|---|---|
+| 256² | Any | 100/100 | 39% | 63,558 / 140,427 | median 23, max 39 | median 14.1, max 28.0 | 0 |
+| 256² | River Valley | 100/100 | 49% | 43,646 / 114,089 | median 23, max 38 | median 13.4, max 23.8 | 0 |
+| 256² | Canyon | 100/100 | 46% | 35,691 / 105,918 | median 23, max 44 | median 13.4, max 30.0 | 0 |
+| 256² | Highlands | 100/100 | 53% | 36,872 / 87,572 | median 23, max 40 | median 14.3, max 34.0 | 0 |
+| 256² | Lake Basin | 100/100 | 39% | 53,515 / 164,716 | median 23, max 34 | median 13.4, max 30.0 | 0 |
+| 256² | Delta | 100/100 | 52% | 42,469 / 127,908 | median 23, max 35 | median 13.4, max 29.1 | 0 |
+| 256² | Islands | 100/100 | 62% | 39,422 / 111,374 | median 21, max 38 | median 12.3, max 30.0 | 0 |
+| 192² | Any | 99/100 | 43% | 24,487 / 79,152 | median 22, max 37 | median 13.2, max 23.2 | 0 |
+| 192² | River Valley | 100/100 | 56% | 14,446 / 38,980 | median 22, max 39 | median 13.3, max 27.9 | 0 |
+| 192² | Canyon | 100/100 | 55% | 17,044 / 51,559 | median 22, max 37 | median 13.0, max 33.0 | 0 |
+| 192² | Highlands | 100/100 | 71% | 13,465 / 38,749 | median 23, max 37 | median 13.0, max 34.0 | 0 |
+| 128² | River Valley | 100/100 | 60% | 4,195 / 10,952 | median 20, max 35 | median 11.2, max 18.6 | 0 |
+
+Stopped part-way, every map made so far passing: 128² Any 88/88, Canyon 93/93, Highlands 10/10,
+Lake Basin 3/3; 192² Delta 79/79, Islands 46/46, Lake Basin 94/94. Not started: 128² Delta and
+Islands, and 96². Any 192² seed 78 makes no map in 12 attempts (the water never settles, or no river
+or no start, on each). Times are with seven batches at once and other runs beside them on the
+machine.
+
+### "Any" measured like each theme (ROADMAP M9a; information, D115)
+
+60 seeds of every option at 128² on the final generator (`investigation/m9a/any-measures.ts`, the
+maps made by design version 2's batch with `--gen current`; records in
+`investigation/m9a/local/generative/`, out of git):
+
+| Option | Final | First attempt | M1 nearest other: min / p10 / median (≥ 0.25 each, median ≥ 0.40) | M2a largest whole-map cluster (≤ 15%) | M2b river networks: largest / shapes | M2c relief: largest / shapes |
+|---|---|---|---|---|---|---|
+| Any | 100% | 56.7% | 0.404 / 0.461 / 0.514 | 10 of 60 (16.7%) | 10% / 50 | 5% / 25 |
+| River Valley | 100% | 56.7% | 0.413 / 0.429 / 0.491 | 26 of 60 (43.3%) | 18.3% / 45 | 10% / 19 |
+| Canyon | 100% | 58.3% | 0.381 / 0.402 / 0.468 | 25 of 60 (41.7%) | 13.3% / 50 | 6.7% / 16 |
+| Highlands | 100% | 61.7% | 0.383 / 0.419 / 0.477 | 18 of 60 (30%) | 13.3% / 44 | 6.7% / 13 |
+| Lake Basin | 100% | 58.3% | 0.418 / 0.466 / 0.494 | 17 of 60 (28.3%) | 21.7% / 46 | 5% / 18 |
+| Delta | 100% | 65% | 0.401 / 0.417 / 0.477 | 23 of 60 (38.3%) | 15% / 49 | 5% / 17 |
+| Islands | 100% | 86.7% | 0.285 / 0.313 / 0.364 | 52 of 60 (86.7%) | 21.7% / 42 | 8.3% / 23 |
+
+Any is coherent and playable (every map passes), has no clones (every map's nearest other at least
+0.40 on the variety scale) and the most river and relief shapes of the seven; its largest whole-map
+cluster is 16.7%, just over the 15% aim (information). The named themes cluster more, as leanings
+do (Islands most: its maps share the broad sea). M3 (openings) and M4 (no approximation) need the
+workshop maps, which live on Kyler's main PC.
+
+### The starting-logs floor (D224, D227, D229)
+
+- **Hard, 128², seeds 1–100 of every option** (`tools/batches.ts --sizes 128 --difficulty hard`,
+  `investigation/m9a/local/batches-hard/`): 100% final on all seven (first attempts 44–83%). The
+  floor's wood was added on 326 of the 700 maps (Any 54, Lake Basin 51, Delta 49, Canyon 47, River Valley 47,
+  Highlands 43, Islands 35): 1,108 groves, by kind across the water 367, standing dead on
+  dry ground 293, riverside 150, open moist ground 140, side valley 83, dead on a plateau 55, oaks on
+  a plateau 20; their middles 4–39 tiles from the start (medians 17–22), in every direction about
+  evenly (each of the eight between 7 and 34 groves per option).
+- **Normal:** the start's own groves for Minimum starting wood (200 logs within 20 tiles' walk) meet
+  the floor on every map seen: no floor wood on the 120 maps of the start-area sheet (see the batch
+  table for every size and option).
+- **Every map meets it:** the floor rejects a map in the generate profile, so every accepted map of
+  every batch has it; the 15 probe maps hold 240–1,307 logs within 40 tiles' walk.
+- **The start-area sheet** (`docs/sheets/m9a-start-areas.png`; `npx tsx tools/start-sheet.ts`):
+  40 tiles round each start, seeds 1–30 of Any, River Valley, Canyon and Highlands at 128², Normal
+  and Hard; the floor's groves outlined orange, the start's own groves cyan. What it shows, plainly:
+  - at Hard the added wood follows each map's own water and land, in every direction and at every
+    distance within the walk; its living groves hug the banks (living trees need moist soil, which
+    on M9a's land is a narrow band by the water), and about a quarter of its groves are standing
+    dead wood on dry ground where the moist band had no room;
+  - at Normal the floor adds nothing; what recurs beside every start is the start's own planting
+    (D85: groves for Minimum starting wood and patches for Minimum starting bushes on the moist
+    ground within about 10 tiles, cyan and magenta), which D227's 200 logs made larger. It follows
+    each map's water, but it is recognisably the same arrangement at every start (River Valley 7's
+    groves ring its start). That is the start rules' planting, not the floor's; spreading it over
+    the 20 tiles' walk the way `floorWood` reads the land would be the change, for Kyler to decide.
+
 ### The Claude suite (D134)
 
 `npx tsx investigation/claude/bin/reference.ts`: 81 of 120 on 0.7.0 before the re-tune (the
@@ -380,33 +470,54 @@ The stale-tests rule (CLAUDE.md): each still passed or failed for a reason that 
 
 ## Next session
 
-The session that resumed on the dedicated machine (2026-09-26) did steps 1 and 2 of the list the
-paused session left (its list is kept below, marked done), and is on the rest:
+Where the session that built the starting-logs floor stopped (2026-09-27, a restart of the milestone
+session). Every step before these is done (the list it followed is kept below, as written).
+
+1. **The rest of the Normal batches** (the report of each finished run is in
+   `investigation/m9a/local/batches-final/`, out of git, D195; the runs stopped part-way are
+   re-run whole):
+   - `npx tsx tools/batches.ts --sizes 96 --seeds 96=1-100 --jobs 7 --out investigation/m9a/local/batches-final`
+   - `npx tsx tools/batches.ts --sizes 128 --themes any,canyon,highlands,lakeBasin,delta,islands --seeds 128=1-100 --jobs 7 --out investigation/m9a/local/batches-final`
+   - `npx tsx tools/batches.ts --sizes 192 --themes lakeBasin,delta,islands --seeds 192=1-100 --jobs 7 --out investigation/m9a/local/batches-final`
+   - then `npx tsx tools/batches.ts --summary-only --out investigation/m9a/local/batches-final`
+     writes `summary.md`: its table goes under Results ("The full batches"), each option and size ≥ 98%
+     final (blocking); the straightness columns against `investigation/m9a/straight-reference.json`
+     (limits 44 and 34.3).
+   About 1.5 hours with 7 jobs on the dedicated machine.
+2. Push, and CI green on #56 (`gh run list --branch feature/m9a`).
+3. **The DGM Probe batch** (the orchestrator runs it, after Kyler's yes; D116, D117): the group's 15
+   maps are prepared on the frozen generator in `C:\dgm-probe\maps\20260927-0424-batch` (job preview
+   `investigation/probe/.cache/job-preview.json`, run id `20260927-0424-batch`), made by
+   `npm --prefix investigation/probe run batch -- --job-only --group M9a` (15 maps, about 93 minutes);
+   each passes every check in TypeScript and the Python validator's load checks, and holds 240–1,307
+   logs within 40 tiles' walk. The launch is `npm --prefix investigation/probe run batch -- --group M9a`
+   (it prints the plan and a one-time code; `--confirmed-launch <code>` after Kyler's yes). If the
+   generator changes, prepare the maps again with `--job-only`.
+4. Other commands, for a re-run: the contact sheet
+   `npm run sheet -- --png docs/sheets/m9a.png --no-open --workers 4`; the start areas
+   `npx tsx tools/start-sheet.ts --jobs 4`; the Hard batch
+   `npx tsx tools/batches.ts --sizes 128 --seeds 128=1-100 --jobs 3 --difficulty hard --out investigation/m9a/local/batches-hard`;
+   the Any measures
+   `DGM_GENERATIVE=investigation/m9a/local/generative npx tsx investigation/generative/v2/batch.ts --gen current --set m9a-128-floor --themes any,riverValley,canyon,highlands,lakeBasin,delta,islands --seeds 1-60 --size 128 --no-files --jobs 4`
+   then `DGM_GENERATIVE=investigation/m9a/local/generative npx tsx investigation/m9a/any-measures.ts --set m9a-128-floor`;
+   the Claude suite `npx tsx investigation/claude/bin/reference.ts`; the settings experiments
+   `npx tsx tools/settings-batch.ts --seeds 1-4`.
+
+### The session before the restart's list (2026-09-26, done but for its step 3, now step 1 above)
 
 1. ~~Settings experiments green, the reshape tests~~ done (see Results).
 2. ~~Quick tests re-seeded~~ done (see Tests updated).
-3. Full batches: `npx tsx tools/batches.ts --seeds 1-100 --jobs 7` (all seven options at 96², 128²,
-   192² and 256², 100 seeds each; reports and logs in `investigation/m9a/local/batches/`, the table
-   in `summary.md`). Running on 0422c71's generator.
-4. ~~The contact sheet~~ done: `docs/sheets/m9a.png`. The Any measures: the maps are made with
-   `investigation/generative/v2/batch.ts --gen current` (the command is in
-   `investigation/m9a/any-measures.ts`), 60 seeds of every option at 128² (resume with `--resume`),
-   then `investigation/m9a/any-measures.ts`.
-5. The Claude suite: 100 of 120 before the merge of `dev` (see Results); re-run after the merge
-   (Live editing re-expressed many requests under D184; P08 takes its new form and needs its
-   coordinates on 0.7.0's `rv96`).
-6. Merge `origin/dev` (Live editing, the forces, the juice): 13 conflicts, resolved as follows —
-   `calibrated.ts` both sides; `build.ts` dev's stroke targets then M9a's ramps; `session.ts` the
-   imports of both, M9a's PLANNING_FAILURES, `regenerate` M9a's one `generate` with dev's
-   `editProblems` (named when the generator's map passes and the edits fail on it); `App.tsx` dev's
-   caption, then M9a's first look; the Claude harness both sides' steps; `objects.spec.ts` and
-   `tools.spec.ts` deleted as on dev; decisions-pending dev's #69–#72, then M9a's #73–#75 (renumbered #77–#79 when dev's #73–#76 came in); the
-   reference outputs regenerated. Then the seed-4242 sha and the generator's bytes checked against
-   the batches' (re-run them if the merge changed the maps), the docs (EDITOR_PLAN for D213 and #79,
-   ROADMAP's M9a status), the browser tests (the determinism test's timeout, the Islands 256² preview
-   timeout; each run on its own port 4801–4810), and CI green on #56.
-7. The probe maps: `npm --prefix investigation/probe run batch -- --job-only --group M9a` on the
-   final generator (it prepares the 15 maps and prints the plan); the orchestrator runs the batch.
+3. Full batches: see step 1 above (the first full run, on 0422c71's generator before the floor, is
+   in `investigation/m9a/local/batches/`).
+4. ~~The contact sheet and the Any measures~~ done.
+5. ~~The Claude suite~~ done: 103 of 120.
+6. ~~Merge `origin/dev`~~ done (Live editing, the forces, the juice: 13 conflicts, resolved as
+   follows — `calibrated.ts` both sides; `build.ts` dev's stroke targets then M9a's ramps; `session.ts`
+   the imports of both, M9a's PLANNING_FAILURES, `regenerate` M9a's one `generate` with dev's
+   `editProblems`; `App.tsx` dev's caption, then M9a's first look; the Claude harness both sides'
+   steps; `objects.spec.ts` and `tools.spec.ts` deleted as on dev; decisions-pending dev's #69–#76,
+   then M9a's #77–#80; the reference outputs regenerated), and again for the waterfalls, D222–D229.
+7. ~~The probe maps~~ prepared and checked (step 3 above).
 
 ### The paused session's list (2026-09-26, kept as written)
 

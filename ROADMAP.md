@@ -1152,6 +1152,14 @@ approval of design version 2; the lists below are design version 1's. The text u
 become recipes inside the system (design §3).
 
 - **M9a: terrain and water from processes** (tag `m9a-done`).
+  - **Status (2026-09-27):** built on `feature/m9a` (PR #56), generator 0.7.0, with Kyler's answers
+    D211 (settings), D213 (the last badwater spring), D224, D227 and D229 (the starting-logs floor,
+    met the way the land offers it); natural ramps only climb cliffs and badwater ditches wind (D209);
+    `dev` merged in (Live editing, the forces, the waterfalls). Every settings experiment moves its
+    target on CI's seeds, the batches, the contact sheet and the start-area sheet
+    (`docs/sheets/m9a.png`, `docs/sheets/m9a-start-areas.png`) and the Claude suite (103 of 120) are
+    on the final generator (docs/progress/m9a.md). Left: the DGM Probe batch (the orchestrator runs
+    it, with Kyler's yes), then the release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
