@@ -1,0 +1,41 @@
+{
+ "note": "npm --prefix investigation/erode run captures: the time to the final land (planning in the worker) and the support check over every voxel, in installed Chrome on this machine",
+ "cases": [
+  {
+   "case": "crater-lip",
+   "worn": 490,
+   "held": 21,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "msToFinal": 125,
+   "checkMs": 59
+  },
+  {
+   "case": "canyon-cave",
+   "worn": 380,
+   "held": 20,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "msToFinal": 130,
+   "checkMs": 28
+  },
+  {
+   "case": "tall-arch",
+   "worn": 35,
+   "held": 6,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "msToFinal": 16,
+   "checkMs": 56
+  },
+  {
+   "case": "tall-shore",
+   "worn": 312,
+   "held": 13,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "msToFinal": 14,
+   "checkMs": 10
+  }
+ ]
+}

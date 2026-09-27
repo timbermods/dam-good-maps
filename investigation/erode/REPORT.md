@@ -1,0 +1,206 @@
+# Erode: the report
+
+Kyler's brief (2026-09-27): a force where wind and water wear rock, and the land decides the form: a cave at a
+cliff's foot, an overhanging lip where hard rock caps soft, an arch where a ridge is thin. Every shape obeys the
+game's support rule. Built by Claude on `investigation/erode`, held until Kyler has tried it.
+
+**The critical check passes:** every case, three more personalities of each (Try another) and 160 random
+gestures on the four maps drop **0 voxels** under the game's support rule, checked over every voxel of the final
+land with terrain3d's port of the rule (`investigation/terrain3d/proto/support.ts`, the model in
+GAME_RULES.md §2). `npm --prefix investigation/erode run check` reproduces it; `checks/results.json` holds it.
+
+## The cases
+
+Real Dam Good Maps land at 128²: the Highlands (with a crater struck by Craterize), Canyon, and a tall map.
+
+### 1. A crater's rim becomes an overhanging lip
+
+Highlands seed 5, struck with Craterize (investigation/craterize's engine: Strike at 96,102, Power 42, steep
+walls). Erode, dragged along the crater's east inner wall at level 13, Power 72, Size Auto. The soft rock under
+the hard bed at level 14 wears back 7 to 11 tiles; the hard bed and the rim above it stay as a lip, held by
+pillars of the rock that wore least, set a few tiles back from the lip's edge.
+
+| Before | After |
+|---|---|
+| ![](captures/crater-lip-before.jpg) | ![](captures/crater-lip-after.jpg) |
+| **Under the lip** | **From inside, looking out** |
+| ![](captures/crater-lip-low.jpg) | ![](captures/crater-lip-inside.jpg) |
+
+The moment (`captures/crater-moment.gif`, 5 seconds at 10 frames a second, 3.1 MB):
+
+![](captures/crater-moment.gif)
+
+### 2. A cliff's foot becomes a cave
+
+Canyon seed 2. One click at the foot of the canyon's north wall (93, 71), Power 70, Size Auto. The three soft
+levels over the floor wear into the wall under the hard bed at level 7: a cave up to 10 tiles deep, its roof held
+by pillars.
+
+| Before | After |
+|---|---|
+| ![](captures/canyon-cave-before.jpg) | ![](captures/canyon-cave-after.jpg) |
+| **Into the cave** | **From inside, looking out** |
+| ![](captures/canyon-cave-low.jpg) | ![](captures/canyon-cave-inside.jpg) |
+
+### 3. A thin ridge becomes an arch
+
+The tall map (design version 2, Verticality 85, seed 2). A drag across the thin ridge that stands between two
+lakes (around 30, 87), Power 70, Size 45. The ridge is 2 to 3 tiles thick where it stands 16 high; it wears
+from both sides at once, under the hard bed at level 12, and opens right through.
+
+| Before | After |
+|---|---|
+| ![](captures/tall-arch-before.jpg) | ![](captures/tall-arch-after.jpg) |
+| **Through the arch** | |
+| ![](captures/tall-arch-low.jpg) | |
+
+### 4. The waterline becomes a flooded cave (the water is approximated)
+
+The tall map again: a click at the waterline of a bank three tiles wide between two pools (90, 16), Power 75,
+Size 55. The hollow opens below the water's level, so it fills. **This water is an approximation** until the
+water engine lands (see "Water under the roofs" below). From above, before and after look alike: the cave is
+under the bank.
+
+| Before | After | Into the flooded cave |
+|---|---|---|
+| ![](captures/tall-shore-before.jpg) | ![](captures/tall-shore-after.jpg) | ![](captures/tall-shore-low.jpg) |
+
+## The numbers
+
+| Case | Dropped on load | Largest overhang's reach from support | Deepest hollow | Worn | Kept to hold a roof | Time to the final land at 128² |
+|---|---|---|---|---|---|---|
+| Crater lip | **0** | 3 tiles | 11 tiles | 490 | 21 | 100 ms (Node), 125 ms (browser) |
+| Canyon cave | **0** | 3 tiles | 10 tiles | 380 | 20 | 85 ms, 130 ms |
+| Tall arch | **0** | 2 tiles | 2 tiles | 35 | 6 | 31 ms, 16 ms |
+| Tall flooded cave | **0** | 3 tiles | 8 tiles | 312 | 13 | 21 ms, 14 ms |
+
+- **Reach from support** is the most tiles any block over air sits, in its own layer, from rock that stands on
+  held rock: the game's own measure, which it allows up to 3. The planner keeps every result within it, so the
+  big overhangs are roofs held by pillars or anchored along their length, never a shelf in mid-air.
+- **Deepest hollow**: the most tiles an air cell under a roof lies from open sky, walking through air.
+- **Time to the final land**: the planner alone, from the gesture to the final blocks, on this machine (Node:
+  median of 5 runs; browser: the worker in installed Chrome, one run, `checks/browser.json`). The machine was
+  shared with other work, so the numbers move by tens of milliseconds between runs. The dust and the grind start
+  on pointer-down, before the plan is back. The support check over the whole map takes another 10 to 100 ms;
+  the demo shows its result ("dropped on load: 0").
+- **Try another** on each case (seeds 2 to 4): 36 to 490 blocks worn, 0 dropped every time.
+
+Random gestures, 40 a map (clicks and 4 to 20 tile strokes anywhere, at any height, Power, Size and seed):
+
+| Map | Acted | Dropped | Largest reach | Slowest |
+|---|---|---|---|---|
+| Highlands | 16 of 40 | 0 | 3 | 54 ms |
+| Canyon | 12 of 40 | 0 | 3 | 163 ms |
+| Crater | 20 of 40 | 0 | 3 | 22 ms |
+| Tall | 28 of 40 | 0 | 3 | 66 ms |
+
+The rest found no rock to wear within 12 tiles, or only steps too low to hold a roof, and said so with a word by
+the pointer ("No rock to wear here").
+
+## The choices
+
+**One rule set; the land chooses.** There is no "cave", "overhang" or "arch" mode. Every solid block with open
+air beside it gathers wear each step from each open side:
+- more near the foot of the face the air stands on (sand-laden wind and splash wear hardest near the ground):
+  this hollows caves at cliff feet;
+- more just under a hard bed (seepage along the contact, as in real rock shelters): this undercuts caprock and
+  leaves the hard bed as a lip or a roof;
+- less the deeper the air lies inside the rock: Power sets how far in it reaches;
+- only where the gesture touched the face, and round the height it touched it: Size sets how wide and how tall
+  the openings are;
+- hard rock (the forces core's beds, every fourth level) wears at a tenth of the rate.
+
+A thin fin is open on both sides, so it wears from both at once and opens through: an arch. A block goes when
+its wear passes its own resistance, 3D noise from the seed, so no two results share their seams (Try another
+changes the seed). The same input always gives the same land.
+
+**Only rock under a roof wears.** A column's top two blocks always stay, and a block wears only under three
+blocks of rock, or one hard one. Erode hollows; it never flattens. So the map's surface, its water and every
+object on it stay exactly where they were (no start ever needs carrying, D257), no hollow is left under a thin
+soft crust, and nothing wears within two tiles of the map's edge or under a water source's ground (sources
+stand on the top of run 0, GAME_RULES.md §3.4).
+
+**Held, not dropped.** The game deletes any block more than 3 tiles sideways from support on load. After the
+wear, the planner checks the rule layer by layer. Where a roof would be left too far from support, it restores
+the rock that wore least under it: a stub under the roof's edge (a corbel) or a pillar down to the floor,
+preferring supports about three tiles in from the open air, so a lip's edge overhangs freely. Anything still
+loose would fall as rubble (the safety net): it never happened in any case or random gesture here (`fell` is 0
+throughout).
+
+**Nothing shown that the game would drop, not even for a frame.** The rock goes in 24 buckets over 2 to 4
+seconds (Power sets the length), at a steady pace, face first. The land at the end of every bucket is checked
+with the rule too; a block that would hang there goes in that bucket. Adding rock never takes support away, so
+every block of the final land is held in every frame.
+
+**The gesture.** A click wears where you click; if it lands on open ground, it looks up to 12 tiles away for the
+nearest face. A drag paints the sweep, drawn as a thin line while you draw it (the gesture itself, D258). No
+outline or prediction. The cursor ring shows where it will act. The camera never moves by itself (D265). Esc
+takes back a playing erode at once; each erode is one undo step; Try another replaces the last erode with a new
+personality of the same gesture from the same land.
+
+**The moment.** On pointer-down, before the plan is back: a puff of dust at the rock and the grind starting. Then
+the rock wears away in the order it wore, with dust drifting out of the opening and stones dropping from it,
+bouncing once where they land, each landing a recorded stone sound; the grind swells with how much is going, and
+a heavier fall closes it. Visual only (D240): the final land never depends on the effects. With reduced motion,
+the stones and most of the dust are off.
+
+**The view.** `core/mesher.ts` meshes terrain as runs: every face of a block toward air, tops, undersides and
+walls alike, greedy-merged per plane in 32 × 32 chunks, so cave ceilings, the roof of an overhang and the inside
+of an arch are ordinary faces. The light is a small 3D texture (sky light walked through air, sun light marched
+toward the editor's north-west sun), sampled half a cell in front of each face: caves darken toward their
+backs, overhangs cast their shadows, corners take a little occlusion, and no merge is ever broken. The shader
+follows the editor's Standard look: its palette, its lighting formula, dark cobbled walls with every other level
+darker and a lip of the top's ground, grass and cracked earth on the tops, the product's own water colours; the
+hard beds are a paler, warmer stone so the caprock reads.
+
+**Water under the roofs.** An approximation, said on screen: the map's own water (its canonical settle) stays
+exactly where it was on every open top, since no surface changes; a hollow opened beside water fills to the
+level of the water beside it, capped by its roof, and passes that level on to the hollows it touches. No
+pressure, no flow. Nothing is hidden: in case 4 the flooded cave shows as it is.
+
+**Sounds.** Four CC0 recordings from Freesound (two stone-on-stone scrapes for the grind, two crumbling-rock
+mixes for falling stone), played through Web Audio. Their authors, sources and hashes are in ATTRIBUTION.md.
+
+**The maps.** Highlands seed 5 and Canyon seed 2 come from the editor's generator (`src/core/gen/generate.ts`)
+with their water, soil and objects. The crater is Craterize's investigation engine on that Highlands, its water
+settled again. The tall map is design version 2 at Verticality 85, unlocked: the land before the build, since the
+dev generator can't build above 16 yet (as glaciate's tall fixture); springs at its planned rivers' heads, its
+water by the canonical settle, and no other objects.
+
+## Where it falls short
+
+1. **Blocky, regular forms.** The grain is one tile by one level, and the rock's beds are every fourth level, so
+   hollows come out as galleries two or three levels high between hard beds, often in rows. A "lip" is a
+   pillared gallery under a hard bed rather than one sweeping curve. The pillars are what the support rule
+   demands for anything deeper than 3 tiles; they can read as a colonnade.
+2. **Arches are small on today's maps.** Thin, tall ridges are rare: the Canyon map has almost none, the
+   Highlands few. The arch case is 35 blocks through a ridge 16 high for 5 tiles. A ridge must stand at least a
+   hard bed plus three blocks above the hole to hold one.
+3. **Low steps can't be worn.** A face under about four levels has no room under the protected top for a
+   hollow, so on the terraced Highlands many clicks do nothing (16 of 40 random gestures acted). That is the roof
+   rule doing its job, but it can feel like the force refusing.
+4. **Water is approximated** under the new roofs (no pressure, no flow, no draining through the edge). The real
+   game settles those columns by its own rules (GAME_RULES.md §3), which can differ: a sealed pocket
+   pressurises, water in a passage can siphon.
+5. **Not seen in the game.** The support rule is checked with the port of the game's code, not in Timberborn;
+   GAME_RULES.md §8's probe maps (a cantilever of 3 kept, 4 dropped; a corbelled arch standing) are still
+   unrun.
+6. **The view is the Standard look's style, not its shader.** No soil blending between tiles, contact shadows,
+   contamination, overlays or the cutaway; up close the cobbles read as masonry more than rock. Trees and objects
+   are simple stand-ins. Deep caves are dim by design and need the low views to be seen: there is no level
+   slice in the demo.
+7. **Rubble is visual only.** Worn rock never lands as a scree slope (D240 keeps the final land free of
+   effects); a real undercut would leave talus at its foot.
+8. **Timing is for 128²** on this machine, while other work ran; 256² is not measured. The page relights the
+   worn area every few buckets, and patches the light of newly opened cells in between.
+9. **Sounds are compressed previews** (Freesound's public MP3s, not the lossless originals), and only four.
+10. **The tall map is pre-build land** with springs but no trees, start or other objects, as in glaciate.
+
+## How to regenerate
+
+- `npm --prefix investigation/erode run maps` rebuilds `maps/` (about 30 s).
+- `npm --prefix investigation/erode run check` rebuilds `checks/results.json` (about 30 s).
+- `npm --prefix investigation/erode run captures` rebuilds `captures/` and `checks/browser.json` (about 2 min;
+  installed Google Chrome, headless, on a free local port).
+
+Everything here is small (captures 60 KB to 3.1 MB each); nothing large was generated.

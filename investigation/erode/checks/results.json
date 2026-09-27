@@ -1,0 +1,175 @@
+{
+ "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; ms is the planner alone at 128² (median of 5) on this machine",
+ "cases": [
+  {
+   "case": "crater-lip",
+   "map": "crater",
+   "worn": 490,
+   "held": 21,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 224,
+   "deepest": 11,
+   "roofedTiles": 218,
+   "msToFinal": 100,
+   "seconds": 3.44,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 456,
+     "held": 21,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 490,
+     "held": 21,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 468,
+     "held": 27,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "canyon-cave",
+   "map": "canyon",
+   "worn": 380,
+   "held": 20,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 144,
+   "deepest": 10,
+   "roofedTiles": 102,
+   "msToFinal": 84.8,
+   "seconds": 3.4,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 313,
+     "held": 19,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 353,
+     "held": 19,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 355,
+     "held": 20,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "tall-arch",
+   "map": "tall",
+   "worn": 35,
+   "held": 6,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 2,
+   "blocksOverAir": 9,
+   "deepest": 2,
+   "roofedTiles": 9,
+   "msToFinal": 31.4,
+   "seconds": 3.4,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 40,
+     "held": 5,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 37,
+     "held": 4,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 36,
+     "held": 5,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "tall-shore",
+   "map": "tall",
+   "worn": 312,
+   "held": 13,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 125,
+   "deepest": 8,
+   "roofedTiles": 125,
+   "msToFinal": 21.1,
+   "seconds": 3.5,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 271,
+     "held": 12,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 310,
+     "held": 13,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 341,
+     "held": 15,
+     "dropped": 0
+    }
+   ]
+  }
+ ],
+ "random": [
+  {
+   "map": "highlands",
+   "gestures": 40,
+   "acted": 16,
+   "droppedOnLoad": 0,
+   "maxReach": 3,
+   "slowestMs": 54
+  },
+  {
+   "map": "canyon",
+   "gestures": 40,
+   "acted": 12,
+   "droppedOnLoad": 0,
+   "maxReach": 3,
+   "slowestMs": 163
+  },
+  {
+   "map": "crater",
+   "gestures": 40,
+   "acted": 20,
+   "droppedOnLoad": 0,
+   "maxReach": 3,
+   "slowestMs": 22
+  },
+  {
+   "map": "tall",
+   "gestures": 40,
+   "acted": 28,
+   "droppedOnLoad": 0,
+   "maxReach": 3,
+   "slowestMs": 66
+  }
+ ]
+}
