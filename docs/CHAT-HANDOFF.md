@@ -67,7 +67,7 @@ docs/PERFECT.md is the yardstick. In short: maps designed by nature, genuinely v
 - The High look (#75) and the water shades choice (D310: options (a)/(b)/(c); the session's pick is (a)).
 - Drought and Badtide, day by day (#73).
 - Erode (#74).
-- Real places' rebuild is paused until the grouped-sources rule (D314) is wired into its conversion, then it releases without another review sheet (D300).
+- Real places: the grouped-sources rule (D314) is now wired into its conversion (VERSION 11); the one rebuild stopped at the pause with 37 of 136 places done. It finishes on Tuesday and releases without another review sheet (D300).
 
 ### 4. What's next
-See docs/HANDOFF.md §1 for the resume order and docs/STATUS.md §1 for everything waiting on Kyler. In short: get the forces sitting's changes onto the preview and tell Kyler; finish M9b's re-pin, then its release candidate (D308); finish Real places' grouped-sources wiring, run the one rebuild, and release it.
+See docs/HANDOFF.md §1 for the resume order and docs/STATUS.md §1 for everything waiting on Kyler. In short: get the forces sitting's changes onto the preview and tell Kyler; finish M9b's re-pin, then its release candidate (D308); finish Real places' one rebuild (99 places left), check it, and release it.
