@@ -62,14 +62,14 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-   - **D304 and D305 are built on it** (65a56075, CI green): captures `docs/look/high/d304-water.jpg`, `d304-water-checks.jpg`,
-     `d305-ruins.jpg`. The far ruins now read as the same ruin (muted rust with a lattice; swap point and frame time unchanged).
-     **The water needs your eye:** it keeps the game's relationships (a small lightness span, near-constant hue) but sits about
-     15–18 L* lighter than your screenshot, because the game's own shades would fall too close to badwater's fixed darkness for the
-     colour-blind rule (D201). In greyscale, clean shallow water and 10% badwater now look almost alike (full badwater stays clearly
-     darker), and two readability tests were loosened to fit (badwater's blend step 6 → 12 L*, the shallow-over-badwater margin
-     0.3 → 0.15). Options: accept it; or darken clean water toward the game and darken badwater's floor too, so both keep their gap.
-     The badwater calibration drift was a measuring-tool bug (it measured High against Standard's targets), now fixed.
+   - **D304, D305 and D310 are built on it** (30d7a767, CI green; every capture in `docs/look/high/` recaptured). The far ruins read
+     as the same ruin. **The water: three of your wishes can't all hold, so pick one to give.** Deep water now matches the game
+     (L* 29.6 against its 29.2) and the middle is close (32.4 against 35.1), so a river's body looks like the game's; the two
+     readability tests are back at their old strictness. But the shallows went lighter (L* 62.3), so shallow to deep spans about
+     33 L* against the game's 7. Badwater couldn't darken to make room: your D177/D178 review keeps the mine pit's earth at least
+     5 L* darker than badwater, and they're 0.4 L* from that line. Options: (a) darken the mine pit's earth too, then badwater,
+     then clean shallows toward the game (a small range, all three rules kept); (b) keep the readability tests but let a thin
+     sheet's own texture, not its colour, tell it from badwater, so shallows can darken; (c) accept it as it is. My pick: (a).
 8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
    on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
    Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
