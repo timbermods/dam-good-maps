@@ -148,7 +148,8 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       // floor's spring, and its card says so
       expect(p.sources.length, entry.id).toBeGreaterThan(0);
       if (p.spring) {
-        expect(p.sources.some(([x, y]) => x === p.spring!.at[0] && y === p.spring!.at[1]), entry.id).toBe(true);
+        // its sources a group by D314's rule, the anchor among them
+        for (const [sx, sy] of [p.spring.at, ...(p.spring.row ?? [])]) expect(p.sources.some(([x, y]) => x === sx && y === sy), entry.id).toBe(true);
         expect(entry.notes, entry.id).toContain(SPRING_NOTES[p.spring.why]);
       }
       for (const [x, y, strength] of p.sources) {
@@ -170,7 +171,8 @@ describe("the choice (tools/places/selection.json, tools/places-convert.ts)", ()
       // what the sources give: at most the cap, the generator's strength for the size times it
       // (each source rounded to a thousandth)
       // (the water floor's spring, D300, is on top: the smallest that gives the start water)
-      const total = p.sources.filter(([x, y]) => !p.spring || x !== p.spring.at[0] || y !== p.spring.at[1]).reduce((s, [, , v]) => s + v, 0);
+      const floor = new Set((p.spring ? (p.spring.row ?? [p.spring.at]) : []).map(([x, y]) => y * p.W + x));
+      const total = p.sources.filter(([x, y]) => !floor.has(y * p.W + x)).reduce((s, [, , v]) => s + v, 0);
       const area = p.W * p.H;
       expect(total, p.id).toBeLessThanOrEqual((cap * density("water_strength_per_10k", area) * area) / 1e4 + p.sources.length * 0.0005);
     }

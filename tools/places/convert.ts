@@ -52,6 +52,8 @@ import { validateMap } from "../../src/core/validate/checks";
 import { crop, detrend, quantise, quantiseAround, rivers, type Edge, type Entry, type Head } from "./hydro";
 import { riverTiles } from "./osm";
 import { readWater } from "./worldcover";
+import { placeSourceGroup } from "../../src/core/water/sourceGroups";
+import { hash32 } from "../../src/core/math/hash";
 
 export const PATCHES = "investigation/landscapes/.cache/patches";
 const HALO = 32;
@@ -143,7 +145,7 @@ export interface Converted {
   smoothed?: boolean;
   /** The water floor's spring (D300), when the place needed one: where, how strong, and why (no
    *  water in its square, or its real water out of the start's reach). It is also in `sources`. */
-  spring?: { at: [number, number]; strength: number; why: "dry" | "far" };
+  spring?: { at: [number, number]; strength: number; why: "dry" | "far"; row: [number, number][] };
   /** The start came from the shore-first ranking (D214): none of the first ranking's passed. */
   moved?: boolean;
   settled?: boolean;
@@ -175,7 +177,7 @@ export function rowHeights(row: string): { size: number; heights: Uint8Array } {
 
 /** A source group: its tiles and its flow. A lake's spring (`lake`) gives what the lake's surface
  *  evaporates (`feed`), not a share of the rivers' flow. */
-export type Group = { tiles: number[]; share: number; lake?: true; feed?: number; entry?: true; cells?: number[] };
+export type Group = { tiles: number[]; share: number; lake?: true; feed?: number; entry?: true; cells?: number[]; weights?: number[] };
 
 /** A tile counts as observed water when this share of its WorldCover pixels is (D271). */
 export const WET = 0.15;
@@ -348,6 +350,7 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
   const entries: Entry[] = [];
   const heads: Head[] = [];
   const lakes: Group[] = [];
+  const taken = new Uint8Array(N);
   // each stretch's kind, for its bed (`lowerBeds`): 1 a river, 2 a lake
   const kind = new Uint8Array(sizes.length);
   for (const s of starts) {
@@ -378,13 +381,17 @@ export function beginnings(raw: Float32Array, obs: Float32Array, size: number, h
     // so it gets EDGE_LAKE times as much
     if (lake) {
       const feed = LAKE_FEED * weight[s.c] * (onEdge[s.c] ? EDGE_LAKE : 1);
-      lakes.push({ tiles: [middle(s.c).i], share: feed, lake: true, feed, cells: cells[s.c] });
+      lakes.push({ ...grouped(middle(s.c).i, feed, h, size, taken), share: feed, lake: true, feed, cells: cells[s.c] });
       continue;
     }
     const area = Math.max(acc[halo(s.i)], sizes[s.c]);
     const edge: Edge | null = y <= 1 ? "south" : y >= size - 2 ? "north" : x <= 1 ? "west" : x >= size - 2 ? "east" : null;
     if (edge) entries.push({ x: edge === "west" ? 0 : edge === "east" ? size - 1 : x, y: edge === "south" ? 0 : edge === "north" ? size - 1 : y, edge, area });
-    else heads.push({ x, y, area });
+    else {
+      const p = halo(s.i);
+      const q = to[p];
+      heads.push({ x, y, area, ...(q >= 0 ? { flow: [(q % W) - (p % W), Math.floor(q / W) - Math.floor(p / W)] as [number, number] } : {}) });
+    }
   }
   const groups = entries.length || heads.length ? groupsOf(entries, heads, size, h, flow) : [];
   return { groups: [...groups, ...lakes.filter((l) => !groups.some((g) => g.tiles.includes(l.tiles[0])))], sea, labels, kind };
@@ -459,13 +466,26 @@ function groupsOf(entries: Entry[], heads: Head[], size: number, h: Uint8Array, 
     if (taken[i]) continue;
     // not on a mouth's row or next to one: that water is already there
     if (out.some((g) => g.tiles.some((t) => Math.max(Math.abs((t % size) - s.x), Math.abs(Math.floor(t / size) - s.y)) <= 3))) continue;
-    taken[i] = 1;
-    out.push({ area: s.area, tiles: [i], share: shareOf(s.area) });
+    const g = grouped(i, shareOf(s.area), h, size, taken, s.flow);
+    for (const t of g.tiles) taken[t] = 1;
+    out.push({ area: s.area, ...g, share: shareOf(s.area) });
   }
   out.sort((a, b) => b.area - a.area);
   // the flow of a river or head that got no source goes to the rest
   const got = out.reduce((s, g) => s + g.share, 0);
-  return out.map((g) => ({ tiles: g.tiles, share: (g.share * flow) / got, ...(g.entry ? { entry: true as const } : {}) }));
+  return out.map((g) => ({ tiles: g.tiles, share: (g.share * flow) / got, ...(g.weights ? { weights: g.weights } : {}), ...(g.entry ? { entry: true as const } : {}) }));
+}
+
+/** A spring where water begins, as a group by D314's rule (src/core/water/sourceGroups.ts): a row
+ *  across the flow (`flow`, else read from the ground), or fewer where the ground is cramped, sharing
+ *  `strength`; its tiles and each one's share of it. The one tile where the rule refuses. */
+function grouped(i: number, strength: number, h: Uint8Array, size: number, occupied: Uint8Array, flow?: [number, number]): { tiles: number[]; weights?: number[] } {
+  const x = i % size;
+  const y = (i - x) / size;
+  const g = placeSourceGroup({ kind: "water", x, y, strength, seed: hash32("real-place-spring", size, i), ...(flow ? { flow } : {}) }, { W: size, H: size, heights: h, occupied });
+  if (!g.sources.length) return { tiles: [i] };
+  const sum = g.sources.reduce((s, q) => s + q.strength, 0);
+  return { tiles: g.sources.map((q) => q.y * size + q.x), weights: g.sources.map((q) => q.strength / sum) };
 }
 
 /** Each group's share of the flow, and its tiles' strengths (at most 8 a tile, at least 0.1; a
@@ -477,8 +497,10 @@ function strengths(groups: Group[], size: number, flow = Infinity): [number, num
   for (let round = 0; ; round++) {
     const out: [number, number, number][] = [];
     for (const g of groups) {
-      const each = Math.min(8, Math.max(g.lake ? 0.01 : 0.1, (g.share * scale) / g.tiles.length));
-      for (const i of g.tiles) out.push([i % size, Math.floor(i / size), Math.round(each * 1000) / 1000]);
+      g.tiles.forEach((i, k) => {
+        const each = Math.min(8, Math.max(g.lake ? 0.01 : 0.1, g.share * scale * (g.weights ? g.weights[k] : 1 / g.tiles.length)));
+        out.push([i % size, Math.floor(i / size), Math.round(each * 1000) / 1000]);
+      });
     }
     const sum = out.reduce((s, [, , v]) => s + v, 0);
     // (each rounded to a thousandth: half a thousandth a source over is the rounding's)
@@ -1043,8 +1065,19 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
   for (const steady of [true, false])
   for (const strength of SPRING_STRENGTHS)
     for (const i of picked) {
-      const spring: [number, number, number] = [i % size, Math.floor(i / size), strength];
-      const all = [...sources, spring];
+      // the spring a group by D314's rule, off the other sources' and the start's ground
+      const occupied = new Uint8Array(N);
+      for (const [x, y] of sources) occupied[y * size + x] = 1;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) occupied[(centre.y + dy) * size + centre.x + dx] = 1;
+      // (the row across the land's way down from the spring, the routing's next tile)
+      const p = ((i - (i % size)) / size + HALO) * W + (i % size) + HALO;
+      const q = to[p];
+      const flow: [number, number] | undefined = q >= 0 ? [(q % W) - (p % W), Math.floor(q / W) - Math.floor(p / W)] : undefined;
+      const g = placeSourceGroup({ kind: "water", x: i % size, y: Math.floor(i / size), strength, seed: hash32("real-place-floor", size, i), ...(flow ? { flow } : {}) }, { W: size, H: size, heights: h, occupied, depth: water.depth });
+      if (!g.sources.length) continue;
+      const row = g.sources.map((q) => [q.x, q.y, q.strength] as [number, number, number]);
+      const spring: [number, number, number] = [i % size, Math.floor(i / size), g.total];
+      const all = [...sources, ...row];
       const objects = sourceEntities(all, h, size).map(mapObject);
       const model = waterModel(size, size, h, objects);
       // the settle's starting state first (quick): a start with a pump's water within its walk
@@ -1078,7 +1111,7 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
         }
         const advisories = v.report.checks.filter((c) => !c.ok && c.advisory && c.applicable !== false).map((c) => c.id);
         const moved = start[0] !== sx || start[1] !== sy;
-        const got = withBadwater({ ...r, sources: all, start, ...(moved ? { moved: true } : {}), spring: { at: [spring[0], spring[1]], strength, why }, settled: settled.settled, ticks: settled.ticks, cover: waterCover(settled.depth), shortOf, notes: placeNotes(v.report.checks), advisories }, meta, settled);
+        const got = withBadwater({ ...r, sources: all, start, ...(moved ? { moved: true } : {}), spring: { at: [spring[0], spring[1]], strength: g.total, why, row: row.map(([x, y]) => [x, y] as [number, number]) }, settled: settled.settled, ticks: settled.ticks, cover: waterCover(settled.depth), shortOf, notes: placeNotes(v.report.checks), advisories }, meta, settled);
         if (got) return got;
       }
     }

@@ -51,7 +51,7 @@ import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 10;
+const VERSION = 11;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";
@@ -373,7 +373,7 @@ async function main(): Promise<void> {
       heights: r.heights!,
       sources: r.sources!,
       start: r.start!,
-      ...(r.spring ? { spring: { at: r.spring.at, why: r.spring.why } } : {}),
+      ...(r.spring ? { spring: { at: r.spring.at, why: r.spring.why, row: r.spring.row } } : {}),
     };
     writeFileSync(join(OUT, `${data.id}.json.gz`), gzipSync(strToU8(JSON.stringify(data)), { level: 9, mtime: 0 }));
   }

@@ -65,6 +65,23 @@ describe("the water follows the real place (D271)", () => {
     expect(groups[0].share).toBeCloseTo(5);
   });
 
+  it("a river that begins on the map begins at a group of springs across its flow (D314)", () => {
+    // land falling evenly to the south, level across (room for a row)
+    const raw = new Float32Array(W * W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) raw[y * W + x] = 200 + y * 2;
+    const h = heights(raw);
+    // the river begins inside the map, 30 tiles from the south edge, and runs south
+    const obs = observed((x, y) => Math.abs(x - 24) <= 1 && y < 30);
+    const { groups } = beginnings(raw, obs, SIZE, h, 5);
+    const heads = groups.filter((g) => !g.lake && g.tiles.every((t) => Math.floor(t / SIZE) > 0));
+    expect(heads.length).toBe(1);
+    const g = heads[0];
+    expect(g.tiles.length).toBeGreaterThan(1);
+    // across the flow (the valley runs north and south): a row along x, its shares summing to one
+    expect(new Set(g.tiles.map((t) => Math.floor(t / SIZE))).size).toBe(1);
+    expect(g.weights!.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+  });
+
   it("an observed lake gets one spring in its middle that gives what it evaporates", () => {
     const raw = patch({ bowl: 30 });
     const h = heights(raw);

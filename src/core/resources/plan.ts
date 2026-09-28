@@ -13,7 +13,7 @@
 // Resources and mine sites never move water, so that settle is the map's settle after them too.
 
 import { reachAt, walkDistance } from "../analysis/walk";
-import type { EntitySpec } from "../format/entities";
+import { waterSource, type EntitySpec } from "../format/entities";
 import { slopeHighSide } from "../format/footprints";
 import { entityTiles } from "../features/edits";
 import { fitProblems, rasterizeObjects } from "../features/objects";
@@ -25,6 +25,9 @@ import { soilContamination as soilOf } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture as moistureOf } from "../sim/moisture";
 import { gameSoil, type SoilRules } from "../sim/soil";
+import { placeSourceGroup } from "../water/sourceGroups";
+import { entityId } from "../features/ids";
+import { hash32 } from "../math/hash";
 import type { WaterRules } from "../sim/water";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
@@ -62,6 +65,9 @@ export interface MapResourcesInput {
   /** The water's and the soil's rules the badwater resettle uses (sim/water.ts, sim/soil.ts): the
    *  defaults when absent. Real places use the game's (D293, D298, D308). */
   rules?: { water?: WaterRules; soil?: SoilRules };
+  /** Each badwater spring as a group by D314's rule (water/sourceGroups.ts): alone or in a close
+   *  pair, sharing its strength. Real places ask for it; generated maps take it with M9b's switch. */
+  groupedBadwater?: boolean;
 }
 
 export interface MapResources {
@@ -111,13 +117,29 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   //      with them; a spring whose badwater comes nearer the start than the badwater distance is
   //      dropped for the next best
   const budget = badwaterBudget(W, H, inp.badwater.setting, inp.seed);
+  /** The springs' entities: one each, or each a group by D314's rule (`groupedBadwater`), at its
+   *  square's middle, its partner's id derived from the spring's. */
+  const badOf = (list: readonly BadwaterSpring[]): EntitySpec[] => {
+    if (!inp.groupedBadwater) return springEntities(list, W, owner);
+    const out: EntitySpec[] = [];
+    const occupied = taken.slice();
+    list.forEach((s, k) => {
+      const g = placeSourceGroup({ kind: "badwater", x: s.x + 1, y: s.y + 1, strength: s.strength, seed: hash32(inp.seed, "badwater", k) }, { W, H, heights: h, occupied });
+      const members = g.sources.length ? g.sources : [{ x: s.x, y: s.y, z: s.z, strength: s.strength, tiles: [] as number[] }];
+      for (const m of members) {
+        out.push(waterSource({ id: entityId(owner, "BadwaterSource", m.y * W + m.x), owner, x: m.x, y: m.y, z: m.z, strength: m.strength, bad: true }));
+        for (const t of m.tiles) occupied[t] = 1;
+      }
+    });
+    return out;
+  };
   let springs: BadwaterSpring[] = [];
   let settled: MapResources["water"] = null;
   const refused = new Uint8Array(N);
   for (let round = 0; round < 3 && budget.sources > 0; round++) {
     springs = pickBadwaterSprings({ W, H, heights: h, water: inp.water, taken, start, within: inp.badwater.within, budget, seed: inp.seed, refused });
     if (!springs.length) break;
-    const objects = [...inp.entities, ...springEntities(springs, W, owner)].map(mapObject);
+    const objects = [...inp.entities, ...badOf(springs)].map(mapObject);
     const settle = canonicalSettle(waterModel(W, H, h, objects), inp.rules?.water ? { rules: inp.rules.water } : {});
     let moist: Float64Array;
     let soil: Float64Array;
@@ -145,8 +167,8 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   const water = settled ? settled.settle.depth : inp.water;
   const moistureNow = settled ? settled.moisture : inp.moisture;
   const soilNow = settled ? settled.soilContamination : inp.soilContamination;
-  const badEntities = springEntities(springs, W, owner);
-  for (const s of springs) for (let y = s.y - 1; y <= s.y + 3; y++) for (let x = s.x - 1; x <= s.x + 3; x++) if (x >= 0 && y >= 0 && x < W && y < H) taken[y * W + x] = 1;
+  const badEntities = badOf(springs);
+  for (const s of badEntities) for (let y = s.y - 1; y <= s.y + 3; y++) for (let x = s.x - 1; x <= s.x + 3; x++) if (x >= 0 && y >= 0 && x < W && y < H) taken[y * W + x] = 1;
 
   // ---- mine sites: the generator's rule (gen/extras.ts): flat dry ground with a level ring, out of
   //      flood reach, in the band from the start, reachable first; never fewer than one where any fits

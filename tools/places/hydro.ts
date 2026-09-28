@@ -122,6 +122,8 @@ export interface Head {
   x: number;
   y: number;
   area: number;
+  /** Which way its water goes from there (the routing's next tile), when known. */
+  flow?: [number, number];
 }
 
 /** Where water begins on the map: rivers that come in across its edge (their water gathered in

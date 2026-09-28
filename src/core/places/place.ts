@@ -157,9 +157,9 @@ export interface PlaceData {
    *  mouth on the map edge or a spring at a valley's head. */
   sources: [number, number, number][];
   /** The water floor's spring (Kyler, 2026-09-27, D300), when the place needed one: where it
-   *  stands (it is also among `sources`), and why: no permanent water in the place's square
+   *  stands (it is also among `sources`), its sources (a group by D314's rule, `row`), and why: no permanent water in the place's square
    *  ("dry"), or its real water out of the start's reach ("far"). Its card says so (`springNotes`). */
-  spring?: { at: [number, number]; why: "dry" | "far" };
+  spring?: { at: [number, number]; why: "dry" | "far"; row?: [number, number][] };
   /** Badwater sources, [x, y, strength] (D200), when the place has them. */
   badwater?: [number, number, number][];
   /** The start's corner tile (the StartingLocation's coordinates). */
@@ -331,6 +331,8 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwa
     // (`badwater: false`: none, for the conversion's quick look at a start, tools/places/convert.ts)
     badwater: { setting: opts.badwater === false ? "off" : "normal", within: rules.badwaterWithin },
     rules: PLACE_RULES,
+    // each badwater spring a group by D314's rule: alone or in a close pair
+    groupedBadwater: true,
     owner: `real-place:${p.id}`,
   });
   // the water settled again with the badwater, and the soil it leaves: what the file holds, and
