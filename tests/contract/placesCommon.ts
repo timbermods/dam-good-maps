@@ -98,12 +98,34 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
   "near-waimakariri-river",
 ]);
 
+/** The start's water is never a sealed puddle (Kyler's D302, M9a): these places' starts reach only
+ *  water no source feeds that a Normal drought empties, which `start.water` refuses (a playability
+ *  check: it warns in the export profile, and the gallery's download works). Real places 2 gives
+ *  the places their water (D300) and empties the list. */
+export const PLACES_START_WATER_A_PUDDLE = new Set([
+  "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bungle-bungle",
+  "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau",
+  "near-death-valley", "near-deccan-plateau", "near-drumheller", "near-english-lake-district",
+  "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls", "near-kinabatangan-river",
+  "near-lake-toba", "near-mount-mayon", "near-na-pali-coast", "near-ngorongoro",
+  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-taklimakan-kunlun-fan",
+  "near-tibetan-plateau", "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river",
+  "near-victoria-falls", "near-waimakariri-river", "near-yosemite-valley",
+]);
+
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
- *  flow, the missing mine site and badwater source, and the starting wood), and which of them fail. */
-export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean } {
+ *  flow, the missing mine site and badwater source, the starting wood and the start's water), and
+ *  which of them fail. */
+export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean } {
   const all = failing(checks);
   const known = (f: string) =>
-    f.startsWith("terrain.edge_wall:") || f.startsWith("water.source_in_flow:") || f.startsWith("resources.mine_site:") || f.startsWith("resources.badwater_source:") || f.startsWith("start.wood:") || f.startsWith("start.wood_floor:");
+    f.startsWith("terrain.edge_wall:") ||
+    f.startsWith("water.source_in_flow:") ||
+    f.startsWith("resources.mine_site:") ||
+    f.startsWith("resources.badwater_source:") ||
+    f.startsWith("start.wood:") ||
+    f.startsWith("start.wood_floor:") ||
+    (f.startsWith("start.water:") && f.includes("sealed puddle"));
   return {
     other: all.filter((f) => !known(f)),
     edgeWall: all.some((f) => f.startsWith("terrain.edge_wall:")),
@@ -112,6 +134,7 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     badwater: all.some((f) => f.startsWith("resources.badwater_source:")),
     wood: all.some((f) => f.startsWith("start.wood:")),
     floor: all.some((f) => f.startsWith("start.wood_floor:")),
+    startWater: all.some((f) => f.startsWith("start.water:")),
   };
 }
 
@@ -141,6 +164,7 @@ export function checkShard(k: number, n: number): void {
       expect(f.badwater).toBe(PLACES_LACK_BADWATER);
       expect(f.wood).toBe(PLACES_SHORT_OF_WOOD.has(entry.id));
       expect(f.floor).toBe(PLACES_BELOW_THE_FLOOR.has(entry.id));
+      expect(f.startWater).toBe(PLACES_START_WATER_A_PUDDLE.has(entry.id));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works
