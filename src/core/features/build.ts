@@ -18,12 +18,11 @@
 import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide } from "../format/footprints";
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
-import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { moisture } from "../sim/moisture";
+import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
-import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
+import { sameRetained, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
 import { isCarve } from "../forces/carve/op";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
@@ -185,6 +184,9 @@ export interface BuildOptions {
    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
    *  settles it in the background, so an edit never waits on the water. */
   water?: "canonical" | "preview" | "defer";
+  /** The water and soil rules the map is built under (sim/water.ts, sim/soil.ts; their defaults
+   *  when absent, D308). */
+  rules?: WaterRules;
 }
 
 /** The last canonical settle and the model it ran on. The settle depends only on the water model,
@@ -859,7 +861,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model);
+          settle = canonicalSettle(model, opts.rules ? { rules: opts.rules } : {});
           opts.settleCache?.set(model, settle);
         }
       }
@@ -886,8 +888,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    moist = moisture(heights, water, contamination, W, H, barrier);
-    soil = soilContamination(heights, water, contamination, W, H, barrier);
+    // the soil rules (D298: the game's own; their default when the build's options do not say)
+    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat, opts.rules);
+    moist = s.moisture;
+    soil = s.contamination;
   }
   const settleOut: CanonicalWater = settle ?? { settled: true, ticks: 0, depth: none, contamination: none, sat: new Uint8Array(N) };
   const withWater = {

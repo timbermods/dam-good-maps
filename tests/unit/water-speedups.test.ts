@@ -5,6 +5,11 @@
 // Each digest covers the depth, badwater share, outflow momentum and saturation after the run, and
 // the canonical settle's water. The small grids cover the map edges (1×N, N×1, 2×2), dams, a seep
 // switching off and on, badwater switching, droughts and scaled sources.
+//
+// They pin the port's rules as they were (`rules: "port"`): the speedups are proved on them. The
+// game's rules (M9b, D293, D303, D308) change the bytes on purpose; their own digests are pinned
+// beside them (GAME_FIXTURES, GAME_GRIDS), computed when the rules changed, so a later change to
+// either shows here.
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -59,34 +64,79 @@ const GRIDS: [number, number, string][] = [
   [24, 20, "7a89cde87fe10b98"],
 ];
 
+/** The game's rules (D293, D303, D308), pinned when they replaced the port's in M9b (the same runs). */
+const GAME_FIXTURES: Record<string, string> = {
+  channel_sealed: "13d94e4e8e6975a2",
+  channel_gap: "6e01e315258129f0",
+  waterfall: "13a08c6b19709d4a",
+  lake_sill: "e625b2523d491882",
+  flat_plain: "447189b38f250f3e",
+  badwater_mix: "1e83108f76337c5c",
+  weir: "84da01e759d67044",
+  seep_pit: "46b1ddaf14deb4fa",
+  terraces: "9185cae3652d6a14",
+  confluence: "3dee22750da62ea7",
+  evaporation: "3a3ab4fbf4fe8d75",
+  valley_basin: "00b29d342e1aa6c8",
+};
+
+const GAME_GRIDS: [number, number, string][] = [
+  [1, 1, "b1796b2de7a60e56"],
+  [1, 9, "52b7b43af3251ae3"],
+  [9, 1, "a8439af4b30bfd65"],
+  [2, 2, "a62ace51b7852bad"],
+  [3, 7, "ac894c589ddc37c2"],
+  [13, 11, "e33b457a7ddadcd4"],
+  [24, 20, "85f688d808ccab49"],
+];
+
+function gridRun(W: number, H: number, rules: "game" | "port"): WaterSim {
+  const N = W * H;
+  const floor = Float64Array.from({ length: N }, (_, i) => (i * 13 + 7) % 5);
+  const dam = Float64Array.from({ length: N }, (_, i) => (i % 7 === 0 ? 0.65 : -1));
+  const depth = Float64Array.from({ length: N }, (_, i) => (i % 3 === 0 ? 0 : 0.01 + (i % 9) / 3));
+  const contamination = Float64Array.from({ length: N }, (_, i) => (i % 4) / 3);
+  const emitters: Emitter[] = [
+    { cells: [0], strength: 2, contamination: 0, depthLimit: { anchor: 0, off: 0.8, on: 0.72 } },
+    { cells: [N - 1], strength: 1, contamination: 1 },
+    { cells: [W - 1, N - W], strength: 0.5, contamination: 0.5 },
+  ];
+  const sim = new WaterSim({ W, H, floor, dam, emitters }, { depth, contamination }, { rules });
+  for (let t = 0; t < 256; t++) {
+    emitters[1].contamination = t < 128 ? 1 : 0;
+    sim.run(1, t < 64 ? 1 : t < 128 ? 0 : t < 192 ? 0.35 : 1);
+  }
+  return sim;
+}
+
 describe("the water simulation's bytes are pinned (PLAN §20 D130)", () => {
   it("every golden fixture is pinned", () => {
     expect(golden.fixtures.map((f) => f.name).sort()).toEqual(Object.keys(FIXTURES).sort());
   });
 
   it.each(golden.fixtures.map((f) => [f.name, f] as const))("%s: 975 ticks from empty, and the canonical settle", (name, f) => {
-    const sim = new WaterSim(model(f));
+    const sim = new WaterSim(model(f), undefined, { rules: "port" });
     sim.run(975);
-    const c = canonicalSettle(model(f));
+    const c = canonicalSettle(model(f), { rules: "port" });
     expect(digest(sim.D, sim.C, sim.out, sim.saturation(), c.depth, c.contamination, c.sat, c.out!)).toBe(FIXTURES[name]);
   });
 
   it.each(GRIDS)("a %i×%i grid: edges, a dam, a seep, badwater and droughts for 256 ticks", (W, H, pinned) => {
-    const N = W * H;
-    const floor = Float64Array.from({ length: N }, (_, i) => (i * 13 + 7) % 5);
-    const dam = Float64Array.from({ length: N }, (_, i) => (i % 7 === 0 ? 0.65 : -1));
-    const depth = Float64Array.from({ length: N }, (_, i) => (i % 3 === 0 ? 0 : 0.01 + (i % 9) / 3));
-    const contamination = Float64Array.from({ length: N }, (_, i) => (i % 4) / 3);
-    const emitters: Emitter[] = [
-      { cells: [0], strength: 2, contamination: 0, depthLimit: { anchor: 0, off: 0.8, on: 0.72 } },
-      { cells: [N - 1], strength: 1, contamination: 1 },
-      { cells: [W - 1, N - W], strength: 0.5, contamination: 0.5 },
-    ];
-    const sim = new WaterSim({ W, H, floor, dam, emitters }, { depth, contamination });
-    for (let t = 0; t < 256; t++) {
-      emitters[1].contamination = t < 128 ? 1 : 0;
-      sim.run(1, t < 64 ? 1 : t < 128 ? 0 : t < 192 ? 0.35 : 1);
-    }
+    const sim = gridRun(W, H, "port");
+    expect(digest(sim.D, sim.C, sim.Dold, sim.out, sim.saturation())).toBe(pinned);
+  });
+});
+
+describe("the game's rules' bytes are pinned (M9b; D293, D303, D308)", () => {
+  it.each(golden.fixtures.map((f) => [f.name, f] as const))("%s: 975 ticks from empty, and the canonical settle", (name, f) => {
+    const sim = new WaterSim(model(f), undefined, { rules: "game" });
+    sim.run(975);
+    const c = canonicalSettle(model(f), { rules: "game" });
+    expect(digest(sim.D, sim.C, sim.out, sim.saturation(), c.depth, c.contamination, c.sat, c.out!)).toBe(GAME_FIXTURES[name]);
+  });
+
+  it.each(GAME_GRIDS)("a %i×%i grid: edges, a dam, a seep, badwater and droughts for 256 ticks", (W, H, pinned) => {
+    const sim = gridRun(W, H, "game");
     expect(digest(sim.D, sim.C, sim.Dold, sim.out, sim.saturation())).toBe(pinned);
   });
 });

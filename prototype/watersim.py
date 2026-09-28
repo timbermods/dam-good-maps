@@ -12,6 +12,13 @@ Units: depth in blocks, strength S = S blocks of water per second; 1 tick = 0.6 
 
 Emitters are dicts {tiles: [(y, x)], strength: S, contamination: 0..1} with an optional
 depth_limit: ((y, x), off, on) for seeps (off above `off` deep at the anchor, back on below `on`).
+
+The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's), as
+src/core/sim/water.ts runs them: evaporation on every tile, a dry one that receives water too; the
+spill threshold at the map's edge too (floor-0 tiles beside the padding); a partial obstacle read
+from the higher of the two floors; the source step setting the old depth. rules="port" keeps the
+port as it was before M9b. DEFAULT_WATER_RULES is what a caller gets when it does not ask, as in
+the TypeScript.
 """
 from __future__ import annotations
 
@@ -27,6 +34,7 @@ KEEP = 0.999              # flow momentum kept per substep
 BAL = 0.8                 # outflow balancing against the reverse flow
 TICKS_PER_DAY = 768
 EVAPORATION_PER_DAY = 0.0535
+DEFAULT_WATER_RULES = "port"
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
 DIRS = ((-1, 0), (0, -1), (1, 0), (0, 1))
 OPP = (2, 3, 0, 1)
@@ -47,10 +55,14 @@ def seq_sum(a) -> float:
 
 
 class WaterSim:
-    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None):
+    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None, rules=None, edge_spill=None):
         """floor: floor of the water column per tile (terrain surface, raised by full obstacles).
         sources: emitters (see the module doc). dam: height of a partial obstacle (NaturalDam 0.65)
-        above the floor per tile, -1 where there is none. depth/contamination: a starting state."""
+        above the floor per tile, -1 where there is none. depth/contamination: a starting state.
+        rules: "game" or "port" (DEFAULT_WATER_RULES when not given); edge_spill: the spill threshold
+        at the map's edge (D303), on with the game's rules unless given."""
+        self.game = (rules or DEFAULT_WATER_RULES) == "game"
+        self.edge_spill = self.game if edge_spill is None else bool(edge_spill)
         self.F = floor.astype(float)
         Y, X = floor.shape
         self.D = np.zeros((Y, X)) if depth is None else np.array(depth, dtype=float)
@@ -112,12 +124,15 @@ class WaterSim:
             Dn = _shift(D, k, 0.0)
             e = H - Hn
             prev = KEEP * self.out[k]
-            e_sp = np.where((Dn == 0) & (Fn == F) & self.inside[k], e - SPILL, e)
+            e_sp = np.where((Dn == 0) & (Fn == F) & (self.inside[k] | self.edge_spill), e - SPILL, e)
             fk = prev + K * e_sp
             if self.dam is not None:
                 # a partial obstacle (NaturalDam) in the target tile
                 lim = np.where(self.inside[k], _shift(self.dam, k, -1.0), -1.0)
                 at_dam = (lim >= 0) & (Fn < np.ceil(H))
+                if self.game:
+                    # the game reads it from the higher of the two floors up
+                    at_dam = at_dam & (F <= Fn)
                 hd = H - Fn
                 a = np.clip(np.clip((lim - hd) / 0.1, 0, 1) * np.clip(1 - 2.25 * (H - (F + self.Dold)), 0.5, 2), 0, 1)
                 f_below = 0.995 * prev - 0.02 * a
@@ -127,7 +142,12 @@ class WaterSim:
             blocked = self.wall[k] | (Fn >= H) | (D <= 0)
             f[k] = np.where(blocked, 0.0, np.maximum(fk, 0.0))
         s = f.sum(axis=0)
-        scale = np.where(s * DT > D, D / np.maximum(s * DT, 1e-12), 1.0)
+        if self.game:
+            sd = s * DT
+            over = (s > 0) & (D < sd)
+            scale = np.divide(D, sd, out=np.ones_like(D), where=over)
+        else:
+            scale = np.where(s * DT > D, D / np.maximum(s * DT, 1e-12), 1.0)
         f *= scale
         inflow = np.zeros((4,) + D.shape)
         for k in range(4):
@@ -141,7 +161,8 @@ class WaterSim:
             self.out[k] = np.maximum(0.0, f[k] - BAL * inflow[k])
         self.Dold = D.copy()
         evap = np.where(D < 0.02, 1e-3, 1e-4) * evap_mod
-        newD = np.maximum(0.0, D + (insum - outsum - evap * (D > 0)) * DT)
+        # (the game: every tile evaporates, a dry one that receives water too)
+        newD = np.maximum(0.0, D + (insum - outsum - (evap if self.game else evap * (D > 0))) * DT)
         mass = C * remaining + cin * DT
         self.C = np.where(newD > 1e-9, np.clip(mass / np.maximum(newD, 1e-9), 0, 1), 0.0)
         self.D = newD
@@ -154,6 +175,8 @@ class WaterSim:
                 continue
             for (y, x) in src["tiles"]:
                 d0 = self.D[y, x]
+                if self.game:
+                    self.Dold[y, x] = d0
                 self.C[y, x] = (self.C[y, x] * d0 + src.get("contamination", 0.0) * add) / (d0 + add)
                 self.D[y, x] = d0 + add
 
@@ -379,12 +402,13 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     return depth.reshape(Y, X), cont.reshape(Y, X)
 
 
-def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
+def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=(), rules=None):
     """The canonical settle: the pre-fill, then the simulation until it settles (at most 4 game
     days). Returns (sim, settled); `sim.steady_ticks` is set when only sealed basins evaporating
-    kept it from settling (D222), and such water has settled too (`water.settles`)."""
+    kept it from settling (D222), and such water has settled too (`water.settles`). `rules`: the
+    water rules (DEFAULT_WATER_RULES when not given)."""
     d0, c0 = prefill(floor, sources, dam, retained)
-    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0)
+    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0, rules=rules)
     sealed = sorted({i for lake in retained or () for i in lake["tiles"]})
     settled = sim.settle(max_days=4, sealed=sealed or None)
     return sim, settled

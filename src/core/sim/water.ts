@@ -8,6 +8,21 @@
 // two agree bit for bit on the golden fixtures (tests/unit/water.test.ts). Only + − × ÷, min, max
 // and ceil are used (PLAN §2.1), so Node and every browser give the same bytes.
 //
+// The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's; read
+// from Timberborn 1.1.2.4's code by the 3D engine's study, investigation/terrain3d/GAME_RULES.md §3,
+// and proved on its stacked engine, sim/stack.ts on feature/terrain3d-a). The port as it was before
+// M9b simplified the game in four places a heightfield holds; `rules: "port"` keeps them, and
+// "game" is the game's code (`DEFAULT_WATER_RULES` says which a caller gets when it does not ask;
+// a map converted or built under one keeps being settled with it, `rules` passed explicitly):
+// - evaporation on every active tile, a dry tile that receives water too (the port: wet tiles only);
+// - the spill threshold at the map's edge too, where a floor-0 tile meets the padding (the port
+//   left it out; `edgeSpill`, taken from feature/weather-days' drought run, D303);
+// - a partial obstacle (NaturalDam) read from the higher of the two floors up to the ceiled surface
+//   (the port read it at the target's floor only: water from a higher floor passes over it);
+// - the source step sets the old depth too (it only matters beside a partial obstacle).
+// The game's fifth rule the port leaves out, direction limiters, needs a badtide drain's roofed
+// cell, which a heightfield cannot hold (sim/columns.ts).
+//
 // Speed: only an *exact* active list is updated each substep: the tiles with water at the start of
 // the substep, their 4-neighbours, and the source tiles. Every other tile is dry and cannot change,
 // so the result is identical to updating the whole grid (PLAN §10: a list rebuilt once per tick
@@ -21,6 +36,19 @@ export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
 export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
+
+/** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
+export type WaterRules = "game" | "port";
+
+/** The rules a simulator runs when its caller does not say. */
+export const DEFAULT_WATER_RULES: WaterRules = "port";
+
+export interface WaterSimOptions {
+  rules?: WaterRules;
+  /** The spill threshold at the map's edge (D303): the game's rule, on with the game's rules unless
+   *  it is given (feature/weather-days' drought run passes it explicitly). */
+  edgeSpill?: boolean;
+}
 
 /** Direction k: 0 = −y, 1 = −x, 2 = +y, 3 = +x; OPP[k] is the reverse direction. */
 const OPP = [2, 3, 0, 1];
@@ -112,7 +140,18 @@ export class WaterSim {
   /** Seep on/off state per emitter (1 = on). */
   private readonly seepOn: Uint8Array;
 
-  constructor(model: WaterModel, initial?: WaterState) {
+  /** The game's rules (D293, D311), or the port's. */
+  readonly rules: WaterRules;
+  /** The game's spill threshold at the map's edge too (its padding is an open column, floor 0,
+   *  never wet: water on a floor-0 tile at the edge keeps its last 0.1 there, as it would beside a
+   *  dry tile on the same floor). The game's rule (D303); the port left it out. */
+  readonly edgeSpill: boolean;
+  private readonly game: boolean;
+
+  constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
+    this.rules = opts.rules ?? DEFAULT_WATER_RULES;
+    this.game = this.rules === "game";
+    this.edgeSpill = opts.edgeSpill ?? this.game;
     const { W, H } = model;
     const N = W * H;
     this.W = W;
@@ -266,7 +305,7 @@ export class WaterSim {
   }
 
   private substep(scale: number): void {
-    const { W, H, F, D, C, out, f, wall, mod, dam } = this;
+    const { W, H, F, D, C, out, f, wall, mod, dam, game, edgeSpill } = this;
     // flows of the tiles that had water last substep are stale: clear them
     for (let k = 0; k < this.prevWetCount; k++) {
       const b = 4 * this.prevWet[k];
@@ -301,9 +340,9 @@ export class WaterSim {
           const prev = KEEP * out[b];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b] = fk > 0 ? fk : 0;
@@ -322,9 +361,9 @@ export class WaterSim {
           const prev = KEEP * out[b + 1];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 1] = fk > 0 ? fk : 0;
@@ -343,9 +382,9 @@ export class WaterSim {
           const prev = KEEP * out[b + 2];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 2] = fk > 0 ? fk : 0;
@@ -364,17 +403,27 @@ export class WaterSim {
           const prev = KEEP * out[b + 3];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 3] = fk > 0 ? fk : 0;
         }
       }
-      // a tile never gives more than it has
+      // a tile never gives more than it has (the game scales by have / (s·dt) when that is under
+      // 1; the port guarded the quotient, which differs only below 1e-12)
       const s = f[b] + f[b + 1] + f[b + 2] + f[b + 3];
-      if (s * DT > Dc) {
+      if (game) {
+        const sd = s * DT;
+        if (s > 0 && Dc < sd) {
+          const r = Dc / sd;
+          f[b] *= r;
+          f[b + 1] *= r;
+          f[b + 2] *= r;
+          f[b + 3] *= r;
+        }
+      } else if (s * DT > Dc) {
         const r = Dc / Math.max(s * DT, 1e-12);
         f[b] *= r;
         f[b + 1] *= r;
@@ -420,7 +469,8 @@ export class WaterSim {
       out[b + 3] = Math.max(0, f3 - BAL * in3);
       this.Dold[c] = Dc;
       let net = insum - outsum;
-      if (Dc > 0) net = net - (Dc < 0.02 ? 1e-3 : 1e-4) * mod[c];
+      // (the game: every active tile evaporates, a dry one that receives water too)
+      if (game || Dc > 0) net = net - (Dc < 0.02 ? 1e-3 : 1e-4) * mod[c];
       const d1 = Dc + net * DT;
       const newD = d1 > 0 ? d1 : 0;
       const mass = C[c] * remaining + cin * DT;
@@ -440,6 +490,7 @@ export class WaterSim {
       if (!(add > 0)) continue; // a source that is off (or a drought) adds nothing
       for (const i of src.cells) {
         const d0 = D[i];
+        if (game) this.Dold[i] = d0;
         C[i] = (C[i] * d0 + src.contamination * add) / (d0 + add);
         D[i] = d0 + add;
       }
