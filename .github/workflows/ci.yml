@@ -8,7 +8,8 @@ on:
 # Three jobs run side by side: the tests, the Python oracle, and generation. They fail only on
 # breakage. Timings are information, not gates: each job's summary lists them against their
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
-# (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
+# (nightly.yml): the long property runs, the full oracle, the 100-seed batches and every real
+# place's byte check. A pull request into main, a release, also runs the release check.
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -118,3 +119,21 @@ jobs:
           path: .scratch/timings/
           if-no-files-found: ignore
           retention-days: 30
+
+  # The release check (CLAUDE.md, Deploying): a pull request into main, which is how a release
+  # reaches the site, also builds every real place as the deploy will and compares it with the
+  # index, byte for byte (tests/contract/places-build-*.test.ts; nightly too). Every push checks a
+  # sample of every size (places.test.ts).
+  release-places:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Every real place validates and is the index's file
+        run: npm run test:places

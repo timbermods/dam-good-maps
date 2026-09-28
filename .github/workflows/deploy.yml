@@ -45,6 +45,10 @@ jobs:
         run: npm run build
         env:
           DGM_BASE: /dam-good-maps/
+      # Every real place's .timber, built with the engine being deployed, so Download is a static
+      # file. It fails the deploy if a map does not validate or is not the index's file.
+      - name: Build the real places
+        run: npm run places:build
       # the preview build: a branch of this repository, under /preview/ (none unless one is named)
       - name: Which branch to preview
         id: preview
@@ -77,6 +81,8 @@ jobs:
         run: |
           npm ci
           npx vite build --outDir ../dist/preview --emptyOutDir
+          # its real places too, when the branch builds them (tools/places-build.ts)
+          if [ -f tools/places-build.ts ]; then npx tsx tools/places-build.ts --out ../dist/preview; fi
         env:
           DGM_BASE: /dam-good-maps/preview/
       # The site is not public yet: search engines are asked not to index it until the repository

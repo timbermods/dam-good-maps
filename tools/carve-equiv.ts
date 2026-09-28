@@ -59,7 +59,7 @@ function highOrigin(m: CarveMap): number {
   return origin;
 }
 function place(): CarveMap {
-  const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/near-grand-canyon-colorado.json.gz")));
+  const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/grand-canyon.json.gz")));
   const h = decodeHeights(p.heights);
   const N = h.length;
   return fromBuilt(p.name, p.W, p.H, h, placeEntities(p, h), new Float64Array(N), new Float64Array(N));

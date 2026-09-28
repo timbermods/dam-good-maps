@@ -297,8 +297,8 @@ Kyler has tried them. The Carve port had started (WIP, see the commit below).
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
 - **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D312), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
-  M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
+  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #95 ("Pending numbers across branches", §1;
+  M9a's #87–#90 and #93 are in; #80–#82 and #94 are Real places' on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
   go into `docs/decisions-pending.md`, marked as a default the session chose.
 - **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,

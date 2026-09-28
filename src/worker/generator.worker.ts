@@ -5,7 +5,6 @@
 import { expose, proxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
-import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
@@ -57,11 +56,6 @@ const api = {
   refine: () => sendOpen(ed.refine()),
   openTimber: (bytes: Uint8Array, fileName: string) => sendOpen(ed.openTimber(bytes, fileName)),
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
-  /** A real place (its data file): built into its .timber, then opened as any .timber is. */
-  openPlace(data: Uint8Array) {
-    const r = placeTimber(decodePlaceFile(data));
-    return sendOpen(ed.openTimber(r.bytes, r.fileName));
-  },
   sessionView: () => sendOpen(ed.sessionView()),
   terrainNow() {
     const t = ed.terrainNow();

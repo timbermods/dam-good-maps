@@ -1,47 +1,24 @@
 // The Real places gallery (ROADMAP "Real places", PLAN §20 D136): maps made from real land, as
-// content to play or to refine. Each card shows our own top-down render, the place's name, its
-// landform, size and scale, and how it plays. **Download** builds the place's .timber in a worker;
-// **Refine** opens it in the editor (the generator page's `#place=` link, which imports it).
-// Nothing here feeds the generator (D108).
+// content to play or to refine. Each card shows two pictures of the map, drawn by our 3D view and
+// facing the same way: the angled overview, with the map from above as a minimap in its corner
+// that fills the picture on hover, focus or a tap (Kyler's choice), each with a north arrow. Then
+// the place's title, its landform, size and scale, its notes (D245: what would sink a player who
+// goes straight to the game; a place short of other checks gets none), and how it plays. **Download** is a link to the
+// place's .timber, built at deploy time (tools/places-build.ts); **Save to Timberborn** fetches the
+// same file and saves it into the game's maps folder (D162); **Refine** opens it in the editor (the
+// generator page's `#place=` link, which imports it). Nothing here feeds the generator (D108).
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { wrap, type Remote } from "comlink";
-import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES } from "../core/places/attribution";
 import type { PlaceIndex, PlaceIndexEntry } from "../core/places/place";
-import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
-import { fetchIndex, fetchPlace, PLACES_URL } from "./data";
-import type { PlaceWorkerApi } from "./place.worker";
+import { saveToTimberborn, type SaveToTimberbornResult } from "../platform";
+import { VIEW_TURNS } from "../core/places/view";
+import { InsetPicture } from "../ui/Pictures";
+import { Credits } from "./Credits";
+import { fetchIndex, placeMap, PLACES_URL } from "./data";
 
 const HOME = import.meta.env.BASE_URL;
 
-declare global {
-  interface Window {
-    /** Test hook (tests/e2e/places.spec.ts): build a place as Download does, without saving it. */
-    dgmPlaces?: { build(id: string): Promise<{ sha256: string; bytes: number; fileName: string }> };
-  }
-}
-
-let worker: Remote<PlaceWorkerApi> | null = null;
-function placeWorker(): Remote<PlaceWorkerApi> {
-  worker ??= wrap<PlaceWorkerApi>(new Worker(new URL("./place.worker.ts", import.meta.url), { type: "module" }));
-  return worker;
-}
-
-async function buildPlace(id: string) {
-  return placeWorker().build(await fetchPlace(id));
-}
-
-window.dgmPlaces = {
-  async build(id: string) {
-    const r = await buildPlace(id);
-    return { sha256: r.sha256, bytes: r.bytes.length, fileName: r.fileName };
-  },
-};
-
-/** A card's download: building, or failed. */
-type Building = { busy: true } | { error: string };
-
-/** A card's Save to Timberborn: building, failed, or where the map ended up. */
+/** A card's Save to Timberborn: fetching, failed, or where the map ended up. */
 type Saving = { busy: true } | { error: string } | SaveToTimberbornResult;
 
 /** Per-card async state, keyed by place id, with a ref so a stale closure can't clobber a newer update. */
@@ -66,13 +43,25 @@ function initialFilters(): { family: string; size: number | null } {
   return { family: q.get("family") ?? "", size: Number.isInteger(size) && size > 0 ? size : null };
 }
 
+/** A card's pictures: the overview, with the map from above as its minimap; both face the place's
+ *  view, and their north arrows show where north is. */
+function Pictures({ p }: { p: PlaceIndexEntry }) {
+  return (
+    <InsetPicture
+      main={{ src: PLACES_URL + p.image, alt: `${p.name} seen at an angle` }}
+      inset={{ src: PLACES_URL + p.topImage, alt: `${p.name} from above` }}
+      label={`Show ${p.name} from above`}
+      north={VIEW_TURNS[p.view]}
+    />
+  );
+}
+
 export function Gallery() {
   const [index, setIndex] = useState<PlaceIndex | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const init = useMemo(initialFilters, []);
   const [family, setFamily] = useState(init.family);
   const [size, setSize] = useState<number | null>(init.size);
-  const [building, setBuilding] = usePerCard<Building>();
   const [saving, setSaving] = usePerCard<Saving>();
 
   useEffect(() => {
@@ -89,26 +78,17 @@ export function Gallery() {
 
   const shown = useMemo(() => (index ? index.places.filter((p) => (!family || p.family === family) && (!size || p.size === size)) : []), [index, family, size]);
 
-  async function download(p: PlaceIndexEntry) {
-    if (building[p.id] && !("error" in building[p.id])) return;
-    setBuilding(p.id, { busy: true });
-    try {
-      const r = await buildPlace(p.id);
-      saveFile(r.bytes, r.fileName);
-      setBuilding(p.id, null);
-    } catch (e) {
-      setBuilding(p.id, { error: `${p.name} could not be built: ${String(e instanceof Error ? e.message : e)}` });
-    }
-  }
-
+  /** Save to Timberborn: the place's .timber, as Download serves it, into the game's maps folder. */
   async function saveToPlace(p: PlaceIndexEntry) {
     if (saving[p.id] && "busy" in saving[p.id]) return;
     setSaving(p.id, { busy: true });
     try {
-      const r = await buildPlace(p.id);
-      setSaving(p.id, await saveToTimberborn(r.bytes, r.fileName));
+      const map = placeMap(p);
+      const r = await fetch(map.url);
+      if (!r.ok) throw new Error(`the map did not load (${r.status})`);
+      setSaving(p.id, await saveToTimberborn(new Uint8Array(await r.arrayBuffer()), map.fileName));
     } catch (e) {
-      setSaving(p.id, { error: `${p.name} could not be built: ${String(e instanceof Error ? e.message : e)}` });
+      setSaving(p.id, { error: `${p.name} could not be saved: ${String(e instanceof Error ? e.message : e)}` });
     }
   }
 
@@ -178,36 +158,35 @@ export function Gallery() {
           {shown.length ? (
             <ul class="gallery" aria-label="Maps">
               {shown.map((p) => {
-                const b = building[p.id];
-                const busy = !!b && !("error" in b);
+                const map = placeMap(p);
                 const s = saving[p.id];
                 const savingBusy = !!s && "busy" in s;
                 return (
                   <li class="place" key={p.id}>
-                    <img src={PLACES_URL + p.image} width={240} height={240} loading="lazy" decoding="async" alt={`${p.name} from above, north up`} />
+                    <Pictures p={p} />
                     <div class="place-body">
                       <h2>{p.name}</h2>
                       <p class="place-meta">
                         {p.familyName} · {p.size}×{p.size} · {p.metres} m per tile
                       </p>
+                      {(p.notes ?? []).map((n) => (
+                        <p class="place-note" key={n}>
+                          <span class="dot" aria-hidden="true" />
+                          {n}
+                        </p>
+                      ))}
                       <p class="place-plays">{p.plays}</p>
                       <div class="place-actions">
-                        <button type="button" class="primary" aria-label={`Download ${p.name}`} disabled={busy} aria-busy={busy} onClick={() => void download(p)}>
-                          {busy ? "Building…" : "Download"}
-                        </button>
+                        <a class="button primary" href={map.url} download={map.fileName} aria-label={`Download ${p.name}`}>
+                          Download
+                        </a>
                         <button type="button" class="ghost" aria-label={`Save ${p.name} to Timberborn`} disabled={savingBusy} aria-busy={savingBusy} onClick={() => void saveToPlace(p)}>
-                          {savingBusy ? "Building…" : "Save to Timberborn"}
+                          Save to Timberborn
                         </button>
                         <a class="button ghost" href={`${HOME}#place=${p.id}`} aria-label={`Refine ${p.name} in the editor`}>
                           Refine
                         </a>
                       </div>
-                      {busy ? <progress aria-label={`Building ${p.name}`} /> : null}
-                      {b && "error" in b ? (
-                        <p class="error" role="alert">
-                          {b.error}
-                        </p>
-                      ) : null}
                       {savingBusy ? <progress aria-label={`Saving ${p.name}`} /> : null}
                       {s && "error" in s ? (
                         <p class="error" role="alert">
@@ -258,18 +237,7 @@ export function Gallery() {
         <p class="placeholder">Loading the maps…</p>
       )}
 
-      <section id="credits" class="credits" aria-labelledby="credits-title">
-        <h2 id="credits-title">Elevation data</h2>
-        <p>
-          The maps are made from <a href={ELEVATION_SOURCE_URL}>{ELEVATION_SOURCE}</a>. {CHANGES} The data providers do not
-          endorse these maps.
-        </p>
-        <ul>
-          {PROVIDER_NOTICES.map((n) => (
-            <li key={n}>{n}.</li>
-          ))}
-        </ul>
-      </section>
+      <Credits />
 
       <footer class="foot">
         Dam Good Maps. Not affiliated with Mechanistry. <a href="https://github.com/timbermods/dam-good-maps">Source</a>

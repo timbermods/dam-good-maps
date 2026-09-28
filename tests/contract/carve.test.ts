@@ -300,7 +300,7 @@ describe("the force: Aim, Defy gravity and Wander", () => {
   });
 
   it("a real place takes a carve at its source", () => {
-    const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/near-grand-canyon-colorado.json.gz")));
+    const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/grand-canyon.json.gz")));
     const h = decodeHeights(p.heights);
     const m: ForceMap = { W: p.W, H: p.H, heights: h, entities: placeEntities(p, h), water: { depth: new Float64Array(h.length), contamination: new Float64Array(h.length) }, maxHeight: 16 };
     const r = new CarveRun(m, DEFAULTS, { origin: Math.floor(m.H * 0.8) * m.W + Math.floor(m.W * 0.5) });

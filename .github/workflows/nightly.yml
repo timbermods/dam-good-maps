@@ -1,11 +1,12 @@
 name: Nightly
 
-# The heaviest checks, too slow for every push: the long property runs and the settings batch
-# (vitest's "heavy" project, vitest.config.ts), the full Python oracle, and the 100-seed pass-rate
-# batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
-# rate is information, against its 60% target). Runs every night on dev's tip, by hand
-# (gh workflow run nightly.yml --ref dev), and on a pull request that changes this file. A failure
-# of the nightly or hand-started run opens an issue labelled "nightly", or comments on the open one.
+# The heaviest checks, too slow for every push: the long property runs, the settings batch and
+# every real place's byte check (vitest's "heavy" project, vitest.config.ts), the full Python
+# oracle, and the 100-seed pass-rate batches (final ≥ 98%: a seed that makes no map is breakage,
+# PLAN §20 D145; the first-attempt rate is information, against its 60% target). Runs every night
+# on dev's tip, by hand (gh workflow run nightly.yml --ref dev), and on a pull request that changes
+# this file. A failure of the nightly or hand-started run opens an issue labelled "nightly", or
+# comments on the open one.
 #
 # GitHub runs schedules from the default branch (main), so the schedule starts once this file is
 # on main; it then checks dev, where work happens.
@@ -48,7 +49,7 @@ jobs:
           cache-dependency-path: prototype/requirements.txt
       - run: npm ci
       - run: pip install -r prototype/requirements.txt
-      - name: Long property runs and the settings batch
+      - name: Long property runs, the settings batch and every real place
         run: npm run test:heavy
 
   oracle:

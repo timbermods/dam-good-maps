@@ -1,0 +1,3436 @@
+{
+ "note": "Real places, second round (tools/places-convert.ts): the places in the gallery's order, the survey row each is made from, and the first round's places that no row gives any more. Written by the tool; `npm run places:convert -- --reselect` chooses again.",
+ "places": [
+  {
+   "id": "thousand-islands",
+   "name": "Thousand Islands",
+   "row": "n384-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "rivers": 4,
+   "observed": {
+    "water": 5100,
+    "recall": 0.527,
+    "precision": 0.885
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "badlands-national-park",
+   "name": "Badlands National Park",
+   "row": "n181-128-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 8,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "toklat-river",
+   "name": "Toklat River",
+   "row": "n068-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n071-128-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 1471,
+    "recall": 0.985,
+    "precision": 0.545
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "crater-lake",
+   "name": "Crater Lake",
+   "row": "n120-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n123-128-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "water.no_flood",
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 3,
+   "observed": {
+    "water": 13553,
+    "recall": 0.463,
+    "precision": 0.998
+   },
+   "advisories": [
+    "start.reach",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "colca-canyon",
+   "name": "Colca Canyon",
+   "row": "n004-256-30-normalised-16",
+   "status": "replaced",
+   "was": "n007-128-30-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 1,
+    "offWater": 1
+   },
+   "rivers": 3,
+   "observed": {
+    "water": 351,
+    "recall": 0.946,
+    "precision": 0.352
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "twelve-apostles",
+   "name": "Twelve Apostles",
+   "row": "n364-128-60-compressed-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 2,
+   "observed": {
+    "water": 7055,
+    "recall": 0.057,
+    "precision": 0.35
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "mount-mayon",
+   "name": "Mount Mayon",
+   "row": "n156-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n159-128-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 5
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 124,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "rhine-and-moselle",
+   "name": "Rhine and Moselle",
+   "row": "n328-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 3,
+   "observed": {
+    "water": 1271,
+    "recall": 0.999,
+    "precision": 0.794
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "lena-delta",
+   "name": "Lena Delta",
+   "row": "n055-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 2,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 7,
+   "observed": {
+    "water": 6948,
+    "recall": 0.436,
+    "precision": 0.73
+   },
+   "advisories": [
+    "start.reach",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "drakensberg-amphitheatre",
+   "name": "Drakensberg Amphitheatre",
+   "row": "n260-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n262-128-120-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 2
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 96,
+    "recall": 0.042,
+    "precision": 0.115
+   },
+   "advisories": [
+    "water.clean_exists",
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "kaieteur-falls",
+   "name": "Kaieteur Falls",
+   "row": "n356-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 2,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 4,
+   "observed": {
+    "water": 439,
+    "recall": 0.899,
+    "precision": 0.437
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "death-valley",
+   "name": "Death Valley",
+   "row": "n101-128-120-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 10,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "geirangerfjord",
+   "name": "Geirangerfjord",
+   "row": "n220-128-30-normalised-16",
+   "status": "replaced",
+   "was": "n223-128-30-normalised-16",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 4256,
+    "recall": 0.942,
+    "precision": 0.93
+   },
+   "advisories": [
+    "water.clean_exists",
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "torres-del-paine",
+   "name": "Torres del Paine",
+   "row": "n252-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n253-128-60-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 1,
+    "offWater": 0
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 231,
+    "recall": 0.807,
+    "precision": 0.338
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "tiger-leaping-gorge",
+   "name": "Tiger Leaping Gorge",
+   "row": "n028-128-30-normalised-16",
+   "status": "replaced",
+   "was": "n031-128-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 557,
+    "recall": 0.528,
+    "precision": 0.581
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "phong-nha",
+   "name": "Phong Nha",
+   "row": "n204-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n205-128-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 4,
+   "observed": {
+    "water": 228,
+    "recall": 0.983,
+    "precision": 0.435
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "lake-district",
+   "name": "Lake District",
+   "row": "n300-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 7,
+   "observed": {
+    "water": 1746,
+    "recall": 0.194,
+    "precision": 0.415
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "uvac-river",
+   "name": "Uvac River",
+   "row": "n088-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n091-128-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 426,
+    "recall": 0.996,
+    "precision": 1
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "mount-roraima",
+   "name": "Mount Roraima",
+   "row": "n172-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n175-128-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 1,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "ethiopian-highlands",
+   "name": "Ethiopian Highlands",
+   "row": "n293-128-120-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 129,
+    "recall": 0.934,
+    "precision": 0.29
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "lofoten",
+   "name": "Lofoten",
+   "row": "n388-128-60-compressed-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 7,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 7,
+   "observed": {
+    "water": 3645,
+    "recall": 0.604,
+    "precision": 0.671
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "drumheller",
+   "name": "Drumheller",
+   "row": "n188-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n189-96-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 2,
+   "observed": {
+    "water": 190,
+    "recall": 0.998,
+    "precision": 0.262
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "tagliamento-river",
+   "name": "Tagliamento River",
+   "row": "n066-96-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 486,
+    "recall": 0.999,
+    "precision": 0.554
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "aso-caldera",
+   "name": "Aso Caldera",
+   "row": "n136-256-120-normalised-16",
+   "status": "replaced",
+   "was": "n139-96-30-normalised-16",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 2001,
+    "recall": 0.234,
+    "precision": 0.339
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "blyde-river-canyon",
+   "name": "Blyde River Canyon",
+   "row": "n012-128-30-normalised-16",
+   "status": "replaced",
+   "was": "n014-96-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 4,
+   "observed": {
+    "water": 540,
+    "recall": 0.944,
+    "precision": 0.438
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "cliffs-of-moher",
+   "name": "Cliffs of Moher",
+   "row": "n360-128-60-linear-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "rivers": 3,
+   "observed": {
+    "water": 7305,
+    "recall": 0.074,
+    "precision": 0.208
+   },
+   "advisories": [
+    "start.reach",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "paricutin",
+   "name": "Paricutin",
+   "row": "n148-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n150-96-60-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 4
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 103,
+    "recall": 0.747,
+    "precision": 0.191
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "alaknanda-and-bhagirathi",
+   "name": "Alaknanda and Bhagirathi",
+   "row": "n332-128-30-normalised-16",
+   "status": "replaced",
+   "was": "n332-128-60-compressed-16",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 477,
+    "recall": 0.922,
+    "precision": 0.63
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "danube-delta",
+   "name": "Danube Delta",
+   "row": "n046-96-30-normalised-16",
+   "status": "replaced",
+   "was": "n044-96-120-normalised-16",
+   "flow": 2,
+   "shortOf": [
+    "water.outflow"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 3945,
+    "recall": 0.215,
+    "precision": 0.865
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "mahabaleshwar-western-ghats",
+   "name": "Mahabaleshwar, Western Ghats",
+   "row": "n279-96-120-compressed-16",
+   "status": "replaced",
+   "was": "n279-96-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 2,
+   "observed": {
+    "water": 115,
+    "recall": 0.987,
+    "precision": 0.34
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "niagara-falls",
+   "name": "Niagara Falls",
+   "row": "n348-128-60-compressed-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 6,
+   "observed": {
+    "water": 2454,
+    "recall": 0.313,
+    "precision": 0.847
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "roaring-river-fan",
+   "name": "Roaring River Fan",
+   "row": "n119-96-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 60,
+    "recall": 0.949,
+    "precision": 0.361
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "aysen-fjord",
+   "name": "Aysen Fjord",
+   "row": "n232-96-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 3,
+   "observed": {
+    "water": 922,
+    "recall": 0.973,
+    "precision": 0.833
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "glencoe",
+   "name": "Glencoe",
+   "row": "n248-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n248-96-30-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 2,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 644,
+    "recall": 0.555,
+    "precision": 0.478
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "verdon-gorge",
+   "name": "Verdon Gorge",
+   "row": "n020-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n022-96-60-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 157,
+    "recall": 0.981,
+    "precision": 0.544
+   },
+   "advisories": [
+    "start.reach"
+   ]
+  },
+  {
+   "id": "chocolate-hills",
+   "name": "Chocolate Hills",
+   "row": "n208-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n209-96-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "startMoved": true,
+   "sourcesDropped": {
+    "inFlow": 2,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 135,
+    "recall": 0.762,
+    "precision": 0.514
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "lake-saimaa",
+   "name": "Lake Saimaa",
+   "row": "n304-96-30-normalised-16",
+   "status": "replaced",
+   "was": "n306-96-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "water.outflow",
+    "start.water"
+   ],
+   "rivers": 2,
+   "observed": {
+    "water": 1821,
+    "recall": 0.993,
+    "precision": 1
+   },
+   "advisories": [
+    "start.reach",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "kinabatangan-river",
+   "name": "Kinabatangan River",
+   "row": "n095-96-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "ennedi-plateau",
+   "name": "Ennedi Plateau",
+   "row": "n178-96-60-linear-16",
+   "status": "replaced",
+   "was": "n178-96-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "deccan-plateau",
+   "name": "Deccan Plateau",
+   "row": "n290-96-120-compressed-16",
+   "status": "replaced",
+   "was": "n290-96-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 208,
+    "recall": 0.122,
+    "precision": 0.969
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "bardenas-reales",
+   "name": "Bardenas Reales",
+   "row": "n186-256-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 324,
+    "recall": 0.179,
+    "precision": 0.214
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "waimakariri-river",
+   "name": "Waimakariri River",
+   "row": "n060-256-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "shortOf": [
+    "water.outflow"
+   ],
+   "sourcesDropped": {
+    "inFlow": 4,
+    "noOutflow": 0,
+    "offWater": 2,
+    "unheld": 1
+   },
+   "rivers": 3,
+   "observed": {
+    "water": 1361,
+    "recall": 0.288,
+    "precision": 0.114
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "grand-canyon",
+   "name": "Grand Canyon",
+   "row": "n000-256-60-normalised-16",
+   "status": "replaced",
+   "was": "n003-256-60-normalised-16",
+   "flow": 2,
+   "rivers": 8,
+   "observed": {
+    "water": 790,
+    "recall": 0.824,
+    "precision": 0.725
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "na-pali-coast",
+   "name": "Na Pali Coast",
+   "row": "n368-128-60-compressed-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 5884,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "mount-etna",
+   "name": "Mount Etna",
+   "row": "n152-256-120-normalised-16",
+   "status": "replaced",
+   "was": "n154-256-30-normalised-16",
+   "flow": 2,
+   "startMoved": true,
+   "rivers": 6,
+   "observed": {
+    "water": 63,
+    "recall": 0.931,
+    "precision": 0.071
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "niagara-escarpment",
+   "name": "Niagara Escarpment",
+   "row": "n272-256-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 1,
+    "offWater": 2
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 4086,
+    "recall": 0.979,
+    "precision": 0.724
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "gullfoss",
+   "name": "Gullfoss",
+   "row": "n352-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n352-128-60-compressed-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 303,
+    "recall": 0.856,
+    "precision": 0.285
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "kunlun-alluvial-fan",
+   "name": "Kunlun Alluvial Fan",
+   "row": "n105-256-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "milford-sound",
+   "name": "Milford Sound",
+   "row": "n224-256-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 8,
+   "observed": {
+    "water": 8964,
+    "recall": 0.755,
+    "precision": 0.524
+   },
+   "advisories": [
+    "start.reach"
+   ]
+  },
+  {
+   "id": "lauterbrunnen",
+   "name": "Lauterbrunnen",
+   "row": "n244-256-120-normalised-16",
+   "status": "replaced",
+   "was": "n246-256-120-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 1,
+    "unheld": 1
+   },
+   "rivers": 7,
+   "observed": {
+    "water": 2888,
+    "recall": 0.417,
+    "precision": 0.452
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "katherine-gorge",
+   "name": "Katherine Gorge",
+   "row": "n032-256-120-normalised-16",
+   "status": "replaced",
+   "was": "n033-256-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 99,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "plitvice-lakes",
+   "name": "Plitvice Lakes",
+   "row": "n212-256-30-normalised-16",
+   "status": "replaced",
+   "was": "n214-256-30-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 3
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 2060,
+    "recall": 0.52,
+    "precision": 0.319
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "mississippi-oxbows",
+   "name": "Mississippi Oxbows",
+   "row": "n098-256-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "shortOf": [
+    "water.outflow"
+   ],
+   "rivers": 5,
+   "observed": {
+    "water": 15064,
+    "recall": 0.905,
+    "precision": 0.913
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "bungle-bungle",
+   "name": "Bungle Bungle",
+   "row": "n168-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n171-256-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 20,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "tibetan-plateau",
+   "name": "Tibetan Plateau",
+   "row": "n287-256-120-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 4,
+    "noOutflow": 1,
+    "offWater": 1
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 2957,
+    "recall": 0.717,
+    "precision": 0.36
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "painted-desert",
+   "name": "Painted Desert",
+   "row": "n193-128-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "skeidara-outwash",
+   "name": "Skeidara Outwash",
+   "row": "n076-128-120-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 2,
+    "offWater": 0
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 234,
+    "recall": 0.557,
+    "precision": 0.242
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "ngorongoro",
+   "name": "Ngorongoro",
+   "row": "n124-256-60-normalised-16",
+   "status": "replaced",
+   "was": "n127-256-30-normalised-16",
+   "flow": 2,
+   "shortOf": [
+    "water.outflow"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 8,
+    "unheld": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 5827,
+    "recall": 0.839,
+    "precision": 1
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "fish-river-canyon",
+   "name": "Fish River Canyon",
+   "row": "n008-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n009-128-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "startMoved": true,
+   "rivers": 1,
+   "observed": {
+    "water": 76,
+    "recall": 0.772,
+    "precision": 0.705
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "mount-fuji",
+   "name": "Mount Fuji",
+   "row": "n140-128-120-normalised-16",
+   "status": "replaced",
+   "was": "n141-128-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 1,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "blue-mountains",
+   "name": "Blue Mountains",
+   "row": "n268-128-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 108,
+    "recall": 1,
+    "precision": 0.276
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "victoria-falls",
+   "name": "Victoria Falls",
+   "row": "n340-128-60-linear-16",
+   "status": "kept",
+   "flow": 2,
+   "rivers": 2,
+   "observed": {
+    "water": 1559,
+    "recall": 0.996,
+    "precision": 0.586
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "atacama-fan",
+   "name": "Atacama Fan",
+   "row": "n111-128-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "aialik-bay",
+   "name": "Aialik Bay",
+   "row": "n228-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n231-128-120-normalised-16",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 3,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 5493,
+    "recall": 0.86,
+    "precision": 0.92
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "hooker-valley",
+   "name": "Hooker Valley",
+   "row": "n256-128-120-normalised-16",
+   "status": "replaced",
+   "was": "n259-128-120-normalised-16",
+   "flow": 2,
+   "rivers": 6,
+   "observed": {
+    "water": 1305,
+    "recall": 0.93,
+    "precision": 0.515
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "todgha-gorge",
+   "name": "Todgha Gorge",
+   "row": "n036-128-30-normalised-16",
+   "status": "replaced",
+   "was": "n038-128-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "li-river",
+   "name": "Li River",
+   "row": "n200-256-30-normalised-16",
+   "status": "replaced",
+   "was": "n201-128-60-normalised-16",
+   "flow": 2,
+   "rivers": 5,
+   "observed": {
+    "water": 2248,
+    "recall": 0.95,
+    "precision": 0.333
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "goosenecks-of-the-san-juan",
+   "name": "Goosenecks of the San Juan",
+   "row": "n080-128-60-normalised-16",
+   "status": "replaced",
+   "was": "n081-128-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 5,
+   "observed": {
+    "water": 363,
+    "recall": 1,
+    "precision": 1
+   },
+   "advisories": [
+    "start.reach"
+   ]
+  },
+  {
+   "id": "monument-valley",
+   "name": "Monument Valley",
+   "row": "n160-128-120-normalised-16",
+   "status": "replaced",
+   "was": "n163-128-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 10,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "colorado-plateau",
+   "name": "Colorado Plateau",
+   "row": "n280-128-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "sete-cidades",
+   "name": "Sete Cidades",
+   "row": "n128-96-60-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 2,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 1301,
+    "recall": 1,
+    "precision": 0.495
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "copper-canyon",
+   "name": "Copper Canyon",
+   "row": "n016-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n018-96-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 50,
+    "recall": 0.98,
+    "precision": 0.918
+   },
+   "advisories": [
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "mount-taranaki",
+   "name": "Mount Taranaki",
+   "row": "n144-256-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 21,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "bandiagara",
+   "name": "Bandiagara",
+   "row": "n264-96-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "iguazu-falls",
+   "name": "Iguazu Falls",
+   "row": "n344-128-60-linear-16",
+   "status": "kept",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 2227,
+    "recall": 1,
+    "precision": 0.625
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "ilulissat-icefjord",
+   "name": "Ilulissat Icefjord",
+   "row": "n236-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n239-96-120-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 8,
+   "observed": {
+    "water": 5023,
+    "recall": 0.375,
+    "precision": 0.76
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "yosemite-valley",
+   "name": "Yosemite Valley",
+   "row": "n240-96-120-normalised-16",
+   "status": "replaced",
+   "was": "n241-96-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 4,
+   "observed": {
+    "water": 154,
+    "recall": 0.959,
+    "precision": 0.622
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "tara-gorge",
+   "name": "Tara Gorge",
+   "row": "n024-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n026-96-60-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "startMoved": true,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 92,
+    "recall": 1,
+    "precision": 0.909
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "mamore-river",
+   "name": "Mamore River",
+   "row": "n084-96-30-normalised-16",
+   "status": "replaced",
+   "was": "n086-96-30-normalised-16",
+   "flow": 2,
+   "shortOf": [
+    "resources.mine_site"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 7,
+   "observed": {
+    "water": 1705,
+    "recall": 0.805,
+    "precision": 0.786
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "capitol-reef",
+   "name": "Capitol Reef",
+   "row": "n164-96-30-normalised-16",
+   "status": "kept",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 80,
+    "recall": 0.977,
+    "precision": 0.367
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "altiplano",
+   "name": "Altiplano",
+   "row": "n299-96-60-normalised-16",
+   "status": "replaced",
+   "was": "n297-96-30-normalised-16",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "raja-ampat",
+   "name": "Raja Ampat",
+   "row": "n393-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "kawarau-and-shotover",
+   "name": "Kawarau and Shotover",
+   "row": "n336-128-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 3,
+    "noOutflow": 2,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 2916,
+    "recall": 0.868,
+    "precision": 0.662
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "temagami",
+   "name": "Temagami",
+   "row": "n311-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "shortOf": [
+    "water.outflow"
+   ],
+   "rivers": 5,
+   "observed": {
+    "water": 3935,
+    "recall": 0.386,
+    "precision": 0.797
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "etretat-cliffs",
+   "name": "Etretat Cliffs",
+   "row": "n372-128-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 10030,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "bardenas-reales-southwest",
+   "name": "Bardenas Reales Southwest",
+   "row": "n187-128-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 151,
+    "recall": 0.85,
+    "precision": 0.209
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "crater-lake-east",
+   "name": "Crater Lake East",
+   "row": "n121-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 1418,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "blyde-river-canyon-north",
+   "name": "Blyde River Canyon North",
+   "row": "n014-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 124,
+    "recall": 0.769,
+    "precision": 0.382
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "blue-mountains-southwest",
+   "name": "Blue Mountains Southwest",
+   "row": "n271-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "victoria-falls-southwest",
+   "name": "Victoria Falls Southwest",
+   "row": "n343-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 24,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "aysen-fjord-southwest",
+   "name": "Aysen Fjord Southwest",
+   "row": "n235-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 1591,
+    "recall": 0.005,
+    "precision": 0.288
+   },
+   "advisories": [
+    "water.clean_exists",
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "glencoe-north",
+   "name": "Glencoe North",
+   "row": "n250-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 648,
+    "recall": 0.864,
+    "precision": 0.627
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "todgha-gorge-southwest",
+   "name": "Todgha Gorge Southwest",
+   "row": "n039-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "phong-nha-southwest",
+   "name": "Phong Nha Southwest",
+   "row": "n207-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 11,
+    "recall": 1,
+    "precision": 0.307
+   },
+   "advisories": [
+    "water.clean_exists",
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "monument-valley-east",
+   "name": "Monument Valley East",
+   "row": "n161-128-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 7,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "colorado-plateau-east",
+   "name": "Colorado Plateau East",
+   "row": "n281-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "mississippi-delta",
+   "name": "Mississippi Delta",
+   "row": "n043-128-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 4,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 11895,
+    "recall": 0.265,
+    "precision": 0.883
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "kosi-fan",
+   "name": "Kosi Fan",
+   "row": "n114-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles",
+    "resources.mine_site"
+   ],
+   "rivers": 4,
+   "observed": {
+    "water": 5225,
+    "recall": 0.563,
+    "precision": 0.896
+   },
+   "advisories": [
+    "start.reach",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "toklat-river-north",
+   "name": "Toklat River North",
+   "row": "n070-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 2932,
+    "recall": 1,
+    "precision": 0.705
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "green-and-colorado",
+   "name": "Green and Colorado",
+   "row": "n320-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 2780,
+    "recall": 0.992,
+    "precision": 0.849
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "badlands-national-park-southwest",
+   "name": "Badlands National Park Southwest",
+   "row": "n183-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 4,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "aso-caldera-east",
+   "name": "Aso Caldera East",
+   "row": "n137-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 8
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 185,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "colca-canyon-southwest",
+   "name": "Colca Canyon Southwest",
+   "row": "n007-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "paricutin-southwest",
+   "name": "Paricutin Southwest",
+   "row": "n151-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1,
+    "unheld": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 195,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "kate-s-point-western-ghats",
+   "name": "Kate's Point, Western Ghats",
+   "row": "n277-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 2
+   },
+   "rivers": 3,
+   "observed": {
+    "water": 3030,
+    "recall": 0.94,
+    "precision": 0.608
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "niagara-falls-north",
+   "name": "Niagara Falls North",
+   "row": "n350-256-30-normalised-16",
+   "status": "added",
+   "flow": 3.75,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 2,
+    "offWater": 0,
+    "unheld": 1
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 5935,
+    "recall": 0.437,
+    "precision": 0.589
+   },
+   "advisories": []
+  },
+  {
+   "id": "geirangerfjord-east",
+   "name": "Geirangerfjord East",
+   "row": "n221-256-30-normalised-16",
+   "status": "added",
+   "flow": 3.75,
+   "startMoved": true,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 2,
+    "unheld": 1
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 4885,
+    "recall": 0.809,
+    "precision": 0.522
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "hooker-valley-east",
+   "name": "Hooker Valley East",
+   "row": "n257-256-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 8,
+   "observed": {
+    "water": 5387,
+    "recall": 0.963,
+    "precision": 0.463
+   },
+   "advisories": [
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "goosenecks-of-the-san-juan-southwest",
+   "name": "Goosenecks of the San Juan Southwest",
+   "row": "n083-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "mount-roraima-east",
+   "name": "Mount Roraima East",
+   "row": "n173-256-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 7
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 468,
+    "recall": 0.241,
+    "precision": 0.265
+   },
+   "advisories": [
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "ethiopian-highlands-southwest",
+   "name": "Ethiopian Highlands Southwest",
+   "row": "n295-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 3,
+   "observed": {
+    "water": 379,
+    "recall": 0.318,
+    "precision": 0.362
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "li-river-east",
+   "name": "Li River East",
+   "row": "n201-128-60-linear-16",
+   "status": "added",
+   "flow": 2,
+   "startMoved": true,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 5,
+   "observed": {
+    "water": 288,
+    "recall": 1,
+    "precision": 0.298
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "lena-delta-east",
+   "name": "Lena Delta East",
+   "row": "n053-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 17179,
+    "recall": 0.263,
+    "precision": 0.994
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "stockholm-archipelago",
+   "name": "Stockholm Archipelago",
+   "row": "n383-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 4109,
+    "recall": 0.283,
+    "precision": 1
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "nahuel-huapi",
+   "name": "Nahuel Huapi",
+   "row": "n316-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "startMoved": true,
+   "rivers": 3,
+   "observed": {
+    "water": 6510,
+    "recall": 0.18,
+    "precision": 0.961
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "cliffs-of-moher-east",
+   "name": "Cliffs of Moher East",
+   "row": "n361-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 3,
+   "observed": {
+    "water": 166,
+    "recall": 0.759,
+    "precision": 0.279
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "drumheller-east",
+   "name": "Drumheller East",
+   "row": "n189-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 8,
+    "recall": 0.985,
+    "precision": 0.346
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "atacama-fan-north",
+   "name": "Atacama Fan North",
+   "row": "n110-96-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "samosir-lake-toba",
+   "name": "Samosir, Lake Toba",
+   "row": "n132-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "fish-river-canyon-north",
+   "name": "Fish River Canyon North",
+   "row": "n010-96-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 50,
+    "recall": 0.792,
+    "precision": 0.485
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "mount-taranaki-north",
+   "name": "Mount Taranaki North",
+   "row": "n146-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "drakensberg-amphitheatre-southwest",
+   "name": "Drakensberg Amphitheatre Southwest",
+   "row": "n263-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 72,
+    "recall": 1,
+    "precision": 0.304
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "gullfoss-southwest",
+   "name": "Gullfoss Southwest",
+   "row": "n355-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 74,
+    "recall": 1,
+    "precision": 0.186
+   },
+   "advisories": [
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "torres-del-paine-east",
+   "name": "Torres del Paine East",
+   "row": "n253-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 2,
+    "offWater": 0
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 2460,
+    "recall": 0.302,
+    "precision": 0.51
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "tara-gorge-north",
+   "name": "Tara Gorge North",
+   "row": "n026-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "plitvice-lakes-southwest",
+   "name": "Plitvice Lakes Southwest",
+   "row": "n215-96-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 0,
+    "recall": null,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "uvac-river-southwest",
+   "name": "Uvac River Southwest",
+   "row": "n091-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "rivers": 0,
+   "observed": {
+    "water": 3,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "bungle-bungle-southwest",
+   "name": "Bungle Bungle Southwest",
+   "row": "n171-256-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 11,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "waimakariri-river-southwest",
+   "name": "Waimakariri River Southwest",
+   "row": "n063-96-120-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 5,
+    "noOutflow": 0,
+    "offWater": 0
+   },
+   "rivers": 2,
+   "observed": {
+    "water": 575,
+    "recall": 0.885,
+    "precision": 0.313
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought"
+   ]
+  },
+  {
+   "id": "rio-negro-and-solimoes",
+   "name": "Rio Negro and Solimoes",
+   "row": "n324-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "rivers": 3,
+   "observed": {
+    "water": 6009,
+    "recall": 0.492,
+    "precision": 0.921
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "deccan-plateau-southwest",
+   "name": "Deccan Plateau Southwest",
+   "row": "n291-96-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "rivers": 1,
+   "observed": {
+    "water": 121,
+    "recall": 0.957,
+    "precision": 0.792
+   },
+   "advisories": [
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "thousand-islands-southwest",
+   "name": "Thousand Islands Southwest",
+   "row": "n387-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 2,
+   "observed": {
+    "water": 7764,
+    "recall": 0.32,
+    "precision": 0.997
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "rhine-and-moselle-north",
+   "name": "Rhine and Moselle North",
+   "row": "n330-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water"
+   ],
+   "rivers": 1,
+   "observed": {
+    "water": 1363,
+    "recall": 0.979,
+    "precision": 0.7
+   },
+   "advisories": [
+    "water.clean_exists",
+    "start.reach",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "lake-saimaa-east",
+   "name": "Lake Saimaa East",
+   "row": "n305-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "sourcesDropped": {
+    "inFlow": 1,
+    "noOutflow": 1,
+    "offWater": 0
+   },
+   "rivers": 6,
+   "observed": {
+    "water": 7482,
+    "recall": 0.595,
+    "precision": 0.975
+   },
+   "advisories": [
+    "water.reservoir"
+   ]
+  },
+  {
+   "id": "twelve-apostles-east",
+   "name": "Twelve Apostles East",
+   "row": "n365-128-30-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "No water a pump can reach from the start"
+   ],
+   "shortOf": [
+    "start.water",
+    "start.food"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 1
+   },
+   "rivers": 0,
+   "observed": {
+    "water": 13,
+    "recall": 0,
+    "precision": null
+   },
+   "advisories": [
+    "water.clean_exists",
+    "water.clean_reach",
+    "start.reach",
+    "water.reservoir",
+    "resources.bushes"
+   ]
+  },
+  {
+   "id": "ngorongoro-north",
+   "name": "Ngorongoro North",
+   "row": "n126-128-60-normalised-16",
+   "status": "added",
+   "flow": 2,
+   "notes": [
+    "The water keeps moving"
+   ],
+   "shortOf": [
+    "water.settles"
+   ],
+   "sourcesDropped": {
+    "inFlow": 0,
+    "noOutflow": 0,
+    "offWater": 3
+   },
+   "rivers": 1,
+   "observed": {
+    "water": 135,
+    "recall": 0.526,
+    "precision": 0.118
+   },
+   "advisories": [
+    "water.clean_exists",
+    "plants.drought",
+    "water.reservoir"
+   ]
+  }
+ ],
+ "dropped": [
+  {
+   "name": "Lake Toba",
+   "row": "n132-256-30-normalised-16",
+   "status": "replaced",
+   "reason": "dropped by Kyler from the D245 review sheet, number 43 (D271)",
+   "tried": [
+    "n132-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Godavari Delta",
+   "row": "n056-256-30-normalised-16",
+   "status": "replaced",
+   "reason": "dropped by Kyler from the D245 review sheet, number 47 (D271)",
+   "tried": [
+    "n056-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Majuli, Brahmaputra",
+   "row": "n072-128-30-normalised-16",
+   "status": "replaced",
+   "reason": "dropped by Kyler from the D245 review sheet, number 73 (D271)",
+   "tried": [
+    "n072-128-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Tsingy de Bemaraha",
+   "row": "n216-96-30-linear-16",
+   "status": "replaced",
+   "reason": "dropped by Kyler from the D245 review sheet, number 82 (D271)",
+   "tried": [
+    "n216-96-30-linear-16"
+   ]
+  },
+  {
+   "name": "Mount Mayon North",
+   "row": "n158-128-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 93 (D271)",
+   "tried": [
+    "n158-128-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Kinabatangan River East",
+   "row": "n093-128-120-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 100 (D271)",
+   "tried": [
+    "n093-128-120-normalised-16"
+   ]
+  },
+  {
+   "name": "Kornati",
+   "row": "n396-256-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 106 (D271)",
+   "tried": [
+    "n396-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Masurian Lakes",
+   "row": "n312-256-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 108 (D271)",
+   "tried": [
+    "n312-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "San Daniele, Tagliamento River",
+   "row": "n064-256-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 110 (D271)",
+   "tried": [
+    "n064-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Roaring River Fan East",
+   "row": "n117-256-60-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 111 (D271)",
+   "tried": [
+    "n117-256-60-normalised-16"
+   ]
+  },
+  {
+   "name": "Tiger Leaping Gorge North",
+   "row": "n030-256-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 119 (D271)",
+   "tried": [
+    "n030-256-30-normalised-16"
+   ]
+  },
+  {
+   "name": "Cape of Good Hope",
+   "row": "n376-256-120-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 123 (D271)",
+   "tried": [
+    "n376-256-120-normalised-16"
+   ]
+  },
+  {
+   "name": "Danube Delta Southwest",
+   "row": "n047-96-60-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 129 (D271)",
+   "tried": [
+    "n047-96-60-normalised-16"
+   ]
+  },
+  {
+   "name": "Ilulissat Icefjord Southwest",
+   "row": "n239-96-120-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 137 (D271)",
+   "tried": [
+    "n239-96-120-normalised-16"
+   ]
+  },
+  {
+   "name": "Painted Desert North",
+   "row": "n194-128-30-normalised-16",
+   "status": "added",
+   "reason": "dropped by Kyler from the D245 review sheet, number 150 (D271)",
+   "tried": [
+    "n194-128-30-normalised-16"
+   ]
+  }
+ ]
+}

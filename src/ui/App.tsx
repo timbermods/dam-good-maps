@@ -27,7 +27,7 @@ import type { GenerateResponse } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps } from "../editor/Editor";
 import type { ExportDialogProps } from "../editor/panels";
-import { fetchIndex, fetchPlace, placeFromHash, PLACES_URL } from "../places/data";
+import { fetchPlaceMap, placeFromHash, placeMap, PLACES_URL } from "../places/data";
 import { Preview2D, type Layers } from "./Preview2D";
 import { FirstLook, type Progress } from "./FirstLook";
 import { proxy } from "comlink";
@@ -291,15 +291,14 @@ export function App() {
     })();
   }, []);
 
-  /** Open a real place in the editor: its .timber is built in the worker and imported. */
+  /** Open a real place in the editor: its .timber (built at deploy time) is fetched and imported. */
   async function openPlace(id: string) {
     setError(null);
     setOpening("Opening the map…");
     try {
-      const entry = (await fetchIndex()).places.find((p) => p.id === id);
-      if (!entry) throw new Error(`there is no real place called "${id}"`);
+      const { entry, bytes } = await fetchPlaceMap(id);
       setOpening(`Opening ${entry.name}…`);
-      enterEditor(await generator.openPlace(await fetchPlace(id)));
+      enterEditor(await generator.openTimber(bytes, placeMap(entry).fileName));
       setOpening(null);
     } catch (e) {
       setOpening(null);

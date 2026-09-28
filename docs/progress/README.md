@@ -22,7 +22,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [after-map-look.md](after-map-look.md) | After Map look: Kyler's decisions | 2026-09-25 |
 | [m9-design.md](m9-design.md) | M9 design step (design version 1) | 2026-09-25 |
 | [after-map-look-2.md](after-map-look-2.md) | After Map look (2): Kyler's decisions | 2026-09-25 |
-| [real-places.md](real-places.md) | Real places: a gallery of 85 real-terrain maps (released as `real-places-done`, after Map look) | 2026-09-25 |
+| [real-places.md](real-places.md) | Real places: a gallery of real-terrain maps, 85 in the first round (`real-places-done`), 150 rebuilt without walls in the second | 2026-09-26 |
 | [start-edge-rules.md](start-edge-rules.md) | Start and edge rules: no edge walls, maps need not hold their water, sources start rivers, the water rule over slopes, starting wood (generator 0.6.1) | 2026-09-25 |
 | [live-editing.md](live-editing.md) | Live editing: triage, terrain brushes, the water, smart Lower and Source, the top bar and brush kit, the left shelf and Remove (branch `feature/live-editing`) | 2026-09-25 |
 | [resources.md](resources.md) | Resources like the official maps: measured baselines, groves, patches, ruin fields, a mine site on every map (generator 0.6.2) | 2026-09-25 |

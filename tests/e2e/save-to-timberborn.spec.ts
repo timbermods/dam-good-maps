@@ -8,8 +8,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { placeSample, type PlaceIndex } from "../../src/core/places/place";
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+const INDEX = JSON.parse(readFileSync("public/real-places/index.json", "utf8")) as PlaceIndex;
 const bytesOf = async (path: string | null) => new Uint8Array(readFileSync(path!));
 
 /** No folder access at all (Firefox, Safari in real life): `showDirectoryPicker` doesn't exist. */
@@ -97,13 +99,20 @@ test.describe("Real places", () => {
     await page.goto("./real-places/");
     await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
 
+    // a place whose .timber the browser tests' server builds (the sample; the deploy builds all)
+    const place = placeSample(INDEX)[0];
+    await page.getByRole("button", { name: `${place.size}×${place.size}` }).click();
     const first = page.getByRole("list", { name: "Maps" }).getByRole("listitem").first();
+    await expect(first.getByRole("heading", { name: place.name, exact: true })).toBeVisible();
     const timberborn = first.getByRole("button", { name: /^Save .* to Timberborn$/ });
     await expect(timberborn).toBeVisible();
 
+    // the place's own file, built at deploy time, as Download gives it
     const download = page.waitForEvent("download");
     await timberborn.click();
-    await download;
+    const d = await download;
+    expect(d.suggestedFilename()).toBe(`${place.name}.timber`);
+    expect(sha256(await bytesOf(await d.path()))).toBe(place.sha256);
     await expect(first.getByText(/Move the file to/)).toBeVisible();
   });
 });

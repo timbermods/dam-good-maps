@@ -150,7 +150,20 @@ button {
   color: var(--ink);
 }
 
-button.primary {
+/* a link that looks like a button */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+button.primary,
+a.button.primary {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
@@ -165,9 +178,122 @@ button:disabled {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+a:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ---- two pictures of a map (src/ui/Pictures.tsx): an inset in the corner that fills the picture
+   on hover, focus or a click ---- */
+.pictures {
+  position: relative;
+}
+
+.pictures img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  background: var(--map-bg);
+}
+
+.pictures-toggle {
+  position: absolute;
+  right: 6%;
+  bottom: 6%;
+  width: 34%;
+  padding: 0;
+  border: 2px solid var(--panel);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--map-bg);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  transition:
+    right 0.15s,
+    bottom 0.15s,
+    width 0.15s,
+    border-radius 0.15s;
+}
+
+@media (hover: hover) {
+  .pictures-inset:hover .pictures-toggle {
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-width: 0;
+    border-radius: 0;
+  }
+}
+
+.pictures-toggle[aria-pressed="true"],
+.pictures-toggle:focus-visible {
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  border-width: 0;
+  border-radius: 0;
+}
+
+.pictures-toggle:focus-visible {
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pictures-toggle {
+    transition: none;
+  }
+}
+
+/* ---- the north arrow over a picture of a map (src/ui/NorthArrow.tsx): an upright N, and a
+   pointer on the badge's rim toward north ---- */
+.north {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  pointer-events: none;
+}
+
+.north svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.north text {
+  font: 700 10px/1 system-ui, sans-serif;
+}
+
+/* smaller on an inset while it is small */
+.pictures-toggle .north {
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+}
+
+@media (hover: hover) {
+  .pictures-inset:hover .pictures-toggle .north {
+    left: 6px;
+    top: 6px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.pictures-toggle[aria-pressed="true"] .north,
+.pictures-toggle:focus-visible .north {
+  left: 6px;
+  top: 6px;
+  width: 28px;
+  height: 28px;
 }
 
 .settings .primary {
