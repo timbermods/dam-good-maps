@@ -1,10 +1,16 @@
 # Glaciate: adopted onto the forces core, the floor's water as one river
 
-> **State (2026-09-27; where a fresh session resumes).** Branch `feature/glaciate` (PR #76, draft, held), with
-> `feature/forces` merged in at 73809c2 (the one ceiling, the lean editor) and `dev`. Built and tested; the floor's
-> before and after in `docs/progress/glaciate/`. The preview for Kyler's forces sitting is built from this branch
-> (checklist item 18 in `docs/STATUS.md`); nothing merges into `dev` without his yes (D291). Open: Kyler's eye on the
-> floor (D292) and his listening check of the sounds with the others'.
+> **State (2026-09-28, paused for Tuesday's handoff; where a fresh session resumes).** Branch `feature/glaciate`
+> (PR #76, draft, held for Kyler's yes), last commit 8dbecfc (with `feature/forces` merged in at 584bc15d, D312, and
+> `dev` through it). Done and tested: the adoption (D246, D291), the floor's water (D292), More with Benches, Steps,
+> Tarn and Scree (D309), the ring and waypoints on the forces' shared piece (D312: wired, no longer waiting), the
+> meltwater springs in groups (D314). Quick suite at 8dbecfc: 820 passed; forces + Glaciate browser specs passed
+> locally (the forces spec before the last merge: 17 of 19, its two failures the badwater notice now hidden in
+> Glaciate's spec). CI on 8dbecfc was still running at the pause. The one-river counts (below) are unchanged by
+> D312 and D314. **Next step:** check CI on #76 at 8dbecfc (`gh pr checks 76`); if green, give the coordinator the
+> commit for the preview; if red, fix it. Then merge `origin/feature/forces` and `origin/dev` as they move. One UI
+> finding for the forces agent: the "No badwater" notice (D213) sits over the force rows when a force sweeps the
+> last badwater spring, blocking their buttons until it's hidden.
 
 Kyler's decisions: D246 (Glaciate), D257 (bound only by nature, the start carried), D258 (clean gestures), D265 (the
 camera never moves on its own), D266 (its own pace), D277 (no Claude step), D289 (its row), D291 (round 4 pre-approved,
