@@ -1,6 +1,6 @@
 # M9a: terrain and water from processes
 
-> **Kyler's D302 is built; the batches run again on its start water rule (2026-09-28).** The probe
+> **Kyler's D302 is built, and every gating batch passes on it (2026-09-28).** The probe
 > re-run 20260927-1443-batch, judged as D302 asks (its model from the file's stored outflows, the start's
 > water as `start.water` counts it, wet tiles judged as D297 judges water), passes 101 of 103 checks;
 > the two left (Any 128² seed 1's side pool, Delta 128² seed 1's flats) go to M9b (see "Kyler's D302"
@@ -8,9 +8,9 @@
 > 535 accepted maps at Verticality 70–100, 8f38d22). A count found 12 starts whose only water was a
 > sealed puddle, so the rule is fixed before release (db9664e): a start's water is fed by a source or
 > lasts the drought, in both validators and the generator; the probe maps are unchanged by it; 31 of the
-> 85 real places now warn (a known fault for Real places 2). **Running:** every gating batch again on
-> db9664e (Normal, all options and sizes; Hard 128²). **Left:** those batches at 98% final, CI green,
-> then the release.
+> 85 real places now warn (a known fault for Real places 2). **Every gating batch on db9664e** is at 98%
+> final or better (Normal, all options and sizes; Hard 128²), every project file reopening byte for byte
+> (the table under "The start's water is never a sealed puddle"). **Left:** the release.
 >
 > *(Before D302:)* The re-run 20260927-1443-batch on 0d9e473's maps passed 99 of 103
 > checks, the water check on all 15 (see "The DGM Probe re-run 20260927-1443-batch" under Results).
@@ -797,6 +797,22 @@ the export say there is none. Not in M9a (the orchestrator's call: it does not b
 is editor work): it goes to the forces branch's build agent once M9a is in `dev`. It needs
 `startWaterShore` with a `droughtStorage` cached per water state (the rule's drought days) and the
 emitter cells (sources' tiles and strengths) from the entity view.
+
+**The gating batches on the rule** (db9664e's generator; 100 seeds of every option and size at Normal,
+and 128² at Hard; `investigation/m9a/local/batches-d302` and `-d302-hard`, out of git): every option and
+size at 98% final or better, and every accepted map's project file reopens and rebuilds the same
+.timber (3,497 of 3,497). Final, and first attempt in brackets, in %:
+
+| Size | Any | River Valley | Canyon | Highlands | Lake Basin | Delta | Islands |
+|---|---|---|---|---|---|---|---|
+| 96² | 100 (49) | 100 (54) | 100 (56) | 100 (50) | 99 (49) | 100 (47) | 100 (85) |
+| 128² | 100 (55) | 100 (59) | 100 (55) | 100 (65) | 100 (59) | 100 (68) | 100 (81) |
+| 192² | 98 (43) | 100 (56) | 100 (55) | 100 (69) | 100 (47) | 100 (61) | 100 (71) |
+| 256² | 100 (37) | 100 (48) | 100 (48) | 100 (52) | 100 (38) | 100 (50) | 100 (62) |
+| 128², Hard | 100 (42) | 100 (60) | 100 (42) | 100 (64) | 100 (61) | 100 (56) | 100 (80) |
+
+The three seeds without a map (Any 192² 33 and 78, Lake Basin 96² 99) found none on 788c145 either;
+34 attempts across the batches were planned again for a start whose water was only a sealed puddle.
 
 ### Found and parked
 
