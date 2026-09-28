@@ -1702,7 +1702,7 @@ flow (search, frame, one click, share link, credits, D255's keep-the-land rule) 
 3. **Preview inside the square, built on release:** when the player lets go of the square (not live
    while dragging, D285 (3)), the land inside is shown turned into Timberborn blocks at Timberborn's
    levels, so the player sees the map, not just the place, before building.
-4. **Confirm with as little as possible:** map size (96, 128 or 256) and height (auto by default:
+4. **Confirm with as little as possible:** map size (96, 128 or 256; the square defaults to 256² at the scale that frames the place's signature, D306) and height (auto by default:
    tall when the relief deserves it, once the probe confirms tall maps). Scale, difficulty and
    water (designed by default) sit in an optional **More** drawer.
 5. **One click, "Build my map":** a short progress strip (terrain, rivers, start, forests, checks),
