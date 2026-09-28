@@ -30,8 +30,8 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
      waypoints on the shared gesture piece `src/editor/waypoints.ts`, Erupt final in ~2 s) and Carve's own source as a
      group (D314; Unleash places none) are built and pushed. Its CI on c90e071b was running at the pause.
    - `feature/forces-sounds` (#81, draft, `DamGoodMaps-sounds`, `build-light`, Sonnet 5 high): D313 (Smooth's sound,
-     re-encoding, quieter default) and D315 (Delete sources on the Select row) built; 3289a104's CI green, 05ab3afb
-     (notes only) was running; next, merge it into `feature/forces`. Its finding: after Delete sources, CI's headless
+     re-encoding, quieter default) and D315 (Delete sources on the Select row) built; CI green on 05ab3afb
+     (run 36375584566; the other run on it was a cancelled duplicate); next, merge it into `feature/forces`. Its finding: after Delete sources, CI's headless
      browser sometimes shows a few blueberry bushes gone once the water preview runs on (not in Chrome; the operation is
      exact and tested at the session level): a `build` agent looks at it (water-simulation judgment).
    - `feature/glaciate` (#76, draft, `DamGoodMaps-glaciate`, held for Kyler's sitting): at 8dbecfc (code) / e091e77a
