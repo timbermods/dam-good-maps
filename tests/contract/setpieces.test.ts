@@ -115,8 +115,9 @@ describe("drops above 15 are reduced", () => {
   });
   it("an on-river fall asked to drop 16 drops at most what its river's bed allows downstream", () => {
     // a river and a place along it whose bed has room below it (generator 0.7.0: main rivers often
-    // cut to level 0, and the land's own falls take their stretch of a river)
-    const s = session(96, 4);
+    // cut to level 0, and the land's own falls take their stretch of a river; seed 7 since 0.8.0,
+    // on whose seed 4 no place along a river takes the fall, D148)
+    const s = session(96, 7);
     const plan = (river: RiverFeature, at: number) => planPiece(s, "waterfall", { mode: "on-river", river: river.id, at, drop: 16 }, "11111111-2222-4333-8444-555555555555");
     const places = s.features.filter((f): f is RiverFeature => f.kind === "river").flatMap((f) => [30, 40, 50, 60, 70].map((at) => ({ river: f, at })));
     const place = places.find((p) => plan(p.river, p.at).ok)!;
