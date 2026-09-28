@@ -26,12 +26,14 @@ Each workstream below: branch and last commit, state, the exact next step, its d
 and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<name>.md`, top note) has the detail.
 
 1. **The forces sitting on the preview** (the session, then `build`, Opus 5.5 high). Three branches feed it:
-   - `feature/forces` (#77, `DamGoodMaps-forces`, last commit at the pause in §2): D309 (details behind More) done; D312
-     (size ring, Carve waypoints and the shared gesture piece, Erupt final in ~2 s) built and tested. See its progress
-     doc for anything left of D312 and for Carve's grouped source (D314), which may not be in yet.
+   - `feature/forces` (#77, `DamGoodMaps-forces`, c90e071b): D309 (details behind More), D312 (size ring, Carve's
+     waypoints on the shared gesture piece `src/editor/waypoints.ts`, Erupt final in ~2 s) and Carve's own source as a
+     group (D314; Unleash places none) are built and pushed. Its CI on c90e071b was running at the pause.
    - `feature/forces-sounds` (#81, draft, `DamGoodMaps-sounds`, `build-light`, Sonnet 5 high): D313 (Smooth's sound,
-     re-encoding, quieter default) and D315 (Delete sources on the Select row) built; next, merge it into
-     `feature/forces` once its CI is green.
+     re-encoding, quieter default) and D315 (Delete sources on the Select row) built; 3289a104's CI green, 05ab3afb
+     (notes only) was running; next, merge it into `feature/forces`. Its finding: after Delete sources, CI's headless
+     browser sometimes shows a few blueberry bushes gone once the water preview runs on (not in Chrome; the operation is
+     exact and tested at the session level): a `build` agent looks at it (water-simulation judgment).
    - `feature/glaciate` (#76, draft, `DamGoodMaps-glaciate`, held for Kyler's sitting): at 8dbecfc (code) / e091e77a
      (progress log): forces merged in (D312 wired on the shared piece), meltwater springs in groups (D314), D309's More.
      Quick suite 820 passed; CI's browser jobs were still running at the pause.
@@ -43,16 +45,20 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    the "No badwater" notice (D213) covers the force rows (Glaciate's hand-back); fix it on `feature/forces` (build).
    **Held for Kyler:** the forces and Glaciate release only after his sitting.
 2. **M9b** (`m9b-build`, Opus 5.5 xhigh; `feature/m9b`, #70 draft, `DamGoodMaps-m9b`): source groups wired (284818ad),
-   the badwater toggle on a narrow mouth moves in along the channel instead of refusing (D290, #134), badwater ditches
-   and the sea rim fixed. It was re-pinning after the grouped sources; the top note of `docs/progress/m9b.md` says where
-   the quick suite stopped and which seeds to re-pin. **Next:** finish the re-pin, then the release candidate under
-   D308: full batches, one pooled probe batch (3D maps, Erode, a Real places sample, M9b maps), then the review set for
+   the badwater toggle on a narrow mouth follows D290 (#134; its editor side lands with the forces), badwater ditches
+   no longer ruler-straight, the sea's rim wanders. The re-pin is half done: quick suite on d5dd375f 765 passed, 10
+   failed (9 map-bound; one resources share at 0.5225 against its line under 0.52: look at it first). The "Handoff"
+   section of `docs/progress/m9b.md` has the ten tests, their seeds and the commands. **Next:** merge `origin/dev` (M9a,
+   0.7.0, released), re-seed the six seed-bound tests, re-pin the 4242 sha, rerun `npx vitest run --project quick
+   --maxWorkers=4`; then samples under D308 and the release candidate: full batches, one pooled probe batch (3D maps, Erode, a Real places sample, M9b maps), then the review set for
    Kyler. **Held for Kyler:** judged by his eye (D252, D273).
 3. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
-   conversion (D314); 0373a85f started wiring `sourceGroups` in. **Next:** finish the wiring (heads, entry rows, the
-   water floor's spring, the badwater stage) as the top note of `docs/progress/real-places.md` says, bump its VERSION,
-   run the one rebuild under the game's rules (the land is cached), then check it yourself: every place passes the
+   conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
+   a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached.
+   CI on #35 is red until the rebuild (tests are for the new rules, the gallery still D271's). **Next:** from
+   `DamGoodMaps-places`, keep VERSION 11 and run `npx tsx tools/places-convert.ts --threads 3` (about 1.5–3 h for the 99
+   left), then build, draw the cards and check it yourself, as the top note of `docs/progress/real-places.md` lists: every place passes the
    blocking list, "No water a pump can reach" is 0, the stripes are gone on 42, 48, 116 and 118. Then release
    `real-places-2-done` (no new sheet for Kyler, D300).
 4. **Grouped sources** (D314): the investigation `investigation/source-groups` (#78) is merged into `dev`
@@ -80,11 +86,11 @@ clean and matched origin at the pause.
 | Work | Branch | PR | Worktree | Last commit | State |
 |---|---|---|---|---|---|
 | Plans and docs | `dev` | — | `DamGoodMaps` | see `git log` | M9a released; docs current at the pause |
-| The forces | `feature/forces` | #77 | `DamGoodMaps-forces` | FORCES_SHA | D309, D312 built; next in §1 item 1 |
-| Sounds and Delete sources | `feature/forces-sounds` | #81 (draft) | `DamGoodMaps-sounds` | SOUNDS_SHA | D313, D315 built; merge into the forces |
+| The forces | `feature/forces` | #77 | `DamGoodMaps-forces` | c90e071b | D309, D312 and Carve's grouped source (D314) built; next in §1 item 1 |
+| Sounds and Delete sources | `feature/forces-sounds` | #81 (draft) | `DamGoodMaps-sounds` | 05ab3afb | D313, D315 built; merge into the forces |
 | Glaciate's adoption | `feature/glaciate` | #76 (draft) | `DamGoodMaps-glaciate` | e091e77a | preview branch for the forces sitting; held for Kyler |
-| M9b | `feature/m9b` | #70 (draft) | `DamGoodMaps-m9b` | M9B_SHA | re-pin after grouped sources; held for Kyler |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | PLACES_SHA | rebuild paused until the D314 wiring is in |
+| M9b | `feature/m9b` | #70 (draft) | `DamGoodMaps-m9b` | 66146f34 | re-pin half done; held for Kyler |
+| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | cbaf6cf6 | D314 wired (VERSION 11); 37 of 136 converted; resume the conversion (§3) |
 | Grouped sources, the rule | `feature/source-groups` | #79 (draft) | `DamGoodMaps-groups` | a6346fe4 | merges with the first branch that carries it |
 | Grouped sources, the investigation | `investigation/source-groups` | #78 | `DamGoodMaps-sources` | 1e760899 | merged into `dev` (685d9b18); removable |
 | The High look (with D310's shades) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | b62188ba | held for Kyler (the shades choice, his look) |
@@ -100,9 +106,15 @@ is on origin).
 
 ## 3. Jobs to restart
 
-None were cut short. At the pause no batch, probe run or render was running; the only background jobs were watchers
-(CI, the #78 merge) and the keep-awake script, which the new session starts again (§9). Real places' rebuild is not a
-job to restart: it runs once, after its wiring (§1 item 3).
+At the pause no batch, probe run or render was running; the watchers (CI, the #78 merge) ended with the session, and the
+keep-awake script is started again (§9). Two jobs to restart:
+
+- **Real places' conversion** (stopped by the pause, 37 of 136 done): from `C:\Users\krams\code\DamGoodMaps-places`,
+  `npx tsx tools/places-convert.ts --threads 3`. It skips the 37 already cached in
+  `investigation/landscapes/local/real-places-2/v11/`; the land is cached in `investigation/landscapes/.cache/`
+  (patches, worldcover, osm). Heavy: run it when no batch runs.
+- **M9b's quick suite** after its re-seed: `npx vitest run --project quick --maxWorkers=4` in `DamGoodMaps-m9b`. Its
+  old per-theme batches in `investigation/m9b/local/batches/` predate the game's rules: don't resume them.
 
 ## 4. M9a and Live editing
 
