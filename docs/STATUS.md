@@ -31,6 +31,12 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
    there. M9b's maps have more flat, film-prone ground than M9a's (29 of 30 passed). **Default, being built:** accept the game's
    rules with this departure, and let the pooled probe batch at M9b's release candidate (D308) check the water against the game
    itself instead of against the old port. Say if you want something else (e.g. keep the band and investigate further).
+   - **The capture-tool audit (your yes):** seven tools opened the page without holding a look, the same bug as `capture-badwater.ts`:
+     `capture-live-editing`, `capture-look`, `capture-objects`, `capture-saplings`, `capture-waterfalls`, and the two frame-time
+     benches `bench-brush` and `bench3d` (unpinned, those would have measured the costlier High look). All are now pinned to
+     Standard, their era's look (b62188ba, CI green); no committed capture, reference or colour changed. Found on the way:
+     `capture-look`, `capture-objects` and `capture-saplings` no longer run against today's interface (they look for tabs retired
+     since D184); added to the housekeeping list.
    - **Also on `feature/high-look`** (your answer on the suggested task): once clean water's shades are done, badwater's on-screen
      calibration targets (6–11 codes off on "typical", "trough", "streak") are re-measured once; the drift is fixed, or, if an
      approved look change moved them, the targets are updated and noted in PLAN and the progress log (`build-light`).

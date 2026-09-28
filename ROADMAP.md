@@ -1751,6 +1751,8 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
   stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
   does; each with its round-trip test (`tests/unit/format.test.ts`);
+- **three stale capture tools** (`tools/capture-look.ts`, `capture-objects.ts`, `capture-saplings.ts`): they look for tabs retired
+  since D184 and no longer run against today's interface; bring them up to date, or retire them if nothing uses them;
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
