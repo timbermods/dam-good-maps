@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { CREDITS_URL, fileNotices, PROVIDERS, RIVERS_LICENCE_URL, RIVERS_NOTICE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
-import { decodeHeights, PLACE_NOTES, SPRING_NOTES, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
+import { decodeHeights, PLACE_NOTES, SPRING_NOTES, springNotes, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { checkPlaces, INDEX, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_MINE_SITES, PLACES_SOURCES_IN_FLOW, placeData, sha256 } from "./placesCommon";
@@ -394,9 +394,10 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
 
 describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
   it("a place short of the playability checks still builds, loads, and says what it lacks", () => {
-    // the places whose notes say the start has no pumpable water, and that the water keeps moving
-    for (const words of [PLACE_NOTES[0][1], PLACE_NOTES[2][1]]) {
-      const e = INDEX.places.find((p) => p.notes?.includes(words) && p.size < 256);
+    // a place whose note says the water keeps moving (since D300's water floor, none lacks water a
+    // pump reaches: that note is gone), the smallest
+    for (const words of [PLACE_NOTES[2][1]]) {
+      const e = [...INDEX.places].sort((x, y) => x.size - y.size).find((p) => p.notes?.includes(words));
       expect(e, words).toBeDefined();
       const r = built(e!.id);
       // it loads as the editor shows it: the export profile passes
@@ -408,7 +409,7 @@ describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
       expect(shortOf.length, e!.id).toBeGreaterThan(0);
       expect(v.report.passed, e!.id).toBe(false);
       // and it says so, in the index the card reads
-      expect(e!.notes, e!.id).toEqual(placeNotes(v.report.checks));
+      expect(e!.notes, e!.id).toEqual([...springNotes(placeData(e!)), ...placeNotes(v.report.checks)]);
       expect(sha256(r.bytes)).toBe(e!.sha256);
     }
   });

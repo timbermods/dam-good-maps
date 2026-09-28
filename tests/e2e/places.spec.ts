@@ -22,6 +22,8 @@ const node = (e: PlaceIndexEntry) => placeTimber(decodePlaceFile(new Uint8Array(
 const SAMPLE = placeSample(INDEX);
 /** The smallest map, for the flows that download or open one. */
 const SMALL = SAMPLE[0];
+/** The gallery's sizes, smallest first (at 256² since D306, where the data allows). */
+const [FIRST, LAST] = [INDEX.sizes[0], INDEX.sizes[INDEX.sizes.length - 1]];
 /** The side of a place's picture from above: a whole number of pixels a tile, about 512. */
 const topSide = (e: PlaceIndexEntry) => Math.round(512 / e.size) * e.size;
 
@@ -84,8 +86,8 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   await page.getByRole("button", { name: "All sizes" }).click();
   await page.getByLabel("Landform").selectOption("");
   await expect(cards).toHaveCount(INDEX.count);
-  await page.getByRole("button", { name: "96×96" }).click();
-  await expect(cards).toHaveCount(INDEX.places.filter((p) => p.size === 96).length);
+  await page.getByRole("button", { name: `${FIRST}×${FIRST}` }).click();
+  await expect(cards).toHaveCount(INDEX.places.filter((p) => p.size === FIRST).length);
 
   // Download: a link to the place's static .timber, saved under its title, byte for byte Node's
   // and the index's
@@ -296,10 +298,10 @@ test.describe("on a phone", () => {
     expect(a!.width).toBeLessThanOrEqual(375);
     await page.screenshot({ path: ".scratch/places/phone.png" });
 
-    await page.getByRole("button", { name: "128×128" }).tap();
-    await expect(cards).toHaveCount(INDEX.places.filter((p) => p.size === 128).length);
+    await page.getByRole("button", { name: `${LAST}×${LAST}` }).tap();
+    await expect(cards).toHaveCount(INDEX.places.filter((p) => p.size === LAST).length);
     await page.getByLabel("Landform").selectOption("fjord");
-    const fjords = INDEX.places.filter((p) => p.size === 128 && p.family === "fjord");
+    const fjords = INDEX.places.filter((p) => p.size === LAST && p.family === "fjord");
     await expect(cards).toHaveCount(fjords.length);
     const card = cards.first();
     await expect(card.getByRole("link", { name: `Download ${fjords[0].name}`, exact: true })).toBeVisible();
@@ -309,7 +311,7 @@ test.describe("on a phone", () => {
     // a download from the phone layout
     await page.getByRole("button", { name: "All sizes" }).tap();
     await page.getByLabel("Landform").selectOption("");
-    await page.getByRole("button", { name: "96×96" }).tap();
+    await page.getByRole("button", { name: `${SMALL.size}×${SMALL.size}` }).tap();
     const download = page.waitForEvent("download");
     await page.getByRole("link", { name: `Download ${SMALL.name}`, exact: true }).tap();
     expect(sha256(new Uint8Array(readFileSync(await (await download).path())))).toBe(SMALL.sha256);

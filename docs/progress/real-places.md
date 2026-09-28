@@ -716,3 +716,68 @@ at ee21cf5 (D270, D271, D272).
   Kyler's drops back in (they are his choice, not the tool's); the index's budget a place is taken
   over its entries (the fixed part no longer spreads over as many places); the credits page's water
   data (e2e). None weakened.
+
+## Finished without another sheet (Kyler, 2026-09-27, D300)
+
+Kyler's answer on the D271 sheet: finish Real places without another review sheet. Both land
+fixes, a water floor like the starting-logs floor, the held places and 29 kept, #94 accepted with
+these changes (docs/decisions-pending.md). Built after merging `dev` at 5fc8fe8. Conversion
+`VERSION` 7.
+
+**The rules and their constants** (tools/places/hydro.ts, tools/places/convert.ts):
+
+- **The land's tilt** (`detrend`): the plane that best fits the map's main surface is found (least
+  squares, then `TILT_ROUNDS` = 4 fits, each without the tiles more than twice the median distance
+  off the last: a fan's slope, not the mountain beside it). Where it spans more than `TILT_LEVELS`
+  = 4 of the map's levels, only the share of it that spans 4 levels is kept (the rest is taken out
+  before the land is fitted to its 16 levels), so a smooth slope is no longer made into 16 even
+  stripes and the water still runs downhill along its course; where it spans 4 or fewer, all of it
+  is kept. Where a level then comes under `SMOOTH_STEP` = 10 m (a plain or fan), a 3×3 median takes
+  the elevation data's single-tile bumps out first, so they do not become levels.
+- **The bed** (`lowerBeds`): under every stretch of the real water (WorldCover's permanent water, a
+  tile at `WET` = 0.15 of its pixels, and OpenStreetMap's permanent rivers; at least `MIN_WATER` = 3
+  tiles' worth; the sea left), a river's tiles each a level below their own, a lake's at a level
+  below its median, as Pick a place's signature water lays them. Where real water lies on the
+  lowest level, the land is fitted to levels 1 to 16 first (`lifted`), so its bed has a level to
+  go to.
+- **The water floor** (`springNear`): every place has water a pump reaches from the start
+  (start.water at Normal: 20 tiles' walk). The conversion first prefers the starts that reach
+  water, the start moved to the water as D214 does (the shore-first ranking). Where none does, one
+  natural spring: near each of the best `SPRING_STARTS` = 4 starts in turn, on `SPRING_CANDIDATES` =
+  12 tiles within the walk (a hollow the spring fills first, then those whose water does not run
+  past the start, then where the most land drains), at the smallest of `SPRING_STRENGTHS` = 0.1,
+  0.2, 0.4, 0.7, 1, 1.5, 2, 3, 5 that works: water that settles first, never inside another
+  source's water (D171); the place's own start first, then up to `SPRING_START_TRIES` = 10 starts
+  moved to the spring's water; built and checked in full (nothing that blocks, the start's water
+  within reach). Else a hollow anywhere on the map, nearest first, the start moved to it. The card
+  says so: "A spring added near the start: this place has no permanent water" (`why` "dry") or
+  "...: its real water is out of reach" ("far") (`SPRING_NOTES`). The conversion stops if any place
+  misses the floor.
+- A river coming in across the edge that another source's water reaches: the source whose leaving
+  frees it goes (tried on the settle's starting state), else the smallest such river.
+
+## At 256², the signature as the focal point, and badwater (Kyler, 2026-09-28, D306; D200)
+
+Folded into the D300 rebuild before round 2's release, with the badwater stage, in one rebuild
+(conversion `VERSION` 8). Built after merging `origin/feature/m9a` (D200's badwater planning, the
+settled outflows in the file).
+
+- **256²** (tools/places-convert.ts, `WIDE`): each place is built at 256² at its own scale (metres a
+  tile), from the survey's own 256² patch of the same place (every one was already in the survey's
+  cache); its signature, the square it was built from before, stays in the middle at the same size
+  and detail, with the real land around it. A place whose 256² map does not convert keeps its own
+  size, and the tool says so. `selection.json` records each place's built row and its signature's
+  size (`focus`); its title comes from the signature's row. The observed water for the new patches
+  (WorldCover, OpenStreetMap) was read as before and cached.
+- **The heights around the signature** (`quantiseAround`, hydro.ts): the signature's square keeps its
+  own range across the levels, fitted as its mode fits it (normalised, compressed, or 30 m a level),
+  but for `MARGIN_LEVELS` = 2 at each end where land beyond the signature lies higher or lower; that
+  land is compressed into those 2 levels logarithmically (its first metres at the signature's own
+  rate). The fit rises with the height everywhere, so water runs its real course. D300's tilt is
+  fitted on the signature's square and taken out over the whole map before this, so the kept tilt
+  runs across the wider map too; the smoothing threshold is judged on the signature.
+- **Badwater** (D200, D213; src/core/places/place.ts `buildPlace`): the shared resource planner
+  places a badwater spring at Normal's distance from the start (`badwaterWithin` 15) where the land
+  has a hollow or side valley for one, as for generated maps; the file holds the water settled with
+  it, and the floor's groves read that water. `resources.badwater_source` notes a place with no room
+  for one (information).
