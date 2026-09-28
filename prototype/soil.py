@@ -14,6 +14,10 @@ under a Blockage (then the tile has no water of its own). Thorns (the barrier) k
 
 import numpy as np
 
+# the rules a caller gets when it does not ask (src/core/sim/soil.ts DEFAULT_SOIL_RULES): "game"
+# (these functions) or "port" (watersim.py's moisture and contamination, the port as it was)
+DEFAULT_SOIL_RULES = "port"
+
 F32 = np.float32
 
 TICK = F32(0.6)

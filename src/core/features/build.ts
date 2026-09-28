@@ -22,7 +22,7 @@ import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
-import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
+import { sameRetained, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
 import { isCarve } from "../forces/carve/op";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
@@ -184,6 +184,9 @@ export interface BuildOptions {
    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
    *  settles it in the background, so an edit never waits on the water. */
   water?: "canonical" | "preview" | "defer";
+  /** The water and soil rules the map is built under (sim/water.ts, sim/soil.ts; their defaults
+   *  when absent, D308). */
+  rules?: WaterRules;
 }
 
 /** The last canonical settle and the model it ran on. The settle depends only on the water model,
@@ -858,7 +861,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model);
+          settle = canonicalSettle(model, opts.rules ? { rules: opts.rules } : {});
           opts.settleCache?.set(model, settle);
         }
       }
@@ -885,8 +888,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    // the game's own soil rules (D298)
-    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
+    // the soil rules (D298: the game's own; their default when the build's options do not say)
+    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat, opts.rules);
     moist = s.moisture;
     soil = s.contamination;
   }

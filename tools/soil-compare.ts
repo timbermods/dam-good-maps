@@ -41,7 +41,7 @@ for (const theme of themes)
     // living plants the old model put on ground the game's rules leave dry (they would die)
     SOIL_MODE.mode = "game";
     const b0 = r0.built;
-    const g0 = gameSoil(b0.W, b0.H, b0.heights, b0.water, b0.contamination, b0.entities.map(toMapObject), b0.settle.sat);
+    const g0 = gameSoil(b0.W, b0.H, b0.heights, b0.water, b0.contamination, b0.entities.map(toMapObject), b0.settle.sat, "game");
     let dies = 0;
     for (const e of b0.entities) {
       if (!PLANT.test(e.template) || e.x < 0 || e.y < 0 || e.x >= b0.W || e.y >= b0.H) continue;

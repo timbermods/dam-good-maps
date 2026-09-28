@@ -25,7 +25,7 @@ import { DROUGHT, officialRange, REACH_MIN, RESERVE, reservoirNeeded } from "../
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
-import { gameSoil } from "../sim/soil";
+import { gameSoil, type SoilRules } from "../sim/soil";
 import type { CanonicalWater } from "../sim/prefill";
 import { TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
@@ -109,6 +109,8 @@ export interface PlayabilityInput {
   features: readonly Feature[] | null;
   /** Entity ids in object order, for `where` and fixes. */
   ids?: readonly string[];
+  /** The soil rules (sim/soil.ts; the default when absent, D308). */
+  soilRules?: SoilRules;
 }
 
 /** What the checks measured, for the preview layers and the map card. */
@@ -226,8 +228,8 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
   });
   checkContained(inp, c);
 
-  // the game's own soil rules (D298), as the build has them
-  const soil = gameSoil(W, H, h, D, C, objects);
+  // the soil rules (D298: the game's own), as the build has them
+  const soil = gameSoil(W, H, h, D, C, objects, undefined, inp.soilRules);
   const M = soil.moisture;
   const SC = soil.contamination;
   const analysis: PlayabilityAnalysis = {
@@ -719,7 +721,7 @@ function checkStart(
     const kept = droughtStorage(model, D, rules.droughtDays);
     const Cd = new Float64Array(N);
     for (let i = 0; i < N; i++) Cd[i] = kept[i] > 0 ? C[i] : 0;
-    const Md = gameSoil(W, H, h, kept, Cd, objects).moisture;
+    const Md = gameSoil(W, H, h, kept, Cd, objects, undefined, inp.soilRules).moisture;
     const thirsty: string[] = [];
     let thirstyCount = 0;
     objects.forEach((o, k) => {

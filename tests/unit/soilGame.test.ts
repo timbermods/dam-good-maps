@@ -74,10 +74,14 @@ describe("the game's soil on a heightfield (D298)", () => {
     const { W, H, h, objects, water } = scene();
     const masks = heightMasks(W, H, h);
     expect(hash(soil3d(masks, waterColumns(masks, objects), water, objects, "game"))).toBe("54248ee8ab705b8c");
-    expect(hash(gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat))).toBe("54248ee8ab705b8c");
+    expect(hash(gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "game"))).toBe("54248ee8ab705b8c");
+    // and under the port's rules, the port's modules' numbers
+    const ported = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "port");
+    const bar = moistureBarrier(W, H, objects);
+    expect(Array.from(ported.moisture)).toEqual(Array.from(moisture(h, water.depth, water.contamination, W, H, bar)));
     // the game's rules keep moisture from leaking through the badwater stream to the land beyond it
     const port = moisture(h, water.depth, water.contamination, W, H, moistureBarrier(W, H, objects));
-    const game = gameSoil(W, H, h, water.depth, water.contamination, objects).moisture;
+    const game = gameSoil(W, H, h, water.depth, water.contamination, objects, undefined, "game").moisture;
     let differ = 0;
     for (let i = 0; i < W * H; i++) if (port[i] !== game[i]) differ++;
     expect(differ).toBeGreaterThan(0);
@@ -85,7 +89,7 @@ describe("the game's soil on a heightfield (D298)", () => {
 
   it.skipIf(!PY)("the Python validator's port gives the same numbers, bit for bit", () => {
     const { W, H, h, objects, model, water } = scene();
-    const s = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat);
+    const s = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "game");
     const thorns = objects.filter((o) => o.template === "Thorns").map((o) => [o.x, o.y]);
     const input = JSON.stringify({ W, H, h: Array.from(h), floor: Array.from(model.floor), depth: Array.from(water.depth), contamination: Array.from(water.contamination), sat: Array.from(water.sat), thorns });
     const script = [

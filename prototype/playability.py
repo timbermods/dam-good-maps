@@ -20,7 +20,7 @@ from analysis import (components, dam_sites, distance_from, is_dead, placement, 
                       reach_at, walk_distance, walk_regions)
 from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
-from soil import contamination_game, moisture_game
+from soil import DEFAULT_SOIL_RULES, contamination_game, moisture_game
 from storage import SECONDS_PER_DAY, dam_walls, levee_storage, running_flow
 
 WET = 0.05                   # water deeper than this is a water tile
@@ -221,13 +221,13 @@ def rules_for(spec, difficulty, description=""):
     }
 
 
-def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None):
+def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None, soil_rules=None):
     """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts).
-    `water_rules`: the rules the map's water is settled with (the water sim's default when not
-    given; a map converted under the port's keeps them, D311)."""
+    `water_rules`, `soil_rules`: the rules the map's water is settled with and its soil built with
+    ("game" or "port"; the defaults when not given; a map made under the port's keeps them, D308)."""
     got = {} if water is None else water
     first = len(rep.checks)
-    _check_playability(m, rep, fps, difficulty, spec, features, got, profile, water_rules)
+    _check_playability(m, rep, fps, difficulty, spec, features, got, profile, water_rules, soil_rules)
     why = approximate_reason(m, fps, got["D"])
     if why:
         for c in rep.checks[first:]:
@@ -351,7 +351,8 @@ def approximate_reason(m, fps, D):
     return "; ".join(reasons + evidence) if evidence else None
 
 
-def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None):
+def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None, soil_rules=None):
+    game_soil = (soil_rules or DEFAULT_SOIL_RULES) == "game"
     h = m.surface()
     X, Y = m.size_x, m.size_y
     N = X * Y
@@ -402,9 +403,13 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # a principle (D111): no built dam wall across a valley (src/core/analysis/ridge.ts)
     walls = dam_walls(h, D)
     rep.add("terrain.dam_wall", not walls, f"{len(walls)} dam walls" if walls else "no dam wall", len(walls), 0)
-    # the game's own soil rules (D298), as the TypeScript validator and the build have them
-    M = moisture_game(h, floor, D, C, sim.sat(), barrier)
-    SC = contamination_game(h, floor, D, C, barrier)
+    # the soil rules (D298: the game's own), as the TypeScript validator and the build have them
+    if game_soil:
+        M = moisture_game(h, floor, D, C, sim.sat(), barrier)
+        SC = contamination_game(h, floor, D, C, barrier)
+    else:
+        M = moisture(h, D, C, sim.sat(), barrier)
+        SC = contamination(h, D, C, barrier)
     water.update({"D": D, "C": C, "M": M, "SC": SC, "ticks": sim.ticks, "settled": settled})
 
     # ---- a mine site on every map (Kyler, 2026-09-25)
@@ -530,7 +535,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     else:
         kept = drought_storage(floor, D, rules["drought_days"], sources, dam)
         Cd = np.where(kept > 0, C, 0.0)
-        Md = moisture_game(h, floor, kept, Cd, cluster_saturation(kept > 0), barrier)
+        Md = (moisture_game(h, floor, kept, Cd, cluster_saturation(kept > 0), barrier) if game_soil
+              else moisture(h, kept, Cd, cluster_saturation(kept > 0), barrier))
         thirsty = 0
         for e in m.entities:
             if e["Template"] != "BlueberryBush" or "BlockObject" not in e.get("Components", {}) or is_dead(e):
