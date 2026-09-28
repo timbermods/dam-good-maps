@@ -170,7 +170,8 @@ keeps them, Try another keeps them, the project replays to the same land, a wayp
 refused); `forces.spec` (new: the ring's radius follows Power and Size for Craterize, Erupt and
 Carve, is half a hand-set Size, and Quake's has no cursor; waypoints add, Backspace, Esc, click and
 Enter launch one step each; Erupt final 1.85 s after the click, under 3 s on a busy machine, and a
-brush answers at once). Changed (D148): `forceDriver.test`'s pace check (the eruption's 28 stages in about two
+brush answers at once; where the browser draws in software, CI's, each eruption frame costs the page
+far more, 4 s there, so the wall clock is only bounded at 8 s and the paced part is the unit test's). Changed (D148): `forceDriver.test`'s pace check (the eruption's 28 stages in about two
 seconds, not four). And, the new generator's land: `forces.spec`'s Craterize on the start checks that the start
 stands on level ground after the strike (carried off broken ground, or riding a bowl its 3 × 3 stayed
 level in: on Highlands 4242's new start a crater of 30 or 70 leaves it level, one of 50 breaks it),
