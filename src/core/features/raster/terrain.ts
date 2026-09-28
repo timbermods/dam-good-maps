@@ -11,6 +11,7 @@ import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFe
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import { carveBounds, isCarve, type CarveParams } from "../../forces/carve/op";
 import { applyBrush, brushBounds, brushReadsNeighbours, type BrushParams } from "./brush";
+import { wantedCount } from "../../water/sourceGroups";
 
 export const MAX_TERRAIN = 16; // PLAN §20, D4
 
@@ -230,7 +231,39 @@ export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pa
   else if (edge === "east") for (let y = 0; y < H; y++) border(W - 1, y);
   else if (edge === "south") for (let x = 0; x < W; x++) border(x, 0);
   else for (let x = 0; x < W; x++) border(x, H - 1);
-  return out;
+  // (M9b, D314: the mouth is a row of the rule's count across the flow, the channel narrowed to it
+  // at the edge; a channel narrower than the row keeps its own width)
+  const m = mouthRow(f, W, H);
+  if (!m || out.length <= m.count) return out;
+  const along = (i: number) => (edge === "west" || edge === "east" ? Math.floor(i / W) : i % W);
+  const keep = new Set(m.along);
+  const row = out.filter((i) => keep.has(along(i)));
+  return row.length ? row : out;
+}
+
+/** An edge river's mouth as D314's rule has it: the edge tile its course crosses (`mid`, along the
+ *  edge), the count of sources the rule wants for its flow, and the positions along the edge of the
+ *  row centred on `mid`. The hydrology cuts the mouth to it and the build seals it with it. */
+export function mouthRow(f: RiverFeature, W: number, H: number): { mid: number; count: number; along: number[] } | null {
+  const entry = f.params.entry;
+  if (!("edge" in entry)) return null;
+  return mouthRowAt(entry.edge, f.params.path[0], f.params.flow, f.id, W, H);
+}
+
+export function mouthRowAt(edge: Edge, p0: readonly [number, number], flow: number, id: string, W: number, H: number): { mid: number; count: number; along: number[] } {
+  const x = Math.min(W - 1, Math.max(0, Math.round(p0[0])));
+  const y = Math.min(H - 1, Math.max(0, Math.round(p0[1])));
+  const ex = edge === "west" ? 0 : edge === "east" ? W - 1 : x;
+  const ey = edge === "south" ? 0 : edge === "north" ? H - 1 : y;
+  const vertical = edge === "west" || edge === "east";
+  const mid = vertical ? ey : ex;
+  const len = vertical ? H : W;
+  const count = wantedCount({ x: ex, y: ey, strength: flow, seed: hash32(0, id) });
+  // the row: the positions nearest the middle, the lower first on a tie
+  const cand: number[] = [];
+  for (let a = Math.max(0, mid - count); a <= Math.min(len - 1, mid + count); a++) cand.push(a);
+  cand.sort((p, q) => Math.abs(p - mid) - Math.abs(q - mid) || p - q);
+  return { mid, count, along: cand.slice(0, count).sort((p, q) => p - q) };
 }
 
 /** The channel tiles a spring-fed river's sources stand on: the ones nearest its spring, enough

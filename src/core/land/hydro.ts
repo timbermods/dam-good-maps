@@ -30,6 +30,7 @@
 // Ported from the design version 2 prototype (investigation/generative/v2/hydro.ts).
 
 import { featureId } from "../features/ids";
+import { mouthRowAt } from "../features/raster/terrain";
 import type { BedStep, Edge, Point, RiverFeature } from "../features/schema";
 import { density } from "../gen/calibrated";
 import { hash32 } from "../math/hash";
@@ -910,19 +911,21 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // M9b: the banks beside an inflow's mouth. The game drains every edge tile but the mouth's own
   // sources (its plain width), so the outer two rows of the inflow's edge beyond that width keep
   // their ground: a channel or floor that bent along the edge there would let the water out
+  // (D314: the mouth itself is a row of the rule's count across the flow, raster/terrain.ts
+  // `mouthRowAt`; the edge rows beside it keep their ground)
   const mouthBank = new Uint8Array(N);
+  const mouthRows = new Map<number, { edge: Edge; along: number[] }>();
   if (natural)
     for (const tr of traced) {
       const hd = tr.head;
       if (hd.kind !== "edge") continue;
       const e = hd.edge!;
-      const hx = hd.cell % W;
-      const hy = Math.floor(hd.cell / W);
-      const plain = widthFor(hd.flow) / 2 + 0.5;
+      const row = mouthRowAt(e, courses[tr.k][0], hd.flow, featureId(seed, "river", roleOf(tr.k)), W, H);
+      mouthRows.set(tr.k, { edge: e, along: row.along });
+      const inRow = new Set(row.along);
       for (let t = 0; t < 2; t++)
         for (let a = 0; a < (e === "west" || e === "east" ? H : W); a++) {
-          const along = e === "west" || e === "east" ? a - hy : a - hx;
-          if (Math.abs(along) <= plain) continue;
+          if (inRow.has(a)) continue;
           const x = e === "west" ? t : e === "east" ? W - 1 - t : a;
           const y = e === "south" ? t : e === "north" ? H - 1 - t : a;
           mouthBank[y * W + x] = 1;
@@ -1026,16 +1029,16 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
     }
     carve(st, bedOf, L, n, half, floorHalf);
-    // (M9b: an inflow's mouth stays three tiles wide and level for its first three rows, its bed
-    // there: the edge's banks beside it are kept now, and a narrower mouth held no BadwaterSource
-    // when the player turns the river to badwater, EDITOR_PLAN §4)
-    if (natural && hd.kind === "edge") {
-      const e = hd.edge!;
+    // (M9b: an inflow's mouth, the rule's row (D314), stays level for its first three rows, its
+    // bed there: the edge's banks beside it are kept, and its sources stand on one level)
+    const mr = mouthRows.get(tr.k);
+    if (natural && hd.kind === "edge" && mr) {
+      const e = mr.edge;
       const block: number[] = [];
       for (let t = 0; t < 3; t++)
-        for (let a = -1; a <= 1; a++) {
-          const x = e === "west" ? t : e === "east" ? W - 1 - t : hx + a;
-          const y = e === "south" ? t : e === "north" ? H - 1 - t : hy + a;
+        for (const a of mr.along) {
+          const x = e === "west" ? t : e === "east" ? W - 1 - t : a;
+          const y = e === "south" ? t : e === "north" ? H - 1 - t : a;
           if (x < 0 || y < 0 || x >= W || y >= H || protect?.[y * W + x]) continue;
           block.push(y * W + x);
         }

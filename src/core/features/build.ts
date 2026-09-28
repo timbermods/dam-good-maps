@@ -24,6 +24,8 @@ import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { sameRetained, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
 import { isCarve } from "../forces/carve/op";
+import { groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
+import { hash32 } from "../math/hash";
 import { DERIVED_SLOPES, entityId } from "./ids";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
@@ -581,19 +583,32 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (f.params.badwater && "edge" in f.params.entry)
       for (const [x, y] of badwaterMouth(tiles, f.params.entry.edge, W, H, heights).groups) for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) reserved[(y + dy) * W + x + dx] = 1;
   }
-  //    springs: a river that starts inland, a lake fed by a spring
-  const springs = new Map<string, number[]>();
+  //    springs: a river that starts inland, a lake fed by a spring: a group of sources as the
+  //    official maps have them (D314, water/sourceGroups.ts), a row across the flow at the river's
+  //    head (its course's first step the flow) or round the lake's spring tile
+  const springs = new Map<string, GroupedSource[]>();
   for (const f of features) {
     if (!live(f)) continue;
-    let tiles: number[] = [];
-    if (f.kind === "river") tiles = springTiles(f, target);
-    else if (f.kind === "lake") {
-      const i = lakeSpringTile(f, W, H);
-      if (i !== null) tiles = [i];
+    let at: number | null = null;
+    let strength = 0;
+    let flow: [number, number] | undefined;
+    if (f.kind === "river") {
+      const tiles = springTiles(f, target);
+      if (tiles.length) {
+        at = tiles[0];
+        strength = f.params.flow;
+        const [p0, p1] = f.params.path;
+        if (p1) flow = [p1[0] - p0[0], p1[1] - p0[1]];
+      }
+    } else if (f.kind === "lake") {
+      at = lakeSpringTile(f, W, H);
+      strength = "spring" in f.params.inflow ? f.params.inflow.spring : 0;
     }
-    if (!tiles.length) continue;
-    springs.set(f.id, tiles);
-    for (const i of tiles) reserved[i] = 1;
+    if (at === null || !(strength > 0)) continue;
+    const g = placeSourceGroup({ kind: "water", x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) }, { W, H, heights, occupied: reserved });
+    if (!g.sources.length) continue;
+    springs.set(f.id, g.sources);
+    for (const i of groupTiles(g)) reserved[i] = 1;
   }
   //    map objects (mine sites, relics, thorn belts, weirs, plugs, ...) take their tiles now, so the
   //    derived slopes go round them (PLAN §20, D69)
@@ -736,25 +751,25 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       }
       continue;
     }
-    const each = Math.min(8, Math.round((f.params.flow / tiles.length) * 1000) / 1000);
-    for (const i of tiles) {
+    // (the mouth is the rule's row, D314: the strength shared equally over it)
+    const shares = shareEqually(f.params.flow, tiles.length);
+    tiles.forEach((i, k) => {
       const x = i % W;
       const y = (i - x) / W;
+      const each = Math.min(8, shares[k]);
       sources.push({ x, y, z: heights[i], strength: each, owner: f.id, template: "WaterSource" });
       entities.push(waterSource({ id: entityId(f.id, "WaterSource", i), owner: f.id, x, y, z: heights[i], strength: each }));
-    }
+    });
   }
-  //    springs: a river's first channel tiles, a lake's middle
+  //    springs: a river's head, a lake's middle, each a group (the anchor keeps the id its one
+  //    tile had; the others' ids come from their tiles)
   for (const f of features) {
-    const tiles = springs.get(f.id);
-    if (!tiles || (f.kind !== "river" && f.kind !== "lake")) continue;
-    const flow = f.kind === "river" ? f.params.flow : "spring" in f.params.inflow ? f.params.inflow.spring : 0;
-    const each = Math.min(8, Math.round((flow / tiles.length) * 1000) / 1000);
-    for (const i of tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      sources.push({ x, y, z: heights[i], strength: each, owner: f.id, template: "WaterSource" });
-      entities.push(waterSource({ id: entityId(f.id, "WaterSource", i), owner: f.id, x, y, z: heights[i], strength: each }));
+    const group = springs.get(f.id);
+    if (!group || (f.kind !== "river" && f.kind !== "lake")) continue;
+    for (const src of group) {
+      const i = src.y * W + src.x;
+      sources.push({ x: src.x, y: src.y, z: heights[i], strength: src.strength, owner: f.id, template: "WaterSource" });
+      entities.push(waterSource({ id: entityId(f.id, "WaterSource", i), owner: f.id, x: src.x, y: src.y, z: heights[i], strength: src.strength }));
     }
   }
   //    set pieces add theirs (a waterfall's springs, badwater)

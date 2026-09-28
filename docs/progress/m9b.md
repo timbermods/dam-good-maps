@@ -12,7 +12,7 @@
 > samples; the full batches, the 200-seeds-per-theme measures and one pooled probe batch run once,
 > at the release candidate; a review set only when Kyler's eye is needed. The game's water rules
 > are accepted although D297's line is missed where thin sheets form less (D311). Defaults this
-> session chose: decisions-pending #100–#109 and #130–#133.
+> session chose: decisions-pending #100–#109 and #130–#134.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -251,6 +251,14 @@ the build (`rules`), `validateMap` (`waterRules`, `soilRules`), and `prototype/v
 (`--water-rules`, `--soil-rules`). M9b's own switch (`06e9bb87`) turns both defaults to the game's;
 the Real places, converted under the port's water, settle with it (`place.ts`) until Real places 2
 converts them under the game's.
+
+**Sources in groups (D314)**, part of the same switch: `water/sourceGroups.ts` taken whole from
+`feature/source-groups` (a6346fe4). The build places a river's inland spring and a lake's spring as
+a group (a row across the flow at the head, 2–5 sources sharing the strength, fewer where the ground
+is cramped); an edge river's mouth is the rule's row centred where its course crosses the edge, the
+channel narrowed to it (`raster/terrain.ts` `mouthRow`, which the hydrology cuts and the build
+seals; decisions-pending #134). Aquifers, set pieces' own springs and a badwater river's mouth are
+unchanged; the generator places no other badwater springs (its badwater is the pits' set pieces).
 
 **The one re-pin** (D148, D308): the water golden vectors (under the game's rules); the speed-ups
 test keeps the port's digests and pins the game's beside them; `waterGame.test.ts` checks the two
