@@ -1,22 +1,89 @@
 # M9b: composition and variety
 
-> **In progress (2026-09-28).** Branch `feature/m9b` (draft PR #70), from `feature/m9a` (merged in
-> to 39863f6, D302's start water rule) and `dev` (to d02ac283). Generator **0.8.0**. Built: one readable water system with
-> courses held end to end, Islands' sea in six layouts, the themes steered toward their promises
-> and checked, the candidate choice, D274's intentions, the 8 orientations, names and a
-> how-it-plays line in the map's own numbers, Another like this, Variety as a setting, the game's
-> soil rules (D298) and now the game's water rules and edge spill (D293, D303: one switch, D308),
-> the probe's badwater finding (D302 (1)). **The plan (D308):** the rules switch lands with one
-> re-pin of the tests and golden fixtures (the water golden vectors done; the map-bound tests and
-> `npm run oracle` next, once the generator settles); then iterate on contact sheets and small
-> samples; the full batches, the 200-seeds-per-theme measures and one pooled probe batch run once,
-> at the release candidate; a review set only when Kyler's eye is needed. The game's water rules
-> are accepted although D297's line is missed where thin sheets form less (D311). Defaults this
+> **Paused for Tuesday's handoff (2026-09-27, evening; resume 2026-09-29 8:01 PDT).** Branch
+> `feature/m9b` (draft PR #70), generator **0.8.0**, from `feature/m9a` (merged to 39863f6) and
+> `dev` (to d02ac283). The one switch to the game's rules (D308) is in: water and edge spill (D293,
+> D303, D311), soil (D298), sources in groups (D314). The one re-pin is **half done**: 10 map-bound
+> quick tests fail since the grouped sources changed every map (see "Handoff" below for the list,
+> the seeds and the commands). Next: finish that re-pin, then contact sheets and small samples; the
+> full batches, the measures and one pooled probe at the release candidate (D308). Defaults this
 > session chose: decisions-pending #100–#109 and #130–#134.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
 "Challenge" (Challenge's terrain difficulty is deferred, D276).
+
+## Handoff (2026-09-27, evening)
+
+Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
+D290) on `d5dd375f` (two map fixes) on `284818ad` (sources in groups). Since the grouped sources:
+
+- **D314's source groups** (`284818ad`): `src/core/water/sourceGroups.ts`, its README and
+  `tests/unit/sourceGroups.test.ts` taken whole from `a6346fe4`; inland springs and a lake's spring
+  are groups (`placeSourceGroup` in `features/build.ts`); an edge mouth is the rule's row
+  (`mouthRow`/`mouthRowAt` in `features/raster/terrain.ts`, cut by `land/hydro.ts`, sealed by the
+  build; the channel narrowed to it). Pending default #134.
+- **D290 and the badwater toggle** (`2afb62f9`, docs only): on a mouth of 2 the editor's badwater
+  toggle follows D290 (the 3×3 moves in along the channel and cuts its own pool, never refuses);
+  that editor side lands with `feature/forces` (dd01844). Nothing to build on M9b.
+- **Two map fixes** from the contact sheet (`d5dd375f`): a badwater ditch no longer runs
+  ruler-straight where its wave met ground it keeps off (`land/hazards.ts` `windOnce`: the wave
+  swings less there, down to the route); the sea's rim of land along the edges wanders
+  (`land/field.ts`, `keepRim`), so no sea draws a square.
+- `docs/sheets/m9b.png` (committed earlier) was made before the grouped sources and these fixes:
+  remake it at the release candidate.
+
+**The quick suite on `d5dd375f`** (`npx vitest run --project quick --maxWorkers=4`, about 25 min):
+765 passed, 10 failed, 13 skipped. The ten, and what each needs (D148: re-seed or re-pin, never
+weaken):
+
+| Test | Now | Needs |
+|---|---|---|
+| `tests/contract/look-mine-ruins.test.ts`, the 4242 download | `LIVE_SHA` 8d2941ad… | re-pin to the new sha (4f739ec0…; print the full one with the snippet below) and add 8d2941ad… to the comment's history |
+| `tests/contract/brush.test.ts`, "smooth, make walkable…" | River Valley 96² seed 4 | another seed where the stroke by the start finds a cliff |
+| `tests/contract/carve.test.ts`, the oxbow carve | Canyon 96² seed 22, aim (48, 10) → (48, 86) | a Canyon seed and aim whose carve leaves a lake of 70+ tiles |
+| `tests/contract/objects.test.ts`, "ruins on a rise" | highlands 7, islands 6, 8, 7 (2 of 4 now) | four 128² maps holding an `obstaclePayoff` set piece |
+| `tests/contract/setpieces.test.ts`, "an on-river fall asked to drop 16…" | `session(96, 7)` | a 96² seed where some place along a river takes the fall |
+| `tests/contract/setpieces.test.ts`, gorge, terraced cliffs, badwater basin | `session(128, 7)` (the describe's one map) | a 128² seed where all four builders' range tests pass |
+| `tests/contract/shelf.test.ts`, the painted grove | River Valley 96² seed 18 | a seed with 9×9 open level ground 16+ tiles from the start |
+| `tests/contract/resources.test.ts`, "generated maps carry the official amounts…" | 0.5225, the line < 0.52 | **look first**: a share just over its line on the grouped-source maps; find which measure and whether a map changed or the line was tight, before re-seeding |
+
+**Next step, in order:**
+
+1. Re-seed the six seed-bound tests the way the earlier ones were (`docs/progress/m9b.md`, "Tests
+   updated…"): make the test's seed an environment value for a moment, try seeds, keep the first
+   that passes, hard-code it with a one-line reason, e.g.
+
+   ```
+   sed -i 's/session(128, 7)/session(128, Number(process.env.GSEED ?? 7))/' tests/contract/setpieces.test.ts
+   for g in 8 9 10 11 12; do GSEED=$g npx vitest run tests/contract/setpieces.test.ts -t "the other builders" | grep -E "Tests "; done
+   ```
+
+   For the set-piece maps, a quick finder: generate seeds and list the maps whose features hold
+   `obstaclePayoff` / `secondDistrict` / `weir` (`r.features.some((g) => g.kind === "setPiece" &&
+   g.params.kind === "obstaclePayoff")`). For the oxbow: a Canyon 96² sweep over seeds 1–30 and six
+   aims (corner to corner both ways, edge to edge both ways), keeping the first whose
+   `carveParams(...).lake.tiles.length > 70` (the test's own `carveOp`).
+2. Re-pin the 4242 sha:
+
+   ```
+   npx tsx -e 'import { createHash } from "node:crypto"; import { generate } from "./src/core/gen/generate"; import { makeSpec } from "./src/core/spec/mapspec"; const r = generate(makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" })); console.log(createHash("sha256").update(r.bytes).digest("hex"));'
+   ```
+3. Look at the resources test's 0.5225 (above), then run the quick suite again; log every changed
+   test under "Tests updated…" (D148).
+4. Then, under D308: small samples on 256² generation time (Canyon 256² seed 1 still takes 12
+   attempts, most refused after the settle: a source in another's flow, the water not settling, the
+   course check); the names hand-check (30 maps, 10 at Variety 100); merge `origin/dev` when M9a
+   lands there. At the release candidate: the contact sheet again (`npm run sheet -- --compare
+   origin/feature/m9a --png docs/sheets/m9b.png --no-open`), the per-theme batches (`tools/batches.ts`,
+   96/128 at 100 seeds, 192/256 at 50, 4 jobs) and the chaos batch (`--themes any --sizes 128,256
+   --set "vy=100&vt=100"`), the 200-seeds measures, the pooled probe, then the review set
+   (`investigation/m9b-review/make-all.ts`).
+
+Also in flight: the rules set Real places 2 takes is `1c9d1340` (its checkout line is in the
+milestone session's messages and in the commit's message: water and soil default to the port's
+there); the paused per-theme batches of the port-era generator (investigation/m9b/local/batches/)
+are stale: don't resume them.
 
 ## What was built
 
