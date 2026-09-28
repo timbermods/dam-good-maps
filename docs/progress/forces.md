@@ -22,8 +22,16 @@
 >     Flatten's, every file's encoding checked and re-encoded where it helped, the default volume a
 >     quarter lower (saved volumes kept exactly).
 > 13. **D315, Delete sources: done** (the section below, added 2026-09-28), with one finding parked
->     for the milestone session: emptying the whole map's water in one step (Ctrl+A) is a case
->     nothing had done before, and it needs a look (below).
+>     for the milestone session: removing a source (even one) sometimes drops a few nearby bushes from
+>     the live view once the water preview runs forward, seen in CI but not locally, so it looks like
+>     the live simulation's own timing; it needs a look (below).
+>
+> **Handoff stop (2026-09-28 evening, on `feature/forces-sounds`, PR #81 into `feature/forces`,
+> not merged):** D313 and D315 both done as above; CI green on the branch's own run
+> (36373773578), a duplicate-triggered run (36373778224) still finishing `test` at handoff with
+> `generation`/`oracle` already green; branch pushed, working tree clean, last commit
+> `3289a104102fce712a87a0c2d4762b8aad25bf70`. Next: confirm the second run, then merge #81 into
+> `feature/forces`.
 >
 > **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
 > each section).
