@@ -14,7 +14,8 @@
 import type { EntitySpec } from "../../format/entities";
 import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
-import { guidFrom } from "../../math/hash";
+import { guidFrom, hash32 } from "../../math/hash";
+import { placeSourceGroup } from "../../water/sourceGroups";
 import { MinHeap, N8 } from "../../math/grid";
 import { EMITTERS } from "../../sim/model";
 import { prefill, spillLevels } from "../../sim/prefill";
@@ -842,25 +843,55 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   m.fallen = m.fallen.filter((f) => m.entities.some((e) => e.id === f.id));
   trimRock(m);
   let serial = 0;
-  const addSource = (i: number, strength: number) => {
+  const newId = () => {
     let id = guidFrom("glaciate", s.seed, intent.origin, serial++);
     while (m.entities.some((e) => e.id === id)) id = guidFrom("glaciate", s.seed, intent.origin, serial++);
+    return id;
+  };
+  const addSource = (i: number, strength: number, id = newId()) => {
     m.entities.push(waterSource({ id, owner: "glaciate", x: i % W, y: Math.floor(i / W), z: m.heights[i], strength }));
+  };
+  // D314: the finished glacier's springs come in groups, as the game's own maps have them (a row
+  // across the flow, fewer where cramped, the strength shared; core/water/sourceGroups.ts); round 4's
+  // (the investigation's, `finish` off) stay one a site
+  const taken = new Uint8Array(n);
+  if (finish) for (const e of m.entities) for (const i of entityTiles(e)) taken[i] = 1;
+  const addGroup = (i: number, strength: number, flow: readonly [number, number]) => {
+    const g = placeSourceGroup({ kind: "water", x: i % W, y: Math.floor(i / W), strength, seed: hash32(s.seed, intent.origin, i), flow }, { W, H, heights: m.heights, occupied: taken });
+    if (g.refused || !g.sources.length) return addSource(i, strength);
+    const anchor = newId();
+    for (const q of g.sources) {
+      const at = q.y * W + q.x;
+      addSource(at, q.strength, at === i ? anchor : guidFrom(anchor, q.x, q.y));
+      taken[at] = 1;
+    }
   };
   if (s.meltwater) {
     let strength = 0.65 + cleanAbsorbed;
-    const sites = [tile(tarn), ...lakeSeeds.filter((i) => i !== tile(tarn))];
-    let index = 0;
-    while (strength > 0) {
-      const amount = Math.min(8, strength);
-      addSource(sites[index++ % sites.length], amount);
-      strength -= amount;
+    if (finish) {
+      // the cirque head: one group at the tarn, across the glacier's way down
+      const a = path[0];
+      const b = path[Math.min(6, path.length - 1)];
+      addGroup(tile(tarn), strength, [b.x - a.x, b.y - a.y]);
+    } else {
+      const sites = [tile(tarn), ...lakeSeeds.filter((i) => i !== tile(tarn))];
+      let index = 0;
+      while (strength > 0) {
+        const amount = Math.min(8, strength);
+        addSource(sites[index++ % sites.length], amount);
+        strength -= amount;
+      }
     }
     const fed = hanging.filter((h) => h.source !== null);
     const weights = fed.map((h) => (0.12 + Math.min(0.32, h.catchment / 650)) * (0.65 + noise(s.seed, h.mouth) * 0.7));
     const budget = Math.max(0.25, riverRadius * 0.7);
     const scale = Math.min(1, budget / (weights.reduce((a, b) => a + b, 0) || 1));
-    for (let k = 0; k < fed.length; k++) addSource(fed[k].source!, weights[k] * scale);
+    for (let k = 0; k < fed.length; k++) {
+      const h = fed[k];
+      // (a hanging valley's spring: a group at its lip, across its fall into the trough)
+      if (finish) addGroup(h.source!, weights[k] * scale, [(h.landing % W) - (h.mouth % W), Math.floor(h.landing / W) - Math.floor(h.mouth / W)]);
+      else addSource(h.source!, weights[k] * scale);
+    }
   }
   m.entities = plainEntities(m.entities);
   yield;

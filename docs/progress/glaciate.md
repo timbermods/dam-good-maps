@@ -54,6 +54,18 @@ glacier without them (the investigation's, an older operation) is round 4's, and
 the investigation's there. The captures and the case table pin round 4's details, so they compare the floor's water
 alone; Kyler's default click on the preview draws its own.
 
+## Its springs in groups (D314)
+
+`core/water/sourceGroups.ts` taken whole from a6346fe4 (`feature/source-groups`) with its README and test. The
+finished glacier's springs are placed by it (`plan.ts` `addGroup`): the cirque head's at the tarn, one group across the
+glacier's way down (the direction from its first station to its seventh), in place of round 4's chunks of eight; each
+hanging valley's at its lip, across its fall into the trough. Most hanging springs are below the rule's 0.25 a
+source, so they stay single; the head's 0.65 is a row of two on Canyon, of three on random-1. Ids: the anchor keeps
+the glacier's own serial id, the others derive from it and their tile. Stored literally (the operation's `sources`),
+version unchanged: every saved glacier replays exactly as it was; round 4's (the investigation's planner, `finish`
+off) keeps one source a site. The floor's counts on the 24 cases are the same as before the groups, to the table's
+precision (the springs stand in the tarn and at the lips, not on the floor).
+
 ## The floor's water (D292)
 
 Round 4's floor had several wet passages beside its main river: pools at the foot of the falls and side inflows, joined

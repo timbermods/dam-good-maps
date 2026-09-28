@@ -335,3 +335,28 @@ describe("Glaciate through waypoints (D312)", () => {
     ed.settleWater();
   });
 });
+
+describe("Glaciate's springs in groups (D314)", () => {
+  it("the cirque head's spring is a row across the glacier's way, its strength shared; each spring a group by the rule; round 4's stay one a site", () => {
+    const m = fixture("canyon-128");
+    const at = { origin: 22 * m.W + 22 };
+    const springs = (finish: boolean) => makePlan(snapshotMap(m), GLACIATE_DEFAULTS, at, undefined, finish).map.entities.filter((e) => e.owner === "glaciate");
+    const strength = (e: { before?: Record<string, unknown> }) => {
+      const v = (e.before!.WaterSource as { SpecifiedStrength: unknown }).SpecifiedStrength;
+      return typeof v === "number" ? v : (v as { value: number }).value;
+    };
+    const r4 = springs(false);
+    const grouped = springs(true);
+    // the head: one source at round 4's tarn, a row at the finished glacier's (placed first); the
+    // strength kept (to a thousandth a source)
+    const head = r4[0];
+    const row = grouped.filter((e) => Math.abs(e.x - grouped[0].x) + Math.abs(e.y - grouped[0].y) <= 3 && Math.abs(strength(e) - strength(grouped[0])) < 0.002);
+    expect(row.length).toBeGreaterThan(1);
+    expect(new Set(row.map((e) => e.z)).size).toBe(1);
+    expect(new Set(row.map((e) => e.x)).size === 1 || new Set(row.map((e) => e.y)).size === 1).toBe(true);
+    expect(Math.abs(row.reduce((a, e) => a + strength(e), 0) - strength(head))).toBeLessThan(0.01 * row.length);
+    // ids stable: the same plan twice gives the same springs
+    expect(springs(true).map((e) => `${e.id} ${e.x} ${e.y}`)).toEqual(grouped.map((e) => `${e.id} ${e.x} ${e.y}`));
+    expect(new Set(grouped.map((e) => e.id)).size).toBe(grouped.length);
+  });
+});

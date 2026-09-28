@@ -222,7 +222,9 @@ editor is desktop-first (D185).
   land, the game's own water: nothing is masked. Bound only by nature (D257): no refusal for playability (only the map's
   floor: "At the map floor: no ground left to carve"); through the start's ground it goes on and the start is carried to
   level ground in the same step. Trees and objects in its path are swept; swept clean sources feed its cirque head,
-  badwater is discarded. One `forceResult` operation, one undo step, stored literally: its changed levels and every level
+  badwater is discarded. Its springs come in groups as the game's own maps have them (D314, `core/water/sourceGroups.ts`):
+  the cirque head's a row across the glacier's way down, each hanging valley's a group at its lip (small springs stay
+  one), the strength shared. One `forceResult` operation, one undo step, stored literally: its changed levels and every level
   of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; Esc
   reverts it at once, Try another replaces it, and it replays to the same bytes. It builds up to the editor's one
   ceiling (D172's tall maximum on every map, D244). Sounds from the editor's CC0 bank (grinding stone, a
