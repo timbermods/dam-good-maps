@@ -132,6 +132,9 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     the ground and the clean source.
 18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
     Meltwater, Try another; one river on the floor; the camera stays put.
+    Its More holds Benches, Steps, Tarn and Scree, each on Auto. The floor's one-river measurements and captures were made with
+    round 4's values (some benches, some steps, a tarn, scree); a click draws its own, so a glacier with many steps or sheer walls
+    hasn't been measured: say if the floor ever reads as more than one river.
 19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
 20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
 21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
