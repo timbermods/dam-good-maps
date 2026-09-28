@@ -340,7 +340,12 @@ async function main() {
   let browser: Browser | null = null;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: this is D201/D215, before the High look existed, and "before"/"first" are dev
+    // or old-commit checkouts with no High to pick from at all; a capable GPU would otherwise draw
+    // "after" in High by itself (found auditing capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => {
@@ -501,7 +506,11 @@ async function bench(): Promise<void> {
   const browser = await chromium.launch({ channel: "chrome", headless: false, args: [...GPU_ARGS, ...keepDrawing, ...(other ? [`--use-adapter-luid=${other.luid}`] : [])] });
   const rows: string[] = [];
   try {
-    const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+    // Standard held: "before" is dev, with no High to pick from; a capable GPU would otherwise draw
+    // "after" in High by itself (found auditing capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     if (other) {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
@@ -546,7 +555,10 @@ async function draft(): Promise<void> {
   const after = await site(resolve("."), "after", AFTER_PORT);
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held, matching main()'s captures (found auditing capture-badwater.ts's same gap)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     page.on("pageerror", (e) => console.log(`page error: ${e}`));
     page.on("console", (m) => {
       if (m.type() === "error" || m.type() === "warning") console.log(`console: ${m.text().slice(0, 2000)}`);
@@ -598,7 +610,10 @@ async function d222(): Promise<void> {
   let browser: Browser | null = null;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held, matching main()'s captures (found auditing capture-badwater.ts's same gap)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     const tool = await browser.newPage();
