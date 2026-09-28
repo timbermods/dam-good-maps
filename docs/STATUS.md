@@ -15,8 +15,8 @@ Your sixty-four decisions since the restart are recorded (D252–D315, below) an
 1. **Real places (#35): the rebuild is paused** until the grouped-sources rule (D314) is in; then one rebuild with the fixes, 256²,
    badwater and grouped sources, under the game's water and soil rules. Where it stopped and how to resume: the top note of
    `docs/progress/real-places.md` on `feature/real-places-2`.
-2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
-   count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
+2. **M9a is released** (`m9a-done` at c31a77e; release PR #80, `main` at a4af2bb0; the deploy and the live check
+   passed; the public site generates with 0.7.0 and Any; the preview republished).
 3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
 4. **M9b: the game's water rules and D297's line, a question with a default.** M9b has switched open-ground water to the game's rules
    (D308; 434dcd12), with the Python check agreeing bit for bit. On 18 sample maps at 128², 10 stay within D297's line; 8 don't:
@@ -156,6 +156,10 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 
 ### 2. Released or merged
 
+- **Released: `m9a-done`** ([#80](https://github.com/timbermods/dam-good-maps/pull/80), `main` a4af2bb0; tagged at c31a77e, the merge of
+  #56). Generator 0.7.0: maps grown from design version 2's processes, Any (Surprise me) as the default, starts that don't look alike,
+  the starting-logs floor, start water fed or lasting (D302), the settled water's flows stored in the file. Also carried: #63, #69
+  (Glaciate's investigation), #72 (housekeeping). The deploy and the live check passed.
 - **Merged into `dev`** (2026-09-26, the Live editing boundary):
   - [#60](https://github.com/timbermods/dam-good-maps/pull/60) Live editing: D212's two changes (Water source and Badwater
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
