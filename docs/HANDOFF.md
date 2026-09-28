@@ -31,14 +31,14 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    it at the top of `CLAUDE.md` and of this page, so every session reads it before any task; it applies to every
    session, agent and investigation, and to prompts from the planning chat and Codex.
 2. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
-   the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover
-   placement mode), then 12), then 1, 2, 6, 8, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle) and 30 (a
-   force changes things only when it reaches them) on `feature/forces` (29 and 30 also on Glaciate's branch), and last
-   19 (Spring, a new force) (`build`, Opus 5.5, high); 20 (Generate always makes a new map), 25 (Carve's Canyon depth
-   and River depth named apart) and 31 (Sources: Ride · Keep · Clear) on `feature/forces` (`build-light`, Sonnet 5,
-   high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with the water shades work on
-   `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add each to Kyler's
-   checklist.
+   the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover placement
+   mode), then 12), then 1, 2, 6, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle), 30 (a force changes things
+   only when it reaches them) and 37 (the height brushes with a target level, like the game's editor; it replaces item 8)
+   on `feature/forces` (29 and 30 also on Glaciate's branch), and last 19 (Spring, a new force) (`build`, Opus 5.5, high);
+   20 (Generate always makes a new map), 25 (Carve's Canyon depth and River depth named apart) and 31 (Sources: Ride · Keep
+   · Clear) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the
+   game's) with the water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's
+   verdict. Add each to Kyler's checklist.
 3. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
    `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
    are under way): record it in PLAN §20 as the next free D-number; write `docs/HISTORY.md` (a short chapter per major
