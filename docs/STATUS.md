@@ -15,13 +15,14 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 ### 1. Needs your decision or your eyes
 
 1. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
-   the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11, then 12), then 1, 2, 6, 8,
-   9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle) and 30 (a force changes things only when it reaches
-   them) on `feature/forces` (29 and 30 also on Glaciate's branch), and last 19 (Spring, a new force) (`build`, Opus
-   5.5, high); 20 (Generate always makes a new map) and 25 (Carve's Canyon depth and River depth named apart) on
-   `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with
-   the water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
-   each to Kyler's checklist.
+   the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover
+   placement mode), then 12), then 1, 2, 6, 8, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle) and 30 (a
+   force changes things only when it reaches them) on `feature/forces` (29 and 30 also on Glaciate's branch), and last
+   19 (Spring, a new force) (`build`, Opus 5.5, high); 20 (Generate always makes a new map), 25 (Carve's Canyon depth
+   and River depth named apart) and 31 (Sources: Ride · Keep · Clear) on `feature/forces` (`build-light`, Sonnet 5,
+   high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with the water shades work on
+   `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add each to Kyler's
+   checklist.
 2. **The water shades: pick one (D310).** Built on `feature/high-look` (30d7a767, CI green; the captures in `docs/look/high/`
    recaptured). Deep water now matches the game (L* 29.6 against its 29.2) and the middle is close (32.4 against 35.1); the two
    readability tests are back at their old strictness. But the shallows went lighter (L* 62.3): shallow to deep spans about 33 L*
