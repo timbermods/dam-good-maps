@@ -1717,7 +1717,7 @@ export type ForceRequest = (
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
-  | { verb: "glaciate"; settings: GlaciateSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
+  | { verb: "glaciate"; settings: GlaciateSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null }
 ) & {
   /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the land
    *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
@@ -1950,7 +1950,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
-  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : [])];
+  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb === "glaciate" && req.via ? req.via : []), ...(req.verb !== "erupt" && req.end ? [req.end] : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
@@ -2005,7 +2005,14 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
         map = stagedForceMap(base);
         const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
-        const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) }, keep);
+        // waypoints (D312): the ones that move on from the last, between the origin and the end
+        const stops: [number, number][] = [];
+        for (const p of aimed ? (req.via ?? []) : []) {
+          const last = stops.at(-1) ?? req.origin;
+          if (p[0] !== last[0] || p[1] !== last[1]) stops.push(p);
+        }
+        while (stops.length && aimed && stops.at(-1)![0] === aimed[0] && stops.at(-1)![1] === aimed[1]) stops.pop();
+        const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(stops.length ? { via: stops.map(at) } : {}) }, keep);
         run.finalize = buildTouches(state, base.heights, () => run.footprint());
         staged = run;
         break;
@@ -2229,7 +2236,10 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
     }
     case "glaciate": {
       const r = f.staged as GlaciateRun;
-      return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}) } };
+      const W = f.before.W;
+      const via = r.intent.via ?? [];
+      // (its waypoints, D312: the whole line it was given, origin to end, as the path)
+      return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}), ...(via.length ? { path: pathRecord([req.origin, ...via.map((i) => [i % W, Math.floor(i / W)] as [number, number]), req.end!].map(([x, y]) => ({ x, y }))) } : {}) } };
     }
     default:
       throw new Error("a carve keeps its own record");

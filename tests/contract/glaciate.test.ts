@@ -302,3 +302,36 @@ describe("Glaciate's details behind More, each on Auto until pinned (D309)", () 
     ed.settleWater();
   });
 });
+
+describe("Glaciate through waypoints (D312)", () => {
+  it("an Aim through waypoints goes near each of them, keeps them in its operation and replays exactly; without them, Aim is as before", async () => {
+    const m = fixture("canyon-128");
+    const W = m.W;
+    const t = (x: number, y: number) => y * W + x;
+    const settings = { ...GLACIATE_DEFAULTS, mode: "aim" as const };
+    const via = [t(60, 40), t(80, 70)];
+    const p = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40), via }, undefined, false);
+    for (const w of via) {
+      const [x, y] = [w % W, Math.floor(w / W)];
+      const near = Math.min(...p.path.map((q) => Math.hypot(q.x - x - 0.5, q.y - y - 0.5)));
+      expect(near, `${x},${y}`).toBeLessThan(6);
+    }
+    const straight = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40) }, undefined, false);
+    expect(Array.from(p.map.heights)).not.toEqual(Array.from(straight.map.heights));
+    // in the worker: kept as its line, replayed exactly
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const st = ed.forceStart({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: [20, 20], via: [[40, 30], [60, 60]], end: [76, 70], cut: null });
+    expect(st.errors).toEqual([]);
+    for (let k = 0; k < 400 && !ed.forceAdvance(4)!.done; k++);
+    expect(ed.forceStop().kept).toBe(true);
+    const s = MapSession.open(decodeProject(ed.project().bytes));
+    const op = s.logOps.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
+    expect(op.settings.mode).toBe("aim");
+    expect(op.where.path).toEqual([[20, 20], [40, 30], [60, 60], [76, 70]]);
+    expect(Array.from(MapSession.open(decodeProject(s.project())).built.heights)).toEqual(Array.from(s.built.heights));
+    ed.undo();
+    ed.settleWater();
+  });
+});

@@ -42,7 +42,13 @@ export const ROUND4_DETAILS: GlaciateDetails = { benches: "some", steps: "some",
 export interface GlaciateIntent {
   origin: number;
   end?: number;
+  /** Waypoints between the origin and an Aim's end (D312: Shift+click), in order: the glacier
+   *  follows a smooth curve through them, finding its own way near the line. */
+  via?: number[];
 }
+
+/** Waypoints a glacier takes at most. */
+export const GLACIATE_WAYPOINTS_MAX = 32;
 
 export interface Point {
   x: number;
@@ -120,6 +126,12 @@ export function glaciateProblem(W: number, H: number, s: GlaciateSettings, inten
   if (!(Number.isInteger(s.seed) && s.seed >= 0 && s.seed <= 0xffffffff)) return "a glacier's seed is a whole number from 0 to 4294967295";
   if (!(Number.isInteger(intent.origin) && intent.origin >= 0 && intent.origin < n)) return "the glacier's head is off the map";
   if (s.mode === "aim" && !(Number.isInteger(intent.end) && intent.end! >= 0 && intent.end! < n && intent.end !== intent.origin)) return "an aimed glacier needs its end on the map";
+  if (intent.via !== undefined) {
+    if (s.mode !== "aim") return "only an aimed glacier goes through waypoints";
+    if (!(Array.isArray(intent.via) && intent.via.length <= GLACIATE_WAYPOINTS_MAX && intent.via.every((i) => Number.isInteger(i) && i >= 0 && i < n))) return `a glacier's waypoints are up to ${GLACIATE_WAYPOINTS_MAX} tiles on the map`;
+    const all = [intent.origin, ...intent.via, intent.end];
+    if (all.some((i, k) => k > 0 && i === all[k - 1])) return "a glacier's waypoints each move on from the last";
+  }
   return glaciateDetailsProblem(s as unknown as Record<string, unknown>);
 }
 
@@ -244,9 +256,34 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
     }
     return out;
   }
-  // a directional least-cost pass: the terrain, never the seed, chooses its bends; crossing a ridge is
-  // allowed, and a modest corridor cost keeps the way it was aimed
-  const goal = intent.end!;
+  // Aim: a directional least-cost pass to the dragged end; through waypoints (D312), one pass a leg,
+  // joined and smoothed into one curve
+  if (intent.via?.length) {
+    const stops = [intent.origin, ...intent.via, intent.end!];
+    let out: Point[] = [];
+    for (let k = 1; k < stops.length; k++) {
+      const leg = aimLeg(m, stops[k - 1], stops[k]);
+      out = out.concat(k > 1 ? leg.slice(1) : leg);
+    }
+    // (a smooth curve through the waypoints: two passes of the leg's own seven-tile average)
+    for (let pass = 0; pass < 2; pass++) out = smooth7(out);
+    return out;
+  }
+  return smooth7(aimLeg(m, intent.origin, intent.end!));
+}
+
+/** A seven-tile running average (its ends as they are). */
+function smooth7(out: Point[]): Point[] {
+  return out.map((p, k) =>
+    k < 3 || k > out.length - 4 ? p : { x: out.slice(k - 3, k + 4).reduce((a, b) => a + b.x, 0) / 7, y: out.slice(k - 3, k + 4).reduce((a, b) => a + b.y, 0) / 7 },
+  );
+}
+
+/** One aimed leg, `from` to `goal` (tiles): a directional least-cost pass; the terrain, never the seed,
+ *  chooses its bends; crossing a ridge is allowed, and a modest corridor cost keeps the way it was
+ *  aimed. The tile centres from `from` to `goal`. */
+function aimLeg(m: Pick<ForceMap, "W" | "H" | "heights">, from: number, goal: number): Point[] {
+  const start = { x: (from % m.W) + 0.5, y: Math.floor(from / m.W) + 0.5 };
   const end = { x: (goal % m.W) + 0.5, y: Math.floor(goal / m.W) + 0.5 };
   const len = distance(start, end);
   const dx = (end.x - start.x) / len;
@@ -254,8 +291,8 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
   const costs = new Float64Array(m.W * m.H).fill(Infinity);
   const parent = new Int32Array(m.W * m.H).fill(-1);
   const heap = new MinHeap();
-  costs[intent.origin] = 0;
-  heap.push(0, intent.origin);
+  costs[from] = 0;
+  heap.push(0, from);
   while (heap.size) {
     const i = heap.pop();
     const c = heap.lastKey;
@@ -281,11 +318,9 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
   let at = goal;
   while (at >= 0) {
     out.push({ x: (at % m.W) + 0.5, y: Math.floor(at / m.W) + 0.5 });
-    if (at === intent.origin) break;
+    if (at === from) break;
     at = parent[at];
   }
   out.reverse();
-  return out.map((p, k) =>
-    k < 3 || k > out.length - 4 ? p : { x: out.slice(k - 3, k + 4).reduce((a, b) => a + b.x, 0) / 7, y: out.slice(k - 3, k + 4).reduce((a, b) => a + b.y, 0) / 7 },
-  );
+  return out;
 }
