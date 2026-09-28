@@ -78,7 +78,10 @@ decisions since the restart (D252–D315) are recorded below and in the living d
      **27**, a river whose head is at the map's edge flows into the map, not off it (a natural lip at the boundary beside
      and behind its sources, with the grouped-sources rule, D314; also checked in the Real places conversion and wherever
      a force places sources at an edge; report how many M9a maps lose water off the map at a river's head, before and
-     after).
+     after); **36**, tall maps and the Highest terrain control (check whether Verticality 100 maps exceed 16; if
+     Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a hint on what above 16
+     means; the two controls never contradict each other; and Verticality 100's choppy one- and two-tile blocks and
+     spikes made wild but readable under M9b's chaos rule).
 8. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
    conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group, badwater grouped. 37 of 136
    places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump

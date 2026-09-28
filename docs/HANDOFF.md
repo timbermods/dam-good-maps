@@ -93,7 +93,10 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    batch); **27**, a river whose head is at the map's edge flows into the map, not off it (a natural lip at the
    boundary beside and behind its sources, with the grouped-sources rule, D314; also checked in the Real places
    conversion and wherever a force places sources at an edge; report how many M9a maps lose water off the map at a
-   river's head, before and after).
+   river's head, before and after); **36**, tall maps and the Highest terrain control (check whether Verticality
+   100 maps exceed 16; if Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a
+   hint on what above 16 means; the two controls never contradict each other; and Verticality 100's choppy one-
+   and two-tile blocks and spikes made wild but readable under M9b's chaos rule).
 7. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
