@@ -130,7 +130,9 @@ export function startRing(objects: readonly MapObject[], W: number, H: number): 
 }
 
 /** Check ids a map's mechanics make approximate: its water checks and its start checks (the
- *  playability class; the load checks of the start stay exact). */
+ *  playability class; the load checks of the start stay exact). The starting-logs floor,
+ *  `start.wood_floor`, stays exact too: its logs are counted over the ground and its slopes, never
+ *  the water, and it is absolute (D224, D225, D227). */
 export function approximateId(id: string): boolean {
   return id.startsWith("water.") || /^start\.(dry|water|badwater|reach|food|wood|ruins_clear)$/.test(id);
 }

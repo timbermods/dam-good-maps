@@ -254,9 +254,9 @@ describe("a rebuild touches only what an edit affects (PLAN §19.7)", () => {
 
   it("a sculpt rebuilds its own rectangle", () => {
     const s = fresh();
-    const dam = r.features.find((f): f is SetPieceFeature => f.kind === "setPiece" && f.params.kind === "damSite")!;
-    const gorgeX = Math.round((dam.params.plan as { at: number }).at);
-    const x0 = gorgeX < W / 2 ? W - 12 : 4;
+    // away from the set pieces (the badwater hollows), whose rasterizers read further than they write
+    const pits = r.features.filter((f): f is SetPieceFeature => f.kind === "setPiece").map((f) => Number(f.params.plan.x));
+    const x0 = pits.every((x) => x > W / 2) ? 4 : W - 12;
     s.apply({ op: "sculpt", params: { mode: "raise", cells: rectRuns(x0, 2, x0 + 5, 5), amount: 1 } });
     expect(s.built.dirty!.region).toEqual({ x0, y0: 2, x1: x0 + 5, y1: 5 });
   });

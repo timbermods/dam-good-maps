@@ -1,7 +1,8 @@
 // What the generator worker returns to the page: everything the preview, the map card and the
 // downloads need, with the big arrays as typed arrays (transferred, not copied).
 
-import { encodeProject, projectFileName, toDocument } from "../core/doc/document";
+import { encodeProject, projectFileName, generatedDocument } from "../core/doc/document";
+import { startBench } from "../core/analysis/metrics";
 import { isSapling, type WoodBySpecies } from "../core/analysis/wood";
 import type { JsonObject } from "../core/format/json";
 import type { BuildResult } from "../core/features/build";
@@ -47,6 +48,9 @@ export interface MapFacts {
    *  saplings' logs there, still growing. */
   woodBySpecies: WoodBySpecies | null;
   woodGrowing: number;
+  /** The start's bench: tiles at the district center's level within 8 tiles (Start area is a
+   *  preference, D211; null without a start). */
+  startBench: number | null;
   settle: { ticks: number; settled: boolean };
 }
 
@@ -147,6 +151,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     waterDistance: a && Number.isFinite(a.waterDistance) ? Math.round(a.waterDistance * 10) / 10 : null,
     woodBySpecies: a ? { ...a.woodBySpecies } : null,
     woodGrowing: a ? a.woodGrowing : 0,
+    startBench: b.start ? startBench(b.heights, b.W, b.H, b.start) : null,
     settle: { ticks: b.settle.ticks, settled: b.settle.settled },
   };
   return {
@@ -180,12 +185,25 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
   };
 }
 
-export async function runGenerate(spec: MapSpec): Promise<GenerateResponse> {
+/** What the page hears while a map is made (ROADMAP M9a: generating shows its progress): each
+ *  attempt's stage, and its first look, the land and the water the hydrology planned (channels 1,
+ *  lakes 2, floors 3), before the water is settled. */
+export type GenProgress = { kind: "stage"; attempt: number; stage: string } | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array };
+
+export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
   const t0 = performance.now();
-  const r = generate(spec);
+  const r = generate(
+    spec,
+    onProgress
+      ? {
+          onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage }),
+          onLand: (l) => onProgress({ kind: "land", attempt: l.attempt, W: spec.size.x, H: spec.size.y, heights: l.heights, water: l.water }),
+        }
+      : {},
+  );
   const ms = Math.round(performance.now() - t0);
   last = r;
-  const project = encodeProject(toDocument(r.spec, r.features, r.built, r.file));
+  const project = encodeProject(generatedDocument(r));
   return responseOf({
     spec: r.spec,
     features: r.features,

@@ -38,6 +38,8 @@ import {
   rasterizeBench,
   rasterizeLake,
   rasterizeLandform,
+  markRiverChannel,
+  MAX_TERRAIN,
   rasterizeRiver,
   sculptBounds,
   sculptReadsNeighbours,
@@ -82,6 +84,23 @@ export interface BaseLayer {
   water?: CanonicalWater;
 }
 
+/** The land a generation's processes made (M9a, docs/m9-design.md §12): the ground build step 1
+ *  starts from, as an imported map's surface is, stored in the document so rebuilds never run the
+ *  processes again. The features read back from it describe it and do not shape it again. */
+export interface GeneratedField {
+  /** The surface per tile. */
+  heights: Uint8Array;
+  /** Features whose terrain the field already holds (the rivers, lakes and badwater hollows the
+   *  generation read back): their rasterizers leave the ground alone; their channels, sources and
+   *  objects still come from them. */
+  contains: ReadonlySet<string>;
+  /** The natural ramps' steps as (low tile, high tile) pairs: the derived slopes put a slope on
+   *  every step that still stands, wherever it is (decisions-pending #62). */
+  ramps?: readonly (readonly [number, number])[];
+  /** The highest terrain an edit may raise it to: 16, or a tall map's top (Verticality 70+). */
+  top?: number;
+}
+
 /** What a regeneration kept of the previous generation inside locked regions (EDITOR_PLAN §3). */
 export interface LockedLayer {
   mask: Uint8Array;
@@ -97,6 +116,8 @@ export interface BuildInput {
   seed: number;
   features: readonly Feature[];
   base?: BaseLayer | null;
+  /** A generated map's field (M9a): step 1's ground. */
+  field?: GeneratedField | null;
   sculpts?: readonly SculptEdit[];
   slopeEdits?: readonly SlopeEdit[];
   entityEdits?: readonly EntityEdit[];
@@ -224,6 +245,7 @@ export interface BuildCache {
   sculpts: string[];
   sculptEdits: SculptEdit[];
   base: BaseLayer | null;
+  field: GeneratedField | null;
   locked: LockedLayer | null;
   terrain: TerrainCache;
   fields: FieldCache;
@@ -357,7 +379,7 @@ function paramsKey(p: object): string {
 function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget): TileRegion | null {
   const { W, H } = input;
   const rb = new RegionBuilder(W, H);
-  if (prev.base !== (input.base ?? null)) return fullRegion(W, H);
+  if (prev.base !== (input.base ?? null) || !sameField(prev.field, input.field ?? null)) return fullRegion(W, H);
   const oldById = new Map(prev.terrainFeatures.map((f) => [f.id, f]));
   const oldTarget = { W, H, river: (id: string) => { const f = oldById.get(id); return f && f.kind === "river" ? f : undefined; } };
   const frozen = input.base?.frozen;
@@ -403,7 +425,8 @@ function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget):
   for (let grew = true; grew && !rb.all; ) {
     grew = false;
     for (const f of current) {
-      if (f.kind !== "setPiece") continue;
+      // a set piece read back from the field does not rasterize: it reads nothing further
+      if (f.kind !== "setPiece" || input.field?.contains.has(f.id)) continue;
       const fp = footprintOf(f, target);
       if (fp !== "all" && fp && rb.intersects(fp)) grew = rb.add(fp) || grew;
     }
@@ -415,6 +438,15 @@ function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget):
     }
   }
   return rb.region();
+}
+
+/** Two fields the build treats alike: the same object, or the same ground, features, ramps and top
+ *  (the generator's own build and a session that decoded the stored field). */
+function sameField(a: GeneratedField | null, b: GeneratedField | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.top !== b.top || a.contains.size !== b.contains.size || !sameBytes(a.heights, b.heights)) return false;
+  for (const id of a.contains) if (!b.contains.has(id)) return false;
+  return JSON.stringify(a.ramps ?? []) === JSON.stringify(b.ramps ?? []);
 }
 
 function dependsOn(f: Feature, riverId: string): boolean {
@@ -430,8 +462,11 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   const { W, H, seed } = input;
   const N = W * H;
   const base = input.base ?? null;
+  const field = input.field ?? null;
   const frozen = base?.frozen;
   const live = (f: Feature) => !frozen?.has(f.id);
+  // a feature read back from the generated field: its ground is the field's
+  const carved = (f: Feature) => !!field && field.contains.has(f.id);
   const probe = new BuildTarget({ W, H, seed, features: input.features, heights: new Uint8Array(0), protectedMask: new Uint8Array(0), channel: new Uint8Array(0), region: fullRegion(W, H), fields });
   const region = prev ? dirtyTerrain(prev, input, probe) : fullRegion(W, H);
   if (prev && !region) return { terrain: prev.terrain, region: null };
@@ -442,26 +477,28 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   const locked = input.locked ?? null;
   const t = new BuildTarget({ W, H, seed, features: input.features, heights, protectedMask: protect, channel, region: reg, locked: locked?.mask, fields });
 
-  // 1. base terrain: generated layouts cover every tile with their landforms, and the fill is a
-  //    floor; an imported map starts from its own surface. Locked tiles keep the kept surface.
+  // 1. base terrain: a generated map starts from the field its processes made (M9a); the old
+  //    layouts covered every tile with their landforms, over a floor; an imported map starts from
+  //    its own surface. Locked tiles keep the kept surface.
   t.forEach((i) => {
-    heights[i] = locked && locked.mask[i] ? locked.heights[i] : base ? base.heights[i] : 2;
+    heights[i] = locked && locked.mask[i] ? locked.heights[i] : base ? base.heights[i] : field ? field.heights[i] : 2;
     protect[i] = 0;
     channel[i] = 0;
   });
   // 2. landforms, in document order
-  for (const f of input.features) if (f.kind === "landform" && live(f)) rasterizeLandform(f, t);
+  for (const f of input.features) if (f.kind === "landform" && live(f) && !carved(f)) rasterizeLandform(f, t);
   const pre2 = heights.slice();
   // 3. set-piece terrain
   for (const f of input.features) {
-    if (f.kind !== "setPiece" || !live(f)) continue;
+    if (f.kind !== "setPiece" || !live(f) || carved(f)) continue;
     const b = BUILDERS[f.params.kind];
     if (b) b.rasterize(f, t);
     else t.note(`set piece ${f.params.kind} (${f.id}) is not built by this version`);
   }
   // 4. rivers and lakes: lakes set their basin floor, then river beds carve (the river wins)
-  for (const f of input.features) if (f.kind === "lake" && live(f)) rasterizeLake(f, t);
-  for (const f of input.features) if (f.kind === "river" && live(f)) rasterizeRiver(f, t);
+  //    (a river read back from the field marks its channel on the field's ground)
+  for (const f of input.features) if (f.kind === "lake" && live(f) && !carved(f)) rasterizeLake(f, t);
+  for (const f of input.features) if (f.kind === "river" && live(f)) (carved(f) ? markRiverChannel : rasterizeRiver)(f, t);
   // 5. the start bench (and, later, object pads)
   for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
   // 6. sculpt edits and brush strokes, in order (the brushes leave an import's caves alone)
@@ -481,13 +518,19 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   } else pre7 = heights;
 
   // 7. integrity pass: clip to the editor limit and remove single-tile pits and spikes off channels.
-  //    On an imported map only the tiles an edit changed take part.
+  //    On an imported map and on a generated field only the tiles an edit changed take part.
   //    (tiles a regeneration kept under a lock are left as they were kept)
   const final = prev ? prev.terrain.heights.slice() : new Uint8Array(N);
   const lockMask = locked?.mask;
-  const candidate = base ? (i: number) => pre7[i] !== base.heights[i] : lockMask ? (i: number) => !lockMask[i] : () => true;
+  const candidate = base
+    ? (i: number) => pre7[i] !== base.heights[i]
+    : field
+      ? (i: number) => pre7[i] !== field.heights[i] && !lockMask?.[i]
+      : lockMask
+        ? (i: number) => !lockMask[i]
+        : () => true;
   const r = { x0: Math.max(0, reg.x0 - 1), y0: Math.max(0, reg.y0 - 1), x1: Math.min(W - 1, reg.x1 + 1), y1: Math.min(H - 1, reg.y1 + 1) };
-  integrityAt(pre7, final, W, H, protect, channel, candidate, r.x0, r.y0, r.x1, r.y1);
+  integrityAt(pre7, final, W, H, protect, channel, candidate, r.x0, r.y0, r.x1, r.y1, Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN));
   return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes }, region: reg };
 }
 
@@ -625,6 +668,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const targets = landformTargets(features.filter(live), target);
     // the ground a walkable smooth stroke went over, and a ramped flatten's with the ground round
     // it (its rim steps down to that ground, D204): the natural slopes join their steps too
+    // (and joined wherever they are, off the start's network too: walkTargets)
+    let walkTargets: Uint8Array | null = null;
     for (const sc of input.sculpts ?? []) {
       const p = sc.params as BrushParams;
       if (!("dabs" in p)) continue;
@@ -633,21 +678,29 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       const ramp = p.tool === "flatten" && p.edges === "ramped" && !p.slopes;
       if (!walk && !ramp) continue;
       targets.mask ??= new Uint8Array(N);
-      if (walk) markBrushTiles(p, W, H, targets.mask);
-      else {
-        const own = new Uint8Array(N);
-        markBrushTiles(p, W, H, own);
-        for (let i = 0; i < N; i++) {
-          if (!own[i]) continue;
-          const x = i % W;
-          const y = (i - x) / W;
-          for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) targets.mask[yy * W + xx] = 1;
+      walkTargets ??= new Uint8Array(N);
+      const own = new Uint8Array(N);
+      markBrushTiles(p, W, H, own);
+      for (let i = 0; i < N; i++) {
+        if (!own[i]) continue;
+        if (walk) {
+          targets.mask[i] = 1;
+          walkTargets[i] = 1;
+          continue;
         }
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++)
+          for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) {
+            targets.mask[yy * W + xx] = 1;
+            walkTargets[yy * W + xx] = 1;
+          }
       }
       targets.key += `|${walk ? "walk" : "ramp"}:${paramsKey(p)}`;
     }
-    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel };
-    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}`;
+    const ramps = input.field?.ramps ?? null;
+    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}) };
+    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
   } else if (slopeStart && base) {
     // an edited import: join the changed ground to the start's network (the file's own slopes and
     // the set pieces' stairs), nothing else
@@ -661,10 +714,18 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       slopesKey = `import:${slopeStart.x},${slopeStart.y}|${JSON.stringify(links)}`;
     }
   }
+  // the player's own forests, berry patches and ruin fields keep their tiles: no derived slope
+  // takes one (PLAN §7.0: nothing the generator derives touches the player's placements)
+  let slopeOcc = reserved;
+  for (const f of features) {
+    if ((f.kind !== "forest" && f.kind !== "berryPatch" && f.kind !== "ruinField") || f.origin === "generated" || !live(f)) continue;
+    if (slopeOcc === reserved) slopeOcc = reserved.slice();
+    for (const [y, x0, x1] of f.params.area) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) slopeOcc[y * W + x] = 1;
+  }
   let slopes: PlacedSlope[] = [];
   if (rules) {
-    const reuse = prev && prev.slopesKey === slopesKey && sameBytes(prev.terrain.heights, heights) && sameBytes(prev.terrain.channel, terrain.channel) && sameBytes(prev.reserved, reserved);
-    slopes = reuse ? prev.slopes : placeSlopes(heights, W, H, slopeStart!, reserved, rules);
+    const reuse = prev && prev.slopesKey === slopesKey && sameBytes(prev.terrain.heights, heights) && sameBytes(prev.terrain.channel, terrain.channel) && sameBytes(prev.reserved, slopeOcc);
+    slopes = reuse ? prev.slopes : placeSlopes(heights, W, H, slopeStart!, slopeOcc, rules);
   }
   for (const s of slopes) {
     const i = s.y * W + s.x;
@@ -757,10 +818,11 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     // (applied operations are never changed: their params are kept as they are)
     sculptEdits: (input.sculpts ?? []).map((s) => ({ params: s.params })),
     base,
+    field: input.field ?? null,
     locked: input.locked ?? null,
     terrain,
     fields,
-    reserved,
+    reserved: slopeOcc,
     slopesKey,
     slopes,
     settle: null,
@@ -870,7 +932,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const occBefore = occupied.slice();
   const resources = new Map<string, ResourceEntry>();
   const order = resourceFeatures.map((f) => f.id);
-  const g = { W, seed, heights, water, moisture: moist, soilContamination: soil, occupied, locked: input.locked?.mask ?? null };
+  const g = { W, seed, heights, water, moisture: moist, soilContamination: soil, occupied, channel: terrain.channel, locked: input.locked?.mask ?? null };
   let changedTiles: Uint8Array | null = null;
   const orderSet = new Set(order);
   const reusable =
@@ -885,9 +947,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const pm = prev!.moisture ?? none;
     const ps = prev!.soil ?? none;
     const ph = prev!.terrain.heights;
+    const pc = prev!.terrain.channel;
     const po = prev!.occupiedBeforeResources!;
     for (let i = 0; i < N; i++) {
-      if (ph[i] !== heights[i] || (pw[i] > 0) !== (water[i] > 0) || (pm[i] > 0) !== (moist[i] > 0) || (ps[i] > 0) !== (soil[i] > 0) || po[i] !== occBefore[i]) changedTiles[i] = 1;
+      if (ph[i] !== heights[i] || pc[i] !== terrain.channel[i] || (pw[i] > 0) !== (water[i] > 0) || (pm[i] > 0) !== (moist[i] > 0) || (ps[i] > 0) !== (soil[i] > 0) || po[i] !== occBefore[i]) changedTiles[i] = 1;
     }
     // tiles freed by resource features that are gone
     for (const [id, e] of prev!.resources) if (!orderSet.has(id)) for (const i of e.placed.tiles) changedTiles[i] = 1;

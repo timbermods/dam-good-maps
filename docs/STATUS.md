@@ -3,17 +3,19 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D309), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D313), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, after the restart)
 
 The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your fifty-eight decisions since the restart are recorded (D252–D309, below) and in the living docs.
+Your sixty-two decisions since the restart are recorded (D252–D313, below) and in the living docs.
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35): answered (D300)** and being finished on `feature/real-places-2`: both land fixes, a water floor, #94
-   accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
+1. **Real places (#35): the rebuild is paused, at your word** (the source placement it uses may change). It stops cleanly between
+   places; where it stopped and how to resume are in the top note of `docs/progress/real-places.md` on `feature/real-places-2`.
+   It restarts only when you say so. (The plan stays one rebuild: D300, D306's 256², D200's badwater and D302's start water,
+   under the game's water and soil rules; M9b's rules set 1c9d1340 is ready for it.)
 2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
 3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
@@ -25,6 +27,12 @@ Your fifty-eight decisions since the restart are recorded (D252–D309, below) a
    there. M9b's maps have more flat, film-prone ground than M9a's (29 of 30 passed). **Default, being built:** accept the game's
    rules with this departure, and let the pooled probe batch at M9b's release candidate (D308) check the water against the game
    itself instead of against the old port. Say if you want something else (e.g. keep the band and investigate further).
+   - **The capture-tool audit (your yes):** seven tools opened the page without holding a look, the same bug as `capture-badwater.ts`:
+     `capture-live-editing`, `capture-look`, `capture-objects`, `capture-saplings`, `capture-waterfalls`, and the two frame-time
+     benches `bench-brush` and `bench3d` (unpinned, those would have measured the costlier High look). All are now pinned to
+     Standard, their era's look (b62188ba, CI green); no committed capture, reference or colour changed. Found on the way:
+     `capture-look`, `capture-objects` and `capture-saplings` no longer run against today's interface (they look for tabs retired
+     since D184); added to the housekeeping list.
    - **Also on `feature/high-look`** (your answer on the suggested task): once clean water's shades are done, badwater's on-screen
      calibration targets (6–11 codes off on "typical", "trough", "streak") are re-measured once; the drift is fixed, or, if an
      approved look change moved them, the targets are updated and noted in PLAN and the progress log (`build-light`).
@@ -62,6 +70,14 @@ Your fifty-eight decisions since the restart are recorded (D252–D309, below) a
    and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
    Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
    seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
+   - **D304, D305 and D310 are built on it** (30d7a767, CI green; every capture in `docs/look/high/` recaptured). The far ruins read
+     as the same ruin. **The water: three of your wishes can't all hold, so pick one to give.** Deep water now matches the game
+     (L* 29.6 against its 29.2) and the middle is close (32.4 against 35.1), so a river's body looks like the game's; the two
+     readability tests are back at their old strictness. But the shallows went lighter (L* 62.3), so shallow to deep spans about
+     33 L* against the game's 7. Badwater couldn't darken to make room: your D177/D178 review keeps the mine pit's earth at least
+     5 L* darker than badwater, and they're 0.4 L* from that line. Options: (a) darken the mine pit's earth too, then badwater,
+     then clean shallows toward the game (a small range, all three rules kept); (b) keep the readability tests but let a thin
+     sheet's own texture, not its colour, tell it from badwater, so shallows can darken; (c) accept it as it is. My pick: (a).
 8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
    on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
    Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
@@ -89,7 +105,7 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 5. **Brushes and sources** (D249): raise land over a group of sources with **Clear sources** on (they glow red and go with
    the stroke) and off (they ride the ground: no pits, no pillars); hover near a source with any tool and press Delete; a
    Remove drag that starts on a source takes only sources. Captures of both strokes will be in the forces' progress log.
-6. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level <!-- retired-terms:allow --><!-- /retired-terms:allow -->
+6. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level
    lines** now in the view bar beside Height colours, working with any tool (D248).
 7. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
 8. **Sounds:** louder by default; #64's recorded sounds for every action and force.
@@ -124,11 +140,16 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     the ground and the clean source.
 18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
     Meltwater, Try another; one river on the floor; the camera stays put.
+    Its More holds Benches, Steps, Tarn and Scree, each on Auto. The floor's one-river measurements and captures were made with
+    round 4's values (some benches, some steps, a tarn, scree); a click draws its own, so a glacier with many steps or sheer walls
+    hasn't been measured: say if the floor ever reads as more than one river.
 19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
 20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
-21. **More, on each force** (D309, built on `feature/forces`; on the preview once that PR merges and it's refreshed): open More;
-    every detail says Auto; run a force and see the values it took; pin one and Try another: the pinned detail stays, the others vary;
-    pin all the shown values and it repeats.
+21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
+    the values it took; pin one and Try another: the pinned detail stays, the others vary; pin all the shown values and it repeats.
+22. **From your sitting** (D312, D313; once built, the preview refreshed): the faint size ring on every force, growing with Power and
+    Size; Shift+click waypoints for Carve and Glaciate (Enter or a click launches, Backspace removes, Esc cancels); Erupt's land final
+    in about two seconds; Smooth's softer sound beside Flatten's; the quieter default volume.
 13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
     water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 
@@ -404,6 +425,10 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D313: Smooth's sound a softer relative of Flatten's; over-compressed sounds re-encoded; the default volume a quarter lower (saved volumes kept).
+- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.
+- D311: the game's water rules in M9b accepted where thin sheets form less; the pooled probe checks against the game.
+- D310: clean water and badwater's floor darken together toward the game; the readability tests restored; bubbles and texture help the faintest badwater.
 - D309: the forces' details come back behind a More button, each on Auto (nature's pick), pinnable; after a run each Auto detail shows its value with one click to pin it; Try another re-rolls only Auto. On feature/forces (`build-light`).
 - D308: consolidation: the game's water, edge-spill and soil rules land together in M9b (one re-pin, one set of batches); in-game checks pooled into one probe batch at M9b's release candidate; M9b's full batches only at its release candidate; review sets only when your eye is needed.
 - D307: a floodplain floods, as the game plays it: the floor rule and the channels stay; the day strip's hover says "Floods when the river refills"; M9b's default (b) reverted.
@@ -466,7 +491,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
-- D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting. <!-- retired-terms:allow --><!-- /retired-terms:allow -->
+- D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
 - D246: Glaciate, a new force (a valley made glacial: a level floor, a chain of lakes, hanging valleys, moraines; Flow or Aim, Power, Size, Meltwater, Try another); Codex's `investigation/glaciate` is held until you've tried its demo, then built on the forces core after round 2.
 - D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
 - D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.
@@ -526,7 +551,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D309.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D313.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

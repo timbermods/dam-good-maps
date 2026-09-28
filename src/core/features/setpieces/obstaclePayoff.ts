@@ -73,7 +73,8 @@ export const obstaclePayoff: SetPieceBuilder = {
     const p = plan as unknown as ObstaclePlan;
     if (!Number.isInteger(p.x) || !Number.isInteger(p.y) || !inMap(W, H, p.x, p.y)) return ["the plateau must be on the map"];
     if (!Number.isInteger(p.radius) || p.radius < 3 || p.radius > 16) return ["the plateau's radius is 3–16"];
-    if (!Number.isInteger(p.top) || p.top < 2 || p.top > 16) return ["the plateau's level is 2–16"];
+    // (a generated map's rise may stand on tall ground, up to the game's top, D172)
+    if (!Number.isInteger(p.top) || p.top < 2 || p.top > 22) return ["the plateau's level is 2–22"];
     return [];
   },
   rasterize(feature: SetPieceFeature, t: BuildTarget): void {

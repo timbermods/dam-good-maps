@@ -163,16 +163,39 @@ export interface SettledState {
   soilContamination: ArrayLike<number>;
   /** Cluster saturation of the water (for the evaporation modifiers). */
   sat: ArrayLike<number>;
+  /** The settled water's outflows, four per tile in the simulation's order (−y, −x, +y, +x: the
+   *  game's Bottom, Left, Top and Right), as `WaterSim.out` holds them; none writes all `"0"`. */
+  out?: ArrayLike<number>;
+}
+
+/** One tile's `ColumnOutflows` token (FORMAT.md §4.3): `"0"`, or `Bottom:Left:Top:Right` with each
+ *  part `"0"` or `targetIndex|flow`, the target being the neighbour's index in the game's grid
+ *  padded by one tile on every side (`MapIndexService`: `(y + 1) · (X + 2) + x + 1`, slot 0). */
+function outflowToken(out: ArrayLike<number>, i: number, sizeX: number): string {
+  const x = i % sizeX;
+  const y = (i - x) / sizeX;
+  const stride = sizeX + 2;
+  const target = (tx: number, ty: number) => (ty + 1) * stride + tx + 1;
+  const parts = [
+    [out[4 * i], target(x, y - 1)],
+    [out[4 * i + 1], target(x - 1, y)],
+    [out[4 * i + 2], target(x, y + 1)],
+    [out[4 * i + 3], target(x + 1, y)],
+  ].map(([f, t]) => (f > 1e-6 ? `${t}|${numToken(f)}` : "0"));
+  return parts.every((p) => p === "0") ? "0" : parts.join(":");
 }
 
 /** Simulation singletons holding settled water, the way official maps ship (FORMAT.md §4.3): one
- *  water column per tile (slot 0, a heightfield), `depth:contamination:0:floor:depth` tokens,
- *  outflows 0 (momentum rebuilds within a few ticks), soil moisture and contamination at steady
- *  state, and the evaporation modifiers of the settled water. Depths under 1e-6 are written as dry. */
+ *  water column per tile (slot 0, a heightfield), `depth:contamination:0:floor:depth` tokens, the
+ *  settled water's outflows (its momentum: without them the game rebuilds the flow from rest, and a
+ *  map whose flow can settle more than one way, a delta's channels, may not come back to the water
+ *  it shipped with), soil moisture and contamination at steady state, and the evaporation
+ *  modifiers of the settled water. Depths under 1e-6 are written as dry. */
 export function settledSimulationSingletons(sizeX: number, sizeY: number, st: SettledState): JsonObject {
   const n = sizeX * sizeY;
   const s = emptySimulationSingletons(sizeX, sizeY, 1);
   const water: string[] = new Array(n);
+  const flows: string[] | null = st.out && st.out.length === 4 * n ? new Array(n) : null;
   const moist: string[] = new Array(n);
   const soil: string[] = new Array(n);
   const evap: string[] = new Array(n);
@@ -182,7 +205,11 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
       const ds = numToken(d);
       const c = st.contamination[i];
       water[i] = `${ds}:${c > 1e-6 ? numToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
-    } else water[i] = "0";
+      if (flows) flows[i] = outflowToken(st.out!, i, sizeX);
+    } else {
+      water[i] = "0";
+      if (flows) flows[i] = "0";
+    }
     moist[i] = numToken(st.moisture[i]);
     soil[i] = numToken(st.soilContamination[i]);
     const sat = st.sat[i];
@@ -192,6 +219,7 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
     } else evap[i] = "1";
   }
   (s.WaterMapNew as JsonObject).WaterColumns = { Array: water.join(" ") };
+  if (flows) (s.WaterMapNew as JsonObject).ColumnOutflows = { Array: flows.join(" ") };
   (s.WaterEvaporationMap as JsonObject).EvaporationModifiers = { Array: evap.join(" ") };
   (s.SoilMoistureSimulator as JsonObject).MoistureLevels = { Array: moist.join(" ") };
   const soilText = soil.join(" ");

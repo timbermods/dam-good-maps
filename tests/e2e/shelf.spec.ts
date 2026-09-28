@@ -81,7 +81,8 @@ const trees = (page: Page, near: [number, number], r: number) =>
 test("the shelf: a ghost red where the game would delete it and refused there, placed where it fits; R turns it; trees paint with a drag; the start moves", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await refine(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
+  await refine(page, "s=1&z=96&d=n&t=riverValley");
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -157,7 +158,8 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
 test("Delete (D288): pointed at an object it takes it; Select and Delete take everything inside, objects and sources, one step; the ground stays, and so does the start; no Remove tool", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await refine(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
+  await refine(page, "s=1&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });

@@ -2,6 +2,22 @@
 (19 official + 9 workshop maps) or from the game rules in investigation/notes/*.md; the comment
 says which. PLAN.md carries the same table for the website."""
 
+import json as _json
+import os as _os
+
+# ---- the starting-logs floor (PLAN §20 D224, D227): computed from the game's own blueprints by
+# tools/log-floor.ts and pinned with the game version in src/core/data/log-floor.json (read here,
+# never hard-coded): the logs a colony needs to build a Forester by the worst still-viable route,
+# plus the first essentials, plus 10%, within about 40 tiles' walk of the start; and each tree's log
+# yield from the same blueprints
+with open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "src", "core", "data", "log-floor.json"),
+          encoding="utf-8") as _f:
+    LOG_FLOOR_DATA = _json.load(_f)
+LOG_FLOOR = LOG_FLOOR_DATA["floor"]
+LOG_FLOOR_WALK = LOG_FLOOR_DATA["withinWalk"]
+LOGS_PER_TREE = LOG_FLOOR_DATA["logsPerTree"]
+DEAD_TREES_KEEP_LOGS = LOG_FLOOR_DATA["deadTreesKeepLogs"]
+
 # ---- game rules (notes/blocks_and_placement.md, water_and_soil.md, navigation_ruins_entities.md)
 MAX_TERRAIN_HEIGHT = 16          # editor limit; every official map tops out at exactly 16
 PUMP_REACH = 2                   # Folktails WaterPump pipe depth below its base
@@ -13,17 +29,17 @@ RESOURCE_BUILDING_RANGE = 20     # walk steps from a gatherer/lumberjack/scaveng
 
 # ---- difficulty: what the first days demand (official medians define Normal)
 DIFFICULTY = {
-    # The start requirements (PLAN.md §5.6, D85, Kyler 2026-09-24, amended by D153 and D164): water
+    # The start requirements (PLAN.md §5.6, D85, Kyler 2026-09-24, amended by D153, D164 and D224): water
     # without stairs within 12/20/28 tiles' walk over the map's own ground and slopes (the workshop
-    # study: official median 13, p90 20.4), starting wood 120/80/40 logs of grown trees (D164: the
-    # old 60/40/20 trees at 2 logs a tree) and living bushes 40/30/20 within 20 tiles' walk; targets with an
-    # advisory warning: badwater at least 30/15/8 (official nearest badwater median 14.8, p25 10),
-    # ruins 20/15/12.
-    "easy":   {"water_dist": 12, "wood_r20": 120, "bushes_r20": 40, "badwater_min": 30, "ruin_min": 20,
+    # study: official median 13, p90 20.4), starting wood 250/200/none logs of grown trees (D227:
+    # Hard keeps no minimum nearby beyond the starting-logs floor, which every map meets within 40
+    # tiles' walk) and living bushes 40/30/20 within 20 tiles' walk; targets with an advisory
+    # warning: badwater at least 30/15/8 (official nearest badwater median 14.8, p25 10), ruins 20/15/12.
+    "easy":   {"water_dist": 12, "wood_r20": 250, "bushes_r20": 40, "badwater_min": 30, "ruin_min": 20,
                "drought_days": 4, "colony": 40},
-    "normal": {"water_dist": 20, "wood_r20": 80, "bushes_r20": 30, "badwater_min": 15, "ruin_min": 15,
+    "normal": {"water_dist": 20, "wood_r20": 200, "bushes_r20": 30, "badwater_min": 15, "ruin_min": 15,
                "drought_days": 9, "colony": 50},
-    "hard":   {"water_dist": 28, "wood_r20": 40, "bushes_r20": 20, "badwater_min": 8, "ruin_min": 12,
+    "hard":   {"water_dist": 28, "wood_r20": 0, "bushes_r20": 20, "badwater_min": 8, "ruin_min": 12,
                "drought_days": 30, "colony": 50},
 }
 

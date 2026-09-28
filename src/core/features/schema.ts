@@ -80,6 +80,9 @@ export interface LakeParams {
   inflow: { rivers: string[] } | { spring: number };
   /** A planned basin is a reservoir site: dry until the player dams its outlet. */
   planned: boolean;
+  /** A lake the generator found in its field (M9a): the hollow a river fills, read back so it can be
+   *  named and grabbed; the field holds its ground. */
+  natural?: boolean;
   /** The river whose bed profile sets the floor level. */
   river?: string;
   /** Islands in the lake (the Islands theme's sea): each rises from the lake's floor to its height,
@@ -142,7 +145,9 @@ export type SetPieceKind =
   | "badwaterBasin"
   | "plugSpillway"
   | "obstaclePayoff"
-  | "secondDistrict";
+  | "secondDistrict"
+  // M9a: two hillside spurs closing in on a river (#63: an internal operation for M12's Claude)
+  | "naturalNarrows";
 
 export interface SetPieceParams {
   kind: SetPieceKind;

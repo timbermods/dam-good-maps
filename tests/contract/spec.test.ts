@@ -3,7 +3,7 @@
 
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
-import { decodeSpecFragment, encodeSpecFragment, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -84,7 +84,7 @@ describe("URL codec (PLAN §14.5)", () => {
     for (let k = 0; k < 200; k++) {
       const spec = makeSpec({ seed: int(0, 4294967295), theme: pick(THEMES), designedFor: pick(["easy", "normal", "hard"] as const), size: { x: int(48, 256), y: int(48, 256) } });
       const st = spec.settings;
-      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const) };
+      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100) };
       st.water = {
         rivers: int(0, 3),
         riverStyle: pick(["straight", "meandering", "braided"] as const),
@@ -137,7 +137,7 @@ describe("URL codec (PLAN §14.5)", () => {
     expect(decodeSpecFragment("#s=5&t=canyon&st=25&sl=90")!.spec.settings.start.rules.woodWithin20).toBe(90);
     // a value that is not a count keeps the preset, and says so
     const bad = decodeSpecFragment("#s=5&t=canyon&st=x")!;
-    expect(bad.spec.settings.start.rules.woodWithin20).toBe(80);
+    expect(bad.spec.settings.start.rules.woodWithin20).toBe(DIFFICULTY_RULES.normal.woodWithin20);
     expect(bad.problems.length).toBe(1);
   });
 

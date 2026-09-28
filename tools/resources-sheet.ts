@@ -82,7 +82,7 @@ const FONT: Record<string, string> = {
   I: "111010010010111", L: "100100100100111", N: "110101101101101", R: "110101110101101", S: "011100010001110", V: "101101101101010",
   " ": "000000000000000",
 };
-const TAG: Record<ThemeId, string> = { riverValley: "RV", canyon: "CA", highlands: "HI", lakeBasin: "LB", delta: "DE", islands: "IS" };
+const TAG: Record<ThemeId, string> = { any: "AN", riverValley: "RV", canyon: "CA", highlands: "HI", lakeBasin: "LB", delta: "DE", islands: "IS" };
 
 /** A paletted PNG (6×7×6 levels of red, green and blue) of an RGB image. */
 export function palettedPng(rgb: Uint8Array, w: number, h: number): Uint8Array {

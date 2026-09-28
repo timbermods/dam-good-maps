@@ -124,8 +124,9 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
 
   it("a regeneration that cannot keep off the player's features is refused and changes nothing", () => {
     const s = MapSession.fromGenerated(r);
-    // a wall across the whole map: every river from west to east has to cross it
-    const wall: Feature = { ...PLATEAU, params: { kind: "ridge", edgeStyle: "cliff", outline: [[60, 0], [66, 0], [66, 127], [60, 127]], height: 16 } };
+    // a plateau over almost the whole map: no river finds a way that keeps off it (M9a: rivers
+    // come from the land's drainage, so a wall across the map no longer forces them over it)
+    const wall: Feature = { ...PLATEAU, params: { kind: "plateau", edgeStyle: "cliff", outline: [[3, 3], [124, 3], [124, 124], [3, 124]], height: 16 } };
     expect(s.apply({ op: "addFeature", params: { feature: wall } }).ok).toBe(true);
     const before = s.exportTimber().bytes;
     const g = s.regenerate({ settings: { resources: { ruins: 150 } } });

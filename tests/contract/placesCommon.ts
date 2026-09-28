@@ -57,23 +57,92 @@ export const PLACES_SOURCES_IN_FLOW = new Set([
  *  baseline (src/core/resources/plan.ts) and turns this to false. */
 export const PLACES_LACK_MINE_SITES = true;
 
+/** A badwater source on every map (Kyler, 2026-09-26, D200): the places as converted have none,
+ *  which `resources.badwater_source` flags (a playability check: it warns in the export profile).
+ *  Real places 2 places them with `planMapResources`'s springs and turns this to false. */
+export const PLACES_LACK_BADWATER = true;
+
+/** Starting wood (D227: Normal asks for 200 logs within 20 tiles' walk, 80 before) and the
+ *  starting-logs floor (D224, D227: 178 logs within 40 tiles' walk at every difficulty): the places
+ *  as converted plant their starts' groves for the old 80 logs, so these places fall short of
+ *  `start.wood` (a playability check: it warns in the export profile, and the gallery's download
+ *  works), and these fall below the floor (`start.wood_floor`, the same). Real places 2 plants for
+ *  both, in varied, natural ways (D229), and empties the lists. */
+export const PLACES_SHORT_OF_WOOD = new Set([
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
+  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison",
+  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
+  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-cliffs-of-moher", "near-colca-canyon",
+  "near-colorado-plateau", "near-copper-canyon", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
+  "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
+  "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
+  "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
+  "near-kinabatangan-river", "near-lake-toba", "near-lauterbrunnen", "near-lena-delta",
+  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-mamore-river",
+  "near-milford-sound", "near-monument-valley", "near-mount-etna", "near-mount-fuji",
+  "near-mount-mayon", "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast",
+  "near-niagara-escarpment-hamilton", "near-painted-desert", "near-paricutin", "near-phong-nha",
+  "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
+  "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-thousand-islands-saint-lawrence",
+  "near-tibetan-plateau", "near-tiger-leaping-gorge", "near-todgha-gorge", "near-toklat-river",
+  "near-torres-del-paine", "near-tsingy-bemaraha", "near-verdon-gorge", "near-victoria-falls",
+  "near-waimakariri-river", "near-western-ghats-mahabaleshwar", "near-yosemite-valley",
+]);
+export const PLACES_BELOW_THE_FLOOR = new Set([
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
+  "near-bandiagara", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
+  "near-colorado-plateau", "near-death-valley", "near-glencoe", "near-godavari-delta",
+  "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta", "near-mamore-river",
+  "near-paricutin", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
+  "near-waimakariri-river",
+]);
+
+/** The start's water is never a sealed puddle (Kyler's D302, M9a): these places' starts reach only
+ *  water no source feeds that a Normal drought empties, which `start.water` refuses (a playability
+ *  check: it warns in the export profile, and the gallery's download works). Real places 2 gives
+ *  the places their water (D300) and empties the list. */
+export const PLACES_START_WATER_A_PUDDLE = new Set([
+  "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bungle-bungle",
+  "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau",
+  "near-death-valley", "near-deccan-plateau", "near-drumheller", "near-english-lake-district",
+  "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls", "near-kinabatangan-river",
+  "near-lake-toba", "near-mount-mayon", "near-na-pali-coast", "near-ngorongoro",
+  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-taklimakan-kunlun-fan",
+  "near-tibetan-plateau", "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river",
+  "near-victoria-falls", "near-waimakariri-river", "near-yosemite-valley",
+]);
+
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
- *  flow, and the missing mine site), and which of them fail. */
-export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean } {
+ *  flow, the missing mine site and badwater source, the starting wood and the start's water), and
+ *  which of them fail. */
+export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean } {
   const all = failing(checks);
-  const known = (f: string) => f.startsWith("terrain.edge_wall:") || f.startsWith("water.source_in_flow:") || f.startsWith("resources.mine_site:");
+  const known = (f: string) =>
+    f.startsWith("terrain.edge_wall:") ||
+    f.startsWith("water.source_in_flow:") ||
+    f.startsWith("resources.mine_site:") ||
+    f.startsWith("resources.badwater_source:") ||
+    f.startsWith("start.wood:") ||
+    f.startsWith("start.wood_floor:") ||
+    (f.startsWith("start.water:") && f.includes("sealed puddle"));
   return {
     other: all.filter((f) => !known(f)),
     edgeWall: all.some((f) => f.startsWith("terrain.edge_wall:")),
     sourceInFlow: all.some((f) => f.startsWith("water.source_in_flow:")),
     mineSite: all.some((f) => f.startsWith("resources.mine_site:")),
+    badwater: all.some((f) => f.startsWith("resources.badwater_source:")),
+    wood: all.some((f) => f.startsWith("start.wood:")),
+    floor: all.some((f) => f.startsWith("start.wood_floor:")),
+    startWater: all.some((f) => f.startsWith("start.water:")),
   };
 }
 
 /** Every place in shard `k` of `n`: its .timber, built as the page builds it (build, settle,
  *  validate, write), passes the export profile and every check of the generate profile but its known
  *  faults, which flag it as long as the places have them (`PLACES_HAVE_EDGE_WALLS`,
- *  `PLACES_SOURCES_IN_FLOW`, `PLACES_LACK_MINE_SITES`), and is the same bytes as the index records. */
+ *  `PLACES_SOURCES_IN_FLOW`, `PLACES_LACK_MINE_SITES`, `PLACES_LACK_BADWATER`, `PLACES_SHORT_OF_WOOD`,
+ *  `PLACES_BELOW_THE_FLOOR`), and is the same bytes as the index records. */
 export function checkShard(k: number, n: number): void {
   const places = INDEX.places.filter((_, i) => i % n === k);
   describe(`real places ${k + 1} of ${n}: every map validates and is the same file`, () => {
@@ -92,10 +161,15 @@ export function checkShard(k: number, n: number): void {
       expect(f.edgeWall).toBe(PLACES_HAVE_EDGE_WALLS);
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
       expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
-      expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES);
+      expect(f.badwater).toBe(PLACES_LACK_BADWATER);
+      expect(f.wood).toBe(PLACES_SHORT_OF_WOOD.has(entry.id));
+      expect(f.floor).toBe(PLACES_BELOW_THE_FLOOR.has(entry.id));
+      expect(f.startWater).toBe(PLACES_START_WATER_A_PUDDLE.has(entry.id));
+      expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works
       expect(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity).toBe(PLACES_LACK_MINE_SITES ? "warning" : "info");
+      expect(r.validation.report.checks.find((c) => c.id === "resources.badwater_source")!.severity).toBe(PLACES_LACK_BADWATER ? "warning" : "info");
       expect(sha256(r.bytes)).toBe(entry.sha256);
       expect(r.bytes.length).toBe(entry.bytes);
     });

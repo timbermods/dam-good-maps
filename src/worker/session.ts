@@ -116,6 +116,8 @@ export interface SessionInfo {
   carveAgain: boolean;
   /** The force Try another would run again (the last one kept is the latest step), or null. */
   forceAgain: Verb | null;
+  /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
+  badwaterRemoved: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -238,6 +240,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     views: s.views,
     carveAgain: againReady(s, history),
     forceAgain: againVerb(s, history),
+    badwaterRemoved: s.badwaterRemoved(),
     version,
   };
 }

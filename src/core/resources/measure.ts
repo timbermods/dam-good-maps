@@ -1,4 +1,4 @@
-// What a map holds in trees, berry bushes, ruins and mine sites, and how they are laid out
+// What a map holds in trees, berry bushes, ruins, mine sites and badwater sources, and how they are laid out
 // (investigation/official-baselines.json measures the official maps with it; the batch and the
 // comparison tools measure generated maps the same way). Pure: a map's objects, its surface and its
 // stored or settled water and soil in, numbers out.
@@ -9,12 +9,15 @@
 // - A berry patch is bushes within 2 tiles of each other, 3 or more.
 // - A ruin field is columns that touch (Chebyshev 1), 10 or more, as the `ruins.fields` check counts.
 //   A column of H storeys yields 15·H scrap.
+// - A badwater source's lowness is the share of the tiles 4–6 tiles from its 3×3's centre
+//   (Chebyshev) whose top stands above the source's level: near 1 in a hollow or a side valley, near
+//   0 on a rise.
 
 import { FOOTPRINTS, worldBlocks } from "../format/footprints";
 import { JsonFloat } from "../format/json";
 import type { TimberFile } from "../format/timber";
 import { storedSoil, storedWater, surfaceOf } from "../format/world";
-import { mapObjects, type MapObject } from "../sim/model";
+import { isDelayed, mapObjects, objectTile, specifiedStrength, type MapObject } from "../sim/model";
 
 export const MAP_TREES = ["Pine", "Birch", "Oak", "Succulent"] as const;
 export type MapTree = (typeof MAP_TREES)[number];
@@ -112,6 +115,11 @@ export interface ResourceMeasures {
     inFields: number;
   };
   mines: { count: number; fromStart: number[] };
+  /** BadwaterSource objects: each one's strength and lowness (in the order of the map's objects),
+   *  how many wait for a cycle to start (time-activated), their total strength and the clean
+   *  WaterSources' total, and each one's distance from the start (its footprint's nearest tile to
+   *  the start's centre), nearest first; and the map's BadwaterSeeps, the other lasting supply. */
+  badwater: { count: number; delayed: number; strengths: number[]; lowness: number[]; total: number; clean: number; fromStart: number[]; seeps: number };
   /** The start's centre, when the map has exactly one. */
   start: { x: number; y: number } | null;
 }
@@ -263,6 +271,36 @@ function waterDistance(W: number, H: number, wet: (i: number) => boolean): Int32
   return d;
 }
 
+/** The distance from `p` to an object's footprint's nearest ground tile, to a tenth of a tile. */
+function nearestTo(o: MapObject, p: { x: number; y: number }): number {
+  let d = Infinity;
+  for (const b of worldBlocks(FOOTPRINTS[o.template], o)) if (b.localZ === 0) d = Math.min(d, Math.hypot(b.x - p.x, b.y - p.y));
+  return Math.round(d * 10) / 10;
+}
+
+/** A badwater source's lowness: the share of the tiles 4–6 tiles (Chebyshev) from its 3×3's centre
+ *  whose top stands above the source's level (see the file's header). */
+export function sourceLowness(heights: ArrayLike<number>, W: number, H: number, o: Pick<MapObject, "template" | "x" | "y" | "z" | "orientation" | "flipped">): number {
+  const [cx, cy] = objectTile(o, 1, 1);
+  return lownessAt(heights, W, H, cx, cy, o.z);
+}
+
+/** The share of the tiles 4–6 tiles (Chebyshev) from (cx, cy) whose top stands above `level`. */
+export function lownessAt(heights: ArrayLike<number>, W: number, H: number, cx: number, cy: number, level: number): number {
+  let above = 0;
+  let all = 0;
+  for (let dy = -6; dy <= 6; dy++)
+    for (let dx = -6; dx <= 6; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 4) continue;
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      all++;
+      if (heights[y * W + x] > level) above++;
+    }
+  return all ? Math.round((above / all) * 1000) / 1000 : 0;
+}
+
 /** The centre tile of a StartingLocation's 3×3. */
 export function startCentreOf(o: MapObject): { x: number; y: number } {
   const cells = worldBlocks(FOOTPRINTS.StartingLocation, o).filter((b) => b.localZ === 0);
@@ -312,6 +350,9 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
   let columns = 0;
   const mines: MapObject[] = [];
   const starts: MapObject[] = [];
+  const bad: MapObject[] = [];
+  let clean = 0;
+  let seeps = 0;
   for (const o of objects) {
     const t = o.template;
     if ((MAP_TREES as readonly string[]).includes(t)) {
@@ -348,6 +389,9 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
       if (on(o)) ruinAt.set(o.y * W + o.x, { h, v });
     } else if (t === "UndergroundRuins") mines.push(o);
     else if (t === "StartingLocation") starts.push(o);
+    else if (t === "BadwaterSource") bad.push(o);
+    else if (t === "BadwaterSeep") seeps++;
+    else if (t === "WaterSource") clean += specifiedStrength(o.components);
   }
   let moistFree = 0;
   let dryFree = 0;
@@ -439,16 +483,7 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
   const inFields = fieldGroups.reduce((a, f) => a + f.length, 0);
 
   const start = starts.length === 1 ? startCentreOf(starts[0]) : null;
-  const fromStart = start
-    ? mines
-        .map((m) => {
-          // the footprint's nearest tile to the start's centre
-          let d = Infinity;
-          for (const b of worldBlocks(FOOTPRINTS.UndergroundRuins, m)) if (b.localZ === 0) d = Math.min(d, Math.hypot(b.x - start.x, b.y - start.y));
-          return Math.round(d * 10) / 10;
-        })
-        .sort((a, b) => a - b)
-    : [];
+  const fromStart = start ? mines.map((m) => nearestTo(m, start)).sort((a, b) => a - b) : [];
   return {
     W,
     H,
@@ -477,6 +512,16 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
     },
     ruins: { columns, scrap, storeys, variants, orientations, fields, inFields: columns ? inFields / columns : 0 },
     mines: { count: mines.length, fromStart },
+    badwater: {
+      count: bad.length,
+      delayed: bad.filter((o) => isDelayed(o.components)).length,
+      strengths: bad.map((o) => specifiedStrength(o.components)),
+      lowness: bad.map((o) => sourceLowness(g.heights, W, H, o)),
+      total: bad.reduce((a, o) => a + specifiedStrength(o.components), 0),
+      clean,
+      fromStart: start ? bad.map((o) => nearestTo(o, start)).sort((a, b) => a - b) : [],
+      seeps,
+    },
     start,
   };
 }

@@ -37,7 +37,7 @@ test("the 3D preview builds a 256² map, reads tiles on hover, and remeshes only
   // hover: the readout names what is under the pointer
   const c = await page.evaluate(() => window.dgm3d!.renderer.tileToClient(128, 128));
   await page.mouse.move(c.x, c.y);
-  await expect(page.locator(".readout")).toContainText(/height \d+/);
+  await expect(page.locator(".readout")).toContainText(/height \d+/i);
 
   // a terrain change remeshes the chunks around it only (a 3×3 raise inside one chunk: 1 chunk;
   // on a chunk corner: the 4 chunks that meet there)
