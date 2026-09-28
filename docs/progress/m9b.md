@@ -242,6 +242,25 @@ ground stand although D297's line is missed where thin sheets form less; the poo
 the release candidate checks the water against the game itself (decisions-pending #133). The band
 tool stays as information.
 
+**One switch, and a set Real places 2 can take** (the milestone session's coordination under
+D308): the rules come as a self-contained set, `1c9d1340`, in which water and soil run the port's
+rules unless a caller asks for the game's (`DEFAULT_WATER_RULES`, `DEFAULT_SOIL_RULES`: taking it
+changes no map, checked on a clean `feature/m9a`: the 4242 sha unchanged, the oracle sample at 0
+disagreements). `sim/water.ts` and `prototype/watersim.py`, `sim/soil.ts` and `prototype/soil.py`,
+the build (`rules`), `validateMap` (`waterRules`, `soilRules`), and `prototype/validate.py`
+(`--water-rules`, `--soil-rules`). M9b's own switch (`06e9bb87`) turns both defaults to the game's;
+the Real places, converted under the port's water, settle with it (`place.ts`) until Real places 2
+converts them under the game's.
+
+**The one re-pin** (D148, D308): the water golden vectors (under the game's rules); the speed-ups
+test keeps the port's digests and pins the game's beside them; `waterGame.test.ts` checks the two
+languages bit for bit under the game's; `soilGame.test.ts`'s scene settles on the port's water, as
+its pin was made; the 4242 download's sha; the map-bound tests re-seeded (listed below).
+
+**Found by the re-pin:** a regeneration's badwater basin took the edge of a player's forest (its
+clear square, 5 tiles either way of the pit's middle, reached past the tiles the planner kept off):
+the planner now keeps that square off the player's features.
+
 ### The probe's two findings (D302)
 
 Measured with the weather-cycle model the probe compares the game against, which followed the game
@@ -296,3 +315,9 @@ check, the start, the water settling).
   caption name the map by its own name (D278 (1b)), read from the card, not "River Valley".
 - `tests/contract/ops.test.ts`: the placed Blockage goes on a free tile found on the map, not at
   (40, 3), which 0.8.0's map of seed 77 covers.
+- `tests/contract/shelf.test.ts`: the painted grove is counted on its own tiles and removed within
+  its own bounds (a pine of the map's own a few tiles off made the count the map's luck); seed 18.
+- Re-seeded for 0.8.0's maps and the game's rules (D148): the badwater test (seed 22), every object
+  on (seed 2), a second district's site, ruins on a rise, the weir, the builders' ranges (seed 7),
+  the narrows (seed 5), the 16-level fall (seed 7), the oxbow carve (Canyon 22), the tall river's
+  reopen (Highlands 10), the edge lake (Lake Basin 6), two brush strokes (seed 4); the 4242 sha.
