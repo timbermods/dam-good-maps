@@ -75,7 +75,7 @@ async function handle(req: Request): Promise<unknown> {
         entities: w.entities.length,
         starts: templates.StartingLocation ?? 0,
         topTemplates: top,
-        caves: doc.base.columns.length,
+        caves: doc.base.runs.length,
         changes: doc.meta.source!.report.changes.map((c) => c.message),
         flags: doc.meta.source!.report.flags.map((f) => f.message),
         loadChecks: { passed: load.filter((c) => c.ok).length, failed: load.filter((c) => !c.ok).map((c) => c.id) },

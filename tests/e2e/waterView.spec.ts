@@ -20,7 +20,9 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  // (seed 15 since M9a, D148: 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there
+  // one group of sources feeds the water, where three rivers join on most maps)
+  await page.goto("./#s=15&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
@@ -107,7 +109,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // a source picked on the shelf: every source shows its marker with its strength
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   await expect.poll(async () => page.locator(".source-marker").count()).toBeGreaterThan(0);
-  // a new source on dry, empty ground
+  // a new source on dry, empty, level ground (level 3 × 3: a badwater source stands on it below;
+  // M9a's land is rarely level where the first dry tile is, D148)
   const spot = await page.evaluate(
     ([s0, s1]) => {
       const mm = window.dgm3d!.renderer.mapState()!;
@@ -115,6 +118,9 @@ test("water is never an object; clear water, layers, strength, sources findable 
       for (let y = 10; y < mm.H - 10; y++)
         for (let x = 10; x < mm.W - 10; x++) {
           if (mm.surface.depth[y * mm.W + x] > 0 || Math.hypot(x - s0, y - s1) < 20) continue;
+          let level = true;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (mm.heights[(y + dy) * mm.W + x + dx] !== mm.heights[y * mm.W + x]) level = false;
+          if (!level) continue;
           let empty = true;
           for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x) <= 3 && Math.abs(e.y[k] - y) <= 3) empty = false;
           if (empty) return [x, y] as [number, number];

@@ -11,7 +11,9 @@
 // Speed: only an *exact* active list is updated each substep: the tiles with water at the start of
 // the substep, their 4-neighbours, and the source tiles. Every other tile is dry and cannot change,
 // so the result is identical to updating the whole grid (PLAN §10: a list rebuilt once per tick
-// changed the settled volume by 5%).
+// changed the settled volume by 5%). An interior tile counts its wet neighbours directly, and the
+// outflows' direction loop is written out (PLAN §20 D130): exact rewrites, proved bit for bit
+// against the loops they replace (tests/unit/water-speedups.test.ts).
 
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
@@ -178,13 +180,21 @@ export class WaterSim {
       const x = i % W;
       const y = (i - x) / W;
       let c = 1;
-      for (let dy = -1; dy <= 1; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= H) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const xx = x + dx;
-          if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
+      if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+        // an interior tile has all eight neighbours: count them directly (an integer count, so
+        // the order of the additions cannot change it; PLAN §20 D130)
+        c += +(D[i - W - 1] > 0) + +(D[i - W] > 0) + +(D[i - W + 1] > 0)
+          + +(D[i - 1] > 0) + +(D[i + 1] > 0)
+          + +(D[i + W - 1] > 0) + +(D[i + W] > 0) + +(D[i + W + 1] > 0);
+      } else {
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= H) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const xx = x + dx;
+            if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
+          }
         }
       }
       wn[i] = c;
@@ -242,6 +252,19 @@ export class WaterSim {
     this.activeCount = n;
   }
 
+  /** The outflow of wet tile `c` (floor `Fc`, surface `Hc`) into a neighbour holding a partial
+   *  obstacle (NaturalDam) of height `lim` on floor `Fn`: `e` is the head difference and `prev` the
+   *  momentum kept from the last substep. */
+  private damFlow(c: number, Fc: number, Hc: number, Fn: number, lim: number, e: number, prev: number): number {
+    const hd = Hc - Fn;
+    if (hd < lim) {
+      const a = clamp01(clamp01((lim - hd) / 0.1) * clamp(1 - 2.25 * (Hc - (Fc + this.Dold[c])), 0.5, 2));
+      return 0.995 * prev - 0.02 * a;
+    }
+    if (hd - lim < 0.1 && e > 0) e = e * ((hd - lim) / 0.1);
+    return 0.995 * prev + K * e;
+  }
+
   private substep(scale: number): void {
     const { W, H, F, D, C, out, f, wall, mod, dam } = this;
     // flows of the tiles that had water last substep are stale: clear them
@@ -254,7 +277,8 @@ export class WaterSim {
     }
     this.buildActive();
 
-    // 1. outflows of every wet tile, from the start-of-substep state
+    // 1. outflows of every wet tile, from the start-of-substep state: the four directions written
+    //    out in order (−y, −x, +y, +x), each the same steps (PLAN §20 D130)
     for (let w = 0; w < this.wetCount; w++) {
       const c = this.wet[w];
       const x = c % W;
@@ -263,39 +287,90 @@ export class WaterSim {
       const Dc = D[c];
       const Hc = Fc + Dc;
       const b = 4 * c;
-      for (let k = 0; k < 4; k++) {
-        let n = -1;
-        if (k === 0) n = y > 0 ? c - W : -1;
-        else if (k === 1) n = x > 0 ? c - 1 : -1;
-        else if (k === 2) n = y < H - 1 ? c + W : -1;
-        else n = x < W - 1 ? c + 1 : -1;
+      const wc = wall[c];
+      // −y
+      {
+        const n = y > 0 ? c - W : -1;
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
         const Hn = inside ? Fn + Dn : 0;
-        if (wall[c] & (1 << k) || Fn >= Hc) {
-          f[b + k] = 0;
-          continue;
-        }
-        let e = Hc - Hn;
-        const prev = KEEP * out[b + k];
-        let fk: number;
-        const lim = inside && dam ? dam[n] : -1;
-        if (lim >= 0 && Fn < Math.ceil(Hc)) {
-          // a partial obstacle (NaturalDam) in the target tile
-          const hd = Hc - Fn;
-          if (hd < lim) {
-            const a = clamp01(clamp01((lim - hd) / 0.1) * clamp(1 - 2.25 * (Hc - (Fc + this.Dold[c])), 0.5, 2));
-            fk = 0.995 * prev - 0.02 * a;
-          } else {
-            if (hd - lim < 0.1 && e > 0) e = e * ((hd - lim) / 0.1);
-            fk = 0.995 * prev + K * e;
+        if (wc & 1 || Fn >= Hc) f[b] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
           }
-        } else {
-          if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
-          fk = prev + K * e;
+          f[b] = fk > 0 ? fk : 0;
         }
-        f[b + k] = fk > 0 ? fk : 0;
+      }
+      // −x
+      {
+        const n = x > 0 ? c - 1 : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 2 || Fn >= Hc) f[b + 1] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 1];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 1] = fk > 0 ? fk : 0;
+        }
+      }
+      // +y
+      {
+        const n = y < H - 1 ? c + W : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 4 || Fn >= Hc) f[b + 2] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 2];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 2] = fk > 0 ? fk : 0;
+        }
+      }
+      // +x
+      {
+        const n = x < W - 1 ? c + 1 : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 8 || Fn >= Hc) f[b + 3] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 3];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 3] = fk > 0 ? fk : 0;
+        }
       }
       // a tile never gives more than it has
       const s = f[b] + f[b + 1] + f[b + 2] + f[b + 3];
@@ -437,11 +512,95 @@ export interface SettleOptions {
   checkEvery?: number;
   /** Share of tiles that may still move by more than `tol` (PLAN §11.3: 0.005). */
   movedShare?: number;
+  /** The kept tiles of the map's sealed basins (`sealedTiles`: a carve's oxbow lakes). What they
+   *  lose to evaporation is not the water changing (D222): see `steadyApartFromSealed`. */
+  sealed?: readonly number[];
+  /** Stop at the first check where the water is steady apart from sealed basins evaporating (the
+   *  editor's preview). The canonical settle runs on to its own test instead: the water a file
+   *  gets is the water at the tick that test gives (§19.7), so this never changes it. */
+  untilSteady?: boolean;
 }
 
 export interface SettleResult {
+  /** The settle's own test passed (PLAN §11.3), at the check `ticks` gives. */
   settled: boolean;
+  /** Ticks run: the water is the water at this tick. */
   ticks: number;
+  /** When the settle's test had not passed but, at a check, the water was steady apart from sealed
+   *  basins evaporating (D222): that check's tick. Such water has settled: only real flow is the
+   *  water still changing (`waterSteady`). */
+  steadyTicks?: number;
+}
+
+/** Whether a settle's water has settled (`water.settles`, the editor's quiet dot): its test passed,
+ *  or all that still changed was sealed basins evaporating (D222). */
+export function waterSteady(r: SettleResult): boolean {
+  return r.settled || r.steadyTicks !== undefined;
+}
+
+/** The kept tiles of a model's sealed basins (its `retained` water), ascending; undefined when it
+ *  has none, which leaves the settle exactly as it was (every generated map). */
+export function sealedTiles(m: WaterModel): number[] | undefined {
+  if (!m.retained?.length) return undefined;
+  const all = new Set<number>();
+  for (const r of m.retained) for (const i of r.tiles) all.add(i);
+  return [...all].sort((a, b) => a - b);
+}
+
+/** Whether the water changed between two checks only by sealed basins evaporating (D222). A sealed
+ *  basin is the water round a basin's kept tiles (4-connected tiles wet at either check) while it
+ *  holds no running source's tile and reaches no map edge: nothing flows in or out, so all it can
+ *  lose is what evaporates. Its tiles that lost water are left out of the settle's test (the tiles
+ *  moved and the volume change); its tiles that rose (water still running inside it) and every
+ *  other tile count as before. `prototype/watersim.py` (`steady_apart_from_sealed`) is the same. */
+export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: number, sealed: readonly number[], tol: number, movedShare: number): boolean {
+  const { W, H, N, D } = sim;
+  const feeds = new Uint8Array(N);
+  for (const e of sim.emitters) if (e.strength > 0) for (const i of e.cells) feeds[i] = 1;
+  const wet = (i: number) => D[i] > 0 || prev[i] > 0;
+  const drying = new Uint8Array(N);
+  const seen = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  for (const s of sealed) {
+    if (seen[s] || !wet(s)) continue;
+    seen[s] = 1;
+    queue[0] = s;
+    let tail = 1;
+    let open = false;
+    for (let h = 0; h < tail; h++) {
+      const c = queue[h];
+      const x = c % W;
+      const y = (c - x) / W;
+      if (feeds[c] || x === 0 || y === 0 || x === W - 1 || y === H - 1) open = true;
+      for (let k = 0; k < 4; k++) {
+        let n: number;
+        if (k === 0) n = y > 0 ? c - W : -1;
+        else if (k === 1) n = x > 0 ? c - 1 : -1;
+        else if (k === 2) n = y < H - 1 ? c + W : -1;
+        else n = x < W - 1 ? c + 1 : -1;
+        if (n < 0 || seen[n] || !wet(n)) continue;
+        seen[n] = 1;
+        queue[tail++] = n;
+      }
+    }
+    if (open) continue;
+    for (let h = 0; h < tail; h++) {
+      const i = queue[h];
+      if (!(D[i] > prev[i])) drying[i] = 1;
+    }
+  }
+  // the settle's test on everything else, summed in index order as the Python does
+  let rest = 0;
+  let restPrev = 0;
+  let moved = 0;
+  for (let i = 0; i < N; i++) {
+    if (drying[i]) continue;
+    rest += D[i];
+    restPrev += prev[i];
+    if (Math.abs(D[i] - prev[i]) > tol) moved++;
+  }
+  const dv = Math.abs(rest - restPrev) / Math.max(vol, 1e-9);
+  return dv < 0.002 && moved <= movedShare * N;
 }
 
 /** Run with sources on until the water stops changing (PLAN §11.3): between two checks 128 ticks
@@ -458,12 +617,16 @@ export function settle(sim: WaterSim, opts: SettleOptions = {}): SettleResult {
 /** The settle of `settle`, in steps: `advance` runs at most the ticks it is given and stops at the
  *  check that settles, so the editor's worker can run the canonical settle a slice at a time,
  *  answer the page between slices, and give up when a newer edit arrives (EDITOR_PLAN §6). The
- *  ticks and the checks are the same whatever the slices, so the result is too. */
+ *  ticks and the checks are the same whatever the slices, so the result is too. With sealed basins
+ *  it also notes the first check where only their evaporation still changed (`steadyTicks`). */
 export class SettleRun {
   readonly every: number;
   readonly checks: number;
   private readonly tol: number;
   private readonly movedShare: number;
+  private readonly sealed: readonly number[] | null;
+  private readonly untilSteady: boolean;
+  private steadyTicks: number | undefined;
   private prev: Float64Array;
   private prevVol: number;
   private k = 0;
@@ -477,6 +640,8 @@ export class SettleRun {
     const maxDays = opts.maxDays ?? 4;
     this.tol = opts.tol ?? 0.005;
     this.movedShare = opts.movedShare ?? 0.005;
+    this.sealed = opts.sealed?.length ? opts.sealed : null;
+    this.untilSteady = opts.untilSteady ?? false;
     this.every = opts.checkEvery ?? 128;
     this.checks = Math.floor((maxDays * TICKS_PER_DAY) / this.every);
     this.prev = sim.D.slice();
@@ -517,8 +682,16 @@ export class SettleRun {
       for (let i = 0; i < sim.N; i++) if (Math.abs(D[i] - prev[i]) > this.tol) moved++;
       this.k++;
       if (dv < 0.002 && moved <= this.movedShare * sim.N) this.result = { settled: true, ticks: sim.ticks };
-      else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
       else {
+        // only sealed basins evaporating: steady (D222); the canonical settle still runs on to its
+        // own test, so its water is what it always was
+        if (this.sealed && this.steadyTicks === undefined && steadyApartFromSealed(sim, prev, vol, this.sealed, this.tol, this.movedShare)) {
+          this.steadyTicks = sim.ticks;
+          if (this.untilSteady) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
+        }
+        if (!this.result && this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks, ...(this.steadyTicks !== undefined ? { steadyTicks: this.steadyTicks } : {}) };
+      }
+      if (!this.result) {
         this.prev = D.slice();
         this.prevVol = vol;
       }

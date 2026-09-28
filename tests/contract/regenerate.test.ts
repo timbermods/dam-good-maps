@@ -1,7 +1,7 @@
 // Regeneration with constraints (ROADMAP M3 acceptance, PLAN §7.0, EDITOR_PLAN §3 conflict rules):
 // generate, add a user feature, change a setting, regenerate: the user feature survives and nothing
-// is silently dropped. The planner keeps its layout off the player's features, locked regions and
-// keep-out regions; locks keep what the generator made there; what no longer applies is flagged.
+// is silently dropped. The planner keeps its layout off the player's features and keep-out
+// regions; what no longer applies is flagged.
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
@@ -111,26 +111,6 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
     expect(g.orphans.map((o) => o.reason)).toEqual(gone.map((f) => `feature ${f.id} no longer exists`));
   });
 
-  it("locks keep what the generator made in their area", () => {
-    const s = MapSession.fromGenerated(r);
-    const region = box(90, 90, 120, 120);
-    expect(s.apply({ op: "setLock", params: { id: "north-east", region: { runs: region } } }).ok).toBe(true);
-    const tiles = runsToTiles(region, W);
-    const heights = tiles.map((i) => s.built.heights[i]);
-    const inside = (e: { x: number; y: number }) => e.x >= 90 && e.x <= 120 && e.y >= 90 && e.y <= 120;
-    const kept = s.built.entities.filter((e) => inside(e) && e.template !== "Slope" && e.template !== "StartingLocation").map((e) => e.id).sort();
-    expect(kept.length).toBeGreaterThan(10);
-    const g = s.regenerate({ seed: 4321 });
-    expect(g.ok).toBe(true);
-    expect(tiles.map((i) => s.built.heights[i])).toEqual(heights);
-    expect(s.built.entities.filter((e) => inside(e) && e.template !== "Slope").map((e) => e.id).sort()).toEqual(kept);
-    expect(s.spec!.constraints.locks).toEqual([{ runs: region }]);
-    // the project file keeps the generation with what the lock kept
-    const doc = s.document;
-    expect(doc.kept!.owners.length).toBe(kept.length);
-    expect(Buffer.from(MapSession.open(doc).exportTimber().bytes).equals(Buffer.from(s.exportTimber().bytes))).toBe(true);
-  });
-
   it("the planner places nothing in keep-out regions", () => {
     const s = MapSession.fromGenerated(r);
     const keepOut = box(0, 0, 127, 20);
@@ -144,8 +124,9 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
 
   it("a regeneration that cannot keep off the player's features is refused and changes nothing", () => {
     const s = MapSession.fromGenerated(r);
-    // a wall across the whole map: every river from west to east has to cross it
-    const wall: Feature = { ...PLATEAU, params: { kind: "ridge", edgeStyle: "cliff", outline: [[60, 0], [66, 0], [66, 127], [60, 127]], height: 16 } };
+    // a plateau over almost the whole map: no river finds a way that keeps off it (M9a: rivers
+    // come from the land's drainage, so a wall across the map no longer forces them over it)
+    const wall: Feature = { ...PLATEAU, params: { kind: "plateau", edgeStyle: "cliff", outline: [[3, 3], [124, 3], [124, 124], [3, 124]], height: 16 } };
     expect(s.apply({ op: "addFeature", params: { feature: wall } }).ok).toBe(true);
     const before = s.exportTimber().bytes;
     const g = s.regenerate({ settings: { resources: { ruins: 150 } } });

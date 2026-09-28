@@ -16,7 +16,7 @@ import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/w
 import { DERIVED_SLOPES } from "../core/features/ids";
 import { inBench } from "../core/features/raster/terrain";
 import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS } from "../core/features/slopes";
-import { TREE_LOGS } from "../core/format/entities";
+import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../core/data/logFloor";
 import { FOOTPRINTS, footprintTiles, slopeHighSide, type Orientation } from "../core/format/footprints";
 import { WALK_BLOCKERS } from "../core/validate/playability";
 
@@ -542,8 +542,10 @@ export interface StartCheck {
   woodBySpecies: WoodBySpecies;
   /** The saplings' logs within the walk: wood still growing, not counted. */
   woodGrowing: number;
+  /** The grown trees' logs within the starting-logs floor's longer walk (40 tiles; D224, D227). */
+  woodFloor: number;
   bushes: number;
-  /** All three requirements hold with the map's rules. */
+  /** All three requirements hold with the map's rules, and the starting-logs floor. */
   meets: boolean;
   /** The start targets it misses (badwater and ruin distances, walkable land), in plain words. */
   warnings: string[];
@@ -691,6 +693,7 @@ export function checkStartAt(
   // sapling's are still growing) and the berry bushes that are not dead, within 20 tiles' walk
   let wood = 0;
   let woodGrowing = 0;
+  let woodFloor = 0;
   const woodBySpecies = noWood();
   let bushes = 0;
   let nearestRuin = Infinity;
@@ -702,19 +705,21 @@ export function checkStartAt(
       if (dist < nearestRuin) nearestRuin = dist;
       continue;
     }
-    const logs = TREE_LOGS[t];
+    const logs = LOGS_PER_TREE_SPECIES[t];
     if ((logs === undefined && t !== "BlueberryBush") || i < 0 || i >= N) continue;
-    if (reachAt(walk, W, H, i) > 20) continue;
+    const d = reachAt(walk, W, H, i);
+    if (logs !== undefined && (e.flags[k] & YOUNG) === 0 && d <= LOG_FLOOR_WALK) woodFloor += logs;
+    if (d > 20) continue;
     if (logs !== undefined) {
       if ((e.flags[k] & YOUNG) !== 0) woodGrowing += logs;
       else {
         wood += logs;
-        woodBySpecies[t as WoodSpecies] += logs;
+        if (t in woodBySpecies) woodBySpecies[t as WoodSpecies] += logs;
       }
     } else if ((e.flags[k] & DEAD) === 0) bushes++;
   }
   const r = needs.rules;
-  const meets = water !== null && water <= r.waterWithin && wood >= r.woodWithin20 && bushes >= r.bushesWithin20;
+  const meets = water !== null && water <= r.waterWithin && wood >= r.woodWithin20 && bushes >= r.bushesWithin20 && woodFloor >= LOG_FLOOR;
   // the targets: badwater and ruins farther than their distances, enough land to walk on
   const warnings: string[] = [];
   if (nearestBad < r.badwaterWithin) warnings.push(`Badwater ${Math.round(nearestBad)} tiles away (the target is ${r.badwaterWithin})`);
@@ -724,7 +729,7 @@ export function checkStartAt(
   let land = 0;
   if (root >= 0) for (let i = 0; i < N; i++) if (labels[i] === root && !(c.water.depth[i] > 0.05)) land++;
   if (land < needs.reachMin) warnings.push(`${land.toLocaleString()} tiles of land to walk on (the target is ${needs.reachMin.toLocaleString()})`);
-  return { problem, tiles, door: doorI, water, wood, woodBySpecies, woodGrowing, bushes, meets, warnings };
+  return { problem, tiles, door: doorI, water, wood, woodBySpecies, woodGrowing, woodFloor, bushes, meets, warnings };
 }
 
 /** The river whose channel holds tile (x, y), and the arc position there (a click on a river). */

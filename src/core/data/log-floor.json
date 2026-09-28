@@ -1,0 +1,87 @@
+{
+  "gameVersion": "1.1.2.4-52e959e-sw",
+  "floor": 178,
+  "withinWalk": 40,
+  "minimum": 120,
+  "margin": 0.1,
+  "computed": 178,
+  "worst": {
+    "faction": "IronTeeth",
+    "route": {
+      "water": "without flowing water",
+      "items": [
+        {
+          "what": "science (the Forester costs 30 science)",
+          "building": "Inventor.IronTeeth",
+          "logs": 12
+        },
+        {
+          "what": "plank mill (75 power)",
+          "building": "IndustrialLumberMill.IronTeeth",
+          "logs": 20
+        },
+        {
+          "what": "power",
+          "building": "LargePowerWheel.IronTeeth",
+          "logs": 50
+        },
+        {
+          "what": "Forester (10 logs and 7 planks)",
+          "building": "Forester.IronTeeth",
+          "logs": 17
+        }
+      ]
+    },
+    "essentials": [
+      {
+        "what": "water pump",
+        "building": "DeepWaterPump.IronTeeth",
+        "logs": 12
+      },
+      {
+        "what": "dwelling",
+        "building": "Barrack.IronTeeth",
+        "logs": 40
+      },
+      {
+        "what": "breeding pod (the faction grows only through one)",
+        "building": "BreedingPod.IronTeeth",
+        "logs": 10
+      }
+    ],
+    "total": 161
+  },
+  "byFaction": {
+    "Folktails": {
+      "worstRoute": 64,
+      "cheapestRoute": 64,
+      "essentials": 24,
+      "total": 88
+    },
+    "IronTeeth": {
+      "worstRoute": 99,
+      "cheapestRoute": 74,
+      "essentials": 62,
+      "total": 161
+    }
+  },
+  "logsPerPlank": 1,
+  "logsPerTree": {
+    "Birch": 1,
+    "ChestnutTree": 4,
+    "Mangrove": 2,
+    "Maple": 6,
+    "Oak": 8,
+    "Pine": 2
+  },
+  "deadTreesKeepLogs": {
+    "Birch": true,
+    "ChestnutTree": true,
+    "Mangrove": true,
+    "Maple": true,
+    "Oak": true,
+    "Pine": true
+  },
+  "saplingsCount": false,
+  "source": "Timberborn_Data/StreamingAssets/Modding/Blueprints.zip (tools/log-floor.ts)"
+}

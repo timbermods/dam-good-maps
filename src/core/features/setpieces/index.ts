@@ -17,6 +17,7 @@ import { badwaterBasin } from "./badwaterBasin";
 import type { AchievableRanges, PlanContext, PlanOutcome, PlanRecord } from "./common";
 import { damSite } from "./damSite";
 import { gorge } from "./gorge";
+import { naturalNarrows } from "./naturalNarrows";
 import { obstaclePayoff } from "./obstaclePayoff";
 import { plugSpillway } from "./plugSpillway";
 import { secondDistrict } from "./secondDistrict";
@@ -82,6 +83,7 @@ export const BUILDERS: Partial<Record<SetPieceKind, SetPieceBuilder>> = {
   badwaterBasin,
   damSite,
   gorge,
+  naturalNarrows,
   obstaclePayoff,
   plugSpillway,
   secondDistrict,

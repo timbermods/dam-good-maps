@@ -32,9 +32,11 @@ function northFall(s: MapSession, request: PlanRecord, southOf?: number): { ops:
 }
 
 describe("a 20-wide standalone waterfall fits on 96², 128² and 256²", () => {
+  // (seeds whose land lets the fall's water settle within the check's 4 days: on 128² seed 4 at
+  // generator 0.7.0 it fills a closed hollow for longer, as maps may, D152)
   it.each([
     [96, 3],
-    [128, 4],
+    [128, 5],
     [256, 5],
   ])("%i² (seed %i): width 20 kept, the whole lip carries water, the map validates", (side, seed) => {
     const s = session(side, seed);
@@ -112,16 +114,22 @@ describe("drops above 15 are reduced", () => {
     expect(r.ok).toBe(false);
   });
   it("an on-river fall asked to drop 16 drops at most what its river's bed allows downstream", () => {
-    const s = session(96, 3);
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river")!;
-    const r = planPiece(s, "waterfall", { mode: "on-river", river: river.id, at: 70, drop: 16 }, "11111111-2222-4333-8444-555555555555");
+    // a river and a place along it whose bed has room below it (generator 0.7.0: main rivers often
+    // cut to level 0, and the land's own falls take their stretch of a river)
+    const s = session(96, 4);
+    const plan = (river: RiverFeature, at: number) => planPiece(s, "waterfall", { mode: "on-river", river: river.id, at, drop: 16 }, "11111111-2222-4333-8444-555555555555");
+    const places = s.features.filter((f): f is RiverFeature => f.kind === "river").flatMap((f) => [30, 40, 50, 60, 70].map((at) => ({ river: f, at })));
+    const place = places.find((p) => plan(p.river, p.at).ok)!;
+    expect(place).toBeDefined();
+    const river = place.river;
+    const r = plan(river, place.at);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const drop = Number(r.feature.params.plan.drop);
     expect(drop).toBeLessThanOrEqual(15);
     expect(r.feature.params.report[0]).toMatch(/^Drop 16 reduced to \d+/);
     expect(s.applyAll(r.ops).errors).toEqual([]);
-    const after = s.features.find((f): f is RiverFeature => f.kind === "river")!;
+    const after = s.features.find((f): f is RiverFeature => f.id === river.id)!;
     const bed = after.params.bedProfile;
     expect(bed.start - bed.steps.reduce((a, st) => a + st.drop, 0)).toBeGreaterThanOrEqual(0);
   });

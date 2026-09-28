@@ -159,6 +159,26 @@ export function halfAt(f: RiverFeature, narrows: readonly { from: number; to: nu
   return half;
 }
 
+/** How much a generated channel's half-width varies along it (land/hydro.ts: up to a third wider
+ *  or narrower than the river's own width, plus the tile the carve rounds to). */
+export const CARVED_HALF_SPREAD = 1.35;
+
+/** A river whose channel the generated field already holds (M9a): its channel tiles are marked,
+ *  the ground is left as the processes made it. The channel is the carved bed: the tiles near the
+ *  course at or below its bed there (its width varies along it, so the course's own width would
+ *  mark banks as channel in one place and miss bed in another). Near a bed step either level
+ *  counts. */
+export function markRiverChannel(f: RiverFeature, t: BuildTarget): void {
+  const field = t.pathField(f.id);
+  const reach = (f.params.width / 2) * CARVED_HALF_SPREAD + 0.5;
+  const p = f.params.bedProfile;
+  t.forEach((i) => {
+    if (!(field.d[i] < reach)) return;
+    const s = field.s[i];
+    if (t.heights[i] <= Math.max(bedAt(p, s - 2), bedAt(p, s))) t.channel[i] = 1;
+  });
+}
+
 /** Rivers (step 4): the channel carved at the bed profile's level. A river drawn in the editor
  *  (`banks`) also raises the ground beside its channel to its banks, bed + bedDepth, where the
  *  terrain is lower, so its water stays in the channel whatever it crosses. */
@@ -346,7 +366,10 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
     const was = s.params.precise ? heights.slice() : null;
-    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) : (i) => t.inRegion(i));
+    // Naturalize roughens only open land: it leaves every protected tile as it is (a set piece's,
+    // the start's bench, a precise stroke's, a force's), so it never breaks what they hold (D253)
+    const open = s.params.tool === "naturalize" ? (i: number) => !t.protectedMask[i] : () => true;
+    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
     // a precise stroke's tiles stay as it left them: the integrity pass leaves them out (a one-tile
     // pit stays a pit, D193)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
@@ -407,7 +430,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
 
 // ------------------------------------------------------------------------------------- integrity
 
-/** Step 7 for the tiles of `tiles`: clip to the editor limit and remove single-tile pits and
+/** Step 7 for the tiles of `tiles`: clip to the editor limit (`cap`: 16, or a tall map's top) and remove single-tile pits and
  *  spikes off channels, reading the unclipped `pre` heights of the four neighbours through the same
  *  clip. `candidate(i)` says which tiles the pass may change. */
 export function integrityAt(
@@ -422,8 +445,9 @@ export function integrityAt(
   y0: number,
   x1: number,
   y1: number,
+  cap = MAX_TERRAIN,
 ): void {
-  const clip = (i: number) => (candidate(i) && pre[i] > MAX_TERRAIN ? MAX_TERRAIN : pre[i]);
+  const clip = (i: number) => (candidate(i) && pre[i] > cap ? cap : pre[i]);
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;

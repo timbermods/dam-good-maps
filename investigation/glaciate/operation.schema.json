@@ -1,0 +1,327 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Glaciate investigation force result",
+  "description": "Structure only. operation.ts additionally verifies sorted indices, equal lengths, fingerprints, numeric bounds, map dimensions and exact replay.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "op",
+    "params"
+  ],
+  "properties": {
+    "op": {
+      "const": "forceResult"
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "model",
+        "id",
+        "request",
+        "W",
+        "H",
+        "maxHeight",
+        "before",
+        "after",
+        "steps",
+        "settled",
+        "ticks",
+        "terrain",
+        "rock",
+        "water",
+        "contamination",
+        "entities",
+        "fallen",
+        "layers"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "model": {
+          "const": "forces-core/1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "verb",
+            "settings",
+            "intent"
+          ],
+          "properties": {
+            "verb": {
+              "const": "glaciate"
+            },
+            "settings": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "power",
+                "size",
+                "meltwater",
+                "seed"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "flow",
+                    "aim"
+                  ]
+                },
+                "power": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 4,
+                      "maximum": 64
+                    }
+                  ]
+                },
+                "meltwater": {
+                  "type": "boolean"
+                },
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              }
+            },
+            "intent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "origin"
+              ],
+              "properties": {
+                "origin": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                }
+              }
+            }
+          }
+        },
+        "W": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 256
+        },
+        "H": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 256
+        },
+        "maxHeight": {
+          "const": 22
+        },
+        "before": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "after": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "replaces": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settled": {
+          "type": "boolean"
+        },
+        "ticks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "terrain": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "rock": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "water": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "contamination": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "entities": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "fallen": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "layers": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "array",
+            "minItems": 23,
+            "maxItems": 23,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "lake": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tiles",
+            "floor",
+            "depth",
+            "contamination"
+          ],
+          "properties": {
+            "tiles": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "floor": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "depth": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 22
+              }
+            },
+            "contamination": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

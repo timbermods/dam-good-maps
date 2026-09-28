@@ -15,10 +15,12 @@
 
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { decodeProject, encodeProject, toDocument } from "../src/core/doc/document";
+import { decodeProject, encodeProject, generatedDocument } from "../src/core/doc/document";
 import { MapSession } from "../src/core/doc/session";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
 import { officialRange } from "../src/core/gen/calibrated";
+import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
+import { badwaterBudget } from "../src/core/resources/badwater";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 
 function arg(name: string, fallback: string): string {
@@ -58,7 +60,21 @@ const failedChecks = new Map<string, number>(); // every failed attempt's blocki
 // range for their size and settings, and their mine sites
 const inRange = { trees: 0, bushes: 0, scrap: 0 };
 const mines: number[] = [];
+// and their badwater sources, against the budget for the map (D200)
+const badwater: number[] = [];
+let badwaterShort = 0;
 const advisory = new Map<string, number>();
+const straight: { run: number; canal: number }[] = [];
+// information: accepted maps with a second district's site (D77: only where one fits) and ruins on a rise
+let districts = 0;
+let rises = 0;
+// the wood added to meet the starting-logs floor (D224, D227, D229): the maps that needed it, and
+// each grove's kind, distance and direction from the start
+let floorMaps = 0;
+const floorKinds = new Map<string, number>();
+const floorDist: number[] = [];
+const floorDirs = new Map<string, number>();
+const COMPASS = ["east", "northeast", "north", "northwest", "west", "southwest", "south", "southeast"];
 const lines: string[] = [];
 const log = (s: string) => {
   lines.push(s);
@@ -76,6 +92,35 @@ for (const seed of seeds) {
   if (r.report.passed) {
     final++;
     if (r.attempts === 1) first++;
+    if (r.info.straight) straight.push(r.info.straight);
+    if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "secondDistrict")) districts++;
+    if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "obstaclePayoff")) rises++;
+    const floor = r.features.filter((f) => f.kind === "forest" && !!f.role?.startsWith("forest/floor/"));
+    const st = r.features.find((f) => f.kind === "start");
+    if (floor.length) floorMaps++;
+    if (floor.length && st && st.kind === "start") {
+      const [sx, sy] = st.params.position;
+      for (const f of floor) {
+        if (f.kind !== "forest") continue;
+        const kind = (f.role ?? "").split("/")[2];
+        floorKinds.set(kind, (floorKinds.get(kind) ?? 0) + 1);
+        let cx = 0;
+        let cy = 0;
+        let n = 0;
+        for (const [y, a, b] of f.params.area)
+          for (let x = a; x <= b; x++) {
+            cx += x;
+            cy += y;
+            n++;
+          }
+        const dx = cx / n - sx;
+        const dy = cy / n - sy;
+        floorDist.push(Math.round(Math.hypot(dx, dy)));
+        // (y runs south to north: north is +y)
+        const dir = COMPASS[Math.round((Math.atan2(dy, dx) / (Math.PI / 4) + 8)) % 8];
+        floorDirs.set(dir, (floorDirs.get(dir) ?? 0) + 1);
+      }
+    }
   }
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
@@ -89,6 +134,9 @@ for (const seed of seeds) {
       else if (t.startsWith("RuinColumnH")) have.scrap += 15 * Number(t.slice(11));
       else if (t === "UndergroundRuins") m++;
     }
+    const bad = r.built.entities.filter((e) => e.template === "BadwaterSource").length;
+    badwater.push(bad);
+    if (bad < badwaterBudget(r.spec.size.x, r.spec.size.y, r.spec.settings.hazards.badwater, r.spec.seed).sources) badwaterShort++;
     const s = r.spec.settings.resources;
     const k = { trees: s.forestDensity / 100, bushes: s.berryBushes / 100, scrap: s.ruins / 100 };
     for (const key of ["trees", "bushes", "scrap"] as const) {
@@ -102,7 +150,7 @@ for (const seed of seeds) {
   if (r.report.passed) {
     const t1 = performance.now();
     try {
-      const s = MapSession.open(decodeProject(encodeProject(toDocument(r.spec, r.features, r.built, r.file))));
+      const s = MapSession.open(decodeProject(encodeProject(generatedDocument(r))));
       if (sha(s.exportTimber().bytes) === sha(r.bytes)) reopened++;
       else reopen = "its project file rebuilds different bytes";
     } catch (e) {
@@ -126,7 +174,21 @@ log(`- attempts: mean ${(attempts.reduce((a, b) => a + b, 0) / n).toFixed(2)}, m
 log(`- time per map: median ${Math.round(sorted[n >> 1])} ms, p90 ${Math.round(sorted[Math.floor(n * 0.9)])} ms, max ${Math.round(sorted[n - 1])} ms`);
 log(`- checks that failed an attempt: ${[...failedChecks].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}`);
 log(`- advisory warnings on the accepted maps: ${[...advisory].map(([k, v]) => `${k} ${v}/${n}`).join(", ") || "none"}`);
-log(`- in the official maps' typical range for the size and settings (information): trees ${inRange.trees}/${final}, bushes ${inRange.bushes}/${final}, scrap ${inRange.scrap}/${final}; mine sites ${mines.length ? `${Math.min(...mines)}–${Math.max(...mines)}` : "none"}`);
+log(`- in the official maps' typical range for the size and settings (information): trees ${inRange.trees}/${final}, bushes ${inRange.bushes}/${final}, scrap ${inRange.scrap}/${final}; mine sites ${mines.length ? `${Math.min(...mines)}–${Math.max(...mines)}` : "none"}; badwater sources ${badwater.length ? `${Math.min(...badwater)}–${Math.max(...badwater)}` : "none"}, ${badwaterShort} of ${final} fewer than their budget`);
+const spread = (v: number[]) => {
+  const s = v.slice().sort((a, b) => a - b);
+  return s.length ? `median ${s[s.length >> 1].toFixed(1)}, p90 ${s[Math.floor(s.length * 0.9)].toFixed(1)}, max ${s[s.length - 1].toFixed(1)}` : "none";
+};
+log(`- straight channels on the accepted maps (information; D209: past the limits a map is planned again): the longest straight bank ${spread(straight.map((x) => x.run))} tiles (limit ${STRAIGHT_LIMITS.run}), the longest canal ${spread(straight.map((x) => x.canal))} (limit ${STRAIGHT_LIMITS.canal})`);
+log(`- set pieces the land held (information): a second district's site on ${districts}/${final} accepted maps, ruins on a rise on ${rises}/${final}`);
+{
+  const q = (v: number[], p: number) => (v.length ? [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(p * (v.length - 1)))] : NaN);
+  const list = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ");
+  log(
+    `- the starting-logs floor's wood (D229, information): added on ${floorMaps}/${final} accepted maps` +
+      (floorDist.length ? `; ${floorDist.length} groves by kind: ${list(floorKinds)}; their middles ${q(floorDist, 0)}–${q(floorDist, 1)} tiles from the start (median ${q(floorDist, 0.5)}); by direction: ${list(floorDirs)}` : ""),
+  );
+}
 const rt = reopenTimes.slice().sort((a, b) => a - b);
 log(`- project round trip: ${reopened}/${final} accepted maps reopen from their project file and rebuild the same .timber${rt.length ? ` (median ${Math.round(rt[rt.length >> 1])} ms, max ${Math.round(rt[rt.length - 1])} ms)` : ""}`);
 for (const f of reopenFailures) log(`  - ${f}`);

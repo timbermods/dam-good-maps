@@ -9,9 +9,11 @@ test("the map card shows the water facts, the layers toggle, and both water vari
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=128&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed, 1 warning/)).toBeVisible({ timeout: 60_000 });
+  // (water storage near the start is information since generator 0.7.0, #67: the map may pass with
+  // warnings, and with no dam site near its start)
+  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Best dam site", { exact: true })).toBeVisible();
-  await expect(page.getByText(/water behind a \d+-tile dam/)).toBeVisible();
+  await expect(page.getByText(/water behind a \d+-tile dam|none near the start/)).toBeVisible();
   for (const layer of ["Moist soil", "Contaminated soil", "Walkable from start", "Feature outlines"]) await page.getByLabel(layer, { exact: true }).check();
   await page.getByLabel("Water", { exact: true }).uncheck();
   await page.getByText(/checks passed/).click();

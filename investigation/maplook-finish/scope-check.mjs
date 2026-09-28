@@ -1,0 +1,21 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+const repo=resolve('../..'),run=(...args)=>execFileSync('git',args,{cwd:repo,encoding:'utf8'}).trim();
+const current=run('rev-parse','HEAD'),dev=run('rev-parse','origin/dev');
+const common=resolve(repo,run('rev-parse','--git-common-dir'),'objects');
+const dir=resolve('local/scope.git');mkdirSync(dir,{recursive:true});
+execFileSync('git',['init','--bare',dir],{stdio:'pipe'});
+mkdirSync(resolve(dir,'objects/info'),{recursive:true});writeFileSync(resolve(dir,'objects/info/alternates'),common.replaceAll('\\','/')+'\n');
+const compare=(...args)=>execFileSync('git',['--git-dir='+dir,...args],{encoding:'utf8'}).trim();
+compare('update-ref','refs/heads/dev',dev);compare('update-ref','refs/heads/proposal',current);compare('symbolic-ref','HEAD','refs/heads/proposal');
+// Exact requested comparison, with fetched dev; never move the user's checked-out dev.
+const files=compare('diff','--name-only','dev...HEAD').split('\n').filter(Boolean);
+const invalid=files.filter(f=>!f.startsWith('investigation/maplook-finish/'));
+if(invalid.length)throw Error('Out-of-scope changes: '+invalid.join(', '));
+const direct=run('diff','--name-only','origin/dev...HEAD').split('\n').filter(Boolean);
+if(JSON.stringify(direct)!==JSON.stringify(files))throw Error('Comparison refs differ');
+const branch=run('branch','--show-current');
+if(branch!=='investigation/maplook-finish')throw Error('Wrong publishing branch: '+branch);
+const report={command:'git diff --name-only dev...HEAD',dev,head:current,branch,files:files.length,outside:invalid};
+writeFileSync('local/scope.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));

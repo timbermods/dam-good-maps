@@ -1,0 +1,1346 @@
+{
+  "date": "2026-09-27T02:39:50.657Z",
+  "renderer": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "maps": [
+    {
+      "label": "riverValley · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4577,
+      "milliseconds": 24.69999998807907,
+      "trees": 1009,
+      "ruins": 874,
+      "bytes": 65536,
+      "water": 1133
+    },
+    {
+      "label": "riverValley · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8939,
+      "milliseconds": 90.69999998807907,
+      "trees": 2006,
+      "ruins": 1235,
+      "bytes": 262144,
+      "water": 3894
+    },
+    {
+      "label": "canyon · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4594,
+      "milliseconds": 32.10000002384186,
+      "trees": 404,
+      "ruins": 939,
+      "bytes": 65536,
+      "water": 654
+    },
+    {
+      "label": "canyon · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8913,
+      "milliseconds": 82,
+      "trees": 592,
+      "ruins": 1266,
+      "bytes": 262144,
+      "water": 2789
+    },
+    {
+      "label": "highlands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4429,
+      "milliseconds": 20.899999976158142,
+      "trees": 1009,
+      "ruins": 712,
+      "bytes": 65536,
+      "water": 1555
+    },
+    {
+      "label": "highlands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8903,
+      "milliseconds": 76.30000001192093,
+      "trees": 2126,
+      "ruins": 1217,
+      "bytes": 262144,
+      "water": 4758
+    },
+    {
+      "label": "lakeBasin · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4460,
+      "milliseconds": 20.099999964237213,
+      "trees": 936,
+      "ruins": 829,
+      "bytes": 65536,
+      "water": 4040
+    },
+    {
+      "label": "lakeBasin · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8888,
+      "milliseconds": 83.80000001192093,
+      "trees": 1819,
+      "ruins": 1227,
+      "bytes": 262144,
+      "water": 9177
+    },
+    {
+      "label": "delta · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 4517,
+      "milliseconds": 24.900000035762787,
+      "trees": 716,
+      "ruins": 894,
+      "bytes": 65536,
+      "water": 1560
+    },
+    {
+      "label": "delta · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8942,
+      "milliseconds": 89.10000002384186,
+      "trees": 1688,
+      "ruins": 1289,
+      "bytes": 262144,
+      "water": 4234
+    },
+    {
+      "label": "islands · 128² · seed 4242",
+      "W": 128,
+      "H": 128,
+      "objects": 3718,
+      "milliseconds": 19.5,
+      "trees": 1009,
+      "ruins": 526,
+      "bytes": 65536,
+      "water": 5434
+    },
+    {
+      "label": "islands · 256² · seed 4242",
+      "W": 256,
+      "H": 256,
+      "objects": 8880,
+      "milliseconds": 95.30000001192093,
+      "trees": 2126,
+      "ruins": 1238,
+      "bytes": 262144,
+      "water": 15584
+    },
+    {
+      "label": "near-victoria-falls",
+      "W": 128,
+      "H": 128,
+      "objects": 2294,
+      "milliseconds": 22.599999964237213,
+      "trees": 696,
+      "ruins": 395,
+      "bytes": 65536,
+      "water": 8121
+    },
+    {
+      "label": "near-yosemite-valley",
+      "W": 96,
+      "H": 96,
+      "objects": 1604,
+      "milliseconds": 11.399999976158142,
+      "trees": 486,
+      "ruins": 235,
+      "bytes": 36864,
+      "water": 2864
+    },
+    {
+      "label": "near-danube-delta",
+      "W": 96,
+      "H": 96,
+      "objects": 1620,
+      "milliseconds": 11.399999976158142,
+      "trees": 486,
+      "ruins": 251,
+      "bytes": 36864,
+      "water": 4372
+    }
+  ],
+  "captures": [
+    {
+      "file": "overview-128.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 243.2,
+        "target": [
+          64,
+          7,
+          -64
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.5052510963525911,
+            "linearLuminance": 0.2511186875266325,
+            "saturation": 0.3633203446557145,
+            "chroma": 0.23946234961339444,
+            "clippedFraction": 0,
+            "rgb": [
+              0.44212850219983885,
+              0.5185671829463805,
+              0.5592150629362344
+            ],
+            "hueOfMeanRgb": 200.8296561454395
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.5931207582225939,
+            "linearLuminance": 0.3642638732283615,
+            "saturation": 0.43003581232774596,
+            "chroma": 0.3440995013620381,
+            "clippedFraction": 0,
+            "rgb": [
+              0.48268817316085794,
+              0.6190266841723838,
+              0.6616809984970092
+            ],
+            "hueOfMeanRgb": 194.29810862346687
+          },
+          "ratio": {
+            "brightness": 1.173912857397706,
+            "linearLuminance": 1.4505645789094423,
+            "saturation": 1.183627117648068
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 193870,
+            "brightness": 0.37046791277761476,
+            "linearLuminance": 0.1387981676130699,
+            "saturation": 0.34375593579564157,
+            "chroma": 0.16602730554250028,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3802464153764354,
+              0.37899864170155856,
+              0.2571703091925885
+            ],
+            "hueOfMeanRgb": 59.39170629609636
+          },
+          "high": {
+            "pixels": 193870,
+            "brightness": 0.4211334293386811,
+            "linearLuminance": 0.1862359801173537,
+            "saturation": 0.3848045657417623,
+            "chroma": 0.21411865845028688,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4465425689541797,
+              0.42877584231196725,
+              0.27060937337246105
+            ],
+            "hueOfMeanRgb": 53.94086150138959
+          },
+          "ratio": {
+            "brightness": 1.136760876755013,
+            "linearLuminance": 1.3417754954555814,
+            "saturation": 1.1194121342257304
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 49807,
+            "brightness": 0.546893790155481,
+            "linearLuminance": 0.2765819396836379,
+            "saturation": 0.6017088448133808,
+            "chroma": 0.3563167158565505,
+            "clippedFraction": 0,
+            "rgb": [
+              0.501868900229395,
+              0.5917227950870402,
+              0.23540607923050816
+            ],
+            "hueOfMeanRgb": 75.13045403581191
+          },
+          "high": {
+            "pixels": 49807,
+            "brightness": 0.613552299641317,
+            "linearLuminance": 0.3711576435284428,
+            "saturation": 0.6941454244721379,
+            "chroma": 0.46075451241795656,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5917560213797435,
+              0.6616623303204319,
+              0.20116441621515874
+            ],
+            "hueOfMeanRgb": 69.10835512597446
+          },
+          "ratio": {
+            "brightness": 1.121885658030392,
+            "linearLuminance": 1.341944611253299,
+            "saturation": 1.1536234350808423
+          }
+        }
+      }
+    },
+    {
+      "file": "cliff.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 1.5707963267948966,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          71.5,
+          11,
+          -90.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.34569607637051997,
+            "linearLuminance": 0.11924513225742137,
+            "saturation": 0.28306224433144467,
+            "chroma": 0.12808104305196488,
+            "clippedFraction": 0,
+            "rgb": [
+              0.35296058725188045,
+              0.35294670772955505,
+              0.2524815810567697
+            ],
+            "hueOfMeanRgb": 59.99171198670194
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.372573577498299,
+            "linearLuminance": 0.1459790264802454,
+            "saturation": 0.31616833833003544,
+            "chroma": 0.15855843567775763,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3946829271990641,
+              0.3781086201466324,
+              0.2526413025894574
+            ],
+            "hueOfMeanRgb": 52.99882393010415
+          },
+          "ratio": {
+            "brightness": 1.077748933137938,
+            "linearLuminance": 1.2241927508211576,
+            "saturation": 1.116956940254547
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.34569607637051997,
+            "linearLuminance": 0.11924513225742137,
+            "saturation": 0.28306224433144467,
+            "chroma": 0.12808104305196488,
+            "clippedFraction": 0,
+            "rgb": [
+              0.35296058725188045,
+              0.35294670772955505,
+              0.2524815810567697
+            ],
+            "hueOfMeanRgb": 59.99171198670194
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.372573577498299,
+            "linearLuminance": 0.1459790264802454,
+            "saturation": 0.31616833833003544,
+            "chroma": 0.15855843567775763,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3946829271990641,
+              0.3781086201466324,
+              0.2526413025894574
+            ],
+            "hueOfMeanRgb": 52.99882393010415
+          },
+          "ratio": {
+            "brightness": 1.077748933137938,
+            "linearLuminance": 1.2241927508211576,
+            "saturation": 1.116956940254547
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 100821,
+            "brightness": 0.5171244077263074,
+            "linearLuminance": 0.24477260027782494,
+            "saturation": 0.5933411601168042,
+            "chroma": 0.33112172592437356,
+            "clippedFraction": 0,
+            "rgb": [
+              0.48066472301622787,
+              0.5573305514665481,
+              0.2262088255424183
+            ],
+            "hueOfMeanRgb": 73.89202020550353
+          },
+          "high": {
+            "pixels": 100821,
+            "brightness": 0.5485197104400258,
+            "linearLuminance": 0.29526612366491733,
+            "saturation": 0.686437802632005,
+            "chroma": 0.40730162230838884,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5393909337671099,
+              0.5882697951776321,
+              0.18164321897626853
+            ],
+            "hueOfMeanRgb": 67.21234630561636
+          },
+          "ratio": {
+            "brightness": 1.0607113148106029,
+            "linearLuminance": 1.206287482053876,
+            "saturation": 1.1569023839453074
+          }
+        }
+      }
+    },
+    {
+      "file": "forest-edge.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.45,
+        "pitch": 0.68,
+        "distance": 36,
+        "target": [
+          54.5,
+          8,
+          -39.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.4229526468961639,
+            "linearLuminance": 0.17796383124019788,
+            "saturation": 0.4333257141165757,
+            "chroma": 0.2220681232800873,
+            "clippedFraction": 0.000006550175435532082,
+            "rgb": [
+              0.4002218925442385,
+              0.44644836430323853,
+              0.2571413073630735
+            ],
+            "hueOfMeanRgb": 74.65126736620633
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.4673328904009223,
+            "linearLuminance": 0.22965926638016082,
+            "saturation": 0.5081743512922975,
+            "chroma": 0.2873945555543464,
+            "clippedFraction": 0,
+            "rgb": [
+              0.46258299618145304,
+              0.4916796631993952,
+              0.24014474089646634
+            ],
+            "hueOfMeanRgb": 66.94058703695237
+          },
+          "ratio": {
+            "brightness": 1.1049295797778844,
+            "linearLuminance": 1.2904828176585477,
+            "saturation": 1.1727306613417028
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.4229526468961639,
+            "linearLuminance": 0.17796383124019788,
+            "saturation": 0.4333257141165757,
+            "chroma": 0.2220681232800873,
+            "clippedFraction": 0.000006550175435532082,
+            "rgb": [
+              0.4002218925442385,
+              0.44644836430323853,
+              0.2571413073630735
+            ],
+            "hueOfMeanRgb": 74.65126736620633
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.4673328904009223,
+            "linearLuminance": 0.22965926638016082,
+            "saturation": 0.5081743512922975,
+            "chroma": 0.2873945555543464,
+            "clippedFraction": 0,
+            "rgb": [
+              0.46258299618145304,
+              0.4916796631993952,
+              0.24014474089646634
+            ],
+            "hueOfMeanRgb": 66.94058703695237
+          },
+          "ratio": {
+            "brightness": 1.1049295797778844,
+            "linearLuminance": 1.2904828176585477,
+            "saturation": 1.1727306613417028
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 215595,
+            "brightness": 0.544693130083719,
+            "linearLuminance": 0.2729146252006716,
+            "saturation": 0.5930730525897463,
+            "chroma": 0.34914769841244353,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5011601000241072,
+              0.5884619718616325,
+              0.23931427344952325
+            ],
+            "hueOfMeanRgb": 75.0025686380691
+          },
+          "high": {
+            "pixels": 215595,
+            "brightness": 0.6090649250860369,
+            "linearLuminance": 0.36222913507461135,
+            "saturation": 0.700721349020947,
+            "chroma": 0.4615011534426935,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5873769854424233,
+              0.6571872187729362,
+              0.19623655283234018
+            ],
+            "hueOfMeanRgb": 69.0869030230896
+          },
+          "ratio": {
+            "brightness": 1.1181799281963112,
+            "linearLuminance": 1.3272617207973652,
+            "saturation": 1.1815093367691172
+          }
+        }
+      }
+    },
+    {
+      "file": "riverbank.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          2.5,
+          8.485764503479004,
+          -78.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.45031178948083495,
+            "linearLuminance": 0.21115990467520276,
+            "saturation": 0.42125855080862507,
+            "chroma": 0.24077024412003947,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4138520113299505,
+              0.4660029754924713,
+              0.4022371717484278
+            ],
+            "hueOfMeanRgb": 109.07109557202975
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.5165387219686632,
+            "linearLuminance": 0.2922951594141109,
+            "saturation": 0.5034849161812907,
+            "chroma": 0.3383098312615335,
+            "clippedFraction": 0,
+            "rgb": [
+              0.462680580951186,
+              0.5395077427568776,
+              0.44760239390573175
+            ],
+            "hueOfMeanRgb": 110.15627236024602
+          },
+          "ratio": {
+            "brightness": 1.1470690620029766,
+            "linearLuminance": 1.3842360833781722,
+            "saturation": 1.1951921574406699
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 309869,
+            "brightness": 0.3695302173702367,
+            "linearLuminance": 0.14451412865837077,
+            "saturation": 0.4508056295162805,
+            "chroma": 0.22081029940612693,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3692191115044585,
+              0.3850216780412266,
+              0.2169907220124589
+            ],
+            "hueOfMeanRgb": 65.6427340212464
+          },
+          "high": {
+            "pixels": 309869,
+            "brightness": 0.4185489731415996,
+            "linearLuminance": 0.1940043287486852,
+            "saturation": 0.5240775703973072,
+            "chroma": 0.29116948155032124,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4390765762559626,
+              0.43371014658381996,
+              0.20791961486083657
+            ],
+            "hueOfMeanRgb": 58.60706864121571
+          },
+          "ratio": {
+            "brightness": 1.1326515490944287,
+            "linearLuminance": 1.342459249830918,
+            "saturation": 1.162535549876891
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 100496,
+            "brightness": 0.5478708225241898,
+            "linearLuminance": 0.27756274324177477,
+            "saturation": 0.6286644071746119,
+            "chroma": 0.3753659886180819,
+            "clippedFraction": 0,
+            "rgb": [
+              0.49920133393271365,
+              0.5954305858626929,
+              0.2200645972448317
+            ],
+            "hueOfMeanRgb": 75.38166826743775
+          },
+          "high": {
+            "pixels": 100496,
+            "brightness": 0.6346046735564105,
+            "linearLuminance": 0.39555718369748216,
+            "saturation": 0.728549129814796,
+            "chroma": 0.5035914023307271,
+            "clippedFraction": 0,
+            "rgb": [
+              0.6083731749346092,
+              0.6878487408335631,
+              0.18441990472366654
+            ],
+            "hueOfMeanRgb": 69.47211127353118
+          },
+          "ratio": {
+            "brightness": 1.1583107686454523,
+            "linearLuminance": 1.4251090729166296,
+            "saturation": 1.1588840110880352
+          }
+        }
+      }
+    },
+    {
+      "file": "contaminated-ground.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          35.5,
+          9,
+          -82.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.3845743111419623,
+            "linearLuminance": 0.14713666581954785,
+            "saturation": 0.3487606613614681,
+            "chroma": 0.17404940364904842,
+            "clippedFraction": 0.000010916959059220136,
+            "rgb": [
+              0.4158194357231139,
+              0.3877790851016334,
+              0.26082406430017646
+            ],
+            "hueOfMeanRgb": 49.145346587815254
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.43491912182781056,
+            "linearLuminance": 0.19743135023179856,
+            "saturation": 0.38733015133386867,
+            "chroma": 0.22724884112217816,
+            "clippedFraction": 0,
+            "rgb": [
+              0.48272287624791443,
+              0.43734284127673195,
+              0.27014734427000714
+            ],
+            "hueOfMeanRgb": 47.19136641486127
+          },
+          "ratio": {
+            "brightness": 1.1309104878491583,
+            "linearLuminance": 1.3418229177079042,
+            "saturation": 1.1105901388701227
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.3845743111419623,
+            "linearLuminance": 0.14713666581954785,
+            "saturation": 0.3487606613614681,
+            "chroma": 0.17404940364904842,
+            "clippedFraction": 0.000010916959059220136,
+            "rgb": [
+              0.4158194357231139,
+              0.3877790851016334,
+              0.26082406430017646
+            ],
+            "hueOfMeanRgb": 49.145346587815254
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.43491912182781056,
+            "linearLuminance": 0.19743135023179856,
+            "saturation": 0.38733015133386867,
+            "chroma": 0.22724884112217816,
+            "clippedFraction": 0,
+            "rgb": [
+              0.48272287624791443,
+              0.43734284127673195,
+              0.27014734427000714
+            ],
+            "hueOfMeanRgb": 47.19136641486127
+          },
+          "ratio": {
+            "brightness": 1.1309104878491583,
+            "linearLuminance": 1.3418229177079042,
+            "saturation": 1.1105901388701227
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 100150,
+            "brightness": 0.5788599626207662,
+            "linearLuminance": 0.31192081353952344,
+            "saturation": 0.6079450232422459,
+            "chroma": 0.3775484616213509,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5460524115786861,
+              0.6223370826112976,
+              0.2447886209901945
+            ],
+            "hueOfMeanRgb": 72.12315961321575
+          },
+          "high": {
+            "pixels": 100150,
+            "brightness": 0.6689690891192662,
+            "linearLuminance": 0.43299869296334725,
+            "saturation": 0.6859016063997061,
+            "chroma": 0.4927986451695045,
+            "clippedFraction": 0,
+            "rgb": [
+              0.6529822912688679,
+              0.7184141043335309,
+              0.2262505065931549
+            ],
+            "hueOfMeanRgb": 67.97683697434032
+          },
+          "ratio": {
+            "brightness": 1.1556665382254707,
+            "linearLuminance": 1.388168644630962,
+            "saturation": 1.1282296592242966
+          }
+        }
+      }
+    },
+    {
+      "file": "overview-256.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 486.4,
+        "target": [
+          128,
+          7,
+          -128
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.5083999616433835,
+            "linearLuminance": 0.2487780224695994,
+            "saturation": 0.3325029932003685,
+            "chroma": 0.22346337914689912,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4477420025481506,
+              0.5186994536786814,
+              0.5849884021212649
+            ],
+            "hueOfMeanRgb": 208.97953548454427
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.6028623827746467,
+            "linearLuminance": 0.365852830692783,
+            "saturation": 0.3975478844270364,
+            "chroma": 0.3268376570709889,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4927108748700487,
+              0.6258234373232205,
+              0.6997663214245528
+            ],
+            "hueOfMeanRgb": 201.4269806465201
+          },
+          "ratio": {
+            "brightness": 1.1858033600669775,
+            "linearLuminance": 1.4705994808584433,
+            "saturation": 1.1956219720027346
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 184748,
+            "brightness": 0.367652770926532,
+            "linearLuminance": 0.12456213263427073,
+            "saturation": 0.2646664959160142,
+            "chroma": 0.11941901146124996,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3900453696970668,
+              0.36825736551799354,
+              0.2957265583178247
+            ],
+            "hueOfMeanRgb": 46.13977178435789
+          },
+          "high": {
+            "pixels": 184748,
+            "brightness": 0.43052491221329064,
+            "linearLuminance": 0.174885918949526,
+            "saturation": 0.3004835546135191,
+            "chroma": 0.1602893522795167,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4682203675850635,
+              0.42931002569689936,
+              0.3315613806959086
+            ],
+            "hueOfMeanRgb": 42.916450894052964
+          },
+          "ratio": {
+            "brightness": 1.171009567337988,
+            "linearLuminance": 1.404005497104099,
+            "saturation": 1.1353290244522323
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 22711,
+            "brightness": 0.5404677548151932,
+            "linearLuminance": 0.2692543738424736,
+            "saturation": 0.5937407559788774,
+            "chroma": 0.3471737371800073,
+            "clippedFraction": 0,
+            "rgb": [
+              0.49574974897713875,
+              0.5843755423000788,
+              0.23720180511984304
+            ],
+            "hueOfMeanRgb": 75.31667585965982
+          },
+          "high": {
+            "pixels": 22711,
+            "brightness": 0.6052587500053938,
+            "linearLuminance": 0.35777643429749434,
+            "saturation": 0.6817913983697814,
+            "chroma": 0.4452564663749863,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5843083726379359,
+              0.6517120061885626,
+              0.20679173346934318
+            ],
+            "hueOfMeanRgb": 69.08975890965937
+          },
+          "ratio": {
+            "brightness": 1.1198794833048924,
+            "linearLuminance": 1.3287674001047438,
+            "saturation": 1.1482981275990365
+          }
+        }
+      }
+    },
+    {
+      "file": "real-victoria.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": 1.5707963267948966,
+        "pitch": 0.58,
+        "distance": 32,
+        "target": [
+          47.5,
+          3.224825143814087,
+          -36.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.43457025994990695,
+            "linearLuminance": 0.19730755110237208,
+            "saturation": 0.472018588745477,
+            "chroma": 0.2449788388661787,
+            "clippedFraction": 0.00000873356724737611,
+            "rgb": [
+              0.3883757761153432,
+              0.4661335680094985,
+              0.2579341012109508
+            ],
+            "hueOfMeanRgb": 82.40864294894467
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.4660715851002285,
+            "linearLuminance": 0.24794453345003153,
+            "saturation": 0.5456729180877328,
+            "chroma": 0.31383169722365134,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4322352970289977,
+              0.500481103964071,
+              0.22485145978817617
+            ],
+            "hueOfMeanRgb": 74.85597976352393
+          },
+          "ratio": {
+            "brightness": 1.0724884513587118,
+            "linearLuminance": 1.2566398602828266,
+            "saturation": 1.1560411625694933
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.43457025994990695,
+            "linearLuminance": 0.19730755110237208,
+            "saturation": 0.472018588745477,
+            "chroma": 0.2449788388661787,
+            "clippedFraction": 0.00000873356724737611,
+            "rgb": [
+              0.3883757761153432,
+              0.4661335680094985,
+              0.2579341012109508
+            ],
+            "hueOfMeanRgb": 82.40864294894467
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.4660715851002285,
+            "linearLuminance": 0.24794453345003153,
+            "saturation": 0.5456729180877328,
+            "chroma": 0.31383169722365134,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4322352970289977,
+              0.500481103964071,
+              0.22485145978817617
+            ],
+            "hueOfMeanRgb": 74.85597976352393
+          },
+          "ratio": {
+            "brightness": 1.0724884513587118,
+            "linearLuminance": 1.2566398602828266,
+            "saturation": 1.1560411625694933
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 255766,
+            "brightness": 0.5485955258981651,
+            "linearLuminance": 0.27729042976255336,
+            "saturation": 0.6024056744461436,
+            "chroma": 0.35693755306060554,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5050449146761331,
+              0.5930833989951226,
+              0.23614584593504168
+            ],
+            "hueOfMeanRgb": 74.79897257616443
+          },
+          "high": {
+            "pixels": 255766,
+            "brightness": 0.6198886457888118,
+            "linearLuminance": 0.37599746505273984,
+            "saturation": 0.7063167453878202,
+            "chroma": 0.47280924521542117,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5973672472984233,
+              0.6693095082467813,
+              0.19665109023544752
+            ],
+            "hueOfMeanRgb": 69.13246330206685
+          },
+          "ratio": {
+            "brightness": 1.1299557078485556,
+            "linearLuminance": 1.3559698593806873,
+            "saturation": 1.1724935128428418
+          }
+        }
+      }
+    },
+    {
+      "file": "real-yosemite.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -1.5707963267948966,
+        "pitch": 0.9,
+        "distance": 44,
+        "target": [
+          27.5,
+          12,
+          -56.5
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.38285279657336724,
+            "linearLuminance": 0.1376331376227326,
+            "saturation": 0.29417325579657044,
+            "chroma": 0.1401071052152957,
+            "clippedFraction": 0.000004366783623688055,
+            "rgb": [
+              0.37492883105994246,
+              0.39294457057492793,
+              0.30621842403391036
+            ],
+            "hueOfMeanRgb": 72.46388100949338
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.3965531890761928,
+            "linearLuminance": 0.14947686856604744,
+            "saturation": 0.3818661367101352,
+            "chroma": 0.18289288540965684,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4039785080615365,
+              0.40490504536039923,
+              0.29195664571618896
+            ],
+            "hueOfMeanRgb": 60.492191461825755
+          },
+          "ratio": {
+            "brightness": 1.0357850135233375,
+            "linearLuminance": 1.0860529022870915,
+            "saturation": 1.298099433533166
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.38285279657336724,
+            "linearLuminance": 0.1376331376227326,
+            "saturation": 0.29417325579657044,
+            "chroma": 0.1401071052152957,
+            "clippedFraction": 0.000004366783623688055,
+            "rgb": [
+              0.37492883105994246,
+              0.39294457057492793,
+              0.30621842403391036
+            ],
+            "hueOfMeanRgb": 72.46388100949338
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.3965531890761928,
+            "linearLuminance": 0.14947686856604744,
+            "saturation": 0.3818661367101352,
+            "chroma": 0.18289288540965684,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4039785080615365,
+              0.40490504536039923,
+              0.29195664571618896
+            ],
+            "hueOfMeanRgb": 60.492191461825755
+          },
+          "ratio": {
+            "brightness": 1.0357850135233375,
+            "linearLuminance": 1.0860529022870915,
+            "saturation": 1.298099433533166
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 88262,
+            "brightness": 0.5311950282247957,
+            "linearLuminance": 0.2589861560142069,
+            "saturation": 0.5821496375383004,
+            "chroma": 0.33428415666199407,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4887704654724773,
+              0.5733016806912677,
+              0.23901752402948007
+            ],
+            "hueOfMeanRgb": 75.17234009465456
+          },
+          "high": {
+            "pixels": 88262,
+            "brightness": 0.5432194656906025,
+            "linearLuminance": 0.28097448586358925,
+            "saturation": 0.7048276917745199,
+            "chroma": 0.41455243990600305,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5304784640737648,
+              0.5846448697082874,
+              0.17038411929551936
+            ],
+            "hueOfMeanRgb": 67.84526251843334
+          },
+          "ratio": {
+            "brightness": 1.022636577578656,
+            "linearLuminance": 1.0849015645769737,
+            "saturation": 1.2107328534206092
+          }
+        }
+      }
+    },
+    {
+      "file": "real-danube.jpg",
+      "camera": {
+        "mode": "orbit",
+        "yaw": -0.55,
+        "pitch": 0.91,
+        "distance": 182.39999999999998,
+        "target": [
+          48,
+          7,
+          -48
+        ]
+      },
+      "colour": {
+        "frame": {
+          "standard": {
+            "pixels": 458003,
+            "brightness": 0.4740406240896881,
+            "linearLuminance": 0.23264719065119863,
+            "saturation": 0.3522950792921324,
+            "chroma": 0.22125530216392175,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3997581486877321,
+              0.48913657685339823,
+              0.5432349295756304
+            ],
+            "hueOfMeanRgb": 202.62318086067197
+          },
+          "high": {
+            "pixels": 458003,
+            "brightness": 0.5450821193290077,
+            "linearLuminance": 0.32710044247607534,
+            "saturation": 0.42516281145327145,
+            "chroma": 0.3191176117402424,
+            "clippedFraction": 0,
+            "rgb": [
+              0.4205949417312872,
+              0.5728090316041714,
+              0.6369891318070454
+            ],
+            "hueOfMeanRgb": 197.79532995236286
+          },
+          "ratio": {
+            "brightness": 1.149863728189419,
+            "linearLuminance": 1.40599351988947,
+            "saturation": 1.2068372124514268
+          }
+        },
+        "map": {
+          "standard": {
+            "pixels": 206773,
+            "brightness": 0.31519503350041567,
+            "linearLuminance": 0.10904752091929446,
+            "saturation": 0.3222260879575215,
+            "chroma": 0.1341701134228341,
+            "clippedFraction": 0,
+            "rgb": [
+              0.2921613291378522,
+              0.32821448698643346,
+              0.254051715137594
+            ],
+            "hueOfMeanRgb": 89.16813135469029
+          },
+          "high": {
+            "pixels": 206773,
+            "brightness": 0.3333256712756896,
+            "linearLuminance": 0.12316695330997593,
+            "saturation": 0.3788903796863,
+            "chroma": 0.17282940665367985,
+            "clippedFraction": 0,
+            "rgb": [
+              0.3129211791695465,
+              0.34697329827369,
+              0.25821780691037843
+            ],
+            "hueOfMeanRgb": 83.01972660919962
+          },
+          "ratio": {
+            "brightness": 1.0575219652858203,
+            "linearLuminance": 1.1294796275206587,
+            "saturation": 1.1758525887458513
+          }
+        },
+        "sunnyGreen": {
+          "standard": {
+            "pixels": 35610,
+            "brightness": 0.5269624987032646,
+            "linearLuminance": 0.25634509934922384,
+            "saturation": 0.6071048749499824,
+            "chroma": 0.34758764612271414,
+            "clippedFraction": 0,
+            "rgb": [
+              0.48067330723359986,
+              0.5713324633419704,
+              0.22374481721909875
+            ],
+            "hueOfMeanRgb": 75.64943238684427
+          },
+          "high": {
+            "pixels": 35610,
+            "brightness": 0.5668168432088367,
+            "linearLuminance": 0.31319929587525763,
+            "saturation": 0.6975824858427886,
+            "chroma": 0.4301243867387119,
+            "clippedFraction": 0,
+            "rgb": [
+              0.5452413124755896,
+              0.6120520232804942,
+              0.18225669149986118
+            ],
+            "hueOfMeanRgb": 69.32686409525799
+          },
+          "ratio": {
+            "brightness": 1.0756303239863265,
+            "linearLuminance": 1.2217877254933602,
+            "saturation": 1.1490312705860917
+          }
+        }
+      }
+    }
+  ],
+  "checks": {
+    "parity": {
+      "channels": 1832012,
+      "different": 0,
+      "max": 0
+    },
+    "toggles": {
+      "baseline": {
+        "high": 884736630,
+        "standard": 386236510
+      },
+      "off": [
+        {
+          "name": "water",
+          "high": 2098764054,
+          "standard": 386236510
+        },
+        {
+          "name": "shadows",
+          "high": 1895504193,
+          "standard": 386236510
+        },
+        {
+          "name": "sunlight",
+          "high": 3541380481,
+          "standard": 386236510
+        },
+        {
+          "name": "ao",
+          "high": 2369670196,
+          "standard": 386236510
+        },
+        {
+          "name": "tone",
+          "high": 3955215950,
+          "standard": 386236510
+        },
+        {
+          "name": "grade",
+          "high": 3844628064,
+          "standard": 386236510
+        },
+        {
+          "name": "haze",
+          "high": 3921751019,
+          "standard": 386236510
+        },
+        {
+          "name": "sky",
+          "high": 110196170,
+          "standard": 386236510
+        },
+        {
+          "name": "strata",
+          "high": 1902782737,
+          "standard": 386236510
+        },
+        {
+          "name": "blend",
+          "high": 676200325,
+          "standard": 386236510
+        },
+        {
+          "name": "variation",
+          "high": 1059963807,
+          "standard": 386236510
+        }
+      ]
+    },
+    "cameraSync": true,
+    "cameraSyncReverse": true,
+    "vegetation": {
+      "triangles": 8196,
+      "wind8": 1578153087,
+      "wind11": 2694063510,
+      "still8": 32532630,
+      "still11": 32532630,
+      "hidden": true
+    }
+  },
+  "errors": []
+}

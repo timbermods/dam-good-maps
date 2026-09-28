@@ -13,14 +13,14 @@ import { MapSession } from "../../src/core/doc/session";
 import { acrossRiver, entityProblem, footprintCheck, objectGround, planArea, planEntity, planObject, planRiverBadwater } from "../../src/core/doc/placing";
 import { planPiece } from "../../src/core/doc/tools";
 import { footprintAt, fitProblems } from "../../src/core/features/objects";
-import type { MapObjectKind, RiverFeature } from "../../src/core/features/schema";
+import type { Feature, MapObjectKind, RiverFeature } from "../../src/core/features/schema";
 import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
 import { components, walkRegions } from "../../src/core/analysis/regions";
 import type { BuildResult } from "../../src/core/features/build";
 import { entityTiles } from "../../src/core/features/edits";
-import { pathField } from "../../src/core/features/geometry";
+import { pathField, polygonMask } from "../../src/core/features/geometry";
 import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
@@ -37,11 +37,12 @@ function session(fragment: string): MapSession {
   return MapSession.fromGenerated(r);
 }
 
-/** A tile where a single object of this kind fits, scanning from the far corner of the start. */
-function spotFor(s: MapSession, kind: MapObjectKind): [number, number] {
+/** A tile where a single object of this kind fits, scanning from the far corner of the start
+ *  (every other row, from row 4 + `row`). */
+function spotFor(s: MapSession, kind: MapObjectKind, row = 0): [number, number] {
   const g = objectGround(s);
   const { W, H } = g;
-  for (let y = 4; y < H - 8; y += 2) for (let x = 4; x < W - 8; x += 2) if (!fitProblems(kind, footprintAt(kind, x, y, "Cw0"), g).length) return [x, y];
+  for (let y = 4 + row; y < H - 8; y += 2) for (let x = 4; x < W - 8; x += 2) if (!fitProblems(kind, footprintAt(kind, x, y, "Cw0"), g).length) return [x, y];
   throw new Error(`no spot for ${kind}`);
 }
 
@@ -121,14 +122,26 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
 
   it("a weir and a plug close a river's channel wall to wall and hold its water", () => {
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
-    const at = 30;
+    // the first free place from 30 tiles down the river where its channel is 3 or more wide (M9a:
+    // the generator's own weir or another object may stand at any one place, and the tool refuses
+    // there, as it should)
+    const free = (kind: "weir" | "plug", from: number, k: number) => {
+      let last = "";
+      for (let at = from; at < from + 60; at += 3) {
+        if (acrossRiver(s, river.id, at).length < 3) continue;
+        const p = planObject(s, { kind, river: { id: river.id, at } }, uuid(k));
+        if (p.ok) return { at, p };
+        last = p.errors.join("; ");
+      }
+      throw new Error(`no free place for a ${kind} from ${from} tiles down the river: ${last}`);
+    };
+    const { at, p: weir } = free("weir", 30, 60);
     const line = acrossRiver(s, river.id, at);
     expect(line.length).toBeGreaterThanOrEqual(3);
-    const weir = planObject(s, { kind: "weir", river: { id: river.id, at } }, uuid(60));
     expect(weir.ok, JSON.stringify(weir)).toBe(true);
     if (weir.ok) expect(s.applyAll(weir.ops, "user", weir.label).errors).toEqual([]);
     expect(s.built.waterModel.dam).not.toBeNull();
-    const plug = planObject(s, { kind: "plug", river: { id: river.id, at: at + 30 } }, uuid(61));
+    const { p: plug } = free("plug", at + 30, 61);
     expect(plug.ok, JSON.stringify(plug)).toBe(true);
     if (plug.ok) expect(s.applyAll(plug.ops, "user", plug.label).errors).toEqual([]);
     const blocks = s.built.entities.filter((e) => e.template === "Blockage" && e.owner === uuid(61));
@@ -153,8 +166,9 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
   });
 
   it("an entity placed by hand passes the loader's rules", () => {
-    const at = spotFor(s, "relicMedium");
-    const p = planEntity(s, { template: "MediumRelic", x: at[0], y: at[1] + 1, orientation: "Cw0" }, "44444444-2222-4333-8444-555555555555");
+    // off the scan's even rows: a spot where the relic fits one row up
+    const at = spotFor(s, "relicMedium", 1);
+    const p = planEntity(s, { template: "MediumRelic", x: at[0], y: at[1], orientation: "Cw0" }, "44444444-2222-4333-8444-555555555555");
     expect(p.ok, JSON.stringify(p)).toBe(true);
     if (p.ok) expect(s.applyAll(p.ops, "user", p.label).errors).toEqual([]);
     expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
@@ -226,8 +240,11 @@ describe("resource areas respect moisture reach and the calibrated clustering (R
 
 describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
   it("a plugged spillway drains a lake only over its plug", () => {
-    const s = session("s=5&t=lakeBasin&z=96&d=n");
-    const lake = s.features.find((f) => f.kind === "lake" && f.role === "lake/central")!;
+    // the map's biggest natural lake (generator 0.7.0 reads the lakes back out of the field)
+    const s = session("s=6&t=lakeBasin&z=96&d=n");
+    const area = (f: Feature) => (f.kind === "lake" ? polygonMask(f.params.outline, 96, 96).reduce((a, v) => a + v, 0) : 0);
+    const lake = s.features.filter((f) => f.kind === "lake" && f.params.natural).sort((a, c) => area(c) - area(a))[0];
+    expect(lake).toBeDefined();
     if (lake.kind !== "lake") return;
     const [x, y] = lake.params.outline[8];
     const p = planPiece(s, "plugSpillway", { lake: lake.id, at: [x, y], width: 3 }, uuid(80));
@@ -246,7 +263,8 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
   });
 
   it("a river made badwater gets BadwaterSources on its mouth and carries badwater", () => {
-    const s = session("s=4242&t=riverValley&z=128&d=n");
+    // a map whose start is beside its main river (generator 0.7.0)
+    const s = session("s=2&t=riverValley&z=128&d=n");
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
     const p = planRiverBadwater(s, river.id, true);
     expect(p.ok, JSON.stringify(p)).toBe(true);
@@ -267,10 +285,9 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 15: a seed on which every theme places every kind of object (a thorn belt is left out
-    // where it would cut the colony's land in two; generator 0.6.0 moved the start, D85, and 0.6.2
-    // the objects and resources)
-    const spec = makeSpec({ seed: 15, size: { x: 96, y: 96 }, theme });
+    // seed 1: a seed on which every theme places every kind of object (a thorn belt is left out
+    // where it would cut the colony's land in two; generator 0.7.0 grows the land from processes)
+    const spec = makeSpec({ seed: 1, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -304,8 +321,8 @@ function walkFromStart(b: BuildResult): { labels: Int32Array; root: number } {
 describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
-    // maps with a site at generator 0.6.0 (D77: a site only where one fits; D85 moved the start)
-    for (const [theme, seed] of [["delta", 1], ["delta", 2], ["lakeBasin", 3], ["riverValley", 2]] as [ThemeId, number][]) {
+    // maps with a site at generator 0.7.0 (D77: a site only where one fits)
+    for (const [theme, seed] of [["islands", 2], ["islands", 3], ["islands", 5], ["canyon", 10]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -332,13 +349,15 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
       expect(trees, `${theme} ${seed}: living trees within 20 of the site`).toBeGreaterThanOrEqual(40);
       expect(bushes, `${theme} ${seed}: living bushes within 20 of the site`).toBeGreaterThanOrEqual(20);
     }
-    expect(sites).toBeGreaterThanOrEqual(3);
+    expect(sites).toBe(4);
   });
 
-  it("ruins on a plateau: out of reach without stairs, and one flight of stairs reaches them", () => {
+  it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
+    // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
+    // have one (generator 0.7.0)
     let seen = 0;
-    for (const seed of [1, 3, 4]) {
-      const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme: "riverValley" }));
+    for (const [theme, seed] of [["highlands", 1], ["islands", 2], ["lakeBasin", 2], ["delta", 3]] as [ThemeId, number][]) {
+      const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
       seen++;
@@ -346,26 +365,31 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
       const p = f.params.plan as unknown as ObstaclePlan;
       const disc = new Set(obstacleTiles(p, b.W, b.H));
       const walk = walkFromStart(b);
-      expect([...disc].some((i) => walk.labels[i] === walk.root), `seed ${seed}: the plateau is reached without stairs`).toBe(false);
-      // a tile the colony walks on beside the plateau, two levels below its top: one flight of stairs
+      expect([...disc].some((i) => walk.labels[i] === walk.root), `${theme} ${seed}: the rise is reached without stairs`).toBe(false);
+      // the field holds the rise: the piece is read back and cuts nothing
+      expect(r.field?.contains).toContain(f.id);
+      expect(p.rise === 1 || p.rise === 2).toBe(true);
+      // a tile the colony walks on beside the rise, its rise below its top: one flight of stairs
       let stair = false;
       for (const i of disc) {
         const x = i % b.W;
         const y = (i - x) / b.W;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const j = (y + dy) * b.W + x + dx;
-          if (!disc.has(j) && walk.labels[j] === walk.root && b.heights[j] === p.top - 2) stair = true;
+          if (!disc.has(j) && walk.labels[j] === walk.root && b.heights[j] === p.top - p.rise) stair = true;
         }
       }
-      expect(stair, `seed ${seed}: one flight of stairs reaches the plateau`).toBe(true);
+      expect(stair, `${theme} ${seed}: one flight of stairs reaches the rise`).toBe(true);
       expect(b.entities.some((e) => e.template.startsWith("RuinColumn") && disc.has(e.y * b.W + e.x))).toBe(true);
+      for (const i of disc) expect(b.heights[i]).toBe(p.top);
     }
-    expect(seen).toBeGreaterThanOrEqual(2);
+    expect(seen).toBe(4);
   });
 
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
-    for (const [theme, seed] of [["lakeBasin", 1], ["lakeBasin", 2], ["lakeBasin", 3], ["lakeBasin", 4], ["highlands", 1], ["highlands", 2], ["highlands", 3]] as [ThemeId, number][]) {
+    // maps with a weir at generator 0.7.0 (half the maps try one, where a river's channel takes it)
+    for (const [theme, seed] of [["islands", 3], ["canyon", 3], ["lakeBasin", 4], ["highlands", 3], ["islands", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;
@@ -380,7 +404,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
       let depth = 0;
       let n = 0;
       for (let i = 0; i < b.W * b.H; i++) {
-        if (!b.channel[i] || river.field.s[i] < at - 3 || river.field.s[i] > at - 1 || tiles.includes(i)) continue;
+        if (!b.channel[i] || river.field.d[i] > 6 || river.field.s[i] < at - 3 || river.field.s[i] > at - 1 || tiles.includes(i)) continue;
         depth += b.water[i];
         n++;
       }
@@ -388,6 +412,6 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
       expect(depth / n, `${theme} ${seed}: water just upstream of the weir`).toBeGreaterThan(0.6);
       for (const id of ["entities.placement", "water.settles"]) expect(r.report.checks.find((c) => c.id === id)!.ok, id).toBe(true);
     }
-    expect(seen).toBeGreaterThanOrEqual(1);
+    expect(seen).toBe(5);
   });
 });

@@ -3,9 +3,11 @@
 // document opens exactly even after the generator has changed (PLAN §19.7), and an unedited import
 // exports its normalized world byte for byte.
 //
-// Terrain is stored as the surface height of every tile plus the columns that are not one solid
-// run from z = 0 (caves, overhangs, floating ground), kept verbatim: the editor's tools edit the
-// surface only, and those columns export unchanged (EDITOR_PLAN §3, "working representation").
+// Terrain is stored as format 3's terrain (D119, I-1; terrain/runs.ts): the surface height of every
+// tile plus the solid runs of the tiles that are not one plain run from z = 0 (caves, overhangs,
+// floating ground), kept exactly: the editor's tools edit the surface only, and those columns export
+// unchanged (EDITOR_PLAN §3, "working representation"). Format 1 and 2 files stored those columns
+// as 23-character strings; they convert to runs when read (the same voxels).
 // Everything else of world.json is stored as its exact text with an empty terrain array, so floats
 // keep the digits they were written with.
 
@@ -13,6 +15,7 @@ import { fromBase64, toBase64 } from "../format/base64";
 import { parse, stringify, type JsonObject } from "../format/json";
 import type { TimberFile } from "../format/timber";
 import { decodeWorld, encodeWorld, LAYERS, surfaceOf, type WorldModel } from "../format/world";
+import { columnOfRuns, runsOfColumn } from "../terrain/runs";
 
 export interface BaseMap {
   source: "generated" | "import";
@@ -21,8 +24,9 @@ export interface BaseMap {
   /** Surface height per tile (the first free layer above the top solid voxel), base64 of one byte
    *  per tile, row-major. */
   heights: string;
-  /** Columns that are not a single solid run from z = 0: [tile index, their 23 voxels "0"/"1"]. */
-  columns: [number, string][];
+  /** Tiles that are not a single solid run from z = 0, in index order: [tile index, their solid
+   *  runs floor0, ceil0, floor1, ceil1, …, bottom to top] (format 3; D119). */
+  runs: [number, number[]][];
   /** world.json with an empty terrain array, exact text; null in documents from project files of
    *  format 1, which stored the heights only (their map is rebuilt from the features). */
   world: string | null;
@@ -87,15 +91,15 @@ export function baseFromFile(file: TimberFile, source: BaseMap["source"], owners
   const w = file.world;
   if (w.legacy) throw new Error("normalize the map before storing it");
   const t = splitTerrain(w);
-  const columns: [number, string][] = [];
-  for (const [i, col] of t.columns) columns.push([i, Array.from(col, (v) => (v ? "1" : "0")).join("")]);
-  columns.sort((a, b) => a[0] - b[0]);
+  const runs: [number, number[]][] = [];
+  for (const [i, col] of t.columns) runs.push([i, runsOfColumn(col)]);
+  runs.sort((a, b) => a[0] - b[0]);
   const base: BaseMap = {
     source,
     sizeX: w.sizeX,
     sizeY: w.sizeY,
     heights: toBase64(t.heights),
-    columns,
+    runs,
     world: encodeWorld({ ...w, voxels: new Uint8Array(0) }),
     metadata: stringify(file.metadata ?? {}),
     thumbnail: file.thumbnail ? toBase64(file.thumbnail) : null,
@@ -109,12 +113,19 @@ export function baseTerrain(base: BaseMap): BaseTerrain {
   const heights = fromBase64(base.heights);
   if (heights.length !== base.sizeX * base.sizeY) throw new Error("base heights have the wrong size");
   const columns = new Map<number, Uint8Array>();
-  for (const [i, text] of base.columns) {
+  for (const [i, r] of base.runs) columns.set(i, columnOfRuns(r, LAYERS));
+  return { W: base.sizeX, H: base.sizeY, heights, columns };
+}
+
+/** Format 1 and 2's columns ([tile, 23 voxels "0"/"1"]) as format 3's runs. */
+export function runsOfColumns(columns: readonly [number, string][]): [number, number[]][] {
+  const out: [number, number[]][] = [];
+  for (const [i, text] of columns) {
     const col = new Uint8Array(LAYERS);
     for (let z = 0; z < LAYERS; z++) col[z] = text.charCodeAt(z) === 49 ? 1 : 0;
-    columns.set(i, col);
+    out.push([i, runsOfColumn(col)]);
   }
-  return { W: base.sizeX, H: base.sizeY, heights, columns };
+  return out.sort((a, b) => a[0] - b[0]);
 }
 
 /** The base as a .timber file (a fresh copy: callers may change it). */

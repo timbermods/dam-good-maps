@@ -68,6 +68,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "ht", path: ["terrain", "highestTerrain"], kind: "int" },
   { key: "tr", path: ["terrain", "terracing"], kind: "int" },
   { key: "bl", path: ["terrain", "buildableLand"], kind: "enum", codes: { tight: "t", normal: "n", generous: "g" } },
+  { key: "vt", path: ["terrain", "verticality"], kind: "int" },
   { key: "rv", path: ["water", "rivers"], kind: "int" },
   { key: "rs", path: ["water", "riverStyle"], kind: "enum", codes: { straight: "s", meandering: "m", braided: "b" } },
   { key: "fl", path: ["water", "riverFlow"], kind: "enum", codes: { trickle: "t", normal: "n", strong: "s", lush: "l" } },
@@ -189,7 +190,7 @@ export function encodeSpecFragment(spec: MapSpec): string {
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
   if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
   const k = spec.constraints;
-  if (k.locks.length || k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
+  if (k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
   return parts.join("&");
 }
 

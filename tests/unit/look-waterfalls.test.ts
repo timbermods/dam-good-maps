@@ -446,6 +446,34 @@ describe("whitewater where a fall lands (D215)", () => {
   });
 });
 
+describe("soft white water where a fall lands (D222)", () => {
+  const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+
+  it("never draws cells of dark water between patches of foam (they read as cracked tiles): no Voronoi lace, and a froth at least half white wherever the splash lies", () => {
+    for (const lite of [false, true]) {
+      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
+      // the lace was the cliff's own crack pattern, drawn on the pool round dark bubbles (the shared
+      // chunk still defines it for the ground)
+      const own = m.fragmentShader.slice(m.fragmentShader.lastIndexOf("void main()"));
+      expect(own).toContain("the splash");
+      expect(own).not.toMatch(/\bcracks\(/);
+      expect(m.fragmentShader).toContain(`smoothstep(${FALL_SPLASH.froth[0]}, ${FALL_SPLASH.froth[1]}, 0.55 * blot + 0.45 * churn)`);
+      expect(m.fragmentShader).toContain(`mix(${FALL_SPLASH.frothFloor}, 1.0, froth)`);
+    }
+    // soft: the froth eases in over most of the noise's range (D215's blobs switched on over 0.12
+    // of it, with the pool dark between them), and it is never less than half white
+    expect(FALL_SPLASH.froth[1] - FALL_SPLASH.froth[0]).toBeGreaterThanOrEqual(0.5);
+    expect(FALL_SPLASH.frothFloor).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it("keeps the splash's size and the crown: the same reach out past the impact line as D215's", () => {
+    // D215's sizes, unchanged (fallSplash): 0.7 + 0.6 × the reach + 0.09 × the drop out past it
+    const w = fallSplash(0.8, 4, 1, 3);
+    expect(w.spread).toBeCloseTo(0.7 + 0.6 * 1 + 0.09 * 4, 9);
+    expect(w.tall).toBeGreaterThan(0);
+  });
+});
+
 describe("a fall's colours", () => {
   const t = () => new DataTexture(new Uint8Array(4), 1, 1);
 
@@ -518,5 +546,32 @@ describe("the fall template", () => {
     expect(index.length / 3).toBeLessThan(120);
     expect(rib.length / 4).toBeLessThan(140);
     for (const i of index) expect(i).toBeLessThan(rib.length / 4);
+  });
+
+  it("draws a layer at a time for all of a chunk's falls: the splashes, the crowns' backs, the ribbons, then the crowns' fronts and the far sheets (D222)", () => {
+    // (one tile's crown drawn over its neighbour's ribbon showed as glassy panes along the foot)
+    const { rib, index, layers } = fallTemplate();
+    expect(layers.length).toBe(4);
+    let at = 0;
+    for (const [start, count] of layers) {
+      expect(start).toBe(at);
+      expect(count % 3).toBe(0);
+      at += count;
+    }
+    expect(at).toBe(index.length);
+    const partsOf = ([start, count]: [number, number]) => {
+      const out = new Set<string>();
+      for (let k = start; k < start + count; k++) {
+        const v = index[k];
+        const kind = rib[v * 4 + 3];
+        out.add(kind === 5 ? (rib[v * 4 + 1] <= 0.5 ? "crown back" : "crown front") : String(kind));
+      }
+      return out;
+    };
+    expect([...partsOf(layers[0])]).toEqual(["4"]);
+    expect([...partsOf(layers[1])]).toEqual(["crown back"]);
+    expect([...partsOf(layers[2])].sort()).toEqual(["0", "1", "2"]);
+    // (the crown's front half meets its back half at the top, w = 0.5)
+    expect([...partsOf(layers[3])].filter((p) => p !== "crown back").sort()).toEqual(["3", "crown front"]);
   });
 });

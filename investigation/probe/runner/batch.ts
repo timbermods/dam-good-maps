@@ -2,6 +2,9 @@
 //   npm --prefix investigation/probe run batch -- [maps.timber ...] [--smoke] [--only id,id] [--group name]
 //       [--confirmed-launch CODE] [--run-id ID] [--speed 99] [--no-wait]
 //   npm --prefix investigation/probe run batch -- --compare-only RUN_ID
+//   npm --prefix investigation/probe run batch -- --compare-only RUN_ID --compare-to NAME
+//       (the run's results judged again, written to results\NAME and sheet\NAME.html; the run's own
+//       folders untouched, and refused if this checkout builds other maps than the ones played)
 //   npm --prefix investigation/probe run batch -- --restore-only
 //   npm --prefix investigation/probe run batch -- --backup-settings   (a copy of the game's settings, kept by hand)
 //   Steps, when the runner itself runs in a sandbox that cannot see the real settings:
@@ -59,7 +62,7 @@ function newRunId(kind: string): string {
 }
 
 function planFromArgs(): Plan {
-  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--days']);
+  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days']);
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
   const smoke = flag('smoke');
@@ -189,10 +192,26 @@ function describeDiff(d: SettingsDiff): string {
   return [d.missing.length ? `missing ${d.missing.length}: ${clip(d.missing)}` : '', d.extra.length ? `added ${d.extra.length}: ${clip(d.extra)}` : '', d.changed.length ? `changed ${d.changed.length}: ${clip(d.changed)}` : ''].filter(Boolean).join('; ');
 }
 
-export function compareRun(plan: Plan): { verdicts: GameVerdicts[]; sheet: string } {
+/** Judges a run's results. With `compareTo`, the verdicts, summary and contact sheet go to that name's
+ *  own folders (results\NAME, sheet\NAME.html) and the run's folders stay as they are; the maps are
+ *  built into maps\NAME and must be the maps the run played, byte for byte, or nothing is judged. */
+export function compareRun(plan: Plan, compareTo?: string): { verdicts: GameVerdicts[]; sheet: string } {
   const dir = resultsDir(plan.runId);
+  const outDir = compareTo ? resultsDir(compareTo) : dir;
+  if (compareTo && resolve(outDir) === resolve(dir)) throw new Error('--compare-to names the run itself');
   const games = selectGames(plan);
-  const prepared = prepare(games, plan.runId);
+  const prepared = prepare(games, compareTo ?? plan.runId);
+  if (compareTo) {
+    const differ: string[] = [];
+    for (const p of prepared) {
+      const played = join(probePaths().maps, plan.runId, `${p.game.id}.timber`);
+      if (!existsSync(played)) continue;
+      if (!readFileSync(played).equals(readFileSync(p.map.mapFile))) differ.push(p.game.id);
+      else p.map.mapFile = played;
+    }
+    if (differ.length) throw new Error(`this checkout builds other maps than run ${plan.runId} played (${differ.join(', ')}): compare at the commit that built them`);
+    mkdirSync(outDir, { recursive: true });
+  }
   const loaded = new Map<string, Loaded>();
   for (const p of prepared) {
     const f = join(dir, `${p.game.id}.json`);
@@ -202,7 +221,7 @@ export function compareRun(plan: Plan): { verdicts: GameVerdicts[]; sheet: strin
   const launchesFile = join(dir, 'launches.json');
   const otherMods = existsSync(launchesFile) ? [...new Set((JSON.parse(readFileSync(launchesFile, 'utf8')) as LaunchLog[]).flatMap((l) => l.otherMods ?? []))] : [];
   const verdicts: GameVerdicts[] = [];
-  const models: Record<string, { cpuSeconds: number; error?: string }> = {};
+  const models: Record<string, { cpuSeconds: number; momentum?: string; error?: string }> = {};
   for (const p of prepared) {
     const L = loaded.get(p.game.id)!;
     let model: ModelRun | null = null, modelError: string | null = null;
@@ -211,7 +230,7 @@ export function compareRun(plan: Plan): { verdicts: GameVerdicts[]; sheet: strin
         const sampleDays = L.samples().map((s) => s.day);
         const mapDays = p.map.moments.filter((m) => m.snapshot).map((m) => m.day);
         model = runModel(new Uint8Array(readFileSync(p.map.mapFile)), `${p.game.id}.timber`, p.game.cycles, p.map.endDay, p.map.tiles, sampleDays, mapDays);
-        models[p.game.id] = { cpuSeconds: model.cpuSeconds };
+        models[p.game.id] = { cpuSeconds: model.cpuSeconds, momentum: model.momentum };
       } catch (e) {
         modelError = (e as Error).message;
         models[p.game.id] = { cpuSeconds: 0, error: modelError };
@@ -221,14 +240,17 @@ export function compareRun(plan: Plan): { verdicts: GameVerdicts[]; sheet: strin
     verdicts.push({ game: p.game.id, title: p.game.title, group: p.game.group, status: L.result?.status ?? 'no result', checks });
     log(`${p.game.id}: ${checks.map((c) => `${c.id} ${c.verdict}`).join(', ')}`);
   }
-  writeFileSync(join(dir, 'verdicts.json'), JSON.stringify({ runId: plan.runId, models, verdicts }, null, 1));
-  writeSummary(join(dir, 'summary.md'), plan.runId, prepared, loaded, verdicts, otherMods, !!plan.keepMods);
-  const sheet = writeSheet(probePaths().sheet, plan.runId, probePaths().shots, prepared.filter((p) => loaded.get(p.game.id)?.result).map((p) => ({
+  const title = compareTo ? `${plan.runId}, judged again as ${compareTo}` : plan.runId;
+  writeFileSync(join(outDir, 'verdicts.json'), JSON.stringify({ runId: plan.runId, ...(compareTo ? { comparedAs: compareTo } : {}), models, verdicts }, null, 1));
+  writeSummary(join(outDir, 'summary.md'), title, prepared, loaded, verdicts, otherMods, !!plan.keepMods);
+  const sheet = writeSheet(probePaths().sheet, compareTo ?? plan.runId, probePaths().shots, prepared.filter((p) => loaded.get(p.game.id)?.result).map((p) => ({
     result: loaded.get(p.game.id)!.result!,
     poses: p.map.poses,
     verdicts: verdicts.find((v) => v.game === p.game.id)!.checks.map((c) => ({ id: c.id, verdict: c.verdict, detail: c.detail })),
   })));
-  log(`verdicts: ${join(dir, 'verdicts.json')}; summary: ${join(dir, 'summary.md')}; contact sheet: ${sheet}`);
+  log(`verdicts: ${join(outDir, 'verdicts.json')}; summary: ${join(outDir, 'summary.md')}; contact sheet: ${sheet}`);
+  // the maps built only to be checked against the played ones
+  if (compareTo) rmSync(join(probePaths().maps, compareTo), { recursive: true, force: true });
   return { verdicts, sheet };
 }
 
@@ -287,7 +309,7 @@ async function main(): Promise<void> {
   const compareOnly = opt('compare-only');
   if (compareOnly) {
     const plan = JSON.parse(readFileSync(join(resultsDir(compareOnly), 'plan.json'), 'utf8')) as Plan;
-    compareRun(plan);
+    compareRun(plan, opt('compare-to'));
     return;
   }
   const launchOnly = flag('launch-only');

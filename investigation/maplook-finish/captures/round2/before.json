@@ -1,0 +1,302 @@
+{
+  "views": {
+    "overview-128": {
+      "mode": "orbit",
+      "yaw": -0.55,
+      "pitch": 0.85,
+      "distance": 179.2,
+      "target": [
+        64,
+        6,
+        -64
+      ]
+    },
+    "stage1-edge": {
+      "mode": "orbit",
+      "yaw": -1.2707963267948965,
+      "pitch": 0.18,
+      "distance": 24,
+      "target": [
+        0.5,
+        3.2,
+        -77.5
+      ]
+    },
+    "stage1-badwater-edge": {
+      "mode": "orbit",
+      "yaw": 0.3,
+      "pitch": 0.18,
+      "distance": 24,
+      "target": [
+        43.5,
+        0.8,
+        -0.5
+      ]
+    },
+    "stage2-tall-fall": {
+      "mode": "orbit",
+      "yaw": -0.9,
+      "pitch": 0.28,
+      "distance": 25,
+      "target": [
+        5.5,
+        8,
+        -14.5
+      ]
+    },
+    "stage2-pool": {
+      "mode": "orbit",
+      "yaw": -0.35,
+      "pitch": 0.52,
+      "distance": 9,
+      "target": [
+        25,
+        2.6,
+        -13.4
+      ]
+    },
+    "stage2-river-rocks": {
+      "mode": "orbit",
+      "yaw": -0.35,
+      "pitch": 1,
+      "distance": 18,
+      "target": [
+        20,
+        2.8,
+        -11
+      ]
+    },
+    "stage3-small-relic-side": {
+      "mode": "orbit",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        17,
+        4.7,
+        -12.5
+      ]
+    },
+    "stage3-small-relic-top": {
+      "mode": "top",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        17,
+        4.7,
+        -12.5
+      ]
+    },
+    "stage3-medium-relic-side": {
+      "mode": "orbit",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        23.5,
+        4.7,
+        -13
+      ]
+    },
+    "stage3-medium-relic-top": {
+      "mode": "top",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        23.5,
+        4.7,
+        -13
+      ]
+    },
+    "stage3-large-relic-side": {
+      "mode": "orbit",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        29.5,
+        4.7,
+        -13.5
+      ]
+    },
+    "stage3-large-relic-top": {
+      "mode": "top",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        29.5,
+        4.7,
+        -13.5
+      ]
+    },
+    "stage3-badwater-source-side": {
+      "mode": "orbit",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        77.5,
+        4.7,
+        -13.5
+      ]
+    },
+    "stage3-badwater-source-top": {
+      "mode": "top",
+      "yaw": -0.5,
+      "pitch": 0.58,
+      "distance": 6.7,
+      "target": [
+        77.5,
+        4.7,
+        -13.5
+      ]
+    },
+    "stage3-slope-side": {
+      "mode": "orbit",
+      "yaw": 2.65,
+      "pitch": 0.72,
+      "distance": 3.8,
+      "target": [
+        52.5,
+        4.7,
+        -12.5
+      ]
+    },
+    "stage3-slope-top": {
+      "mode": "top",
+      "yaw": 2.65,
+      "pitch": 0.72,
+      "distance": 3.8,
+      "target": [
+        52.5,
+        4.7,
+        -12.5
+      ]
+    },
+    "stage4-normal": {
+      "mode": "orbit",
+      "yaw": -0.3,
+      "pitch": 1,
+      "distance": 23,
+      "target": [
+        40.5,
+        8.273872375488281,
+        -38.5
+      ]
+    },
+    "stage4-drought": {
+      "mode": "orbit",
+      "yaw": -0.3,
+      "pitch": 1,
+      "distance": 23,
+      "target": [
+        40.5,
+        8.273872375488281,
+        -38.5
+      ]
+    },
+    "stage4-badtide": {
+      "mode": "orbit",
+      "yaw": -0.3,
+      "pitch": 1,
+      "distance": 23,
+      "target": [
+        40.5,
+        8.273872375488281,
+        -38.5
+      ]
+    }
+  },
+  "plants": {
+    "drought": {
+      "draws": [
+        49,
+        61
+      ],
+      "triangles": [
+        515324,
+        1000474
+      ],
+      "vegetation": {
+        "plants": 3373,
+        "near": 160,
+        "far": 3213,
+        "triangles": 163490,
+        "draws": 17,
+        "lodMs": 0.7000000476837158
+      },
+      "ambient": {
+        "milliseconds": 21.69999998807907,
+        "trees": 1009,
+        "ruins": 874,
+        "bytes": 65536
+      },
+      "water": {
+        "buildMs": 0.699999988079071,
+        "particles": 0,
+        "rings": 0,
+        "bytes": 327680
+      },
+      "landmarks": {
+        "buildMs": 15.800000011920929,
+        "draws": 29,
+        "triangles": 826704,
+        "instances": 2959
+      },
+      "seasons": {
+        "dry": 14352,
+        "wet": 126,
+        "contaminated": 0,
+        "bytes": 65536,
+        "buildMs": 0.19999998807907104
+      }
+    },
+    "badtide": {
+      "draws": [
+        56,
+        69
+      ],
+      "triangles": [
+        517236,
+        1002402
+      ],
+      "vegetation": {
+        "plants": 3373,
+        "near": 160,
+        "far": 3213,
+        "triangles": 163490,
+        "draws": 17,
+        "lodMs": 0.7000000476837158
+      },
+      "ambient": {
+        "milliseconds": 21.69999998807907,
+        "trees": 1009,
+        "ruins": 874,
+        "bytes": 65536
+      },
+      "water": {
+        "buildMs": 0.699999988079071,
+        "particles": 10,
+        "rings": 8,
+        "bytes": 327680
+      },
+      "landmarks": {
+        "buildMs": 13.199999988079071,
+        "draws": 29,
+        "triangles": 826704,
+        "instances": 2959
+      },
+      "seasons": {
+        "dry": 12528,
+        "wet": 1133,
+        "contaminated": 1133,
+        "bytes": 65536,
+        "buildMs": 0.10000002384185791
+      }
+    }
+  },
+  "errors": []
+}

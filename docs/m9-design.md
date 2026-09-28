@@ -96,6 +96,11 @@ What the current generator does against these, and what replaces it:
 
 ## 3. Composition: the genome and the themes
 
+> **2026-09-27:** D275 and D278 change how this section's "recipes" work: recipes are folded into
+> intentions (one concept, checked by outcome, §6) and the flow axis is no longer drawn here — a
+> finished map is rotated or mirrored into one of its 8 orientations instead. See `ROADMAP.md`'s M9b
+> and `PLAN.md` §20 D275, D278.
+
 The genome (`v2/genome.ts`) holds every number one map is made from: version 1's groups (the frame,
 noise, parts, processes, water, hazards, resources and the settler's preferences) and these:
 
@@ -279,6 +284,12 @@ built maps again; its own probe batch (D116) plays them.
 
 ## 6. Intentions: maps that feel authored
 
+> **2026-09-27 (D274, settles #66):** each candidate intention below is marked adopted or left out.
+> Kyler's picks and the reasoning are in `PLAN.md` §20 D274 and `ROADMAP.md`'s M9b; the review set
+> and the five outcomes an intention now serves are D273. Recipes fold into intentions (D275).
+
+
+
 Each map draws zero (25% of maps), one (50%) or two (25%) intentions (D138) from the set below,
 weighted by theme and, for the vertical ones, by Verticality. Pairs that pull the start two ways are
 never drawn together (`v2/intentions.ts`). Four are Kyler's own, in his words:
@@ -336,67 +347,67 @@ principles (decisions-pending #66). Sources: the workshop catalogue (`investigat
 `CATALOGUE.md`, `AXES.md`).
 
 **Water systems**
-1. **"The river loops back on itself and leaves an oxbow lake."** Outcome: a crescent lake cut off
+1. **adopted (D274).** **"The river loops back on itself and leaves an oxbow lake."** Outcome: a crescent lake cut off
    beside the river that keeps its water when the river runs low. Check: a curved lake of 60+ tiles
    within 6 tiles of the river but off its course, keeping half its water through a 9-day drought.
    *Source: workshop, big meanders and oxbows; landscapes, meander.*
-2. **"Lakes step down the valley, each spilling into the next."** Outcome: three or more lakes on
+2. **adopted (D274).** **"Lakes step down the valley, each spilling into the next."** Outcome: three or more lakes on
    one river, each lower than the last, joined by short falls. Check: 3+ lakes of 60+ tiles on one
    course, falling 1+ level from each to the next. *Source: workshop, chain of lakes; landscapes,
    lakes.*
-3. **"The river splits around a big island and joins again below it."** Outcome: two arms carrying
+3. **adopted (D274).** **"The river splits around a big island and joins again below it."** Outcome: two arms carrying
    water round an island big enough to settle. Check: a dry region of 150+ tiles ringed by one
    river's water, both arms flowing. *Source: workshop, river that splits round an island;
    landscapes, braided.*
-4. **"Round bowls cluster together, some wet and some dry."** Outcome: several closed basins close
+4. **left out (D274).** **"Round bowls cluster together, some wet and some dry."** Outcome: several closed basins close
    together, some holding lakes, joined by low saddles. Check: 4+ hollows of 100+ tiles within 50
    tiles of each other, at least 2 wet and 1 dry. *Source: workshop, cluster of basins (five official
    maps); landscapes, karst.*
 
 **Landmarks**
-5. **"Two waterfalls pour side by side over the same cliff."** Outcome: a pair of tall falls seen
+5. **adopted (D274).** **"Two waterfalls pour side by side over the same cliff."** Outcome: a pair of tall falls seen
    together. Check: two falls of 3+ levels on different courses, 4–15 tiles apart. *Source:
    workshop, landmark falls; landscapes, falls.*
-6. **"A long cliff splits the map into an upper and a lower world."** Outcome: a scarp across much of
+6. **adopted (D274).** **"A long cliff splits the map into an upper and a lower world."** Outcome: a scarp across much of
    the map with only one or two natural ways up. Check: a line of steps of 3+ levels spanning half
    the map's width, the two sides joined by one-level steps in at most two places. *Source:
    workshop, great scarp or wall; landscapes, escarpment.*
 
 **Verticality**
-7. **"Side valleys hang above a wide valley floor, their streams falling in."** Outcome: a broad
+7. **adopted (D274).** **"Side valleys hang above a wide valley floor, their streams falling in."** Outcome: a broad
    main valley with tributaries dropping into it over falls. Check: 2+ tributaries meeting the main
    river over falls of 2+ levels, the main valley floor 20+ tiles wide. *Source: landscapes, glacial
    (hanging tributaries).*
-8. **"The hillside is stepped like rice terraces, with a stream running down beside them."**
+8. **left out (D274).** **"The hillside is stepped like rice terraces, with a stream running down beside them."**
    Outcome: a slope of many level benches following the contours. Check: 4+ benches in a row, each
    3+ tiles deep, with a stream within 10 tiles stepping down the same levels. *Source: workshop,
    contour terraces; mechanics 21, vertical construction.*
 
 **Relations between places**
-9. **"Two ways to grow: open farmland one way, wood and ruins up the cliffs the other."** Outcome:
+9. **adopted (D274).** **"Two ways to grow: open farmland one way, wood and ruins up the cliffs the other."** Outcome:
    two frontiers reached by different routes, each richer in something different. Check: two
    frontier regions, one with twice the other's fertile land, the other with twice its logs or
    scrap. *Source: workshop, choose your side; mechanics axes, expansion choice.*
-10. **"The strongest current runs far from home."** Outcome: the start's water is slow, and good
+10. **left out (D274).** **"The strongest current runs far from home."** Outcome: the start's water is slow, and good
     water-wheel sites lie a trek away. Check: no reach of 0.5 m³/s beside dry land within 64 tiles'
     walk of the start, and one of 1 m³/s or more beyond it. *Source: mechanics 02 and axes, power
     location.*
-11. **"A broad dry plateau stands over deep water."** Outcome: wide dry land a few levels above
+11. **left out (D274).** **"A broad dry plateau stands over deep water."** Outcome: wide dry land a few levels above
     clean deep water, where a deep pump reaches what a basic one cannot. Check: 10+ shore tiles
     within 40 tiles' walk that only a 6-level pump reaches. *Source: mechanics axes, faction
     opportunity; mechanics 06.*
 
 **Hazards and risk-reward**
-12. **"Badwater spills through the richest land: tame it and the land is yours."** Outcome: the best
+12. **adopted (D274).** **"Badwater spills through the richest land: tame it and the land is yours."** Outcome: the best
     fertile land lies beside a badwater stream, away from the start's clean water. Check: 400+
     fertile tiles within 60 tiles of the start with contaminated water flowing through or beside
     them; the start's own water clean. *Source: mechanics 10 and axes, threat exposure; workshop,
     hazard play.*
-13. **"A relic waits on a pinnacle, reached only by building up to it."** Outcome: a big science
+13. **adopted (D274).** **"A relic waits on a pinnacle, reached only by building up to it."** Outcome: a big science
     reward on high ground no one can walk to. Check: a medium or large relic within 60 tiles on dry
     land not reached on foot from the start. *Source: mechanics 20, relics; workshop, tower or sky
     island.*
-14. **"A plug holds back a lake: open it when you are ready."** Outcome: a blocked spillway above
+14. **adopted (D274).** **"A plug holds back a lake: open it when you are ready."** Outcome: a blocked spillway above
     the valley, with stored water to release later. Check: a blockage whose removal lets 500+ tiles'
     worth of water flow downhill, not onto the start. *Source: mechanics 12, blockages and release
     events; workshop, buried water.*
@@ -535,6 +546,12 @@ was raised: at most places the valley upstream holds too little for any short da
 
 ## 9. What M9 keeps
 
+> **2026-09-27 (D275, D278):** flow-direction variety no longer comes from the genome drawing one of
+> 8 directions here; a finished map is rotated or mirrored into one of its 8 orientations instead, so
+> all 8 appear and none over a quarter (D275). "Variations of this map" below (M9c) is renamed
+> **Another like this** and moves into M9b, one sibling per click (D278). See `PLAN.md` §20 D275,
+> D278.
+
 - **8 flow directions**: every genome draws one; the rivers find their own path (REPORT-v2 §3.7).
 - **Variety and Surprise me** (§3).
 - **No clones**: K candidates; the one farthest from the theme's reference signatures wins
@@ -598,6 +615,11 @@ measured by the same batch code (REPORT-v2 §3). New in version 2:
 - M7 `water.storage_possible` holds on every map (a guard).
 
 ## 11. Play: the cycle signature, the strategy axes and difficulty
+
+> **2026-09-27 (D276):** "Difficulty as positions on the axes" below is not part of M9b; difficulty
+> through terrain (PERFECT's Challenge section) is deferred to a later step with its own design. The
+> cycle signature and the strategy axes stay, as information (D276). See `ROADMAP.md`'s M9b and
+> `PLAN.md` §20 D276.
 
 **The cheap cycle signature in the generator** (`v2/cycle.ts`; task d). The exact cycle model
 (`investigation/cycles`, PR #15) takes 12–20 s a map at 128²: too slow for every candidate. The
@@ -761,6 +783,11 @@ default) drops Islands to 96% (seeds 4 and 18) and Canyon to 98%.
 
 ## 15. The investigations folded in
 
+> **2026-09-27 (D278):** "Adoption in M9c" and "M9a and M9c" below now mean M9b: M9c is removed and
+> its useful parts fold into M9b. Names and a one-line "how it plays" description come from the
+> map's standout intention and its read-back features (D278), not the premise roles this section
+> describes. See `PLAN.md` §20 D278.
+
 - **Cycles** (#15): §11: the cheap signature in the generator, the exact model as its check and in
   the briefs, and the Weather view's instant estimate.
 - **Verified mechanics** (`investigation/mechanics`): the axes in the
@@ -792,6 +819,12 @@ default) drops Islands to 96% (seeds 4 and 18) and Canyon to 98%.
 - **Simspeed** (#17): §13, a proposal for M9a (D130).
 
 ## 16. Keep M12 ready
+
+> **2026-09-27 (D277, D278):** all M12 work, its preparation included, is deferred while Kyler
+> refines Dam Good Maps; M9 does not add these tool entries. M9c (the `describe_map`,
+> `how_it_plays` and `variations` rows) is removed and its useful parts fold into M9b (D278); the
+> place resolver and judgement words move to M12, deferred with it. See `ROADMAP.md`'s M12 section
+> and `PLAN.md` §20 D277, D278.
 
 M9 adds these Claude tool entries (D134), in the shape of the groundwork's tools
 (`investigation/claude/lib/tools.ts`: a name, a description and an input schema of at most 4 KB;
@@ -876,6 +909,11 @@ from M13's versioned deploys.
 
 ## 18. Staging (proposal)
 
+> **2026-09-27 (D278):** M9c is removed; its useful parts fold into M9b (candidate choice by the
+> five outcomes, names and descriptions, Another like this), and the place resolver, judgement words
+> and river-course naming move to M12, deferred with it (D277). M9 is now M9a and M9b only; the
+> M9c bullet below is superseded. See `ROADMAP.md`'s M9 section and `PLAN.md` §20 D277, D278.
+
 M9a, M9b and M9c are approved (D145); what goes into each waits for Kyler's approval of this
 version. The proposal (also in ROADMAP M9):
 
@@ -898,6 +936,13 @@ version. The proposal (also in ROADMAP M9):
   place resolver and judgement words; tool entries `describe_map`, `how_it_plays` and `variations`.
 
 ## 19. What Kyler decides
+
+> **2026-09-27:** D252 and D273–D278 amend M9b's (and, until D278 removed it, M9c's) plan on top of
+> this approval: M9b is rewritten around five outcomes judged by Kyler's eye (D273); its intentions
+> set is settled (D274, settling #66 below); recipes fold into intentions and flow direction comes
+> from the finished map's orientation (D275); difficulty through terrain is deferred (D276); all M12
+> work is deferred (D277); M9c is removed and folded into M9b (D278). See `ROADMAP.md` and `PLAN.md`
+> §20.
 
 Kyler approves version 2 by judgement from the ten briefs
 ([investigation/generative/briefs/v2/](../investigation/generative/briefs/v2/)), the measures
