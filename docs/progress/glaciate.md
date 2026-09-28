@@ -54,6 +54,16 @@ glacier without them (the investigation's, an older operation) is round 4's, and
 the investigation's there. The captures and the case table pin round 4's details, so they compare the floor's water
 alone; Kyler's default click on the preview draws its own.
 
+## The ring and waypoints (D312)
+
+On the forces' shared piece (584bc15d on `feature/forces`: `core/forces/reach.ts`'s ring, `editor/waypoints.ts`):
+Glaciate's ring is half its width (Size, or on Auto 8 + 0.36 × Power); its waypoints launch a glacier aimed from the
+first through the rest to the last. The planner takes them as `intent.via` (up to 32): one directional least-cost
+pass a leg (Aim's own), joined and smoothed twice by the seven-tile average; Aim without them is unchanged (still byte
+for byte the investigation's). The operation keeps the line as `where.path`. Tests: the curve passes within 6 tiles of
+each waypoint and replays exactly (contract); the ring follows Power and Size, waypoints add, remove, launch (a click
+or Enter) and cancel (browser).
+
 ## Its springs in groups (D314)
 
 `core/water/sourceGroups.ts` taken whole from a6346fe4 (`feature/source-groups`) with its README and test. The

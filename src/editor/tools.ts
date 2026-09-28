@@ -57,6 +57,8 @@ export type Rgba = [number, number, number, number];
 export const SELECTED: Rgba = [255, 208, 90, 190];
 export const MOVING: Rgba = [110, 214, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
+/** A force's reach round the cursor (D312): a faint ring. */
+export const FAINT: Rgba = [230, 240, 230, 70];
 export const GOOD: Rgba = [80, 200, 90, 170];
 export const BAD: Rgba = [230, 60, 50, 180];
 export const PROBLEM: Rgba = [230, 60, 50, 150];

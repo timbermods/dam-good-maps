@@ -24,7 +24,7 @@ const WATER = "d2490000-0000-4000-8000-000000000001";
 const BAD = "d2490000-0000-4000-8000-000000000002";
 
 /** A dry spot far from the start with room for a source and a badwater source beside it. */
-function spot(s: MapSession): [number, number] {
+function spot(s: MapSession): [number, number] | null {
   const b = s.built;
   const st = b.start!;
   for (let y = 14; y < W - 14; y++)
@@ -34,14 +34,22 @@ function spot(s: MapSession): [number, number] {
       for (let yy = y - 8; yy <= y + 8 && dry; yy++) for (let xx = x - 8; xx <= x + 14 && dry; xx++) if (b.water[yy * W + xx] > 0 || b.channel[yy * W + xx] || b.heights[yy * W + xx] > 11) dry = false;
       if (dry && !b.entities.some((e) => Math.abs(e.x - x - 3) <= 9 && Math.abs(e.y - y) <= 9 && !/^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template))) return [x, y];
     }
-  throw new Error("no spot");
+  return null;
 }
 
+/** The first of a few River Valley maps with such a spot (generator 0.7.0's land, #56). */
 function session(): { s: MapSession; x: number; y: number } {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-  const s = MapSession.fromGenerated(r, r.file);
-  s.setWaterMode("defer");
-  const [x, y] = spot(s);
+  let found: { s: MapSession; at: [number, number] } | null = null;
+  for (let seed = 3; seed < 20 && !found; seed++) {
+    const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    const at = spot(s);
+    if (at) found = { s, at };
+  }
+  if (!found) throw new Error("no spot");
+  const { s } = found;
+  const [x, y] = found.at;
   const place = (id: string, template: string, px: number, py: number) =>
     s.apply({ op: "placeEntity", params: { id, template, x: px, y: py, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } });
   expect(place(WATER, "WaterSource", x, y).errors).toEqual([]);
@@ -146,11 +154,13 @@ describe("brushes and water sources (D249)", () => {
   });
 
   it("Clear sources: the stroke and the sources it pressed on go in one undo step; the others stay; undo brings them back", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    // (the map the other tests use: the first with a dry spot)
+    const seed = Number(session().s.spec?.seed ?? 3);
+    await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
-    const [x, y] = spot(open());
+    const [x, y] = spot(open())!;
     const place = (id: string, template: string, px: number, py: number) =>
       ed.apply({ op: "placeEntity", params: { id, template, x: px, y: py, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } });
     expect(place(WATER, "WaterSource", x, y).errors).toEqual([]);

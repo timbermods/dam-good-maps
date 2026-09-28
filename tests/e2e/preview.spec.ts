@@ -19,10 +19,11 @@ const BUDGET = process.env.CI ? 6000 : 2000;
 
 for (const theme of ["islands", "lakeBasin"]) {
   test(`${theme} 256²: a local edit re-previews, and its time is reported`, async ({ page }) => {
-    test.setTimeout(300_000);
+    // (only a hang fails on time: M9a's 256² maps take a minute or more to make in the page, D115)
+    test.setTimeout(600_000);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`./#s=1&z=256&d=n&t=${theme}`);
-    await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 300_000 });
     await page.getByRole("button", { name: "Refine this map" }).click();
     await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
     // let the first background check finish, so the edit is timed on its own
@@ -54,8 +55,12 @@ for (const theme of ["islands", "lakeBasin"]) {
       await api.whenWaterSettles();
       out.push({ name: "lower ground beside water, its water settled", ms: performance.now() - t0, ok: u.ok });
       // a weir across the main river
-      const river = u.info.features.find((f) => f.kind === "river" && "edge" in (f.params as { entry: object }).entry && !(f.params as { badwater: boolean }).badwater)!;
-      for (const s of [30, 40, 60, 80]) {
+      // (the map's main river: generator 0.7.0 names it; a map whose rivers all start at springs has one too)
+      const river = u.info.features.find((f) => f.kind === "river" && f.role === "river/main") ?? u.info.features.find((f) => f.kind === "river" && !(f.params as { badwater: boolean }).badwater)!;
+      // (the first places where it fitted on generator 0.6's maps, then every 5 tiles along the river)
+      const along = [30, 40, 60, 80];
+      for (let s = 10; s <= 200; s += 5) if (!along.includes(s)) along.push(s);
+      for (const s of along) {
         const plan = await api.planTool({ tool: "object", kind: "weir", river: { id: river.id, at: s } }, "7a1b2c3d-2222-4222-8333-444455556666");
         if (!plan.ok) continue;
         t0 = performance.now();

@@ -48,6 +48,9 @@ async function high(page: Page): Promise<[number, number]> {
 async function settled(page: Page) {
   await expect.poll(() => status(page), { timeout: 60_000 }).toBeNull();
   await idle(page);
+  // (a glacier can sweep the map's last badwater spring: its notice, D213, sits over the rows)
+  const hide = page.locator(".editor-notices").getByRole("button", { name: "Hide" });
+  if (await hide.isVisible()) await hide.click();
 }
 
 test("Glaciate's row is Power, Size, Meltwater, Try another and More (D289, D309); its details closed by default", async ({ page }) => {
@@ -209,4 +212,63 @@ test("a glacier keeps its own pace whatever the water's speed (D266)", async ({ 
   expect(slow).toBeGreaterThan(4000);
   expect(quick / slow).toBeGreaterThan(0.7);
   expect(quick / slow).toBeLessThan(1.4);
+});
+
+test("Glaciate's size at the cursor (D312): a faint ring of its width, following Power and Size; no route or outline", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("-");
+  const row = page.getByRole("group", { name: "Glaciate options" });
+  const at = await high(page);
+  const p = await client(page, at[0], at[1]);
+  await row.getByRole("slider", { name: "Power" }).fill("20");
+  await page.mouse.move(p.x + 4, p.y);
+  await page.mouse.move(p.x, p.y);
+  await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
+  const low = (await gesture(page)).ring!;
+  await row.getByRole("slider", { name: "Power" }).fill("90");
+  await expect.poll(async () => (await gesture(page)).ring).toBeGreaterThan(low);
+  await row.getByRole("slider", { name: "Size" }).fill("20");
+  await expect.poll(async () => (await gesture(page)).ring).toBe(10);
+  expect((await gesture(page)).stroke).toBeNull();
+  expect((await gesture(page)).arrow).toBeNull();
+});
+
+test("Glaciate's waypoints (D312): Shift+click drops them, Backspace takes the last off, Esc drops all; a plain click launches through them, kept as its line; Enter launches too", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("-");
+  const at = await high(page);
+  const dx = at[0] > 48 ? -1 : 1;
+  const pts: [number, number][] = [at, [at[0] + 10 * dx, at[1] + 4], [at[0] + 20 * dx, at[1] - 2]];
+  const shiftClick = async (x: number, y: number) => {
+    const q = await client(page, x, y);
+    await page.mouse.move(q.x, q.y);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(q.x, q.y);
+    await page.keyboard.up("Shift");
+  };
+  for (const [x, y] of pts) await shiftClick(x, y);
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts);
+  expect(await status(page)).toBeNull();
+  await page.keyboard.press("Backspace");
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts.slice(0, 2));
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  expect(await status(page)).toBeNull();
+  const n0 = (await labels(page)).length;
+  for (const [x, y] of pts.slice(0, 2)) await shiftClick(x, y);
+  const end = await client(page, pts[2][0], pts[2][1]);
+  await page.mouse.click(end.x, end.y);
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  await settled(page);
+  expect((await labels(page)).length).toBe(n0 + 1);
+  expect((await labels(page)).at(-1)).toBe("Glaciate");
+  expect(await worker(page)).toEqual(await heights(page));
+  // Enter launches, the last waypoint its end
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  for (const [x, y] of pts) await shiftClick(x, y);
+  await page.keyboard.press("Enter");
+  await settled(page);
+  expect((await labels(page)).length).toBe(n0 + 1);
+  expect((await labels(page)).at(-1)).toBe("Glaciate");
 });

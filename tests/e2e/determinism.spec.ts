@@ -10,6 +10,8 @@ const SIZES = [96, 128, 256];
 const CASES = Array.from({ length: 10 }, (_, i) => makeSpec({ seed: 1000 + 37 * i, size: { x: SIZES[i % 3], y: SIZES[i % 3] } }));
 
 test("Node and Chromium produce identical .timber bytes for 10 seeds", async ({ page }) => {
+  // (only a hang fails on time: M9a's 256² maps take a minute or so each in the page, D115)
+  test.setTimeout(900_000);
   await page.goto("./#" + encodeSpecFragment(CASES[0]));
   await page.waitForFunction(() => "dgm" in window);
   for (const spec of CASES) {

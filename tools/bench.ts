@@ -12,8 +12,7 @@
 //   --info: the budget is information, not a gate (CI, where runners are slower and shared): the
 //     time is recorded (tools/timings.ts) and the exit code says only whether every map generated.
 
-import { build, SettleCache } from "../src/core/features/build";
-import { generate, planFeatures } from "../src/core/gen/generate";
+import { generate } from "../src/core/gen/generate";
 import { canonicalSettle } from "../src/core/sim/prefill";
 import { makeSpec, type ThemeId } from "../src/core/spec/mapspec";
 import { recordTiming } from "./timings";
@@ -35,10 +34,9 @@ const times: number[] = [];
 const ticks: number[] = [];
 if (water) {
   // warm up the JIT on a map of the same size
-  canonicalSettle(build(spec(0), planFeatures({ ...spec(0), accepted: { attempt: 0, candidate: 0 } }, 0, 0, new SettleCache())).waterModel);
+  canonicalSettle(generate(spec(0)).built.waterModel);
   for (let seed = a; seed <= (b ?? a); seed++) {
-    const s = { ...spec(seed), accepted: { attempt: 0, candidate: 0 } };
-    const model = build(s, planFeatures(s, 0, 0, new SettleCache()), { stopBeforeResources: true }).waterModel;
+    const model = generate(spec(seed)).built.waterModel;
     const t0 = performance.now();
     const w = canonicalSettle(model);
     times.push(performance.now() - t0);

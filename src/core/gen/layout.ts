@@ -7,7 +7,8 @@ import type { Feature, TerraceBand } from "../features/schema";
 import { round } from "../features/geometry";
 import type { Rng } from "../math/rng";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
-import { BADWATER_RATIO, density, LAKES, RESERVE, RIVER_FLOW_MULTIPLIER } from "./calibrated";
+import { badwaterBudget } from "../resources/badwater";
+import { density, LAKES, RESERVE, RIVER_FLOW_MULTIPLIER } from "./calibrated";
 
 export { LAKES, RESERVE };
 
@@ -38,9 +39,10 @@ export interface LayoutTargets {
   basins: number;
   reserve: number;
   difficulty: Difficulty;
-  /** Total badwater strength (Badwater ratio × the rivers' flow) and the least distance from the
-   *  start (Badwater distance). */
-  badwater: number;
+  /** Badwater sources and each one's strength (resources/badwater.ts `badwaterBudget`: the official
+   *  maps' by size, moved by the seed, scaled by the Badwater setting; none with No badwater, D200),
+   *  and the least distance from the start (Badwater distance). */
+  badwater: { sources: number; strength: number };
   badwaterDistance: number;
 }
 
@@ -79,7 +81,7 @@ export function layoutTargets(spec: MapSpec): LayoutTargets {
     basins: Math.round(LAKES[s.water.lakes] * density("basins_ge20", area)),
     reserve: RESERVE[s.water.droughtReserve],
     difficulty: spec.designedFor,
-    badwater: round(BADWATER_RATIO[s.hazards.badwater] * flow, 2),
+    badwater: (({ sources, strength }) => ({ sources, strength }))(badwaterBudget(W, H, s.hazards.badwater, spec.seed)),
     badwaterDistance: Math.max(s.hazards.badwaterDistance, s.start.rules.badwaterWithin),
   };
 }

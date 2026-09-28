@@ -16,7 +16,9 @@
 //      edits changed.
 // 4.   Beyond that, every region of 400+ tiles gets one slope toward its lowest neighbour.
 // Slopes that already stand (a set piece's own stairs, an import's own slopes) join their regions
-// without another slope.
+// without another slope. A generated map's natural ramps (M9a, decisions-pending #62) get a slope on
+// every step that still stands, before anything else, wherever they are: a ramp is a staircase the
+// land made, not a boundary the spacing rule may skip.
 
 import { levelRegions } from "../math/grid";
 import type { Orientation } from "../format/footprints";
@@ -41,6 +43,11 @@ export interface SlopeRules {
   links?: readonly [number, number][];
   /** The rivers' channel tiles: the slopes out of the start's own region go toward them. */
   water?: Uint8Array | null;
+  /** Natural ramps' steps as (low tile, high tile) pairs: a slope on each one that still stands. */
+  ramps?: readonly (readonly [number, number])[] | null;
+  /** A brush's walkable ground (D204's ramped rim, a walkable smooth): its steps are joined by
+   *  slopes wherever it is, not only where the start's ground reaches it. */
+  walkTargets?: Uint8Array | null;
 }
 
 /** Nothing stands within this Chebyshev distance of the start's centre, slopes included (PLAN §7.7);
@@ -116,6 +123,25 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   const placed: PlacedSlope[] = [];
   const used: [number, number][] = [];
   const occ = occupied.slice();
+  // the ramps' steps first: a slope on each step whose ground still steps as the ramp cut it (the
+  // high tile one level up, the tile behind the low one level with it), joining its regions
+  for (const [lo, hi] of rules.ramps ?? []) {
+    const x = lo % W;
+    const y = (lo - x) / W;
+    const dx = (hi % W) - x;
+    const dy = Math.floor(hi / W) - y;
+    if (Math.abs(dx) + Math.abs(dy) !== 1 || h[hi] !== h[lo] + 1) continue;
+    const bx = x - dx;
+    const by = y - dy;
+    if (bx < 0 || by < 0 || bx >= W || by >= H || h[by * W + bx] !== h[lo] || occ[lo] || occ[by * W + bx]) continue;
+    placed.push({ x, y, z: h[lo], orientation: orientationForHigh(dx, dy) });
+    occ[lo] = 1;
+    used.push([x, y]);
+    const a = labels[lo];
+    const b = labels[hi];
+    linked[a].push(b);
+    linked[b].push(a);
+  }
   // steps from each tile to the nearest river tile (4-neighbour), for the slopes out of the start's
   // region: integers only, so every browser places the same slopes
   const toWater = rules.water && rules.water.some((v) => v === 1) ? stepsFrom(rules.water, W, H) : null;
@@ -197,6 +223,25 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
           union(root, n);
           queue.push(n);
         }
+      }
+    }
+  }
+  //    a brush's walkable ground: its steps joined to the ground beside them wherever it is (on
+  //    M9a's terraced land a stroke beyond the core often stands off the start's network; its steps
+  //    are still the player's way up, D204)
+  if (rules.walkTargets) {
+    const wt = new Uint8Array(R);
+    for (let i = 0; i < labels.length; i++) if (rules.walkTargets[i]) wt[labels[i]] = 1;
+    for (let r = 0; r < R; r++) {
+      if (!wt[r]) continue;
+      for (const n of adj[r]) {
+        if (find(r) === find(n)) continue;
+        if (linked[r].includes(n)) {
+          union(r, n);
+          continue;
+        }
+        const cand = between(r, n);
+        if (cand.length && tryPlace(cand, false)) union(r, n);
       }
     }
   }

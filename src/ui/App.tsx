@@ -29,6 +29,9 @@ import type { EditorProps } from "../editor/Editor";
 import type { ExportDialogProps } from "../editor/panels";
 import { fetchIndex, fetchPlace, placeFromHash, PLACES_URL } from "../places/data";
 import { Preview2D, type Layers } from "./Preview2D";
+import { FirstLook, type Progress } from "./FirstLook";
+import { proxy } from "comlink";
+import type { GenProgress } from "../worker/api";
 import { MapCard } from "./MapCard";
 import { SettingsPanel } from "./SettingsPanel";
 import { shareText } from "./settingsModel";
@@ -84,7 +87,8 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
     const note = d.version !== GENERATOR_VERSION ? `This link was made with generator ${d.version}; this is ${GENERATOR_VERSION}, so the map may differ.` : undefined;
     return { spec: d.spec, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
-  return { spec: makeSpec({ seed: randomSeed() }), fromLink: false };
+  // Any (Surprise me) is the default (D209)
+  return { spec: makeSpec({ seed: randomSeed(), theme: "any" }), fromLink: false };
 }
 
 /** A lazily loaded module's export (the 3D view and the editor are separate chunks). */
@@ -127,6 +131,8 @@ export function App() {
   /** The settings page shows the open document's map (its edits included). */
   const [fromSession, setFromSession] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** While a new map is made: its stage and first look. */
+  const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | undefined>(init.note);
   const [layers, setLayers] = useState<Layers>({ water: true, moisture: false, contamination: false, reach: false, entities: true, features: false });
@@ -236,7 +242,11 @@ export function App() {
         setSession(null);
         void storage.clear();
       }
-      const r = await generator.generate(s);
+      setProgress({ attempt: 0, stage: "land", land: null });
+      const r = await generator.generate(
+        s,
+        proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+      );
       setResult(r);
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
@@ -245,6 +255,7 @@ export function App() {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -568,12 +579,16 @@ export function App() {
           <details class="more">
             <summary>What's in this version</summary>
             <p>
-              Three themes: River Valley, Canyon and Lake Basin. The water is simulated with the game's own rules and
-              shipped settled, so rivers run from the first tick. Trees live where that water keeps the soil moist.
+              Any, or a theme to lean toward: River Valley, Canyon, Highlands, Lake Basin, Delta or Islands. Uplift,
+              erosion and flowing water shape the land and its rivers.
+            </p>
+            <p>
+              The water is simulated with the game's own rules and shipped settled, so rivers run from the first tick.
+              Trees live where that water keeps the soil moist.
             </p>
             <p>
               Every map is checked against the game's loading rules and for a colony's survival: clean water in pump
-              reach, food, wood, land to build on, and water that can be kept through a drought.
+              reach, food, wood and land to build on.
             </p>
             <p>Refine a map in the editor, or open any map to look at it in 3D and change it.</p>
           </details>
@@ -618,7 +633,9 @@ export function App() {
               )}
             </p>
           ) : null}
-          {result ? (
+          {progress ? (
+            <FirstLook progress={progress} />
+          ) : result ? (
             preview === "3d" ? (
               Preview3D ? (
                 <Preview3D result={result} />

@@ -10,13 +10,36 @@ import { isObject, type JsonObject } from '../../../src/core/format/json';
 import { readTimber, writeTimber, type TimberFile } from '../../../src/core/format/timber';
 import { surfaceOf } from '../../../src/core/format/world';
 import { generate } from '../../../src/core/gen/generate';
-import { makeSpec, type ThemeId } from '../../../src/core/spec/mapspec';
+import { decodeSpecFragment, makeSpec, type ThemeId } from '../../../src/core/spec/mapspec';
+import type { GenerateResult } from '../../../src/core/gen/generate';
 import { guidFrom } from '../../../src/core/math/hash';
 
 export function generated(theme: ThemeId, seed: number, size: number): Uint8Array {
   const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
   if (!r.report.passed) throw new Error(`${theme} ${seed} ${size}Â² did not pass its checks`);
   return r.bytes;
+}
+
+/** A generated map from a share link's fragment (M9a's games: Any, a difficulty, Verticality, No
+ *  badwater), exactly as the page makes it. */
+export function generatedFrom(fragment: string): Uint8Array {
+  const d = decodeSpecFragment(fragment);
+  if (!d || d.problems.length) throw new Error(`${fragment}: ${d ? d.problems.join('; ') : 'not a map link'}`);
+  const r = generate(d.spec);
+  if (!r.report.passed) throw new Error(`${fragment} did not pass its checks`);
+  return r.bytes;
+}
+
+/** The first seed from 1 to 40 whose generated map has what `has` looks for (a weir, ruins on a
+ *  rise), as the page makes it. */
+export function firstGenerated(fragment: (seed: number) => string, has: (r: GenerateResult) => boolean): Uint8Array {
+  for (let seed = 1; seed <= 40; seed++) {
+    const d = decodeSpecFragment(fragment(seed));
+    if (!d) break;
+    const r = generate(d.spec);
+    if (r.report.passed && has(r)) return r.bytes;
+  }
+  throw new Error(`no seed from 1 to 40 of ${fragment(0)} has it`);
 }
 
 function withDescription(f: TimberFile, text: string): void {

@@ -36,6 +36,7 @@ import { distanceFrom, runsToTiles, tilesToRuns, type Runs } from "../../../src/
 import { pointAtArc } from "../../../src/core/features/geometry";
 import { downstreamStretches, locate, network, upstreamStretches, type Course, type Network } from "./flow";
 import { round1, type MapView } from "./view";
+import { naturalDam, naturalFall } from "./natural";
 
 export type Compass = "north" | "south" | "east" | "west" | "northeast" | "northwest" | "southeast" | "southwest" | "center";
 export type Part = "third" | "half" | "edge" | "corner" | "quarter";
@@ -241,7 +242,15 @@ export function resolveRef(v: MapView, ref: Ref, ctx: RefContext = {}, assumptio
     // an imported map has its StartingLocation but no start feature
     if (name === "the start" && !v.features.some(test) && v.start) return { name: "the start", anchor: [v.start.x, v.start.y] };
     let all = v.features.filter(test);
-    if (!all.length) return `there is no ${name.replace(/^the /, "")} on this map`;
+    if (!all.length) {
+      // M9a: falls emerge on the rivers and dam opportunities are the land's own (D111)
+      const natural = name === "the waterfall" ? naturalFall(v, net, word) : name === "the dam site" ? naturalDam(v, net) : null;
+      if (natural) {
+        assumptions.push(`"${ref}" read as ${natural.name}: the map's own, as the land made it`);
+        return { name: natural.name, anchor: natural.anchor, ...(natural.course ? { course: natural.course } : {}) };
+      }
+      return `there is no ${name.replace(/^the /, "")} on this map`;
+    }
     // River Valley names its falls: "the cascade" is the upper fall, "the falls" the lower one
     const named = /cascade/.test(word) ? all.filter((f) => f.role?.endsWith("/cascade")) : /falls$/.test(word) ? all.filter((f) => f.role?.endsWith("/falls")) : [];
     if (named.length) all = named;

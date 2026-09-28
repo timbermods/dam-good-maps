@@ -409,6 +409,62 @@ def pump_shore_distance(walk: np.ndarray, h: np.ndarray, D: np.ndarray, C: np.nd
     return best
 
 
+WATER_BODY = 0.001           # water deeper than this joins a body of water (4-connected)
+
+
+def _tile_shore_walk(walk, h, y, x, d, clean) -> float:
+    """pump_shore_distance for one tile with its water at depth d."""
+    if not (d >= PUMP_DEPTH) or not clean:
+        return float("inf")
+    Y, X = h.shape
+    surface = float(h[y, x]) + float(d)
+    best = float("inf")
+    for dy, dx in N4:
+        yy, xx = y + dy, x + dx
+        if not (0 <= yy < Y and 0 <= xx < X) or not walk[yy, xx] < best:
+            continue
+        level = int(h[yy, xx])
+        if level - PUMP_REACH <= surface <= level + 0.01:
+            best = float(walk[yy, xx])
+    return best
+
+
+def start_water_shore(walk, h, D, C, sources, after, within):
+    """The water rule with Kyler's D302 (src/core/analysis/walk.ts startWaterShore): pump_shore_distance
+    over the water a start may count, never a sealed puddle. Water counts when its body of water
+    (4-connected, over 0.001 deep, as running_flow finds it) is fed by a running source (strength over 0,
+    a tile in the body), or lasts the rule's drought: one of its tiles a pump reaches from a shore within
+    `within` tiles' walk now is still one on `after` (drought_storage for the rule's days). Returns
+    (distance, puddle, tile): the walk to the nearest water that counts, to the nearest water the rule
+    leaves out when that is nearer (else inf), and the (y, x) tile of the water that counts (None)."""
+    labels, sizes = components(D > WATER_BODY, connectivity=N4)
+    counts = [False] * len(sizes)
+    for s in sources:
+        if s["strength"] > 0:
+            for ty, tx in s["tiles"]:
+                if labels[ty, tx] >= 0:
+                    counts[labels[ty, tx]] = True
+    now = {}
+    for y, x in zip(*np.nonzero(labels >= 0)):
+        k = int(labels[y, x])
+        clean = bool(C[y, x] < PUMP_CLEAN)
+        w = _tile_shore_walk(walk, h, y, x, D[y, x], clean)
+        if w == float("inf"):
+            continue
+        now[(y, x)] = w
+        if not counts[k] and w <= within and _tile_shore_walk(walk, h, y, x, after[y, x], clean) <= within:
+            counts[k] = True
+    best = puddle = float("inf")
+    tile = None
+    for (y, x), w in now.items():
+        if counts[int(labels[y, x])]:
+            if w < best:
+                best, tile = w, (int(y), int(x))
+        else:
+            puddle = min(puddle, w)
+    return best, (puddle if puddle < best else float("inf")), tile
+
+
 # ---------------------------------------------------------------------------------------------
 # Dam sites: a straight dam across a channel, measured by the reservoir it would hold
 

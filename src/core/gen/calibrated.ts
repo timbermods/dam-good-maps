@@ -138,6 +138,41 @@ export const OFFICIAL_FLOW = 8;
 /** Badwater-to-clean strength ratio by the Badwater setting (PLAN §5.4; official median 0.65). */
 export const BADWATER_RATIO = { off: 0, low: 0.3, normal: 0.65, high: 1.2 } as const;
 
+/** Badwater sources like the official maps (Kyler's "Badwater on every map", 2026-09-26, D200;
+ *  official-baselines.json `rates.badwater_*` and `badwater`): BadwaterSources per map and their
+ *  total strength, the size classes' medians (Nomads and Oasis left out, and the clear outliers:
+ *  Pillars' count, Meander's, Pillars' and Plains' strength), joined in ln(area) at `SIZE_ANCHORS`;
+ *  the 25th and 75th percentile factors of the large and max maps; each source's strength (official
+ *  1–2, median 1.5, as the basin builder allows 1–3). The Badwater setting scales the count and the
+ *  total: No badwater (off) places none. */
+export const OFFICIAL_BADWATER = {
+  sources: [1, 2, 4, 3.5],
+  sourcesSpread: [0.857, 1.109],
+  strength: [1.25, 3.5, 5.5, 6.5],
+  strengthSpread: [0.846, 1.091],
+  each: { min: 1, max: 3, step: 0.25 },
+} as const;
+export const BADWATER_SETTING = {
+  off: { sources: 0, strength: 0 },
+  low: { sources: 0.5, strength: 0.5 },
+  normal: { sources: 1, strength: 1 },
+  high: { sources: 1.5, strength: 1.75 },
+} as const;
+
+/** A per-map official median at `area`: the class medians joined in ln(area), as `density` joins
+ *  its rows. */
+export function officialPerMap(ys: readonly number[], area: number): number {
+  const a = Math.max(area, 1);
+  if (a <= SIZE_ANCHORS[0]) return ys[0];
+  for (let i = 1; i < SIZE_ANCHORS.length; i++) {
+    if (a <= SIZE_ANCHORS[i]) {
+      const t = lnDet(a / SIZE_ANCHORS[i - 1]) / lnDet(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
+      return ys[i - 1] + t * (ys[i] - ys[i - 1]);
+    }
+  }
+  return ys[ys.length - 1];
+}
+
 /** Drought reserve multipliers (PLAN §5.3). */
 export const RESERVE = { scarce: 1, normal: 1.5, plenty: 3 } as const;
 /** Lakes and basins: multipliers on the official natural-basin median for the size (PLAN §5.3). */

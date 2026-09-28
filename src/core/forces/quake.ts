@@ -43,6 +43,8 @@ export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
 export const slideTiles = (power: number) => 3 + Math.round(power * 0.17);
+/** How far the shaking reaches from the fault (tiles) at a Power (the editor's ring, D312). */
+export const quakeReach = (power: number) => 14 + power * 0.5;
 
 export function validateQuake(s: QuakeSettings, m: { W: number; H: number }, i: QuakeIntent): void {
   if (!["lift", "slide"].includes(s.mode) || !["sheer", "stepped"].includes(s.scarp) || !Number.isFinite(s.power) || s.power < 0 || s.power > 100 || !Number.isInteger(s.seed) || s.seed < 0 || s.seed > 0xffffffff)
@@ -76,7 +78,7 @@ export class Fault {
     readonly settings: QuakeSettings,
     readonly intent: QuakeIntent,
   ) {
-    this.reach = 14 + settings.power * 0.5;
+    this.reach = quakeReach(settings.power);
     this.lift = 1 + Math.round(settings.power * 0.075);
     this.slide = slideTiles(settings.power);
     // Resample by arc length. Coherent seed noise has a wavelength, never per-tile static.

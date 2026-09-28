@@ -144,8 +144,11 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
 
-  // on the start: it strikes all the same (D257), one step, and the start is carried off the
-  // broken ground; undo brings both back
+  // on the start: it strikes all the same (D257), one step, and the start stands on level ground
+  // after it: carried off broken ground, or riding a bowl its ground stayed level in (generator
+  // 0.7.0's start here: a crater of 30 or 70 leaves its 3 × 3 level, one of 50 breaks it); undo
+  // brings both back
+  await row.getByRole("slider", { name: "Power" }).fill("50");
   const s = await client(page, start[0], start[1]);
   await page.mouse.move(s.x + 3, s.y);
   await page.mouse.move(s.x, s.y);
@@ -154,7 +157,12 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Craterize");
   expect(await heights(page)).not.toEqual(before);
-  expect(await startAt(page)).not.toEqual(start);
+  const moved = await startAt(page);
+  const hs = await heights(page);
+  const W = (await info(page)).W;
+  const under: number[] = [];
+  for (let y = moved[1] - 1; y <= moved[1] + 1; y++) for (let x = moved[0] - 1; x <= moved[0] + 1; x++) under.push(hs[y * W + x]);
+  expect(new Set(under).size, `the start's ground at (${moved})`).toBe(1);
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
@@ -425,4 +433,108 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
   // the same moment either way (the water's speed is about the water only)
   expect(quick / slow).toBeGreaterThan(0.6);
   expect(quick / slow).toBeLessThan(1.6);
+});
+
+// Kyler's forces sitting, part 1 (PLAN §20 D312)
+test("a force's size at the cursor (D312): a faint ring whose radius follows Power and Size, for every force", async ({ page }) => {
+  await refine(page);
+  const { far } = await places(page);
+  const hover = async () => {
+    const p = await client(page, far[0], far[1]);
+    await page.mouse.move(p.x + 4, p.y);
+    await page.mouse.move(p.x, p.y);
+  };
+  const ring = async () => {
+    await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
+    return (await gesture(page)).ring!;
+  };
+  for (const [key, name, size] of [
+    ["8", "Craterize options", 40],
+    ["0", "Erupt options", 30],
+    ["7", "Carve options", 10],
+  ] as const) {
+    await page.keyboard.press(key);
+    const row = page.getByRole("group", { name });
+    await row.getByRole("slider", { name: "Power" }).fill("20");
+    await hover();
+    const low = await ring();
+    await row.getByRole("slider", { name: "Power" }).fill("90");
+    await expect.poll(async () => (await gesture(page)).ring).toBeGreaterThan(low);
+    // Size set by hand: the ring is half of it, whatever Power says
+    await row.getByRole("slider", { name: "Size" }).fill(String(size));
+    await expect.poll(async () => (await gesture(page)).ring, name).toBe(size / 2);
+    await row.getByRole("button", { name: "Size follows Power" }).click();
+    // no footprint or outline of the result: only the ring and the small cursor
+    expect((await gesture(page)).stroke).toBeNull();
+  }
+  // Quake: its reach round the pointer, no cursor (the fault is painted)
+  await page.keyboard.press("9");
+  const row = page.getByRole("group", { name: "Quake options" });
+  await row.getByRole("slider", { name: "Power" }).fill("20");
+  await hover();
+  const q = await ring();
+  await row.getByRole("slider", { name: "Power" }).fill("90");
+  await expect.poll(async () => (await gesture(page)).ring).toBeGreaterThan(q);
+  expect((await gesture(page)).cursor).toBeNull();
+});
+
+test("Carve's waypoints (D312): Shift+click drops them, Backspace takes the last off, Esc drops all; a plain click launches through them", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("7");
+  await page.getByRole("group", { name: "Carve options" }).getByRole("slider", { name: "Power" }).fill("40");
+  const { far } = await places(page);
+  const dx = far[0] > 48 ? -1 : 1;
+  const pts: [number, number][] = [far, [far[0] + 8 * dx, far[1] + 3], [far[0] + 16 * dx, far[1] - 2]];
+  const shiftClick = async (x: number, y: number) => {
+    const p = await client(page, x, y);
+    await page.mouse.move(p.x, p.y);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(p.x, p.y);
+    await page.keyboard.up("Shift");
+  };
+  for (const [x, y] of pts) await shiftClick(x, y);
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts);
+  // nothing runs while they're dropped
+  expect(await status(page)).toBeNull();
+  await page.keyboard.press("Backspace");
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts.slice(0, 2));
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  expect(await status(page)).toBeNull();
+  // again, and a plain click at the end: it runs through them, one step
+  const n0 = (await labels(page)).length;
+  for (const [x, y] of pts.slice(0, 2)) await shiftClick(x, y);
+  await clickTile(page, pts[2][0], pts[2][1]);
+  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  await settled(page);
+  expect((await labels(page)).length).toBe(n0 + 1);
+  expect(await worker(page)).toEqual(await heights(page));
+  // Enter launches too, the last waypoint its end
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  for (const [x, y] of pts) await shiftClick(x, y);
+  await page.keyboard.press("Enter");
+  await settled(page);
+  expect((await labels(page)).length).toBe(n0 + 1);
+});
+
+test("Erupt's terrain is final in about two seconds (D312); its effects may linger, the player acts at once", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("0");
+  await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
+  const { far } = await places(page);
+  const p = await client(page, far[0], far[1]);
+  await page.mouse.move(p.x + 3, p.y);
+  await page.mouse.move(p.x, p.y);
+  const t0 = Date.now();
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => status(page)).not.toBeNull();
+  await expect.poll(() => status(page), { timeout: 10_000, intervals: [50] }).toBeNull();
+  const ms = Date.now() - t0;
+  console.log(`Erupt: the terrain final ${ms} ms after the click`);
+  // (about two seconds; a busy test machine's frames add a little)
+  expect(ms).toBeLessThan(3000);
+  // at once: the tools answer (a brush picked)
+  await page.keyboard.press("1");
+  await expect(page.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");
 });

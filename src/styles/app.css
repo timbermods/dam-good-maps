@@ -246,6 +246,27 @@ summary:focus-visible {
   color: var(--muted);
 }
 
+/* the first look while a map is made (FirstLook.tsx) */
+.first-look {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.first-look-map {
+  width: min(100%, 512px);
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  opacity: 0.85;
+}
+
+.first-look-stage {
+  margin: 0;
+}
+
 .card {
   margin-top: 12px;
 }

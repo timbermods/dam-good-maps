@@ -1,5 +1,6 @@
 // The official maps' resources by map size (Kyler's "Resources like the official maps", 2026-09-25):
-// trees, groves, berry bushes and patches, ruins and their fields, and mine sites, measured with
+// trees, groves, berry bushes and patches, ruins and their fields, mine sites and badwater sources
+// (Kyler's "Badwater on every map", 2026-09-26, D200), measured with
 // src/core/resources/measure.ts. Writes investigation/official-baselines.json: aggregates only (the
 // maps are local copies, not ours to share), plus which maps were left out and why.
 //
@@ -133,8 +134,8 @@ const RATES: Rate[] = [
 
 const outliers: Record<string, { map: string; ratio: number }[]> = {};
 const fits: Record<string, Fit & { what: string; maps: number; bySize: Record<string, number>; classes: Record<string, { n: number; min: number; median: number; max: number }> }> = {};
-for (const r of RATES) {
-  const pts = kept.map((row) => ({ name: row.name, area: row.area, value: r.of(row.m), cls: row.sizeClass }));
+function fitRate(r: Rate, rows: MapRow[]): void {
+  const pts = rows.map((row) => ({ name: row.name, area: row.area, value: r.of(row.m), cls: row.sizeClass }));
   const t = trend(pts);
   const logs = pts.map((p) => Math.log(p.value / t(p.area)));
   const q1 = quantile(logs, 0.25);
@@ -152,6 +153,17 @@ for (const r of RATES) {
   for (const [label, area] of Object.entries(ANCHORS)) for (const p of ["p25", "p50", "p75"]) bySize[`${label} ${p}`] = round(fitAt(f, area, p), 1);
   fits[r.key] = { what: r.what, maps: use.length, ...f, bySize, classes };
 }
+for (const r of RATES) fitRate(r, kept);
+
+// badwater sources (D200): fitted over the kept maps that have one; a map without any is named
+const withBadwater = kept.filter((r) => r.m.badwater.count > 0);
+const BADWATER_RATES: Rate[] = [
+  { key: "badwater_sources_per_map", what: "BadwaterSource objects per map", of: (m) => m.badwater.count },
+  { key: "badwater_strength_per_map", what: "the BadwaterSources' total strength per map", of: (m) => m.badwater.total },
+];
+for (const r of BADWATER_RATES) fitRate(r, withBadwater);
+// the rest of the badwater measures leave out the maps the source count leaves out
+const badwaterKept = withBadwater.filter((r) => !outliers.badwater_sources_per_map.some((o) => o.map === r.name));
 
 // ---------------------------------------------------------------------- shares and distributions
 
@@ -187,6 +199,7 @@ const out = {
     patch: "berry bushes within 2 tiles of each other, 3 or more",
     field: "ruin columns that touch (Chebyshev 1), 10 or more; scrap is 15 per storey; a tower is 6 storeys or more",
     dead: "LivingNaturalResource.IsDead",
+    badwater: "BadwaterSource objects (time-activated ones included); strength is WaterSource.SpecifiedStrength; lowness is the share of the tiles 4–6 tiles (Chebyshev) from a source's centre whose top stands above the source's level; the rates are fitted over the kept maps that have one",
     outliers: "a map is left out of a rate when its rate ÷ the size trend (ln(rate) fitted as a line in ln(area) over every kept map) lies beyond Tukey's fences: 1.5 × the interquartile range of the log ratios outside the quartiles",
   },
   maps: { measured: all.length, kept: kept.map((r) => r.name), sizes: Object.fromEntries(kept.map((r) => [r.name, `${r.m.W}×${r.m.H}`])) },
@@ -260,6 +273,23 @@ const out = {
     ),
     fromStart: quantiles(pooled(kept, (m) => m.mines.fromStart), 1),
     nearestFromStart: quantiles(perMap(kept, (m) => (m.mines.fromStart.length ? m.mines.fromStart[0] : null)), 1),
+  },
+  badwater: {
+    everyMap: {
+      withSource: all.filter((r) => r.m.badwater.count > 0).length,
+      of: all.length,
+      withoutSource: Object.fromEntries(all.filter((r) => r.m.badwater.count === 0).map((r) => [r.name, `${r.m.badwater.seeps} BadwaterSeeps`])),
+      onlyTimeActivated: all.filter((r) => r.m.badwater.count > 0 && r.m.badwater.delayed === r.m.badwater.count).map((r) => r.name),
+      withoutCleanSources: all.filter((r) => r.m.badwater.clean === 0).map((r) => r.name),
+    },
+    sources: Object.fromEntries(badwaterKept.map((r) => [r.name, r.m.badwater.count])),
+    strength: quantiles(pooled(badwaterKept, (m) => m.badwater.strengths), 2),
+    strengthValues: [...new Set(pooled(badwaterKept, (m) => m.badwater.strengths))].sort((a, b) => a - b),
+    ratioToClean: quantiles(perMap(badwaterKept, (m) => (m.badwater.clean > 0 ? m.badwater.total / m.badwater.clean : null)), 2),
+    fromStart: quantiles(pooled(badwaterKept, (m) => m.badwater.fromStart), 1),
+    nearestFromStart: quantiles(perMap(badwaterKept, (m) => (m.badwater.fromStart.length ? m.badwater.fromStart[0] : null)), 1),
+    lowness: quantiles(pooled(badwaterKept, (m) => m.badwater.lowness)),
+    lowShare: round(pooled(badwaterKept, (m) => m.badwater.lowness).filter((v) => v >= 0.5).length / pooled(badwaterKept, (m) => m.badwater.lowness).length),
   },
 };
 

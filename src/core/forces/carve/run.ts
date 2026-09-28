@@ -59,7 +59,13 @@ export interface CarveSettings {
 export interface CarveIntent {
   origin: number;
   end?: number;
+  /** Aim through waypoints (D312): tiles between the origin and the end, in order; the carve steers
+   *  along a smooth curve through them (course.ts), with its own wander and physics. */
+  via?: number[];
 }
+
+/** The most waypoints an aimed carve takes (D312). */
+export const MAX_WAYPOINTS = 32;
 
 export const DEFAULTS: CarveSettings = { mode: "unleash", power: 65, wander: 35, width: null, seed: 0, walls: "steep", defyGravity: false, dry: false, layers: true };
 
@@ -211,6 +217,7 @@ export class CarveRun implements ForceRun {
     )
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
+    if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_WAYPOINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("Waypoints need an aimed carve, on the map");
     this.depth = settings.depth ?? null;
     this.initialWater = input.water.depth.slice();
     this.intent = { ...intent };
@@ -225,7 +232,7 @@ export class CarveRun implements ForceRun {
     this.original = input.heights.slice();
     this.keep = protectedGround(input, options.keep ?? null);
     this.course = new Course(input, settings, intent, this.character);
-    if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!])) throw new Error("Choose a point on the land showing");
+    if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
     this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
     this.sim = new WaterSim((this.model = modelFor(input)), input.water);
     this.target = input.heights.slice();
@@ -439,7 +446,7 @@ export class CarveRun implements ForceRun {
       return;
     }
     const goal = this.settings.mode === "aim" ? { x: this.intent.end! % W, y: Math.floor(this.intent.end! / W) } : null;
-    if (goal && Math.hypot(goal.x - x, goal.y - y) < 1.8) {
+    if (goal && Math.hypot(goal.x - x, goal.y - y) < 1.8 && this.course.nearEnd()) {
       if (this.crossesCourse({ x, y }, goal)) {
         this.end("power spent");
         return;

@@ -29,6 +29,8 @@ const max = (h: ArrayLike<number>) => {
   return m;
 };
 const described = (bytes: Uint8Array) => String(readTimber(bytes).metadata?.MapDescription ?? "");
+/** A tall map's note: the editor's (TALL_NOTE), or a generated map's own words (pack.ts). */
+const noted = (d: string) => d.includes(TALL_NOTE) || /map editor edits only up to level 16/.test(d);
 
 describe("one ceiling in the editor (D244)", () => {
   it("is D172's tall maximum everywhere: the brushes, the build, the forces, the operations' limits", () => {
@@ -65,7 +67,7 @@ describe("one ceiling in the editor (D244)", () => {
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     expect(isTall(s0.built.heights)).toBe(false);
     const before = s0.exportTimber().bytes;
-    expect(described(before)).not.toContain(TALL_NOTE);
+    expect(noted(described(before))).toBe(false);
     // Select's Set level up to the ceiling, on a patch far from the start
     const st = s0.built.start!;
     const x0 = st.x < W / 2 ? 70 : 14;
@@ -78,8 +80,9 @@ describe("one ceiling in the editor (D244)", () => {
     expect(max(s1.built.heights)).toBe(CEILING);
     expect(isTall(s1.built.heights)).toBe(true);
     const tall = s1.exportTimber();
-    expect(described(tall.bytes)).toContain(TALL_NOTE);
-    expect(described(tall.bytes).startsWith(described(before))).toBe(true);
+    // (a generated map's description follows its land: the generator's own words, once)
+    expect(noted(described(tall.bytes))).toBe(true);
+    expect(described(tall.bytes)).not.toContain(TALL_NOTE);
     const v = validateMap(readTimber(tall.bytes), { profile: "export", external: true, loadOnly: true, spec: null });
     const height = v.report.checks.find((c) => c.id === "terrain.max_height")!;
     expect(height.ok).toBe(true);
@@ -90,6 +93,17 @@ describe("one ceiling in the editor (D244)", () => {
     const s2 = MapSession.open(decodeProject(ed.project().bytes));
     expect(isTall(s2.built.heights)).toBe(false);
     expect(described(s2.exportTimber().bytes)).toBe(described(before));
+    // an imported map raised past 16: the editor's note, once; back under 16, gone
+    const imp = MapSession.importMap(before, "valley.timber");
+    imp.setWaterMode("defer");
+    const plain = described(imp.exportTimber().bytes);
+    expect(imp.apply({ op: "sculpt", params: { mode: "flatten", cells, level: CEILING } }, "user", "Set level").errors).toEqual([]);
+    const up = described(imp.exportTimber().bytes);
+    expect(up).toBe(`${plain.trimEnd()}
+
+${TALL_NOTE}`);
+    expect(imp.undo()).toBe(true);
+    expect(described(imp.exportTimber().bytes)).toBe(plain);
   });
 
   it("the forces build up to the ceiling on any map, never past it", async () => {

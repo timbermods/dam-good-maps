@@ -2,6 +2,7 @@
 // included. Every builder takes its Id from the caller: ids are hashed from the owning feature
 // (PLAN §19.4), never random.
 
+import { LOGS_PER_TREE_SPECIES } from "../data/logFloor";
 import { F, isObject, num, type JsonObject } from "./json";
 import type { Orientation, Placement } from "./footprints";
 
@@ -34,7 +35,9 @@ export function entityJson(e: EntitySpec): JsonObject {
 
 const yieldOf = (good: string, amount: number): JsonObject => ({ Yield: { Good: good, Amount: amount } });
 
-export const TREE_LOGS: Record<string, number> = { Pine: 2, Birch: 1, Oak: 8 };
+/** The logs a grown tree of the species the generator plants gives (the game's blueprints, pinned
+ *  in data/log-floor.json: Pine 2, Birch 1, Oak 8). */
+export const TREE_LOGS: Record<string, number> = { Pine: LOGS_PER_TREE_SPECIES.Pine, Birch: LOGS_PER_TREE_SPECIES.Birch, Oak: LOGS_PER_TREE_SPECIES.Oak };
 export const MAP_TREES = ["Pine", "Birch", "Oak", "Succulent"] as const;
 export type TreeSpecies = (typeof MAP_TREES)[number];
 

@@ -4,6 +4,7 @@
 // water.reservoir, the clean water targets, plants.drought) show as warnings and never block the
 // download.
 
+import { LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail, type WoodBySpecies } from "../core/analysis/wood";
 import { groupOf, type CheckGroup, type CheckResult } from "../core/validate/report";
 import type { GenerateResponse } from "../worker/api";
@@ -17,8 +18,9 @@ function status(c: CheckResult): "ok" | "bad" | "warn" | "na" {
   return c.advisory || c.severity !== "error" ? "warn" : "bad";
 }
 
-/** The three start requirements (PLAN §5.6, D85, D164), as the map card lists them. `wood` says
- *  which species give the starting wood, and how much more is still growing. */
+/** The three start requirements (PLAN §5.6, D85, D164) and the starting-logs floor (D224, D227),
+ *  as the map card lists them. `wood` says which species give the starting wood, and how much more
+ *  is still growing. */
 export const REQUIREMENTS: { id: string; name: string; text: (c: CheckResult, wood?: { bySpecies: WoodBySpecies; growing: number }) => string }[] = [
   {
     id: "start.water",
@@ -31,6 +33,8 @@ export const REQUIREMENTS: { id: string; name: string; text: (c: CheckResult, wo
     text: (c, wood) => `${c.value} logs within 20 tiles' walk${wood ? woodDetail(wood.bySpecies, wood.growing) : ""} (at least ${c.limit})`,
   },
   { id: "start.food", name: "Starting bushes", text: (c) => `${c.value} living within 20 tiles' walk (at least ${c.limit})` },
+  // the starting-logs floor (D224, D227): every map, at every difficulty
+  { id: "start.wood_floor", name: "Logs for a Forester", text: (c) => `${c.value} within ${LOG_FLOOR_WALK} tiles' walk (at least ${c.limit})` },
 ];
 
 /** The start requirements of a report: each met or not, with its numbers. */
@@ -79,6 +83,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
         <div><dt>River</dt><dd>{f.cleanSources} sources, {f.cleanFlow} water/s</dd></div>
         <div><dt>Badwater</dt><dd>{f.badwaterFlow ? `${f.badwaterFlow} water/s from ${f.badwaterSources} source${f.badwaterSources > 1 ? "s" : ""}` : "none"}</dd></div>
         <div><dt>Under water</dt><dd>{Math.round(f.wetShare * 100)}% of the map</dd></div>
+        {f.startBench !== null ? <div><dt>Start bench</dt><dd>{f.startBench} level tiles round the district center</dd></div> : null}
         <div><dt>Water from the start</dt><dd>{f.waterDistance === null ? "none within reach" : `${f.waterDistance} tiles' walk`}</dd></div>
         <div><dt>Drought need</dt><dd>{f.reservoirNeed.toLocaleString()} water stored</dd></div>
         <div><dt>Trees</dt><dd>{trees.length} ({living} alive)</dd></div>

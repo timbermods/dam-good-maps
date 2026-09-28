@@ -63,7 +63,7 @@ describe("the approximate-water rule (D98)", () => {
   });
 
   it("marks only the water checks and the start's playability checks", () => {
-    for (const id of ["water.settles", "water.reservoir", "start.dry", "start.water", "start.wood", "start.food", "start.badwater", "start.reach", "start.ruins_clear"]) expect(approximateId(id), id).toBe(true);
+    for (const id of ["water.settles", "water.storage_possible", "start.dry", "start.water", "start.wood", "start.food", "start.badwater", "start.reach", "start.ruins_clear"]) expect(approximateId(id), id).toBe(true);
     for (const id of ["start.flat", "start.entrance", "start.count", "start.clear", "plants.survive", "resources.trees", "entities.placement"]) expect(approximateId(id), id).toBe(false);
   });
 });

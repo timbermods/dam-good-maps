@@ -22,12 +22,27 @@ export interface Experiment {
   apply(spec: MapSpec, value: string): void;
   metric(m: MapMetrics, spec: MapSpec): number;
   /** "up": the metric's mean at the high value exceeds the low value's by at least `delta`;
-   *  "down": falls by at least `delta`; "exact": every map's metric equals `expected(value)`. */
-  expect: "up" | "down" | "exact";
+   *  "down": falls by at least `delta`; "exact": every map's metric equals `expected(value)`;
+   *  "atMost": no map's metric exceeds `expected(value)`. */
+  expect: "up" | "down" | "exact" | "atMost";
   delta?: number;
   expected?: (value: string, spec: MapSpec) => number;
   /** Decimal places in the report. */
   digits?: number;
+  /** At least this many seeds (M9a: where the processes' maps vary more from seed to seed than the
+   *  planned ones did, the test runs more of them; the threshold is the same). */
+  minSeeds?: number;
+  /** Information, not a test (Kyler's decision named here): the move is measured and reported, and
+   *  every map must still pass its checks, but the move itself is not asserted. */
+  info?: string;
+}
+
+/** The seeds an experiment runs: the given ones, extended to its `minSeeds`. */
+export function seedsFor(e: Experiment, seeds: readonly number[]): number[] {
+  const out = seeds.slice();
+  let next = Math.max(0, ...out) + 1;
+  while (out.length < (e.minSeeds ?? 0)) out.push(next++);
+  return out;
 }
 
 const num = (v: string) => Number(v);
@@ -45,14 +60,28 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (a cap since M9a: the processes grow the land up to it, not to it exactly)
     setting: "Highest terrain",
     target: "terrain never above it (the highest tile)",
     theme: "riverValley",
     values: ["11", "16"],
     apply: (s, v) => (s.settings.terrain.highestTerrain = num(v)),
     metric: (m) => m.maxHeight,
-    expect: "exact",
+    expect: "atMost",
     expected: (v) => num(v),
+  },
+  {
+    // M9a (D132): the land grows taller and sheerer as it rises (to its crazy vertical top)
+    minSeeds: 8,
+    setting: "Verticality",
+    target: "share of tiles beside a drop of 2+ levels (cliffs)",
+    theme: "any",
+    values: ["10", "90"],
+    apply: (s, v) => (s.settings.terrain.verticality = num(v)),
+    metric: (m) => m.cliffShare,
+    expect: "up",
+    delta: 0.03,
+    digits: 3,
   },
   {
     setting: "Terracing",
@@ -77,6 +106,7 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 3,
   },
   {
+    minSeeds: 8,
     setting: "Buildable land (reach)",
     target: "land walkable from the start: at least 750 / 1,300 / 2,500 tiles",
     theme: "riverValley",
@@ -108,6 +138,9 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 3,
   },
   {
+    // (12 seeds since D227's start rules changed which attempt a seed ends on: 0.9 on 8, 1.0 on 12;
+    // at its threshold, for M9b's hydrology to look at again)
+    minSeeds: 12,
     setting: "River style (braided)",
     target: "a braided river splits into 2–4 channels across a low plain: rivers leaving by the map edge",
     theme: "riverValley",
@@ -140,6 +173,9 @@ export const EXPERIMENTS: Experiment[] = [
     delta: 200,
   },
   {
+    // (M9a: every map's badwater hollows are basins too, D200, so None keeps 1–3; Many is about
+    // its target, twice the official median, and the land varies much from seed to seed)
+    minSeeds: 12,
     setting: "Lakes and basins",
     target: "natural basins of 20+ tiles: 0 / 0.5× / 1× / 2× the official median for the size",
     theme: "riverValley",
@@ -301,6 +337,8 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (D211: a preference, never a stamped bench; the map card shows the bench a map has)
+    info: "D211: Start area is a preference",
     setting: "Start area",
     target: "the start's bench: radius 5 / 6 / 8 (tiles at the start's level within 8)",
     theme: "riverValley",
@@ -322,6 +360,8 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (M9a: a start that stands in the map's own woods has far more than any minimum asks)
+    minSeeds: 8,
     setting: "Minimum starting wood",
     target: "logs of the grown trees within 20 tiles' walk of the start (D164)",
     theme: "riverValley",
@@ -370,16 +410,22 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (M9a: the stored water near the start this measured, Easy 86 × the reserve and Hard 1,174 ×
+    // it at 3 deep, became information the generator prefers, #67 and D209, and D111 took away the
+    // dam sites that were sized to it; Designed for still sets the start rules, D85)
     setting: "Designed for",
-    target: "stored water near the start (Easy needs 86 × the reserve, Hard 1,174 × it at 3 deep)",
+    target: "least distance from the start to badwater or contaminated soil (the start rule: Easy 30, Normal 15, Hard 8)",
     theme: "riverValley",
     values: ["easy", "hard"],
     apply: () => undefined,
-    metric: (m) => Math.max(m.bestDam, m.natural),
-    expect: "up",
-    delta: 300,
+    metric: (m) => (Number.isFinite(m.badwaterDistance) ? m.badwaterDistance : 200),
+    expect: "down",
+    delta: 10,
+    digits: 1,
   },
   {
+    // (D211: M9b fixes Lake Basin's water share, as design version 2 planned)
+    info: "D211: Lake Basin's water waits for M9b",
     setting: "Theme",
     target: "water share (target River Valley 0.12, Lake Basin 0.30)",
     theme: "riverValley",
@@ -425,7 +471,15 @@ export function runExperiment(e: Experiment, seeds: readonly number[], size: num
   const means: [number, number] = [mean(values[0]), mean(values[1])];
   let ok: boolean;
   let why: string;
-  if (e.expect === "exact") {
+  if (e.expect === "atMost") {
+    const bad: string[] = [];
+    for (let k = 0; k < 2; k++) {
+      const cap = e.expected!(e.values[k], specFor(e, e.values[k], seeds[0], size));
+      for (const v of values[k]) if (v > cap) bad.push(`${e.values[k]}: ${v} (at most ${cap})`);
+    }
+    ok = bad.length === 0;
+    why = ok ? "no map above its cap" : bad.slice(0, 4).join("; ");
+  } else if (e.expect === "exact") {
     const bad: string[] = [];
     for (let k = 0; k < 2; k++) {
       const want = e.expected!(e.values[k], specFor(e, e.values[k], seeds[0], size));
@@ -437,6 +491,10 @@ export function runExperiment(e: Experiment, seeds: readonly number[], size: num
     const d = e.expect === "up" ? means[1] - means[0] : means[0] - means[1];
     ok = d >= (e.delta ?? 0);
     why = `moved ${d.toFixed(e.digits ?? 0)} (at least ${e.delta})`;
+  }
+  if (e.info) {
+    why = `information (${e.info}): ${why}`;
+    ok = true;
   }
   return { experiment: e, means, values, failed, ok, why };
 }

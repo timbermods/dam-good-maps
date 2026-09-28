@@ -66,7 +66,9 @@ editor is desktop-first (D185).
   berry bushes, plant oaks for the starting logs.
   **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
   (Carve unleashed, Craterize's strike, Erupt's vent, Unleash on a source) starts the force at once, finding its own
-  way; a small cursor shows where it will act. A drag in a direction aims Carve or Craterize: while dragging, only a
+  way; a small cursor shows where it will act, and a **faint ring round it shows the force's size** at its Power and
+  Size (D312): the crater's radius, the volcano's, Quake's reach from its fault, Carve's width (where a carve goes depends
+  on the land), like a brush's ring: how big, never what shape. A drag in a direction aims Carve or Craterize: while dragging, only a
   thin straight arrow from where the drag began to the pointer; on release the force goes that way (an aimed carve
   cuts through rises on its way, D289) and the arrow goes. A stroke the player paints stays drawn as it is painted,
   since it is the gesture itself (Quake's fault, Erupt's fissure). The only word a force shows is why it won't act at
@@ -190,7 +192,8 @@ editor is desktop-first (D185).
   a click vents, a drag opens a fissure (D289: the gesture is the mode); **Power**; **Size** (breadth: following
   Power, or set: D226); **Try another**. Its shape (steep or broad), summit (peak, crater or caldera), flows (light or
   heavy) and ridges come from the land and the seed (D289). The ground stirs, then the volcano
-  swells level by level; its plume billows bigger and darker the more powerful the eruption (D216),
+  swells level by level, its **terrain final in about two seconds** (D312: its 28 stages at 55 ms); its effects (the lava's
+  glow cooling, the smoke) play on, but the player never waits for them and can act again at once; its plume billows bigger and darker the more powerful the eruption (D216),
   the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
   always keeps a peak within the headroom it has: near the height ceiling it spreads wider rather
   than rising taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
@@ -207,7 +210,11 @@ editor is desktop-first (D185).
   water; Glaciate gives you land." Its own button in the forces group (key -). A **click Flows** (it follows the valleys
   down from there; on flat ground a seeded way to lower ground or an edge) and a **drag Aims** (it grinds through ridges
   the way it was dragged): the ice gathers under the pointer as it's pressed, a drag of six pixels or more shows only a
-  thin arrow, and nothing predicts the valley on the land (D258). Its row is **Power**, **Size** (Auto: 30 at Power 60)
+  thin arrow, and nothing predicts the valley on the land (D258). A faint ring at the cursor shows its width at the
+  current Power and Size (D312; how big, never what shape). **Waypoints** (D312, the gesture Carve shares,
+  `editor/waypoints.ts`): Shift+click drops them, small markers joined by a thin line; a plain click, or Enter, launches;
+  Backspace removes the last; Esc drops them all; the glacier aims through them along one smooth curve (one aimed pass a
+  leg, smoothed), finding its own way near the line; its operation keeps the line (`where.path`). Its row is **Power**, **Size** (Auto: 30 at Power 60)
   and **Meltwater** (on by default), with **Try another** once one is kept (D289), and **More** (D309): its **Benches**
   (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,
@@ -311,6 +318,11 @@ Make a valley, drop a source, and there's a river.
   them (never filled, so its water isn't dammed) and what stood on them goes, a small level pool in the same undo step;
   it refuses only at the map's edge, in a cave and on the start. Every placement refusal is one plain reason ("the
   ground under it is not level", "the district center stands there").
+  Removing the map's last badwater source is never refused: the map becomes a **No badwater** map (a
+  peaceful one; badtides still come), a quiet line in the notices says so, the file's description and checks follow, and
+  undo brings the source and the setting back (D213). A planned edit (a lake, a landform, a set piece, a move) that would
+  reshape the ground under another feature's source keeps off it and says why (decisions-pending #89); the brushes treat
+  sources as D249 says.
 - **Unleash, on a source** (D239): select a placed water or badwater source and a small **Unleash** action sits beside it,
   next to its strength, with a quick **Power** (or press U). Clicked, the source's own water carves its course downhill
   with Carve's engine (momentum, wander, waterfalls, the carving moment and its effects; the camera stays where the player left it, D265); where it stands in
@@ -362,6 +374,12 @@ Make a valley, drop a source, and there's a river.
   with its full set:
   - a click unleashes it where the small cursor is; a drag aims it (only a thin arrow from where it began to the
     pointer, D258), and an aimed carve goes where the player dragged, cutting through rises on its way (D289);
+  - **waypoints** (D312): Shift+click drops them (the first is where it starts), drawn as small markers joined by a thin
+    line (the player's own gesture); a click without Shift launches, its tile the end, or Enter, the last waypoint the
+    end; Backspace takes the last one off; Esc drops them all. The carve steers along a smooth curve through them
+    (Catmull-Rom, a point five tiles ahead on it), finding its own way near the line with its own wander and physics,
+    as Aim does; its operation keeps them (`where.path`: the origin, the waypoints, the end), and Try another runs
+    through the same ones. The gesture is a shared piece (`src/editor/waypoints.ts`), Glaciate's too;
   - **Power** (creek to catastrophe) and **Size** (how wide it cuts: following Power by default, or set by hand for
     slot canyons or wide lazy rivers; its depth follows Power and the width, D226, D289);
   - its wander (straight to winding) and walls (a steep gorge or wide terraces) drawn from the land and the seed
@@ -516,6 +534,7 @@ MapDocument {
   generatorVersion  // the generator that built `base`
   spec              // MapSpec (PLAN.md §19.1), or null for imported maps
   base              // built from spec, or parsed from an imported file; stored in the project file, never mutated
+  field             // a generated map's field (format 3, M9a): heights, solid runs, the features it holds, its ramps
   features          // parametric feature objects (PLAN.md §19.2)
   edits             // ordered list of edit operations
   meta              // name, premise, designedFor, timestamps, app version, import report
@@ -529,7 +548,7 @@ the player shapes the land with the brushes and places things from the shelf. Se
 stay shared with the generator (`PLAN.md` §19.3). Saved projects that hold landform features from
 before D182 open with their land exactly as it was, as plain terrain.
 
-**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, derived slopes, water, resources, the start and entity edits, in that order. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
+**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, derived slopes, water, resources, the start and entity edits, in that order. A generated map starts from its stored field (M9a): the rivers, natural lakes, badwater hollows and rises read back out of it are the field's own, so the build marks their channels and leaves their ground; one the player has changed is built as it now says. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):

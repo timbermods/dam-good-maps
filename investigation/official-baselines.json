@@ -7,6 +7,7 @@
     "patch": "berry bushes within 2 tiles of each other, 3 or more",
     "field": "ruin columns that touch (Chebyshev 1), 10 or more; scrap is 15 per storey; a tower is 6 storeys or more",
     "dead": "LivingNaturalResource.IsDead",
+    "badwater": "BadwaterSource objects (time-activated ones included); strength is WaterSource.SpecifiedStrength; lowness is the share of the tiles 4–6 tiles (Chebyshev) from a source's centre whose top stands above the source's level; the rates are fitted over the kept maps that have one",
     "outliers": "a map is left out of a rate when its rate ÷ the size trend (ln(rate) fitted as a line in ln(area) over every kept map) lies beyond Tukey's fences: 1.5 × the interquartile range of the log ratios outside the quartiles"
   },
   "maps": {
@@ -72,7 +73,27 @@
       "patches_per_map": [],
       "scrap_per_1k": [],
       "ruin_columns_per_1k": [],
-      "ruin_fields_per_map": []
+      "ruin_fields_per_map": [],
+      "badwater_sources_per_map": [
+        {
+          "map": "Pillars",
+          "ratio": 2.4
+        }
+      ],
+      "badwater_strength_per_map": [
+        {
+          "map": "Meander",
+          "ratio": 0.34
+        },
+        {
+          "map": "Pillars",
+          "ratio": 5.11
+        },
+        {
+          "map": "Plains",
+          "ratio": 0.27
+        }
+      ]
     }
   },
   "rates": {
@@ -474,6 +495,120 @@
           "max": 10
         }
       }
+    },
+    "badwater_sources_per_map": {
+      "what": "BadwaterSource objects per map",
+      "maps": 15,
+      "medians": [
+        1,
+        2,
+        4,
+        3.5
+      ],
+      "factors": {
+        "p10": 0.732,
+        "p25": 0.857,
+        "p50": 1,
+        "p75": 1.109,
+        "p90": 1.543
+      },
+      "bySize": {
+        "96² p25": 1.4,
+        "96² p50": 1.6,
+        "96² p75": 1.8,
+        "128² p25": 1.7,
+        "128² p50": 2,
+        "128² p75": 2.2,
+        "192² p25": 3.4,
+        "192² p50": 4,
+        "192² p75": 4.4,
+        "256² p25": 3,
+        "256² p50": 3.5,
+        "256² p75": 3.9
+      },
+      "classes": {
+        "small": {
+          "n": 2,
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "medium": {
+          "n": 3,
+          "min": 1,
+          "median": 2,
+          "max": 4
+        },
+        "large": {
+          "n": 4,
+          "min": 3,
+          "median": 4,
+          "max": 4
+        },
+        "max": {
+          "n": 6,
+          "min": 2,
+          "median": 3.5,
+          "max": 9
+        }
+      }
+    },
+    "badwater_strength_per_map": {
+      "what": "the BadwaterSources' total strength per map",
+      "maps": 13,
+      "medians": [
+        1.25,
+        3.5,
+        5.5,
+        6.5
+      ],
+      "factors": {
+        "p10": 0.762,
+        "p25": 0.846,
+        "p50": 1,
+        "p75": 1.091,
+        "p90": 1.4
+      },
+      "bySize": {
+        "96² p25": 2.2,
+        "96² p50": 2.6,
+        "96² p75": 2.9,
+        "128² p25": 3,
+        "128² p50": 3.5,
+        "128² p75": 3.8,
+        "192² p25": 4.7,
+        "192² p50": 5.5,
+        "192² p75": 6,
+        "256² p25": 5.5,
+        "256² p50": 6.5,
+        "256² p75": 7.1
+      },
+      "classes": {
+        "small": {
+          "n": 2,
+          "min": 1,
+          "median": 1.3,
+          "max": 1.5
+        },
+        "medium": {
+          "n": 2,
+          "min": 2,
+          "median": 3.5,
+          "max": 5
+        },
+        "large": {
+          "n": 4,
+          "min": 4.5,
+          "median": 5.5,
+          "max": 6
+        },
+        "max": {
+          "n": 5,
+          "min": 3.5,
+          "median": 6.5,
+          "max": 13.5
+        }
+      }
     }
   },
   "trees": {
@@ -862,5 +997,84 @@
       "p75": 75.6,
       "p90": 109.9
     }
+  },
+  "badwater": {
+    "everyMap": {
+      "withSource": 18,
+      "of": 19,
+      "withoutSource": {
+        "Spillage": "5 BadwaterSeeps"
+      },
+      "onlyTimeActivated": [
+        "Nomads",
+        "Oasis"
+      ],
+      "withoutCleanSources": [
+        "Oasis",
+        "Pillars",
+        "Spillage"
+      ]
+    },
+    "sources": {
+      "Beaverome": 4,
+      "Canyon": 4,
+      "Cliffside": 1,
+      "Craters": 4,
+      "Diorama": 1,
+      "HelixMountain": 5,
+      "Hollows": 3,
+      "Lakes": 3,
+      "Meander": 1,
+      "MountainRange": 4,
+      "Plains": 2,
+      "Pressure": 3,
+      "Terraces": 4,
+      "ThousandIslands": 9,
+      "Waterfalls": 2
+    },
+    "strength": {
+      "p10": 0.98,
+      "p25": 1,
+      "p50": 1.5,
+      "p75": 1.5,
+      "p90": 2
+    },
+    "strengthValues": [
+      0.5,
+      0.75,
+      1,
+      1.5,
+      2,
+      3
+    ],
+    "ratioToClean": {
+      "p10": 0.36,
+      "p25": 0.49,
+      "p50": 0.71,
+      "p75": 1.51,
+      "p90": 1.89
+    },
+    "fromStart": {
+      "p10": 36.1,
+      "p25": 61.4,
+      "p50": 75.6,
+      "p75": 105.4,
+      "p90": 129.2
+    },
+    "nearestFromStart": {
+      "p10": 26.8,
+      "p25": 35.6,
+      "p50": 56.3,
+      "p75": 69.1,
+      "p90": 84.4
+    },
+    "lowness": {
+      "p10": 0.313,
+      "p25": 0.677,
+      "p50": 0.767,
+      "p75": 0.931,
+      "p90": 1
+    },
+    "lowShare": 0.84
   }
 }
