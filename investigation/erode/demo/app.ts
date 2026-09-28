@@ -6,10 +6,11 @@
 // - One undo step per erode; Esc takes a playing erode back at once.
 // - The moment: it starts on pointer-down (dust and the grind before the rock is even planned), the
 //   rock wears away over 2 to 4 seconds in the order it wore, dust and rubble falling, the opening
-//   revealed as it clears. The camera never moves by itself (D265).
+//   revealed as it clears. Round 2 finishes the land within about a second. The camera never moves by itself (D265).
 import * as THREE from "three";
 import { autoSize, DEFAULTS, type ErodeSettings, type Gesture } from "../core/erode";
-import { fromJson, type ErodeMap, type MapJson, type Thing } from "../core/map";
+import { fromJson, washMap, type ErodeMap, type MapJson, type Thing } from "../core/map";
+import { DETAIL_LABELS, type WashDetails } from "../core/wash";
 import { Terrain } from "../core/terrain";
 import { waterPools } from "../core/water";
 import { Sounds } from "./audio";
@@ -47,7 +48,7 @@ const state = {
   undo: [] as Entry[],
   redo: [] as Entry[],
   pending: 0,
-  planning: null as null | { id: number; gesture: Gesture; settings: ErodeSettings; before: Uint32Array; replace: boolean },
+  planning: null as null | { id: number; gesture: Gesture; settings: ErodeSettings; before: Uint32Array; replace: boolean; endedAt: number },
   playing: null as null | { reply: PlanReply; before: Uint32Array; t0: number; shown: number; gesture: Gesture; settings: ErodeSettings; replace: boolean; lastLight: number },
   /** For captures: true once the last erode has finished playing. */
   idle: true,
@@ -55,7 +56,10 @@ const state = {
   instant: false,
   /** Captures drive the clock themselves (a frame at a time), so a GIF's frames are exact. */
   manual: false,
+  usedDetails: null as WashDetails | null,
+  lastFinalMs: 0,
 };
+try { state.settings.details = JSON.parse(localStorage.getItem("erode-details") ?? "{}"); } catch { /* use Auto */ }
 let clock = 0;
 const now = () => (state.manual ? clock : performance.now());
 
@@ -63,6 +67,7 @@ const now = () => (state.manual ? clock : performance.now());
 
 const cache = new Map<string, ErodeMap>();
 async function loadMap(id: string): Promise<ErodeMap> {
+  if (id === "wash") return washMap();
   const hit = cache.get(id);
   if (hit) return hit;
   const bytes = new Uint8Array(await (await fetch(`maps/${id}.json.gz`)).arrayBuffer());
@@ -97,7 +102,7 @@ async function openCase(c: Case): Promise<void> {
   showWater();
   state.undo = [];
   state.redo = [];
-  state.settings = { power: c.power, size: c.size, seed: c.seed };
+  state.settings = { ...state.settings, power: c.power, size: c.size, seed: c.seed };
   syncRow();
   view.pose = structuredClone(c.overview);
   $("mapname").textContent = m.name;
@@ -118,6 +123,7 @@ function syncRow(): void {
   const s = state.settings.size ?? autoSize(state.settings.power);
   size.value = String(s);
   $("sizev").textContent = state.settings.size === null ? `Auto (${s})` : String(s);
+  syncDetails();
 }
 power.addEventListener("input", () => {
   state.settings.power = Number(power.value);
@@ -133,14 +139,50 @@ auto.addEventListener("change", () => {
 });
 $("another").addEventListener("click", () => tryAnother());
 
+const more = $("more"), detailPanel = $("details");
+try { detailPanel.hidden = localStorage.getItem("erode-more") !== "open"; } catch { /* closed */ }
+more.setAttribute("aria-expanded", String(!detailPanel.hidden));
+more.addEventListener("click", () => {
+  detailPanel.hidden = !detailPanel.hidden;
+  more.setAttribute("aria-expanded", String(!detailPanel.hidden));
+  try { localStorage.setItem("erode-more", detailPanel.hidden ? "closed" : "open"); } catch { /* optional storage */ }
+});
+const detailRows = new Map<keyof WashDetails, { slider: HTMLInputElement; value: HTMLOutputElement; pin: HTMLButtonElement }>();
+for (const key of Object.keys(DETAIL_LABELS) as (keyof WashDetails)[]) {
+  const row = document.createElement("label"), text = document.createElement("span");
+  text.textContent = DETAIL_LABELS[key];
+  const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "100"; slider.step = "1";
+  slider.setAttribute("aria-label", DETAIL_LABELS[key]);
+  const value = document.createElement("output"), pin = document.createElement("button"); pin.type = "button";
+  const setPin = (v: number | null) => {
+    state.settings.details = { ...state.settings.details, [key]: v };
+    try { localStorage.setItem("erode-details", JSON.stringify(state.settings.details)); } catch { /* optional storage */ }
+    syncDetails();
+  };
+  slider.addEventListener("input", () => setPin(Number(slider.value)));
+  pin.addEventListener("click", e => { e.preventDefault(); setPin(state.settings.details?.[key] == null ? Number(slider.value) : null); });
+  row.append(text, slider, value, pin); detailPanel.append(row); detailRows.set(key, { slider, value, pin });
+}
+function syncDetails(): void {
+  for (const [key, row] of detailRows) {
+    const pin = state.settings.details?.[key], used = state.usedDetails?.[key];
+    row.slider.value = String(pin ?? used ?? 50);
+    row.value.textContent = pin != null ? `${pin} · pinned` : used != null ? `Auto (${used})` : "Auto";
+    row.pin.textContent = pin == null ? "Pin" : "Auto";
+    row.pin.setAttribute("aria-label", `${pin == null ? "Pin" : "Reset to Auto"} ${DETAIL_LABELS[key]}`);
+  }
+}
+
+function interruptEffects(): void { effects.clear(); sounds.interrupt(); }
+
 // ------------------------------------------------------------------------------------------ planning
 
 function plan(gesture: Gesture, settings: ErodeSettings, replace: boolean): void {
   const t = state.terrain!, m = state.map!;
   const id = ++state.pending;
-  state.planning = { id, gesture, settings, before: t.cols.slice(), replace };
+  state.planning = { id, gesture, settings: structuredClone(settings), before: t.cols.slice(), replace, endedAt: now() };
   state.idle = false;
-  const req: PlanRequest = { id, W: t.W, H: t.H, cols: t.cols.slice(), rock: m.rock, keep: m.keep, gesture, settings };
+  const req: PlanRequest = { id, W: t.W, H: t.H, cols: t.cols.slice(), rock: m.rock, keep: m.keep, water: m.water, gesture, settings };
   worker.postMessage(req);
 }
 
@@ -156,7 +198,7 @@ worker.onmessage = (ev: MessageEvent<PlanReply>) => {
     state.idle = true;
     return;
   }
-  state.playing = { reply: r, before: p.before, t0: now(), shown: -1, gesture: p.gesture, settings: p.settings, replace: p.replace, lastLight: -1 };
+  state.playing = { reply: r, before: p.before, t0: p.endedAt, shown: -1, gesture: p.gesture, settings: p.settings, replace: p.replace, lastLight: -1 };
   if (state.instant) finishPlay();
 };
 
@@ -167,6 +209,7 @@ function tryAnother(): void {
   // the same gesture from the same land, a new personality, the row as it stands
   restore(last.before, last.box);
   state.undo.pop();
+  interruptEffects();
   sounds.wake().then(() => sounds.startWear());
   plan(last.gesture, { ...state.settings, seed: (last.settings.seed + 1) >>> 0 }, true);
 }
@@ -233,13 +276,16 @@ function finishPlay(): void {
   view.update(r.box, true);
   showWater();
   view.setThings(things());
-  sounds.stopWear(0.9);
+  sounds.stopWear(0.2);
   sounds.collapse();
   const entry: Entry = { before: pl.before, after: r.finalCols.slice(), box: r.box, gesture: pl.gesture, settings: pl.settings, stats: r };
   state.undo.push(entry);
   state.redo = [];
   state.playing = null;
   state.idle = true;
+  state.lastFinalMs = now() - pl.t0;
+  if (r.details) state.usedDetails = r.details;
+  syncRow();
   view.showStroke(null);
   readout();
 }
@@ -261,8 +307,7 @@ function cancelPlay(): void {
     view.setThings(things());
     state.playing = null;
   }
-  effects.clear();
-  sounds.stopWear(0.08);
+  interruptEffects();
   view.showStroke(null);
   state.idle = true;
 }
@@ -308,6 +353,7 @@ canvas.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || state.playing || state.planning) return;
   const hit = view.pick(e.clientX, e.clientY);
   if (!hit) return;
+  interruptEffects();
   // it starts the instant you act: dust at the rock and the grind, before any planning
   sounds.wake().then(() => sounds.startWear());
   const n = new THREE.Vector3(hit.nx, hit.nz, -hit.ny);
@@ -423,8 +469,9 @@ function playCase(seedOffset = 0): void {
   const c = currentCase();
   if (state.playing || state.planning) return;
   while (state.undo.length) undo();
-  state.settings = { power: c.power, size: c.size, seed: c.seed };
+  state.settings = { ...state.settings, power: c.power, size: c.size, seed: c.seed };
   syncRow();
+  interruptEffects();
   sounds.wake().then(() => sounds.startWear());
   const pts = c.points;
   // as a pointer-down does: dust where the gesture touches the rock, at once
@@ -453,9 +500,11 @@ function tick(t: number): void {
   if (k("arrowdown") || k("s")) view.pan(0, -sp);
   if (k("q")) view.orbit(-200 * dt, 0);
   if (k("e")) view.orbit(200 * dt, 0);
+  const finishingFrom = state.playing?.t0;
   stepPlay(t);
   effects.update(dt);
   view.render();
+  if (finishingFrom !== undefined && !state.playing) state.lastFinalMs = now() - finishingFrom;
 }
 
 function fit(): void {
@@ -492,7 +541,7 @@ window.erode = {
   },
   get last() {
     const r = state.undo[state.undo.length - 1]?.stats;
-    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box } : null;
+    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box, finalMs: state.lastFinalMs, details: r.details } : null;
   },
   quiet: () => effects.clear(),
   undo,

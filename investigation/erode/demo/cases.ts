@@ -82,3 +82,12 @@ export const CASES: Case[] = [
     lowName: "Into the flooded cave",
   },
 ];
+
+const washPoints = [{ x: 35.5, y: 46.5, z: 12.5 }, { x: 52.5, y: 54.5, z: 12.5 },
+  { x: 79.5, y: 65.5, z: 12.5 }, { x: 95.5, y: 77.5, z: 12.5 }];
+for (const [id, power, size] of [["wash-small", 30, 30], ["wash-giant", 100, 100]] as const) CASES.push({
+  id, title: power === 30 ? "Flat country → a small wash" : "Flat country → a giant arroyo", map: "wash",
+  gesture: "Sweep across the dry plain", points: washPoints, power, size, seed: 1,
+  overview: { target: [76, 6, -72], yaw: -0.55, pitch: 0.78, distance: 106 },
+  low: { target: [70, 6, -62], yaw: -1.1, pitch: 0.12, distance: 18, fov: 68 }, lowName: "Along the wash",
+});

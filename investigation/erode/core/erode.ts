@@ -1,33 +1,11 @@
-// Erode: wind and water wearing rock (Kyler's brief, 2026-09-27). The player sweeps it along a cliff
-// or across a ridge, or clicks; the land decides what forms:
-// - at the foot of a cliff, sand-laden wind and splash wear hardest near the ground, so a cave or an
-//   alcove hollows into the rock;
-// - where a hard bed caps softer ones (the forces core's rock beds, every fourth level hard), the
-//   soft rock just under the hard bed wears back fastest (seepage along the contact), and the hard
-//   bed is left as a roof: an overhang, a lip;
-// - where a fin or ridge is thin, it wears from both sides at once and opens right through: an arch.
-// Nobody picks the form. The same rules run everywhere; the land's shape and its rock choose.
-//
-// How it works, as a planner (nothing depends on frames or wall time):
-// 1. Wear. Every solid voxel with open air beside it gathers wear each step from each open side:
-//    more near the foot of the face the air lies on (its "foot"), more just under a hard bed, less
-//    the deeper the air lies inside the rock (its "shelter"), and only where the player's gesture
-//    reached the face. Hard rock wears at a tenth of the rate. A voxel whose wear passes its own
-//    resistance (the rock's grain, 3D noise from the seed) is worn away, which opens the rock behind
-//    it. Only rock with a roof over it wears (two voxels, or one hard one): the land's surface, its
-//    water and its objects stay where they are; Erode hollows, it never flattens.
-// 2. Hold. The game deletes any voxel more than 3 tiles sideways from support when a map loads
-//    (GAME_RULES.md §2). Where a roof would be left too far from support, the planner keeps the
-//    rock that wore least under it: a stub under a roof's edge (a corbel), or a pillar down to the
-//    floor. Big overhangs come out as roofs held by pillars or anchored along their length.
-// 3. Show. The worn voxels are shown going in the order they wore, in buckets over 2 to 4 seconds.
-//    Every bucket's land is checked with the rule too: a voxel that would hang with nothing holding
-//    it goes in that bucket (it falls as rubble), so nothing the game would drop is ever shown, not
-//    even for a frame.
-
-import { clamp, hash, hash3, noise3, smooth } from "./random";
+// Erode: a connected shelter worn from the cliff's foot. The opening shares one floor,
+// follows the gesture, and leaves broad remnants only where the roof needs support.
+// GAME_RULES.md §5 records five air levels for StartingLocation; §2 limits support to three
+// sideways tiles. The original 24 buckets and effects contract remain; the land finishes fast.
+import { clamp, hash, noise3 } from "./random";
 import { support } from "./support";
 import { LAYERS, Terrain } from "./terrain";
+import { planWash, type WashDetails, type WashTrace } from "./wash";
 
 export interface ErodeSettings {
   /** How deep the rock wears, 0–100. */
@@ -36,6 +14,8 @@ export interface ErodeSettings {
   size: number | null;
   /** The personality (Try another). */
   seed: number;
+  /** null/missing details are nature's pick; numeric values are pinned (D309). */
+  details?: Partial<{ [K in keyof WashDetails]: number | null }>;
 }
 
 export const DEFAULTS: ErodeSettings = { power: 55, size: null, seed: 1 };
@@ -55,6 +35,7 @@ export interface ErodeInput {
   rock: number[];
   /** Tiles never worn (a water source's own ground). */
   keep?: Uint8Array;
+  water?: Float32Array;
 }
 
 export interface ErodePlan {
@@ -79,40 +60,18 @@ export interface ErodePlan {
   ms: number;
   /** Set when it did nothing, and why (a word by the pointer). */
   reason?: string;
+  details?: WashDetails;
+  wash?: WashTrace;
 }
 
 export const BUCKETS = 24;
+export const HEADROOM = 5;
 const STEPS = 48;
-/** Wear on any soft face, near the foot of a face, and just under a hard bed. */
-const W_FACE = 0.16;
-const W_FOOT = 1.0;
-const W_CONTACT = 0.85;
-/** Hard rock wears at this share of the rate. */
-const HARD = 0.09;
 
-interface Params {
-  P: number;
-  s: number;
-  radius: number;
-  footH: number;
-  shelter: number;
-  budget: number;
-  /** Levels above and below the touched height the wear reaches. */
-  band: number;
-}
-
-export function params(set: ErodeSettings, click: boolean): Params {
+export function params(set: ErodeSettings, click: boolean) {
   const P = clamp(set.power, 0, 100) / 100;
   const s = clamp(set.size ?? autoSize(set.power), 0, 100) / 100;
-  return {
-    P,
-    s,
-    radius: click ? 2.2 + 6 * s : 1.4 + 3.6 * s,
-    footH: 0.9 + 2.6 * s,
-    shelter: 1.3 + 3.6 * P,
-    budget: 3 + 24 * P,
-    band: 2.2 + 3.5 * s,
-  };
+  return { P, s, radius: (click ? 2.5 : 1.5) + 5 * s, depth: 1.2 + 8.8 * P };
 }
 
 type Pt = { x: number; y: number; z?: number };
@@ -140,340 +99,245 @@ function nearest(pts: Pt[], x: number, y: number): { d: number; z: number | unde
   return { d: best, z: bz };
 }
 
-/** Can the voxel at (tile i, level z) wear: solid, above the floor, off the map's border and kept
- *  ground, and under a roof that holds: three or more blocks of rock over it, or a hard bed just over
- *  it. A column's top two blocks always stay, so Erode never lowers the surface (the water and the
- *  objects on it stay as they are), and no hollow is left under a thin soft crust. */
-function erodible(t: Terrain, rock: number[], keep: Uint8Array | undefined, i: number, z: number): boolean {
-  if (z < 1 || !t.at(i, z) || (keep && keep[i])) return false;
-  const x = i % t.W, y = (i - x) / t.W;
-  if (x < 2 || y < 2 || x >= t.W - 2 || y >= t.H - 2) return false;
-  const c = t.surface(i);
-  if (z > c - 3) return false;
-  const above = t.cols[i] >>> (z + 1);
-  let n = 0;
-  for (let v = above; v; v &= v - 1) n++;
-  if (n >= 3) return true;
-  return (rock[z + 1] > 0.5 && t.at(i, z + 1)) || (rock[z + 2] > 0.5 && t.at(i, z + 1) && t.at(i, z + 2));
-}
-
-/** Open sideways faces of rock that can wear, within `r` of the gesture. */
-function exposedNear(t: Terrain, rock: number[], keep: Uint8Array | undefined, pts: { x: number; y: number }[], r: number): { count: number; best: { x: number; y: number; z: number } | null } {
-  const { W, H } = t;
-  let count = 0;
-  let best: { x: number; y: number; z: number } | null = null;
-  let bestD = Infinity;
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  const x0 = Math.max(0, Math.floor(Math.min(...xs) - r)), x1 = Math.min(W - 1, Math.ceil(Math.max(...xs) + r));
-  const y0 = Math.max(0, Math.floor(Math.min(...ys) - r)), y1 = Math.min(H - 1, Math.ceil(Math.max(...ys) + r));
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++) {
-      const d = toStroke(pts, x + 0.5, y + 0.5);
-      if (d > r) continue;
-      const i = y * W + x;
-      const top = t.surface(i);
-      for (let z = 1; z < top; z++) {
-        if (!erodible(t, rock, keep, i, z)) continue;
-        if (!t.solid(x - 1, y, z) || !t.solid(x + 1, y, z) || !t.solid(x, y - 1, z) || !t.solid(x, y + 1, z)) {
-          count++;
-          if (d < bestD) (bestD = d), (best = { x, y, z });
-        }
-      }
-    }
-  return { count, best };
-}
-
-/** Plan an erode: the final land and the order the rock goes in. */
+/** Plan the cavity as a continuous volume, then retain only the rock that holds its roof. */
 export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
   const t0 = performance.now();
-  const { rock, keep } = input;
-  const before = input.terrain;
+  const { terrain: before, keep, rock } = input;
   const t = before.clone();
   const { W, H, N } = t;
-  let pts: Pt[] = gesture.points.map((p) => ({ x: clamp(p.x, 0, W - 0.01), y: clamp(p.y, 0, H - 0.01), z: p.z }));
-  const click = pts.length === 1;
-  const p = params(set, click);
-  const none = (reason: string): ErodePlan => ({
-    final: t,
-    removed: new Int32Array(0),
-    bucket: new Uint8Array(0),
-    buckets: BUCKETS,
-    duration: 0,
-    worn: 0,
-    held: 0,
-    fell: 0,
-    focus: null,
-    box: { x0: 0, y0: 0, x1: -1, y1: -1 },
-    ms: performance.now() - t0,
-    reason,
-  });
-
-  // 1. find the rock: a click that lands away from any face looks for the nearest one close by
-  let near = exposedNear(t, rock, keep, pts, p.radius);
-  if (near.count < 3) {
-    if (!click) {
-      if (!near.count) return none("No rock to wear here");
-    } else {
-      const far = exposedNear(t, rock, keep, pts, 12);
-      if (!far.best) return none("No rock to wear here");
-      pts = [{ x: far.best.x + 0.5, y: far.best.y + 0.5, z: pts[0].z }];
-      near = exposedNear(t, rock, keep, pts, p.radius);
-    }
-  }
-  const focus = near.best;
-
-  // 2. the region the wear can reach
-  const reach = p.radius + p.shelter * 3 + 4;
-  const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y);
-  const bx0 = Math.max(0, Math.floor(Math.min(...xs) - reach)), bx1 = Math.min(W - 1, Math.ceil(Math.max(...xs) + reach));
-  const by0 = Math.max(0, Math.floor(Math.min(...ys) - reach)), by1 = Math.min(H - 1, Math.ceil(Math.max(...ys) + reach));
-  const RW = bx1 - bx0 + 1, RH = by1 - by0 + 1, RN = RW * RH;
-  const L = LAYERS - 1;
-  const cell = (lx: number, ly: number, z: number) => z * RN + ly * RW + lx;
-  const tileOf = (lx: number, ly: number) => (by0 + ly) * W + bx0 + lx;
-
-  // the gesture's reach on the land, per tile: full near the stroke, fading at its edge, with a
-  // ragged edge so no opening is stamped
-  const G = new Float32Array(RN);
-  const Z = new Float32Array(RN).fill(-1);
-  for (let ly = 0; ly < RH; ly++)
-    for (let lx = 0; lx < RW; lx++) {
-      const x = bx0 + lx + 0.5, y = by0 + ly + 0.5;
-      const nr = nearest(pts, x, y);
-      const ragged = p.radius * (0.8 + 0.4 * noise3(set.seed ^ 0x51ed, x, y, 0, 3.1));
-      G[ly * RW + lx] = smooth(1 - (nr.d - ragged * 0.45) / (ragged * 0.55));
-      if (nr.z !== undefined) Z[ly * RW + lx] = nr.z;
-    }
-  // and round the height it touched: full within a few levels of it, fading beyond
-  const reachAt = (g: number, zc: number, z: number) => {
-    if (zc < 0) return g;
-    const off = Math.abs(z + 0.5 - zc);
-    return g * smooth(1 - (off - p.band * 0.5) / (p.band * 0.35));
-  };
-
-  // air: its foot (the ground the open air stands on), its shelter (steps in from open air) and
-  // the gesture's reach where it came from
-  const foot = new Float32Array(RN * L).fill(-1);
-  const depth = new Float32Array(RN * L).fill(99);
-  const gAir = new Float32Array(RN * L);
-  for (let ly = 0; ly < RH; ly++)
-    for (let lx = 0; lx < RW; lx++) {
-      const i = tileOf(lx, ly);
-      const top = t.surface(i);
-      let floor = 0;
-      for (let z = 0; z < L; z++) {
-        if (t.at(i, z)) {
-          floor = z + 1;
-          continue;
-        }
-        const c = cell(lx, ly, z);
-        foot[c] = floor;
-        depth[c] = z >= top ? 0 : 3; // existing caves count as sheltered
-        gAir[c] = reachAt(G[ly * RW + lx], Z[ly * RW + lx], z);
-      }
-    }
-
-  // the rock's resistance: its grain (3D noise) and its bed
-  const resist = new Float32Array(RN * L);
-  const wear = new Float32Array(RN * L);
-  for (let z = 1; z < L; z++)
-    for (let ly = 0; ly < RH; ly++)
-      for (let lx = 0; lx < RW; lx++) {
-        const x = bx0 + lx, y = by0 + ly;
-        const grain = 0.55 + 0.9 * noise3(set.seed, x, y, z * 1.6, 2.4) + 0.25 * (hash3(set.seed ^ 0x9e37, x, y, z) - 0.5);
-        resist[cell(lx, ly, z)] = Math.max(0.25, grain);
-      }
-  const contact = rock.map((_, z) => (rock[z] > 0.5 ? 0 : rock[z + 1] > 0.5 ? 1 : rock[z + 2] > 0.5 ? 0.75 : rock[z + 3] > 0.5 ? 0.5 : 0));
-
-  // 3. wear, a step at a time
-  const dt = p.budget / STEPS;
-  const step = new Map<number, number>(); // voxel (z·N + tile) → the step it wore away
-  const over = new Map<number, number>(); // → how far past its resistance (how worn)
-  const inBox = (x: number, y: number) => x >= bx0 && x <= bx1 && y >= by0 && y <= by1;
+  const pts = gesture.points.map(q => ({ x: clamp(q.x, 0, W - 0.01), y: clamp(q.y, 0, H - 0.01), z: q.z }));
+  const p = params(set, pts.length === 1);
+  const none = (): ErodePlan => ({ final: t, removed: new Int32Array(), bucket: new Uint8Array(),
+    buckets: BUCKETS, duration: 0, worn: 0, held: 0, fell: 0, focus: null,
+    box: { x0: 0, y0: 0, x1: -1, y1: -1 }, ms: performance.now() - t0, reason: "No rock to wear here" });
+  if (!pts.length) return none();
   const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  // the rock that can wear and has open air beside it (checked again as it goes: a roof can thin)
-  const open = new Set<number>();
-  const expose = (lx: number, ly: number, z: number) => {
-    if (lx < 0 || ly < 0 || lx >= RW || ly >= RH) return;
-    if (erodible(t, rock, keep, tileOf(lx, ly), z)) open.add(cell(lx, ly, z));
+  const allowed = (i: number) => {
+    const x = i % W, y = Math.floor(i / W);
+    return x >= 2 && y >= 2 && x < W - 2 && y < H - 2 && !keep?.[i];
   };
-  for (let z = 1; z < L; z++)
-    for (let ly = 0; ly < RH; ly++)
-      for (let lx = 0; lx < RW; lx++) {
-        const x = bx0 + lx, y = by0 + ly;
-        if (t.solid(x, y, z) && (!t.solid(x - 1, y, z) || !t.solid(x + 1, y, z) || !t.solid(x, y - 1, z) || !t.solid(x, y + 1, z))) expose(lx, ly, z);
-      }
-  for (let s = 0; s < STEPS; s++) {
-    const going: number[] = [];
-    let active = false;
-    for (const oc of open) {
-      const z = Math.floor(oc / RN);
-      const rr = oc - z * RN;
-      const ly = Math.floor(rr / RW), lx = rr - ly * RW;
-      const x = bx0 + lx, y = by0 + ly;
-      let rate = 0;
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx, ny = y + dy;
-        if (!inBox(nx, ny) || t.solid(nx, ny, z)) continue;
-        const c = cell(nx - bx0, ny - by0, z);
-        const g = gAir[c];
-        if (g <= 0) continue;
-        const h = Math.max(0, z - foot[c]);
-        const a = W_FACE + W_FOOT * Math.exp(-h / p.footH) + W_CONTACT * contact[z];
-        rate += a * Math.exp(-depth[c] / p.shelter) * g;
-      }
-      if (rate <= 0) continue;
-      if (!erodible(t, rock, keep, tileOf(lx, ly), z)) {
-        open.delete(oc);
-        continue;
-      }
-      active = true;
-      if (rock[z] > 0.5) rate *= HARD;
-      wear[oc] += rate * dt;
-      if (wear[oc] >= resist[oc]) going.push(oc);
-    }
-    if (!active) break;
-    // a varied order within a step, so no two runs share their seams
-    going.sort((a, b) => hash(set.seed + s, a) - hash(set.seed + s, b));
-    for (const c of going) {
-      const z = Math.floor(c / RN);
-      const r = c - z * RN;
-      const ly = Math.floor(r / RW), lx = r - ly * RW;
-      const i = tileOf(lx, ly);
-      if (!erodible(t, rock, keep, i, z)) continue; // its roof thinned this step
-      t.set(i, z, false);
-      open.delete(c);
-      step.set(z * N + i, s);
-      over.set(z * N + i, (wear[c] - resist[c]) / resist[c]);
-      // the new air: sheltered one step more than the air it opened from
-      const x = bx0 + lx, y = by0 + ly;
-      let bd = 99, bf = z, bg = 0;
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx, ny = y + dy;
-        if (!inBox(nx, ny) || t.solid(nx, ny, z)) continue;
-        const n = cell(nx - bx0, ny - by0, z);
-        if (depth[n] < bd || (depth[n] === bd && gAir[n] > bg)) (bd = depth[n]), (bf = foot[n]), (bg = gAir[n]);
-      }
-      depth[c] = bd + 1;
-      foot[c] = bf;
-      gAir[c] = bg;
-      // air it opens onto becomes less sheltered too (a hollow reached from two sides)
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx, ny = y + dy;
-        if (!inBox(nx, ny) || t.solid(nx, ny, z)) continue;
-        const n = cell(nx - bx0, ny - by0, z);
-        if (depth[n] > depth[c] + 1) (depth[n] = depth[c] + 1), (gAir[n] = Math.max(gAir[n], gAir[c]));
-      }
-      // the rock behind it is open now
-      for (const [dx, dy] of dirs) {
-        const nx = x + dx, ny = y + dy;
-        if (inBox(nx, ny) && t.solid(nx, ny, z)) expose(nx - bx0, ny - by0, z);
+  const reach = 12 + p.radius + p.depth;
+  const bx0 = Math.max(0, Math.floor(Math.min(...pts.map(q => q.x)) - reach));
+  const bx1 = Math.min(W - 1, Math.ceil(Math.max(...pts.map(q => q.x)) + reach));
+  const by0 = Math.max(0, Math.floor(Math.min(...pts.map(q => q.y)) - reach));
+  const by1 = Math.min(H - 1, Math.ceil(Math.max(...pts.map(q => q.y)) + reach));
+  const regionTiles: number[] = [];
+  for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) regionTiles.push(y * W + x);
+
+  // Resolve a real outside walking level, not the height on the face that the pointer hit.
+  // Existing cave mouths are included. One gesture has one floor; no interior ledges or steps.
+  type Face = { i: number; x: number; y: number; nx: number; ny: number; floor: number; score: number };
+  const faces: Face[] = [];
+  for (const i of regionTiles) {
+    if (!allowed(i)) continue;
+    const x = i % W, y = Math.floor(i / W), top = before.surface(i);
+    const nr = nearest(pts, x + 0.5, y + 0.5);
+    if (nr.d > Math.max(12, p.radius)) continue;
+    for (const [dx, dy] of dirs) {
+      const j = (y + dy) * W + x + dx;
+      for (let floor = 1; floor < top; floor++) {
+        if (!before.at(j, floor - 1) || before.at(j, floor) || !before.at(i, floor)) continue;
+        const drop = top - floor;
+        faces.push({ i, x: x + 0.5, y: y + 0.5, nx: -dx, ny: -dy, floor,
+          score: nr.d + 0.12 * Math.abs((nr.z ?? floor) - floor) - 0.3 * Math.min(8, drop) });
       }
     }
   }
+  faces.sort((a, b) => a.score - b.score);
+  const face = faces[0];
+  // A flat stroke wears a wash instead of searching far away for a cliff to hollow.
+  if (!face || (toStroke(pts, face.x, face.y) > 2.5 && pts.every(q => {
+    const i = Math.floor(q.y) * W + Math.floor(q.x);
+    return q.z === undefined || q.z >= before.surface(i) - 1;
+  }))) return planWash(input, gesture, set);
+  const floor = face.floor;
+  const focus = { x: face.x, y: face.y, z: floor };
+  const samples: Pt[] = [pts[0]];
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1], b = pts[k], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)));
+    for (let j = 1; j <= n; j++) samples.push({ x: a.x + (b.x - a.x) * j / n, y: a.y + (b.y - a.y) * j / n });
+  }
+  const sameFloor = faces.filter(f => f.floor === floor);
+  const mouths = samples.map(q => sameFloor.reduce((a, b) =>
+    Math.hypot(b.x - q.x, b.y - q.y) < Math.hypot(a.x - q.x, a.y - q.y) ? b : a, face));
+  const strength = new Float32Array(N);
+  const depth = new Float32Array(N).fill(Infinity);
+  const ceiling = new Uint8Array(N);
+  const step = new Map<number, number>();
+  const remove = (i: number, z: number, d: number) => {
+    if (!t.at(i, z)) return;
+    t.set(i, z, false);
+    step.set(z * N + i, clamp(Math.floor(d / (p.depth + 1) * (STEPS - 1)), 0, STEPS - 1));
+  };
+  // Overlapping, oriented lobes join into one sweeping curve. Low-frequency grain varies the
+  // whole wall, never each voxel separately; Power changes depth even with a fixed Size.
+  for (const i of regionTiles) {
+    if (!allowed(i) || before.run0Top(i) < floor) continue;
+    const x = i % W + 0.5, y = Math.floor(i / W) + 0.5;
+    const grain = 0.93 + 0.14 * noise3(set.seed, x, y, floor, 7);
+    for (const m of mouths) {
+      const dx = x - m.x, dy = y - m.y;
+      const inward = dx * m.nx + dy * m.ny;
+      const along = dx * m.ny - dy * m.nx;
+      if (inward < -1.5) continue;
+      const shape = (Math.max(0, inward) / (p.depth * grain)) ** 2 + (along / p.radius) ** 2;
+      if (shape >= 1) continue;
+      strength[i] = Math.max(strength[i], Math.sqrt(1 - shape));
+      depth[i] = Math.min(depth[i], Math.max(0, inward));
+    }
+    if (!strength[i]) continue;
+    const top = before.surface(i);
+    // Keep a cap when there is building clearance; a low lip wears down to the outside floor.
+    // Taller openings curve up toward their middle. Hard beds choose the nearby ceiling only,
+    // and can no longer leave stripes of rock across the opening.
+    let roof = floor + HEADROOM + Math.round(2 * p.s * strength[i]);
+    if (rock[roof + 1] > 0.5 && strength[i] > 0.55) roof++;
+    roof = Math.min(roof, top - 2);
+    ceiling[i] = top >= floor + 5 ? roof : top;
+  }
+  // Flood from walk-in entrances, so an ellipse cannot excavate a disconnected pocket.
+  const connected = new Uint8Array(N), queue: number[] = [];
+  for (const i of regionTiles) {
+    if (!strength[i]) continue;
+    const x = i % W, y = Math.floor(i / W);
+    if (dirs.some(([dx, dy]) => {
+      const j = (y + dy) * W + x + dx;
+      return before.at(j, floor - 1) && !before.at(j, floor);
+    })) { connected[i] = 1; queue.push(i); }
+  }
+  for (let k = 0; k < queue.length; k++) {
+    const i = queue[k], x = i % W, y = Math.floor(i / W);
+    for (const [dx, dy] of dirs) {
+      const j = (y + dy) * W + x + dx;
+      if (strength[j] && !connected[j]) { connected[j] = 1; queue.push(j); }
+    }
+    for (let z = floor; z < ceiling[i]; z++) remove(i, z, depth[i]);
+  }
+  if (!step.size) return none();
 
-  if (!step.size) return none("The rock here holds");
-
-  // 4. hold: keep the least-worn rock where a roof would be left too far from support
-  const regionTiles: number[] = [];
-  for (let ly = 0; ly < RH; ly++) for (let lx = 0; lx < RW; lx++) regionTiles.push(tileOf(lx, ly));
-  const nonPlain = () => regionTiles.filter((i) => !t.plain(i));
-  let held = 0;
-  for (let round = 0; round < 600; round++) {
+  // Keep broad, irregular remnants of the original rock only when a roof actually needs them.
+  // Choose one at a time by the roof it holds and the coherent rock grain; no spacing grid,
+  // single-voxel pins, or hanging corbels. A three-tile cantilever needs no columns at all.
+  const nonPlain = () => regionTiles.filter(i => !t.plain(i));
+  const columns: number[][] = [];
+  let fell = 0;
+  for (let round = 0; round < regionTiles.length; round++) {
     const sup = support(t, nonPlain());
     if (!sup.unsupported.length) break;
-    let zs = LAYERS;
-    for (const v of sup.unsupported) zs = Math.min(zs, Math.floor(v / N));
-    const U = new Set<number>();
-    for (const v of sup.unsupported) if (Math.floor(v / N) === zs) U.add(v - zs * N);
-    const unheld = new Set(sup.unsupported);
-    // the options: under each loose voxel, restore worn rock downward until it stands on held rock
-    // (a pillar) or reaches held rock beside it (a corbel)
-    const options: { i: number; cells: number[]; score: number }[] = [];
-    for (const i of U) {
-      const x = i % W, y = (i - x) / W;
-      const cells: number[] = [];
-      let cost = 0;
-      let ok = false;
-      for (let k = zs - 1; k >= 0; k--) {
-        if (t.at(i, k)) {
-          ok = !unheld.has(k * N + i);
-          break;
-        }
-        const v = k * N + i;
-        if (!step.has(v)) break; // air that was never rock: nothing to restore
-        cells.push(v);
-        cost += 1 + 1.5 * Math.min(3, over.get(v) as number);
-        // held beside it, close enough to reach
-        let side = false;
-        for (const [dx, dy] of dirs) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H || !t.solid(nx, ny, k)) continue;
-          const j = ny * W + nx;
-          if (unheld.has(k * N + j)) continue;
-          const d = sup.distance.get(k * N + j) ?? 0;
-          if (d <= 2) side = true;
-        }
-        if (side) {
-          ok = true;
-          break;
-        }
-      }
-      if (!ok || !cells.length) continue;
-      // what it would hold: loose voxels of this layer within 3 steps through rock
-      const seen = new Map<number, number>([[i, 0]]);
-      const q = [i];
+    const zs = Math.min(...sup.unsupported.map(v => Math.floor(v / N)));
+    const loose = new Set(sup.unsupported.filter(v => Math.floor(v / N) === zs).map(v => v % N));
+    let best: { tiles: number[]; score: number } | undefined;
+    for (const i of regionTiles) {
+      if (!connected[i] || depth[i] < 1 || !t.at(i, zs) || t.at(i, zs - 1)) continue;
+      const x = i % W, y = Math.floor(i / W);
+      const grain = noise3(set.seed ^ 0x77, x, y, floor, 3.7);
+      const sx = hash(set.seed, i) < 0.5 ? -1 : 1, sy = hash(set.seed + 1, i) < 0.5 ? -1 : 1;
+      const fits = (j: number) => allowed(j) && before.run0Top(j) > zs;
+      const tiles = [[sx, sy], [-sx, sy], [sx, -sy], [-sx, -sy]].map(([a, b]) =>
+        [i, i + a, i + b * W, i + a + b * W]).find(c => c.every(fits));
+      if (!tiles) continue;
+      if (grain > 0.45) for (const j of [i - sx, i - sy * W]) if (fits(j) && !tiles.includes(j)) tiles.push(j);
+      const seen = new Map<number, number>(), q: number[] = [];
+      for (const j of tiles) { seen.set(j, 0); q.push(j); }
       let gain = 0;
       for (let h = 0; h < q.length; h++) {
-        const v = q[h];
-        const d = seen.get(v) as number;
-        if (U.has(v)) gain++;
-        if (d >= 3) continue;
-        const vx = v % W, vy = (v - vx) / W;
+        const j = q[h], d = seen.get(j)!;
+        if (loose.has(j)) gain++;
+        if (d === 3) continue;
+        const jx = j % W, jy = Math.floor(j / W);
         for (const [dx, dy] of dirs) {
-          const nx = vx + dx, ny = vy + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H || !t.solid(nx, ny, zs)) continue;
-          const n = ny * W + nx;
-          if (seen.has(n)) continue;
-          seen.set(n, d + 1);
-          q.push(n);
+          const n = (jy + dy) * W + jx + dx;
+          if (!seen.has(n) && t.solid(jx + dx, jy + dy, zs)) { seen.set(n, d + 1); q.push(n); }
         }
       }
-      // nature leaves the rock that wore least; and a lip reads best held from a little way back,
-      // so a support about three tiles in from the open air costs least
-      const lx = x - bx0, ly = y - by0;
-      const inside = lx >= 0 && ly >= 0 && lx < RW && ly < RH ? depth[cell(lx, ly, zs - 1)] : 3;
-      cost *= 1 + 0.3 * Math.abs(Math.min(inside, 8) - 3);
-      options.push({ i, cells, score: gain / cost + 0.02 * hash(set.seed ^ 0x77, i) });
+      if (!gain) continue;
+      // Stagger remnants across the depth of the shelter as well as along its length.
+      const aligned = columns.some(c => Math.abs(depth[c[0]] - depth[i]) < 1.5);
+      const score = gain / (2 + tiles.length) * (0.7 + grain) * (aligned ? 0.65 : 1);
+      if (!best || score > best.score) best = { tiles, score };
     }
-    if (!options.length) break;
-    options.sort((a, b) => b.score - a.score);
-    const picked: number[] = [];
-    for (const o of options) {
-      const ox = o.i % W, oy = (o.i - ox) / W;
-      if (picked.some((j) => Math.abs((j % W) - ox) + Math.abs(Math.floor(j / W) - oy) <= 6)) continue;
-      picked.push(o.i);
-      for (const v of o.cells) {
-        const z = Math.floor(v / N);
-        t.set(v - z * N, z, true);
-        step.delete(v);
-        held++;
-      }
+    if (!best) {
+      // A thin low lip may have no room for a broad leg. Trim only that layer, then solve
+      // the roof above it afresh; dropping the whole unsupported stack would erase arches.
+      for (const i of loose) { remove(i, zs, p.depth); fell++; }
+      continue;
+    }
+    columns.push(best.tiles);
+    for (const i of best.tiles) for (let z = floor; z <= zs; z++) {
+      if (before.at(i, z)) { t.set(i, z, true); step.delete(z * N + i); }
     }
   }
-
-  // anything still loose falls (it goes with the wear, as rubble): the safety net
-  let fell = 0;
+  // If an existing cave leaves no original rock for a broad column, trim its unsupported edge.
   for (;;) {
     const sup = support(t, nonPlain());
     if (!sup.unsupported.length) break;
     for (const v of sup.unsupported) {
-      const z = Math.floor(v / N);
-      t.set(v - z * N, z, false);
-      if (!step.has(v)) step.set(v, STEPS - 1);
+      const z = Math.floor(v / N), i = v % N;
+      remove(i, z, p.depth);
       fell++;
     }
   }
+  // Remove redundant columns as whole clusters, never individual blocks from their feet.
+  for (let k = columns.length - 1; k >= 0; k--) {
+    const saved = columns[k].map(i => [i, t.cols[i]]);
+    for (const [i] of saved) for (let z = floor; z < ceiling[i]; z++) t.set(i, z, false);
+    if (support(t, nonPlain()).unsupported.length) {
+      for (const [i, mask] of saved) t.cols[i] = mask;
+    } else {
+      for (const [i, mask] of saved) for (let z = floor; z < ceiling[i]; z++)
+        if ((mask >>> z) & 1) step.set(z * N + i, STEPS - 1);
+    }
+  }
+  // The surviving remnants broaden into the floor and roof along their harder grain, instead
+  // of reading as identical square posts. Every shoulder is beside a full-height held core.
+  for (const column of columns) {
+    if (!column.some(i => t.at(i, floor + 1))) continue;
+    const core = new Set(column);
+    for (const i of column) {
+      if (!t.at(i, floor + 1)) continue;
+      const x = i % W, y = Math.floor(i / W);
+      for (const [dx, dy] of dirs) {
+        const j = (y + dy) * W + x + dx;
+        if (core.has(j) || !connected[j] || !allowed(j)) continue;
+        const grain = noise3(set.seed ^ 0xc0, x + dx, y + dy, 0, 1.9);
+        const levels = grain > 0.48 ? [floor, ceiling[j] - 1] : [ceiling[j] - 1];
+        for (const z of levels) if (z >= floor && before.at(j, z) && t.at(i, z)) {
+          t.set(j, z, true); step.delete(z * N + j);
+        }
+      }
+    }
+  }
+  // Sweep away small free-standing remnants on the new floor and at the mouth. Flood above
+  // the floor so a ground connection cannot disguise a stub; walls and roof legs join much
+  // larger components. Check support before removing a remnant from an existing cave.
+  const touched = new Set(queue.flatMap(i => [i, i - 1, i + 1, i - W, i + W]));
+  const seen = new Set<number>();
+  for (const i of touched) for (let z = floor; z < Math.min(LAYERS, floor + HEADROOM); z++) {
+    const start = z * N + i;
+    if (i < 0 || i >= N || !allowed(i) || !t.at(i, z) || seen.has(start)) continue;
+    const q = [start];
+    const component = new Set(q);
+    seen.add(start);
+    let attached = false;
+    for (let k = 0; k < q.length && q.length <= 12; k++) {
+      const v = q[k], vz = Math.floor(v / N), j = v % N, x = j % W, y = Math.floor(j / W);
+      if (vz >= floor + HEADROOM || !allowed(j)) { attached = true; break; }
+      const ns = [x > 0 ? v - 1 : -1, x < W - 1 ? v + 1 : -1,
+        y > 0 ? v - W : -1, y < H - 1 ? v + W : -1, vz > floor ? v - N : -1, v + N];
+      for (const n of ns) {
+        if (n < 0 || n >= N * LAYERS || !t.at(n % N, Math.floor(n / N))) continue;
+        if (seen.has(n)) { if (!component.has(n)) attached = true; continue; }
+        seen.add(n); component.add(n); q.push(n);
+      }
+    }
+    if (attached || q.length > 12) continue;
+    for (const v of q) t.set(v % N, Math.floor(v / N), false);
+    if (support(t).unsupported.length) {
+      for (const v of q) t.set(v % N, Math.floor(v / N), true);
+    } else for (const v of q) step.set(v, STEPS - 1);
+  }
+  let held = 0;
+  for (const i of queue) for (let z = floor; z < ceiling[i]; z++) if (t.at(i, z)) held++;
 
   // 5. the order it's shown in: by the step each voxel wore, in buckets; a voxel that would hang
   // loose at the end of a bucket goes in that bucket
@@ -510,7 +374,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
     removed,
     bucket,
     buckets: BUCKETS,
-    duration: 2 + 2 * p.P,
+    duration: 0.65,
     worn: removed.length,
     held,
     fell,

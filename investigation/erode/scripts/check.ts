@@ -11,16 +11,18 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { checkSupport } from "../../terrain3d/proto/support";
 import { planErode, type ErodePlan } from "../core/erode";
-import { fromJson, type ErodeMap } from "../core/map";
+import { fromJson, washMap, type ErodeMap } from "../core/map";
 import { hash } from "../core/random";
 import { support } from "../core/support";
 import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
+import { drainageMetrics, round2Checks, washChecks } from "./round2";
 
 const show = process.argv.includes("--show");
 const only = process.argv.find((a) => a.startsWith("--case="))?.slice(7);
 const maps = new Map<string, ErodeMap>();
 const load = (id: string) => {
+  if (id === "wash") return washMap();
   if (!maps.has(id)) maps.set(id, fromJson(JSON.parse(gunzipSync(readFileSync(new URL(`../maps/${id}.json.gz`, import.meta.url))).toString())));
   return maps.get(id)!;
 };
@@ -92,7 +94,7 @@ for (const c of CASES) {
   if (only && c.id !== only) continue;
   const m = load(c.map);
   const t = Terrain.fromHeights(m.W, m.H, m.heights);
-  const input = { terrain: t, rock: m.rock, keep: m.keep };
+  const input = { terrain: t, rock: m.rock, keep: m.keep, water: m.water };
   const settings = { power: c.power, size: c.size, seed: c.seed };
   let plan: ErodePlan = planErode(input, { points: c.points }, settings);
   const times: number[] = [];
@@ -149,23 +151,25 @@ if (!only)
         const a = r(5) * Math.PI * 2, L = 4 + r(6) * 16;
         pts.push({ x: x + Math.cos(a) * L, y: y + Math.sin(a) * L, z: pts[0].z });
       }
-      const p = planErode({ terrain: t, rock: m.rock, keep: m.keep }, { points: pts }, { power: Math.round(r(7) * 100), size: r(8) < 0.4 ? null : Math.round(r(9) * 100), seed: k });
-      if (p.reason) continue;
-      acted++;
+      const p = planErode({ terrain: t, rock: m.rock, keep: m.keep, water: m.water }, { points: pts }, { power: Math.round(r(7) * 100), size: r(8) < 0.4 ? null : Math.round(r(9) * 100), seed: k });
+      if (!p.reason) acted++;
+      if (p.wash && !p.reason) drainageMetrics(t, p);
       const d = checkSupport(m.W, m.H, p.final.voxels(), LAYERS).unsupported.length;
       dropped += d;
       worst = Math.max(worst, p.ms);
       maxReach = Math.max(maxReach, measure(t, p.final).reach);
     }
     if (dropped) failures++;
-    const row = { map: id, gestures: n, acted, droppedOnLoad: dropped, maxReach, slowestMs: Math.round(worst) };
+    const row = { map: id, gestures: n, acted, droppedOnLoad: dropped, maxReach, slowestMs: Math.round(worst), result: dropped ? "FAIL" : "PASS" };
     random.push(row);
     console.log(JSON.stringify(row));
   }
 
 if (!only) {
   mkdirSync(new URL("../checks/", import.meta.url), { recursive: true });
-  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; ms is the planner alone at 128² (median of 5) on this machine", cases: results, random }, null, 1) + "\n");
+  const round2 = round2Checks(load);
+  Object.assign(round2, { wash: washChecks(load) });
+  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round2, cases: results, random }, null, 1) + "\n");
 }
 console.log(failures ? `FAILED: ${failures} results drop voxels` : "Every result drops 0 voxels under the support rule.");
 process.exit(failures ? 1 : 0);

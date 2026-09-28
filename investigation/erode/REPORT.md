@@ -1,5 +1,46 @@
 # Erode: the report
 
+## Round 2
+
+| Crater rim: before, Power 100 / Size 100 | After the sweep |
+|---|---|
+| ![](captures/round2-crater-before.jpg) | ![](captures/round2-crater-after.jpg) |
+| Under the overhang | One click, Power 100 / Size 100 |
+| ![](captures/round2-crater-low.jpg) | ![](captures/round2-crater-click-after.jpg) |
+
+| Small wash: Power 30 / Size 30 | Giant wash: Power 100 / Size 100 |
+|---|---|
+| ![](captures/round2-wash-small-after.jpg) | ![](captures/round2-wash-giant-after.jpg) |
+
+Along the giant wash:
+
+![](captures/round2-wash-giant-low.jpg)
+
+| Case | Dropped voxels | Buildable floor tiles under a roof | Leftover single blocks (goal 0) | Gesture end → final land, 128² |
+|---|---:|---:|---:|---|
+| Crater rim, 100/100 (sweep / click) | 0 / 0 | 175 / 98 | 0 / 0 | 0.661 / 0.663 s |
+| Cliff-foot cave, 100/100 | 0 | 89 | 0 | — |
+| Arch, original 70/45 | 0 | 3 | 0 | — |
+| Wash, 30/30 / 100/100 | 0 / 0 | 0 / 7 | 0 / 0 | **0.660 s** for the largest checked 128² case (Auto seed 2, 15,940 blocks) |
+
+**PASS:** all six cases, their three additional seeds, and all 160 random gestures drop **0 voxels**; all 160 gestures act.
+**PASS:** review cases leave no single blocks or small debris clusters; 24 animation buckets stay supported; low Power is smaller; short overhangs need no columns; ordinary 1–3-level steps wear.
+**PASS:** wash beds have zero downstream rises and zero trapped carved tiles, including random washes, clicks and eight extreme pinned-detail variants; Auto/pins/persistence, immediate next action, Undo/Redo/Esc and TypeScript checks pass. Exact results: [automatic checks](checks/results.json), [browser timings](checks/browser.json).
+
+- Choice: replay the demo's pinned crater sweep at 100/100; the single click is its midpoint, with the same seed.
+- Choice: target five air levels from `GAME_RULES.md` §5's 3×3×5 starting building; count only roofed tiles with that clearance and level access (61 possible 3×3 footprints in the sweep).
+- Choice: one outside floor per shelter; continuous wear crosses hard beds, with broad, staggered supports and irregular shoulders only where needed.
+- Choice: washes use an original dry 128² floodplain; Power sets incision, Size sets width, and a narrower outlet continues to the edge or existing water; no slopes, stairs or water are added.
+- Choice: Winding, Side gullies, Dry falls and Undercut banks start on Auto; More and pins persist locally, and each operation records the values used (D309).
+- Choice: land finishes on a fixed 0.65-second clock from gesture end; existing dust/stone/sounds may linger, and the next gesture interrupts them.
+- Choice: only these seven new JPEG captures, each under 0.14 MB; no new assets or sounds.
+
+Still short: the voxel grid and existing masonry-like material keep the curves visibly stepped.
+The original thin arch has only three five-level roofed tiles, too narrow for a 3×3 building; short banks cannot supply full building headroom.
+Drainage is checked geometrically; the demo still approximates water and has not been verified in Timberborn.
+
+---
+
 Kyler's brief (2026-09-27): a force where wind and water wear rock, and the land decides the form: a cave at a
 cliff's foot, an overhanging lip where hard rock caps soft, an arch where a ridge is thin. Every shape obeys the
 game's support rule. Built by Claude on `investigation/erode`, held until Kyler has tried it.

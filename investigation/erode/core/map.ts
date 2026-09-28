@@ -105,3 +105,15 @@ export function fromJson(j: MapJson): ErodeMap {
     things: j.things,
   };
 }
+
+/** Original, dry 128² floodplain fixture; no game assets. The southern plain falls to level 3. */
+export function washMap(): ErodeMap {
+  const W = 128, H = 128, N = W * H;
+  const heights = Uint8Array.from({ length: N }, (_, i) => {
+    const x = i % W, y = Math.floor(i / W);
+    return Math.max(3, 12 - Math.max(0, y - Math.round(103 + 2 * Math.sin(x / 13))));
+  });
+  return { id: "wash", name: "Dry floodplain · 128²", source: "Original procedural dry floodplain for Erode round 2",
+    W, H, heights, water: new Float32Array(N), contamination: new Float32Array(N), moist: new Uint8Array(N),
+    keep: new Uint8Array(N), rock: Array.from({ length: 23 }, (_, z) => z % 4 === 2 ? 1 : 0), things: [] };
+}

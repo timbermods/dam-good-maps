@@ -16,6 +16,15 @@ export class Sounds {
   private buffers = new Map<Name, AudioBuffer>();
   private bed: { src: AudioBufferSourceNode; gain: GainNode; src2: AudioBufferSourceNode } | null = null;
   private lastLand = 0;
+  private active = new Set<AudioBufferSourceNode>();
+  private track(src: AudioBufferSourceNode): void {
+    this.active.add(src); src.onended = () => this.active.delete(src);
+  }
+  /** A fresh gesture cancels every lingering sound from the previous one. */
+  interrupt(): void {
+    for (const src of this.active) { try { src.stop(); } catch { /* already stopped */ } }
+    this.active.clear(); this.bed = null;
+  }
   on = true;
   volume = 0.55;
 
@@ -53,11 +62,13 @@ export class Sounds {
     lp.type = "lowpass";
     lp.frequency.value = 2400;
     const src = ctx.createBufferSource();
+    this.track(src);
     src.buffer = a;
     src.loop = true;
     src.playbackRate.value = 0.8 + Math.random() * 0.15;
     src.connect(lp);
     const src2 = ctx.createBufferSource();
+    this.track(src2);
     if (b) {
       src2.buffer = b;
       src2.loop = true;
@@ -100,6 +111,7 @@ export class Sounds {
     const buf = this.buffers.get(Math.random() < 0.5 ? "rocks" : "rockfall");
     if (!buf) return;
     const src = this.ctx.createBufferSource();
+    this.track(src);
     src.buffer = buf;
     src.playbackRate.value = 0.85 + Math.random() * 0.4;
     const g = this.ctx.createGain();
@@ -118,6 +130,7 @@ export class Sounds {
     if (!buf) return;
     const now = this.ctx.currentTime;
     const src = this.ctx.createBufferSource();
+    this.track(src);
     src.buffer = buf;
     src.playbackRate.value = 0.8 + Math.random() * 0.1;
     const g = this.ctx.createGain();

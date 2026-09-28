@@ -4,6 +4,9 @@ A proposal, not an instruction; nothing is adopted until Kyler has tried the dem
 roof, so it needs terrain above terrain: it lands with or after the 3D stages (terrain3d DESIGN §9), and its
 mesher is one candidate for 3D-c's view.
 
+Round 2 adds optional `ErodeSettings.details` (null = Auto, number = pinned), `ErodeInput.water`, and resolved `ErodePlan.details`/`wash`; retain resolved details with the operation and persist pins/More with editor preferences.
+Round 2 supersedes the surface-preservation and 2–4-second assumptions below: washes and low lips lower surfaces (reconcile objects/start and re-settle water on adoption); the same 24 buckets finish in 0.65 seconds from gesture end, with lingering effects interrupted by the next gesture.
+
 ## What it needs first (3D-a)
 
 - **Terrain as runs in the document.** The forces core's `ForceMap` holds `heights` only. Erode's land is one
