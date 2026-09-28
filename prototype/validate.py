@@ -407,7 +407,7 @@ def load_project(path):
     return doc.get("spec"), doc.get("features")
 
 
-def validate(path, difficulty="normal", water=None, load_only=False, profile=None) -> Report:
+def validate(path, difficulty="normal", water=None, load_only=False, profile=None, water_rules=None) -> Report:
     import zipfile
     rep = Report(path)
     with zipfile.ZipFile(path) as z:
@@ -427,7 +427,7 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     if load_only:
         return rep
     from playability import check_playability
-    check_playability(m, rep, fps, difficulty, spec, features, water, profile)
+    check_playability(m, rep, fps, difficulty, spec, features, water, profile, water_rules)
     return rep
 
 
@@ -455,10 +455,15 @@ def main():
     if "--profile" in sys.argv:
         profile = sys.argv[sys.argv.index("--profile") + 1]
         args = [a for a in args if a != profile]
+    # the water rules the maps' water is settled with (D311): game or port, the sim's default else
+    water_rules = None
+    if "--water-rules" in sys.argv:
+        water_rules = sys.argv[sys.argv.index("--water-rules") + 1]
+        args = [a for a in args if a != water_rules]
     all_ok = True
     load_only = "--load-only" in sys.argv
     for path in args:
-        rep = validate(path, difficulty, load_only=load_only, profile=profile)
+        rep = validate(path, difficulty, load_only=load_only, profile=profile, water_rules=water_rules)
         all_ok &= rep.passed
         if "--quiet" in sys.argv:
             bad = [c.id for c in rep.failures()]

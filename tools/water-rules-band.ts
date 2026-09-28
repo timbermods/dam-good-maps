@@ -28,7 +28,7 @@ for (const theme of themes)
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const m = r.built.waterModel;
     const port = canonicalSettle(m, { rules: "port" });
-    const game = canonicalSettle(m);
+    const game = canonicalSettle(m, { rules: "game" });
     let flips = 0;
     let bad = 0;
     // (outside the band: on the map's edge row, where the game's spill threshold keeps 0.1 on a

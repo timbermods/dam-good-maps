@@ -13,11 +13,12 @@ Units: depth in blocks, strength S = S blocks of water per second; 1 tick = 0.6 
 Emitters are dicts {tiles: [(y, x)], strength: S, contamination: 0..1} with an optional
 depth_limit: ((y, x), off, on) for seeps (off above `off` deep at the anchor, back on below `on`).
 
-The game's rules (PLAN §20 D293, D303, D308: one water model everywhere, the game's), as
+The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's), as
 src/core/sim/water.ts runs them: evaporation on every tile, a dry one that receives water too; the
 spill threshold at the map's edge too (floor-0 tiles beside the padding); a partial obstacle read
 from the higher of the two floors; the source step setting the old depth. rules="port" keeps the
-port as it was before M9b (the TypeScript tests' "port" mode).
+port as it was before M9b. DEFAULT_WATER_RULES is what a caller gets when it does not ask, as in
+the TypeScript.
 """
 from __future__ import annotations
 
@@ -33,6 +34,7 @@ KEEP = 0.999              # flow momentum kept per substep
 BAL = 0.8                 # outflow balancing against the reverse flow
 TICKS_PER_DAY = 768
 EVAPORATION_PER_DAY = 0.0535
+DEFAULT_WATER_RULES = "port"
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
 DIRS = ((-1, 0), (0, -1), (1, 0), (0, 1))
 OPP = (2, 3, 0, 1)
@@ -53,13 +55,13 @@ def seq_sum(a) -> float:
 
 
 class WaterSim:
-    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None, rules="game", edge_spill=None):
+    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None, rules=None, edge_spill=None):
         """floor: floor of the water column per tile (terrain surface, raised by full obstacles).
         sources: emitters (see the module doc). dam: height of a partial obstacle (NaturalDam 0.65)
         above the floor per tile, -1 where there is none. depth/contamination: a starting state.
-        rules: "game" (the default, D293) or "port"; edge_spill: the spill threshold at the map's
-        edge (D303), on with the game's rules unless given."""
-        self.game = rules == "game"
+        rules: "game" or "port" (DEFAULT_WATER_RULES when not given); edge_spill: the spill threshold
+        at the map's edge (D303), on with the game's rules unless given."""
+        self.game = (rules or DEFAULT_WATER_RULES) == "game"
         self.edge_spill = self.game if edge_spill is None else bool(edge_spill)
         self.F = floor.astype(float)
         Y, X = floor.shape
@@ -400,12 +402,13 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     return depth.reshape(Y, X), cont.reshape(Y, X)
 
 
-def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
+def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=(), rules=None):
     """The canonical settle: the pre-fill, then the simulation until it settles (at most 4 game
     days). Returns (sim, settled); `sim.steady_ticks` is set when only sealed basins evaporating
-    kept it from settling (D222), and such water has settled too (`water.settles`)."""
+    kept it from settling (D222), and such water has settled too (`water.settles`). `rules`: the
+    water rules (DEFAULT_WATER_RULES when not given)."""
     d0, c0 = prefill(floor, sources, dam, retained)
-    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0)
+    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0, rules=rules)
     sealed = sorted({i for lake in retained or () for i in lake["tiles"]})
     settled = sim.settle(max_days=4, sealed=sealed or None)
     return sim, settled

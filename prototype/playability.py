@@ -221,11 +221,13 @@ def rules_for(spec, difficulty, description=""):
     }
 
 
-def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
-    """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts)."""
+def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None):
+    """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts).
+    `water_rules`: the rules the map's water is settled with (the water sim's default when not
+    given; a map converted under the port's keeps them, D311)."""
     got = {} if water is None else water
     first = len(rep.checks)
-    _check_playability(m, rep, fps, difficulty, spec, features, got, profile)
+    _check_playability(m, rep, fps, difficulty, spec, features, got, profile, water_rules)
     why = approximate_reason(m, fps, got["D"])
     if why:
         for c in rep.checks[first:]:
@@ -349,7 +351,7 @@ def approximate_reason(m, fps, D):
     return "; ".join(reasons + evidence) if evidence else None
 
 
-def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
+def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None):
     h = m.surface()
     X, Y = m.size_x, m.size_y
     N = X * Y
@@ -373,7 +375,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
 
     # ---- water: the canonical settle of the map's own sources
     floor, sources, dam = water_model(m, fps, h)
-    sim, settled = canonical_settle(floor, sources, dam)
+    sim, settled = canonical_settle(floor, sources, dam, rules=water_rules)
     D, C = sim.D, sim.C
     wet = D > WET
     clean = wet & (C < BAD)

@@ -8,12 +8,12 @@
 // two agree bit for bit on the golden fixtures (tests/unit/water.test.ts). Only + − × ÷, min, max
 // and ceil are used (PLAN §2.1), so Node and every browser give the same bytes.
 //
-// The game's rules (PLAN §20 D293, D303, D308: one water model everywhere, the game's; read from
-// Timberborn 1.1.2.4's code by the 3D engine's study, investigation/terrain3d/GAME_RULES.md §3, and
-// proved on its stacked engine, sim/stack.ts on feature/terrain3d-a). The port as it was before
-// M9b simplified the game in four places a heightfield holds; `rules: "port"` keeps them, for the
-// tests that prove the two agree bit for bit where they should, and "game" (the default) is the
-// game's code:
+// The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's; read
+// from Timberborn 1.1.2.4's code by the 3D engine's study, investigation/terrain3d/GAME_RULES.md §3,
+// and proved on its stacked engine, sim/stack.ts on feature/terrain3d-a). The port as it was before
+// M9b simplified the game in four places a heightfield holds; `rules: "port"` keeps them, and
+// "game" is the game's code (`DEFAULT_WATER_RULES` says which a caller gets when it does not ask;
+// a map converted or built under one keeps being settled with it, `rules` passed explicitly):
 // - evaporation on every active tile, a dry tile that receives water too (the port: wet tiles only);
 // - the spill threshold at the map's edge too, where a floor-0 tile meets the padding (the port
 //   left it out; `edgeSpill`, taken from feature/weather-days' drought run, D303);
@@ -37,14 +37,16 @@ export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
 
-/** Which rules the simulator runs: the game's (the default, D293), or the port's as it was before
- *  M9b (tests only). */
+/** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
 export type WaterRules = "game" | "port";
+
+/** The rules a simulator runs when its caller does not say. */
+export const DEFAULT_WATER_RULES: WaterRules = "port";
 
 export interface WaterSimOptions {
   rules?: WaterRules;
-  /** The spill threshold at the map's edge (D303): the game's rule, on unless the rules are the
-   *  port's (feature/weather-days' drought run passes it explicitly). */
+  /** The spill threshold at the map's edge (D303): the game's rule, on with the game's rules unless
+   *  it is given (feature/weather-days' drought run passes it explicitly). */
   edgeSpill?: boolean;
 }
 
@@ -138,7 +140,7 @@ export class WaterSim {
   /** Seep on/off state per emitter (1 = on). */
   private readonly seepOn: Uint8Array;
 
-  /** The game's rules (D293), or the port's (tests). */
+  /** The game's rules (D293, D311), or the port's. */
   readonly rules: WaterRules;
   /** The game's spill threshold at the map's edge too (its padding is an open column, floor 0,
    *  never wet: water on a floor-0 tile at the edge keeps its last 0.1 there, as it would beside a
@@ -147,7 +149,7 @@ export class WaterSim {
   private readonly game: boolean;
 
   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
-    this.rules = opts.rules ?? "game";
+    this.rules = opts.rules ?? DEFAULT_WATER_RULES;
     this.game = this.rules === "game";
     this.edgeSpill = opts.edgeSpill ?? this.game;
     const { W, H } = model;

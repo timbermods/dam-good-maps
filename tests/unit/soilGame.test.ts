@@ -49,7 +49,9 @@ function scene() {
   for (let y = H / 2 + 3; y < H / 2 + 6; y++) for (let x = 1; x < 4; x++) h[y * W + x] = 7;
   const objects = [source(2, H / 2, h[(H / 2) * W + 2], 3), source(1, H / 2 + 3, 7, 2, "BadwaterSource"), object("Blockage", 20, H / 2, h[(H / 2) * W + 20]), object("Thorns", 10, H / 2 + 2, h[(H / 2 + 2) * W + 10])];
   const model = waterModel(W, H, h, objects);
-  return { W, H, h, objects, model, water: canonicalSettle(model) };
+  // (the water as the 3D branch settled it, on the port's water rules: the soil's pins are its
+  // values; the game's water rules, D311, move this scene's water, not the soil's rules)
+  return { W, H, h, objects, model, water: canonicalSettle(model, { rules: "port" }) };
 }
 
 describe("the game's soil on a heightfield (D298)", () => {

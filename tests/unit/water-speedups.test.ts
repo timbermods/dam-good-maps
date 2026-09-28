@@ -129,9 +129,9 @@ describe("the water simulation's bytes are pinned (PLAN §20 D130)", () => {
 
 describe("the game's rules' bytes are pinned (M9b; D293, D303, D308)", () => {
   it.each(golden.fixtures.map((f) => [f.name, f] as const))("%s: 975 ticks from empty, and the canonical settle", (name, f) => {
-    const sim = new WaterSim(model(f));
+    const sim = new WaterSim(model(f), undefined, { rules: "game" });
     sim.run(975);
-    const c = canonicalSettle(model(f));
+    const c = canonicalSettle(model(f), { rules: "game" });
     expect(digest(sim.D, sim.C, sim.out, sim.saturation(), c.depth, c.contamination, c.sat, c.out!)).toBe(GAME_FIXTURES[name]);
   });
 
