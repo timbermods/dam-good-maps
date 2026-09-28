@@ -17,8 +17,9 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 1. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11, then 12), then 1, 2, 6, 8,
    9, 14, 16, 17 and 18 on `feature/forces`, and last 19 (Spring, a new force) (`build`, Opus 5.5, high); 20 (Generate
-   always makes a new map) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5 and 10 with the
-   water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
+   always makes a new map) and 25 (Carve's Canyon depth and River depth named apart) on `feature/forces`
+   (`build-light`, Sonnet 5, high); the look items 4, 5 and 10 with the water shades work on `feature/high-look`
+   (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
    each to Kyler's checklist.
 2. **The water shades: pick one (D310).** Built on `feature/high-look` (30d7a767, CI green; the captures in `docs/look/high/`
    recaptured). Deep water now matches the game (L* 29.6 against its 29.2) and the middle is close (32.4 against 35.1); the two
@@ -48,7 +49,9 @@ decisions since the restart (D252–D315) are recorded below and in the living d
      with Kyler from the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of
      thumbnails with More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the
      editor"; **24**, trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its
-     display in "The page is the editor" (and in today's editor meanwhile if cheap).
+     display in "The page is the editor" (and in today's editor meanwhile if cheap); **26**, dead trees scattered over dry
+     land (find where they come from and report per theme how many at load and where; living trees only where the game's
+     soil rules keep them alive; dead trees rare and deliberate; a sample checked in the game with the pooled probe batch).
 5. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
    conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group, badwater grouped. 37 of 136
    places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump

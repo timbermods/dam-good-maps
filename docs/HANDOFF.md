@@ -28,8 +28,9 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
 1. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11, then 12), then 1, 2, 6, 8,
    9, 14, 16, 17 and 18 on `feature/forces`, and last 19 (Spring, a new force) (`build`, Opus 5.5, high); 20 (Generate
-   always makes a new map) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5 and 10 with the
-   water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
+   always makes a new map) and 25 (Carve's Canyon depth and River depth named apart) on `feature/forces`
+   (`build-light`, Sonnet 5, high); the look items 4, 5 and 10 with the water shades work on `feature/high-look`
+   (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
    each to Kyler's checklist.
 2. **The forces sitting on the preview** (the session, then `build`, Opus 5.5 high). Three branches feed it:
    - `feature/forces` (#77, `DamGoodMaps-forces`, c90e071b): D309 (details behind More), D312 (size ring, Carve's
@@ -63,7 +64,10 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of thumbnails with
    More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the editor"; **24**,
    trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its display in
-   "The page is the editor" (and in today's editor meanwhile if cheap).
+   "The page is the editor" (and in today's editor meanwhile if cheap); **26**, dead trees scattered over dry land
+   (find where they come from and report per theme how many at load and where; living trees only where the game's
+   soil rules keep them alive; dead trees rare and deliberate; a sample checked in the game with the pooled probe
+   batch).
 4. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
