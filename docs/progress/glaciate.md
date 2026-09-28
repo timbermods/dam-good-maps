@@ -4,9 +4,9 @@
 > (PR #76, draft, held for Kyler's yes), last commit 8dbecfc (with `feature/forces` merged in at 584bc15d, D312, and
 > `dev` through it). Done and tested: the adoption (D246, D291), the floor's water (D292), More with Benches, Steps,
 > Tarn and Scree (D309), the ring and waypoints on the forces' shared piece (D312: wired, no longer waiting), the
-> meltwater springs in groups (D314). Quick suite at 8dbecfc: 820 passed; forces + Glaciate browser specs passed
-> locally (the forces spec before the last merge: 17 of 19, its two failures the badwater notice now hidden in
-> Glaciate's spec). CI on 8dbecfc was still running at the pause. The one-river counts (below) are unchanged by
+> meltwater springs in groups (D314). Quick suite at 8dbecfc: 820 passed; forces + Glaciate browser specs locally: 17 of 19
+> with the forces' spec all passing; Glaciate's two failures were the badwater notice over its row, now hidden in its
+> spec, which then passed 7 of 7. CI on 8dbecfc was still running at the pause. The one-river counts (below) are unchanged by
 > D312 and D314. **Next step:** check CI on #76 at 8dbecfc (`gh pr checks 76`); if green, give the coordinator the
 > commit for the preview; if red, fix it. Then merge `origin/feature/forces` and `origin/dev` as they move. One UI
 > finding for the forces agent: the "No badwater" notice (D213) sits over the force rows when a force sweeps the
