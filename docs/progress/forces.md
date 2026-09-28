@@ -18,6 +18,7 @@
 >     `chore/ceiling-probe`'s tool merged.
 > 11. **Kyler's forces sitting, part 1 (D312): done** (the section below): the size ring, Carve's
 >     waypoints, Erupt final in about two seconds. `dev` merged at 8099b63 (M9a, generator 0.7.0).
+> 12. **D314: done** (the section below): Carve's own source is a group, a row across the flow.
 > 11. **D309, the details behind More: done** (the section below, added 2026-09-28, after the sitting
 >     was already queued): amends D289, so the forces-sitting checklist gets one more line.
 >
@@ -99,6 +100,32 @@ varies, and pinning every value a run drew (including its seed) reproducing that
 
 Docs: EDITOR_PLAN §3 (More, Auto, the pin, brought-back controls) and Part 3 (the superseded row
 corrected); this file.
+
+## Carve's source as a group (D314)
+
+`src/core/water/sourceGroups.ts`, its README and `tests/unit/sourceGroups.test.ts` taken whole from
+`feature/source-groups` (a6346fe4). Where Carve places its own source (Keep river), it now places a
+group: `placeSourceGroup` at the origin, the total `sourceStrength(power, width)`, the flow the carve's
+heading, the carve's seed with its origin mixed in, the ground before the first cut, the objects' tiles
+occupied. The anchor at the origin keeps the carve's source id; the others' ids derive from it and their
+tile (`guidFrom`), so a replay gives the same ids. Where the module refuses (nowhere to stand), the one
+source at the origin, as before. Each source's level follows the bed cut under it.
+- **Stored literally:** `forceResult` keeps the anchor in `source` (its share now) and the rest in the
+  new `sources` (at most 15; schema, `forceProblems`, the id checks and the replay's placements); the
+  older `carve` operation's type too. A carve kept before D314 has only `source` and replays unchanged.
+- **Unleash** places no new sources (Kyler, D314): the player's source stays the river's origin.
+- EDITOR_PLAN's Keep river line; Keep river's title ("a row of sources").
+
+Tests: `tests/unit/sourceGroups.test.ts` (the module's own, taken whole); `tests/contract/
+carveSourceGroup.test.ts` (new: a wide river's source is a row across one line, its strengths summing
+to the carve's, each at most 8, kept in its operation and valid against the schema, the project replays
+the same objects, one undo takes the carve and its whole row; a pre-D314 carve with a single source
+replays unchanged). Changed (D148): `carve.test` (a second carve keeps the first one's whole group; the
+strength that follows the Width is the group's sum, a broad river's a row; the oxbow's only sources are
+the carve's row at its origin).
+
+For Kyler's forces sitting: carve a wide river with Keep river: a short row of sources across its
+head; a creek keeps one or two.
 
 ## Kyler's forces sitting, part 1 (D312)
 

@@ -363,9 +363,12 @@ Make a valley, drop a source, and there's a river.
     straights, never a uniform tube), and **Try another path**, which re-rolls them; a bend cut off becomes an oxbow
     lake, sealed by sediment at both ends;
   - its one choice, **Keep river** (the default) or **Dry canyon**. Keep river leaves a
-    source at the origin whose strength follows the river's Width, not its Power, so a slot canyon
-    keeps a modest stream and a wide river a big one; Dry canyon leaves no source. The source is
-    editable afterwards like any other;
+    source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the carve's heading, fewer where
+    cramped, as the official maps' rows are) whose total strength follows the river's Width, not its Power, so a slot
+    canyon keeps a modest stream and a wide river a big one, shared among its sources; Dry canyon leaves none. Its
+    operation keeps the row literally (the anchor at the origin and the rest), so projects replay exactly, and a carve
+    from before keeps its single source. Each source is editable afterwards like any other. Unleash places none: the
+    player's source stays the river's origin (Kyler, D314);
   - the visible carving effects (a surging head, crumbling blocks, dust, muddy water), the camera
     staying where the player left it (D265: no Follow);
   - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc or Ctrl+Z (or undo) reverts the whole carve

@@ -60,8 +60,11 @@ export interface ForceResultParams {
   moved?: { id: string; x: number; y: number }[];
   /** Trees it knocked down: dead now, lying along (dx, dy) (their pose is the editor's view). */
   felled?: { id: string; dx: number; dy: number }[];
-  /** Carve's Keep river: the water source it leaves at the origin. */
+  /** Carve's Keep river: the water source it leaves at the origin (the group's anchor since D314). */
   source?: { id: string; x: number; y: number; strength: number };
+  /** Carve's Keep river since D314: the rest of its source group, a row across the flow beside the
+   *  anchor (core/water/sourceGroups.ts), the strength shared. Absent on carves from before. */
+  sources?: { id: string; x: number; y: number; strength: number }[];
   /** Carve's sealed oxbow lake: the water it keeps (carve/water.ts). */
   lake?: RetainedWater;
   /** Try another: the force (its operation's seq) this one replaces. */
@@ -69,7 +72,7 @@ export interface ForceResultParams {
 }
 
 /** The literal part the build assigns, common to `forceResult` and the older `carve`. */
-export type ForceLiteral = Pick<ForceResultParams, "tiles" | "heights" | "removed" | "source" | "lake" | "replaces"> & Partial<Pick<ForceResultParams, "rock" | "moved" | "felled">>;
+export type ForceLiteral = Pick<ForceResultParams, "tiles" | "heights" | "removed" | "source" | "lake" | "replaces"> & Partial<Pick<ForceResultParams, "rock" | "moved" | "felled" | "sources">>;
 
 /** A force's result, `forceResult` or the older `carve` (their params carry tiles, heights and the
  *  objects they took). */
@@ -95,6 +98,7 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
     heights: p.heights,
     removed: p.removed,
     ...(p.source ? { source: p.source } : {}),
+    ...(p.sources?.length ? { sources: p.sources } : {}),
     ...(p.lake ? { lake: p.lake } : {}),
     ...(p.replaces !== undefined ? { replaces: p.replaces } : {}),
   };
@@ -194,6 +198,14 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
   for (const f of p.felled ?? []) if (!(Number.isFinite(f.dx) && Number.isFinite(f.dy) && Math.abs(f.dx) <= 1.5 && Math.abs(f.dy) <= 1.5)) return ["a felled tree lies along a direction of length 1 at most"];
+  if (p.sources !== undefined) {
+    if (p.verb !== "carve" || !p.source) return ["only a carve that keeps its river leaves a row of sources"];
+    if (!Array.isArray(p.sources) || p.sources.length > 15) return ["a carve's row has at most 16 sources"];
+    for (const s of p.sources) {
+      if (!inMap(s.x, s.y)) return ["the carve's source is off the map"];
+      if (!(s.strength > 0 && s.strength <= 8)) return ["a carve's source gives 0 to 8 water a second"];
+    }
+  }
   if (p.source) {
     if (p.verb !== "carve") return ["only a carve leaves a source"];
     if (!inMap(p.source.x, p.source.y)) return ["the carve's source is off the map"];

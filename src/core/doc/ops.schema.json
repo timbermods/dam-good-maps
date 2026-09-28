@@ -146,6 +146,16 @@
           "required": ["id", "x", "y", "strength"],
           "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
         },
+        "sources": {
+          "type": "array",
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "x", "y", "strength"],
+            "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
+          }
+        },
         "lake": {
           "description": "The water its sealed oxbow lake keeps (D216): the basin's tiles (ascending), each tile's floor, and the depth and contamination of the water that stood there before its mouths closed. The map's water settles from it.",
           "type": "object",
@@ -234,6 +244,16 @@
           "additionalProperties": false,
           "required": ["id", "x", "y", "strength"],
           "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "x", "y", "strength"],
+            "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
+          }
         },
         "lake": {
           "type": "object",

@@ -26,6 +26,8 @@
 import { toMapObject } from "../../features/build";
 import { PLACED } from "../../features/edits";
 import { waterSource, type EntitySpec } from "../../format/entities";
+import { guidFrom, hash32 } from "../../math/hash";
+import { placeSourceGroup } from "../../water/sourceGroups";
 import { waterModel } from "../../sim/model";
 import type { WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
@@ -264,8 +266,21 @@ export class CarveRun implements ForceRun {
       if (this.planned) this.barFloor = mouthFloors(this.planned, input.W, input.H, this.original);
     }
     if (!settings.dry) {
-      const e = waterSource({ id: this.sourceId, owner: PLACED, x, y, z: this.map.heights[intent.origin], strength: sourceStrength(settings.power, settings.width) });
-      this.map.entities = [...this.map.entities.filter((g) => g.id !== this.sourceId), e];
+      // Keep river's source (D314): a group, a row across the flow (fewer where cramped), the strength
+      // shared; the anchor at the origin keeps the carve's source id, the others' ids derive from it
+      const strength = sourceStrength(settings.power, settings.width);
+      const W = input.W;
+      const occupied = new Uint8Array(N);
+      for (const e of input.entities) for (const i of entityTiles(W, input.H, e)) occupied[i] = 1;
+      const g = placeSourceGroup({ kind: "water", x, y, strength, seed: hash32(this.seed, intent.origin), flow: [this.head.dx, this.head.dy] }, { W, H: input.H, heights: input.heights, occupied });
+      const anchor = g.sources.find((s) => s.x === x && s.y === y);
+      const row = anchor && !g.refused ? g.sources : [{ x, y, z: input.heights[intent.origin], strength, tiles: [intent.origin] }];
+      this.group = row
+        .map((s) => ({ id: s.x === x && s.y === y ? this.sourceId : guidFrom(this.sourceId, "carve-source", s.y * W + s.x), tile: s.y * W + s.x, strength: s.strength }))
+        .sort((a, b) => (a.id === this.sourceId ? -1 : b.id === this.sourceId ? 1 : 0));
+      const ids = new Set(this.group.map((s) => s.id));
+      const placed = this.group.map((s) => waterSource({ id: s.id, owner: PLACED, x: s.tile % W, y: Math.floor(s.tile / W), z: this.map.heights[s.tile], strength: s.strength }));
+      this.map.entities = [...this.map.entities.filter((e) => !ids.has(e.id)), ...placed];
     }
   }
 
@@ -279,8 +294,11 @@ export class CarveRun implements ForceRun {
     return this.metrics.steps;
   }
   get added(): readonly string[] {
-    return this.settings.dry ? [] : [this.sourceId];
+    return this.group.map((s) => s.id);
   }
+
+  /** Keep river's source group (D314): the anchor at the origin first, its tile, its share. */
+  group: { id: string; tile: number; strength: number }[] = [];
   /** The game's water on the ground as it stands, without the preview's muddy ribbon: the editor's
    *  water carries on from it when the carve is kept (not part of the prototype's run). */
   liveWater(): WarmState {
@@ -622,8 +640,12 @@ export class CarveRun implements ForceRun {
       const W = this.map.W;
       const H = this.map.H;
       this.map.entities = this.map.entities
-        .filter((e) => e.template === "StartingLocation" || e.id === this.sourceId || e.id === this.unleashed || !entityTiles(W, H, e).some((i) => hit.has(i)))
-        .map((e) => (e.id === this.sourceId ? { ...e, z: this.map.heights[this.intent.origin] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e));
+        .filter((e) => e.template === "StartingLocation" || this.group.some((s) => s.id === e.id) || e.id === this.unleashed || !entityTiles(W, H, e).some((i) => hit.has(i)))
+        .map((e) => {
+          // (its sources follow the ground cut under them, D314)
+          const own = this.group.find((s) => s.id === e.id);
+          return own ? { ...e, z: this.map.heights[own.tile] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e;
+        });
     }
     for (const i of changed) this.sim.F[i] = this.map.heights[i];
     this.sim.run(2);

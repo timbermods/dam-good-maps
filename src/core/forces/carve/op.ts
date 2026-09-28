@@ -36,6 +36,8 @@ export interface CarveParams {
   removed: string[];
   /** Keep river: the water source it leaves at the origin (its strength follows the Width). */
   source?: { id: string; x: number; y: number; strength: number };
+  /** Since D314: the rest of its source group (op.ts `ForceResultParams.sources`). */
+  sources?: { id: string; x: number; y: number; strength: number }[];
   /** The water its sealed oxbow lake keeps (its tiles ascending, their floors, depths and
    *  contamination then). */
   lake?: RetainedWater;

@@ -62,7 +62,9 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     tiles: out.tiles,
     heights: out.heights,
     removed: out.removed,
-    ...(src ? { source: { id: src.id, x: src.x, y: src.y, strength: sourceStrength(set.power, set.width) } } : {}),
+    // its source, and since D314 the rest of its row (each its share)
+    ...(src ? { source: { id: src.id, x: src.x, y: src.y, strength: run.group[0]?.id === src.id ? run.group[0].strength : sourceStrength(set.power, set.width) } } : {}),
+    ...(src && run.group.length > 1 ? { sources: run.group.slice(1).map((s) => ({ id: s.id, x: s.tile % before.W, y: Math.floor(s.tile / before.W), strength: s.strength })) } : {}),
     ...(lake ? { lake } : {}),
     ...(rec.replaces !== undefined ? { replaces: rec.replaces } : {}),
   };
