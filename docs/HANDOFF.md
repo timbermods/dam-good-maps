@@ -57,7 +57,13 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    section of `docs/progress/m9b.md` has the ten tests, their seeds and the commands. **Next:** merge `origin/dev` (M9a,
    0.7.0, released), re-seed the six seed-bound tests, re-pin the 4242 sha, rerun `npx vitest run --project quick
    --maxWorkers=4`; then samples under D308 and the release candidate: full batches, one pooled probe batch (3D maps, Erode, a Real places sample, M9b maps), then the review set for
-   Kyler. **Held for Kyler:** judged by his eye (D252, D273).
+   Kyler. **Held for Kyler:** judged by his eye (D252, D273). From Kyler's feedback
+   (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where the time goes at 128² and
+   256², fewer failed candidates, the rest in parallel, land first and water filling in, targets set with Kyler from
+   the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of thumbnails with
+   More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the editor"; **24**,
+   trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its display in
+   "The page is the editor" (and in today's editor meanwhile if cheap).
 4. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
@@ -77,9 +83,14 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
 7. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
    (terrain3d-20260927 probe). **Next:** the wiring, after the forces and M9b merge into `dev` (D280).
 8. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
-   D237), Kyler's editor UI audit and the design pass (D236), the four terrain-above-terrain steps (D279–D281), the
-   Weather view (D285), housekeeping (D283 (3); includes the three stale capture tools and the held Dependabot majors
-   #24, #25).
+   D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
+   generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision
+   in the planning chat and approved the written UI brief that comes from it; first, prepare a short document in
+   `docs/` of the open design questions and the known constraints (what the page must hold, the decisions recorded
+   about it, what the forces sitting and the feedback items changed) and tell Kyler when it's ready. It also draws
+   item 22's strip and item 24's number.**, Kyler's editor UI audit and the design pass (D236), the four
+   terrain-above-terrain steps (D279–D281), the Weather view (D285), housekeeping (D283 (3); includes the three stale
+   capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
 number on `dev` is **#94**. The next decision is **D316**.

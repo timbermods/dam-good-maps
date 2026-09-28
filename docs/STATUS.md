@@ -43,6 +43,12 @@ decisions since the restart (D252–D315) are recorded below and in the living d
      candidate checks the water against the game itself.
    - **#134 follows D290:** on a narrow river mouth, the editor's badwater toggle moves the badwater group along the channel to
      the nearest spot where its pool fits, rather than refusing.
+   - **From Kyler's feedback** (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where the
+     time goes at 128² and 256², fewer failed candidates, the rest in parallel, land first and water filling in, targets set
+     with Kyler from the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of
+     thumbnails with More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the
+     editor"; **24**, trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its
+     display in "The page is the editor" (and in today's editor meanwhile if cheap).
 5. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
    conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group, badwater grouped. 37 of 136
    places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump
@@ -68,6 +74,12 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    longer run against today's interface and are on the housekeeping list. It goes on the preview after the forces' release.
 9. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
    (M9b, above). Everything else is answered.
+10. **"The page is the editor" (feedback item 23):** it follows the forces' release without delay, as one window for the
+    generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision in
+    the planning chat and approved the written UI brief that comes from it; first, prepare a short document in `docs/` of
+    the open design questions and the known constraints (what the page must hold, the decisions recorded about it, what
+    the forces sitting and the feedback items changed) and tell Kyler when it's ready. It also draws item 22's strip and
+    item 24's number.
 
 ### For Kyler: plan conflicts
 
