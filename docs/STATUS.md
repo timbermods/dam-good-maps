@@ -283,7 +283,7 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 | Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
 | The High look and the water shades (D284, D304, D305, D310) | `feature/high-look` (`-high`, #75), b62188ba | `build`, Opus 5.5 high | held: your shades pick (§1 item 5) and your look |
 | Drought and Badtide, day by day | `feature/weather-days` (`-weather`, #73), 5bb13406 | `build`, then `build-light` | held for its own sitting |
-| The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), 2277dec6 | `build` | held until you've tried it |
+| The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), cddf2d9f | `build` | round 2 pushed 2026-09-28 (buildable shelters, dry washes, fast gestures); held until you've tried it |
 | 3D foundations: new modules | `feature/terrain3d-a` (`-3d`, #71), 24b88b9b | `build` | verified in the game; the wiring waits for the forces and M9b on `dev` |
 | Orchestrating, merging, releasing, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
 

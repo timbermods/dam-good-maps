@@ -146,7 +146,7 @@ clean and matched origin at the pause.
 | The High look (with D310's shades) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | b62188ba | held for Kyler (the shades choice, his look) |
 | Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
-| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | 2277dec6 | held until Kyler has tried it (D281) |
+| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | cddf2d9f | round 2 pushed 2026-09-28 (buildable shelters, dry washes, fast gestures); held until Kyler has tried it (D281) |
 | The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aaa | done; already in `feature/forces` |
 | Kyler's review worktree | `review/m9a-set` | — | `DamGoodMaps-review` | 6575ebc9 | the M9a review set; not written to by agents |
 
