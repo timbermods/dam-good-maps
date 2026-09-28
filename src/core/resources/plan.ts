@@ -24,6 +24,8 @@ import { stream } from "../math/rng";
 import { soilContamination as soilOf } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture as moistureOf } from "../sim/moisture";
+import { gameSoil, type SoilRules } from "../sim/soil";
+import type { WaterRules } from "../sim/water";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
 import { badwaterBudget, pickBadwaterSprings, springEntities, type BadwaterSetting, type BadwaterSpring } from "./badwater";
@@ -57,6 +59,9 @@ export interface MapResourcesInput {
    *  placed; any other asks for at least one) and the difficulty's badwater distance, no badwater
    *  within this many tiles of the start (`DIFFICULTY_RULES[d].badwaterWithin`: 30 / 15 / 8). */
   badwater: { setting: BadwaterSetting; within: number };
+  /** The water's and the soil's rules the badwater resettle uses (sim/water.ts, sim/soil.ts): the
+   *  defaults when absent. Real places use the game's (D293, D298, D308). */
+  rules?: { water?: WaterRules; soil?: SoilRules };
 }
 
 export interface MapResources {
@@ -113,10 +118,18 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
     springs = pickBadwaterSprings({ W, H, heights: h, water: inp.water, taken, start, within: inp.badwater.within, budget, seed: inp.seed, refused });
     if (!springs.length) break;
     const objects = [...inp.entities, ...springEntities(springs, W, owner)].map(mapObject);
-    const settle = canonicalSettle(waterModel(W, H, h, objects));
-    const barrier = moistureBarrier(W, H, objects);
-    const moist = moistureOf(h, settle.depth, settle.contamination, W, H, barrier);
-    const soil = soilOf(h, settle.depth, settle.contamination, W, H, barrier);
+    const settle = canonicalSettle(waterModel(W, H, h, objects), inp.rules?.water ? { rules: inp.rules.water } : {});
+    let moist: Float64Array;
+    let soil: Float64Array;
+    if (inp.rules?.soil) {
+      const s = gameSoil(W, H, h, settle.depth, settle.contamination, objects, settle.sat, inp.rules.soil);
+      moist = s.moisture;
+      soil = s.contamination;
+    } else {
+      const barrier = moistureBarrier(W, H, objects);
+      moist = moistureOf(h, settle.depth, settle.contamination, W, H, barrier);
+      soil = soilOf(h, settle.depth, settle.contamination, W, H, barrier);
+    }
     // the start's badwater distance, as `start.badwater` measures it
     let near = Infinity;
     for (let i = 0; i < N; i++) if ((soil[i] > 0 || (settle.depth[i] > WET && settle.contamination[i] >= BAD)) && sd[i] < near) near = sd[i];

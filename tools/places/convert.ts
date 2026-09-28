@@ -43,9 +43,9 @@ import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, pumpShoreDistance, reachAt, WALK_LI
 import { MinHeap } from "../../src/core/math/grid";
 import { waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { density } from "../../src/core/gen/calibrated";
-import { encodeHeights, buildPlace, logFloorProblem, placeNotes, placeProblems, type PlaceData } from "../../src/core/places/place";
-import { moistureBarrier, waterModel, type MapObject } from "../../src/core/sim/model";
-import { moisture } from "../../src/core/sim/moisture";
+import { encodeHeights, buildPlace, logFloorProblem, PLACE_RULES, placeNotes, placeProblems, type PlaceData } from "../../src/core/places/place";
+import { gameSoil } from "../../src/core/sim/soil";
+import { waterModel, type MapObject } from "../../src/core/sim/model";
 import { canonicalSettle, prefill, spillLevels, type CanonicalWater } from "../../src/core/sim/prefill";
 import { DIFFICULTY_RULES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
@@ -643,7 +643,7 @@ function starts(h: Uint8Array, W: number, H: number, water: Pick<CanonicalWater,
 export function coverOf(r: Converted): number {
   const h = Uint8Array.from(r.heights!, (c) => parseInt(c, 36));
   const model = waterModel(r.size, r.size, h, sourceEntities(r.sources!, h, r.size).map(mapObject));
-  return waterCover(canonicalSettle(model).depth);
+  return waterCover(canonicalSettle(model, { rules: PLACE_RULES.water }).depth);
 }
 
 /** Convert one survey row: see the file's header. `meta` is the place's own (its id, title and the
@@ -842,7 +842,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
   const dropped: NonNullable<Converted["dropped"]> = { inFlow: 0, noOutflow: 0, offWater: off };
   let sources = strengths(groups, size, flow);
   let model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
-  let water = canonicalSettle(model);
+  let water = canonicalSettle(model, { rules: PLACE_RULES.water });
   for (let round = 0; round < 16 && groups.length; round++) {
     const objects = sourceEntities(sources, h, size).map(mapObject);
     const inFlow = new Set(sourcesInFlow(model, objects, water.depth).inFlow);
@@ -895,7 +895,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
     groups = riversOf(keep);
     sources = strengths(groups, size, flow);
     model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
-    water = canonicalSettle(model);
+    water = canonicalSettle(model, { rules: PLACE_RULES.water });
   }
   // a lake the land cannot hold (the elevation data's lake surface is a flat that is no basin, and
   // the spring's water only makes a thin disc on it) loses its spring: less than half the real lake
@@ -906,7 +906,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
     groups = riversOf(groups.filter((g) => !unheld.includes(g)));
     sources = strengths(groups, size, flow);
     model = waterModel(size, size, h, sourceEntities(sources, h, size).map(mapObject));
-    water = canonicalSettle(model);
+    water = canonicalSettle(model, { rules: PLACE_RULES.water });
   }
   const cover = waterCover(water.depth);
   // water that has not settled in 4 days is kept as it is (D245 (6): the file holds the water the
@@ -915,7 +915,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
 
   // 3. the start: the best positions, each built and checked in full
   const objects = sourceEntities(sources, h, size).map(mapObject);
-  const M = moisture(h, water.depth, water.contamination, size, size, moistureBarrier(size, size, objects));
+  const M = gameSoil(size, size, h, water.depth, water.contamination, objects, water.sat, PLACE_RULES.soil).moisture;
   const first = starts(h, size, size, water, M).slice(0, TRIES);
   if (!first.length) return fail("start: no flat dry 3×3 with a dry ring on this land", base);
   // none of the first passes every check: the start moves to the water (D214), the shore-first
@@ -934,7 +934,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
       count++;
       const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: base.heights, sources, start };
       const built = buildPlace(place, water, { badwater: false });
-      const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+      const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
       const { blocking, shortOf } = placeProblems(v.report.checks);
       // the starting-logs floor (D224, D227), an absolute the validators do not carry yet
       if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
@@ -978,7 +978,7 @@ function attempt(row: string, meta: PlaceMeta, raw: Float32Array, metres: Float3
 function withBadwater(r: Converted, meta: PlaceMeta, water: CanonicalWater): Converted | null {
   const place: PlaceData = { format: 2, ...meta, W: r.size, H: r.size, heights: r.heights!, sources: r.sources!, start: r.start! };
   const built = buildPlace(place, water);
-  const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+  const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
   const { blocking, shortOf } = placeProblems(v.report.checks);
   if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
   if (blocking.length || (shortOf.includes("start.water") && !r.shortOf!.includes("start.water"))) return null;
@@ -1050,7 +1050,7 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
       // the settle's starting state first (quick): a start with a pump's water within its walk
       const first = prefill(model);
       const shoreOf = (w: Pick<CanonicalWater, "depth" | "contamination">, limit: number) => {
-        const M = moisture(h, w.depth, w.contamination, size, size, moistureBarrier(size, size, objects));
+        const M = gameSoil(size, size, h, w.depth, w.contamination, objects, undefined, PLACE_RULES.soil).moisture;
         return starts(h, size, size, w, M, true)
           .slice(0, limit)
           .filter(([x, y]) => pumpShoreDistance(walkDistance(h, size, size, null, [], { x: x + 1, y: y + 1 }, 24), h, size, size, w.depth, w.contamination).distance <= rules.waterWithin);
@@ -1060,7 +1060,7 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
         dbg("no shore start", spring);
         continue;
       }
-      const settled = canonicalSettle(model);
+      const settled = canonicalSettle(model, { rules: PLACE_RULES.water });
       if (steady && !settled.settled) continue;
       // never inside another source's water (D171), nor any other inside the spring's
       if (sourcesInFlow(model, objects, settled.depth).inFlow.length) continue;
@@ -1069,7 +1069,7 @@ function springNear(r: Converted, meta: PlaceMeta, raw: Float32Array, size: numb
       for (const start of [...own, ...shoreOf(settled, SPRING_START_TRIES).filter(([x, y]) => x !== sx || y !== sy)]) {
         const place: PlaceData = { format: 2, ...meta, W: size, H: size, heights: r.heights!, sources: all, start };
         const built = buildPlace(place, settled, { badwater: false });
-        const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+        const v = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
         const { blocking, shortOf } = placeProblems(v.report.checks);
         if (logFloorProblem(built.logs)) blocking.push("start.log_floor");
         if (blocking.length || shortOf.includes("start.water")) {

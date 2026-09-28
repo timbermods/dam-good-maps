@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { readTimber } from "../src/core/format/timber";
-import { decodePlaceFile, placeProblems, placeSample, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { decodePlaceFile, PLACE_RULES, placeProblems, placeSample, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { validateMap } from "../src/core/validate/checks";
 
 interface Job {
@@ -44,7 +44,7 @@ function build(job: Job): Result {
   const t = performance.now();
   try {
     const r = placeTimber(decodePlaceFile(new Uint8Array(readFileSync(job.data))));
-    const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
+    const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
     const failing = placeProblems(v.report.checks).blocking.map((id) => `generate profile: ${id}`);
     return { id: job.id, ms: performance.now() - t, bytes: r.bytes, failing };
   } catch (e) {

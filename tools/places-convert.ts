@@ -51,7 +51,7 @@ import { FAMILIES, slug, title } from "./places/titles";
 
 const SURVEY = "investigation/landscapes";
 /** Bump when a conversion would come out differently, so the kept ones are redone. */
-const VERSION = 9;
+const VERSION = 10;
 const CACHE = `${SURVEY}/local/real-places-2/v${VERSION}`;
 const SELECTION = "tools/places/selection.json";
 const OUT = "public/real-places/data";

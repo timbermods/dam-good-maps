@@ -22,7 +22,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";
 import { writeTimber } from "../src/core/format/timber";
-import { buildPlace, decodePlaceFile, logFloorProblem, placeFileName, placeNotes, placeProblems, springNotes, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
+import { buildPlace, decodePlaceFile, logFloorProblem, PLACE_RULES, placeFileName, placeNotes, placeProblems, springNotes, validatePlace, type PlaceIndex, type PlaceIndexEntry } from "../src/core/places/place";
 import { placeView, type PlaceView } from "../src/core/places/view";
 import { validateMap } from "../src/core/validate/checks";
 import { defaultThreads, runPool, serve } from "./places/pool";
@@ -52,7 +52,7 @@ serve<string, Built>(
     try {
       const built = buildPlace(p);
       const v = validatePlace(built);
-      const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+      const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
       // D245: the export profile must pass (the file loads as the editor shows it), and in the
       // generate profile only the playability checks may fall short: they are information, and the
       // three that would sink a player become the place's notes

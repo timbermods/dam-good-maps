@@ -23,9 +23,8 @@ import { hash32 } from "../math/hash";
 import { planMapResources, type MapResources } from "../resources/plan";
 import { startCentreOf } from "../resources/measure";
 import { thumbnailJpeg } from "../render/shade";
-import { soilContamination } from "../sim/contamination";
-import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { moisture } from "../sim/moisture";
+import { waterModel, type MapObject } from "../sim/model";
+import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import { DIFFICULTY_RULES, defaultSettings } from "../spec/mapspec";
@@ -93,6 +92,11 @@ export function placeProblems(checks: readonly CheckResult[]): { blocking: strin
   const failing = checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate);
   return { blocking: failing.filter((c) => c.class !== "playability").map((c) => c.id), shortOf: failing.filter((c) => c.class === "playability").map((c) => c.id) };
 }
+
+/** The water's and the soil's rules real places are settled, planted and checked under: the game's
+ *  own (Kyler, D293, D297, D298, D303, D308), while generated maps stay on the port's until M9b
+ *  moves them. */
+export const PLACE_RULES = { water: "game", soil: "game" } as const;
 
 /** A place's note (D245): only what would sink a player who goes straight to the game, in a few
  *  plain words. The everyday advisories (drought, reservoir, clean water in a badtide) get none. */
@@ -300,10 +304,10 @@ export function placeGround(p: PlaceData): { heights: Uint8Array; entities: Enti
 export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwater?: boolean } = {}): BuiltPlace {
   const { W, H } = p;
   const { heights, entities, objects, model } = placeGround(p);
-  let settle = settled ?? canonicalSettle(model);
-  const barrier = moistureBarrier(W, H, objects);
-  let moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
-  let soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
+  let settle = settled ?? canonicalSettle(model, { rules: PLACE_RULES.water });
+  const first = gameSoil(W, H, heights, settle.depth, settle.contamination, objects, settle.sat, PLACE_RULES.soil);
+  let moist = first.moisture;
+  let soil = first.contamination;
   // the resource baseline, as the generator would give a map of this size designed for Normal
   // (resources/plan.ts): starting wood and berries near the start with the generator's margins;
   // the starting-logs floor (D224, D227) counts farther out, and the planner plants toward it too
@@ -326,6 +330,7 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwa
     // the start, as the generator places it
     // (`badwater: false`: none, for the conversion's quick look at a start, tools/places/convert.ts)
     badwater: { setting: opts.badwater === false ? "off" : "normal", within: rules.badwaterWithin },
+    rules: PLACE_RULES,
     owner: `real-place:${p.id}`,
   });
   // the water settled again with the badwater, and the soil it leaves: what the file holds, and
@@ -380,7 +385,7 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwa
 /** Validate a built place as the editor validates a file it exports (the export profile), on its
  *  own settled water. */
 export function validatePlace(b: BuiltPlace): Validation {
-  return validateMap(b.file, { profile: "export", designedFor: "normal", features: [], water: { model: b.model, settled: b.settle } });
+  return validateMap(b.file, { profile: "export", designedFor: "normal", features: [], water: { model: b.model, settled: b.settle }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
 }
 
 /** The place's .timber: built, validated and written. Throws when a load check fails (the file

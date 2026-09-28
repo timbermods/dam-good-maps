@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { CREDITS_URL, fileNotices, PROVIDERS, RIVERS_LICENCE_URL, RIVERS_NOTICE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
-import { decodeHeights, PLACE_NOTES, SPRING_NOTES, springNotes, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
+import { decodeHeights, PLACE_NOTES, PLACE_RULES, SPRING_NOTES, springNotes, placeDescription, placeNotes, placeProblems, placeSample, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { checkPlaces, INDEX, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_MINE_SITES, PLACES_SOURCES_IN_FLOW, placeData, sha256 } from "./placesCommon";
@@ -362,7 +362,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       writeFileSync(join(dir, `${e.id}.damgoodmaps.json`), gzipSync(strToU8(JSON.stringify({ spec: null, features: [] })), { mtime: 0 }));
       paths.push(p);
     }
-    const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
+    const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", "--water-rules", "game", "--soil-rules", "game", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
     expect(r.error).toBeUndefined();
     const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string }[] }>();
     for (const line of (r.stdout ?? "").split(/\r?\n/)) if (line.startsWith("{")) {
@@ -376,7 +376,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       const rep = reports.get(paths[k].split(sep).join("/"));
       expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
       const b = built(e.id);
-      const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
+      const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
       const cls = new Map(v.report.checks.map((c) => [c.id, c.class]));
       const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : [])];
       // both fail nothing but the known faults and, since D245, playability checks (information)
@@ -402,7 +402,7 @@ describe("kept on their own land (Kyler, 2026-09-26, D245)", () => {
       const r = built(e!.id);
       // it loads as the editor shows it: the export profile passes
       expect(r.validation.report.passed, e!.id).toBe(true);
-      const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
+      const v = validateMap(readTimber(r.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
       const { blocking, shortOf } = placeProblems(v.report.checks);
       // only playability checks fall short: information, never a reason to drop the place
       expect(blocking, e!.id).toEqual([]);

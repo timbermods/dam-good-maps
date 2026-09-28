@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
-import { decodeHeights, decodePlaceFile, LOG_FLOOR, placeNotes, placeProblems, placeTimber, springNotes, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodeHeights, decodePlaceFile, LOG_FLOOR, PLACE_RULES, placeNotes, placeProblems, placeTimber, springNotes, startLogs, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { mapObjects } from "../../src/core/sim/model";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -74,7 +74,7 @@ export function checkPlaces(title: string, places: readonly PlaceIndexEntry[], b
       expect(r.fileName).toBe(`${entry.name}.timber`);
       // the written file, read back: every check of the strictest profile, on its own settle
       const file = readTimber(r.bytes);
-      const v = validateMap(file, { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });
+      const v = validateMap(file, { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! }, waterRules: PLACE_RULES.water, soilRules: PLACE_RULES.soil });
       const f = placeFailures(v.report.checks);
       // the absolutes block (D245): every check that is not about playability
       const { blocking } = placeProblems(v.report.checks);
