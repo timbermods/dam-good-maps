@@ -136,7 +136,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // a sea keeps a broad floor with steep shores (thin sheets of water settle slowly); a valley
         // lake deepens toward its middle. (M9b: a sea keeps a rim of land along the map's edges,
         // since the game drains every edge tile: one that ran to an edge spilled out there)
-        const keepRim = sea ? smoothstep(Math.min(x, W - 1 - x, y, H - 1 - y) / (0.08 * Math.min(W, H))) : 1;
+        // (the rim's inner line wanders, so the sea's shelf never runs parallel to the edges)
+        const rimW = 0.1 * Math.min(W, H);
+        const keepRim = sea ? smoothstep((Math.min(x, W - 1 - x, y, H - 1 - y) - 0.3 * rimW + rimW * 1.8 * fbm(s + 17, x, y, Math.max(12, rimW * 2.2), 3)) / rimW) : 1;
         U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });

@@ -140,14 +140,34 @@ function windOnce(tiles: readonly number[], W: number, H: number, allowed: (i: n
     const ty = sy[k1] - sy[k0];
     const tl = Math.sqrt(tx * tx + ty * ty) || 1;
     const off = amp * sinDet((PI * k) / (n - 1)) * sinDet((TWO_PI * k) / wave + phase);
-    const x = k === n - 1 ? px[k] : Math.round(sx[k] - (ty / tl) * off);
-    const y = k === n - 1 ? py[k] : Math.round(sy[k] + (tx / tl) * off);
-    while (cx !== x || cy !== y) {
-      if (Math.abs(x - cx) >= Math.abs(y - cy)) cx += Math.sign(x - cx);
-      else cy += Math.sign(y - cy);
-      if (cx < 0 || cy < 0 || cx >= W || cy >= H) return null;
-      const i = cy * W + cx;
-      if (!allowed(i)) return null;
+    // (M9b: where the wave would cross ground the ditch keeps off, it swings less there, down to
+    // the route itself, rather than the whole ditch running straight)
+    let walked: number[] | null = null;
+    for (const f of k === n - 1 ? [0] : [1, 0.5, 0]) {
+      const x = k === n - 1 ? px[k] : f === 0 ? px[k] : Math.round(sx[k] - (ty / tl) * off * f);
+      const y = k === n - 1 ? py[k] : f === 0 ? py[k] : Math.round(sy[k] + (tx / tl) * off * f);
+      const steps: number[] = [];
+      let wx = cx;
+      let wy = cy;
+      let ok = true;
+      while (wx !== x || wy !== y) {
+        if (Math.abs(x - wx) >= Math.abs(y - wy)) wx += Math.sign(x - wx);
+        else wy += Math.sign(y - wy);
+        if (wx < 0 || wy < 0 || wx >= W || wy >= H || !allowed(wy * W + wx)) {
+          ok = false;
+          break;
+        }
+        steps.push(wy * W + wx);
+      }
+      if (ok) {
+        walked = steps;
+        cx = x;
+        cy = y;
+        break;
+      }
+    }
+    if (!walked) return null;
+    for (const i of walked) {
       // a loop is cut back to where it began
       const at = out.indexOf(i);
       if (at >= 0) out.length = at + 1;
