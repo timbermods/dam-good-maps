@@ -1,36 +1,50 @@
 # Real places
 
-> **Where a fresh session resumes (2026-09-27, D271; branch `feature/real-places-2`, PR #35 into
-> `dev`).** D271 is built, committed and pushed (last commit on the branch; CI on #35): Kyler's 15
-> drops, and the water follows the real place (ESA WorldCover's permanent water, OpenStreetMap's
-> permanent rivers where WorldCover misses them; sources only; "The water follows the real place"
-> below, defaults #94). 136 places. The new review sheet (`docs/sheets/real-places-review/`, 6
-> pages) and a draft comment for #35 are handed back to the session that launched this one, which
-> posts them and marks the D245 sheet out of date. Nothing is running.
+> **Where a fresh session resumes (2026-09-27 evening; PAUSED by Kyler; branch
+> `feature/real-places-2`, PR #35 into `dev`).** Kyler paused the one Real places rebuild (D300 +
+> D306 + D200 badwater + D302 start water, under the game's water and soil rules): the source
+> placement it uses may change. **Do not restart it until Kyler says so.** Nothing is running.
 >
-> - **Left:** (1) Kyler's answer on the new sheet: the 9 held places (2, 12, 41, 58, 60, 71, 90,
->   101, 103 on the D245 sheet), the stripes (42, 50, 128, 131: the conversion's 16 levels on an
->   even slope; a fix changes the land) and 29; #94's defaults; whether real rivers and lakes on
->   flats get a bed a level down (a land change). (2) Badwater on every map (D200, D213), once M9a is
->   on `dev` and Kyler has answered the new sheet: in `buildPlace` (src/core/places/place.ts) pass
->   `badwater: { setting: "normal", within: DIFFICULTY_RULES.normal.badwaterWithin }` to
->   `planMapResources` and write its resettled water (`resources.water`) into the file before the
->   floor's groves are counted; take #54's changes to places.test.ts and placesCommon.ts; raise
->   `VERSION` in tools/places-convert.ts to 6; then the commands below. (3) Kyler's answers to #80,
->   #84 and #82's dead floor trees.
-> - **Commands** (from the worktree, at most 4 threads while M9a runs; the survey's patches must be
->   in `investigation/landscapes/.cache/`: `npm ci --ignore-scripts --cache ./npm-cache` and `npm
->   run sample` there, then `git checkout` the two data files it rewrites; the observed water too:
->   `npx tsx tools/places/worldcover.ts` and `npx tsx tools/places/osm.ts`, a few minutes each):
->   `npx tsx tools/places-convert.ts --threads 4`; `npx tsx tools/real-places.ts --threads 4`;
->   `npx tsx tools/places-thumbs.ts --all --port 4832 --threads 4` (the GPU, about 30 minutes);
->   `npx tsx tools/real-places.ts --check --threads 4`; `python tools/places-sheet.py
+> - **Committed and pushed:** D300 (tilt out, beds lowered, the water floor), D306 (256² framing,
+>   heights around the signature), badwater in `buildPlace`, the merges of `dev` (M9a, 1902de4)
+>   and M9b's rules set (1c9d1340, taken whole), real places settled, planted and checked under the
+>   game's rules (`PLACE_RULES` in src/core/places/place.ts; generated maps stay on the port's),
+>   the tests to D300/D306, and the stripes picture (`docs/sheets/real-places-stripes/`: the land
+>   only, which the water rules do not change).
+> - **Not committed (kept local, not safe to ship):** `tools/places/selection.json` and
+>   `public/real-places/` hold the dry run under the OLD water rules (conversion `VERSION` 9, all
+>   136 at 256²; numbers under "At 256²" below). The committed ones are still the D271 gallery.
+>   Either selection works to resume (the conversion keys each place by its row and its
+>   signature's size); after the rebuild both are rewritten.
+> - **Where it stopped:** conversion `VERSION` 10 (the game's rules), 3 threads, 42 of 136 places
+>   converted and cached, all passing the absolutes; the 3 places in progress when it stopped were
+>   not cached and will be redone. Converted: the first 42 in `selection.json`'s order (Thousand
+>   Islands, Badlands National Park, Toklat River, Crater Lake, Colca Canyon, Twelve Apostles, Mount
+>   Mayon, Rhine and Moselle, Lena Delta, Drakensberg Amphitheatre, Kaieteur Falls, Death Valley,
+>   Geirangerfjord, Torres del Paine, Tiger Leaping Gorge, Phong Nha, Lake District, Uvac River,
+>   Mount Roraima, Ethiopian Highlands, Lofoten, Drumheller, Tagliamento River, Aso Caldera, Blyde
+>   River Canyon, Cliffs of Moher, Paricutin, Alaknanda and Bhagirathi, Danube Delta, Mahabaleshwar,
+>   Niagara Falls, Roaring River Fan, Aysen Fjord, Glencoe, Verdon Gorge, Chocolate Hills, Lake
+>   Saimaa, Kinabatangan River, Bardenas Reales, Waimakariri River, Grand Canyon, Na Pali Coast).
+>   Not yet: the other 94, from
+>   Ennedi Plateau on. So far: "No water a pump can reach" 0, "The water keeps moving" 5, "Too
+>   little wood near the start" 2, 8 floor springs.
+> - **Cached (gitignored, D195):** the survey's patches (`investigation/landscapes/.cache/patches`,
+>   256² ones included), WorldCover and OpenStreetMap water for all 242 patches
+>   (`.cache/worldcover`, `.cache/osm`), and the conversions (`investigation/landscapes/local/
+>   real-places-2/v10/`, keyed `<row>-f<signature size>`).
+> - **To resume** (only when Kyler says so; if the source placement changes, raise `VERSION` in
+>   tools/places-convert.ts first, and the cache starts over): `npx tsx tools/places-convert.ts
+>   --threads 3` (finished places come from the cache; about 1 h for the rest); then `npx tsx
+>   tools/real-places.ts --threads 3`, `npx tsx tools/places-thumbs.ts --all --port 4832 --threads
+>   3`, `npx tsx tools/real-places.ts --check --threads 3`, `python tools/places-sheet.py
 >   docs/sheets/real-places.png "Real places, second round" --html
->   investigation/landscapes/local/places-sheet`; `python tools/places-review.py
->   docs/sheets/real-places-review --was <the commit Kyler reviewed> --marks <marks.json> --per-page
->   24`; then `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run
->   --project heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
->   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`.
+>   investigation/landscapes/local/places-sheet`, the stripes picture
+>   (investigation/landscapes/local/d300/stripes_ba.py), the settle times (…/settle-times.ts), then
+>   `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run --project
+>   heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
+>   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`. Then Kyler's check,
+>   and the release (`real-places-2-done`).
 
 **Built** on branch `feature/real-places` (PLAN §20 D136, ROADMAP "Real places"). It is released as
 `real-places-done`, right after `map-look-done`. No generated map changes: the generator stays
