@@ -27,12 +27,12 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
 
 1. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11, then 12), then 1, 2, 6, 8,
-   9, 14, 16, 17, 18 and 29 (every force fast, with a Watch toggle; also on Glaciate's branch) on `feature/forces`, and
-   last 19 (Spring, a new force) (`build`, Opus 5.5, high); 20 (Generate always makes a new map) and 25 (Carve's Canyon
-   depth and River depth named apart) on `feature/forces`
-   (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with the water
-   shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add each to
-   Kyler's checklist.
+   9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle) and 30 (a force changes things only when it reaches
+   them) on `feature/forces` (29 and 30 also on Glaciate's branch), and last 19 (Spring, a new force) (`build`, Opus
+   5.5, high); 20 (Generate always makes a new map) and 25 (Carve's Canyon depth and River depth named apart) on
+   `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with
+   the water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Add
+   each to Kyler's checklist.
 2. **The forces sitting on the preview** (the session, then `build`, Opus 5.5 high). Three branches feed it:
    - `feature/forces` (#77, `DamGoodMaps-forces`, c90e071b): D309 (details behind More), D312 (size ring, Carve's
      waypoints on the shared gesture piece `src/editor/waypoints.ts`, Erupt final in ~2 s) and Carve's own source as a

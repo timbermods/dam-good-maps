@@ -47,3 +47,9 @@ Kyler's feedback from testing the forces preview, recorded word for word for Tue
    - The choice is one toggle, Watch, in the view bar beside Sound: off means Fast. It's remembered with the player's other editor preferences, and applies to every force; it has nothing to do with the water's pace (D268).
    - If computing a force is itself slow at high Power or on 256², measure it and make it fast, rather than hiding it behind the animation. Report, for each force, the time from the gesture to the final land in Fast for its largest case at 128² and 256².
    On feature/forces and Glaciate's branch (build, Opus 5.5, high).
+30. A force changes things only when it reaches them: in Kyler's Glaciate recording, the moment he released the drag the lake in the middle of the map had already drained and its ground turned green, before the ice had even appeared; the glacier then travelled through land already emptied, and the water returned at the end. The result is being applied at the start and the animation played over it. The rule for every force that removes or moves things:
+   - Nothing in a force's path changes before the force reaches it.
+   - Trees, objects and sources go as the force passes over them: as the ice front or the carve's head travels, as the wear reaches a cliff, as the lava arrives. Craterize's impact changes everything at once, at the moment of impact. Under Quake, things ride with the ground as it moves.
+   - The water, including the water of swept sources, stays as it was until the land is final, then updates as for any edit; the glacier's meltwater river takes over at the end. In Watch (item 29), the water may drain in step with the force, only if that's cheap.
+   - The final result, and what's saved, are unchanged.
+   On feature/forces and Glaciate's branch (build, Opus 5.5, high).
