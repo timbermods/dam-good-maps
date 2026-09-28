@@ -1,7 +1,18 @@
 # M9a: terrain and water from processes
 
-> **The probe's second run is diagnosed and judged again with the probe fixed; waiting on the
-> orchestrator (2026-09-27).** The re-run 20260927-1443-batch on 0d9e473's maps passed 99 of 103
+> **Kyler's D302 is built, and every gating batch passes on it (2026-09-28).** The probe
+> re-run 20260927-1443-batch, judged as D302 asks (its model from the file's stored outflows, the start's
+> water as `start.water` counts it, wet tiles judged as D297 judges water), passes 101 of 103 checks;
+> the two left (Any 128² seed 1's side pool, Delta 128² seed 1's flats) go to M9b (see "Kyler's D302"
+> under Results). Tall maps' project files reopen (a bed step up to 22 levels, M9b's finding; 535 of
+> 535 accepted maps at Verticality 70–100, 8f38d22). A count found 12 starts whose only water was a
+> sealed puddle, so the rule is fixed before release (db9664e): a start's water is fed by a source or
+> lasts the drought, in both validators and the generator; the probe maps are unchanged by it; 31 of the
+> 85 real places now warn (a known fault for Real places 2). **Every gating batch on db9664e** is at 98%
+> final or better (Normal, all options and sizes; Hard 128²), every project file reopening byte for byte
+> (the table under "The start's water is never a sealed puddle"). **Left:** the release.
+>
+> *(Before D302:)* The re-run 20260927-1443-batch on 0d9e473's maps passed 99 of 103
 > checks, the water check on all 15 (see "The DGM Probe re-run 20260927-1443-batch" under Results).
 > The orchestrator's go fixed the probe, not the maps or the tolerances: its model starts from the
 > file's stored outflows, as the game does, and the start's water is the water `start.water` counts.
@@ -9,8 +20,7 @@
 > 128² seed 1's start water passes (a gap of 0.4%). What fails: Any 128² seed 1's post-drought
 > badwater pool (the map; the model agrees with the game), Delta 128² seed 1's flats after a drought,
 > and the 0.05 wet threshold on No badwater seed 6 and, newly, Islands 128² seed 1 (5.8%; 141 tiles
-> 0.048–0.051 deep). Nothing in the generator changed for it. Waiting on: Kyler's call on the pool,
-> on Delta's flats and on the wet-tile threshold.
+> 0.048–0.051 deep). Nothing in the generator changed for it.
 >
 > Kyler said yes to M9a on D252 (2)'s
 > review set (D294); its shortfalls go to M9b. Kyler's D252 (1) unfroze the generator: starts stop
@@ -734,6 +744,75 @@ out of git):
 535 of the 540 seeds gave a map, and every one reopens; 5 found none within the attempts (Any 256² 2 at
 70 and 1 at 100, Highlands and Canyon 128² 1 each at 100): information, these settings are outside the
 gated batches.
+
+### The start's water is never a sealed puddle (D302, built 2026-09-28)
+
+**The count** (`tools/start-water-fed.ts`, D302's condition for the release): over the batches'
+seeds and settings, regenerated on the generator before the fix, the accepted maps whose start meets
+`start.water` only through water no source feeds and that does not last the drought. Its definition,
+which the rule now uses exactly: the start's water is every clean tile a pump reaches (0.3 deep or
+more, under 5% badwater, its surface 0–2 levels below the shore) beside a shore tile the start walks
+to within the rule's walk (12 / 20 / 28), over the map's own ground and slopes; its bodies are the
+4-connected water over 0.001 deep those tiles are in (as `runningFlow` finds them); a body is fed
+when a running source (a WaterSource, BadwaterSource or seep of strength over 0) has a cell in it;
+it lasts the drought when, after `droughtStorage` for the rule's drought (9 days at Normal, 30 at
+Hard: the sources off, water above each basin's spill level gone, evaporation at the game's rate),
+one of its counted tiles is still one a pump reaches from a shore within the walk. A map counts when
+every counted tile is in a body neither fed nor lasting.
+
+| | Accepted maps counted | Only a sealed puddle | Nearest water a puddle, other water qualifying |
+|---|---|---|---|
+| Normal (256² Any, River Valley, Canyon, Highlands; 192² but Islands; the rest in part; no 96²) | 1,626 | 6 | 5 |
+| Hard 128², every option, seeds 1–100 | 700 | 6 | 4 |
+
+The count was stopped once the fix was built (the orchestrator's call: the answer was already "some").
+The worst: River Valley 128² seed 35 (four one-tile holes of 0.6–0.7 water, 13–17 tiles' walk, and no
+fed or lasting water within 64 tiles' walk), Canyon 128² seed 72 (two one-tile holes), Hard Delta 128²
+seed 48 (a 7-tile pond, 6.7 water, 2.4 tiles' walk, nothing else), Highlands 256² seed 50 (an unfed
+204-tile pond, 174 water, which the 9-day drought takes under 0.3 within reach), Hard Lake Basin 128²
+seed 100 (a 58-tile pond at 22 tiles' walk; real water at 28); the others Lake Basin 192² 99, Delta
+192² 15, Delta 256² 6, Hard Any 61 and 88, Hard Delta 98, Hard Islands 31.
+
+**The rule** (Kyler's D302, amending D153; PLAN §5.6 and §11.4): water `start.water` counts must be in
+a body fed by a running source or lasting the rule's drought, never a sealed puddle; the walk distances
+and the 0.3 depth are unchanged. `startWaterShore` (src/core/analysis/walk.ts) and the Python
+`start_water_shore` (prototype/analysis.py) agree; `water.storage_possible` reads the tile the rule
+counts in both. The check's message names a puddle it leaves out. The generator's start check after the
+pick uses the same rule, so a start whose water is only a sealed puddle is planned again ("start water
+a sealed puddle" in the batch reports): River Valley 128² seed 35 passes after 4 attempts, Hard Any
+seed 61 after 3, Hard Delta seed 48 after 2; Canyon 128² seed 1 is unchanged (its river is as near as
+the hole). Tests: `tests/unit/startWater.test.ts` (a sealed one-tile hole, a small sealed pond, a big
+unfed pond a Normal drought takes under 0.3 and a lake that lasts 9 days but not Hard's 30 are refused;
+the hole fed by a source, a lasting lake and the shallower lake at Normal are accepted; a hole beside
+the start and a fed river farther off count the river; the Python validator gives the same answers).
+
+**The probe maps:** none of the 15 changes bytes under the rule (each built on db9664e and compared
+with `20260927-1443-batch`), so the in-game results stand. **Real places:** the rule refuses 31 of the
+85 places (none before), every one for a sealed puddle; 22 of them reach no other water within 64 tiles'
+walk. `start.water` warns in the export profile, so the gallery works; the list is a known fault
+(`PLACES_START_WATER_A_PUDDLE` in tests/contract/placesCommon.ts) for Real places 2 to empty (D300).
+**Handed on: the editor's start indicator** (`src/editor/features.ts`, the check when the player
+moves the start) still reads the D153 rule, so it can show water where the checks, the map card and
+the export say there is none. Not in M9a (the orchestrator's call: it does not block the release, and it
+is editor work): it goes to the forces branch's build agent once M9a is in `dev`. It needs
+`startWaterShore` with a `droughtStorage` cached per water state (the rule's drought days) and the
+emitter cells (sources' tiles and strengths) from the entity view.
+
+**The gating batches on the rule** (db9664e's generator; 100 seeds of every option and size at Normal,
+and 128² at Hard; `investigation/m9a/local/batches-d302` and `-d302-hard`, out of git): every option and
+size at 98% final or better, and every accepted map's project file reopens and rebuilds the same
+.timber (3,497 of 3,497). Final, and first attempt in brackets, in %:
+
+| Size | Any | River Valley | Canyon | Highlands | Lake Basin | Delta | Islands |
+|---|---|---|---|---|---|---|---|
+| 96² | 100 (49) | 100 (54) | 100 (56) | 100 (50) | 99 (49) | 100 (47) | 100 (85) |
+| 128² | 100 (55) | 100 (59) | 100 (55) | 100 (65) | 100 (59) | 100 (68) | 100 (81) |
+| 192² | 98 (43) | 100 (56) | 100 (55) | 100 (69) | 100 (47) | 100 (61) | 100 (71) |
+| 256² | 100 (37) | 100 (48) | 100 (48) | 100 (52) | 100 (38) | 100 (50) | 100 (62) |
+| 128², Hard | 100 (42) | 100 (60) | 100 (42) | 100 (64) | 100 (61) | 100 (56) | 100 (80) |
+
+The three seeds without a map (Any 192² 33 and 78, Lake Basin 96² 99) found none on 788c145 either;
+34 attempts across the batches were planned again for a start whose water was only a sealed puddle.
 
 ### Found and parked
 

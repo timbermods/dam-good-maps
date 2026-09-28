@@ -1339,8 +1339,8 @@ design version 1's.
     settled water's outflows); on its findings (D302) the start's water must be fed by a source or
     last the drought, never a sealed puddle (both validators; the batches run again on it), the
     probe's wet-tile counts are judged as D297 judges water, and tall maps' project files reopen
-    (a river bed step up to 22 levels, M9b's finding). Left: the batches on D302's rule, then the
-    release.
+    (a river bed step up to 22 levels, M9b's finding). Every gating batch passes on D302's rule (98%
+    final or better). Left: the release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
@@ -1803,6 +1803,8 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
   stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
   does; each with its round-trip test (`tests/unit/format.test.ts`);
+- **three stale capture tools** (`tools/capture-look.ts`, `capture-objects.ts`, `capture-saplings.ts`): they look for tabs retired
+  since D184 and no longer run against today's interface; bring them up to date, or retire them if nothing uses them;
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
