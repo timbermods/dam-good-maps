@@ -18,9 +18,17 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as `dev`
- *  makes it since resources like the official maps (#43, generator 0.6.2, 2026-09-26; `e4f2f72c…`
- *  from the start and edge rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "b358b4f8e8d3c03b99f513ecba496d8b513266c835721a13e7dc5b988b6f60fd";
+ *  makes it since the terrain and water from processes (M9a, generator 0.7.0, with natural ramps
+ *  that only climb cliffs, winding badwater ditches, the starting-logs floor with D227's Minimum
+ *  starting wood, D252's start planting spread over the walk and the settled outflows written into
+ *  the file (FORMAT.md §4.3); `ec1ff6d3…` before the outflows, `fb0e9f70…` before a walk short of
+ *  moist land kept the start's wood first, `64ee3b4f…` before D252,
+ *  `1d865554…` before the floor, `1b4cf3c7…` as M9a finished its settings,
+ *  `4e304804…` from M9a's first slice; `b358b4f8…` from
+ *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
+ *  M9a before its release); `e4f2f72c…` from the start and edge
+ *  rules, #44, and `5118b6a6…` from M8 until then). */
+const LIVE_SHA = "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

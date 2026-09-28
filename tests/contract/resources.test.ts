@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
-import { decodeProject, encodeProject, toDocument } from "../../src/core/doc/document";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { DENSITY, OFFICIAL_LAYOUT, officialRange, RUIN_HEIGHT_SHARES, SPREAD } from "../../src/core/gen/calibrated";
 import { generate } from "../../src/core/gen/generate";
@@ -233,9 +233,12 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     const H = 96;
     const start = { x: 30, y: 48 };
     const startEntity = startingLocation({ id: "s", owner: "t", x: 29, y: 47, z: 4, orientation: "Cw0" });
-    const r = planMapResources({ W, H, heights: g.heights as Uint8Array, water: g.water, moisture: g.moisture, soilContamination: g.soilContamination, entities: [startEntity], start, settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources, seed: 5, nearStart: { wood: 108, bushes: 48 }, ruinsClear: 22 });
+    const r = planMapResources({ W, H, heights: g.heights as Uint8Array, water: g.water, moisture: g.moisture, soilContamination: g.soilContamination, entities: [startEntity], start, settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources, seed: 5, nearStart: { wood: 108, bushes: 48 }, ruinsClear: 22, badwater: { setting: "normal", within: 15 } });
     expect(r.mines.length).toBeGreaterThanOrEqual(1);
     expect(r.entities.filter((e) => e.template === "UndergroundRuins").length).toBe(r.mines.length);
+    // flat ground has no hollow or side valley for a badwater spring (D200): none, and the water as it was
+    expect(r.badwater).toEqual([]);
+    expect(r.water).toBeNull();
     // starting wood (logs of grown trees, D164) and living bushes within 20 tiles of the start (the
     // ground is flat: the walk is straight), and a share of the living trees stored as saplings
     const near = (e: { x: number; y: number }) => Math.max(Math.abs(e.x - start.x), Math.abs(e.y - start.y)) <= 20;
@@ -253,7 +256,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     expect(tiles.every((i) => !(g.water[i] > 0))).toBe(true);
     expect(tiles.every((i) => Math.abs((i % W) - start.x) > 2 || Math.abs(Math.floor(i / W) - start.y) > 2)).toBe(true);
     // the same input, the same entities
-    const again = planMapResources({ W, H, heights: g.heights as Uint8Array, water: g.water, moisture: g.moisture, soilContamination: g.soilContamination, entities: [startEntity], start, settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources, seed: 5, nearStart: { wood: 108, bushes: 48 }, ruinsClear: 22 });
+    const again = planMapResources({ W, H, heights: g.heights as Uint8Array, water: g.water, moisture: g.moisture, soilContamination: g.soilContamination, entities: [startEntity], start, settings: defaultSettings("riverValley", "normal", { x: W, y: H }).resources, seed: 5, nearStart: { wood: 108, bushes: 48 }, ruinsClear: 22, badwater: { setting: "normal", within: 15 } });
     expect(again.entities.map((e) => `${e.id}:${e.template}`)).toEqual(r.entities.map((e) => `${e.id}:${e.template}`));
   });
 
@@ -280,7 +283,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
 
   it("a project file saved asking for no mine sites opens asking for one", () => {
     const r = generate(makeSpec({ seed: 13, size: { x: 96, y: 96 } }));
-    const doc = JSON.parse(strFromU8(gunzipSync(encodeProject(toDocument(r.spec, r.features, r.built, r.file)))));
+    const doc = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
     doc.spec.settings.resources.mineSites = 0;
     const back = decodeProject(gzipSync(strToU8(JSON.stringify(doc))));
     expect(back.spec!.settings.resources.mineSites).toBe(1);

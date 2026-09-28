@@ -69,8 +69,8 @@ jobs:
           cache-dependency-path: prototype/requirements.txt
       - run: npm ci
       - run: pip install -r prototype/requirements.txt
-      - name: Python oracle (load checks, round trip, validator parity; seeds 1-18, every theme)
-        run: npm run oracle -- --seeds 1-18 --sizes 96,128,256
+      - name: Python oracle (load checks, round trip, validator parity; seeds 1-21, every theme and Any)
+        run: npm run oracle -- --seeds 1-21 --sizes 96,128,256
 
   batches:
     runs-on: ubuntu-latest
@@ -84,20 +84,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # the six themes at once, one process each (the other sizes and difficulties run locally,
+      # Any and the six themes at once, one process each (the other sizes and difficulties run locally,
       # docs/progress.md)
       - name: Pass rates, every theme (100 seeds at 128² Normal, final ≥ 98%; first attempt reported)
         run: |
           mkdir -p .scratch
           pids=()
-          for t in riverValley canyon highlands lakeBasin delta islands; do
+          for t in any riverValley canyon highlands lakeBasin delta islands; do
             npx tsx tools/batch.ts --seeds 1-100 --size 128 --theme $t --min-first 0 > .scratch/batch-$t.txt 2>&1 &
             pids+=($!)
           done
           fail=0
           for p in "${pids[@]}"; do wait "$p" || fail=1; done
           cat .scratch/batch-*.txt
-          { echo "### Pass rates, 100 seeds a theme at 128²"; echo; for t in riverValley canyon highlands lakeBasin delta islands; do sed -n '/ seeds of /,$p' .scratch/batch-$t.txt; echo; done; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "### Pass rates, 100 seeds a theme at 128²"; echo; for t in any riverValley canyon highlands lakeBasin delta islands; do sed -n '/ seeds of /,$p' .scratch/batch-$t.txt; echo; done; } >> "$GITHUB_STEP_SUMMARY"
           exit $fail
 
   issue:

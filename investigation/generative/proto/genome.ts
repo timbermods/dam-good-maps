@@ -107,7 +107,8 @@ interface Prior {
   recipes: Partial<Record<string, number>>;
 }
 
-const P: Record<ThemeId, Prior> = {
+// (design version 1 has no "any": M9a's Any is design version 2's)
+const P: Record<Exclude<ThemeId, "any">, Prior> = {
   riverValley: {
     base: { lo: 2, hi: 4 }, relief: { lo: 9, hi: 13 }, tilt: { lo: 2, hi: 5 }, amp: { lo: 3, hi: 6 }, cell: { lo: 28, hi: 56 }, warp: { lo: 4, hi: 16 }, ridged: { lo: 0, hi: 0.4 },
     parts: { ridge: 2, trough: 1, basin: 1, mesa: 1, escarpment: 1, plateau: 2, knolls: 2, caldera: 0.3, cone: 0.3, mesaField: 0.3 },
@@ -258,7 +259,8 @@ export const RECIPES = ["island-in-a-river", "great-scarp", "mesa-field", "badwa
 
 export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, attempt: number, variety = 70): Genome {
   const rng = stream(seed, "genome", theme, attempt);
-  const p = P[theme];
+  // (Any, which design version 1 did not have, draws as River Valley here)
+  const p = P[theme === "any" ? "riverValley" : theme];
   const vy = clamp(variety, 0, 100);
   const areaK = (W * H) / (128 * 128);
   const g: Genome = {

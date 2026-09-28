@@ -21,6 +21,9 @@ export interface ResourceGround {
   moisture: ArrayLike<number>;
   soilContamination: ArrayLike<number>;
   occupied: Uint8Array;
+  /** River channels: nothing grows in a riverbed, dry or not (a drought's low water leaves it dry,
+   *  the next wet season floods it). */
+  channel?: Uint8Array | null;
   /** Tiles a regeneration kept (locks): generated features place nothing there. */
   locked: Uint8Array | null;
 }
@@ -32,7 +35,7 @@ export interface Placed {
 }
 
 function take(g: ResourceGround, f: Feature, i: number, out: Placed): boolean {
-  if (g.occupied[i] || g.water[i] > 0) return false;
+  if (g.occupied[i] || g.water[i] > 0 || g.channel?.[i]) return false;
   if (g.locked && g.locked[i] && f.origin === "generated") return false;
   g.occupied[i] = 1;
   out.tiles.push(i);

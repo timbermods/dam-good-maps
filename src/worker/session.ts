@@ -101,6 +101,8 @@ export interface SessionInfo {
   views: SavedView[];
   /** Try another path is there: the last kept carve is the latest step (D199). */
   carveAgain: boolean;
+  /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
+  badwaterRemoved: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -222,6 +224,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
     carveAgain: againReady(s, history),
+    badwaterRemoved: s.badwaterRemoved(),
     version,
   };
 }

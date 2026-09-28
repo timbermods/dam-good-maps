@@ -172,7 +172,13 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     return { op: "updateFeature", params: { id: f.id, patch: { params: { centerBias: Math.round(rng.range(0, 2) * 100) / 100 } } } };
   }
   if (roll < 17) {
-    // terrain features of the generated layout: the terraces (the whole map), the valley floor
+    // the features read back out of a generated field (M9a): reshaping one builds it as it now says
+    // instead of as the field holds it (a river's width, a natural lake's floor); undo gives the
+    // field back. A map from before M9a (no field) reshapes its planned landforms instead.
+    const inField = new Set(s.document.field?.contains ?? []);
+    const f = pick(rng, s.features.filter((g) => inField.has(g.id) && (g.kind === "river" || (g.kind === "lake" && g.params.natural === true))));
+    if (f?.kind === "river") return { op: "updateFeature", params: { id: f.id, patch: { params: { width: Math.round(Math.max(1.5, Math.min(9, f.params.width + rng.range(-1.5, 1.5))) * 10) / 10 } } } };
+    if (f?.kind === "lake") return { op: "updateFeature", params: { id: f.id, patch: { params: { floorDepth: rng.int(1, 4) } } } };
     const lf = pick(rng, byKind("landform")) as LandformFeature | undefined;
     if (!lf?.params.along) return null;
     if (lf.params.kind === "terraces") {

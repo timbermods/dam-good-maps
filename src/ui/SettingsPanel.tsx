@@ -49,6 +49,7 @@ export interface SettingsPanelProps {
 }
 
 const THEME_BLURB: Record<ThemeId, string> = {
+  any: "Anything the land can make.",
   riverValley: "A river winds through a terraced valley.",
   canyon: "A river deep between cliff walls.",
   highlands: "Plateaus and cascades.",
@@ -61,6 +62,14 @@ const THEME_BLURB: Record<ThemeId, string> = {
 function ThemeGlyph({ theme }: { theme: ThemeId }) {
   const common = { width: 56, height: 32, viewBox: "0 0 56 32", "aria-hidden": true as const };
   switch (theme) {
+    case "any":
+      return (
+        <svg {...common}>
+          <path d="M0 24c8-4 14-4 20 0s12 4 18-2 12-10 18-8" class="g-land" />
+          <ellipse cx="40" cy="10" rx="7" ry="4" class="g-lake" />
+          <path d="M0 12c6 3 12 3 18 0s10-3 15 1" class="g-water" />
+        </svg>
+      );
     case "canyon":
       return (
         <svg {...common}>
@@ -284,6 +293,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
 
       <Section title="Terrain">
         <Slider id="relief" label="Relief" value={s.terrain.relief} min={0} max={100} band={band("relief", spec)} onChange={(v) => set((c) => (c.terrain.relief = v))} />
+        <Slider id="verticality" label="Verticality" value={s.terrain.verticality} min={0} max={100} band={band("verticality", spec)} onChange={(v) => set((c) => (c.terrain.verticality = v))} />
         <Slider id="highest" label="Highest terrain" value={s.terrain.highestTerrain} min={10} max={16} band={band("highestTerrain", spec)} onChange={(v) => set((c) => (c.terrain.highestTerrain = v))} />
         <Slider id="terracing" label="Terracing" value={s.terrain.terracing} min={0} max={100} band={band("terracing", spec)} onChange={(v) => set((c) => (c.terrain.terracing = v))} />
         <Pick id="buildable" label="Buildable land" value={s.terrain.buildableLand} choices={BUILDABLE} band={band("buildableLand", spec)} onChange={(v) => set((c) => (c.terrain.buildableLand = v))} />
@@ -346,7 +356,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </Section>
 
       <Section title="Advanced: start rules">
-        <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} band="The flat bench round the district center, and the land you need nearby." onChange={(v) => set((c) => (c.start.area = v))} />
+        <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} band="A preference: the land leans toward a tighter or roomier bench round the district center. The map card shows the bench you got." onChange={(v) => set((c) => (c.start.area = v))} />
         <Num id="rule-water" label="Water without stairs (tiles)" value={s.start.rules.waterWithin} min={4} max={40} band={`${band("waterWithin", spec)} Default ${d.waterWithin}.`} onChange={(v) => set((c) => (c.start.rules.waterWithin = v))} />
         <Num id="rule-wood" label="Minimum starting wood (logs)" value={s.start.rules.woodWithin20} min={0} max={800} band={`${band("woodWithin20", spec)} Default ${d.woodWithin20}.`} onChange={(v) => set((c) => (c.start.rules.woodWithin20 = v))} />
         <Num id="rule-bushes" label="Minimum starting bushes" value={s.start.rules.bushesWithin20} min={0} max={200} band={`${band("bushesWithin20", spec)} Default ${d.bushesWithin20}.`} onChange={(v) => set((c) => (c.start.rules.bushesWithin20 = v))} />

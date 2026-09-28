@@ -57,15 +57,18 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   // (the legend, with its own outline swatch and the Markers toggle, sits beside the map: out of
   // the canvas's pictures)
 
-  // Markers off: no outline
+  // Markers off: no outline. The ground itself can hold a few pixels of the outline's colour (light
+  // dry ground at this distance), so the counts are compared with the view's own: Markers off
+  // counts what Markers on counts once the soil is clean
   const markers = page.getByRole("button", { name: "Markers", exact: true });
   await expect(markers).toHaveAttribute("aria-pressed", "false");
-  expect(await outlinePixels(page)).toBeLessThan(20);
+  const off = await outlinePixels(page);
 
   // Markers on: the outline
   await markers.click();
   await expect(markers).toHaveAttribute("aria-pressed", "true");
-  expect(await outlinePixels(page)).toBeGreaterThan(150);
+  const on = await outlinePixels(page);
+  expect(on - off).toBeGreaterThan(150);
 
   // the soil updates (no contamination left): the outline goes with it
   await page.evaluate(() => {
@@ -73,6 +76,8 @@ test("the contamination outline shows only with Markers, and follows the soil", 
     const s = r.map.soil;
     r.updateSoil({ moisture: s.moisture, contamination: new Uint8Array(s.contamination.length) });
   });
-  expect(await outlinePixels(page)).toBeLessThan(20);
+  const clean = await outlinePixels(page);
+  expect(on - clean).toBeGreaterThan(150);
+  expect(Math.abs(clean - off)).toBeLessThan(20);
   expect(errors).toEqual([]);
 });

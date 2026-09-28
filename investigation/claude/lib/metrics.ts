@@ -16,7 +16,8 @@ import { reservoirOf, type DamSitePlan } from "../../../src/core/features/setpie
 import { measureLip } from "../../../src/core/features/setpieces/waterfall";
 import type { Feature, RiverFeature, SetPieceFeature } from "../../../src/core/features/schema";
 import { polygonMask } from "../../../src/core/features/geometry";
-import { runsToTiles } from "../../../src/core/math/grid";
+import { distanceFrom, runsToTiles } from "../../../src/core/math/grid";
+import { damSites, type DamSite } from "../../../src/core/analysis/damsites";
 import { entityTiles } from "../../../src/core/features/edits";
 import { hollowAt } from "../../../src/core/features/hollow";
 import { rulesFor, type Rules } from "../../../src/core/validate/playability";
@@ -275,6 +276,21 @@ function measurePiece(s: MapSession, v: MapView, f: SetPieceFeature): Record<str
       }
       return { mode: "basin", strength: p.strength, outletWidth: p.outletWidth, routeLength: Math.round((p.outletLevels as number[]).length), outlet: joins };
     }
+    case "naturalNarrows": {
+      // what a dam across the spurs' gap holds: the best dam site within 8 tiles of the narrows on
+      // the built map, as the validators sample them (crests 1–3)
+      const river = v.features.find((g): g is RiverFeature => g.kind === "river" && g.id === p.river);
+      const site = bestDamNear(v, Number(p.x), Number(p.y), 8);
+      const fillSeconds = site && river && river.params.flow > 0 ? site.volume / river.params.flow : null;
+      return {
+        river: p.river,
+        arc: p.at,
+        gap: p.gap,
+        reservoir: site ? { volume: Math.round(site.volume), area: site.area, damLength: site.length } : null,
+        reservoirClean: river ? reservoirIsClean(v, river.id, Number(p.at) * pathField(river.params.path, v.W, v.H).length) : true,
+        ...(fillSeconds !== null ? { fillMinutes: round1(fillSeconds / 60) } : {}),
+      };
+    }
     case "gorge":
       return { river: p.river, from: p.from, to: p.to, width: p.width, wallHeight: p.wallHeight };
     case "terracedCliffs":
@@ -282,6 +298,25 @@ function measurePiece(s: MapSession, v: MapView, f: SetPieceFeature): Record<str
     default:
       return {};
   }
+}
+
+/** The dam site holding the most within `r` tiles of (x, y): a short dam across clean water, sampled
+ *  as the validators sample dam sites. */
+export function bestDamNear(v: MapView, x: number, y: number, r: number): DamSite | null {
+  const { W, H } = v;
+  const N = W * H;
+  const clean = new Uint8Array(N);
+  const surf = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    clean[i] = v.water[i] > 0.05 && v.contamination[i] < 0.05 ? 1 : 0;
+    surf[i] = v.heights[i] + v.water[i];
+  }
+  const at = new Uint8Array(N);
+  at[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))] = 1;
+  const d = distanceFrom(at, W, H);
+  let best: DamSite | null = null;
+  for (const s of damSites(v.heights, clean, surf, W, H, d, r + 2, [1, 2, 3], 1, 30, 0)) if (d[s.y * W + s.x] <= r && (!best || s.volume > best.volume)) best = s;
+  return best;
 }
 
 /** Whether the water a dam at arc `at` (the river feature's own order) would hold is clean: the

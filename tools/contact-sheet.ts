@@ -4,7 +4,10 @@
 // red), to .scratch/sheet/, and tools/contact-sheet.py lays them out, labelled, as one PNG under
 // 1 MB.
 //
-//   npx tsx tools/contact-sheet.ts [--seeds 1-30] [--size 128] [--out .scratch/sheet]
+//   npx tsx tools/contact-sheet.ts [--seeds 1-30] [--size 128] [--out .scratch/sheet] [--badwater]
+//
+// --badwater (D200) also shows badwater: water carrying it in rust red, and each BadwaterSource as a
+// yellow square 7 tiles wide with a dark rim.
 //   python tools/contact-sheet.py .scratch/sheet docs/sheets/<step>.png "<title>"
 //
 // M9a's `npm run sheet` replaces both (ROADMAP M9a).
@@ -24,6 +27,7 @@ function arg(name: string, fallback: string): string {
 const [a, b] = arg("seeds", "1-30").split("-").map(Number);
 const size = Number(arg("size", "128"));
 const out = arg("out", ".scratch/sheet");
+const showBadwater = process.argv.includes("--badwater");
 mkdirSync(out, { recursive: true });
 const index: { theme: string; seed: number; file: string; attempts: number; passed: boolean }[] = [];
 for (const theme of AVAILABLE_THEMES) {
@@ -34,6 +38,30 @@ for (const theme of AVAILABLE_THEMES) {
     // north up: the map's y grows northward, the picture's rows downward
     const img = new Uint8Array(W * H * 3);
     for (let y = 0; y < H; y++) img.set(rgb.subarray(y * W * 3, (y + 1) * W * 3), (H - 1 - y) * W * 3);
+    const square = (cx: number, cy: number, r: number, fill: [number, number, number], edge: [number, number, number] = [255, 255, 255]) => {
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const rim = Math.max(Math.abs(dx), Math.abs(dy)) === r;
+          const k = ((H - 1 - y) * W + x) * 3;
+          img[k] = rim ? edge[0] : fill[0];
+          img[k + 1] = rim ? edge[1] : fill[1];
+          img[k + 2] = rim ? edge[2] : fill[2];
+        }
+    };
+    if (showBadwater) {
+      for (let i = 0; i < W * H; i++) {
+        if (!(r.built.water[i] > 0.05 && r.built.contamination[i] >= 0.05)) continue;
+        const x = i % W;
+        const k = ((H - 1 - (i - x) / W) * W + x) * 3;
+        img[k] = 150;
+        img[k + 1] = 60;
+        img[k + 2] = 40;
+      }
+      for (const e of r.built.entities) if (e.template === "BadwaterSource") square(e.x + 1, e.y + 1, 3, [255, 214, 0], [40, 30, 20]);
+    }
     // the start: a red square 7 tiles wide with a white rim, so it shows at the sheet's scale
     const s = r.built.start;
     if (s)

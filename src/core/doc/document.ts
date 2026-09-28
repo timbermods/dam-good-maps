@@ -21,16 +21,18 @@ import type { BuildResult } from "../features/build";
 import { readTimber, type TimberFile } from "../format/timber";
 import { normalizeImport, type ImportReport } from "../format/normalize";
 import type { Runs } from "../math/grid";
-import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, mapName, toTimberFile } from "../gen/pack";
-import { baseFromFile, type BaseMap } from "./base";
+import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
+import type { TerrainData } from "../terrain/runs";
 import { replay, type AppliedOp } from "./ops";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
-export const DOCUMENT_FORMAT_VERSION = 2;
+/** Format 3 (M9a): the terrain as heights plus runs (D119, I-1), and a generated map's field. */
+export const DOCUMENT_FORMAT_VERSION = 3;
 
 export interface DocMeta {
   name: string;
@@ -69,16 +71,33 @@ export interface KeptContent {
   entities: string;
   /** The feature that placed each of them. */
   owners: string[];
+  /** The kept tiles that are not one plain run from z = 0, with their solid runs (format 3, so a
+   *  lock keeps a cave; none on the maps M9's generator makes). */
+  solid?: [number, number[]][];
+}
+
+/** The land a generation's processes made (M9a, docs/m9-design.md §12): the build starts from it,
+ *  so rebuilding a document never runs the processes again. */
+export interface FieldData extends TerrainData {
+  /** The features read back from it (rivers, lakes, badwater hollows): they describe the field's
+   *  ground and do not shape it again. */
+  contains: string[];
+  /** The natural ramps' steps as low tile, high tile pairs, flattened: slope targets (#62). */
+  ramps?: number[];
+  /** A tall map's top (Verticality 70+): edits may raise the ground to it. */
+  top?: number;
 }
 
 export interface MapDocument {
-  formatVersion: 2;
+  formatVersion: 3;
   app: "dam-good-maps";
   /** The generator that built `base` (for an import: the app version that normalized it). */
   generatorVersion: string;
   /** The spec, with `accepted` filled in; null for imported maps. */
   spec: MapSpec | null;
   base: BaseMap;
+  /** A generated map's field (M9a); absent for imported maps and older generations. */
+  field?: FieldData | null;
   /** The features `base` was built from; absent in the file when they equal `features`. */
   baseFeatures?: Feature[];
   kept: KeptContent | null;
@@ -96,19 +115,25 @@ export function baseFeaturesOf(doc: MapDocument): Feature[] {
 }
 
 /** The document of a freshly generated map (PLAN §7.10 `toDocument`). */
-export function toDocument(spec: MapSpec, features: Feature[], built: BuildResult, file: TimberFile = toTimberFile(spec, built)): MapDocument {
+export function toDocument(spec: MapSpec, features: Feature[], built: BuildResult, file: TimberFile = toTimberFile(spec, built), field: FieldData | null = null): MapDocument {
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     app: "dam-good-maps",
     generatorVersion: spec.generatorVersion,
     spec,
     base: baseFromFile(file, "generated", built.entities.map((e) => e.owner)),
+    ...(field ? { field } : {}),
     kept: null,
     features,
     edits: [],
     nextSeq: 1,
     meta: { name: mapName(spec), premise: description(spec), designedFor: spec.designedFor, appVersion: GENERATOR_VERSION },
   };
+}
+
+/** The document of a map the generator just made, with its field (format 3). */
+export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null }): MapDocument {
+  return toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null);
 }
 
 /** The document of an imported map: normalized once, with the changes listed (PLAN §19.6).
@@ -119,7 +144,7 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
   const name = fileName.replace(/^.*[\\/]/, "").replace(/\.timber$/i, "") || "Imported map";
   const md = file.metadata ?? {};
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     app: "dam-good-maps",
     generatorVersion: GENERATOR_VERSION,
     spec: null,
@@ -221,21 +246,35 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   upgradeSpec((raw as { spec?: unknown }).spec);
   // a spec saved before every map had a mine site may ask for none; it opens asking for one
   upgradeMineSites((raw as { spec?: unknown }).spec);
+  // a spec saved before M9a has no Verticality: it opens with its theme's default
+  upgradeVerticality((raw as { spec?: unknown }).spec);
   if (raw.formatVersion === 1) return fromV1(raw as unknown as DocumentV1);
-  if (raw.formatVersion !== 2) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
+  if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
+  else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
   checkDocument(doc);
   if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;
 }
 
+/** A format 2 file: its base's columns become runs (the same voxels). Changes it in place. */
+function fromV2(doc: Record<string, unknown>): void {
+  const base = doc.base as Record<string, unknown> | undefined;
+  if (!base || typeof base !== "object") throw new ProjectError("the project file is damaged: it has no base");
+  const cols = base.columns;
+  if (cols !== undefined && !Array.isArray(cols)) throw new ProjectError("the project file is damaged: its base columns are not a list");
+  base.runs = runsOfColumns((cols ?? []) as [number, string][]);
+  delete base.columns;
+  doc.formatVersion = 3;
+}
+
 function fromV1(v1: DocumentV1): MapDocument {
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     app: "dam-good-maps",
     generatorVersion: v1.generatorVersion,
     spec: v1.spec,
-    base: { source: "generated", sizeX: v1.base.sizeX, sizeY: v1.base.sizeY, heights: v1.base.heights, columns: [], world: null, metadata: "{}", thumbnail: null, versionTxt: "" },
+    base: { source: "generated", sizeX: v1.base.sizeX, sizeY: v1.base.sizeY, heights: v1.base.heights, runs: [], world: null, metadata: "{}", thumbnail: null, versionTxt: "" },
     kept: null,
     features: v1.features,
     edits: [],
