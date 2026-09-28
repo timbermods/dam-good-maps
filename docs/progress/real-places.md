@@ -1,50 +1,50 @@
 # Real places
 
-> **Where a fresh session resumes (2026-09-27 evening; PAUSED by Kyler; branch
-> `feature/real-places-2`, PR #35 into `dev`).** Kyler paused the one Real places rebuild (D300 +
-> D306 + D200 badwater + D302 start water, under the game's water and soil rules): the source
-> placement it uses may change. **Do not restart it until Kyler says so.** Nothing is running.
+> **Where a fresh session resumes (handoff 2026-09-27 night, for Tuesday 8:01 PDT; branch
+> `feature/real-places-2`, PR #35 into `dev`). The rebuild is PAUSED; start it only as below.**
+> The one Real places rebuild: D300 (tilt out, beds lowered, the water floor) + D306 (256² framing,
+> heights around the signature) + D200 badwater + D302 start water, under the game's water and soil
+> rules (`PLACE_RULES`, M9b's rules set 1c9d1340), with D314's grouped sources. Nothing is running.
 >
-> - **Committed and pushed:** D300 (tilt out, beds lowered, the water floor), D306 (256² framing,
->   heights around the signature), badwater in `buildPlace`, the merges of `dev` (M9a, 1902de4)
->   and M9b's rules set (1c9d1340, taken whole), real places settled, planted and checked under the
->   game's rules (`PLACE_RULES` in src/core/places/place.ts; generated maps stay on the port's),
->   the tests to D300/D306, and the stripes picture (`docs/sheets/real-places-stripes/`: the land
->   only, which the water rules do not change).
-> - **Not committed (kept local, not safe to ship):** `tools/places/selection.json` and
->   `public/real-places/` hold the dry run under the OLD water rules (conversion `VERSION` 9, all
->   136 at 256²; numbers under "At 256²" below). The committed ones are still the D271 gallery.
->   Either selection works to resume (the conversion keys each place by its row and its
->   signature's size); after the rebuild both are rewritten.
-> - **Where it stopped:** conversion `VERSION` 10 (the game's rules), 3 threads, 42 of 136 places
->   converted and cached, all passing the absolutes; the 3 places in progress when it stopped were
->   not cached and will be redone. Converted: the first 42 in `selection.json`'s order (Thousand
->   Islands, Badlands National Park, Toklat River, Crater Lake, Colca Canyon, Twelve Apostles, Mount
->   Mayon, Rhine and Moselle, Lena Delta, Drakensberg Amphitheatre, Kaieteur Falls, Death Valley,
->   Geirangerfjord, Torres del Paine, Tiger Leaping Gorge, Phong Nha, Lake District, Uvac River,
->   Mount Roraima, Ethiopian Highlands, Lofoten, Drumheller, Tagliamento River, Aso Caldera, Blyde
->   River Canyon, Cliffs of Moher, Paricutin, Alaknanda and Bhagirathi, Danube Delta, Mahabaleshwar,
->   Niagara Falls, Roaring River Fan, Aysen Fjord, Glencoe, Verdon Gorge, Chocolate Hills, Lake
->   Saimaa, Kinabatangan River, Bardenas Reales, Waimakariri River, Grand Canyon, Na Pali Coast).
->   Not yet: the other 94, from
->   Ennedi Plateau on. So far: "No water a pump can reach" 0, "The water keeps moving" 5, "Too
->   little wood near the start" 2, 8 floor springs.
-> - **Cached (gitignored, D195):** the survey's patches (`investigation/landscapes/.cache/patches`,
->   256² ones included), WorldCover and OpenStreetMap water for all 242 patches
->   (`.cache/worldcover`, `.cache/osm`), and the conversions (`investigation/landscapes/local/
->   real-places-2/v10/`, keyed `<row>-f<signature size>`).
-> - **To resume** (only when Kyler says so; if the source placement changes, raise `VERSION` in
->   tools/places-convert.ts first, and the cache starts over): `npx tsx tools/places-convert.ts
->   --threads 3` (finished places come from the cache; about 1 h for the rest); then `npx tsx
->   tools/real-places.ts --threads 3`, `npx tsx tools/places-thumbs.ts --all --port 4832 --threads
->   3`, `npx tsx tools/real-places.ts --check --threads 3`, `python tools/places-sheet.py
+> - **Grouped sources (D314), all wired in and committed** (conversion `VERSION` 11; details under
+>   "Grouped sources" below): river heads (a row across the flow), lake springs, the water floor's
+>   spring (a group; `spring.row`), and the badwater stage (`groupedBadwater`, alone or a close
+>   pair; places only). Rows across a river's mouth on the edge are left as they were (already rows
+>   across the flow, as the module's README allows). Unit tests pass (places-water, sourceGroups).
+> - **Where it stopped:** `VERSION` 11, 37 of 136 places converted and cached (the first 37 in
+>   `selection.json`'s order, Thousand Islands through Lake Saimaa); the rest not yet. It was
+>   stopped for the handoff, not for a fault: none failed.
+> - **The committed gallery data** (`tools/places/selection.json`, `public/real-places/`) is still
+>   the D271 one: the partial rebuilds' data and card pictures were thrown away (`git restore`), as
+>   the one rebuild rewrites them all. CI's places tests fail until then (the code and tests are
+>   D300/D306/D314; the data is D271).
+> - **Cached** (gitignored, D195): the survey's patches, 256² included
+>   (`investigation/landscapes/.cache/patches`), WorldCover and OpenStreetMap water for all 242
+>   patches (`.cache/worldcover`, `.cache/osm`), and the conversions
+>   (`investigation/landscapes/local/real-places-2/v11/`, keyed `<row>-f<signature size>`). Nothing
+>   needs fetching again.
+> - **To resume** (keep `VERSION` 11 to reuse the 37; bump to 12 only if the conversion or a rule it
+>   uses changes, and the cache starts over), from the worktree, 3 threads at most while other
+>   heavy work runs: `npx tsx tools/places-convert.ts --threads 3` (about 1.5 to 3 h for the 99
+>   left; the tool stops if a place fails the absolutes or the water floor); then
+>   `npx tsx tools/real-places.ts --threads 3` (build, with its time), `npx tsx
+>   tools/places-thumbs.ts --all --port 4832 --threads 3` (the GPU, about 20 min), `npx tsx
+>   tools/real-places.ts --check --threads 3`, `python tools/places-sheet.py
 >   docs/sheets/real-places.png "Real places, second round" --html
->   investigation/landscapes/local/places-sheet`, the stripes picture
->   (investigation/landscapes/local/d300/stripes_ba.py), the settle times (…/settle-times.ts), then
->   `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run --project
->   heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
->   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`. Then Kyler's check,
->   and the release (`real-places-2-done`).
+>   investigation/landscapes/local/places-sheet`; the settle times with
+>   `investigation/landscapes/local/d300/settle-times.ts` (untracked scratch; it times each place's
+>   canonical settle and build, median/p90/max by size) and the stripes picture with
+>   `investigation/landscapes/local/d300/stripes_ba.py` (commits `docs/sheets/real-places-stripes/`);
+>   then `npm run typecheck`, `npx vitest run --project quick --maxWorkers=3`, `npx vitest run
+>   --project heavy places-build --maxWorkers=3`, `DGM_E2E_PORT=4833 npx playwright test
+>   tests/e2e/places.spec.ts tests/e2e/save-to-timberborn.spec.ts --workers=1`.
+> - **The check after** (D300 (4)): every place passes the blocking list (the conversion and
+>   `places --check` refuse otherwise); "No water a pump can reach from the start" 0; the stripes
+>   gone on 42, 48, 116 and 118 (the D271 sheet's numbers: Waimakariri River, Kunlun Alluvial Fan,
+>   Cliffs of Moher East, Atacama Fan North); report "The water keeps moving" and the other notes
+>   against the dry run (24 and 10, under "At 256²"), the gallery's build time, the 256² settle
+>   times and the download sizes (index, each place's data and .timber). Then the coordinator's
+>   check, commit the gallery, CI green, and the release (`real-places-2-done`).
 
 **Built** on branch `feature/real-places` (PLAN §20 D136, ROADMAP "Real places"). It is released as
 `real-places-done`, right after `map-look-done`. No generated map changes: the generator stays
@@ -805,3 +805,25 @@ settled outflows in the file).
   river count, each with its full start search. It now stops at the first attempt with no note.
   The real rebuild waits for the game's water and soil rules (M9b's rules set, D293, D297, D298,
   D303, D308).
+
+## Grouped sources (Kyler, D314)
+
+The one placement rule for automatic sources (`src/core/water/sourceGroups.ts`, taken whole from
+a6346fe4 on `feature/source-groups`, with its README and test) wired into the conversion
+(`VERSION` 11; the land stays cached, the conversions start over):
+
+- **River heads** (`groupsOf`, `grouped`): each head's spring is a group, a row across the land's
+  way down from it (the routing's next tile), or fewer where the ground is cramped; the group shares
+  the head's strength (each tile's weight in `Group.weights`, which `strengths` uses). Rows across a
+  river's mouth on the edge stay as they were (the README allows it: they already are rows across
+  the flow).
+- **A lake's spring**: a group at its middle, the flow read from the ground (its small feed usually
+  gives one source).
+- **The water floor's spring** (D300): a group at the chosen tile, off the other sources' and the
+  start's ground, its row across the land's way down; its strength is the group's total, the
+  smallest that works as before. `PlaceData.spring.row` lists its sources.
+- **Badwater** (`planMapResources` `groupedBadwater`, asked for by real places only): each spring
+  at its square's middle, alone or in a close pair sharing its strength. Generated maps keep the
+  single spring until M9b's switch.
+- Tests: `places-water.test.ts` (a head's row across its flow), `sourceGroups.test.ts` (the module's
+  own), `places.test.ts` (the floor's group among the sources, and out of D214's cap sum).
