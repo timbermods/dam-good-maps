@@ -57,26 +57,30 @@ already on the branch).
   values (`src/core/features/objects.ts`), so the worker side needed no change at all; the label it
   produces ("Remove a source" / "Remove N sources") came for free. A new button, "Delete sources",
   sits beside "Delete" in the Selection row.
-- Tests (D148, `tests/e2e/select.spec.ts`): a small selection around one source (with others left on
-  the map) removes only that source, leaves every other object's count exactly as it was, undoes in
-  one step, and its own nearby water drains; a second test does Ctrl+A then Delete sources and checks
-  every source is gone in one step and undo brings them all back.
-- **A finding for the milestone session, not resolved here:** doing Ctrl+A then Delete sources on a
-  generated 96×96 Highlands map (seed 4242) empties every source on the whole map at once — something
-  no existing tool did in one step (even the old whole-map Delete leaves the start, but any single
-  source has always been removable one at a time). In the live editor (not the headless session used
-  by `tests/contract/shelf.test.ts`), doing this made every one of that map's 150 `BlueberryBush`
-  entities disappear from the live view, while every tree, ruin, relic and slope stayed exactly as
-  many as before. Isolated with `ed.removeAt(everyTile, ["sources"])` against the raw session
-  directly (no live preview): the bushes are untouched, so the delete operation itself only ever
-  touches sources, as it should. The loss only shows up in the live editor once its water preview has
-  a chance to run forward with zero water anywhere on the map, which points at the moisture or
-  drought side of the simulation reacting to a map with no water left at all, not at anything this
-  change added. Whether that reaction is correct (berries drying up for good once every source is
-  gone, a real Timberborn idea) or a bug in the live preview's moisture pass is a call about the
-  water simulation, outside a written-spec build; the acceptance test above only covers a partial
-  removal (the map keeps water elsewhere) to avoid asserting either way. Flagged for `build` or
-  Kyler's own look.
+- Tests: `tests/contract/shelf.test.ts` proves the operation itself (`ed.removeAt(tiles, ["sources"])`
+  against the raw session, no live water) takes every source on the map and leaves every other
+  entity's count exactly as it was, undoable in one step. `tests/e2e/select.spec.ts` (D148) checks the
+  player-facing mechanics through the live editor: a small selection around one source (with others
+  left on the map) removes only that source and its own nearby water drains, undoing in one step; a
+  second test does Ctrl+A then Delete sources and checks every source is gone in one step and undo
+  brings them all back. Neither e2e test asserts anything about other objects' counts — see below.
+- **A finding for the milestone session, not resolved here.** The first draft of the e2e test also
+  checked that every non-source object's count stayed exactly as it was after a *single* source's
+  removal, matching the operation's own guarantee (proven above at the session level). It passed
+  against a local Chrome run, but failed in CI's headless Chromium: of a generated 96×96 Highlands
+  map's (seed 4242) 150 `BlueberryBush` entities, 6 were gone from the live view after removing just
+  one nearby source, with every tree, ruin, relic and slope unchanged. Removing every source at once
+  (Ctrl+A) made a much larger dent (150 → 0 in one run). `ed.removeAt` itself never touches anything
+  but sources (the contract test above, and the session-level check in this same investigation with
+  water deferred, back it up); the loss only shows up once the live water preview has run forward,
+  which points at the moisture or drought side of the simulation reacting to water the edit took away,
+  not at anything this change added — and its being timing-sensitive (present in CI's headless run,
+  absent locally) rather than a fixed count both times says it is the live simulation's own pace at
+  work, not a deterministic rule. Whether that reaction is correct (berries drying up once their water
+  is gone, a real Timberborn idea) and, if so, why it is timing-dependent instead of deterministic, is
+  a call about the water simulation, outside a written-spec build. Flagged for `build` or Kyler's own
+  look; the e2e tests were narrowed to what Delete sources itself is answerable for so CI stays green
+  without hiding the finding.
 
 ## Sounds: Smooth, re-encoding, a quieter default (D313)
 

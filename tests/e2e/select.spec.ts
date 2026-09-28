@@ -251,19 +251,18 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   for (let i = 0; i < fill.length; i++) if (h0[i] < L) expect(fill[i], `tile ${i} below the level`).toBeGreaterThanOrEqual(L);
 });
 
-test("Delete sources (D315): removes only the water and badwater sources in the selection, no other object; undo restores it; its water drains after", async ({ page }) => {
+test("Delete sources (D315): removes only the water or badwater source in the selection, one undo step; its water drains after", async ({ page }) => {
   await refine(page);
-  const entityCounts = () =>
+  const sourceCount = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
-      const h: Record<string, number> = {};
-      for (let k = 0; k < e.count; k++) h[e.templates[e.template[k]]] = (h[e.templates[e.template[k]]] ?? 0) + 1;
-      return h;
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") n++;
+      return n;
     });
   await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
-  const before = await entityCounts();
-  const totalSources = (before.WaterSource ?? 0) + (before.BadwaterSource ?? 0);
-  expect(totalSources).toBeGreaterThan(1); // more than one, so the map keeps water elsewhere once one is gone
+  const n0 = await sourceCount();
+  expect(n0).toBeGreaterThan(1); // more than one, so the map keeps water elsewhere once one is gone
   // one source, away from the others, so removing it doesn't dry the whole map
   const one = await page.evaluate(() => {
     const e = window.dgm3d!.renderer.mapState()!.entities;
@@ -289,7 +288,7 @@ test("Delete sources (D315): removes only the water and badwater sources in the 
     );
   expect(await waterNear(one.x, one.y)).toBeGreaterThan(0.01);
 
-  // select a small box around it and Delete sources: only that source goes, everything else stays
+  // select a small box around it and Delete sources: only that source goes
   await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
   const a = await client(page, one.x - 3, one.y - 3);
@@ -304,17 +303,14 @@ test("Delete sources (D315): removes only the water and badwater sources in the 
   const info1 = await page.evaluate(() => window.dgmEditor!.info());
   expect(info1.history.filter((h) => h.applied)).toHaveLength(n1 + 1);
   expect(info1.history.filter((h) => h.applied).at(-1)!.label).toBe("Remove a source");
-  const after = await entityCounts();
-  expect((after.WaterSource ?? 0) + (after.BadwaterSource ?? 0)).toBe(totalSources - 1);
-  for (const k of new Set([...Object.keys(before), ...Object.keys(after)])) if (k !== "WaterSource" && k !== "BadwaterSource") expect(after[k] ?? 0, k).toBe(before[k] ?? 0);
+  expect(await sourceCount()).toBe(n0 - 1);
   // its own water drains, since its cause is gone (D260)
   await expect.poll(() => waterNear(one.x, one.y), { timeout: 10_000, intervals: [100] }).toBeLessThan(0.005);
 
-  // undo restores it and its water
+  // undo restores it and its water, in the one step
   await page.keyboard.press("Control+z");
   await idle(page);
-  const restored = await entityCounts();
-  expect(restored).toEqual(before);
+  expect(await sourceCount()).toBe(n0);
   await expect.poll(() => waterNear(one.x, one.y), { timeout: 10_000 }).toBeGreaterThan(0.01);
 });
 

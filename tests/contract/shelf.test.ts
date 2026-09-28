@@ -94,6 +94,35 @@ describe("the shelf and Remove in the worker (D184)", () => {
     expect(removeKindOf("MediumRelic")).toBe("objects");
   });
 
+  it("Delete sources (D315): a sources-only filter takes every source on the map and nothing else, one step, undoable", async () => {
+    await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const counts = () => {
+      const e = ed.sessionView().view.entities;
+      const h: Record<string, number> = {};
+      for (let k = 0; k < e.count; k++) h[e.templates[e.template[k]]] = (h[e.templates[e.template[k]]] ?? 0) + 1;
+      return h;
+    };
+    const before = counts();
+    const totalSources = (before.WaterSource ?? 0) + (before.BadwaterSource ?? 0);
+    expect(totalSources).toBeGreaterThan(0);
+    expect(before.BlueberryBush ?? 0).toBeGreaterThan(0);
+    const all: number[] = [];
+    for (let i = 0; i < W * W; i++) all.push(i);
+    const r = ed.removeAt(all, ["sources"]);
+    expect(r.ok).toBe(true);
+    expect(r.removed.length).toBe(totalSources);
+    const after = counts();
+    expect((after.WaterSource ?? 0) + (after.BadwaterSource ?? 0)).toBe(0);
+    // the operation itself touches nothing but sources (any moisture the water simulation later
+    // computes from a source's removal is the live preview's own business, not this operation's)
+    for (const k of new Set([...Object.keys(before), ...Object.keys(after)]))
+      if (k !== "WaterSource" && k !== "BadwaterSource") expect(after[k] ?? 0, k).toBe(before[k] ?? 0);
+    ed.undo();
+    expect(counts()).toEqual(before);
+  });
+
   it("the start moves and turns in one step; an object on its door is the edit's problem, with the move as its fix", async () => {
     await runGenerate(makeSpec({ seed: 77, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
