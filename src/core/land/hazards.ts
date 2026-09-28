@@ -278,6 +278,11 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     }
     let clear = true;
     for (let j = 0; j < N && clear; j++) if (pit[j] && ask.keepOff?.[j]) clear = false;
+    // (and the ground the basin keeps clear of resources, a square 5 tiles either way of its
+    // middle, setpieces/badwaterBasin.ts `clears`: it took a player's forest beside the pit)
+    if (ask.keepOff)
+      for (let y = Math.max(0, cy - 5); y <= Math.min(H - 1, cy + 5) && clear; y++)
+        for (let x = Math.max(0, cx - 5); x <= Math.min(W - 1, cx + 5) && clear; x++) if (ask.keepOff[y * W + x]) clear = false;
     if (!clear) continue;
     const straight = ditchRoute(hh, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c));
     if (!straight || straight.tiles.length < 3) continue;
