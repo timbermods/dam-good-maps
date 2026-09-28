@@ -1,7 +1,7 @@
 # M9b: composition and variety
 
 > **In progress (2026-09-28).** Branch `feature/m9b` (draft PR #70), from `feature/m9a` (merged in
-> to 6be0d53) and `dev` (to d02ac283). Generator **0.8.0**. Built: one readable water system with
+> to 39863f6, D302's start water rule) and `dev` (to d02ac283). Generator **0.8.0**. Built: one readable water system with
 > courses held end to end, Islands' sea in six layouts, the themes steered toward their promises
 > and checked, the candidate choice, D274's intentions, the 8 orientations, names and a
 > how-it-plays line in the map's own numbers, Another like this, Variety as a setting, the game's

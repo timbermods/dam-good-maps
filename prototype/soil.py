@@ -16,7 +16,7 @@ import numpy as np
 
 # the rules a caller gets when it does not ask (src/core/sim/soil.ts DEFAULT_SOIL_RULES): "game"
 # (these functions) or "port" (watersim.py's moisture and contamination, the port as it was)
-DEFAULT_SOIL_RULES = "port"
+DEFAULT_SOIL_RULES = "game"   # M9b's switch (D298, D308)
 
 F32 = np.float32
 

@@ -34,7 +34,7 @@ KEEP = 0.999              # flow momentum kept per substep
 BAL = 0.8                 # outflow balancing against the reverse flow
 TICKS_PER_DAY = 768
 EVAPORATION_PER_DAY = 0.0535
-DEFAULT_WATER_RULES = "port"
+DEFAULT_WATER_RULES = "game"   # M9b's switch (D308, D311)
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
 DIRS = ((-1, 0), (0, -1), (1, 0), (0, 1))
 OPP = (2, 3, 0, 1)

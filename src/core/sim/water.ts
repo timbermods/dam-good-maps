@@ -40,8 +40,10 @@ export const TICKS_PER_DAY = 768;
 /** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
 export type WaterRules = "game" | "port";
 
-/** The rules a simulator runs when its caller does not say. */
-export const DEFAULT_WATER_RULES: WaterRules = "port";
+/** The rules a simulator runs when its caller does not say: the game's, since M9b's switch (D308,
+ *  D311). A map built under the port's keeps them where it is settled again (the Real places, until
+ *  Real places 2 converts them under the game's). */
+export const DEFAULT_WATER_RULES: WaterRules = "game";
 
 export interface WaterSimOptions {
   rules?: WaterRules;

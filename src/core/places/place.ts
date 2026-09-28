@@ -179,7 +179,9 @@ export function buildPlace(p: PlaceData): BuiltPlace {
   const entities = placeEntities(p, heights);
   const objects = entities.map(mapObject);
   const model = waterModel(W, H, heights, objects);
-  const settle = canonicalSettle(model);
+  // (the places were converted under the port's water rules and are settled with them, so the
+  // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
+  const settle = canonicalSettle(model, { rules: "port" });
   const barrier = moistureBarrier(W, H, objects);
   const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
   const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);

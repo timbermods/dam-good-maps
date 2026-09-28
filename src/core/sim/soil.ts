@@ -15,8 +15,8 @@ import type { MapObject } from "./model";
  *  numbers, bit for bit). */
 export type SoilRules = "game" | "port";
 
-/** The rules a caller gets when it does not ask. */
-export const DEFAULT_SOIL_RULES: SoilRules = "port";
+/** The rules a caller gets when it does not ask: the game's, since M9b's switch (D298, D308). */
+export const DEFAULT_SOIL_RULES: SoilRules = "game";
 
 /** A process-wide override of the default, for comparing maps under both rules in one process
  *  (tools only: tools/soil-compare.ts). */
