@@ -12,8 +12,10 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35): answered (D300)** and being finished on `feature/real-places-2`: both land fixes, a water floor, #94
-   accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
+1. **Real places (#35): one rebuild** (your question): D300's fixes, D306's 256² framing, D200's badwater and D302's start-water
+   rule, all together, under the game's water and soil rules (D308), so the gallery is built once and not again when M9b lands.
+   The land for every 256² framing is cached; a dry run under the old rules converted every place at 256² with "No water a pump
+   can reach" at 0. It waits only for M9b's self-contained rules set (then about 2 hours), then my own check and the release.
 2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
 3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
