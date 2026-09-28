@@ -33,8 +33,9 @@ export interface SoundSettings {
 }
 
 const SOUND_KEY = "dgm.sound";
-/** On, at the round-two mix's own clearly audible level (0.72: its everyday actions near −23 dBFS,
- *  its forces near −16.5; D226), water ambience off. */
+/** On, at the round-two mix's own clearly audible level, a quarter lower than its first release
+ *  (0.54: its everyday actions near −25.5 dBFS, its forces near −19; D226, D313), water ambience
+ *  off. A saved volume is kept exactly; only a fresh player gets the new default. */
 export const DEFAULT_SOUND: SoundSettings = { on: MIX_DEFAULTS.enabled, volume: MIX_DEFAULTS.volume, ambience: MIX_DEFAULTS.ambience };
 
 const unit = (v: number) => Math.max(0, Math.min(1, v));

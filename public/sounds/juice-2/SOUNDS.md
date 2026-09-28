@@ -1,13 +1,24 @@
 # The editor's sounds: provenance
 
-These recordings are the editor's sounds in Live editing (PLAN §20 D226), copied unchanged from
-Codex's second sound round (`investigation/juice-2`, PR #64, merged at ecfbafe): `audio/<id>.mp3`
-and `bank.json` (every file's source, author, licence, edits, byte count and SHA-256). The editor
-plays them through `src/editor/juice/` (the round-two engine, ported). They load on the player's
-first click or key, never with the page. `tests/unit/juiceSounds.test.ts` checks each file against
-its hash here.
+These recordings are the editor's sounds in Live editing (PLAN §20 D226), from Codex's second
+sound round (`investigation/juice-2`, PR #64, merged at ecfbafe): `audio/<id>.mp3` and `bank.json`
+(every file's source, author, licence, edits, byte count and SHA-256). The editor plays them
+through `src/editor/juice/` (the round-two engine, ported). They load on the player's first click
+or key, never with the page. `tests/unit/juiceSounds.test.ts` checks each file against its hash
+here.
 
-What follows is the round's own provenance note, as it was written.
+**D313 (2026-09-28):** every file was checked against its original recording and re-encoded from
+192 to 256 kbps MP3, still mono at 48 kHz: at 192 kbps a reconstruction-error measurement against
+each clip's pre-encode signal (the same one `build-bank.py` computes, before quantization) showed
+roughly 27–30 dB of encoding noise across every recording (impacts, splashes and the three friction
+beds alike); 256 kbps cut that error by 10–40 dB for a modest size increase (818,400 to 1,090,848
+bytes, 0.78 to 1.04 MiB total — still four files at a time on the player's first gesture). The crop
+points, trims, gains and bed assembly are byte-for-byte the same as the round's own
+`build-bank.py`; only the final encode's bitrate changed. `tools/reencode-sounds.py` (repository
+root) reproduces this pass from the same CC0 sources; `investigation/juice-2/` (its own 192 kbps
+`bank.json`, audio and this note as first written) is left exactly as PR #64 merged it, since
+`investigation/` is history (docs/README.md). This file now describes the shipped copy as it is;
+what follows below the sources table is the round's own text, amended only where noted.
 
 ## Sound provenance
 
@@ -33,10 +44,10 @@ generation. No claim of lossless mastering is made. No sign-in was needed.
 
 ## Every shipped sample
 
-All outputs below are `audio/<id>.mp3`, mono, 48 kHz, 192 kbps. Every row inherits
-the named author's **CC0** grant from the source table above. Exact input/output
-SHA-256 hashes, byte counts, lengths, crops and gain adjustments are in
-[bank.json](bank.json). Total: **818,400 bytes (0.78 MiB)**.
+All outputs below are `audio/<id>.mp3`, mono, 48 kHz, **256 kbps** (D313; 192 kbps as PR #64 first
+shipped it). Every row inherits the named author's **CC0** grant from the source table above. Exact
+input/output SHA-256 hashes, byte counts, lengths, crops and gain adjustments are in
+[bank.json](bank.json). Total: **1,090,848 bytes (1.04 MiB)**.
 
 | Output ID | Source / author ID | Original recording(s) |
 | --- | --- | --- |
@@ -68,9 +79,11 @@ SHA-256 hashes, byte counts, lengths, crops and gain adjustments are in
 Impacts retain their attacks and original crest factors. One linear gain aims at
 −19 dBFS in the strongest 100 ms, constrained by a −2 dBFS sample peak. Short edge
 fades avoid clicks. The three beds overlap only the recorded friction tails,
-using a fixed seed; they contain no generated noise. `build-bank.py` reproduces
-this processing with NumPy and FFmpeg. The demo needs neither tool nor any package
-installation. Source archives/build tools remain ignored in `local/`.
+using a fixed seed; they contain no generated noise. `investigation/juice-2/build-bank.py`
+reproduces the original 192 kbps processing with NumPy and FFmpeg;
+`tools/reencode-sounds.py` reproduces this file's own 256 kbps pass, identical otherwise. Neither
+tool nor any package installation is needed to play the sounds. Source archives/build tools remain
+ignored in `local/`.
 
 Pitching, filtering, reversing (undo), envelopes and layering happen in Web Audio.
 The little musical resonance is a recorded bell strike, never an oscillator beep.
