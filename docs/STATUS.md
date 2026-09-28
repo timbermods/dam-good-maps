@@ -12,14 +12,18 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35): one rebuild** (your question): D300's fixes, D306's 256² framing, D200's badwater and D302's start-water
+1. **A small thing for you on this machine (two minutes):** the GitHub login here lacks the `workflow` permission, so a branch that
+   carries a change to the CI workflow files (M9a's does) can't be pushed. In a terminal here, run
+   `gh auth refresh -h github.com -s workflow` and approve it in the browser (no token is pasted anywhere). Until then Real places
+   waits for M9a to land on dev and retries.
+2. **Real places (#35): one rebuild** (your question): D300's fixes, D306's 256² framing, D200's badwater and D302's start-water
    rule, all together, under the game's water and soil rules (D308), so the gallery is built once and not again when M9b lands.
    The land for every 256² framing is cached; a dry run under the old rules converted every place at 256² with "No water a pump
    can reach" at 0. It waits only for M9b's self-contained rules set (then about 2 hours), then my own check and the release.
-2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
+3. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
    count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
-3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
-4. **M9b: the game's water rules and D297's line, a question with a default.** M9b has switched open-ground water to the game's rules
+4. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
+5. **M9b: the game's water rules and D297's line, a question with a default.** M9b has switched open-ground water to the game's rules
    (D308; 434dcd12), with the Python check agreeing bit for bit. On 18 sample maps at 128², 10 stay within D297's line; 8 don't:
    River Valley 2 has 139 tiles flipping wet/dry outside 0.04–0.06 (volume −0.36%), Delta 3 has 30 (−0.85%), Lake Basin 3 has 156
    thin-sheet tiles going from 0.057 to dry. One rule causes it: the game's evaporation on a dry tile that receives water (off, the
@@ -30,7 +34,7 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
    - **Also on `feature/high-look`** (your answer on the suggested task): once clean water's shades are done, badwater's on-screen
      calibration targets (6–11 codes off on "typical", "trough", "streak") are re-measured once; the drift is fixed, or, if an
      approved look change moved them, the targets are updated and noted in PLAN and the progress log (`build-light`).
-5. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
+6. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
    folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
    menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
    Every result drops 0 voxels under the game's support rule (also 160 random gestures); reach from support at most 3; 15–130 ms to the
@@ -38,7 +42,7 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
    one sweeping curve); small arches (thin ridges are rare on today's maps); faces under about four levels can't be worn, so on the
    terraced Highlands 24 of 40 random gestures say "No rock to wear here", which may feel like refusing; water under new roofs is an
    approximation (said on screen); not yet checked in the game; the view follows the Standard look but isn't its shader.
-6. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
+7. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
    a sitting of its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). Two findings:
    - **"The worst day at once" doesn't hold on water-rich maps.** Time to the last day on this machine: 256² River Valley, drought
      1.8–3.8 s, badtide 14–22 s; 128² Lake Basin and Islands 16–48 s. The cost is the game's own water rules (9 days of plain
@@ -54,7 +58,7 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
      its flows; and the game's 0.1 spill threshold where a river leaves the map at floor 0). **Default #125 for you:** that last
      rule is used by the drought run only, so no map changes today; the agent recommends adding it to all water with D293's move to
      the game's rules (the 3D engine's game mode should already carry it).
-7. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
+8. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
    Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
    shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
    switchable, in four groups on a Look menu. Standard is unchanged (its shader sources hash as `dev`'s; 12 views differ no more than
@@ -72,15 +76,15 @@ Your sixty decisions since the restart are recorded (D252–D311, below) and in 
      5 L* darker than badwater, and they're 0.4 L* from that line. Options: (a) darken the mine pit's earth too, then badwater,
      then clean shallows toward the game (a small range, all three rules kept); (b) keep the readability tests but let a thin
      sheet's own texture, not its colour, tell it from badwater, so shallows can darken; (c) accept it as it is. My pick: (a).
-8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
+9. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
    on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
    Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
    painting stutter after tall edits is fixed. (The water bar still shows Speed: the day-by-day branch, with its own sitting, removes it.)
-9. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
+10. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
    water led into one river.
-10. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
+11. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
    line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-11. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
+12. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
    Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
    in Standard, at the Map look work).
 
