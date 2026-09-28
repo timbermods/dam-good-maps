@@ -110,7 +110,9 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   await select();
   await page.keyboard.press("u");
   await expect(work).toBeVisible();
-  await page.waitForTimeout(1200);
+  // (Esc while it still runs: generator 0.7.0's land can end a short course within a second)
+  await page.waitForTimeout(300);
+  expect(await running(page)).not.toBeNull();
   await page.keyboard.press("Escape");
   await expect.poll(() => running(page), { timeout: 10_000 }).toBeNull();
   await idle(page);

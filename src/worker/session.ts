@@ -1714,7 +1714,7 @@ let lastWater: { version: number; depth: Float64Array; contamination: Float64Arr
  *  ground above it is left as it is). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
-  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; cut: number | null; source?: string }
+  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
@@ -1947,7 +1947,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
-  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : [])];
+  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...(req.verb === "carve" && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
@@ -1979,7 +1979,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           }
           break;
         }
-        const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) };
+        // (waypoints, D312: a smooth curve through them to the end)
+        const via = aimed && req.via?.length ? req.via.map(at) : [];
+        const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
         carve = new CarveRun(base, req.settings, intent, { keep, sourceId: crypto.randomUUID() });
         break;
       }
@@ -2241,6 +2243,8 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     const origin: [number, number] = req.source ? [r.intent.origin % f.before.W, Math.floor(r.intent.origin / f.before.W)] : req.origin;
     params = carveForceParams(f.before, r, { settings: req.source ? r.settings : req.settings, origin, ...(aimed ? { end: aimed } : {}), cut: req.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (params && req.source) params = { ...params, where: { ...params.where, source: req.source } };
+    // (its waypoints, D312: the curve's points from the origin to the end, kept with its record)
+    if (params && aimed && req.via?.length) params = { ...params, where: { ...params.where, path: [origin, ...req.via, aimed].map(([x, y]) => [x, y] as [number, number]) } };
     if (!params) return refused([req.source ? "Its water found nothing to carve from there: more Power, or drag from Unleash to aim it" : "Nothing was carved"]);
     water = r.liveWater();
   } else {

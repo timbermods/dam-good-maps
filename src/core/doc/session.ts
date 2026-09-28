@@ -862,7 +862,8 @@ export class MapSession {
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
-    if (this.mode === "live") return tallNoted(toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {}), built.heights);
+    // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
+    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;

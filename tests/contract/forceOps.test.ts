@@ -167,7 +167,8 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     for (const req of [
       { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 60 }, origin: on, cut: null },
       { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 60 }, origin: on, cut: null },
-      { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: st.x - 20, y: st.y }, { x: st.x + 20, y: st.y }], side: 1, cut: null },
+      // (the fault held on the map: generator 0.7.0 may put the start near its edge)
+      { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: Math.max(1, st.x - 20), y: st.y }, { x: Math.min(W - 2, st.x + 20), y: st.y }], side: 1, cut: null },
       { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, path: [{ x: 3, y: st.y }, { x: W - 4, y: st.y + 1 }], side: 1, cut: null },
       { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", defyGravity: true, power: 70 }, origin: [Math.max(2, st.x - 14), st.y], end: [Math.min(W - 3, st.x + 14), st.y], cut: null },
     ] as ed.ForceRequest[]) {

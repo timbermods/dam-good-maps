@@ -24,15 +24,16 @@ import * as ed from "../../src/worker/session";
 
 const W = 96;
 
-function model(): { m: WaterModel; depth: Float64Array } {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+function model(theme: "riverValley" | "lakeBasin" = "riverValley", seed = 3): { m: WaterModel; depth: Float64Array } {
+  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   return { m: s.built.waterModel, depth: Float64Array.from(s.built.water) };
 }
 
 describe("a stroke's water after a force (D244's measurements)", () => {
   it("the editor's background settle runs on past its first day while the water still moves, and ends settled", () => {
-    const { m } = model();
+    // (a lake basin's lake takes about three days to fill from dry, generator 0.7.0)
+    const { m } = model("lakeBasin", 1);
     // from a dry map: the rivers take more than a day to fill it
     const N = W * W;
     const dry = { model: m, water: { settled: false, ticks: 0, depth: new Float64Array(N), contamination: new Float64Array(N), sat: new Uint8Array(N) } };

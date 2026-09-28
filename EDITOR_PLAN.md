@@ -66,7 +66,9 @@ editor is desktop-first (D185).
   berry bushes, plant oaks for the starting logs.
   **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
   (Carve unleashed, Craterize's strike, Erupt's vent, Unleash on a source) starts the force at once, finding its own
-  way; a small cursor shows where it will act. A drag in a direction aims Carve or Craterize: while dragging, only a
+  way; a small cursor shows where it will act, and a **faint ring round it shows the force's size** at its Power and
+  Size (D312): the crater's radius, the volcano's, Quake's reach from its fault, Carve's width (where a carve goes depends
+  on the land), like a brush's ring: how big, never what shape. A drag in a direction aims Carve or Craterize: while dragging, only a
   thin straight arrow from where the drag began to the pointer; on release the force goes that way (an aimed carve
   cuts through rises on its way, D289) and the arrow goes. A stroke the player paints stays drawn as it is painted,
   since it is the gesture itself (Quake's fault, Erupt's fissure). The only word a force shows is why it won't act at
@@ -190,7 +192,8 @@ editor is desktop-first (D185).
   a click vents, a drag opens a fissure (D289: the gesture is the mode); **Power**; **Size** (breadth: following
   Power, or set: D226); **Try another**. Its shape (steep or broad), summit (peak, crater or caldera), flows (light or
   heavy) and ridges come from the land and the seed (D289). The ground stirs, then the volcano
-  swells level by level; its plume billows bigger and darker the more powerful the eruption (D216),
+  swells level by level, its **terrain final in about two seconds** (D312: its 28 stages at 55 ms); its effects (the lava's
+  glow cooling, the smoke) play on, but the player never waits for them and can act again at once; its plume billows bigger and darker the more powerful the eruption (D216),
   the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
   always keeps a peak within the headroom it has: near the height ceiling it spreads wider rather
   than rising taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
@@ -347,6 +350,12 @@ Make a valley, drop a source, and there's a river.
   with its full set:
   - a click unleashes it where the small cursor is; a drag aims it (only a thin arrow from where it began to the
     pointer, D258), and an aimed carve goes where the player dragged, cutting through rises on its way (D289);
+  - **waypoints** (D312): Shift+click drops them (the first is where it starts), drawn as small markers joined by a thin
+    line (the player's own gesture); a click without Shift launches, its tile the end, or Enter, the last waypoint the
+    end; Backspace takes the last one off; Esc drops them all. The carve steers along a smooth curve through them
+    (Catmull-Rom, a point five tiles ahead on it), finding its own way near the line with its own wander and physics,
+    as Aim does; its operation keeps them (`where.path`: the origin, the waypoints, the end), and Try another runs
+    through the same ones. The gesture is a shared piece (`src/editor/waypoints.ts`), Glaciate's too;
   - **Power** (creek to catastrophe) and **Size** (how wide it cuts: following Power by default, or set by hand for
     slot canyons or wide lazy rivers; its depth follows Power and the width, D226, D289);
   - its wander (straight to winding) and walls (a steep gorge or wide terraces) drawn from the land and the seed

@@ -16,6 +16,8 @@
 > 9. **D270: done** (the section below): Flatten's Ramped lays its own natural slopes along the rim.
 > 10. **D244 step 2: done** (the section below), after the Ceiling batch ceiling-20260927 passed;
 >     `chore/ceiling-probe`'s tool merged.
+> 11. **Kyler's forces sitting, part 1 (D312): done** (the section below): the size ring, Carve's
+>     waypoints, Erupt final in about two seconds. `dev` merged at 8099b63 (M9a, generator 0.7.0).
 > 11. **D309, the details behind More: done** (the section below, added 2026-09-28, after the sitting
 >     was already queued): amends D289, so the forces-sitting checklist gets one more line.
 >
@@ -97,6 +99,61 @@ varies, and pinning every value a run drew (including its seed) reproducing that
 
 Docs: EDITOR_PLAN §3 (More, Auto, the pin, brought-back controls) and Part 3 (the superseded row
 corrected); this file.
+
+## Kyler's forces sitting, part 1 (D312)
+
+`origin/dev` merged first (8099b63: M9a, generator 0.7.0, D213's No badwater). Conflicts: M9a's dam-site
+legend line and the storage check's location on the best dam (both dropped: D287); M9a's generator
+already notes land above 16 in a generated map's own description ("… the game's map editor edits only
+up to level 16"), so a generated map's export follows it and the editor's tall note (D244) goes only on
+imported maps, never twice; the Claude step types joined; the Claude reference outputs and STATUS as
+dev has them (STATUS's two "make walkable" words, a retired term since D247 on this branch, reworded).
+Tests the new generator's land made stale (D148): `brushSources.test` finds the first River Valley
+map with a dry spot (seed 3 has none now); `forceOps.test`'s fault through the start stays on the map
+(the start can be near the edge now); `draftWaterQuiet.test`'s settle past a day uses Lake Basin 1 (its
+lake takes about 2,500 ticks from dry; River Valley 3 fills in 640 now); `maxWaterDepth.test` allows
+3.06 (a lake's level drifts by a few hundredths on the new land; it allowed 3.05); `ceiling.test`
+checks the generator's own words on a generated map and the editor's note on an imported one.
+
+1. **The size ring** (`src/core/forces/reach.ts`, `forceReach`): a faint ring round the force's cursor,
+   its radius the crater's (half its Size), the volcano's (half its breadth), Quake's reach from its
+   fault (`quakeReach`: 14 + Power/2), Carve's half width. It follows Power while Size is Auto and Size
+   once set, and changes at once when either moves under a still pointer. Quake shows the ring alone
+   (the fault is painted, no cursor). No route, footprint or outline (D258). Drawn on the overlay in
+   the new `FAINT`.
+2. **Carve's waypoints** (`src/editor/waypoints.ts`, a shared piece; `core/forces/carve/course.ts`):
+   Shift+click drops a waypoint (the first where it starts), drawn as small markers joined by a thin
+   line; a click without Shift launches with its tile the end; Enter launches with the last waypoint
+   the end; Backspace removes the last; Esc drops them all; a drag still aims as before (and drops any
+   waypoints). The carve steers along a smooth curve through them (uniform Catmull-Rom sampled every
+   half tile; the guide points five tiles ahead on it; its cost is the curve still to go; it ends at
+   its end only on the last stretch), with its own wander and physics. The worker's `ForceRequest`
+   takes `via`; the kept `forceResult` keeps the curve's points in `where.path`; Try another keeps
+   them. Replay is literal, so exact. At most 32 waypoints (`MAX_WAYPOINTS`).
+3. **Erupt's terrain final in about two seconds:** its pace 55 ms a stage (was 140), its 28 stages
+   and a step or two of planning: 1.85 s from the click to the force kept on the RTX 2070 SUPER (it was
+   5.1-5.4 s). Its plume, glow and cooling lava play on their own clocks after it is kept; the tools
+   answer at once.
+
+Tests: `tests/unit/waypoints.test.ts` (new: the reach follows Power and Size for every force; the
+gesture adds, ignores a repeat, removes, drops all, launches by click and by Enter, and needs two
+points; the overlay's markers and line; the curve passes through every point); `tests/contract/
+carveWaypoints.test.ts` (new: a dog-leg carve passes within 4 tiles of each waypoint, its operation
+keeps them, Try another keeps them, the project replays to the same land, a waypoint off the map is
+refused); `forces.spec` (new: the ring's radius follows Power and Size for Craterize, Erupt and
+Carve, is half a hand-set Size, and Quake's has no cursor; waypoints add, Backspace, Esc, click and
+Enter launch one step each; Erupt final 1.85 s after the click, under 3 s on a busy machine, and a
+brush answers at once). Changed (D148): `forceDriver.test`'s pace check (the eruption's 28 stages in about two
+seconds, not four). And, the new generator's land: `forces.spec`'s Craterize on the start checks that the start
+stands on level ground after the strike (carried off broken ground, or riding a bowl its 3 × 3 stayed
+level in: on Highlands 4242's new start a crater of 30 or 70 leaves it level, one of 50 breaks it),
+at Power 50; `unleash.spec` presses Esc 0.3 s into the run and checks it still runs (a short course can
+end within the old 1.2 s). The full e2e suite: 67 passed; `water.spec`'s 256² timing timed out under
+two workers (generator 0.7.0's 256² maps take 10-80 s each here) and passes alone (3.2 min).
+
+For Kyler's forces sitting: hover each force and change Power and Size: the ring follows; Carve:
+Shift+click a few points, then click: the river winds through them (Backspace, Esc, Enter); Erupt:
+the land is done in about two seconds while the smoke and the glow linger.
 
 ## One ceiling in the editor (D244 step 2)
 

@@ -105,7 +105,7 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 5. **Brushes and sources** (D249): raise land over a group of sources with **Clear sources** on (they glow red and go with
    the stroke) and off (they ride the ground: no pits, no pillars); hover near a source with any tool and press Delete; a
    Remove drag that starts on a source takes only sources. Captures of both strokes will be in the forces' progress log.
-6. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level
+6. **Brushes:** the size number and slider in the options row (D226); Smooth without its walkable option (D247); **Level
    lines** now in the view bar beside Height colours, working with any tool (D248).
 7. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
 8. **Sounds:** louder by default; #64's recorded sounds for every action and force.
@@ -491,7 +491,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
-- D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
+- D247: Smooth's walkable option removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
 - D246: Glaciate, a new force (a valley made glacial: a level floor, a chain of lakes, hanging valleys, moraines; Flow or Aim, Power, Size, Meltwater, Try another); Codex's `investigation/glaciate` is held until you've tried its demo, then built on the forces core after round 2.
 - D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
 - D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.

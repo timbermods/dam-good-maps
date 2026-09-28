@@ -40,6 +40,9 @@ import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } 
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
+import { forceReach } from "../core/forces/reach";
+import { MAX_WAYPOINTS } from "../core/forces/carve/run";
+import { waypointTiles, Waypoints, type Waypoint } from "./waypoints";
 import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
@@ -60,7 +63,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, FAINT, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -122,7 +125,7 @@ declare global {
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
        *  fault that moves (1 its left, -1 its right: X flips it, D289). */
-      gesture(): { stroke: number | null; cursor: [number, number] | null; arrow: { from: [number, number]; to: { x: number; y: number } } | null; side: 1 | -1 };
+      gesture(): { stroke: number | null; cursor: [number, number] | null; arrow: { from: [number, number]; to: { x: number; y: number } } | null; side: 1 | -1; ring: number | null; waypoints: [number, number][] };
       /** The sources glowing red for Clear sources (D249), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
       sourceGlow(): number[];
@@ -163,14 +166,30 @@ export default function Editor(props: EditorProps) {
   const anchorRef = useRef<QuakePoint | null>(null);
   const flipRef = useRef<(() => void) | null>(null);
   const forceEscRef = useRef<(() => boolean) | null>(null);
+  /** The picked force's own keys while it isn't at work (Carve's waypoints: Enter, Backspace, D312);
+   *  true when the key was its. */
+  const forceKeyRef = useRef<((key: string) => boolean) | null>(null);
   /** What a force draws (D258: clean gestures, never a prediction): the stroke the player paints
    *  (Quake's fault, Erupt's fissure: the gesture itself), a small cursor where a click would act,
    *  and Aim's thin arrow from where the drag began (a tile) to the pointer (the page's point). */
   const [forceStroke, setForceStroke] = useState<number[] | null>(null);
   const [forceCursor, setForceCursor] = useState<[number, number] | null>(null);
+  /** The force's reach round the cursor (D312): a faint ring, its radius from Power and Size. */
+  const [forceRing, setForceRing] = useState<{ x: number; y: number; r: number } | null>(null);
+  /** Carve's waypoints (D312): the shared gesture (waypoints.ts), drawn on the land as they are
+   *  dropped; launched, the carve runs from the first through the rest to the last. */
+  const [waypointsShown, setWaypointsShown] = useState<readonly Waypoint[]>([]);
+  const waypoints = useRef<Waypoints | null>(null);
+  waypoints.current ??= new Waypoints(
+    {
+      changed: (points) => setWaypointsShown(points.slice()),
+      launch: (points) => forceCalls.current!.carve(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][]),
+    },
+    MAX_WAYPOINTS,
+  );
   const [aimArrow, setAimArrow] = useState<{ from: [number, number]; to: { x: number; y: number } } | null>(null);
-  const gestureRef = useRef({ forceStroke, forceCursor, aimArrow });
-  gestureRef.current = { forceStroke, forceCursor, aimArrow };
+  const gestureRef = useRef({ forceStroke, forceCursor, aimArrow, forceRing });
+  gestureRef.current = { forceStroke, forceCursor, aimArrow, forceRing };
   const [options, setOptions] = useState<ToolOptions>(DEFAULT_OPTIONS);
   /** The object picked on the shelf, its options and its turn (D184). */
   const [shelf, setShelf] = useState<ShelfItem | null>(null);
@@ -807,10 +826,18 @@ export default function Editor(props: EditorProps) {
     // a force's painted stroke (the gesture itself), and its small cursor where a click would act
     if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
     if (forceCursor) layers.push({ tiles: rimTiles(forceCursor[0], forceCursor[1], 1.5, 1.5, 0), color: DRAWING });
+    // its reach (D312): how big, never what shape
+    if (forceRing && forceRing.r >= 2) layers.push({ tiles: rimTiles(forceRing.x, forceRing.y, forceRing.r, forceRing.r, 0), color: FAINT });
+    // the waypoints being dropped (D312): the player's own gesture, markers and a thin line
+    if (waypointsShown.length) {
+      const w = waypointTiles(waypointsShown, info.W, info.H);
+      layers.push({ tiles: w.line, color: FAINT });
+      layers.push({ tiles: w.markers, color: DRAWING });
+    }
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke, forceCursor]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke, forceCursor, forceRing, waypointsShown]);
 
   // ------------------------------------------------------------------------------ the pointer
 
@@ -1515,7 +1542,7 @@ export default function Editor(props: EditorProps) {
   }
 
   // (the driver lives as long as the editor; it calls the latest of these)
-  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number]): void } | null>(null);
+  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void } | null>(null);
   forceCalls.current = {
     keep: () =>
       enqueue(async () => {
@@ -1713,9 +1740,10 @@ export default function Editor(props: EditorProps) {
     void forcer.current?.start(false, painting);
   }
 
-  function startCarve(origin: [number, number], end?: [number, number]) {
-    startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current, !!end), origin, ...(end ? { end } : {}), cut: renderer.current?.slice ?? null });
+  function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][]) {
+    startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current, !!end), origin, ...(end ? { end } : {}), ...(end && via?.length ? { via } : {}), cut: renderer.current?.slice ?? null });
   }
+
 
   /** Try another: the last force again, from the same land, another way. */
   function forceAgain() {
@@ -1724,17 +1752,46 @@ export default function Editor(props: EditorProps) {
     void forcer.current.start(true);
   }
 
-  /** The small cursor where a force's click would act (D258: the cursor, never a footprint), at most
-   *  once a frame. */
+  /** The radius of the picked force's reach at its Power and Size (D312), or null. */
+  function reachNow(): number | null {
+    switch (toolRef.current) {
+      case "carve":
+        return forceReach({ verb: "carve", settings: carveSettingsOf(carveUiRef.current) });
+      case "craterize":
+        return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) });
+      case "erupt":
+        return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
+      case "quake":
+        return forceReach({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current) });
+      default:
+        return null;
+    }
+  }
+
+  /** The small cursor where a force's click would act (D258: the cursor, never a footprint), and the
+   *  faint ring of its reach round it (D312; `dot` false: the ring alone, for a painted fault), at
+   *  most once a frame. */
   const cursorFrame = useRef(0);
-  function showForceCursor(at: [number, number] | null) {
+  function showForceCursor(at: [number, number] | null, dot = true) {
     cancelAnimationFrame(cursorFrame.current);
     cursorFrame.current = requestAnimationFrame(() => {
       const now = gestureRef.current.forceCursor;
-      if (now === at || (now && at && now[0] === at[0] && now[1] === at[1])) return;
-      setForceCursor(at);
+      const want = dot ? at : null;
+      if (!(now === want || (now && want && now[0] === want[0] && now[1] === want[1]))) setForceCursor(want);
+      const r = at ? reachNow() : null;
+      const ring = gestureRef.current.forceRing;
+      const next = at && r !== null ? { x: at[0] + 0.5, y: at[1] + 0.5, r } : null;
+      if (!(ring === next || (ring && next && ring.x === next.x && ring.y === next.y && ring.r === next.r))) setForceRing(next);
     });
   }
+  // (Power or Size changed under a still pointer: the ring follows at once)
+  useEffect(() => {
+    const ring = gestureRef.current.forceRing;
+    if (!ring) return;
+    const r = reachNow();
+    if (r === null) setForceRing(null);
+    else if (r !== ring.r) setForceRing({ ...ring, r });
+  }, [carveUi, craterUi, eruptUi, quakeUi, tool]);
 
   // Carve takes the map's clicks and drags while it is picked (D258, D289: the gesture is the mode): a
   // click unleashes it where the cursor is; a drag aims it, with only a thin arrow from where it
@@ -1745,9 +1802,13 @@ export default function Editor(props: EditorProps) {
     let down: TileHit | null = null;
     /** The drag has left the tile it began on: it aims (a click stays within a tile of it). */
     let aiming = false;
+    const wp = waypoints.current!;
+    /** A Shift+click drops a waypoint (D312), never a drag of its own. */
+    let dropping = false;
     const t: PointerTool = {
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        dropping = ev.shiftKey;
         down = hit;
         aiming = false;
         showForceCursor(null);
@@ -1755,21 +1816,28 @@ export default function Editor(props: EditorProps) {
       },
       move: (hit, ev) => {
         notePointer(ev);
-        if (!down) return;
+        if (!down || dropping) return;
         if (!aiming && hit && Math.hypot(hit.x - down.x, hit.y - down.y) >= 2) aiming = true;
         if (aiming) setAimArrow({ from: [down.x, down.y], to: { x: ev.clientX, y: ev.clientY } });
       },
       up: (hit) => {
         const d = down;
         const aimed = aiming;
+        const drop = dropping;
         down = null;
         aiming = false;
+        dropping = false;
         setAimArrow(null);
         if (!d || !hit) return;
+        // Shift+click: a waypoint; a click with waypoints down: launch, this tile the end (D312)
+        if (drop) return wp.add([d.x, d.y]);
+        if (!aimed && Math.max(Math.abs(hit.x - d.x), Math.abs(hit.y - d.y)) <= 1 && wp.click([d.x, d.y])) return;
         if (!aimed || Math.hypot(hit.x - d.x, hit.y - d.y) < 2) {
           if (Math.max(Math.abs(hit.x - d.x), Math.abs(hit.y - d.y)) <= 1) forceCalls.current!.carve([d.x, d.y]);
           return;
         }
+        // (a drag aims, as before; waypoints dropped before it go)
+        wp.clear();
         forceCalls.current!.carve([d.x, d.y], [hit.x, hit.y]);
       },
       hover: (hit, ev) => {
@@ -1779,20 +1847,25 @@ export default function Editor(props: EditorProps) {
       cancel: () => {
         down = null;
         aiming = false;
+        dropping = false;
         setAimArrow(null);
       },
     };
     r.tool = t;
     forceEscRef.current = () => {
-      if (!down) return false;
+      // (Esc drops the waypoints too)
+      if (!down) return wp.key("Escape");
       down = null;
       aiming = false;
       setAimArrow(null);
       return true;
     };
+    forceKeyRef.current = (key) => wp.key(key);
     return () => {
       if (r.tool === t) r.tool = null;
       forceEscRef.current = null;
+      forceKeyRef.current = null;
+      wp.clear();
       cancelAnimationFrame(cursorFrame.current);
       setAimArrow(null);
       setForceCursor(null);
@@ -1992,9 +2065,10 @@ export default function Editor(props: EditorProps) {
           if (!hit) showForceCursor(null);
           return;
         }
-        // a painted fault has no cursor: the stroke is the gesture (Erupt's click vents: it has one)
+        // a painted fault has no cursor, only its reach's ring: the stroke is the gesture (Erupt's click
+        // vents: it has one)
         if (verb === "quake") {
-          showForceCursor(null);
+          showForceCursor([hit.x, hit.y], false);
           return;
         }
         showForceCursor([hit.x, hit.y]);
@@ -2869,6 +2943,11 @@ export default function Editor(props: EditorProps) {
       }
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
+      // Carve's waypoints (D312): Enter launches, Backspace takes the last one off
+      if (!mod && (ev.key === "Enter" || ev.key === "Backspace") && forceKeyRef.current?.(ev.key)) {
+        ev.preventDefault();
+        return;
+      }
       // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Shift+1–9 glides back
       // to it (the number keys alone pick the brushes)
       const digit = /^Digit([1-9])$/.exec(ev.code);
@@ -3058,7 +3137,7 @@ export default function Editor(props: EditorProps) {
       selection: () => selection.current.tiles(),
       gesture: () => {
         const g = gestureRef.current;
-        return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, arrow: g.aimArrow, side: quakeUiRef.current.side };
+        return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, arrow: g.aimArrow, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null, waypoints: waypoints.current!.points.map((p) => [p[0], p[1]] as [number, number]) };
       },
     };
     return () => {

@@ -20,10 +20,10 @@ export const FORCE_PACE = { steps: 1, ms: 50 };
 /** (Carve's name for it.) */
 export const CARVE_PACE = FORCE_PACE;
 
-/** An eruption's pace (D226): its volcano swells over about four seconds, as the demo Kyler
- *  approved (eight pulses, each eased in over a fifth of a second), so the land rises with its
- *  plume and its glow instead of ending before them. */
-export const ERUPT_PACE = { steps: 1, ms: 140 };
+/** An eruption's pace (D312, amending D226's four seconds): its terrain is final in about two
+ *  seconds (its 28 stages at 55 ms, after a step or two of planning); its plume, its glow and the
+ *  lava cooling play on on their own clocks, and the player can act again at once. */
+export const ERUPT_PACE = { steps: 1, ms: 55 };
 
 /** A force's own pace (D266: the water's speed doesn't change it). */
 export function paceOf(verb: Verb): { steps: number; ms: number } {
