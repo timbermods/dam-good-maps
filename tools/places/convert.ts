@@ -691,7 +691,10 @@ export function convertRow(row: string, meta: PlaceMeta, flows?: readonly number
       if (r && (r.settled !== false || (r.rivers ?? 0) <= most)) break;
       r = { ...attempt(row, meta, raw, metres, obs, size, h, times, most, fail), ...land };
       last = r;
-      if (r.ok && !r.shortOf?.length) return { ...r, ms: Math.round(performance.now() - t0) };
+      // nothing that would sink a player (no note): done. More flow or fewer rivers cannot give what
+      // the other playability checks ask (a hollow for the badwater spring, room for a mine site),
+      // and trying them all at 256² took an hour for some places (Torres del Paine East)
+      if (r.ok && !r.notes?.length) return { ...r, ms: Math.round(performance.now() - t0) };
       if (!r.ok && /^start: no flat/.test(r.reason ?? "")) break flows;
       if (r.ok) {
         const [a1, b1] = rank(r);

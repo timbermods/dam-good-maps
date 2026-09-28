@@ -781,3 +781,13 @@ settled outflows in the file).
   has a hollow or side valley for one, as for generated maps; the file holds the water settled with
   it, and the floor's groves read that water. `resources.badwater_source` notes a place with no room
   for one (information).
+- **Dry run under the old water rules** (conversion `VERSION` 9, 2026-09-27, 3 threads, 4.1 h; not
+  built): all 136 places convert at 256² (none kept at its own size); "No water a pump can reach
+  from the start" 0 (40 floor springs: 24 dry, 16 far); "The water keeps moving" 24; "Too little
+  wood near the start" 10; the stripes gone on 42 and 48 and reduced on 116 and 118
+  (`docs/sheets/real-places-stripes/`). Conversions took 1 to 13 minutes at 256², but Torres del
+  Paine East took 83: its only shortfall was `resources.badwater_source` (no hollow for a badwater
+  spring), which no flow or river count can give, so the conversion tried both flows and every
+  river count, each with its full start search. It now stops at the first attempt with no note.
+  The real rebuild waits for the game's water and soil rules (M9b's rules set, D293, D297, D298,
+  D303, D308).
