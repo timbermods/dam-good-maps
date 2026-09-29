@@ -1,10 +1,11 @@
 // The candidates strip (docs/UI-BRIEF.md §5, PLAN §20 D329, D330): generated maps only, otherwise
 // empty; the background version goes in with its note, never swapped in; More's siblings appear as
-// they finish; a new map starts it over. The component is exercised in tests/e2e/page-parts.spec.ts.
+// they finish; a new map starts it over. The core's state directly (D342 (5)); the row is exercised in
+// tests/e2e/page-parts.spec.ts.
 
 import { describe, expect, it } from "vitest";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
-import { candidateId, EMPTY_STRIP, nextVariation, strip, stripShown, type CandidateMap, type StripState } from "../../src/page/candidates/strip";
+import { candidateId, EMPTY_STRIP, nextVariation, strip, stripShown, type CandidateMap, type StripState } from "../../src/core/library/strip";
 
 const spec = makeSpec({ seed: 7, theme: "islands", size: { x: 128, y: 128 } });
 const sib = (variation: number): CandidateMap => ({ spec: { ...spec, variation } as MapSpec, name: `v${variation}`, premise: "", W: 4, H: 4, heights: new Uint8Array(16), water: null });

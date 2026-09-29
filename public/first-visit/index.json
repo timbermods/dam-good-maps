@@ -1,0 +1,67 @@
+{
+  "format": 1,
+  "generatorVersion": "0.7.0",
+  "size": 128,
+  "maps": [
+    {
+      "id": "river-valley-1",
+      "file": "river-valley-1.json.gz",
+      "name": "River Valley",
+      "theme": "riverValley",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=riverValley&z=128&d=n",
+      "bytes": 214391,
+      "sha256": "6092ab43b7a35dde42d418fbe4264d094737c25aa3789ff51f45c3a1f9bd6444"
+    },
+    {
+      "id": "canyon-1",
+      "file": "canyon-1.json.gz",
+      "name": "Canyon",
+      "theme": "canyon",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=canyon&z=128&d=n",
+      "bytes": 175247,
+      "sha256": "d5c4ebd3a351b897cdf0f292df8303d084285c00e9c63a426a62d152bf90c148"
+    },
+    {
+      "id": "highlands-1",
+      "file": "highlands-1.json.gz",
+      "name": "Highlands",
+      "theme": "highlands",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=highlands&z=128&d=n",
+      "bytes": 180390,
+      "sha256": "559bbc45726d53526ea262ae228f20be40b2d2cf446848aae162ecfd70917aed"
+    },
+    {
+      "id": "lake-basin-1",
+      "file": "lake-basin-1.json.gz",
+      "name": "Lake Basin",
+      "theme": "lakeBasin",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=lakeBasin&z=128&d=n",
+      "bytes": 196178,
+      "sha256": "bce5132e8001e73bd60e77e5d0b864811c74e688cebb1f8fb990742d23b28ec2"
+    },
+    {
+      "id": "delta-1",
+      "file": "delta-1.json.gz",
+      "name": "Delta",
+      "theme": "delta",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=delta&z=128&d=n",
+      "bytes": 239199,
+      "sha256": "326a52eb4bfaacd7ec1f6b5453977d00c83d04864f9ae50bf65c54c773dee124"
+    },
+    {
+      "id": "islands-1",
+      "file": "islands-1.json.gz",
+      "name": "Islands",
+      "theme": "islands",
+      "seed": 1,
+      "fragment": "v=0.7.0&s=1&t=islands&z=128&d=n",
+      "bytes": 218626,
+      "sha256": "78c7e576e49bc94d8cb6b17671731de0290db123aa26554654c7b9553d782e1f"
+    }
+  ]
+}

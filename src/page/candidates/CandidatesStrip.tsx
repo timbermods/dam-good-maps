@@ -6,7 +6,7 @@
 import { useMemo } from "preact/hooks";
 import { QuietNote } from "../QuietNote";
 import { thumbnailDataUrl } from "../thumbnail";
-import { stripShown, type StripItem, type StripState } from "./strip";
+import { stripShown, type StripItem, type StripState } from "../../core/library/strip";
 import "../page.css";
 
 export interface CandidatesStripProps {

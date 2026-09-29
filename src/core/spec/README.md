@@ -8,6 +8,6 @@
 - Bump `GENERATOR_VERSION` when a change alters generated maps.
 - `schema.ts` is an eval-free checker, so it also runs inside a Claude artifact.
 
-**Start from**: `mapspec.ts` `makeSpec`, `GENERATOR_VERSION`, `THEMES`; `codec.ts` `encodeSpecFragment`, `decodeSpecFragment`; `schema.ts` `validateSpec`; `mergepatch.ts` (RFC 7396).
+**Start from**: `mapspec.ts` `makeSpec`, `GENERATOR_VERSION`, `THEMES`; `codec.ts` `encodeSpecFragment`, `decodeSpecFragment`; `schema.ts` `validateSpec`; `mergepatch.ts` (RFC 7396); `differ.ts` `settingsDiffer` (Generate's dot, D330).
 
-**Tests**: `tests/contract/spec.test.ts` (checks the schema checker against Ajv), `tests/contract/share.test.ts`, `tests/shareCases.ts`. Run `npx vitest run tests/contract/spec.test.ts`.
+**Tests**: `tests/contract/spec.test.ts` (checks the schema checker against Ajv), `tests/contract/share.test.ts`, `tests/contract/generateDot.test.ts`, `tests/shareCases.ts`. Run `npx vitest run tests/contract/spec.test.ts`.

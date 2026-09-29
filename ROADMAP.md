@@ -1098,7 +1098,8 @@ M9b doesn't wait for this step: it runs in parallel with it and takes the machin
 **Part 1, built on its own** (Kyler, 2026-09-29; branch `feature/page-editor-1`): the parts that touch neither
 `src/editor/Editor.tsx` nor the files batches 1–3 edit: the side panel (the switch, the settings, Generate with its dot), the
 map card, Your maps' storage and list, the candidates strip, and the first-visit maps with `tools/first-visit-maps.ts`
-(`src/page/`; EDITOR_PLAN.md §8 says what each does and what the workspace wires). Putting them into one workspace, item
+(views in `src/page/` over core questions in `src/core/`, D342; EDITOR_PLAN.md §8 says what each does and what the
+workspace wires). Putting them into one workspace, item
 34's split and the rows wait for the forces' release.
 
 **Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo

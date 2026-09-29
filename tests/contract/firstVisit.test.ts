@@ -7,10 +7,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../src/core/doc/document";
-import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
-import { FIRST_VISIT_DIR, FIRST_VISIT_SIZE, pickFirstVisit, type FirstVisitIndex } from "../../src/page/firstVisit/format";
-import { thumbnailPixels } from "../../src/page/thumbnail";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { generate } from "../../src/core/gen/generate";
+import { FIRST_VISIT_DIR, FIRST_VISIT_SIZE, firstVisitProblems, pickFirstVisit, reopensAs, type FirstVisitIndex } from "../../src/core/library/firstVisit";
+import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
+import { thumbnailPixels } from "../../src/core/render/thumb";
 
 const DIR = resolve(__dirname, "../../public", FIRST_VISIT_DIR);
 
@@ -30,6 +31,19 @@ describe("picking a first-visit map", () => {
     expect(pickFirstVisit(index, "1.0.0")).toBe(null);
     expect(pickFirstVisit({ ...index, maps: [] }, "9.9.9")).toBe(null);
     expect(pickFirstVisit(null, "9.9.9")).toBe(null);
+  });
+});
+
+describe("what makes a first-visit map", () => {
+  it("a map that passes the release checks, and reopens as itself from its project file", () => {
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
+    const why = firstVisitProblems(r);
+    // every reason is a plain line; a passing map has none
+    for (const w of why) expect(w).toMatch(/^(its|it) /);
+    if (r.report.passed) expect(why.filter((w) => w.startsWith("its checks fail"))).toEqual([]);
+    else expect(why[0]).toMatch(/^its checks fail \(/);
+    const back = reopensAs(r, encodeProject(generatedDocument(r)));
+    expect(back.same).toBe(true);
   });
 });
 

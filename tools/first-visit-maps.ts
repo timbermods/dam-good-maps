@@ -5,7 +5,8 @@
 //   npx tsx tools/first-visit-maps.ts [--check] [--no-python]
 //
 // For each named theme, seeds 1, 2, … are generated at 128² (Designed for Normal) until one passes
-// the release checks, and that map is kept:
+// the release checks, and that map is kept (the checks are src/core/library/firstVisit.ts's
+// `firstVisitProblems` and `reopensAs`):
 //   - the generator's own report passes (every blocking check, the starting-logs floor among them,
 //     and item 47's must-haves where the generator has them);
 //   - the written .timber, read back, passes the TypeScript validator's export profile (every check
@@ -24,50 +25,14 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decodeProject, encodeProject, generatedDocument } from "../src/core/doc/document";
-import { MapSession } from "../src/core/doc/session";
-import { readTimber } from "../src/core/format/timber";
-import { mapName } from "../src/core/gen/pack";
-import { generate, type GenerateResult } from "../src/core/gen/generate";
-import { AVAILABLE_THEMES, encodeSpecFragment, GENERATOR_VERSION, makeSpec, THEME_NAMES, type ThemeId } from "../src/core/spec/mapspec";
-import { validateMap } from "../src/core/validate/checks";
-import { FIRST_VISIT_DIR, FIRST_VISIT_FORMAT, FIRST_VISIT_SIZE, type FirstVisitIndex, type FirstVisitMap } from "../src/page/firstVisit/format";
+import { FIRST_VISIT_DIR, FIRST_VISIT_FORMAT, FIRST_VISIT_SIZE, makeFirstVisit, type FirstVisitIndex, type FirstVisitMap } from "../src/core/library/firstVisit";
+import { AVAILABLE_THEMES, GENERATOR_VERSION, THEME_NAMES, type ThemeId } from "../src/core/spec/mapspec";
 
 const CHECK = process.argv.includes("--check");
 const PYTHON = !process.argv.includes("--no-python");
-/** Seeds tried per theme before giving up on it. */
-const MAX_SEEDS = 24;
 const OUT = join("public", FIRST_VISIT_DIR);
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
-const slug = (t: ThemeId) => THEME_NAMES[t].toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-/** Why a generated map can't be a first-visit map (empty: it can). */
-function problems(r: GenerateResult): string[] {
-  const out: string[] = [];
-  if (!r.report.passed) out.push(`report: ${r.report.checks.filter((c) => !c.ok && !c.advisory && c.severity === "error" && c.applicable !== false).map((c) => c.id).join(", ") || "failed"}`);
-  const v = validateMap(readTimber(r.bytes), { profile: "export", designedFor: r.spec.designedFor });
-  const blocking = v.report.checks.filter((c) => !c.ok && c.severity !== "info" && !c.advisory && c.applicable !== false).map((c) => c.id);
-  if (blocking.length) out.push(`file: ${blocking.join(", ")}`);
-  const floor = v.report.checks.find((c) => c.id === "start.wood_floor");
-  if (!floor || !floor.ok) out.push("the starting-logs floor");
-  // M9b's outcomes (the theme's promise, a standout, readable water), where the generator has them
-  const outcomes = (r as GenerateResult & { outcomes?: { met: boolean } | null }).outcomes;
-  if (outcomes && !outcomes.met) out.push("not all three outcomes");
-  return out;
-}
-
-/** The project file reopened: the same land and objects, and the milliseconds it took. */
-function reopen(r: GenerateResult, project: Uint8Array): { same: boolean; ms: number } {
-  const t0 = performance.now();
-  const s = MapSession.open(decodeProject(project));
-  const b = s.built;
-  const ms = Math.round(performance.now() - t0);
-  const h = r.built.heights;
-  let same = b.W === r.built.W && b.H === r.built.H && b.heights.length === h.length && b.entities.length === r.built.entities.length;
-  for (let i = 0; same && i < h.length; i++) if (b.heights[i] !== h[i]) same = false;
-  return { same, ms };
-}
 
 interface Made {
   entry: FirstVisitMap;
@@ -76,33 +41,15 @@ interface Made {
 }
 
 function make(theme: ThemeId): Made | null {
-  for (let seed = 1; seed <= MAX_SEEDS; seed++) {
-    const spec = makeSpec({ seed, theme, size: { x: FIRST_VISIT_SIZE, y: FIRST_VISIT_SIZE } });
-    const t0 = performance.now();
-    const r = generate(spec);
-    const genMs = Math.round(performance.now() - t0);
-    const why = problems(r);
-    if (why.length) {
-      console.log(`  ${THEME_NAMES[theme]} seed ${seed}: passed over (${why.join("; ")})`);
-      continue;
-    }
-    const project = encodeProject(generatedDocument(r));
-    const back = reopen(r, project);
-    if (!back.same) {
-      console.log(`  ${THEME_NAMES[theme]} seed ${seed}: passed over (its project file reopens as a different map)`);
-      continue;
-    }
-    const id = `${slug(theme)}-${seed}`;
-    const name = (r as GenerateResult & { name?: string }).name ?? mapName(r.spec);
-    console.log(`  ${THEME_NAMES[theme]} seed ${seed}: kept as ${id} (${String(name)}; generated in ${genMs} ms, reopens in ${back.ms} ms; ${(project.length / 1024).toFixed(0)} KB)`);
-    return {
-      entry: { id, file: `${id}.json.gz`, name: String(name), theme, seed, fragment: encodeSpecFragment(r.spec), bytes: project.length, sha256: sha256(r.bytes) },
-      project,
-      timber: r.bytes,
-    };
+  const { made, passedOver } = makeFirstVisit(theme);
+  for (const p of passedOver) console.log(`  ${THEME_NAMES[theme]} seed ${p.seed}: passed over (${p.why.join("; ")})`);
+  if (!made) {
+    console.log(`  ${THEME_NAMES[theme]}: no seed passed; left out`);
+    return null;
   }
-  console.log(`  ${THEME_NAMES[theme]}: no seed of ${MAX_SEEDS} passed; left out`);
-  return null;
+  const e = made.entry;
+  console.log(`  ${THEME_NAMES[theme]} seed ${e.seed}: kept as ${e.id} (${e.name}; generated in ${made.genMs} ms, reopens in ${made.openMs} ms; ${(e.bytes / 1024).toFixed(0)} KB)`);
+  return { entry: { ...e, sha256: sha256(made.timber) }, project: made.project, timber: made.timber };
 }
 
 function pythonLoadChecks(made: Made[]): boolean {

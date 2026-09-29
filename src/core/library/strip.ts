@@ -9,7 +9,7 @@
 // feature/m9b): a generated map's `version` ({ misses, note } or null), `runFindVersion`'s result,
 // and siblings made from `siblingSpec`. Their types are written out here to match, not imported.
 
-import { encodeSpecFragment, type MapSpec } from "../../core/spec/mapspec";
+import { encodeSpecFragment, type MapSpec } from "../spec/mapspec";
 
 /** M9b's `Misses`: which of the three outcomes the map missed. */
 export interface VersionMisses {

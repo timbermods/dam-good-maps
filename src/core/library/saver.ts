@@ -6,7 +6,7 @@
 // The snapshot is taken only when the save runs (`take`), so a burst of edits costs one project
 // file. Saves of one map never overlap: a change during a write is saved after it.
 
-import type { StoreResult, YourMapEntry, YourMapsStore } from "./store";
+import type { StoreResult, YourMapEntry, YourMapsStore } from "./yourMaps";
 
 export interface Snapshot {
   entry: YourMapEntry;

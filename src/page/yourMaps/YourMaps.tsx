@@ -8,8 +8,8 @@
 
 import { useRef, useState } from "preact/hooks";
 import { QuietNote } from "../QuietNote";
-import { whenText } from "./when";
-import type { YourMapEntry } from "./store";
+import { whenText } from "../../core/library/when";
+import type { YourMapEntry } from "../../core/library/yourMaps";
 import "../page.css";
 
 export interface YourMapsProps {

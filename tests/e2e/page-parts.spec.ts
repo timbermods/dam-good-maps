@@ -63,7 +63,7 @@ test("Generate runs only on its button or Enter, and its dot shows when the sett
   await page.getByText("Water", { exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(generated).toHaveText("1");
-  await page.locator("#rivers").fill("2");
+  await page.locator("#river-flow").selectOption("trickle");
   await expect(button).toHaveAttribute("data-differs", "");
   await button.click();
   await expect(generated).toHaveText("2");

@@ -4,7 +4,7 @@
 // controls; a settings change never regenerates.
 
 import type { ComponentChildren } from "preact";
-import { generateOnEnter } from "./generate";
+import { generateOnEnter } from "./enter";
 
 export interface GenerateControlsProps {
   /** The settings differ from the shown map's (`settingsDiffer`): the button shows its dot. */

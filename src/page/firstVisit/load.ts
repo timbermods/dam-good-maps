@@ -3,7 +3,7 @@
 // returns null and the page generates live, as every later Generate does.
 
 import { GENERATOR_VERSION } from "../../core/spec/mapspec";
-import { FIRST_VISIT_DIR, pickFirstVisit, type FirstVisitIndex, type FirstVisitMap } from "./format";
+import { FIRST_VISIT_DIR, pickFirstVisit, type FirstVisitIndex, type FirstVisitMap } from "../../core/library/firstVisit";
 
 export const FIRST_VISIT_URL = `${import.meta.env.BASE_URL}${FIRST_VISIT_DIR}/`;
 

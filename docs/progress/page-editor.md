@@ -6,8 +6,12 @@ The brief is [docs/UI-BRIEF.md](../UI-BRIEF.md) (PLAN §20 D330); what's built a
 ## Part 1: the parts on their own (2026-09-29, branch `feature/page-editor-1`)
 
 Kyler, 2026-09-29: "only the new parts that don't touch src/editor/Editor.tsx or the files batches 1–3 are editing".
-Built as new modules under `src/page/`, each with its own tests; nothing on the page uses them yet. Putting them into one
-workspace, item 34's split into feature folders and the rows wait for the forces' release.
+Built as new modules, each with its own tests; nothing on the page uses them yet. Putting them into one workspace, item
+34's split into feature folders and the rows wait for the forces' release. Under D342 (Kyler, the same day) the parts are
+views in `src/page/` over plain core questions: the legend row and the numbers in `src/core/analysis/` (`legend.ts`,
+`levers.ts`), Generate's dot in `src/core/spec/differ.ts`, Your maps' model and saver, the strip and the first-visit
+maps in `src/core/library/`, and Your maps' IndexedDB store in `src/platform/yourMaps.ts`; contract tests exercise them
+directly (`tests/contract/cardNumbers`, `generateDot`, `yourMaps`, `candidatesStrip`, `firstVisit`).
 
 - **The side panel** (`panel/`): collapse to a strip, open on the first visit, then as left; the switch; Generate with
   its dot, only on the button or Enter.
@@ -16,11 +20,14 @@ workspace, item 34's split into feature folders and the rows wait for the forces
   signature and credits.
 - **Your maps** (`yourMaps/`): IndexedDB storage, the background saver, the list; §6's quiet note (`QuietNote.tsx`).
 - **The candidates strip** (`candidates/`): a reducer over M9b's candidate events, and the row.
-- **The first-visit maps** (`firstVisit/`, `tools/first-visit-maps.ts`, `public/first-visit/`).
+- **The first-visit maps** (`core/library/firstVisit.ts`, `tools/first-visit-maps.ts`, `public/first-visit/`): six,
+  one per named theme, seed 1 passed for each on generator 0.7.0 (TypeScript validator, the starting-logs floor, Python
+  load checks); 171–234 KB each, 1.2 MB in all; each reopens from its project file in 0.2–1.4 s, against 0.8–5 s to
+  generate.
 - **A workbench** (`workbench/index.html`, test builds only) mounts the parts for `tests/e2e/page-parts.spec.ts`.
 
 **Defaults this step chose** (for Kyler's audit and the design pass):
-- The lever marks' bands (`LEVER_BANDS` in `card/cardModel.ts`): farmland easier from 300 tiles, harder under 150;
+- The lever marks' bands (`LEVER_BANDS` in `src/core/analysis/levers.ts`): farmland easier from 300 tiles, harder under 150;
   metal easier within 25 tiles, harder past 60 or none; badwater easier from 40 tiles or none, harder under 15; a
   sheltering dam easier up to 8 tiles, harder past 16 or none; building land easier from 400, harder under 200. Shown
   as three bars, more filled the harder the start.

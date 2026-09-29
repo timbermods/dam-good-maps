@@ -7,15 +7,17 @@ import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import { defaultSettings, makeSpec, seedFromText, type MapSpec, type Settings } from "../core/spec/mapspec";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { CandidatesStrip } from "./candidates/CandidatesStrip";
-import { EMPTY_STRIP, strip, type CandidateMap, type StripEvent } from "./candidates/strip";
+import { EMPTY_STRIP, strip, type CandidateMap, type StripEvent } from "../core/library/strip";
 import { MapCard } from "./card/MapCard";
-import { generatedCard, placeCard, type CardEntity, type LegendHighlight } from "./card/cardModel";
+import type { LegendEntity } from "../core/analysis/legend";
+import { generatedCard, placeCard, type LegendHighlight } from "./card/cardModel";
 import { GenerateControls } from "./panel/GenerateControls";
-import { settingsDiffer } from "./panel/generate";
+import { settingsDiffer } from "../core/spec/differ";
 import { SidePanel } from "./panel/SidePanel";
 import type { PanelMode } from "./panel/panelState";
 import { ReplacedNote } from "./QuietNote";
-import { openYourMaps, storeProblem, type YourMapEntry } from "./yourMaps/store";
+import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
+import { openYourMaps } from "../platform/yourMaps";
 import { YourMaps } from "./yourMaps/YourMaps";
 import { thumbnailDataUrl } from "./thumbnail";
 import "../styles/app.css";
@@ -56,9 +58,9 @@ function candidate(spec: MapSpec, variation: number): CandidateMap {
   return { spec: { ...spec, variation } as MapSpec, name: `Sibling ${variation}`, premise: "A river winds through a terraced valley.", W: 32, H: 32, heights: l.heights, water: l.water };
 }
 
-function entities(): CardEntity[] {
-  const out: CardEntity[] = [];
-  const put = (template: string, k: number, extra: Partial<CardEntity> = {}) => {
+function entities(): LegendEntity[] {
+  const out: LegendEntity[] = [];
+  const put = (template: string, k: number, extra: Partial<LegendEntity> = {}) => {
     for (let i = 0; i < k; i++) out.push({ template, x: 5 + ((i * 7) % 40), y: 5 + ((i * 11) % 40), orientation: "Cw0", ...extra });
   };
   put("WaterSource", 3);
@@ -101,7 +103,6 @@ function Workbench() {
     version: (variation, note) => dispatch({ type: "version", forMap: stripState.forMap ?? "", map: candidate(shown ?? panelSpec, variation), note }),
     sibling: (variation) => dispatch({ type: "sibling", forMap: stripState.forMap ?? "", map: candidate(shown ?? panelSpec, variation) }),
     replaced: (name) => setNote(name),
-    reloadMaps: reload,
     addMap: async (id, name, minutesAgo, over = {}) => {
       const t = new Date(Date.now() - minutesAgo * 60_000).toISOString();
       const l = land(32, id.length);

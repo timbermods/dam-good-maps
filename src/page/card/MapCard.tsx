@@ -5,7 +5,9 @@
 // itself is drawn by the workspace: the card hands it over through `onHighlight`.
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { highlighted, legendFocus, legendItems, legendTiles, leverMarks, originText, REACH_DETAIL, reachText, type CardInput, type LegendFocus, type LegendHighlight } from "./cardModel";
+import { legendItems, legendTiles } from "../../core/analysis/legend";
+import { leverMarks, REACH_DETAIL, reachText } from "../../core/analysis/levers";
+import { highlighted, legendFocus, originText, type CardInput, type LegendFocus, type LegendHighlight } from "./cardModel";
 import { LegendIcon } from "./icons";
 import "../page.css";
 

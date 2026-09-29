@@ -346,38 +346,41 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
   stars kept forever; running out of storage is said plainly; it says it lives in this browser, and Download project
   file and Save to Timberborn stay the permanent ways. No folders, tags or search.
 
-**The page is the editor: the parts built** (part 1, D330; `src/page/`, not yet on the page; the
-workbench `workbench/index.html` shows them on their own in test builds). Each follows the brief:
-- **The side panel** (`panel/SidePanel.tsx`): collapsible to a thin strip, open on the first visit,
-  then as it was left (`dgm.panel` in localStorage); the switch Generate · Real places · Pick a place
-  (Pick a place disabled until built); then the strip, the card and Your maps, which the page passes
-  in. **Generate** (`panel/GenerateControls.tsx`) sits above the generator's settings (today's
-  SettingsPanel), runs only on its button or Enter in the panel (not on a button, link, section or
-  list), and shows its dot when the settings differ from the shown generated map's (`settingsDiffer`:
-  the share fragment, without a sibling's variation and intentions; no dot for a real place or an
-  import).
-- **The map card** (`card/MapCard.tsx`): the name (with size and seed; a real place's size, signature
-  and credits instead); the how-it-plays line; the legend as one row of icons with counts for what's
-  on the map (water and badwater sources, mine sites, ruins, berry bushes, trees, dead trees, relics,
+**The page is the editor: the parts built** (part 1, D330; not yet on the page; the workbench
+`workbench/index.html` shows them on their own in test builds). Views in `src/page/` over plain core
+questions (D342): the legend row and the numbers (`core/analysis/legend.ts`, `levers.ts`), Generate's
+dot (`core/spec/differ.ts`), Your maps' model and saver, the strip and the first-visit maps
+(`core/library/`), with Your maps' IndexedDB store a platform adapter (`platform/yourMaps.ts`).
+- **The side panel** (`page/panel/`): collapsible to a thin strip, open on the first visit, then as it
+  was left (`dgm.panel` in localStorage); the switch Generate · Real places · Pick a place (Pick a
+  place disabled until built); then the strip, the card and Your maps, which the page passes in.
+  **Generate** sits above the generator's settings (today's SettingsPanel), runs only on its button
+  or Enter in the panel (not on a button, link, section or list), and shows its dot when the
+  settings differ from the shown generated map's (`settingsDiffer`: the share fragment, without a
+  sibling's variation and intentions; no dot for a real place or an import).
+- **The map card** (`page/card/`): the name (with size and seed; a real place's size, signature and
+  credits instead); the how-it-plays line; the legend as one row of icons with counts for what's on
+  the map (water and badwater sources, mine sites, ruins, berry bushes, trees, dead trees, relics,
   geothermal fields, unstable cores, thorns, blockages, slopes; never the start): hover names and
   highlights, click pins, Esc on it unpins; the numbers: trees in reach with their logs (M9b's
   `walkReach`, the floor's 40-tile walk) and the five levers (M9b's `levers`) as three-bar marks
   graded easier, middling or harder, with the number on hover. Where the marks change is a default
   of this step (`LEVER_BANDS`), for Kyler's audit to tune.
-- **Your maps** (`yourMaps/`): IndexedDB database `dgm-your-maps` (entries and project files apart,
-  so the list stays light); the last 30 unstarred and every starred map, the map just saved never
-  dropped; rename, star, copy, undoable delete, the saved-to-Timberborn mark; a full disk said
-  plainly. `YourMapsSaver` saves after 1.5 s without edits, one snapshot per burst, never two writes
-  of a map at once; `flush` saves at once when a map is replaced, and nothing waits on it.
-  `ReplacedNote` says §6's words for five seconds.
-- **The candidates strip** (`candidates/`): generated maps only; the background version first with
-  its note (only where M9b gives one), More's siblings as they finish, More last; opening one keeps
-  the row; a new map starts it over. Its input types mirror M9b's (`version`, `runFindVersion`,
-  `siblingSpec`).
-- **The first-visit maps** (`firstVisit/`, `tools/first-visit-maps.ts`): one 128² map per named theme
-  in `public/first-visit/`, each the first seed that passes the release checks, as project files;
-  `loadFirstVisit` picks one at random, or none when they are another generator's (then the page
-  generates live). Remade at each generator release (docs/HANDOFF.md §7).
+- **Your maps** (`page/yourMaps/`, `core/library/yourMaps.ts`, `saver.ts`): IndexedDB database
+  `dgm-your-maps` (entries and project files apart, so the list stays light); the last 30 unstarred
+  and every starred map, the map just saved never dropped; rename, star, copy, undoable delete, the
+  saved-to-Timberborn mark; a full disk said plainly. `YourMapsSaver` saves after 1.5 s without
+  edits, one snapshot per burst, never two writes of a map at once; `flush` saves at once when a map
+  is replaced, and nothing waits on it. `ReplacedNote` says §6's words for five seconds.
+- **The candidates strip** (`page/candidates/`, `core/library/strip.ts`): generated maps only; the
+  background version first with its note (only where M9b gives one), More's siblings as they finish,
+  More last; opening one keeps the row; a new map starts it over. Its input types mirror M9b's
+  (`version`, `runFindVersion`, `siblingSpec`).
+- **The first-visit maps** (`core/library/firstVisit.ts`, `tools/first-visit-maps.ts`): one 128² map
+  per named theme in `public/first-visit/`, each the first seed that passes the release checks
+  (`firstVisitProblems`, `reopensAs`), as project files; `loadFirstVisit` picks one at random, or
+  none when they are another generator's (then the page generates live). Remade at each generator
+  release (docs/HANDOFF.md §7).
 
 **What the workspace wires** when it puts them together: the panel's mode and each mode's controls;
 Generate's `onGenerate` (Enter included) and `differs`; the card's input from the shown map

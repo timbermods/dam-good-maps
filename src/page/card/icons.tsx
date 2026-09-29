@@ -2,7 +2,7 @@
 // the 3D view's colours (render3d/palette.ts); the design pass draws the final set (brief §9).
 
 import type { JSX } from "preact";
-import type { LegendKey } from "./cardModel";
+import type { LegendKey } from "../../core/analysis/legend";
 
 const PATHS: Record<LegendKey, JSX.Element> = {
   source: <path d="M8 2 C8 2 3.5 7.5 3.5 10 A4.5 4.5 0 0 0 12.5 10 C12.5 7.5 8 2 8 2Z" fill="#3f86c9" />,

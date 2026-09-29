@@ -1,15 +1,16 @@
 // Your maps (PLAN §20 D234, D330; docs/UI-BRIEF.md §3, §6): every edited map kept in this browser,
 // the last 30 unstarred and every starred one; rename, star, copy, undoable delete, the Timberborn
 // mark; a full disk said plainly; saving in the background after edits settle, never waited on.
-// fake-indexeddb stands in for the browser's IndexedDB. The list itself is exercised in
-// tests/e2e/page-parts.spec.ts.
+// The core's model and saver directly (D342 (5)), and the IndexedDB adapter over fake-indexeddb. The
+// list itself is exercised in tests/e2e/page-parts.spec.ts.
 
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
-import { YourMapsSaver } from "../../src/page/yourMaps/saver";
-import { KEEP, openYourMaps, storeProblem, toDrop, type YourMapEntry, type YourMapsStore } from "../../src/page/yourMaps/store";
-import { whenText } from "../../src/page/yourMaps/when";
+import { YourMapsSaver } from "../../src/core/library/saver";
+import { whenText } from "../../src/core/library/when";
+import { KEEP, storeProblem, toDrop, type YourMapEntry, type YourMapsStore } from "../../src/core/library/yourMaps";
+import { openYourMaps } from "../../src/platform/yourMaps";
 
 const at = (min: number) => new Date(Date.UTC(2026, 8, 29, 12, 0) + min * 60_000).toISOString();
 const entry = (id: string, min: number, over: Partial<YourMapEntry> = {}): YourMapEntry => ({ id, name: `Map ${id}`, kind: "generated", createdAt: at(min), editedAt: at(min), starred: false, thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0, ...over });
@@ -80,7 +81,7 @@ describe("the store", () => {
   });
 
   it("says plainly when there is no browser storage or it is full", async () => {
-    const none = openYourMaps(undefined);
+    const none = openYourMaps(null);
     expect(await none.list()).toEqual([]);
     const r = await none.put(entry("a", 1), bytes(1));
     expect(r).toEqual({ ok: false, reason: "unavailable" });
