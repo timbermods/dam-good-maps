@@ -94,3 +94,18 @@ HELD
 - Items 19 and 45: later.
 
 Log this in the Progress log in one line, and report as each batch lands.
+
+## Additions (2026-09-29)
+
+Kyler's additions of the same day, word for word. PLAN §20 records them as D327–D329.
+
+1. Curved faults and fissures (batch 1, build, Opus 5.5 high, feature/forces; after item 41's shared freehand-path piece lands). Quake's fault and Erupt's fissure follow a line the player draws freehand, using the same path piece as Carve and Glaciate, instead of a straight line. The line shows while it's drawn (the player's own gesture, D258) and nothing predicts the result. Lift and Slide follow the curve: Lift raises along it, Slide moves the ground along the curve's local direction. The fissure opens along it. A click behaves as today. Real faults are rarely straight (docs/PERFECT.md: nothing ruler-straight). One undo step; no camera motion; everything else of each force stays as it is.
+
+2. Placed objects fit the land (batch 3, build-light, Sonnet 5.5, with items 11, 32 and 46). Extends D290 from badwater sources to every shelf item that needs level ground: ruins, mine sites, landmarks and the Start. Placed on uneven ground, whether by click or by item 11's drag, it levels its own footprint instead of refusing: the least-disturbing level for that footprint, never damming water (as D290 cuts rather than fills), with the edge meeting the land around it naturally. The levelling is part of the placement's one undo step, and the water re-settles as for any edit. Placement still refuses only for the map's physical limits (the edge, another object's tiles), with one plain reason. Item 32's placement hint then says only "Place here" or that one reason.
+
+3. An amendment to batch 5's step 4 (M9b), from my UI round in the planning chat (amends D278 (1a) and D325's reading of item 22). Time to an editable map matters more than choosing among candidates. Waiting while candidates are tried feels awful, and it is my biggest complaint about generation.
+   1. The first candidate that passes the absolutes (plays exactly right, the starting-logs floor, item 47's must-haves) is shown at once and is editable immediately. It is never held back while other candidates are tried, and never swapped.
+   2. If it misses any of the three outcomes (the theme's promise, a standout intention, readable water), the search continues in the background, in a worker that never slows the editor. The first candidate that meets all three goes into the candidates strip for me to take or ignore. A short notification appears only where the miss is relevant, and names what the new version has ("A version with its sea is ready"). Propose which misses notify; my suggestion: the theme's promise and readable water yes, a missing standout no.
+   3. No other candidates are generated unless I press More. More makes siblings in the background while I keep editing; they appear as they finish.
+   4. Step 4's measures become the time from pressing Generate to an editable map, and the share of first maps meeting all three outcomes, at 128² and 256². The candidate-failure fixes aim at first-attempt quality, not more attempts. Propose targets from the numbers.
+   5. Until "The page is the editor", today's page shows the first map the same way; its "Found a map. Looking for a better one" wait goes.
