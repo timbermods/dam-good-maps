@@ -1,4 +1,4 @@
-# Integration: round-2 proposal
+# Integration: round-3 proposal
 
 All changes relative to `8c975822c2691edef94ff4f96217167697a91177` are under `investigation/high-soul/`.
 The PR inherits the High branch's ancestry. Product source and tests have not been edited.
@@ -29,6 +29,36 @@ poison and sky hooks. Lite keeps its simple ground path. Existing switching/fall
 The atlas grows from ~1.33 to ~5.33 MiB with mipmaps; anisotropy stays up to 16×. Macro warping and water detail add texture
 reads; side faces add two bevel reads. There is no per-frame target, added mesh, downloaded texture or reference-derived
 texture. Current direction/roughness still come from the existing surface-height estimate, not new fluid simulation.
+
+## Round 3 delta (supersedes the round-2 material descriptions above)
+
+Only four treatments change. The palette module and water-palette module are byte-identical to round 2's proposed
+versions; exposure, grass, falls, ruin colours/geometry, and navy pool expressions are retained.
+
+- **Contamination:** `soulVeins` in the shared terrain material evaluates a coarse jittered cell field, drops selected
+  edges consistently from both sides, and assigns thicker main cracks and thinner branches. It replaces the entire
+  former stain/fine-net/far-cover overlay. Colour and glow apply only to its antialiased strokes; High's poison hook
+  uses the same mask over its saved clean soil. No extra texture or hatching. Full Standard and High use this response;
+  Lite's existing simplified tint is unchanged. The CPU palette helpers still describe the older response: retain their
+  isolated contracts if needed, but do not treat their reach/fine/cover numbers as verification of the new GPU veins.
+- **Cliffs:** only the atlas's stone channel changes: omitted/jittered sites give unequal sizes, individual face slopes
+  give broad shading, and a narrow soft mortar profile supplies contact depth. The bevel contribution is reduced.
+  Ground-crack, noise and plate-ID atlas channels remain unchanged. No new geometry or larger atlas.
+- **Clouds:** projected scale 8.0 → 4.2 plus a low-frequency coverage mask produces larger uneven banks and clear gaps.
+  Sky colours and exposure are unchanged.
+- **Channels:** broad noise packets are averaged along the current and advected in two phases. The replacement fades
+  in only above still-water speed, avoiding fine distortions from rotating absolute coordinates by a varying current.
+  At zero speed the round-2 pool calculation is exactly retained; the four still-water ROI statistics are unchanged.
+
+The existing `Editor.showSoil → renderer.updateSoil → bakeTiles` path supplies the displayed Badtide day's contamination
+without a separate overlay. `verify-round3.mjs` exercises this renderer path with 0/128/255/0 snapshots over fixed dry
+and grass soil: sparse pixel changes, stronger coverage at the higher value, and pixel-exact restoration when cleared.
+It does not run the weather solver or scrub the UI. At adoption, retain this renderer check and verify the UI feeds its
+selected day's arrays. Coordinates remain world anchored, so veins do not reseed per day. The sample-coverage guard is
+against whole-soil tinting, not a new colour-blindness gap or an artistic density requirement.
+
+In test rebase #3 below, use these displayed-day checks for the GPU response instead of the old CPU helper's fine-net,
+stain and distant-cover behaviour. The other five rebases remain as written. There are no additional failing tests.
 
 ## Accepted decisions
 
@@ -96,9 +126,15 @@ rectangles would leave the silhouette and shadows wrong, so no fake sack geometr
 The soil boundary can wobble in colour, but cliff/block outlines remain the terrain's grid. Sculpted stone silhouettes,
 broader rolling water detail and less regular close grass remain possible refinements; the report does not claim parity.
 For Badtide, feed the displayed day's contamination into the existing soil fields and verify veins on dry/grass ground
-while scrubbing. Static fixture coverage is not a test of the time controls.
+while scrubbing. The new snapshot update check covers renderer response and clearing; it is still not a test of the time controls.
 
 ## Reproduce from the repository root
+
+For a prepared round-2 workspace, reuse its unchanged baseline captures: run `capture-fixtures.mjs --quick` (builds the
+proposal), `verify-round3.mjs`, `capture.mjs --round3 --skip-build`, then `compose.mjs --round3`. This updates only the
+five requested JPEG sheets. The other six committed sheets intentionally remain at round 2. For a clean local directory,
+the full commands below regenerate all required raw baseline/proposal inputs before composing those five sheets.
+
 
 Requires locked Node dependencies and installed Chrome. `prepare.mjs` extracts untouched source and comparison-only
 references from pinned commits into ignored `local/`. Vite transforms the snapshot in memory, never repository `src/`.
@@ -109,7 +145,8 @@ node investigation/high-soul/prepare.mjs
 npm ci --prefix investigation/high-soul/local --no-audit --no-fund
 node investigation/high-soul/capture.mjs
 node investigation/high-soul/capture-fixtures.mjs --skip-build
-node investigation/high-soul/compose.mjs
+node investigation/high-soul/verify-round3.mjs
+node investigation/high-soul/compose.mjs --round3
 node investigation/high-soul/emit-patch.mjs
 node investigation/high-soul/audit-water.mjs
 $env:SOUL_BASELINE='1'

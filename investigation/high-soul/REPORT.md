@@ -5,7 +5,24 @@ All work stays in this directory. Product source is unchanged; `adoption.patch` 
 Round 1 established warm brown/mauve earth, orange/cream ruins, red-orange veins and exposure **1.00**.
 Kyler accepted these choices and the game's own readability trade-offs; no extra lightness gap or pattern is required.
 
-## Round 2
+## Round 3
+
+- **Contamination:** sparse, irregular orange-red fissures with thick mains and thinner branches replace the fine net.
+  No full-tile stain or distant orange fill; earth and grass keep their own colour between veins.
+- **Cliffs:** unequal stone sizes, varied face slopes and soft mortar occlusion replace the uniform embossed bevel.
+- **Clouds / channels:** fewer, larger cloud banks with clear openings; broader advected wave packets follow currents.
+  Navy pools retain round 2's inputs and all four measured still-water sample statistics exactly.
+
+The Badtide rendering path was checked with displayed-soil snapshots 0 → 128 → 255 → 0: veins alter only about **10–11%**
+of the sampled earth/grass pixels, strengthen with contamination, then restore the clean image exactly. This exercises
+`updateSoil`, used by the day view; it is not a full weather-simulation run. See [round3-checks.json](round3-checks.json).
+
+Still short: a few vein junctions widen abruptly, cliff silhouettes remain flat, and rolling water remains procedural.
+Palette, exposure, grass, falls and ruins are unchanged. The two pair sheets, ground-veins, highlands-fall and broad-cascade
+are refreshed below; the other six sheets remain **round-2 evidence**. Tests remain **114/120** (the same six accepted-rule
+conflicts), **11/11** browser checks and typecheck passing. Regeneration and adoption details are in INTEGRATION.
+
+## Round 2 (historical findings)
 
 - **Water:** broken, two-phase caustics and stretched highlights follow the existing estimated current; rough-water
   regions gain coloured crests. Pools retain navy depth, including grazing views. In the dedicated rendered study,

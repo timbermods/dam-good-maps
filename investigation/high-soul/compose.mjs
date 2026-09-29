@@ -2,6 +2,7 @@ import {browser,DIR} from './harness.mjs';import {readFileSync,writeFileSync,mkd
 const b=await browser(),p=await b.newPage();mkdirSync(join(DIR,'captures'),{recursive:true});
 const data=file=>'data:image/jpeg;base64,'+readFileSync(join(DIR,file)).toString('base64');
 async function compose(name,files,labels,cols=3,width=640,simulations=false,crop=null){
+ if(process.argv.includes('--round3')&&!['pair-1','pair-2','ground-veins','highlands-fall','broad-cascade'].includes(name))return;
  const url=await p.evaluate(async({files,labels,cols,width,simulations,crop})=>{
   const sims={colour:null,greyscale:[.2126,.7152,.0722,.2126,.7152,.0722,.2126,.7152,.0722],deuteranopia:[.367322,.860646,-.227968,.280085,.672501,.047413,-.01182,.04294,.968881],protanopia:[.152286,1.052583,-.204868,.114503,.786281,.099216,-.003882,-.048116,1.051998],tritanopia:[1.255528,-.076749,-.178779,-.078411,.930809,.147602,.004733,.691367,.3039]};
   const imgs=await Promise.all(files.map(async src=>{let i=new Image();i.src=src;await i.decode();return i}));
@@ -18,7 +19,7 @@ async function compose(name,files,labels,cols=3,width=640,simulations=false,crop
 try{
  for(const n of [1,2])await compose('pair-'+n,[`local/references/pair-${n}-game.jpg`,`local/captures/pair-${n}-baseline.jpg`,`local/captures/pair-${n}-proposal.jpg`],['Timberborn / reference only','Today’s High / 8c975822','Proposal / High'],3,640,false,n===1?[850,180,600,251]:[390,275,800,335]);
  for(const[id,ref]of [['highlands-fall','ref-10.jpg'],['lake-badwater','ref-6.jpg'],['delta-overview','ref-4.jpg']])await compose(id,[`local/captures/${id}-baseline.jpg`,`local/captures/${id}-proposal.jpg`,`local/references/${ref}`],['Today’s High / '+id,'Proposal / same map and camera','Closest game reference / different map']);
- for(const[id,ref]of [['broad-cascade','ref-10.jpg'],['badwater-fall','ref-7.jpg'],['ground-veins','ref-7.jpg']])await compose(id,[`local/references/${ref}`,`local/captures/${id}-baseline.jpg`,`local/captures/${id}-proposal.jpg`],['Game reference / different geometry','Baseline / original material study','Round 2 / same material study'],3,640,false,id==='ground-veins'?[[500,380,600,251],[550,110,600,251],[550,110,600,251]]:null);
+ for(const[id,ref]of [['broad-cascade','ref-10.jpg'],['badwater-fall','ref-7.jpg'],['ground-veins','ref-7.jpg']])await compose(id,[`local/references/${ref}`,`local/captures/${id}-baseline.jpg`,`local/captures/${id}-proposal.jpg`],['Game reference / different geometry','Baseline / original material study','Round 3 / same material study'],3,640,false,id==='ground-veins'?[[500,380,600,251],[550,110,600,251],[550,110,600,251]]:null);
  await compose('accessibility-cues',['water-comparison','ground-veins'].map(id=>`local/captures/${id}-proposal.jpg`),['Water: clean left / bad right','Soil: poisoned back / clean front'],5,384,true);
  await compose('standard',[`local/references/pair-2-game.jpg`,'local/captures/pair-2-standard.jpg','local/captures/pair-2-proposal.jpg'],['Timberborn / reference only','Proposal / Standard','Proposal / High']);
  await compose('accessibility',['pair-1','pair-2','highlands-fall','lake-badwater','delta-overview'].map(id=>`local/captures/${id}-proposal.jpg`),['Pair overview','Pair close','Highlands fall','Lake badwater','Delta overview'],5,384,true);

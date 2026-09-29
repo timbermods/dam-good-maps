@@ -181,6 +181,77 @@ edit(H,'vec3(0.18, 0.175, 0.132) * shade','vec3(0.235, 0.23, 0.18) * shade');
 edit(M,'clamp(bevel * 1.7, -0.32, 0.36)','clamp(bevel * 1.35, -0.20, 0.27)');
 
 edit(H,'float network = mix(cracks(flowA).x, cracks(flowB).x, blend);',`float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);`);
+// Round 3: four targeted refinements. Palette, exposure, grass and still-pool treatment stay fixed.
+edit(M,'vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {', `      vec2 soulVeins(vec2 p, float lvl) {
+        vec2 q = p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+        vec2 cell = floor(q), f = fract(q);
+        float first = 9.0, second = 9.0, id1 = 0.0, id2 = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 off = vec2(float(x), float(y)), id = cell + off;
+          vec2 rnd = fract(sin(vec2(dot(id,vec2(127.1,311.7)),dot(id,vec2(269.5,183.3)))) * 43758.5453);
+          float tag = fract(sin(dot(id,vec2(91.7,37.1))) * 17213.371);
+          float d = length(off + 0.10 + rnd * 0.80 - f);
+          if (d < first) {second=first;id2=id1;first=d;id1=tag;}
+          else if (d < second) {second=d;id2=tag;}
+        }
+        // Adjacent cells agree on each edge's importance. Removing edges opens the net;
+        // retained main cracks and thinner tributaries meet at the same junctions.
+        float importance = fract(sin((id1 + id2) * 173.71) * 31741.13);
+        float present = smoothstep(0.42, 0.47, importance);
+        float width = mix(0.007, 0.039, smoothstep(0.54, 0.84, importance)) * mix(0.65, 1.0, lvl);
+        float aa = max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
+        float distance = (second - first) * 0.5;
+        float rim = 1.0 - smoothstep(width, width + aa, distance);
+        float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
+        return vec2(rim,core) * present * smoothstep(0.0,0.06,lvl);
+      }
+      vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {`);
+// Replace the entire shared contamination overlay: no tile-wide stain or distant orange fill.
+edit(M,/        \/\/ contamination: a layer[\s\S]*?\$\{hook\(h, "groundEnd"\)\}/,`        float lvl = clamp(clev, 0.0, 1.0);
+        vec2 fracture = vec2(0.0);
+        if (bad > 0.0 && wet < 1.0) fracture = soulVeins(g, lvl) * bad * (1.0 - wet);
+        vec3 cleanSoil = c;
+        c = mix(cleanSoil, vec3(0.52, 0.13, 0.035), fracture.x * 0.92);
+        glow = fracture.y * mix(0.16, 0.30, lvl);
+\$\{hook(h, "groundEnd")\}`);
+edit(H,/groundEnd: \/\* glsl \*\/ `[\s\S]*?`,\n    \/\/ the poisoned bed/,`groundEnd: /* glsl */ \`        if (hlPoison > 0.5) {
+          c = mix(hlCleanGround, vec3(0.52, 0.13, 0.035), fracture.x * 0.92);
+          glow = fracture.y * mix(0.16, 0.30, lvl);
+        }
+\`,
+    // the poisoned bed`);
+// Unequal cells: omit a few sites so adjoining stones grow, with varied slopes across their faces.
+edit(M,'vec3 k = voronoi(vUv * kp, kp, vec2(1.0, 1.5), 0.75);',`vec2 stoneP = vUv * kp;
+        stoneP += vec2(valueNoise(stoneP * 0.25, kp * 0.25), valueNoise(stoneP * 0.5 + 31.0, kp * 0.5)) * 0.65;
+        vec2 stoneCell = floor(stoneP), stoneFr = fract(stoneP);
+        float first = 9.0, second = 9.0, stoneId = 0.0, face = 0.0;
+        for (int sy = -1; sy <= 1; sy++) for (int sx = -1; sx <= 1; sx++) {
+          vec2 off = vec2(float(sx), float(sy)), id = stoneCell + off;
+          float seed = hash12(id + 11.0, kp);
+          vec2 delta = (off + 0.5 + (hash22(id, kp) - 0.5) * 0.96 - stoneFr) * vec2(1.0, 1.28);
+          float distance = length(delta) + (seed < 0.16 ? 3.0 : 0.0);
+          if (distance < first) {
+            second = first; first = distance; stoneId = seed;
+            face = dot(delta, normalize(hash22(id + 47.0, kp) - 0.5)) * 0.42;
+          } else second = min(second, distance);
+        }
+        vec3 k = vec3(first, second, stoneId);`);
+edit(M,'float mortar = smoothstep(0.018, 0.29, k.y - k.x);','float mortar = smoothstep(0.012, 0.19, k.y - k.x);');
+edit(M,'float stone = mortar * (0.74 + 0.26 * k.z) * (0.94 + 0.06 * valueNoise(vUv * kp * 3.0, kp * 3.0));','float stone = mortar * clamp(0.70 + 0.25 * k.z + face - k.x * 0.07, 0.38, 1.0);');
+edit(H,'smoothstep(0.0, 0.72, k)','smoothstep(0.015, 0.35, k)');
+edit(M,'clamp(bevel * 1.35, -0.20, 0.27)','clamp(bevel * 0.62, -0.10, 0.13)');
+// Fewer, larger cloud banks, with broad clear openings instead of evenly distributed flecks.
+edit(H,'(0.28 + abs(d.y)) * 8.0','(0.28 + abs(d.y)) * 4.2');
+edit(H,'float hcloud = smoothstep(0.49, 0.73, hn)', 'float cloudBank = smoothstep(0.34, 0.62, vn(hp * 0.29 + 17.1));\n          float hcloud = cloudBank * smoothstep(0.52, 0.73, hn)');
+// Flow-only rolling packets. At speed=0 every round-2 pool expression remains identical.
+edit(H,'highlights *= mix(1.0, 0.68, deep);',`float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
+    float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
+    float rolling = mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend);
+    highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
+    colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
+    highlights *= mix(1.0, 0.68, deep);`);
+
+edit(H,'0.66 + k * 0.50','0.40 + k * 0.85');
 export function transform(file, source) {
   let s=source.replaceAll('\r\n','\n');
   for(const {before,after} of changes.get(file)||[]) {
