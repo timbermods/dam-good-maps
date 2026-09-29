@@ -91,3 +91,7 @@ Kyler's feedback from testing the forces preview, recorded word for word for Tue
    - Tooltips name the game editor's terms ("relative raise", "absolute height"), so players coming from it recognise the tools.
    - Old saved strokes replay exactly (D158).
    On feature/forces (build, Opus 5.5, high).
+38. The models, mandatory, first thing on Tuesday:
+   - Every Opus use is Opus 5.5: every agent definition, task and the session itself. Check .claude/agents/, PLAN §20's model plan and HANDOFF §7's table, and correct anything naming another Opus. Their effort levels stay exactly as they are, and nothing on Opus moves to another model.
+   - Sonnet 5.5 is out: every agent definition and task that uses Sonnet 5 moves to Sonnet 5.5, at the same effort: routine (Sonnet 5.5, medium), build-light (Sonnet 5.5, high), and any other place Sonnet 5 is named.
+   Update .claude/agents/, the model plan in PLAN §20 and HANDOFF §7's table to match.

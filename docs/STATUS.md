@@ -19,7 +19,12 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    task, including to the feedback items' tests and reports. Record it in PLAN §20 as the next free D-number and put
    it at the top of `CLAUDE.md` and of `HANDOFF.md`, so every session reads it before any task; it applies to every
    session, agent and investigation, and to prompts from the planning chat and Codex.
-2. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
+2. **The models, mandatory, first thing on Tuesday** (feedback item 38): every Opus use is Opus 5.5 (every agent
+   definition, task and the session itself; effort levels unchanged; nothing on Opus moves to another model), and every
+   use of Sonnet 5 moves to Sonnet 5.5 at the same effort (`routine`: Sonnet 5.5, medium; `build-light`: Sonnet 5.5,
+   high; any other place Sonnet 5 is named). Update `.claude/agents/`, the model plan in PLAN §20 (D301) and §7's table
+   to match, and read every model named elsewhere on this page (and in HANDOFF) as the new one.
+3. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover placement
    mode), then 12), then 1, 2, 6, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle), 30 (a force changes things
    only when it reaches them) and 37 (the height brushes with a target level, like the game's editor; it replaces item 8)
@@ -28,14 +33,14 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    · Clear) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the
    game's) with the water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's
    verdict. Add each to Kyler's checklist.
-3. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
+4. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
    `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
    are under way): record it in PLAN §20 as the next free D-number; write `docs/HISTORY.md` (a short chapter per major
    turn, each linking to its decisions); give every PLAN §20 decision a status (active; amended by Dn; superseded by
    Dn), decisions unchanged; copy the Progress log into `docs/progress-log/`, one file per month, at each month's end;
    keep each previous `docs/CHAT-HANDOFF.md` as `docs/chats/<date>.md` when it's rewritten; add these habits to
    HANDOFF's list of what every milestone and handoff does; note it in STATUS and the Progress log.
-4. **The repository is built for several AI sessions at once** (Kyler's decision, feedback item 34; after the
+5. **The repository is built for several AI sessions at once** (Kyler's decision, feedback item 34; after the
    feedback items): record it in PLAN §20 as the next free D-number; a work board `docs/WORK.md` (claim before
    starting, clear when done; the milestone session stays the one integrator and the only one handing out decision
    numbers); PLAN §20's decisions split one file per decision (`docs/decisions/Dn.md`, with an index), in the same
@@ -44,7 +49,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    `docs/GLOSSARY.md`; the editor's giant files split into feature folders as part of "The page is the editor"; tests
    named as the specification; these habits added to this page's list of what every session and milestone does; noted
    in STATUS and the Progress log.
-5. **The water shades: pick one (D310).** Built on `feature/high-look` (30d7a767, CI green; the captures in `docs/look/high/`
+6. **The water shades: pick one (D310).** Built on `feature/high-look` (30d7a767, CI green; the captures in `docs/look/high/`
    recaptured). Deep water now matches the game (L* 29.6 against its 29.2) and the middle is close (32.4 against 35.1); the two
    readability tests are back at their old strictness. But the shallows went lighter (L* 62.3): shallow to deep spans about 33 L*
    against the game's 7. Badwater couldn't darken to make room: your D177/D178 review keeps the mine pit's earth at least 5 L*
@@ -53,7 +58,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    sheet's texture, not its colour, tell it from badwater, so the shallows can darken; **(c)** accept it as it is. **My pick: (a).**
    D304 and D305 are built on the same commit (the far ruins read as the same ruin). Once the shades are settled, badwater's
    calibration targets are re-measured once (`build-light`).
-6. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
+7. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
    branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's
    softer sound, re-encoded sounds and a quieter default (D313), and **Delete sources** on the Select row (D315)
    (`feature/forces-sounds`, #81); Glaciate's meltwater springs in groups (D314, `feature/glaciate`, #76). Carve's own source is a row too (D314; Unleash places none). Tuesday's
@@ -61,7 +66,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    One finding for your eye: after Delete sources, the live view sometimes loses a few blueberry bushes once the water preview
    runs on (seen in CI's headless browser, not in Chrome; the operation itself is exact and tested). A `build` agent looks at it on
    Tuesday.
-7. **M9b** (#70, held for your eye, D252, D273): the grouped sources are in (springs in groups; an edge river's mouth is the rule's row); badwater ditches no longer run ruler-straight, and the sea's rim wanders, so no sea is square. Its tests are being re-pinned (half done: 765 pass; 9 are bound to maps the groups changed, and one resources measure reads 0.5225 against its line under 0.52, to look at first). Then its release candidate (D308): full batches, one pooled probe
+8. **M9b** (#70, held for your eye, D252, D273): the grouped sources are in (springs in groups; an edge river's mouth is the rule's row); badwater ditches no longer run ruler-straight, and the sea's rim wanders, so no sea is square. Its tests are being re-pinned (half done: 765 pass; 9 are bound to maps the groups changed, and one resources measure reads 0.5225 against its line under 0.52, to look at first). Then its release candidate (D308): full batches, one pooled probe
    batch, and the review set for you.
    - **The game's water rules (D311, accepted):** M9b uses them for open-ground water; the pooled probe batch at the release
      candidate checks the water against the game itself.
@@ -82,32 +87,32 @@ decisions since the restart (D252–D315) are recorded below and in the living d
      Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a hint on what above 16
      means; the two controls never contradict each other; and Verticality 100's choppy one- and two-tile blocks and
      spikes made wild but readable under M9b's chaos rule).
-8. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
+9. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
    conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group, badwater grouped. 37 of 136
    places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump
    can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release, `real-places-2-done`. CI on #35 is red until then:
    the tests are for the new rules, the committed gallery still D271's.
-9. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the
+10. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the
    repository folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge;
    the Case menu has the crater lip, the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view. Every result
    drops 0 voxels under the game's support rule. Its shortfalls: blocky, regular forms; small arches; faces under about four levels
    can't be worn (on terraced Highlands 24 of 40 random gestures say "No rock to wear here"); water under new roofs is an
    approximation; not yet checked in the game.
-10. **Drought and Badtide, day by day** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for a sitting of
+11. **Drought and Badtide, day by day** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for a sitting of
    its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). The day strip follows the game
    within 5%; D307's flooded floor says so on hover. Two findings: on water-rich maps the last day takes 16–48 s to work out at 128²
    (default #124: the strip opens at once and shows each day as it's worked out); most starts on rivers lose their water on day 1 of
    a drought (the game's rule; it bears on PERFECT's "the start survives its first cycles" and may belong in M9b). Its defaults
    #120–#125.
-11. **The High look** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284): Standard beside High, with greyscale and
+12. **The High look** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284): Standard beside High, with greyscale and
    colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 25 effects, each switchable; High by default with a fallback.
    My read: warmer and richer, the dead trees far better; the grass quite saturated and yellow; the water calmer, losing Standard's
    glints; from far away the poisoned soil is a dark olive stain, harder to spot than Standard's red glow (its own switch,
    `poison`). Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
    longer run against today's interface and are on the housekeeping list. It goes on the preview after the forces' release.
-12. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
+13. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
    (M9b, above). Everything else is answered.
-13. **"The page is the editor" (feedback item 23):** it follows the forces' release without delay, as one window for the
+14. **"The page is the editor" (feedback item 23):** it follows the forces' release without delay, as one window for the
     generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision in
     the planning chat and approved the written UI brief that comes from it; first, prepare a short document in `docs/` of
     the open design questions and the known constraints (what the page must hold, the decisions recorded about it, what
@@ -281,7 +286,7 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 | M9b (D273–D278, D298, D308, D311, D314) | `feature/m9b` (`-m9b`, #70), 66146f34 | `m9b-build`, Opus 5.5 xhigh | re-pin half done (quick suite 765 passed, 10 failed: 9 map-bound, one resources measure at 0.5225 against < 0.52); next: merge `dev` (M9a), re-seed six tests, re-pin 4242, then the release candidate |
 | Real places, round 2 (D271, D300, D306, D314) | `feature/real-places-2` (`-places`, #35), cbaf6cf6 | `build`, Opus 5.5 high; release on `build-light` | grouped sources wired (VERSION 11); 37 of 136 converted; next: `npx tsx tools/places-convert.ts --threads 3` (1.5–3 h), check, release |
 | Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
-| The High look and the water shades (D284, D304, D305, D310) | `feature/high-look` (`-high`, #75), b62188ba | `build`, Opus 5.5 high | held: your shades pick (§1 item 5) and your look |
+| The High look and the water shades (D284, D304, D305, D310) | `feature/high-look` (`-high`, #75), b62188ba | `build`, Opus 5.5 high | held: your shades pick (§1 item 6) and your look |
 | Drought and Badtide, day by day | `feature/weather-days` (`-weather`, #73), 5bb13406 | `build`, then `build-light` | held for its own sitting |
 | The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), cddf2d9f | `build` | round 2 pushed 2026-09-28 (buildable shelters, dry washes, fast gestures); held until you've tried it |
 | 3D foundations: new modules | `feature/terrain3d-a` (`-3d`, #71), 24b88b9b | `build` | verified in the game; the wiring waits for the forces and M9b on `dev` |

@@ -30,7 +30,12 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    task, including to the feedback items' tests and reports. Record it in PLAN §20 as the next free D-number and put
    it at the top of `CLAUDE.md` and of this page, so every session reads it before any task; it applies to every
    session, agent and investigation, and to prompts from the planning chat and Codex.
-2. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
+2. **The models, mandatory, first thing on Tuesday** (feedback item 38): every Opus use is Opus 5.5 (every agent
+   definition, task and the session itself; effort levels unchanged; nothing on Opus moves to another model), and every
+   use of Sonnet 5 moves to Sonnet 5.5 at the same effort (`routine`: Sonnet 5.5, medium; `build-light`: Sonnet 5.5,
+   high; any other place Sonnet 5 is named). Update `.claude/agents/`, the model plan in PLAN §20 (D301) and §7's table
+   to match, and read every model named elsewhere on this page (and in STATUS) as the new one.
+3. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover placement
    mode), then 12), then 1, 2, 6, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle), 30 (a force changes things
    only when it reaches them) and 37 (the height brushes with a target level, like the game's editor; it replaces item 8)
@@ -39,14 +44,14 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    · Clear) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the
    game's) with the water shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's
    verdict. Add each to Kyler's checklist.
-3. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
+4. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
    `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
    are under way): record it in PLAN §20 as the next free D-number; write `docs/HISTORY.md` (a short chapter per major
    turn, each linking to its decisions); give every PLAN §20 decision a status (active; amended by Dn; superseded by
    Dn), decisions unchanged; copy the Progress log into `docs/progress-log/`, one file per month, at each month's end;
    keep each previous `docs/CHAT-HANDOFF.md` as `docs/chats/<date>.md` when it's rewritten; add these habits to
    HANDOFF's list of what every milestone and handoff does; note it in STATUS and the Progress log.
-4. **The repository is built for several AI sessions at once** (Kyler's decision, feedback item 34; after the
+5. **The repository is built for several AI sessions at once** (Kyler's decision, feedback item 34; after the
    feedback items): record it in PLAN §20 as the next free D-number; a work board `docs/WORK.md` (claim before
    starting, clear when done; the milestone session stays the one integrator and the only one handing out decision
    numbers); PLAN §20's decisions split one file per decision (`docs/decisions/Dn.md`, with an index), in the same
@@ -55,7 +60,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    `docs/GLOSSARY.md`; the editor's giant files split into feature folders as part of "The page is the editor"; tests
    named as the specification; these habits added to this page's list of what every session and milestone does; noted
    in STATUS and the Progress log.
-5. **The forces sitting on the preview** (the session, then `build`, Opus 5.5 high). Three branches feed it:
+6. **The forces sitting on the preview** (the session, then `build`, Opus 5.5 high). Three branches feed it:
    - `feature/forces` (#77, `DamGoodMaps-forces`, c90e071b): D309 (details behind More), D312 (size ring, Carve's
      waypoints on the shared gesture piece `src/editor/waypoints.ts`, Erupt final in ~2 s) and Carve's own source as a
      group (D314; Unleash places none) are built and pushed. Its CI on c90e071b was running at the pause.
@@ -74,7 +79,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    STATUS ("Your checklist for the forces sitting"). A known snag: when a force sweeps the map's last badwater spring,
    the "No badwater" notice (D213) covers the force rows (Glaciate's hand-back); fix it on `feature/forces` (build).
    **Held for Kyler:** the forces and Glaciate release only after his sitting.
-6. **M9b** (`m9b-build`, Opus 5.5 xhigh; `feature/m9b`, #70 draft, `DamGoodMaps-m9b`): source groups wired (284818ad),
+7. **M9b** (`m9b-build`, Opus 5.5 xhigh; `feature/m9b`, #70 draft, `DamGoodMaps-m9b`): source groups wired (284818ad),
    the badwater toggle on a narrow mouth follows D290 (#134; its editor side lands with the forces), badwater ditches
    no longer ruler-straight, the sea's rim wanders. The re-pin is half done: quick suite on d5dd375f 765 passed, 10
    failed (9 map-bound; one resources share at 0.5225 against its line under 0.52: look at it first). The "Handoff"
@@ -97,7 +102,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    100 maps exceed 16; if Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a
    hint on what above 16 means; the two controls never contradict each other; and Verticality 100's choppy one-
    and two-tile blocks and spikes made wild but readable under M9b's chaos rule).
-7. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
+8. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
    a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached.
@@ -106,16 +111,16 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    left), then build, draw the cards and check it yourself, as the top note of `docs/progress/real-places.md` lists: every place passes the
    blocking list, "No water a pump can reach" is 0, the stripes are gone on 42, 48, 116 and 118. Then release
    `real-places-2-done` (no new sheet for Kyler, D300).
-8. **Grouped sources** (D314): the investigation `investigation/source-groups` (#78) is merged into `dev`
+9. **Grouped sources** (D314): the investigation `investigation/source-groups` (#78) is merged into `dev`
    (685d9b18). The rule itself is `feature/source-groups` at a6346fe4 (#79, draft): merge it into `dev` with the first of the branches
    that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.
-9. **Held for Kyler, nothing to do until he answers** (STATUS §1): the water shades (D310, on `feature/high-look` at
+10. **Held for Kyler, nothing to do until he answers** (STATUS §1): the water shades (D310, on `feature/high-look` at
    30d7a767; he picks (a), (b) or (c); my pick (a)); the High look (#75, `build`); Drought and Badtide day by day
    (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting);
    Erode (#74, `investigation/erode`).
-10. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
+11. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
    (terrain3d-20260927 probe). **Next:** the wiring, after the forces and M9b merge into `dev` (D280).
-11. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
+12. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
    D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
    generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision
    in the planning chat and approved the written UI brief that comes from it; first, prepare a short document in
@@ -136,7 +141,7 @@ clean and matched origin at the pause.
 | Work | Branch | PR | Worktree | Last commit | State |
 |---|---|---|---|---|---|
 | Plans and docs | `dev` | — | `DamGoodMaps` | see `git log` | M9a released; docs current at the pause |
-| The forces | `feature/forces` | #77 | `DamGoodMaps-forces` | c90e071b | D309, D312 and Carve's grouped source (D314) built; next in §1 item 5 |
+| The forces | `feature/forces` | #77 | `DamGoodMaps-forces` | c90e071b | D309, D312 and Carve's grouped source (D314) built; next in §1 item 6 |
 | Sounds and Delete sources | `feature/forces-sounds` | #81 (draft) | `DamGoodMaps-sounds` | 05ab3afb | D313, D315 built; merge into the forces |
 | Glaciate's adoption | `feature/glaciate` | #76 (draft) | `DamGoodMaps-glaciate` | e091e77a | preview branch for the forces sitting; held for Kyler |
 | M9b | `feature/m9b` | #70 (draft) | `DamGoodMaps-m9b` | 66146f34 | re-pin half done; held for Kyler |
