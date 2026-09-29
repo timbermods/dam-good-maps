@@ -94,37 +94,45 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    the "No badwater" notice (D213) covers the force rows (Glaciate's hand-back); fix it on `feature/forces` (build).
    **Held for Kyler:** the forces and Glaciate release only after his sitting.
 8. **M9b** (`m9b-build`, Opus 5.5 xhigh; `feature/m9b`, #70 draft, `DamGoodMaps-m9b`): source groups wired (284818ad),
-   the badwater toggle on a narrow mouth follows D290 (#134; its editor side lands with the forces), badwater ditches
-   no longer ruler-straight, the sea's rim wanders. The re-pin is half done: quick suite on d5dd375f 765 passed, 10
-   failed (9 map-bound; one resources share at 0.5225 against its line under 0.52: look at it first). The "Handoff"
-   section of `docs/progress/m9b.md` has the ten tests, their seeds and the commands. **Next:** merge `origin/dev` (M9a,
-   0.7.0, released), re-seed the six seed-bound tests, re-pin the 4242 sha, rerun `npx vitest run --project quick
-   --maxWorkers=4`; then samples under D308 and the release candidate: full batches, one pooled probe batch (3D maps, Erode, a Real places sample, M9b maps), then the review set for
-   Kyler. **Held for Kyler:** judged by his eye (D252, D273). From Kyler's feedback
-   (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where the time goes at 128² and
-   256², fewer failed candidates, the rest in parallel, land first and water filling in, targets set with Kyler from
-   the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of thumbnails with
-   More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the editor"; **24**,
-   trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its display in
-   "The page is the editor" (and in today's editor meanwhile if cheap); **26**, dead trees scattered over dry land
-   (find where they come from and report per theme how many at load and where; living trees only where the game's
-   soil rules keep them alive; dead trees rare and deliberate; a sample checked in the game with the pooled probe
-   batch); **27**, a river whose head is at the map's edge flows into the map, not off it (a natural lip at the
-   boundary beside and behind its sources, with the grouped-sources rule, D314; also checked in the Real places
+   the badwater toggle on a narrow mouth follows D290 (#134; its editor side lands with the forces), badwater ditches no
+   longer ruler-straight, the sea's rim wanders. The re-pin is half done: quick suite on d5dd375f 765 passed, 10 failed
+   (9 map-bound; one resources share at 0.5225 against its line under 0.52: look at it first). The "Handoff" section of
+   `docs/progress/m9b.md` has the ten tests, their seeds and the commands. **Next:** merge `origin/dev` (M9a, 0.7.0,
+   released), re-seed the six seed-bound tests, re-pin the 4242 sha, rerun `npx vitest run --project quick
+   --maxWorkers=4`; then samples under D308 and the release candidate: full batches, one pooled probe batch (3D maps,
+   Erode, a Real places sample, M9b maps), then the review set for Kyler. **Held for Kyler:** judged by his eye (D252,
+   D273). From Kyler's feedback (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where
+   the time goes at 128² and 256², fewer failed candidates, the rest in parallel, land first and water filling in,
+   targets set with Kyler from the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a
+   strip of thumbnails with More (replacing "Another like this"): the generator side here, the strip drawn in "The page
+   is the editor"; **24**, trees within walking reach (40 tiles, with their logs), live as the player edits: the number
+   here, its display in "The page is the editor" (and in today's editor meanwhile if cheap); **26**, dead trees
+   scattered over dry land (find where they come from and report per theme how many at load and where; living trees only
+   where the game's soil rules keep them alive; dead trees rare and deliberate; a sample checked in the game with the
+   pooled probe batch); **27**, a river whose head is at the map's edge flows into the map, not off it (a natural lip at
+   the boundary beside and behind its sources, with the grouped-sources rule, D314; also checked in the Real places
    conversion and wherever a force places sources at an edge; report how many M9a maps lose water off the map at a
-   river's head, before and after); **36**, tall maps and the Highest terrain control (check whether Verticality
-   100 maps exceed 16; if Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a
-   hint on what above 16 means; the two controls never contradict each other; and Verticality 100's choppy one-
-   and two-tile blocks and spikes made wild but readable under M9b's chaos rule).
+   river's head, before and after); **36**, tall maps and the Highest terrain control (check whether Verticality 100
+   maps exceed 16; if Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a hint on
+   what above 16 means; the two controls never contradict each other; and Verticality 100's choppy one- and two-tile
+   blocks and spikes made wild but readable under M9b's chaos rule); **47**, what makes a map good to play (a "Playing
+   it" section in `docs/PERFECT.md`, recorded in PLAN §20): the must-haves (the starting-logs floor, berries enough for
+   an Iron Teeth start, at least two reachable mine sites, a badwater source, pumpable fresh water); the rules against
+   what players hate (the deepest riverbed at least 3 levels above the map's floor; badwater contained, reported per
+   theme; no stairs for the early game; enough level buildable land at the start); a new intention (a second district
+   site behind a small early obstacle) and high ground beside low; the five difficulty levers measured and shown on the
+   map card as information.
 9. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
-   a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached.
-   CI on #35 is red until the rebuild (tests are for the new rules, the gallery still D271's). **Next:** from
+   a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached. CI
+   on #35 is red until the rebuild (tests are for the new rules, the gallery still D271's). **Next:** from
    `DamGoodMaps-places`, keep VERSION 11 and run `npx tsx tools/places-convert.ts --threads 3` (about 1.5–3 h for the 99
-   left), then build, draw the cards and check it yourself, as the top note of `docs/progress/real-places.md` lists: every place passes the
-   blocking list, "No water a pump can reach" is 0, the stripes are gone on 42, 48, 116 and 118. Then release
-   `real-places-2-done` (no new sheet for Kyler, D300).
+   left), then build, draw the cards and check it yourself, as the top note of `docs/progress/real-places.md` lists:
+   every place passes the blocking list, "No water a pump can reach" is 0, the stripes are gone on 42, 48, 116 and 118.
+   Then release `real-places-2-done` (no new sheet for Kyler, D300). From Kyler's feedback item 47: the Real places
+   conversion also raises its base so the deepest riverbed stands at least 3 levels above the map's floor (keeping
+   relief within the ceiling), and real places meet 47's must-haves and rules.
 10. **Grouped sources** (D314): the investigation `investigation/source-groups` (#78) is merged into `dev`
    (685d9b18). The rule itself is `feature/source-groups` at a6346fe4 (#79, draft): merge it into `dev` with the first of the branches
    that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.

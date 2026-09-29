@@ -86,26 +86,35 @@ decisions since the restart (D252–D315) are recorded below and in the living d
      candidate checks the water against the game itself.
    - **#134 follows D290:** on a narrow river mouth, the editor's badwater toggle moves the badwater group along the channel to
      the nearest spot where its pool fits, rather than refusing.
-   - **From Kyler's feedback** (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where the
-     time goes at 128² and 256², fewer failed candidates, the rest in parallel, land first and water filling in, targets set
-     with Kyler from the numbers and made part of M9b's acceptance); **22**, the other passing candidates as a strip of
-     thumbnails with More (replacing "Another like this"): the generator side here, the strip drawn in "The page is the
-     editor"; **24**, trees within walking reach (40 tiles, with their logs), live as the player edits: the number here, its
-     display in "The page is the editor" (and in today's editor meanwhile if cheap); **26**, dead trees scattered over dry
-     land (find where they come from and report per theme how many at load and where; living trees only where the game's
-     soil rules keep them alive; dead trees rare and deliberate; a sample checked in the game with the pooled probe batch);
-     **27**, a river whose head is at the map's edge flows into the map, not off it (a natural lip at the boundary beside
-     and behind its sources, with the grouped-sources rule, D314; also checked in the Real places conversion and wherever
-     a force places sources at an edge; report how many M9a maps lose water off the map at a river's head, before and
-     after); **36**, tall maps and the Highest terrain control (check whether Verticality 100 maps exceed 16; if
-     Highest terrain caps them, it reaches 22 whenever Verticality allows tall maps, with a hint on what above 16
-     means; the two controls never contradict each other; and Verticality 100's choppy one- and two-tile blocks and
-     spikes made wild but readable under M9b's chaos rule).
-10. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired into the
-   conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group, badwater grouped. 37 of 136
-   places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump
-   can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release, `real-places-2-done`. CI on #35 is red until then:
-   the tests are for the new rules, the committed gallery still D271's.
+   - **From Kyler's feedback** (`docs/feedback/2026-09-28-forces-preview.md`): **21**, generation speed (measure where
+     the time goes at 128² and 256², fewer failed candidates, the rest in parallel, land first and water filling in,
+     targets set with Kyler from the numbers and made part of M9b's acceptance); **22**, the other passing candidates
+     as a strip of thumbnails with More (replacing "Another like this"): the generator side here, the strip drawn in
+     "The page is the editor"; **24**, trees within walking reach (40 tiles, with their logs), live as the player
+     edits: the number here, its display in "The page is the editor" (and in today's editor meanwhile if cheap);
+     **26**, dead trees scattered over dry land (find where they come from and report per theme how many at load and
+     where; living trees only where the game's soil rules keep them alive; dead trees rare and deliberate; a sample
+     checked in the game with the pooled probe batch); **27**, a river whose head is at the map's edge flows into the
+     map, not off it (a natural lip at the boundary beside and behind its sources, with the grouped-sources rule,
+     D314; also checked in the Real places conversion and wherever a force places sources at an edge; report how many
+     M9a maps lose water off the map at a river's head, before and after); **36**, tall maps and the Highest terrain
+     control (check whether Verticality 100 maps exceed 16; if Highest terrain caps them, it reaches 22 whenever
+     Verticality allows tall maps, with a hint on what above 16 means; the two controls never contradict each other;
+     and Verticality 100's choppy one- and two-tile blocks and spikes made wild but readable under M9b's chaos rule);
+     **47**, what makes a map good to play (a "Playing it" section in `docs/PERFECT.md`, recorded in PLAN §20): the
+     must-haves (the starting-logs floor, berries enough for an Iron Teeth start, at least two reachable mine sites, a
+     badwater source, pumpable fresh water); the rules against what players hate (the deepest riverbed at least 3
+     levels above the map's floor; badwater contained, reported per theme; no stairs for the early game; enough level
+     buildable land at the start); a new intention (a second district site behind a small early obstacle) and high
+     ground beside low; the five difficulty levers measured and shown on the map card as information.
+10. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired
+   into the conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group,
+   badwater grouped. 37 of 136 places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check
+   (the blocking list, "No water a pump can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release,
+   `real-places-2-done`. CI on #35 is red until then: the tests are for the new rules, the committed gallery still
+   D271's. From Kyler's feedback item 47: the Real places conversion also raises its base so the deepest riverbed
+   stands at least 3 levels above the map's floor (keeping relief within the ceiling), and real places meet 47's
+   must-haves and rules.
 11. **Erode (Codex; #74): rounds 2 and 3 approved, round 4 with Codex.** You approved round 2 ("magical, almost
    perfect") and round 3 (89305ca6) landed and you approved its flat-ground wash. Round 4 is with Codex now,
    narrow: washes across uneven ground, and telling a wash sweep from a cliff sweep. Next: wait for round 4; the

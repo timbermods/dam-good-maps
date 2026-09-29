@@ -109,3 +109,19 @@ Kyler's feedback from testing the forces preview, recorded word for word for Tue
 44. Clear everything, and the start is the player's: a "Clear everything" command in the editor's ⋯ menu removes every source, badwater source, tree, bush, ruin, object and the start, leaving only the terrain, as one undo step. The water drains away as its sources go (D260). The start can be deleted like any object, and appears in item 1's Delete menu (this amends item 1's "the start is never deleted"). A map without a start is allowed while editing, and its project can be saved; the checks dot shows "No start". Only Save to Timberborn and Download .timber refuse, with a plain "Place a start first" pointing to the Start on the shelf. A force still carries an existing start rather than deleting it (D257). On feature/forces (build-light, Sonnet 5.5, high).
 45. Future, after the current list: flow arrows. A view toggle that draws small arrows on the water showing which way it's actually moving, from the water simulation's own flow, so a river flowing the wrong way stands out without zooming in to check. Off by default; in both looks.
 46. Placed sources start at the game's own default strength: a water or badwater source placed from the shelf starts at the strength Timberborn's own editor gives it (today the editor defaults to 8 water/s), taken from the game's data, checked against the official maps' measured strengths (#78). The player can still change it. On feature/forces (build-light, Sonnet 5.5, high).
+47. What makes a Timberborn map good to play. Add it to docs/PERFECT.md as a "Playing it" section, record it in PLAN §20, and apply it in M9b and in Real places (m9b-build, Opus 5.5, xhigh, for the generator's parts):
+   Must-haves on every generated map and real place:
+   - Enough wood in the starting zone (the starting-logs floor, as now).
+   - Berry bushes near the start, enough for an Iron Teeth start; check the current minimum is generous enough.
+   - At least two mine sites (today's check requires one: raise it to two, reachable).
+   - At least one badwater source (as now).
+   - Fresh water the start can pump (as now).
+   Things players hate, now rules:
+   - The land isn't built at the bottom: the deepest riverbed stands at least 3 levels above the map's floor, so there's room to dig and terraform early. Today the base sits at about level 0 to 1: raise it, keeping relief within the ceiling. Apply it to the generator and to the Real places conversion.
+   - Badwater stays contained: its stream doesn't run far across the map poisoning large areas, and never crosses the start's water or first farmland. Report how much land badwater reaches, per theme.
+   - The early game needs no stairs: the start's wood, berries, water and first farmland are all reachable on foot, counting natural slopes.
+   - No heavy terraforming to get going: the start has enough level buildable land for its first buildings without reshaping.
+   Things players enjoy, to add or keep:
+   - A new intention: a good second district site close to the start, behind a small obstacle a player clears early (debris to remove, a ditch to dig, trees to cut).
+   - High ground next to low for gravity batteries (the "upper and lower world" intention and Verticality, as now).
+   Difficulty, for when that design resumes: a map's difficulty is set by five levers: farmable land at the start, distance to the nearest metal, distance to the nearest badwater, how easily the start can be sheltered from a badtide, and how much easily buildable land there is. Until then, measure those five and show them on the map card as information.
