@@ -16,6 +16,21 @@ const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
 const heightAt = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), [x, y] as const);
 const lastStroke = (page: Page) => page.evaluate(() => window.dgmEditor!.lastStroke());
+/** The ring is on tile (x, y): the page has taken the pointer's move (F sizes the ring from there;
+ *  where the browser draws in software, a move can land a frame later than the key). */
+const ringOn = (page: Page, x: number, y: number) =>
+  expect.poll(() => page.evaluate(() => { const c = window.dgm3d!.renderer.brushCursorState; return c ? [Math.floor(c.x), Math.floor(c.y)] : null; })).toEqual([x, y]);
+/** The words beside the pointer once they stop changing (the last of a move's frames drawn). */
+async function steadyNote(page: Page): Promise<string> {
+  const read = () => page.locator(".shape-note").textContent();
+  let last = await read();
+  for (;;) {
+    await page.waitForTimeout(200);
+    const now = await read();
+    if (now === last) return now ?? "";
+    last = now;
+  }
+}
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
 
 /** Flat, dry, empty ground away from the start: a tile with `r` tiles of it all round. */
@@ -231,29 +246,39 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // hold F and move the mouse: the ring's size follows, a click sets it (D205)
   const s0 = await client(page, ...f);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(s0.x + 2, s0.y);
   await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
   const steps0 = (await info(page)).history.length;
   await page.keyboard.down("f");
   const s1 = await client(page, f[0] + 7, f[1]);
   await page.mouse.move(s1.x, s1.y, { steps: 5 });
-  await expect(page.locator(".shape-note")).toHaveText(/^size (6\.5|7|7\.5)$/);
-  const sized = Number((await page.locator(".shape-note").textContent())!.split(" ")[1]);
+  const sizedWords = await steadyNote(page);
+  expect(sizedWords).toMatch(/^size (6\.5|7|7\.5)$/);
+  const sized = Number(sizedWords.split(" ")[1]);
   await page.mouse.click(s1.x, s1.y);
   await page.keyboard.up("f");
   // (the click set the size: it painted nothing)
   await idle(page);
   expect((await info(page)).history.length).toBe(steps0);
   // again, and F let go keeps it (D322, item 37)
+  await page.mouse.move(s0.x + 2, s0.y);
+  await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
   await page.keyboard.down("f");
   const s2 = await client(page, f[0] + 4, f[1]);
   await page.mouse.move(s2.x, s2.y, { steps: 5 });
-  await expect(note).toHaveText(/^size (3\.5|4|4\.5)$/);
-  const kept = Number((await note.textContent())!.split(" ")[1]);
+  const keptWords = await steadyNote(page);
+  expect(keptWords).toMatch(/^size (3\.5|4|4\.5)$/);
+  const kept = Number(keptWords.split(" ")[1]);
   await page.keyboard.up("f");
   await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" })).toHaveValue(String(kept));
+  await page.mouse.move(s0.x + 2, s0.y);
   await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
   await page.keyboard.down("f");
   await page.mouse.move(s1.x, s1.y, { steps: 5 });
+  expect(await steadyNote(page)).toBe(`size ${sized}`);
   await page.keyboard.up("f");
   await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" })).toHaveValue(String(sized));
 
