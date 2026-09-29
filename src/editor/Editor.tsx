@@ -58,7 +58,7 @@ import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
-import { BRUSHES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
+import { BRUSHES, BRUSH_NAMES, BrushPainter, DEFAULT_BRUSH, nextSize, paste, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
@@ -2381,6 +2381,18 @@ export default function Editor(props: EditorProps) {
         if (clear.length) void done.then(() => feel("remove", clear[0].x, clear[0].y));
         // a Flatten stroke: where its level ground could take the start, once it is on the map
         if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
+      },
+      // a stroke that changed no ground still takes the sources it pressed with Clear sources on
+      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step
+      unchanged: (params) => {
+        const clear = brushRef.current.clearSources ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => inArea(c.tiles)) : [];
+        endClearGlow();
+        if (!clear.length) return;
+        firstDoneRef.current("paint");
+        void run(
+          () => api.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),
+          (u) => u.ok && feel("remove", clear[0].x, clear[0].y),
+        );
       },
       picked: (level, what) => setBrush(what === "stop" ? { ...brushRef.current, stop: level } : { ...brushRef.current, level }),
       keep: () => keptTiles(),

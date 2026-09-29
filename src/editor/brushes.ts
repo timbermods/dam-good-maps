@@ -102,6 +102,10 @@ export interface PainterHost {
   settings(): BrushSettings;
   /** A stroke ended with changes: send it (the host updates its terrain to `pre` and `protect`). */
   commit(stroke: Stroke, pre: Uint8Array, protect: Uint8Array): void;
+  /** A stroke ended without changing the ground (a Flatten at the ground's own level, a Smooth over
+   *  flat land): its operation, for what the stroke does besides the ground (the sources Clear takes,
+   *  item 15). */
+  unchanged?(params: BrushParams): void;
   /** Ctrl+click on flatten: the level picked; with precise's stop on, the stop level. */
   picked(level: number, what: "level" | "stop"): void;
   /** Shift+wheel: a new strength (the page shows it beside the pointer while it changes). */
@@ -712,7 +716,10 @@ export class BrushPainter {
     if (st.anchor) h.note?.(null, null);
     h.renderer.refreshShadows();
     const tiles = st.preview.changed();
-    if (!tiles) return;
+    if (!tiles) {
+      h.unchanged?.({ ...st.settings, ...(st.pressure ? { pressure: st.pressure } : {}), ...(st.levels ? { levels: st.levels } : {}), dabs: st.dabs });
+      return;
+    }
     const b = st.preview.bounds!;
     // (and the pieces that rode it whole, with the tile round them the ground's check reads)
     const f = st.preview.finished;
