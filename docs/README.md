@@ -18,6 +18,7 @@ pull request.
 | [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: work in flight, the order of work, how things are run here. Read it first when starting a new session. |
 | [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. |
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardsticks for every piece of work and every review (D225). |
+| [UI-QUESTIONS.md](UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
 
 ## History
 
