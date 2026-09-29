@@ -27,10 +27,11 @@ import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, Fo
 import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
-import { removeKindOf, type RemoveKind } from "../core/features/objects";
+import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { modalLevel } from "../core/features/footprintLevel";
 
-/** Delete takes every kind (D288): objects and sources, the start aside. */
-const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources"];
+/** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
+const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources", "start"];
 import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { shelfTool } from "./placeTools";
@@ -57,7 +58,8 @@ import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
 import { FORCES, ForceFloor, forceShown, TopBar, type TopTool } from "./TopBar";
 import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
-import { depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
+import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
+import { ModeIcon } from "./SelectIcons";
 import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
@@ -67,7 +69,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -132,7 +134,7 @@ declare global {
       sound(): { ready: boolean; playing: number } | null;
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
-       *  fault that moves (1 its left, -1 its right: X flips it, D289). */
+       *  fault that moves (1 its left, -1 its right: V flips it, D289). */
       gesture(): { stroke: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
       /** The sources glowing red for Sources: Clear (D249, D322), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
@@ -154,6 +156,9 @@ interface StartHere {
   owner: string;
 }
 
+/** Where a map without a start would put one: facing as a new start does. */
+const NO_START_HERE: StartHere = { x: -1, y: -1, orientation: "Cw0", feature: null, owner: "" };
+
 /** What the editor says once the map's last badwater spring is gone (D213). */
 const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
 
@@ -169,7 +174,7 @@ export default function Editor(props: EditorProps) {
   /** The force picked in the top bar (the brushes have their own state; the sources are on the
    *  shelf). */
   const [tool, setTool] = useState<Verb | null>(null);
-  /** Where the last painted stroke ended (Shift+press paints a straight line on from it), X's flip of
+  /** Where the last painted stroke ended (Shift+press paints a straight line on from it), V's flip of
    *  a quake's side while it is picked, and Esc for a stroke still being drawn. */
   const anchorRef = useRef<QuakePoint | null>(null);
   const flipRef = useRef<(() => void) | null>(null);
@@ -223,7 +228,9 @@ export default function Editor(props: EditorProps) {
   const [selectionTick, setSelectionTick] = useState(0);
   /** The tiles being drawn, before they join the selection. */
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);
-  const [selectAmount, setSelectAmount] = useState(1);
+  /** The tiles hovering a Select action would change (D323 item 6), and the Delete menu's state. */
+  const [selectPreview, setSelectPreview] = useState<{ tiles: number[]; color: Rgba } | null>(null);
+  const [deleteMenu, setDeleteMenu] = useState(false);
   /** A water source being dragged to a new place: its footprint there (D184). */
   const [sourceDrag, setSourceDrag] = useState<number[] | null>(null);
   /** The water's journey, played at a pace the eye can follow; its controls; a drought to watch. */
@@ -820,12 +827,13 @@ export default function Editor(props: EditorProps) {
       layers.push({ tiles: selection.current.tiles(), color: SELECTED, outline: true });
     }
     if (selectDraw) layers.push({ tiles: selectDraw, color: DRAWING });
+    if (selectPreview) layers.push({ tiles: selectPreview.tiles, color: selectPreview.color });
     // the line a force is drawn with (the gesture itself, D258, D321 item 41)
     if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor
   useEffect(() => {
@@ -1226,8 +1234,8 @@ export default function Editor(props: EditorProps) {
     const W = info.W;
     const h = mirror.current.heights;
     if (item.id === "start") {
-      const s = startHere;
-      if (!s) return;
+      // (a map without a start, D323 item 44: the Start places one)
+      const s = startHere ?? NO_START_HERE;
       const o = startTurned(s);
       const [cx, cy] = cornerFor(x, y, o);
       const door = startEntranceTile(cx, cy, o);
@@ -1239,19 +1247,21 @@ export default function Editor(props: EditorProps) {
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
       setFit({ tiles: own, problem });
       shelfWord(problem);
-      // (an opened map's start is cut level with the lowest tile under it: D328)
-      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : Math.min(...own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
+      // (an opened map's start is levelled to the height most of its footprint stands at: D328)
+      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : modalLevel(own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
       r.setGhost({ ...ghostAt.current, ok: !problem });
       return;
     }
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
-    // a source stands on the ground in its middle (a badwater source is 3 × 3); an object is cut
-    // level with the lowest tile under it (D290, D328)
+    // a source stands on the ground in its middle (a badwater source is 3 × 3); an object is levelled
+    // to the height most of its footprint stands at (D290, D328)
     let z = item.source ? h[y * W + x] : cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
     if (!item.source) {
-      for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) z = Math.min(z, h[ty * W + tx]);
+      const under: number[] = [];
+      for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) under.push(h[ty * W + tx]);
+      if (under.length) z = modalLevel(under);
     }
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
@@ -1272,7 +1282,7 @@ export default function Editor(props: EditorProps) {
   function shelfWord(problem: string | null) {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
-    setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
+    setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
   const startTurned = (s: StartHere): Orientation => ORIENTATION_NAMES[(ORIENTATION_NAMES.indexOf(s.orientation) + turnRef.current) % 4] as Orientation;
@@ -1285,8 +1295,8 @@ export default function Editor(props: EditorProps) {
     const f = fitRef.current;
     if (f?.problem) return shelfWord(f.problem);
     if (item.id === "start") {
-      const s = startHere;
-      if (!s) return;
+      // (a map without a start, D323 item 44: the Start places one)
+      const s = startHere ?? NO_START_HERE;
       const o = startTurned(s);
       const [cx, cy] = cornerFor(x, y, o);
       void run(
@@ -1454,34 +1464,22 @@ export default function Editor(props: EditorProps) {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects standing on these tiles (kinds filtered, D315), the start's
-   *  aside. */
+  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323). */
   function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
     const out = new Set<number>();
     for (const i of tiles)
-      for (const k of at.get(i) ?? []) {
-        const kind = removeKindOf(e.templates[e.template[k]]);
-        if (kind && kinds.includes(kind)) out.add(e.y[k] * info.W + e.x[k]);
-      }
+      for (const k of at.get(i) ?? []) if (removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
     return [...out];
   }
-  /** Whether the start stands on one of these tiles. */
-  function startOn(tiles: readonly number[]): boolean {
-    const e = mirror.current.entities;
-    const at = coverAt();
-    return tiles.some((i) => (at.get(i) ?? []).some((k) => e.templates[e.template[k]] === "StartingLocation"));
-  }
-  /** Delete everything of `kinds` standing on these tiles (every kind, and sources and the start
-   *  aside, by default; D315 passes `["sources"]`), as one step with its whuff; the start says it
-   *  stays. `quiet`: nothing there says nothing. */
+  /** Delete everything of `kinds` standing on these tiles (every kind, the start too, by default), as
+   *  one step with its whuff. `quiet`: nothing there says nothing. */
   function deleteOn(tiles: number[], quiet = false, kinds: RemoveKind[] = ALL_KINDS): boolean {
     const corners = objectsOn(tiles, kinds);
     if (!corners.length) {
-      if (kinds === ALL_KINDS && startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
-      else if (!quiet) setMessage({ kind: "info", text: kinds === ALL_KINDS ? "Nothing stands there to delete." : "No water or badwater sources there." });
-      return kinds === ALL_KINDS && startOn(tiles);
+      if (!quiet) setMessage({ kind: "info", text: kinds === ALL_KINDS ? "Nothing stands there to delete." : "Nothing of that kind stands there." });
+      return false;
     }
     const W = info.W;
     void run(
@@ -1490,24 +1488,47 @@ export default function Editor(props: EditorProps) {
     );
     return true;
   }
-  /** Select and Delete (D288): everything inside the selection (under a cut, on the visible land). */
+  /** Delete the ground itself, one level down (D323 item 1): the top block of each tile, or under
+   *  water the bed's top block; one undo step. */
+  function deleteGround(tiles: number[]): boolean {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const low = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
+    if (!low.length) {
+      flashNote("Nothing left to delete there");
+      return false;
+    }
+    const W = info.W;
+    let sx = 0;
+    let sy = 0;
+    for (const i of low) {
+      sx += i % W;
+      sy += Math.floor(i / W);
+    }
+    const mid: [number, number] = [Math.round(sx / low.length), Math.round(sy / low.length)];
+    const ops: EditOp[] = [{ op: "sculpt", params: { mode: "lower", cells: tilesToRuns(low, W), amount: 1, exact: true } }];
+    void run(
+      () => api.applySelection(ops, low.length === 1 ? "Delete a level of ground" : `Delete a level of ground on ${low.length.toLocaleString("en-GB")} tiles`, low),
+      (u) => u.ok && feel("lower", mid[0], mid[1], Math.max(1, Math.sqrt(low.length) / 2)),
+    );
+    return true;
+  }
+  /** What the Delete key does on these tiles (D323 item 1): what stands there goes, objects and sources
+   *  first; only where there is nothing, the ground's top level. Never silent. */
+  function deleteHere(tiles: number[]): boolean {
+    if (objectsOn(tiles).length) return deleteOn(tiles, true);
+    return deleteGround(tiles);
+  }
+  /** Select and Delete (D288, D323): everything standing inside the selection (under a cut, on the
+   *  visible land), or where nothing stands, its ground one level. */
   function deleteSelection() {
     const h = mirror.current.heights;
     const cut = renderer.current?.slice ?? null;
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    if (tiles.length) deleteOn(tiles);
+    if (tiles.length) deleteHere(tiles);
   }
-  /** Select's Delete sources (D315): every water and badwater source inside the selection, and
-   *  nothing else (no trees, ruins or other objects); their water drains as its causes are gone
-   *  (D260). With Ctrl+A first, this clears every source on the map. */
-  function deleteSourcesSelection() {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    if (tiles.length) deleteOn(tiles, false, ["sources"]);
-  }
-  const deleteCalls = useRef({ deleteOn, deleteSelection, deleteSourcesSelection });
-  deleteCalls.current = { deleteOn, deleteSelection, deleteSourcesSelection };
+  const deleteCalls = useRef({ deleteHere, deleteSelection });
+  deleteCalls.current = { deleteHere, deleteSelection };
 
   // ------------------------------------------------------------------------------ the forces
 
@@ -2645,7 +2666,10 @@ export default function Editor(props: EditorProps) {
       H: infoRef.current.H,
       heights: () => mirror.current.heights,
       mode: () => selectingRef.current ?? "rect",
-      changed: () => setSelectionTick((n) => n + 1),
+      changed: () => {
+        setFlattenTo(null);
+        setSelectionTick((n) => n + 1);
+      },
       drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => {
         setSelectDraw(tiles);
         if (!words) return setShapeNote(null);
@@ -2662,13 +2686,31 @@ export default function Editor(props: EditorProps) {
         if (brushToolRef.current) return;
         renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
       },
-      // Ctrl+click on the land: Set level's target (as Flatten's sampling)
+      // Ctrl+click on the land: the Level number (as Flatten's sampling)
       sample: (level: number) => {
         setFlattenTo(level);
         flashNote(`level ${level}`);
       },
     };
   }
+  // Up and Down raise and lower an open selection, so the camera leaves them alone then (D323 item 6)
+  useEffect(() => {
+    const r = renderer.current;
+    if (!r) return;
+    r.claimKey = (ev) => (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count > 0 && !brushToolRef.current && !toolRef.current;
+    return () => {
+      if (r.claimKey) r.claimKey = null;
+    };
+  }, [ready]);
+  // the Delete menu closes on a click anywhere else
+  useEffect(() => {
+    if (!deleteMenu) return;
+    const off = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest?.(".select-menu, [aria-haspopup='menu']")) setDeleteMenu(false);
+    };
+    window.addEventListener("pointerdown", off);
+    return () => window.removeEventListener("pointerdown", off);
+  }, [deleteMenu]);
   // the Select tool takes the map's left button while it is open and no brush or force is out
   useEffect(() => {
     const r = renderer.current;
@@ -2687,6 +2729,9 @@ export default function Editor(props: EditorProps) {
     setSelecting((m) => m ?? "rect");
   }
   function closeSelect() {
+    setDeleteMenu(false);
+    setSelectPreview(null);
+    setFlattenTo(null);
     selection.current.clear();
     setSelecting(null);
     setSelectDraw(null);
@@ -2696,6 +2741,7 @@ export default function Editor(props: EditorProps) {
   function selectAll() {
     const N = infoRef.current.W * infoRef.current.H;
     selection.current.apply(Array.from({ length: N }, (_, i) => i), "set");
+    setFlattenTo(null);
     if (!brushToolRef.current && !toolRef.current) setSelecting((m) => m ?? "rect");
     setSelectionTick((n) => n + 1);
   }
@@ -2709,7 +2755,7 @@ export default function Editor(props: EditorProps) {
   const depthCheck = useRef<{ tiles: number[]; depth: number } | null>(null);
   /** What the Select tool does to the selection: exact, one undo step each; the start is carried
    *  only if its own ground can no longer hold it (D264). */
-  function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "dig" | "depth", level?: number) {
+  function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "depth", level?: number) {
     const h = mirror.current.heights;
     const W = info.W;
     // under a cut (D207), only the visible land: the ground above the cut stays as it is
@@ -2723,16 +2769,10 @@ export default function Editor(props: EditorProps) {
       // (raised under a cut: up to it, never past it)
       let top = 0;
       for (const i of tiles) top = Math.max(top, h[i]);
-      const amount = what === "raise" && cut !== null ? Math.min(selectAmount, cut - top) : selectAmount;
+      const amount = what === "raise" && cut !== null ? Math.min(1, cut - top) : 1;
       if (amount <= 0) return flashNote("Nothing can rise under the cut: show a layer more");
       ops = [{ op: "sculpt", params: { mode: what, cells: tilesToRuns(tiles, W), amount } }];
       label = `${what === "raise" ? "Raise" : "Lower"} ${count(tiles.length)} tiles by ${amount}`;
-    } else if (what === "dig") {
-      // dig out: down to the selection's lowest ground
-      let lo = 99;
-      for (const i of tiles) lo = Math.min(lo, h[i]);
-      ops = [{ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level: lo } }];
-      label = `Dig out ${count(tiles.length)} tiles to level ${lo}`;
     } else if (what === "depth") {
       // water no deeper than `level` (D264): the ground under deeper water rises so the water sits
       // that deep; shallower water, and the land, as they are; the water settles again after
@@ -2753,7 +2793,7 @@ export default function Editor(props: EditorProps) {
       if (what === "fill") tiles = tiles.filter((i) => h[i] < L);
       if (!tiles.length) return flashNote(what === "cut" ? `No ground there is above level ${L}` : `No ground there is below level ${L}`);
       ops = [{ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level: L } }];
-      label = what === "cut" ? `Cut ${count(tiles.length)} tiles down to level ${L}` : what === "fill" ? `Fill ${count(tiles.length)} tiles up to level ${L}` : `Set ${count(tiles.length)} tiles to level ${L}`;
+      label = what === "cut" ? `Cut ${count(tiles.length)} tiles down to level ${L}` : what === "fill" ? `Fill ${count(tiles.length)} tiles up to level ${L}` : `Flatten ${count(tiles.length)} tiles to level ${L}`;
     }
     // the land's answer, at the selection's middle
     let sx = 0;
@@ -2765,12 +2805,15 @@ export default function Editor(props: EditorProps) {
     const n = tiles.length;
     const mid: [number, number] = [Math.round(sx / n), Math.round(sy / n)];
     const size = Math.max(1, Math.sqrt(n) / 2);
-    const lowers = what === "lower" || what === "dig" || what === "cut";
+    const lowers = what === "lower" || what === "cut";
+    setSelectPreview(null);
     void run(
       () => api.applySelection(ops, label, tiles),
       (u) => u.ok && feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size),
     );
   }
+  const selectCalls = useRef({ action: selectAction });
+  selectCalls.current = { action: selectAction };
   /** After Max water depth, once the water has settled again: a few words if any of it ended deeper
    *  than asked (a river's surface can rise a little, D264). */
   function checkDepth() {
@@ -2784,15 +2827,16 @@ export default function Editor(props: EditorProps) {
   }
   const checkDepthRef = useRef(checkDepth);
   checkDepthRef.current = checkDepth;
-  /** The selection's middle level (Set level's default). */
-  function selectMedian(): number {
+  /** The selection's lowest level (the level number starts there, D323 item 6). */
+  function selectLowest(): number {
     const h = mirror.current.heights;
-    const v = selection.current.tiles().map((i) => h[i]).sort((a, b) => a - b);
-    return v.length ? v[v.length >> 1] : 0;
+    let lo = Infinity;
+    for (const i of selection.current.tiles()) lo = Math.min(lo, h[i]);
+    return Number.isFinite(lo) ? lo : 0;
   }
+  /** The level number: null until the player sets it (or Ctrl+clicks the land), then it starts at the
+   *  selection's lowest again with each new selection. */
   const [flattenTo, setFlattenTo] = useState<number | null>(null);
-  /** Set level's way (D264): Set (cut and fill), Cut down, Fill up. */
-  const [levelWay, setLevelWay] = useState<"flatten" | "cut" | "fill">("flatten");
   const [maxDepth, setMaxDepth] = useState(2);
   /** The deepest water in the selection (Max water depth's top). */
   function deepestIn(): number {
@@ -2800,6 +2844,75 @@ export default function Editor(props: EditorProps) {
     let d = 0;
     if (w) for (const i of selection.current.tiles()) if (w.depth[i] > d) d = w.depth[i];
     return Math.floor(d);
+  }
+  /** What hovering a Select action shows on the land inside the selection: the tiles it would change
+   *  (D323 item 6), the same ones the action then changes. */
+  function selectPreviewOf(what: "raise" | "lower" | "flatten" | "cut" | "fill", level: number): void {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    if (what === "raise") {
+      let top = 0;
+      for (const i of tiles) top = Math.max(top, h[i]);
+      if (cut !== null && cut - top <= 0) tiles = [];
+    }
+    if (what === "lower") tiles = tiles.filter((i) => h[i] > 0);
+    if (what === "cut") tiles = tiles.filter((i) => h[i] > level);
+    if (what === "fill") tiles = tiles.filter((i) => h[i] < level);
+    if (what === "flatten") tiles = tiles.filter((i) => h[i] !== level);
+    setSelectPreview({ tiles, color: what === "raise" || what === "fill" ? RAISES : what === "flatten" ? MOVING : LOWERS });
+  }
+  /** The kinds of thing Delete can take in the selection, with how many of each stand there (the
+   *  objects, not their tiles), and the ground (D323 item 1). */
+  function deleteChoices(): { group: DeleteGroup | "ground"; name: string; count: number }[] {
+    const e = mirror.current.entities;
+    const at = coverAt();
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const seen = new Set<number>();
+    const counts = new Map<DeleteGroup, number>();
+    for (const i of tiles)
+      for (const k of at.get(i) ?? []) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const g = deleteGroupOf(e.templates[e.template[k]]);
+        if (g) counts.set(g, (counts.get(g) ?? 0) + 1);
+      }
+    const out: { group: DeleteGroup | "ground"; name: string; count: number }[] = [];
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    if (total) out.push({ group: "everything", name: "Everything", count: total });
+    for (const [g, name] of DELETE_GROUPS) if (counts.get(g)) out.push({ group: g, name, count: counts.get(g)! });
+    if (tiles.some((i) => h[i] > 0)) out.push({ group: "ground", name: "Ground (one level)", count: tiles.filter((i) => h[i] > 0).length });
+    return out;
+  }
+  /** Delete one kind of thing (or everything) in the selection, or its ground one level down. */
+  function deleteChoice(group: DeleteGroup | "ground") {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    setDeleteMenu(false);
+    setSelectPreview(null);
+    if (!tiles.length) return;
+    if (group === "ground") return deleteGround(tiles);
+    deleteOn(tiles, false, group === "everything" ? ALL_KINDS : (DELETE_KINDS[group] ?? []));
+  }
+  /** The tiles the pointer's hover over a Delete menu choice would clear: the objects' footprints, or
+   *  the ground tiles. */
+  function deletePreview(group: DeleteGroup | "ground"): void {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    if (group === "ground") return setSelectPreview({ tiles: tiles.filter((i) => h[i] > 0), color: LOWERS });
+    const e = mirror.current.entities;
+    const at = coverAt();
+    const out = new Set<number>();
+    for (const i of tiles)
+      for (const k of at.get(i) ?? []) {
+        const g = deleteGroupOf(e.templates[e.template[k]]);
+        if (g && (group === "everything" || g === group)) out.add(i);
+      }
+    setSelectPreview({ tiles: [...out], color: BAD });
   }
   /** With a brush or a force out, the Select row is a small chip (D259: one row at a time); a click
    *  on it opens the Select tool again. */
@@ -2819,77 +2932,90 @@ export default function Editor(props: EditorProps) {
     if (brushTool || tool) return null;
     void selectionTick;
     const z = selection.current.size();
-    const level = flattenTo ?? selectMedian();
+    const level = Math.max(0, Math.min(BRUSH_MAX_LEVEL, flattenTo ?? selectLowest()));
     const deepest = z ? deepestIn() : 0;
     const depth = Math.max(1, Math.min(maxDepth, Math.max(1, deepest)));
+    const way = (what: "raise" | "lower" | "flatten" | "cut" | "fill") => ({
+      onMouseEnter: () => selectPreviewOf(what, level),
+      onFocus: () => selectPreviewOf(what, level),
+      onMouseLeave: () => setSelectPreview(null),
+      onBlur: () => setSelectPreview(null),
+    });
+    const choices = deleteMenu && z ? deleteChoices() : [];
     return (
       <div class="bar-group">
         <span class="bar-status" role="status">
-          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt takes away; Ctrl+A: the whole map)"}
+          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt takes away)"}
         </span>
-        <label>
-          Select
-          <select aria-label="How to select" value={selecting ?? "rect"} onChange={(e) => setSelecting((e.target as HTMLSelectElement).value as SelectMode)}>
-            {SELECT_MODES.map(([v, name]) => (
-              <option key={v} value={v}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <span class="segmented" role="group" aria-label="How to select">
+          {SELECT_MODES.map(([v, name, hint]) => (
+            <button type="button" class="icon-button" key={v} aria-label={name} aria-pressed={(selecting ?? "rect") === v} title={`${name}: ${hint}`} onClick={() => setSelecting(v)}>
+              <ModeIcon mode={v} />
+            </button>
+          ))}
+        </span>
+        <button type="button" title="Select the whole map (Ctrl+A)" onClick={selectAll}>
+          Whole map
+        </button>
         {z ? (
           <>
-            <label>
-              by
-              <select aria-label="Levels" value={String(selectAmount)} onChange={(e) => setSelectAmount(Number((e.target as HTMLSelectElement).value))}>
-                {[1, 2, 3, 4, 5, 6, 8].map((k) => (
-                  <option key={k} value={String(k)}>
-                    {k} level{k > 1 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={() => selectAction("raise")}>
+            <button type="button" title="Raise the selection one level (Up)" {...way("raise")} onClick={() => selectAction("raise")}>
               Raise
             </button>
-            <button type="button" onClick={() => selectAction("lower")}>
+            <button type="button" title="Lower the selection one level (Down)" {...way("lower")} onClick={() => selectAction("lower")}>
               Lower
             </button>
             <label title="Ctrl+click the land to take its level">
-              to level
-              <select aria-label="Level" value={String(level)} onChange={(e) => setFlattenTo(Number((e.target as HTMLSelectElement).value))}>
-                {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
-                  <option key={k} value={String(k)}>
-                    {k}
-                  </option>
-                ))}
-              </select>
+              Level
+              <input
+                type="number"
+                aria-label="Level"
+                min={0}
+                max={BRUSH_MAX_LEVEL}
+                step={1}
+                value={level}
+                onInput={(e) => setFlattenTo(Math.max(0, Math.min(BRUSH_MAX_LEVEL, Math.round(Number((e.target as HTMLInputElement).value) || 0))))}
+              />
             </label>
-            <span class="segmented" role="group" aria-label="Set level's way">
-              {(
-                [
-                  ["flatten", "Set", "Cut the ground above the level and fill the ground below it"],
-                  ["cut", "Cut down", "Only lower the ground above the level; the ground below stays"],
-                  ["fill", "Fill up", "Only raise the ground below the level; the ground above stays"],
-                ] as const
-              ).map(([v, word, title]) => (
-                <button type="button" key={v} aria-pressed={levelWay === v} title={title} onClick={() => setLevelWay(v)}>
-                  {word}
-                </button>
-              ))}
+            <button type="button" title="Set every tile to this level: cut what is above, fill what is below" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
+              Flatten
+            </button>
+            <button type="button" title="Lower only the ground above this level down to it" {...way("cut")} onClick={() => selectAction("cut", level)}>
+              Cut down
+            </button>
+            <button type="button" title="Raise only the ground below this level up to it" {...way("fill")} onClick={() => selectAction("fill", level)}>
+              Fill up
+            </button>
+            <span class="menu-wrap">
+              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} title="Delete what stands in the selection, or its top level of ground (Delete)" onClick={() => setDeleteMenu(!deleteMenu)}>
+                Delete
+              </button>
+              {deleteMenu ? (
+                <ul class="menu select-menu" role="menu" aria-label="Delete">
+                  {choices.length ? (
+                    choices.map((c) => (
+                      <li role="none" key={c.group}>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => deleteChoice(c.group)}
+                          onMouseEnter={() => deletePreview(c.group)}
+                          onFocus={() => deletePreview(c.group)}
+                          onMouseLeave={() => setSelectPreview(null)}
+                          onBlur={() => setSelectPreview(null)}
+                        >
+                          {c.group === "ground" ? c.name : `${c.name} (${c.count.toLocaleString("en-GB")})`}
+                        </button>
+                      </li>
+                    ))
+                  ) : (
+                    <li role="none">
+                      <span class="muted">Nothing to delete here</span>
+                    </li>
+                  )}
+                </ul>
+              ) : null}
             </span>
-            <button type="button" onClick={() => selectAction(levelWay, level)}>
-              Set level
-            </button>
-            <button type="button" title="Down to the selection's lowest ground" onClick={() => selectAction("dig")}>
-              Dig out
-            </button>
-            <button type="button" title="Everything standing there, objects and sources; the start stays (Delete)" onClick={deleteSelection}>
-              Delete
-            </button>
-            <button type="button" title="Only water and badwater sources in the selection; their water drains (Ctrl+A first clears every source on the map)" onClick={deleteSourcesSelection}>
-              Delete sources
-            </button>
             {deepest >= 1 ? (
               <>
                 <label title="Where the water is deeper, the ground under it rises so the water sits this deep">
@@ -2903,7 +3029,7 @@ export default function Editor(props: EditorProps) {
             ) : null}
           </>
         ) : null}
-        <button type="button" class="linkish" aria-label="Close the selection" title="Close (Esc)" onClick={closeSelect}>
+        <button type="button" class="linkish" aria-label="Close the selection" title="Close (Esc or X)" onClick={closeSelect}>
           ×
         </button>
       </div>
@@ -3106,7 +3232,7 @@ export default function Editor(props: EditorProps) {
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
       // a force at work (D199, D202, D203, D206): Esc or Ctrl+Z takes it back, Space holds a carve,
-      // X flips a painted Lift's side as it goes; the other tools wait. In Watch (D321, item 29) Esc,
+      // V flips a painted Lift's side as it goes; the other tools wait. In Watch (D321, item 29) Esc,
       // or any other key of a new gesture, jumps it straight to its final land instead
       const c = forcer.current;
       if (c?.running) {
@@ -3127,7 +3253,7 @@ export default function Editor(props: EditorProps) {
           c.pause(!c.status!.paused);
           return;
         }
-        if (!mod && ev.key.toLowerCase() === "x" && toolRef.current === "quake") {
+        if (!mod && ev.key.toLowerCase() === "v" && toolRef.current === "quake") {
           flipRef.current?.();
           return;
         }
@@ -3136,7 +3262,7 @@ export default function Editor(props: EditorProps) {
           void c.jump();
           return;
         }
-        if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "r", "f", "delete", "backspace"].includes(ev.key.toLowerCase())) return;
+        if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "z", "c", "v", "r", "f", "delete", "backspace", "arrowup", "arrowdown"].includes(ev.key.toLowerCase())) return;
       }
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
@@ -3241,8 +3367,8 @@ export default function Editor(props: EditorProps) {
         }
         return;
       }
-      // (with Quake picked, X flips the side of the fault that moves)
-      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && toolRef.current === "quake") {
+      // (with Quake picked, V flips the side of the fault that moves; X was its key before D323 item 16)
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "v" && toolRef.current === "quake") {
         if (flipRef.current) flipRef.current();
         else setQuakeUi({ ...quakeUiRef.current, side: quakeUiRef.current.side === 1 ? -1 : 1 });
         return;
@@ -3262,6 +3388,28 @@ export default function Editor(props: EditorProps) {
       }
       if (ev.key === "Escape" && brushToolRef.current) {
         pickBrush(null);
+        return;
+      }
+      // Z undoes and C redoes; X closes the selection as Esc does (D323 item 16); Ctrl+Z, Ctrl+Y and
+      // Ctrl+Shift+Z keep working too. (Fields ignore all of them, above.)
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "z") {
+        ev.preventDefault();
+        void undo();
+        return;
+      }
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "c") {
+        ev.preventDefault();
+        void redo();
+        return;
+      }
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && (selectingRef.current || selection.current.count)) {
+        closeSelect();
+        return;
+      }
+      // Up and Down with a selection open: raise or lower it one level, as the buttons do (D323 item 6)
+      if (!mod && !ev.altKey && (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count && !painter.current?.painting && !brushToolRef.current && !toolRef.current) {
+        ev.preventDefault();
+        selectCalls.current.action(ev.key === "ArrowUp" ? "raise" : "lower");
         return;
       }
       if (mod && ev.key.toLowerCase() === "z") {
@@ -3288,9 +3436,11 @@ export default function Editor(props: EditorProps) {
         const t = targetSpot.current;
         void sourceInfo(t.x, t.y).then((e) => e && removeSources([e]));
       } else if ((ev.key === "Delete" || ev.key === "Backspace") && renderer.current?.hoverHit && !painter.current?.painting) {
-        // the object the pointer is on (D288): it goes, one step; the start stays
+        // what the pointer is on (D288, D323 item 1): an object goes, one step; on bare ground, its
+        // top level
         const hit = renderer.current.hoverHit;
-        if (deleteCalls.current.deleteOn([hit.y * infoRef.current.W + hit.x], true)) ev.preventDefault();
+        ev.preventDefault();
+        deleteCalls.current.deleteHere([hit.y * infoRef.current.W + hit.x]);
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "u" && pickedSources().length && !forcer.current?.running) {
         // U: a picked source carves its own course (D239)
         ev.preventDefault();
@@ -3408,6 +3558,7 @@ export default function Editor(props: EditorProps) {
         onSave={(kind) => void saveMap(kind)}
         onOpenFile={props.onOpenFile}
         onSaveProject={() => void exportProject()}
+        onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
         historyOpen={showHistory}
         onHistory={() => setShowHistory(!showHistory)}
         onBack={() => props.onBack(info)}

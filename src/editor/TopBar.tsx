@@ -120,7 +120,7 @@ export interface Force {
 export const FORCES: readonly Force[] = [
   { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Esc takes it back" },
   { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (V flips the side). Esc takes it back" },
   { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Esc takes it back" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Esc takes it back" },
 ];
@@ -343,7 +343,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then set it to a level, work only inside it, or press Delete to clear what stands there (Ctrl+A: the whole map)"}
+            title={off ? why : "Select (M): mark an area, then raise, lower or level it, delete what stands there, or work only inside it (Ctrl+A: the whole map)"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -351,29 +351,26 @@ export function TopBar(p: TopBarProps) {
             <span class="icon-word">Select</span>
           </button>
         ) : null}
-        {SHOWN_FORCES.length ? (
-          <>
-            <span class="bar-divider" aria-hidden="true" />
-            <span class="bar-group" role="group" aria-label="Forces">
-              {SHOWN_FORCES.map((f) => (
-                <button
-                  type="button"
-                  key={f.id}
-                  class="icon-button"
-                  aria-pressed={p.force === f.id}
-                  aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-                  title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
-                  disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
-                  onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
-                >
-                  <Icon tool={f.id} />
-                  <span class="icon-word">{f.name}</span>
-                </button>
-              ))}
-            </span>
-          </>
-        ) : null}
       </div>
+      {SHOWN_FORCES.length ? (
+        <div class="map-bar" role="group" aria-label="Forces">
+          {SHOWN_FORCES.map((f) => (
+            <button
+              type="button"
+              key={f.id}
+              class="icon-button"
+              aria-pressed={p.force === f.id}
+              aria-label={f.key ? `${f.name} (${f.key})` : f.name}
+              title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
+              disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
+              onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
+            >
+              <Icon tool={f.id} />
+              <span class="icon-word">{f.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">

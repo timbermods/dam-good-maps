@@ -156,7 +156,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   expect(errors).toEqual([]);
 });
 
-test("Delete (D288): pointed at an object it takes it; Select and Delete take everything inside, objects and sources, one step; the ground stays, and so does the start; no Remove tool", async ({ page }) => {
+test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the start too; on bare ground it takes the top level; Select and Delete take everything inside, one step; no Remove tool", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
@@ -164,10 +164,8 @@ test("Delete (D288): pointed at an object it takes it; Select and Delete take ev
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  // no Remove tool, and X picks nothing
+  // no Remove tool
   await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
-  await page.keyboard.press("x");
-  await expect(page.getByRole("group", { name: "Remove options" })).toHaveCount(0);
   // a grove, and a water source beside it
   const shelf = page.getByRole("navigation", { name: "Place" });
   await shelf.getByRole("button", { name: "Pine", exact: true }).click();
@@ -241,38 +239,71 @@ test("Delete (D288): pointed at an object it takes it; Select and Delete take ev
   await idle(page);
   await expect.poll(sourceThere).toBe(true);
   expect(await trees(page, [gx, gy], 5)).toBe(n0 - 1);
-  // the row's Delete does the same
+  // the row's Delete opens a menu of what stands there, with counts; Everything does the same
   await row.getByRole("button", { name: "Delete", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "Delete" });
+  await expect(menu.getByRole("menuitem", { name: /^Trees \(\d+\)$/ })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /^Water sources \(1\)$/ })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Ground (one level)" })).toBeVisible();
+  await menu.getByRole("menuitem", { name: /^Everything \(\d+\)$/ }).click();
   await idle(page);
   await expect.poll(sourceThere).toBe(false);
-  // the ground never changes
+  // objects go, the ground stays
   expect(await heights()).toEqual(h0);
+  // with nothing left standing there, Delete takes the ground's top level: one step, one undo
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
+  const ground = await client(page, gx, gy);
+  await page.mouse.move(ground.x + 3, ground.y);
+  await page.mouse.move(ground.x, ground.y);
+  const beforeGround = (await labels(page)).length;
+  const W = (await info(page)).W;
+  await page.keyboard.press("Delete");
+  await idle(page);
+  await expect.poll(async () => (await labels(page)).length).toBe(beforeGround + 1);
+  expect((await labels(page)).at(-1)).toBe("Delete a level of ground");
+  // exactly one tile, next to where the pointer was, one level lower
+  await expect
+    .poll(async () => {
+      const h = await heights();
+      const changed: number[] = [];
+      for (let i = 0; i < h.length; i++) if (h[i] !== h0[i]) changed.push(i);
+      return changed.length === 1 && h[changed[0]] === h0[changed[0]] - 1 && Math.abs((changed[0] % W) - gx) <= 1 && Math.abs(Math.floor(changed[0] / W) - gy) <= 1;
+    })
+    .toBe(true);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  expect(await heights()).toEqual(h0);
 
-  // the start stays, pointed at or in a selection, and says so
+  // the start is the player's like any object (item 44): pointed at, Delete takes it, one step
   const at = await client(page, start[0], start[1]);
   await page.mouse.move(at.x + 3, at.y);
   await page.mouse.move(at.x, at.y);
   const kept = (await labels(page)).length;
   await page.keyboard.press("Delete");
-  await expect(page.locator(".shape-note")).toContainText("The start stays");
-  expect((await labels(page)).length).toBe(kept);
-  // (the whole map: Select, then Ctrl+A)
+  await idle(page);
+  await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
+  expect((await labels(page)).at(-1)).toBe("Remove the start");
+  expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
+  // the checks say so, and the save asks for one
+  await page.getByRole("button", { name: /^Checks:/ }).click();
+  await expect(page.getByRole("region", { name: "Checks" })).toContainText("No start");
+  await page.getByRole("button", { name: /^Checks:/ }).click();
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  expect((await info(page)).features.some((f) => f.kind === "start")).toBe(true);
+  // (the whole map: Select, then Ctrl+A, Delete: everything, the start with it)
   await page.keyboard.press("m");
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Delete");
   await idle(page);
   await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
-  expect((await info(page)).features.some((f) => f.kind === "start")).toBe(true);
   const left = await page.evaluate(() => {
     const e = window.dgm3d!.renderer.mapState()!.entities;
     const out: string[] = [];
     for (let k = 0; k < e.count; k++) out.push(e.templates[e.template[k]]);
     return out;
   });
-  expect(left).toContain("StartingLocation");
-  expect(left.filter((t) => t === "Pine" || t === "WaterSource")).toEqual([]);
+  expect(left).toEqual([]);
   expect(errors).toEqual([]);
 });
 

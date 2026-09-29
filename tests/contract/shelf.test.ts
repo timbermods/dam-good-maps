@@ -84,13 +84,13 @@ describe("the shelf and Remove in the worker (D184)", () => {
     expect(pines(x, y, 5)).toBe(0);
     expect(Array.from(ed.sessionView().view.heights)).toEqual(Array.from(heights));
 
-    // the start stays, whatever the filters
+    // the start goes only when its own kind is named (D323 item 44, amending D288), like any object
     const start = (ed.sessionView().info.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
     const at = [start[1] * W + start[0]];
     const kept = ed.removeAt(at, ["trees", "bushes", "ruins", "objects", "slopes", "sources"]);
     expect(kept.ok).toBe(false);
-    expect(kept.errors[0]).toMatch(/the start stays/);
-    expect(removeKindOf("StartingLocation")).toBeNull();
+    expect(kept.errors[0]).toMatch(/nothing to remove/);
+    expect(removeKindOf("StartingLocation")).toBe("start");
     expect(removeKindOf("RuinColumnH5")).toBe("ruins");
     expect(removeKindOf("BlueberryBush")).toBe("bushes");
     expect(removeKindOf("MediumRelic")).toBe("objects");

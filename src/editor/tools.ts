@@ -18,7 +18,8 @@ export interface ToolOptions {
 export const SOURCE_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 export const BADWATER_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 72];
 
-export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1.5, badwaterStrength: 1 };
+/** The strengths a placed source starts at: the game's own (its blueprints' `DefaultStrength`: WaterSource 1, BadwaterSource 3; D323 item 46). Both are among the official maps' (docs/FINDINGS.md "Sources"). */
+export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1, badwaterStrength: 3 };
 
 /** The Coordinates that centre a template's rotated footprint on the tile clicked. */
 export function coordinatesAt(template: string, x: number, y: number, o: Orientation): [number, number] {
@@ -59,6 +60,9 @@ export const MOVING: Rgba = [110, 214, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
 /** A force's reach round the cursor (D312): a faint ring. */
 export const FAINT: Rgba = [230, 240, 230, 70];
+/** What a Select action's hover shows it would raise, and lower (D323 item 6). */
+export const RAISES: Rgba = [90, 200, 110, 140];
+export const LOWERS: Rgba = [240, 160, 70, 150];
 export const GOOD: Rgba = [80, 200, 90, 170];
 export const BAD: Rgba = [230, 60, 50, 180];
 export const PROBLEM: Rgba = [230, 60, 50, 150];

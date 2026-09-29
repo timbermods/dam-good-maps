@@ -113,6 +113,8 @@ export interface HeaderProps {
   onSave(kind: "timberborn" | "download"): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
+  onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
   onBack(): void;
@@ -154,12 +156,12 @@ export function Header(p: HeaderProps) {
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
-        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Ctrl+Z)">
+        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Z or Ctrl+Z)">
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
           </svg>
         </button>
-        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (Ctrl+Y)">
+        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (C or Ctrl+Y)">
           <svg {...ICON}>
             <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
           </svg>
@@ -191,6 +193,11 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
+              <li role="none">
+                <button type="button" role="menuitem" title="Take away every source, tree, bush, ruin, object and the start; the land stays" onClick={pick(p.onClearEverything)}>
+                  Clear everything
+                </button>
+              </li>
               <li role="none">
                 <button type="button" role="menuitem" aria-pressed={p.historyOpen} onClick={pick(p.onHistory)}>
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}

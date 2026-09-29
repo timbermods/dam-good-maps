@@ -37,9 +37,10 @@ editor is desktop-first (D185).
 
 ## 3. The screen
 
-- **The top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
-  Craterize, Quake, Erupt, keys 7, 8, 9, 0: a visually distinct group), with a small options
-  row for the picked tool (no Remove tool, D288: see **Delete** below). **Every force's row takes Glaciate's shape**
+- **The rows over the map** (D323, item 9; structure only, the design pass styles them): four, top to bottom: the
+  view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces (Carve, Craterize, Quake, Erupt,
+  Glaciate, keys 7, 8, 9, 0 and -); then the active tool's settings and its More (no Remove tool, D288: see **Delete**
+  below). **Every force's row takes Glaciate's shape**
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
   unleashes a carve, strikes, or vents; a drag aims a carve or an impact, or opens a fissure. Everything else (Carve's
@@ -112,11 +113,17 @@ editor is desktop-first (D185).
   map or where it can't stand (the reason shows for a moment), always ends placement. The drag is the page's own pointer
   drag, never the browser's: only a real file dragged in from outside the page can open a file, so dragging an icon
   never offers to close the map. Drag trees and bushes on the map to paint them in natural clusters.
-  **Placed objects fit the land** (D328, extending D290): an object that needs level ground (a mine site, a relic, a
-  geothermal field, an opened map's start) placed on uneven ground cuts its own footprint down to the lowest tile under
-  it (the start's door too), in the placement's one undo step, never filling, so no water is dammed; it refuses only at
-  the map's edge, in a cave and on another object's tiles, with one plain reason. A generated map's start already levels
-  its own bench.
+  **Placed objects fit the land** (D328, extending D290; corrected by Kyler 2026-09-29): a ruin, mine site, relic,
+  landmark or an opened map's start placed on uneven ground levels its footprint (the start's door too) to the height
+  most of that footprint already stands at, cutting what is above and filling what is below, in the placement's one undo
+  step. It never fills a wet tile (where the level would, the footprint is cut down to its lowest tile instead, as for a
+  source), and leaves other objects' tiles, caves and water as they are. The edge meets the land around it in short
+  natural slopes (one level a tile, out to six tiles, fading so a steep hillside is left alone), never a step or a wall;
+  no tile moves by more than about half the slope's height across a ruin. Water and badwater sources stay cut-only
+  (D290). It refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A
+  generated map's start already levels its own bench. A placed source starts at the game's own default strength
+  (D323, item 46: 1 water/s for a water source and 3 for a badwater source, the `DefaultStrength` of the game's
+  blueprints, both among the official maps' strengths); the strength can still be changed.
   **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
   bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
   size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
@@ -306,16 +313,23 @@ editor is desktop-first (D185).
 - **The block tool** (PLAN §20 D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a
   block's face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to
   hollow a cave; sized like the brushes; shows at once any block the game's support rule would drop.
-- **Delete** (D288; there is no Remove tool): with a selection open, the Delete key (or the Selection row's **Delete**)
-  removes everything standing inside it, objects and sources, as one undo step; the start always stays, and says so.
-  With no selection, Delete removes what the pointer is on: a source within its targeting range (D249) first, else the
-  object on the tile. It never changes terrain. **Delete sources** (D315, beside Delete in the Selection row) removes
-  only the water and badwater sources inside the selection, nothing else; with Ctrl+A it clears every source on the
-  map. One undo step; the water they fed drains as its cause is gone (D260), and any check the map runs (moisture,
-  drought) follows from that same water change, not from the delete step itself.
+- **Delete** (D288, amended by D323 items 1 and 44; there is no Remove tool): Delete removes what is there, never
+  silently: objects and sources first, the start included (it is the player's like any object); where only ground is
+  left, its top block, one level down (under water, the bed's top block), for a single hovered tile or a whole
+  selection, one undo step per press. With a selection open, the Delete key removes everything standing inside it, or
+  the ground's top level where nothing stands; the Selection row's **Delete** opens a menu of what is there with counts
+  (Everything, Water sources, Badwater sources, Start, Ruins, Trees, Bushes, Slopes and the rest, then Ground (one
+  level)), and hovering a choice shows what it would take. With no selection, Delete takes what the pointer is on: a
+  source within its targeting range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole
+  map** selects the whole map for a map-wide Delete. One undo step; the water they fed drains as its cause is gone
+  (D260), and any check the map runs (moisture, drought) follows from that same water change. **Clear everything** in
+  the editor's ⋯ menu removes every source, badwater source, tree, bush, ruin, object and the start in one undo step,
+  leaving the terrain. A map without a start is allowed while editing: it saves as a project, the checks dot says
+  "No start", and only Save to Timberborn and Download .timber refuse ("Place a start first: pick the Start on the
+  shelf"); the shelf's Start places one again. A force still carries an existing start (D257).
 - **Heights** (D244, built after the Ceiling probe batch ceiling-20260927 passed): one ceiling on every map, D172's
   tall maximum (22, `CEILING` in `src/core/format/world.ts`), for the brushes (their levels, stops and holds), Select's
-  Set level list, the forces and the build's integrity pass, with nothing about it in the interface. A map whose land
+  Level number, the forces and the build's integrity pass, with nothing about it in the interface. A map whose land
   goes above 16 is a tall map: its description ends with the plain note "Timberborn's map editor opens and saves this
   map as it is, but can't raise land above level 16." (what the probe found), and it is exported and validated as tall
   (up to 22 loads; the check says the in-game editor edits only up to 16). Back at 16 or below (an edit or an undo), it
@@ -327,12 +341,15 @@ editor is desktop-first (D185).
   on water selects that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at the
   click that never follows the water as it moves), **Circle** (drag from the centre outward, the
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
-  Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
-  takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out) are exact, with hard edges: precision tools; **Delete** clears what stands in the selection (D288); **Delete
-  sources** (D315) clears only its water and badwater sources. **Select all** (D264): Ctrl+A selects the whole
-  map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
-  down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
+  Alt subtracts in every mode. The **Level** number reaches the map's ceiling (22 under D244); Ctrl+click on the land
+  takes that tile's level as the target; it acts at once, one undo step. **The row** (D323, item 6): the marking modes
+  are icons; **Whole map** beside them selects everything (as Ctrl+A); **Raise** and **Lower** move the selection one
+  level per click (the Up and Down arrow keys too, while a selection is open: W and S still move the camera); a
+  **Level** number starts at the selection's lowest ground, with **Flatten** (cut and fill), **Cut down** (only lowers
+  ground above the level) and **Fill up** (only raises ground below it) acting at once (Cut down to the
+  lowest level); hovering any action tints the land inside the selection it would change; Esc or X closes; plain
+  one-line tooltips. Select's own actions are exact, with hard edges: precision tools; **Delete** is a menu (see
+  **Delete**). **Select all** (D264): Ctrl+A selects the whole map, in Select or with any brush out. **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
   water re-settles: a lake keeps its surface and becomes that deep; a river ends about that deep, and the report says so
   if any water ended deeper. Objects and sources ride changed ground; the start moves to the nearest valid ground only if
@@ -352,7 +369,7 @@ editor is desktop-first (D185).
   area (the edit meets the locked land a level a tile); a stroke keeps its `area` (runs) so it replays exactly; a force
   treats the land outside as land it keeps, eases its result to the edge the same way once it is kept, and refuses to
   start outside the area ("Outside the working area: Esc clears it"); a brush's Clear takes only the sources wholly inside.
-  Set level's list follows the height ceiling's constant (16 until D244's step 2 lifts it).
+  The Level number follows the height ceiling's constant (16 until D244's step 2 lifts it).
 
 (D180, D182, D183, D184, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259, D322.)
 
@@ -385,7 +402,7 @@ Make a valley, drop a source, and there's a river.
   so where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest of
   them (never filled, so its water isn't dammed) and what stood on them goes, a small level pool in the same undo step;
   it refuses only at the map's edge, in a cave and on the start. Every placement refusal is one plain reason ("the
-  ground under it is not level", "the district center stands there").
+  district center stands there", "off the map"); uneven ground is never one (D328).
   Removing the map's last badwater source is never refused: the map becomes a **No badwater** map (a
   peaceful one; badtides still come), a quiet line in the notices says so, the file's description and checks follow, and
   undo brings the source and the setting back (D213). A planned edit (a lake, a landform, a set piece, a move) that would
@@ -533,8 +550,14 @@ Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
-Erupt and M Select; with Quake picked, X flips the side of the fault that moves. Delete removes what the
-pointer is on, or everything in an open selection (D288).
+Erupt, - Glaciate and M Select. **Z undoes, C redoes and X closes the selection** as Esc does (D323, item 16;
+Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips
+the side of the fault that moves (it was X). With a selection open, Up and Down raise and lower it one level (the
+camera keeps W and S). Delete removes what the pointer is on, or what stands in an open selection, else the ground's
+top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space pauses it, and Esc or Ctrl+Z takes
+it back (in Watch, Esc jumps it to its final land); the other keys wait, Z and C among them. A river's or a fault's
+line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Watch is a view-bar
+toggle with no key.
 Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
@@ -564,6 +587,11 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
 
 **As built today:**
 
+- **Generate always makes a new map** (D323, item 20): every press rolls a fresh seed, shown in the box; typing a seed
+  pins it (a small lock beside the box) and Generate then makes that map again until the player unlocks it or clears
+  the box; opening a share link pins its seed; there is no Dice button. With edits kept, Generate, keeping my edits
+  keeps the seed (the edits belong to that map). Refine and the downloads wait while a map is being made, so they
+  never take a newer map than the card shows.
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
   what the player has painted, showing it grow, never a frozen wait.
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players

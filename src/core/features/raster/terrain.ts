@@ -319,7 +319,7 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number } | BrushParams | CarveParams | ForceResultParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | CarveParams | ForceResultParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
@@ -412,6 +412,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       const i = y * W + x;
       if (!t.inRegion(i)) continue;
       const h = heights[i];
+      // (exact: what it changes stays as it left it, a one-tile pit included)
+      if (p.exact) t.protectedMask[i] = 1;
       switch (p.mode) {
         case "raise":
           if (h < MAX_TERRAIN) heights[i] = Math.min(MAX_TERRAIN, h + (p.amount ?? 0));

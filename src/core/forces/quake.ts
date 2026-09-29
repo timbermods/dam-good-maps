@@ -30,7 +30,7 @@ export interface Point {
 export interface QuakeIntent {
   /** The painted fault, in tiles (sub-tile points). */
   path: Point[];
-  /** Which side moves: 1 the left of the stroke, -1 the right (X flips it). */
+  /** Which side moves: 1 the left of the stroke, -1 the right (V flips it). */
   side: 1 | -1;
 }
 

@@ -1811,6 +1811,8 @@ export class MapRenderer {
     this.on(window, "keydown", (e) => {
       const ev = e as KeyboardEvent;
       if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.defaultPrevented || typing(ev.target) || !this.map || !this.canvas.isConnected) return;
+      // a key the page has claimed for itself (Select's Up and Down, D323 item 6) is not the camera's
+      if (this.claimKey?.(ev)) return;
       const k = ev.key.toLowerCase();
       if (CAMERA_KEYS.has(k)) {
         ev.preventDefault();
@@ -1831,6 +1833,9 @@ export class MapRenderer {
     });
     this.on(window, "blur", () => this.held.clear());
   }
+
+  /** Keys the page claims from the camera for now (true: it takes this one). */
+  claimKey: ((ev: KeyboardEvent) => boolean) | null = null;
 
   /** Move the camera every frame while its keys are held: a quick ease-in to full speed, a short
    *  glide to a stop; the speed follows the zoom (slower up close), and Shift is faster. */

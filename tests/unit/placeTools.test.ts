@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { shelfTool } from "../../src/editor/placeTools";
 import { quietWord, SHELF } from "../../src/editor/shelfItems";
-import { DEFAULT_OPTIONS, sourceRequest } from "../../src/editor/tools";
+import { BADWATER_STRENGTHS, DEFAULT_OPTIONS, SOURCE_STRENGTHS, sourceRequest } from "../../src/editor/tools";
 import type { TileHit } from "../../src/render3d";
 
 const hit = (x: number, y: number) => ({ x, y }) as TileHit;
@@ -55,6 +55,18 @@ describe("the shelf's objects (D212, D226)", () => {
     // what they place: a clean source on the tile, a bad one's 3 x 3 round it, at the row's strength
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: false, sourceStrength: 4 }, 10, 12)).toMatchObject({ template: "WaterSource", x: 10, y: 12, components: { WaterSource: { SpecifiedStrength: 4 } } });
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true, badwaterStrength: 2 }, 10, 12)).toMatchObject({ template: "BadwaterSource", x: 9, y: 11, components: { WaterSource: { SpecifiedStrength: 2 } } });
+  });
+});
+
+describe("a placed source starts at the game's own default strength (D323 item 46)", () => {
+  it("1 water/s for a water source, 3 for a badwater source, from the game's blueprints (WaterSourceSpec DefaultStrength); both sit among the official maps' strengths", () => {
+    expect(DEFAULT_OPTIONS.sourceStrength).toBe(1);
+    expect(DEFAULT_OPTIONS.badwaterStrength).toBe(3);
+    expect(sourceRequest(DEFAULT_OPTIONS, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } });
+    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true }, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } });
+    // (docs/FINDINGS.md "Sources": official water sources run 0.25 to 1.5, badwater 0.5 to 3.0)
+    expect(SOURCE_STRENGTHS).toContain(DEFAULT_OPTIONS.sourceStrength);
+    expect(BADWATER_STRENGTHS).toContain(DEFAULT_OPTIONS.badwaterStrength);
   });
 });
 

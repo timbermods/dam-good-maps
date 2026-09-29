@@ -5,7 +5,7 @@
 // A force is bound only by nature (D257): through the start it goes on, and the start is carried to
 // level ground in the same step. Its gestures are clean (D258): no footprint, route or fit on the
 // land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
-// glancing blow's way, a fault, a fissure, a travelling force's path). Keys 7, 8, 9, 0 pick them, X flips a quake's side, Esc puts a
+// glancing blow's way, a fault, a fissure, a travelling force's path). Keys 7, 8, 9, 0 pick them, V flips a quake's side, Esc puts a
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -89,7 +89,7 @@ async function settled(page: Page) {
 test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  const forces = bar.getByRole("group", { name: "Forces" });
+  const forces = page.getByRole("group", { name: "Forces" });
   await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
   await page.keyboard.press("8");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");
@@ -282,20 +282,20 @@ test("Erupt near the ceiling (D226): it completes under it; again on its summit 
   }
 });
 
-test("Quake: a painted Lift follows the stroke and is kept when let go; X flips the side; a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
+test("Quake: a painted Lift follows the stroke and is kept when let go; V flips the side (X was its key before D323 item 16); a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
   // its row: its one choice, Lift or Slide, then Power (its line sets its length), and a More button
-  // (D289: its scarp from the land and the seed, behind More, D309; X flips the side that moves)
+  // (D289: its scarp from the land and the seed, behind More, D309; V flips the side that moves)
   expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Lift", "Slide", "More"]);
   await expect(row.locator("button").first()).toHaveAttribute("aria-pressed", "true");
   expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power"]);
   await expect(row.getByRole("group", { name: "Side that moves" })).toHaveCount(0);
   expect((await gesture(page)).side).toBe(1);
-  await page.keyboard.press("x");
+  await page.keyboard.press("v");
   expect((await gesture(page)).side).toBe(-1);
-  await page.keyboard.press("x");
+  await page.keyboard.press("v");
   expect((await gesture(page)).side).toBe(1);
   await row.getByRole("slider", { name: "Power" }).fill("20");
 
