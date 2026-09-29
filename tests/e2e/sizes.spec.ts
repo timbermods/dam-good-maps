@@ -17,7 +17,7 @@ async function refine(page: Page) {
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
-test("the shelf's order; every brush's size in its row; each force's size follows Power until it is set by hand (D226)", async ({ page }) => {
+test("the shelf's order; every brush's size in its row, up to half the map (D322); each force's size follows Power until it is set by hand (D226)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await refine(page);
@@ -53,6 +53,26 @@ test("the shelf's order; every brush's size in its row; each force's size follow
   await page.mouse.up();
   await idle(page);
   expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.size).toBe(8);
+  // the largest brush reaches half the map's width (D322, item 42): a Flatten of the whole map in
+  // one click from its middle, square
+  await page.keyboard.press("3");
+  const flat = page.getByRole("group", { name: "Flatten options" });
+  const big = String(Math.ceil(Math.max(i.W, i.H) / 2));
+  await expect(flat.getByRole("slider", { name: "Size" })).toHaveAttribute("max", big);
+  await flat.getByRole("slider", { name: "Size" }).fill(big);
+  await flat.getByLabel("Square").check();
+  await flat.getByRole("combobox", { name: "Target level" }).selectOption("6");
+  const mid = await client(page, Math.floor(i.W / 2), Math.floor(i.H / 2));
+  await page.mouse.click(mid.x, mid.y);
+  await idle(page);
+  expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.size).toBe(Number(big));
+  const hs = await page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
+  expect(hs.filter((h) => h === 6).length).toBeGreaterThan(hs.length * 0.95);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await flat.getByLabel("Square").uncheck();
+  await flat.getByRole("slider", { name: "Size" }).fill("5");
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("2");
 
   // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back

@@ -94,7 +94,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
     // Smooth change no ground, yet the sources they pressed go (Kyler saw them stay, item 15)
     await page.keyboard.press(brush.key);
     const row = page.getByRole("group", { name: `${brush.name} options` });
-    await row.getByLabel("Clear sources").check();
+    await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Clear" }).click();
     await row.getByRole("slider", { name: "Size" }).fill("2");
     const n0 = (await page.evaluate(() => window.dgmEditor!.info())).history.filter((e) => e.applied).length;
     await stroke(page, x, y);
@@ -105,7 +105,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
     await expect.poll(async () => (await drawn(page)).some(([a, b]) => a === x && b === y), { timeout: 5_000 }).toBe(false);
     // the water it fed drains away (D260): the view shows none round it once it settles
     await expect.poll(() => waterNear(page, x, y, 4), { timeout: 30_000 }).toBeLessThan(0.05);
-    await row.getByLabel("Clear sources").uncheck();
+    await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" }).click();
     await page.keyboard.press("Escape");
   }
   expect(errors).toEqual([]);

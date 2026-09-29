@@ -84,7 +84,7 @@ export function sourcesOn(spots: readonly SourceSpot[], tiles: Iterable<number>)
 
 /** The sources a brush pressing at these dabs (quarter tiles: [x0, y0, x1, y1, …]) takes with Clear
  *  sources on. */
-export function sourcesPressed(spots: readonly SourceSpot[], p: Pick<BrushParams, "size" | "shape" | "precise">, dabs: ArrayLike<number>, W: number): SourceSpot[] {
+export function sourcesPressed(spots: readonly SourceSpot[], p: Pick<BrushParams, "size" | "shape" | "precise" | "target">, dabs: ArrayLike<number>, W: number): SourceSpot[] {
   const reach = Math.ceil(p.size) + 1;
   return spots.filter((s) => {
     const [x0, y0, x1, y1] = s.rect;

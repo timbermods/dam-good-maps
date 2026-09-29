@@ -1,11 +1,14 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
 // Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
-// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's size is its ring on the land ([ and ]), its strength shows only
-// while it changes (Shift+scroll, { and }); its size is also first in its row, a number and a
-// slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
-// hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
-// Flatten has "in steps" and its edges; Smooth has none (D247: the
-// shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
+// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's
+// size is its ring on the land ([ and ], hold F), and first in its row, a number and a slider up to
+// half the map (D226, D322 item 42). Raise, Lower and Flatten have a target level (D322, item 37),
+// shown beside the pointer and in the row, as the game's editor: Shift+scroll or Ctrl+click sets it,
+// Free (Raise and Lower) sculpts softly; Smooth and Naturalize's strength shows only while it changes
+// (Shift+scroll, { and }). Every brush has its mode, Ground, Water or Both (item 2), and what it does
+// to the sources it passes, Ride, Keep or Clear (item 31), each remembered per brush. The kit's
+// toggles are off by default: square and straight lines; Flatten has "in steps". A walkable edge is
+// the shelf's Slope (D247, D322). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
 // Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each row Power,
 // Size, at most one choice and Try another, the gesture deciding the rest (D289); all four are ready (D216, D219), and the public site shows none
 // until their release (release.ts, D219). While a force is at work the other tools wait. A small
@@ -13,8 +16,8 @@
 // `MoreButton`, `MoreRow`, D309). Built from the shared bar and button styles (D176).
 
 import type { ComponentChildren } from "preact";
-import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
-import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
+import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice } from "./brushes";
+import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import type { Verb } from "../core/forces/op";
 
@@ -148,6 +151,8 @@ export interface TopBarProps {
   forceRow?: ComponentChildren;
   forceAtWork?: boolean;
   onSettings(s: BrushSettings): void;
+  /** The largest brush this map takes: half its width (D322, item 42). */
+  sizeMax?: number;
   /** The map is still loading: the tools wait until they can work. */
   loading?: boolean;
   /** A selection's own row (its size, its actions), when there is one. */
@@ -260,11 +265,17 @@ export function MoreRow(p: { force: Force; children: ComponentChildren }) {
   );
 }
 
+/** The target's words for players coming from the game's editor (D322, item 37). */
+const TARGET_TITLE: Record<"raise" | "lower" | "flatten", string> = {
+  raise: "Relative raise, as in the game's editor: the ground under the brush rises to this level, and higher ground stays. Shift+scroll or Ctrl+click on the land sets it; Free raises softly as you paint",
+  lower: "Relative lower, as in the game's editor: the ground under the brush is cut down to this level, and lower ground stays. Shift+scroll or Ctrl+click on the land sets it; Free digs softly as you paint",
+  flatten: "Absolute height, as in the game's editor: the ground under the brush becomes this level, higher or lower. Shift+scroll or Ctrl+click on the land sets it",
+};
+
 export function TopBar(p: TopBarProps) {
   const s = p.settings;
   const set = (patch: Partial<BrushSettings>) => p.onSettings({ ...s, ...patch });
   const t = p.active;
-  const heaps = t === "raise" || t === "lower";
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
   const why = p.loading ? "The map is still loading" : "A force is at work: Stop keeps it, Esc takes it back";
@@ -326,14 +337,59 @@ export function TopBar(p: TopBarProps) {
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
-            <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and drag to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={BRUSH_SIZE_MAX} step={0.5} onChange={(size) => set({ size })} />
+            <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and move the mouse to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
+            {hasTarget(t) ? (
+              <label title={TARGET_TITLE[t]}>
+                Level
+                <select
+                  aria-label="Target level"
+                  value={s.target === null ? "follow" : String(s.target)}
+                  onChange={(e) => {
+                    const v = (e.target as HTMLSelectElement).value;
+                    set({ target: v === "follow" ? null : v === "free" ? "free" : Number(v) });
+                  }}
+                >
+                  <option value="follow">{t === "flatten" ? "The ground's" : t === "raise" ? "A level above the ground" : "A level below the ground"}</option>
+                  {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
+                    <option key={k} value={String(k)}>
+                      {k}
+                    </option>
+                  ))}
+                  {t !== "flatten" ? <option value="free">Free</option> : null}
+                </select>
+              </label>
+            ) : null}
+            <span class="segmented-field">
+              Mode
+              <Segmented<BrushMode>
+                label="Mode"
+                value={s.modes[t]}
+                options={[
+                  ["ground", "Ground", "Change only dry land: rivers and lakes stay where they are, and nothing spills"],
+                  ["water", "Water", "Change only the ground under water: reshape a bed without touching its banks"],
+                  ["both", "Both", "Change everything under the brush"],
+                ]}
+                onChange={(m) => set({ modes: { ...s.modes, [t]: m } })}
+              />
+            </span>
+            <span class="segmented-field">
+              Sources
+              <Segmented<SourcesChoice>
+                label="Sources"
+                value={s.sources[t]}
+                options={[
+                  ["ride", "Ride", "Water sources move with the ground under them"],
+                  ["keep", "Keep", "Water sources and the ground they stand on stay exactly where they are"],
+                  ["clear", "Clear", "The water sources the brush passes over go with the stroke (they glow red under the ring first)"],
+                ]}
+                onChange={(v) => set({ sources: { ...s.sources, [t]: v } })}
+              />
+            </span>
             <Toggle label="Square" title="A square brush instead of a round one" on={s.square} onChange={(square) => set({ square })} />
-            <Toggle label="Precise" title="Hard edges and straight walls, a level at a time: hold still to dig or build a level more" on={s.precise} onChange={(precise) => set({ precise })} />
             <Toggle label="Straight lines" title="The stroke runs straight from where you press to the pointer; its length shows beside it" on={s.straight} onChange={(straight) => set({ straight })} />
-            <Toggle label="Clear sources" title="The water sources the brush passes over go with the stroke (they glow red under the ring first)" on={s.clearSources} onChange={(clearSources) => set({ clearSources })} />
             {t === "flatten" ? (
               <>
-                <Toggle label="In steps" title="Terraces: benches every few levels from the flatten level" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
+                <Toggle label="In steps" title="Terraces: benches every few levels from the level" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
                 {s.steps !== null ? (
                   <label>
                     every
@@ -341,44 +397,6 @@ export function TopBar(p: TopBarProps) {
                       {[2, 3, 4].map((k) => (
                         <option key={k} value={String(k)}>
                           {k} levels
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <label title="Cliff: the flat ground ends in a step. Ramped: its rim steps down to the land round it, with the game's natural slopes, so beavers can walk up">
-                  Edges
-                  <select aria-label="Edges" value={s.ramped ? "ramped" : "cliff"} onChange={(e) => set({ ramped: (e.target as HTMLSelectElement).value === "ramped" })}>
-                    <option value="cliff">Cliff</option>
-                    <option value="ramped">Ramped</option>
-                  </select>
-                </label>
-                <label title="The level it flattens to: Ctrl+click the map to pick one (on water, its bed)">
-                  Level
-                  <select aria-label="Flatten level" value={s.level === null ? "start" : String(s.level)} onChange={(e) => {
-                    const v = (e.target as HTMLSelectElement).value;
-                    set({ level: v === "start" ? null : Number(v) });
-                  }}>
-                    <option value="start">Where I start</option>
-                    {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
-                      <option key={k} value={String(k)}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            ) : null}
-            {s.precise && heaps ? (
-              <>
-                <Toggle label="Stop at" title={`A hold stops at this level (a ${t === "lower" ? "floor" : "ceiling"}): Ctrl+click the map to pick it (on water, its bed)`} on={s.stop !== null} onChange={(on) => set({ stop: on ? (t === "lower" ? 2 : 10) : null })} />
-                {s.stop !== null ? (
-                  <label>
-                    level
-                    <select aria-label="Stop level" value={String(s.stop)} onChange={(e) => set({ stop: Number((e.target as HTMLSelectElement).value) })}>
-                      {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
-                        <option key={k} value={String(k)}>
-                          {k}
                         </option>
                       ))}
                     </select>

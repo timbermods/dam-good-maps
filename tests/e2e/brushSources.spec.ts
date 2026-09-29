@@ -1,7 +1,8 @@
-// Brushes and water sources (PLAN §20 D249), through the page. Clear sources is a toggle in the five
-// brushes' row, off by default; with it off, a raise over a source leaves it standing on its raised
-// tile (no pit, no pillar); on, the ring carries a small mark, the sources under it glow red, and
-// the stroke takes them in the same undo step (undo brings them back). With any tool picked, the
+// Brushes and water sources (PLAN §20 D249, D322), through the page. Sources is a choice in each
+// brush's row, Ride by default; with Ride, a raise over a source leaves it standing on its raised
+// tile (no pit, no pillar); with Keep, the source and its ground stay exactly where they are while
+// the land round it rises (item 31); with Clear, the ring carries a small mark, the sources under it
+// glow red, and the stroke takes them in the same undo step (undo brings them back). With any tool picked, the
 // pointer within about two tiles of a source targets it and Delete removes it (one step). (D288 took
 // the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
@@ -20,7 +21,7 @@ const sources = (page: Page) =>
     for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource") out.push({ x: e.x[k], y: e.y[k], z: e.z[k], ground: m.heights[e.y[k] * m.W + e.x[k]] });
     return out;
   });
-/** How many sources glow red for Clear sources (what the page asks the view to light). */
+/** How many sources glow red for Clear (what the page asks the view to light). */
 const glowing = (page: Page) => page.evaluate(() => window.dgmEditor!.sourceGlow().length);
 
 /** A stroke held over a tile, in small moves round it. */
@@ -36,7 +37,7 @@ async function hold(page: Page, x: number, y: number) {
   await idle(page);
 }
 
-test("brushes and sources (D249): they ride the ground; Clear sources takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
+test("brushes and sources (D249, D322): they ride the ground; Keep holds them; Clear takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=96&d=n&t=highlands");
@@ -77,10 +78,12 @@ test("brushes and sources (D249): they ride the ground; Clear sources takes them
   await page.keyboard.press("Escape");
   expect((await sources(page)).filter((s) => s.y === ay && (s.x === ax || s.x === bx))).toHaveLength(2);
 
-  // Raise: Clear sources in its row, off by default
+  // Raise: Sources in its row, Ride by default (a soft raise: Free, so a hold keeps raising)
   await page.keyboard.press("1");
   const row = page.getByRole("group", { name: "Raise options" });
-  await expect(row.getByLabel("Clear sources")).not.toBeChecked();
+  const sourcesChoice = row.getByRole("group", { name: "Sources" });
+  await expect(sourcesChoice.getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");
+  await row.getByRole("combobox", { name: "Target level" }).selectOption("free");
 
   // off: a stroke over A leaves it standing on its raised tile
   const a0 = (await sources(page)).find((s) => s.x === ax && s.y === ay)!;
@@ -90,8 +93,17 @@ test("brushes and sources (D249): they ride the ground; Clear sources takes them
   expect(a1.z).toBe(a1.ground);
   expect(await page.evaluate(() => window.dgm3d!.renderer.brushCursorState?.mark ?? false)).toBe(false);
 
-  // on: the ring's mark; the source under the ring glows red; the stroke takes it, one step
-  await row.getByLabel("Clear sources").check();
+  // Keep (item 31): a raise round A leaves it and its ground exactly where they are
+  await sourcesChoice.getByRole("button", { name: "Keep" }).click();
+  await hold(page, ax, ay);
+  const a2 = (await sources(page)).find((s) => s.x === ax && s.y === ay)!;
+  expect(a2.ground).toBe(a1.ground);
+  expect(a2.z).toBe(a1.z);
+  expect(await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x + 1, y), [ax, ay] as [number, number])).toBeGreaterThan(a1.ground);
+  expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.sources).toBe("keep");
+
+  // Clear: the ring's mark; the source under the ring glows red; the stroke takes it, one step
+  await sourcesChoice.getByRole("button", { name: "Clear" }).click();
   const pb = await client(page, bx, ay);
   await page.mouse.move(pb.x + 3, pb.y);
   await page.mouse.move(pb.x, pb.y);
@@ -105,7 +117,7 @@ test("brushes and sources (D249): they ride the ground; Clear sources takes them
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(true);
-  await row.getByLabel("Clear sources").uncheck();
+  await sourcesChoice.getByRole("button", { name: "Ride" }).click();
 
   // any tool: two tiles from a source, Delete removes it (one step)
   // (a tile two from it with nothing standing on it: a tree there would be the tree)
