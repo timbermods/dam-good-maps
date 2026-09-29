@@ -130,6 +130,8 @@ editor is desktop-first (D185).
   .timber, History, New map).
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the
   map. Never a pop-up.
+- **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
+  over it, so they cover no control in any layout (a force's rows, the view buttons, the water bar); Hide closes it.
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
 (D184, D212, D219.)
@@ -246,7 +248,10 @@ editor is desktop-first (D185).
 - **Delete** (D288; there is no Remove tool): with a selection open, the Delete key (or the Selection row's **Delete**)
   removes everything standing inside it, objects and sources, as one undo step; the start always stays, and says so.
   With no selection, Delete removes what the pointer is on: a source within its targeting range (D249) first, else the
-  object on the tile. It never changes terrain.
+  object on the tile. It never changes terrain. **Delete sources** (D315, beside Delete in the Selection row) removes
+  only the water and badwater sources inside the selection, nothing else; with Ctrl+A it clears every source on the
+  map. One undo step; the water they fed drains as its cause is gone (D260), and any check the map runs (moisture,
+  drought) follows from that same water change, not from the delete step itself.
 - **Heights** (D244, built after the Ceiling probe batch ceiling-20260927 passed): one ceiling on every map, D172's
   tall maximum (22, `CEILING` in `src/core/format/world.ts`), for the brushes (their levels, stops and holds), Select's
   Set level list, the forces and the build's integrity pass, with nothing about it in the interface. A map whose land
@@ -263,7 +268,8 @@ editor is desktop-first (D185).
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. **Set level** lists levels up to the map's ceiling (22 under D244); Ctrl+click on the land
   takes that tile's level as the target; it acts at once, one undo step. Select's own actions (Raise, Lower, Set level,
-  Dig out) are exact, with hard edges: precision tools; **Delete** clears what stands in the selection (D288). **Select all** (D264): Ctrl+A selects the whole
+  Dig out) are exact, with hard edges: precision tools; **Delete** clears what stands in the selection (D288); **Delete
+  sources** (D315) clears only its water and badwater sources. **Select all** (D264): Ctrl+A selects the whole
   map, in Select or with any brush out. Set level has three ways sharing its level picker: **Set** (cut and fill), **Cut
   down** (only lowers ground above the level) and **Fill up** (only raises ground below it). **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number, then the
@@ -387,9 +393,12 @@ Make a valley, drop a source, and there's a river.
     straights, never a uniform tube), and **Try another path**, which re-rolls them; a bend cut off becomes an oxbow
     lake, sealed by sediment at both ends;
   - its one choice, **Keep river** (the default) or **Dry canyon**. Keep river leaves a
-    source at the origin whose strength follows the river's Width, not its Power, so a slot canyon
-    keeps a modest stream and a wide river a big one; Dry canyon leaves no source. The source is
-    editable afterwards like any other;
+    source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the carve's heading, fewer where
+    cramped, as the official maps' rows are) whose total strength follows the river's Width, not its Power, so a slot
+    canyon keeps a modest stream and a wide river a big one, shared among its sources; Dry canyon leaves none. Its
+    operation keeps the row literally (the anchor at the origin and the rest), so projects replay exactly, and a carve
+    from before keeps its single source. Each source is editable afterwards like any other. Unleash places none: the
+    player's source stays the river's origin (Kyler, D314);
   - the visible carving effects (a surging head, crumbling blocks, dust, muddy water), the camera
     staying where the player left it (D265: no Follow);
   - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc or Ctrl+Z (or undo) reverts the whole carve
@@ -842,8 +851,9 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     from fixed pools, at the force's own pace whatever the water's speed (D266). None of them play with reduced motion or
     in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
-    `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 818,400 bytes, in
-    `public/sounds/juice-2/` with their manifest and provenance, `SOUNDS.md`), fetched and decoded on
+    `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 1,090,848 bytes at 256 kbps, D313's
+    re-encode from the round's original 192 kbps, in `public/sounds/juice-2/` with their manifest and
+    provenance, `SOUNDS.md`), fetched and decoded on
     the first click or key (four at a time; the audio context itself is made as the editor opens,
     since opening the audio device blocks the page for a few hundred milliseconds) and played by the browser's own audio thread (buffer
     sources, held beds as pre-crossfaded loops): no synthesis on the page, no worklet. One engine for
@@ -853,7 +863,10 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     full scale. A force's phases play under its run's id, so Esc or undo stops all of it at once; the
     page hidden stops everything and sleeps. A sound's distance comes from where it is in the view:
     on screen, what is being edited, it plays at its full level at any zoom; off screen it fades and
-    softens. The player's volume (0.72 by default) and off switch are kept as saved (`dgm.sound`).
+    softens. Smooth's recipe is a softer, higher, shorter relative of Flatten's own scrape recording,
+    not its earlier leaf-bed (D313, a family with Flatten). The player's volume (0.54 by default,
+    a quarter lower than the round's original 0.72, D313) and off switch are kept as saved
+    (`dgm.sound`); a volume saved before D313 is kept exactly, never lowered to match.
 - The forces (D203, D206, D220): one shared core in `src/core/forces/`, from Codex's forces core (#59):
   `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve,
   whatever the frame rate), the shared numbers, rock and object rules (`random.ts`, `rock.ts`,

@@ -1,17 +1,20 @@
-// The editor's sounds (PLAN §20 D205, D212, D220, D226): Codex's second round (investigation/juice-2
-// `palette.js`, PR #64), recorded CC0 foley with a crisp, musical reward. Each sound is a recipe of
-// recorded layers (no oscillator, no generated noise): packed earth for Raise, loose stone for Lower,
-// a mineral scrape for Flatten, leaves for Smooth and Naturalize, hollow wood and leaves for a tree,
-// a splash and bubbles for a source, a reversed wooden catch for undo, a torrent for Carve, a crack,
-// a boom and falling stone for Craterize, a grinding fault for Quake, a roaring plume and a cooling
-// hiss for Erupt; for Glaciate, investigation/glaciate's recipe from the same bank (#69: a low grinding
-// bed of stone and pitched wood as the ice advances, two slow cracks, falling meltwater as it retreats;
-// its bank.json lists the same five recordings, byte for byte). Repeating an action climbs a small ladder (0, 2, 4, 7 semitones) and resets after
-// a pause; a held stroke is a looping bed that rises gently to the fifth. Distance lowers the level
-// and the brightness. Ported as it is: the recipes, the balance and the calibration are the round's.
+// The editor's sounds (PLAN §20 D205, D212, D220, D226, D313): Codex's second round
+// (investigation/juice-2 `palette.js`, PR #64), recorded CC0 foley with a crisp, musical reward. Each
+// sound is a recipe of recorded layers (no oscillator, no generated noise): packed earth for Raise,
+// loose stone for Lower, a mineral scrape for Flatten, that same scrape pitched up, softer and
+// shorter for Smooth (a family with Flatten, D313), leaves for Naturalize, hollow wood and leaves for
+// a tree, a splash and bubbles for a source, a reversed wooden catch for undo, a torrent for Carve, a
+// crack, a boom and falling stone for Craterize, a grinding fault for Quake, a roaring plume and a
+// cooling hiss for Erupt; for Glaciate, investigation/glaciate's recipe from the same bank (#69: a
+// low grinding bed of stone and pitched wood as the ice advances, two slow cracks, falling meltwater
+// as it retreats; its bank.json lists the same five recordings, byte for byte). Repeating an action
+// climbs a small ladder (0, 2, 4, 7 semitones) and resets after a pause; a held stroke is a looping
+// bed that rises gently to the fifth. Distance lowers the level and the brightness. Ported as it is otherwise: the recipes, the balance and the calibration
+// are the round's; D313 amends Smooth's recipe and the default volume.
 
-/** Fresh settings: on, a clearly audible 0.72, water ambience off. */
-export const DEFAULTS = Object.freeze({ enabled: true, volume: 0.72, ambience: false });
+/** Fresh settings: on, a clearly audible 0.54 (a quarter lower than the round's original 0.72,
+ *  D313; a saved volume is never touched), water ambience off. */
+export const DEFAULTS = Object.freeze({ enabled: true, volume: 0.54, ambience: false });
 /** A run of the same action climbs these semitones, then holds (a fifth at most). */
 export const LADDER: readonly number[] = Object.freeze([0, 2, 4, 7]);
 
@@ -141,7 +144,10 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
       add(earth, 0.65);
       break;
     case "smooth":
-      add("leaf-bed", 1.35, 0, { offset: 0.5, duration: 0.48, attack: 0.035, release: 0.18 });
+      // a softer relative of Flatten's scrape (D313): the same recording, pitched up, a softer
+      // attack, shorter, a gentler filter, so the two read as a family
+      add("scrape", 0.8, 0, { rate: r * 1.6, duration: 0.26, attack: 0.05, release: 0.14, lowpass: 4200 });
+      add(earth, 0.32, 0.012, { rate: r * 1.4, duration: 0.18, attack: 0.04, lowpass: 3400 });
       break;
     case "naturalize":
       add(leaf, 1.3);
@@ -262,7 +268,8 @@ export function texture(name: string): Layer[] {
     case "flatten":
       return [bed("stone-bed", 1.2, 1.1)];
     case "smooth":
-      return [bed("leaf-bed", 1.15, 0.8)];
+      // Flatten's own held bed (stone-bed), softer, higher and filtered gentler (D313)
+      return [bed("stone-bed", 0.85, 1.5, 4200)];
     case "naturalize":
       return [bed("leaf-bed", 1.2, 1.15), bed("earth-bed", 0.2)];
     case "remove":

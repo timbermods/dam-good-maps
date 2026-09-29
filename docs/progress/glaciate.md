@@ -1,5 +1,12 @@
 # Glaciate: adopted onto the forces core, the floor's water as one river
 
+> **2026-09-29: `feature/forces` merged in** (the notices strip under the map, D313's sounds, D314's
+> carve rows). Resolved: `sources` on a force result is a carve's row (at most 15, with its anchor) or a
+> glacier's springs (at most 256), in the types, the schema and the checks; the sound palette's header
+> names both rounds. The spec's workaround that hid the No badwater notice is gone: the notices now sit
+> under the map. Quick suite 823 passed; Glaciate, Carve and notices browser specs 12 of 12. Glaciate
+> then moved onto `feature/forces` (D320); this branch is retired.
+
 > **State (2026-09-28, paused for Tuesday's handoff; where a fresh session resumes).** Branch `feature/glaciate`
 > (PR #76, draft, held for Kyler's yes), last commit 8dbecfc (with `feature/forces` merged in at 584bc15d, D312, and
 > `dev` through it). Done and tested: the adoption (D246, D291), the floor's water (D292), More with Benches, Steps,

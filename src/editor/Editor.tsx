@@ -1404,12 +1404,17 @@ export default function Editor(props: EditorProps) {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects standing on these tiles, the start's aside. */
-  function objectsOn(tiles: readonly number[]): number[] {
+  /** The corner tiles of the objects standing on these tiles (kinds filtered, D315), the start's
+   *  aside. */
+  function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
     const out = new Set<number>();
-    for (const i of tiles) for (const k of at.get(i) ?? []) if (removeKindOf(e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
+    for (const i of tiles)
+      for (const k of at.get(i) ?? []) {
+        const kind = removeKindOf(e.templates[e.template[k]]);
+        if (kind && kinds.includes(kind)) out.add(e.y[k] * info.W + e.x[k]);
+      }
     return [...out];
   }
   /** Whether the start stands on one of these tiles. */
@@ -1418,18 +1423,19 @@ export default function Editor(props: EditorProps) {
     const at = coverAt();
     return tiles.some((i) => (at.get(i) ?? []).some((k) => e.templates[e.template[k]] === "StartingLocation"));
   }
-  /** Delete everything standing on these tiles, objects and sources (never the start), as one
-   *  step with its whuff; the start says it stays. `quiet`: nothing there says nothing. */
-  function deleteOn(tiles: number[], quiet = false): boolean {
-    const corners = objectsOn(tiles);
+  /** Delete everything of `kinds` standing on these tiles (every kind, and sources and the start
+   *  aside, by default; D315 passes `["sources"]`), as one step with its whuff; the start says it
+   *  stays. `quiet`: nothing there says nothing. */
+  function deleteOn(tiles: number[], quiet = false, kinds: RemoveKind[] = ALL_KINDS): boolean {
+    const corners = objectsOn(tiles, kinds);
     if (!corners.length) {
-      if (startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
-      else if (!quiet) setMessage({ kind: "info", text: "Nothing stands there to delete." });
-      return startOn(tiles);
+      if (kinds === ALL_KINDS && startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
+      else if (!quiet) setMessage({ kind: "info", text: kinds === ALL_KINDS ? "Nothing stands there to delete." : "No water or badwater sources there." });
+      return kinds === ALL_KINDS && startOn(tiles);
     }
     const W = info.W;
     void run(
-      () => api.removeAt(tiles, ALL_KINDS),
+      () => api.removeAt(tiles, kinds),
       (u) => u.ok && feel("remove", corners[0] % W, Math.floor(corners[0] / W)),
     );
     return true;
@@ -1441,8 +1447,17 @@ export default function Editor(props: EditorProps) {
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (tiles.length) deleteOn(tiles);
   }
-  const deleteCalls = useRef({ deleteOn, deleteSelection });
-  deleteCalls.current = { deleteOn, deleteSelection };
+  /** Select's Delete sources (D315): every water and badwater source inside the selection, and
+   *  nothing else (no trees, ruins or other objects); their water drains as its causes are gone
+   *  (D260). With Ctrl+A first, this clears every source on the map. */
+  function deleteSourcesSelection() {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    if (tiles.length) deleteOn(tiles, false, ["sources"]);
+  }
+  const deleteCalls = useRef({ deleteOn, deleteSelection, deleteSourcesSelection });
+  deleteCalls.current = { deleteOn, deleteSelection, deleteSourcesSelection };
 
   // ------------------------------------------------------------------------------ the forces
 
@@ -2814,6 +2829,9 @@ export default function Editor(props: EditorProps) {
             <button type="button" title="Everything standing there, objects and sources; the start stays (Delete)" onClick={deleteSelection}>
               Delete
             </button>
+            <button type="button" title="Only water and badwater sources in the selection; their water drains (Ctrl+A first clears every source on the map)" onClick={deleteSourcesSelection}>
+              Delete sources
+            </button>
             {deepest >= 1 ? (
               <>
                 <label title="Where the water is deeper, the ground under it rises so the water sits this deep">
@@ -3333,128 +3351,132 @@ export default function Editor(props: EditorProps) {
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
         <section class="editor-map" aria-label="Map">
-          <View3D
-            view={view}
-            class="editor-view"
-            label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
-            onReady={onReady}
-            markersWanted={shelf?.id === "Slope"}
-            togglesInButtons
-            besideHeight={
-              // a view switch (D248): what shows, never how a brush works; whatever tool is picked
-              <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A thin line wherever the ground steps down a level">
-                Level lines
-              </button>
-            }
-            showLegend={layer !== "none"}
-            viewButtons={
-              <>
-                <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
-                  Clear water
+          <div class="editor-map-area">
+            <View3D
+              view={view}
+              class="editor-view"
+              label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
+              onReady={onReady}
+              markersWanted={shelf?.id === "Slope"}
+              togglesInButtons
+              besideHeight={
+                // a view switch (D248): what shows, never how a brush works; whatever tool is picked
+                <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A thin line wherever the ground steps down a level">
+                  Level lines
                 </button>
-                {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
-                  <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the map`}>
-                    {OVERLAY_WORDS[k]}
-                  </button>
-                ))}
-                <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
-                <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
-                  Minimap
-                </button>
-                <span class="reveal-group">
-                  <button type="button" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title="The editor's little sounds: on or off (the volume beside it)">
-                    Sound
-                  </button>
-                  <label class="slider-field reveal" title="Volume">
-                    <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
-                  </label>
-                </span>
-              </>
-            }
-
-            onHover={(hit: TileHit | null) => {
-              setHover(hit ? describeTile(ctx(), hit.x, hit.y) : null);
-              hoverSources(hit);
-              // the source the pointer targets, whatever tool is picked (D249)
-              const t = hit ? targetAt(hit.x, hit.y) : null;
-              targetSpot.current = t;
-              setTargeted(t ? t.k : null);
-              // a source, and the start, can be picked up and moved
-              const canvas = renderer.current?.canvas;
-              const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
-              const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
-              if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
-              hoverStart(!!free && onStart);
-            }}
-            hoverText={hover}
-          >
-            <TopBar
-              active={brushTool}
-              force={tool}
-              forceAtWork={!!forcer.current?.running}
-              forceRow={forceRow()}
-              row={unleashRow() ?? shelfRow() ?? pickedRow()}
-              hints={
-                <FirstRun
-                  done={firstRun}
-                  onClose={() => {
-                    const all = new Set<FirstStep>(["paint", "place", "water"]);
-                    saveFirstRun(all);
-                    setFirstRun(all);
-                  }}
-                />
               }
-              settings={brush}
-              onPick={pickTop}
-              onSettings={setBrush}
-              loading={!ready}
-              selectRow={selectRow()}
-              selectChip={selectChip()}
-              selecting={!!selecting && !brushTool && !tool}
-              onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current ? closeSelect() : openSelect())}
-            />
-            {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
-            {sourceMarkers()}
-            {startHintTag()}
-            {minimap ? (
-              <Minimap
-                W={info.W}
-                H={info.H}
-                renderer={renderer.current}
-                heights={() => mirror.current.heights}
-                depth={() => mirror.current.water?.depth ?? null}
-                stamp={`${info.version}:${waterTick}`}
-                viewTick={viewTick}
+              showLegend={layer !== "none"}
+              viewButtons={
+                <>
+                  <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
+                    Clear water
+                  </button>
+                  {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
+                    <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the map`}>
+                      {OVERLAY_WORDS[k]}
+                    </button>
+                  ))}
+                  <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
+                  <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
+                    Minimap
+                  </button>
+                  <span class="reveal-group">
+                    <button type="button" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title="The editor's little sounds: on or off (the volume beside it)">
+                      Sound
+                    </button>
+                    <label class="slider-field reveal" title="Volume">
+                      <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
+                    </label>
+                  </span>
+                </>
+              }
+
+              onHover={(hit: TileHit | null) => {
+                setHover(hit ? describeTile(ctx(), hit.x, hit.y) : null);
+                hoverSources(hit);
+                // the source the pointer targets, whatever tool is picked (D249)
+                const t = hit ? targetAt(hit.x, hit.y) : null;
+                targetSpot.current = t;
+                setTargeted(t ? t.k : null);
+                // a source, and the start, can be picked up and moved
+                const canvas = renderer.current?.canvas;
+                const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
+                const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
+                if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
+                hoverStart(!!free && onStart);
+              }}
+              hoverText={hover}
+            >
+              <TopBar
+                active={brushTool}
+                force={tool}
+                forceAtWork={!!forcer.current?.running}
+                forceRow={forceRow()}
+                row={unleashRow() ?? shelfRow() ?? pickedRow()}
+                hints={
+                  <FirstRun
+                    done={firstRun}
+                    onClose={() => {
+                      const all = new Set<FirstStep>(["paint", "place", "water"]);
+                      saveFirstRun(all);
+                      setFirstRun(all);
+                    }}
+                  />
+                }
+                settings={brush}
+                onPick={pickTop}
+                onSettings={setBrush}
+                loading={!ready}
+                selectRow={selectRow()}
+                selectChip={selectChip()}
+                selecting={!!selecting && !brushTool && !tool}
+                onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current ? closeSelect() : openSelect())}
               />
-            ) : null}
-            {aimArrow ? <AimArrow from={aimArrow.from} to={aimArrow.to} renderer={renderer.current} /> : null}
-            {shapeNote ? (
-              <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
-                {shapeNote.text}
+              {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
+              {sourceMarkers()}
+              {startHintTag()}
+              {minimap ? (
+                <Minimap
+                  W={info.W}
+                  H={info.H}
+                  renderer={renderer.current}
+                  heights={() => mirror.current.heights}
+                  depth={() => mirror.current.water?.depth ?? null}
+                  stamp={`${info.version}:${waterTick}`}
+                  viewTick={viewTick}
+                />
+              ) : null}
+              {aimArrow ? <AimArrow from={aimArrow.from} to={aimArrow.to} renderer={renderer.current} /> : null}
+              {shapeNote ? (
+                <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
+                  {shapeNote.text}
+                </div>
+              ) : null}
+              {startDrag ? (
+                <StartIndicators check={startDrag.check} rules={needs.rules} />
+              ) : startReach ? (
+                <div class={`start-reach${startReach.fading ? " fading" : ""}`}>
+                  <StartIndicators check={startReach.check} rules={needs.rules} />
+                </div>
+              ) : null}
+              {busy > 0 ? (
+                <div class="working" role="status">
+                  Working…
+                </div>
+              ) : null}
+            </View3D>
+            {layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null}
+            {message ? (
+              <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
+                {message.text}
+                <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
+                  ×
+                </button>
               </div>
             ) : null}
-            {startDrag ? (
-              <StartIndicators check={startDrag.check} rules={needs.rules} />
-            ) : startReach ? (
-              <div class={`start-reach${startReach.fading ? " fading" : ""}`}>
-                <StartIndicators check={startReach.check} rules={needs.rules} />
-              </div>
-            ) : null}
-            {busy > 0 ? (
-              <div class="working" role="status">
-                Working…
-              </div>
-            ) : null}
-          </View3D>
-          {layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null}
-          {message ? (
-            <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
-              {message.text}
-              <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
-                ×
-              </button>
-            </div>
-          ) : null}
+          </div>
+          {/* the notices: a strip under the map, never over it, so they cover no control in any
+              layout (a force's rows, the view buttons, the water bar), and what is above stays put */}
           {noticesOpen && (notices.length || flags.length || importChanges) ? (
             <div class="editor-notices" role="status">
               {info.importReport && importChanges ? (

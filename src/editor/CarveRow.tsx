@@ -123,7 +123,7 @@ export function CarveRow(p: CarveRowProps) {
           auto={{ on: u.width === null, onAuto: (on) => set({ width: on ? null : Math.round(width) }) }}
         />
         <div class="segmented" role="group" aria-label="What it leaves">
-          <button type="button" aria-pressed={!u.dry} title="A source at its start keeps the river flowing (its strength follows the width)" onClick={() => set({ dry: false })}>
+          <button type="button" aria-pressed={!u.dry} title="A row of sources at its start keeps the river flowing (their strength follows the width)" onClick={() => set({ dry: false })}>
             Keep river
           </button>
           <button type="button" aria-pressed={u.dry} title="No source: a dry canyon" onClick={() => set({ dry: true })}>

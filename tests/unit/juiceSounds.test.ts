@@ -18,7 +18,7 @@ const DIR = "public/sounds/juice-2";
 
 describe("the sound bank (D226)", () => {
   it("is Codex's CC0 foley, each file intact against its manifest, with its credits beside it, small enough to load on the first gesture", () => {
-    const manifest = JSON.parse(readFileSync(`${DIR}/bank.json`, "utf8")) as { id: string; file: string; sha256: string; bytes: number; provenance: string; sources: unknown[] }[];
+    const manifest = JSON.parse(readFileSync(`${DIR}/bank.json`, "utf8")) as { id: string; file: string; sha256: string; bytes: number; provenance: string; sources: unknown[]; duration: number }[];
     expect(manifest.map((m) => m.id)).toEqual(BANK_IDS);
     let bytes = 0;
     for (const m of manifest) {
@@ -29,12 +29,17 @@ describe("the sound bank (D226)", () => {
       expect(m.provenance && m.sources.length).toBeTruthy();
       bytes += statSync(`${DIR}/${m.file}`).size;
     }
-    expect(bytes).toBe(818_400);
+    // D313: re-encoded from the round's original 192 kbps to 256 kbps (measurably less encoding
+    // error for a modest size increase), so no longer byte-identical to investigation/juice-2's
+    // frozen 192 kbps copy; the crop and content are, checked here by duration.
+    expect(bytes).toBe(1_090_848);
     const credits = readFileSync(`${DIR}/SOUNDS.md`, "utf8");
     expect(credits).toMatch(/CC0 1\.0/);
     for (const who of ["Kenney", "Independent.nu", "ezwa", "TinyWorlds", "Tom_Kaszuba", "SamsterBirdies"]) expect(credits).toContain(who);
-    // (the same bank as the round's own)
-    for (const id of BANK_IDS) expect(readFileSync(`${DIR}/audio/${id}.mp3`).equals(readFileSync(`investigation/juice-2/audio/${id}.mp3`)), id).toBe(true);
+    // (the same recordings as the round's own, just re-encoded, D313)
+    const original = JSON.parse(readFileSync("investigation/juice-2/bank.json", "utf8")) as { id: string; duration: number }[];
+    const originalById = new Map(original.map((m) => [m.id, m.duration]));
+    for (const m of manifest) expect(originalById.get(m.id), m.id).toBeCloseTo(m.duration, 3);
     expect(bankUrl("audio/wood-a.mp3")).toMatch(/sounds\/juice-2\/audio\/wood-a\.mp3$/);
     expect(existsSync("src/editor/juice/synth.ts") || existsSync("src/editor/juice/worklet.ts")).toBe(false);
   });

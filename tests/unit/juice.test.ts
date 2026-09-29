@@ -129,14 +129,15 @@ describe("the editor's juice", () => {
     expect(log.indexOf("stop force-3-plume")).toBeLessThan(log.indexOf("play erupt:cool"));
   });
 
-  it("sounds are on at the round-two mix's own clearly audible level unless the player turned them off (D226), and a saved choice is kept as it is", () => {
+  it("sounds are on at the round-two mix's own clearly audible level unless the player turned them off (D226), a quarter lower by default since D313, and a saved choice is kept as it is", () => {
     expect(loadSound()).toEqual(DEFAULT_SOUND);
-    expect(DEFAULT_SOUND).toEqual({ on: true, volume: 0.72, ambience: false });
+    expect(DEFAULT_SOUND).toEqual({ on: true, volume: 0.54, ambience: false });
     // the slider is the engine's master level, and the first default's (the engine's quiet 0.22) is
     // well below it
-    expect(engineVolume(DEFAULT_SOUND.volume)).toBe(0.72);
+    expect(engineVolume(DEFAULT_SOUND.volume)).toBe(0.54);
     expect(engineVolume(1)).toBe(1);
-    // a choice saved, off included, is kept as it is (an old saved volume is never raised)
+    // a choice saved, off included, is kept as it is (an old saved volume is never raised or lowered
+    // to match the new default, D313)
     const { e } = fakeEngine();
     new Juice(() => null, loadSound(), e).setSound({ on: false, volume: 0.35 });
     expect(loadSound()).toEqual({ on: false, volume: 0.35, ambience: false });
@@ -146,6 +147,9 @@ describe("the editor's juice", () => {
     expect(loadSound()).toEqual({ on: false, volume: 0.8, ambience: false });
     localStorage.setItem("dgm.sound", JSON.stringify({ on: true, volume: 0.5 }));
     expect(loadSound()).toEqual({ on: true, volume: 0.5, ambience: false });
+    // a player who saved the round's original 0.72 before D313 keeps exactly that, not the new 0.54
+    localStorage.setItem("dgm.sound", JSON.stringify({ on: true, volume: 0.72 }));
+    expect(loadSound()).toEqual({ on: true, volume: 0.72, ambience: false });
     localStorage.removeItem("dgm.sound");
   });
 });

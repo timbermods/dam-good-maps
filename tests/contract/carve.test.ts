@@ -154,11 +154,14 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(r.map.entities.length).toBeLessThan(m.entities.length);
   });
 
-  it("Keep river leaves a source whose strength follows the Width (linked to Power by default); Dry canyon leaves none", () => {
+  it("Keep river leaves a source group whose strength follows the Width (linked to Power by default; a row across the flow, D314); Dry canyon leaves none", () => {
     expect(high.source).not.toBeNull();
-    // a second carve keeps the first one's river
+    // a second carve keeps the first one's river: both groups stand
     const another = new CarveRun(high.map, DEFAULTS, { origin: 54 * 64 + 53 }, { sourceId: "second" });
-    expect(another.map.entities.filter((e) => e.template === "WaterSource").length).toBe(2);
+    const firstIds = high.added;
+    const sources = another.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
+    expect(sources.length).toBe(firstIds.length + another.added.length);
+    for (const id of [...firstIds, ...another.added]) expect(sources).toContain(id);
     expect(sourceStrength(100)).toBe(8);
     expect(sourceStrength(0)).toBe(0.5);
     expect(sourceStrength(95, 2)).toBe(0.5);
@@ -166,8 +169,15 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(sourceStrength(85, naturalWidth(85))).toBe(sourceStrength(85));
     const slot = new CarveRun(mountain, { ...DEFAULTS, power: 95, width: 2 }, intent);
     const broad = new CarveRun(mountain, { ...DEFAULTS, power: 15, width: 24 }, intent);
-    expect(modelFor(slot.map).emitters.find((e) => e.cells.includes(intent.origin))!.strength).toBe(0.5);
-    expect(modelFor(broad.map).emitters.find((e) => e.cells.includes(intent.origin))!.strength).toBe(8);
+    // (the group's strengths sum to it: one source or a row sharing it, D314)
+    const total = (r: CarveRun) => Math.round(r.group.reduce((a, g) => a + g.strength, 0) * 1000) / 1000;
+    expect(total(slot)).toBe(0.5);
+    expect(total(broad)).toBe(8);
+    expect(broad.group.length).toBeGreaterThan(1);
+    expect(broad.group[0].tile).toBe(intent.origin);
+    const emitted = (r: CarveRun) => modelFor(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
+    expect(emitted(slot)).toBeCloseTo(0.5, 3);
+    expect(emitted(broad)).toBeCloseTo(8, 3);
     const dry = complete(mountain, { dry: true, power: 95 });
     expect(dry.source).toBeNull();
     expect(dry.added).toEqual([]);
@@ -369,8 +379,9 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
   });
 
   it("an unfed oxbow lake evaporates under the game's rules: correct physics, and nothing refills it", () => {
-    // no source feeds it: the carve's only source is at its origin
-    expect(r.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.y * 96 + e.x)).toEqual([aimed.origin]);
+    // no source feeds it: the carve's only sources are its row at its origin (D314)
+    expect(r.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.y * 96 + e.x).sort()).toEqual(r.group.map((g) => g.tile).sort());
+    expect(r.group[0].tile).toBe(aimed.origin);
     const sim = new WaterSim(model, water);
     const volume = () => lake!.tiles.reduce((v, i) => v + sim.D[i], 0);
     sim.run(256);

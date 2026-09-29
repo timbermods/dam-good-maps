@@ -25,9 +25,9 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   // (the editor open, nothing asked of it yet: no recording fetched)
   expect(fetched).toEqual([]);
   expect((await sound(page))!.ready).toBe(false);
-  // on, at the round-two mix's own clearly audible level
+  // on, at the round-two mix's own clearly audible level, a quarter lower since D313
   // (the volume shows beside the Sound switch on hover)
-  await expect(page.locator('input[aria-label="Sound volume"]')).toHaveValue("0.72");
+  await expect(page.locator('input[aria-label="Sound volume"]')).toHaveValue("0.54");
 
   // the first gestures (the view from above, Raise, a click on the land): the edit is there at once
   await page.getByRole("button", { name: "Top-down" }).click();

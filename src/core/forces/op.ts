@@ -62,9 +62,11 @@ export interface ForceResultParams {
   moved?: { id: string; x: number; y: number }[];
   /** Trees it knocked down: dead now, lying along (dx, dy) (their pose is the editor's view). */
   felled?: { id: string; dx: number; dy: number }[];
-  /** Carve's Keep river: the water source it leaves at the origin. */
+  /** Carve's Keep river: the water source it leaves at the origin (the group's anchor since D314). */
   source?: { id: string; x: number; y: number; strength: number };
-  /** Glaciate's springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
+  /** Carve's Keep river since D314: the rest of its source group, a row across the flow beside the
+   *  anchor (core/water/sourceGroups.ts), the strength shared (absent on carves from before); Glaciate's
+   *  springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
   sources?: { id: string; x: number; y: number; strength: number }[];
   /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/water.ts). */
   lake?: RetainedWater;
@@ -99,6 +101,7 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
     heights: p.heights,
     removed: p.removed,
     ...(p.source ? { source: p.source } : {}),
+    ...(p.sources?.length ? { sources: p.sources } : {}),
     ...(p.lake ? { lake: p.lake } : {}),
     ...(p.replaces !== undefined ? { replaces: p.replaces } : {}),
   };
@@ -205,14 +208,22 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
   for (const f of p.felled ?? []) if (!(Number.isFinite(f.dx) && Number.isFinite(f.dy) && Math.abs(f.dx) <= 1.5 && Math.abs(f.dy) <= 1.5)) return ["a felled tree lies along a direction of length 1 at most"];
+  // a carve that keeps its river leaves the rest of its row (D314); a glacier leaves its springs (D246)
+  if (p.sources !== undefined && p.verb !== "glaciate") {
+    if (p.verb !== "carve" || !p.source) return ["only a carve that keeps its river, or a glacier, leaves a row of sources"];
+    if (!Array.isArray(p.sources) || p.sources.length > 15) return ["a carve's row has at most 16 sources"];
+    for (const s of p.sources) {
+      if (!inMap(s.x, s.y)) return ["the carve's source is off the map"];
+      if (!(s.strength > 0 && s.strength <= 8)) return ["a carve's source gives 0 to 8 water a second"];
+    }
+  }
   if (p.source) {
     if (p.verb !== "carve") return ["only a carve leaves a source"];
     if (!inMap(p.source.x, p.source.y)) return ["the carve's source is off the map"];
     if (!(p.source.strength > 0 && p.source.strength <= 8)) return ["a carve's source gives 0 to 8 water a second"];
   }
-  if (p.sources) {
-    if (p.verb !== "glaciate") return ["only a glacier leaves springs"];
-    if (p.sources.length > 256) return ["a glacier leaves 256 springs at most"];
+  if (p.sources && p.verb === "glaciate") {
+    if (!Array.isArray(p.sources) || p.sources.length > 256) return ["a glacier leaves 256 springs at most"];
     for (const q of p.sources) {
       if (!inMap(q.x, q.y)) return ["a glacier's spring is off the map"];
       if (!(q.strength > 0 && q.strength <= 8)) return ["a glacier's spring gives 0 to 8 water a second"];

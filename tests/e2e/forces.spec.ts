@@ -531,9 +531,12 @@ test("Erupt's terrain is final in about two seconds (D312); its effects may ling
   await expect.poll(() => status(page)).not.toBeNull();
   await expect.poll(() => status(page), { timeout: 10_000, intervals: [50] }).toBeNull();
   const ms = Date.now() - t0;
-  console.log(`Erupt: the terrain final ${ms} ms after the click`);
-  // (about two seconds; a busy test machine's frames add a little)
-  expect(ms).toBeLessThan(3000);
+  const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
+  console.log(`Erupt: the terrain final ${ms} ms after the click${software ? " (software rendering)" : ""}`);
+  // about two seconds on a GPU (a busy machine's frames add a little); where the browser draws in
+  // software (CI), each frame of the eruption costs the page far more: there the paced part is
+  // checked (its stages at the eruption's pace, forceDriver.test) and the wall clock only bounded
+  expect(ms).toBeLessThan(software ? 8000 : 3000);
   // at once: the tools answer (a brush picked)
   await page.keyboard.press("1");
   await expect(page.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");

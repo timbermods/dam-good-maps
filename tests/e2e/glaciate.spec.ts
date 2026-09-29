@@ -48,9 +48,6 @@ async function high(page: Page): Promise<[number, number]> {
 async function settled(page: Page) {
   await expect.poll(() => status(page), { timeout: 60_000 }).toBeNull();
   await idle(page);
-  // (a glacier can sweep the map's last badwater spring: its notice, D213, sits over the rows)
-  const hide = page.locator(".editor-notices").getByRole("button", { name: "Hide" });
-  if (await hide.isVisible()) await hide.click();
 }
 
 test("Glaciate's row is Power, Size, Meltwater, Try another and More (D289, D309); its details closed by default", async ({ page }) => {
