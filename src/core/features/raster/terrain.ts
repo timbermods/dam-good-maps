@@ -5,7 +5,7 @@
 import { fbm } from "../../math/noise";
 import { hash32 } from "../../math/hash";
 import type { Runs } from "../../math/grid";
-import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
+import { bedAt, floorAt, pathField, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
@@ -239,6 +239,13 @@ export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pa
   const keep = new Set(m.along);
   const row = out.filter((i) => keep.has(along(i)));
   return row.length ? row : out;
+}
+
+/** An edge river's mouth tiles as the build places its sources (`mouthTiles`), before any build:
+ *  its own path, no narrows (item 27: the lip and the course check hold exactly these). */
+export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
+  let field: ReturnType<BuildTarget["pathField"]> | null = null;
+  return mouthTiles(f, { W, H, pathField: () => (field ??= pathField(f.params.path, W, H)), narrows: () => [] });
 }
 
 /** An edge river's mouth as D314's rule has it: the edge tile its course crosses (`mid`, along the

@@ -136,16 +136,22 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
   let worst = 0;
   if (out)
     for (const g of rows) {
+      // (an edge tile the head's water reaches, its floor under the row's water: what flows into it
+      // from its neighbours drains off the map; the stored outflow off the edge is capped by the
+      // tile's depth, not the flow)
+      let bed = Infinity;
+      for (const c of g.cells) bed = Math.min(bed, b.heights[c]);
       let lost = 0;
       for (let i = 0; i < N; i++) {
         const x = i % W;
         const y = (i - x) / W;
-        if (!(x === 0 || y === 0 || x === W - 1 || y === H - 1) || walls.has(i)) continue;
+        if (!(x === 0 || y === 0 || x === W - 1 || y === H - 1) || walls.has(i) || b.heights[i] > bed + 1) continue;
         if (!g.cells.some((c) => Math.max(Math.abs((c % W) - x), Math.abs(Math.floor(c / W) - y)) <= 12)) continue;
-        if (y === 0) lost += out[4 * i];
-        if (x === 0) lost += out[4 * i + 1];
-        if (y === H - 1) lost += out[4 * i + 2];
-        if (x === W - 1) lost += out[4 * i + 3];
+        // flows into i: the neighbour's outflow toward it (0 −y, 1 −x, 2 +y, 3 +x)
+        if (y > 0) lost += out[4 * (i - W) + 2];
+        if (x > 0) lost += out[4 * (i - 1) + 3];
+        if (y < H - 1) lost += out[4 * (i + W) + 0];
+        if (x < W - 1) lost += out[4 * (i + 1) + 1];
       }
       const share = lost / g.strength;
       if (share > worst) worst = share;

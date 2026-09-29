@@ -80,3 +80,28 @@ On `feature/forces` (Carve, Unleash) and `feature/glaciate` (Glaciate):
   (a shelf source, D314). If Unleash should give its river a row at the head, that is Kyler's call;
   the module would be called at the source's tile with the source's strength and the breakout's
   direction as `flow`.
+
+# The edge lip: a river that starts at the edge flows into the map (item 27)
+
+`edgeLip.ts` holds the head of any river that starts at the map's edge (the forces-preview feedback's item
+27, PLAN §20 D325). The game drains every edge tile but a source's own, so water from an edge row of sources
+that reaches the edge tiles beside it pours off the map. The lip raises exactly those tiles a level above
+the head's water, and the tiles just inside them a level lower, never a wall along the whole edge.
+
+```ts
+const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
+// row: the sources' boundary tiles (y·W + x); rowTiles(edge, along, W, H) turns a row's positions
+//   along the edge into tiles
+// surface: the head's water (its bed plus depth, or the lake it backs into); the lip stands at
+//   floor(surface) + 1, at least the bed plus two
+// keep: tiles never raised (other rivers' mouths, a player's locked ground)
+// r.raised: the tiles raised; r.open: edge tiles its water still reaches beyond `reach` (16)
+```
+
+- **The generator** (M9b): every edge river's mouth, before the course check (`gen/generate.ts`); the
+  course check seals only the mouth's own tiles (`land/courses.ts` `sealedMouths`, the build's
+  `mouthTilesOf`), and badwater ditches keep out of the lip's reach.
+- **The forces** (batch 1): Carve's source row and Glaciate's meltwater, when their row stands on an edge,
+  once the row is placed and before the water settles; `keep` holds the force's own channel if it runs
+  along the edge.
+- **Real places** (when it resumes, D319): each head the conversion puts on an edge.

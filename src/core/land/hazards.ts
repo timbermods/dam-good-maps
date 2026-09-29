@@ -26,6 +26,8 @@ import { basinLeak } from "../validate/playability";
 import { drainage } from "./drainage";
 import type { Hydro } from "./hydro";
 import { BED_FLOOR } from "./genome";
+import { mouthTilesOf } from "../features/raster/terrain";
+import { LIP_REACH } from "../water/edgeLip";
 import { dist, N4 } from "./num";
 
 export interface Hazards {
@@ -196,6 +198,15 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   const startWater = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (wet[i] && sd[i] <= 24) startWater[i] = 1;
   let hh = h;
+  // (item 27: no ditch near a river's head at the edge, within the lip's reach: it took the head's
+  // water off the map)
+  const byMouth = new Uint8Array(N);
+  for (const r of hy.rivers)
+    for (const m of mouthTilesOf(r, W, H)) {
+      const mx = m % W;
+      const my = (m - mx) / W;
+      for (let y = Math.max(0, my - LIP_REACH); y <= Math.min(H - 1, my + LIP_REACH); y++) for (let x = Math.max(0, mx - LIP_REACH); x <= Math.min(W - 1, mx + LIP_REACH); x++) byMouth[y * W + x] = 1;
+    }
   // where a ditch may end (see the comments inside): a river's last stretch before it leaves the
   // map, off the start's water, never through a lake or a broad level reach; and the tiles it keeps
   // off (the start's ground, other water and the ring beside it)
@@ -265,7 +276,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     const goal = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (hy.water[j] === 1 && exitEnd[j] && lakeFree[j] && toEdge[j] <= lastStretch && !startWater[j] && sd[j] > D + 6 && bodySize[body[j]] <= slack) goal[j] = 1;
     const keepOff = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j]) keepOff[j] = 1;
+    for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (on its way it never crosses nor runs beside other water: a ditch through a river higher up or
     // a lake turned them purple)
     for (let j = 0; j < N; j++) {

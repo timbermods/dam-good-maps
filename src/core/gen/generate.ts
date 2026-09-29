@@ -40,7 +40,9 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
-import { blockedCourses, closeBackEdges } from "../land/courses";
+import { blockedCourses, closeBackEdges, sealedMouths } from "../land/courses";
+import { mouthTilesOf } from "../features/raster/terrain";
+import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { orientationOf, orientDir, orientField } from "../land/orient";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, type IntentionId } from "../land/intentions";
@@ -619,18 +621,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const [px, py] = "spring" in r.params.entry ? r.params.entry.spring : r.params.path[0];
     return Math.min(H - 1, Math.max(0, Math.round(py))) * W + Math.min(W - 1, Math.max(0, Math.round(px)));
   });
-  // a river's mouth on the map edge holds its sources, which are not outlets
-  const sealed = new Uint8Array(N);
-  for (const r of hy.rivers) {
-    if (!("edge" in r.params.entry)) continue;
-    const [px, py] = r.params.path[0];
-    const reach = Math.ceil(r.params.width / 2) + 2;
-    for (let i = 0; i < N; i++) {
-      const x = i % W;
-      const y = (i - x) / W;
-      if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && Math.abs(x - px) <= reach && Math.abs(y - py) <= reach) sealed[i] = 1;
-    }
-  }
+  // a river's mouth on the map edge holds its sources, which are not outlets (its row, D314)
+  const sealed = sealedMouths(hy.rivers, W, H);
   const dry = unreachedLakes(h, W, H, heads, hy.lakes, sealed);
   if (dry.length) {
     for (const k of dry)
@@ -665,6 +657,38 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
   for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR && !ctx?.locked?.mask[i]) h[i] = BED_FLOOR;
+  // item 27: a river that starts at the map's edge flows into the map, never off it: the edge tiles
+  // its head's water would reach beside its row (a lake's shore at the edge too) stand a level above
+  // that water (a natural lip, water/edgeLip.ts); the mouths themselves and the player's ground stay
+  {
+    const est = plannedWater(h, hy, W, H);
+    const keep = new Uint8Array(N);
+    for (let i = 0; i < N; i++) keep[i] = ctx?.locked?.mask[i] || protect?.[i] ? 1 : 0;
+    const rows = hy.rivers.map((r) => mouthTilesOf(r, W, H));
+    for (const row of rows) for (const i of row) keep[i] = 1;
+    for (const row of rows) {
+      if (!row.length) continue;
+      // (the head's water: its channel's and any lake's it backs into, within the lip's reach)
+      let surface = -Infinity;
+      const seen = new Set<number>(row);
+      const q = row.slice();
+      for (let k = 0; k < q.length; k++) {
+        const c = q[k];
+        surface = Math.max(surface, h[c] + est[c]);
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]] as const) {
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const n = ny * W + nx;
+          if (seen.has(n) || !(hy.water[n] === 1 || hy.water[n] === 2)) continue;
+          if (!row.some((r0) => Math.max(Math.abs((r0 % W) - nx), Math.abs(Math.floor(r0 / W) - ny)) <= LIP_REACH)) continue;
+          seen.add(n);
+          q.push(n);
+        }
+      }
+      edgeLip(h, W, H, { row, surface, keep });
+    }
+  }
   // the courses checked on the finished land (M9b, D273 (1)): an inflow's water running back out by
   // its own edge is held by a lip on the edge row (up to two levels, four where the player set the
   // Rivers count, whose mouths may lie low on their edge); anything else is planned again below

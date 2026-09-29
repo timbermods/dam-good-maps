@@ -16,6 +16,7 @@
 
 import { drainage } from "./drainage";
 import type { Edge, Point, RiverFeature } from "../features/schema";
+import { mouthTilesOf } from "../features/raster/terrain";
 
 /** The course's tiles in order, inside the map. */
 export function courseCells(path: readonly (readonly [number, number])[], W: number, H: number): number[] {
@@ -86,19 +87,12 @@ export function closeBackEdges(h: Uint8Array, W: number, H: number, blocked: rea
   return changed;
 }
 
-/** The edge tiles round each inflow's mouth, which hold its sources (not outlets). */
-function sealedMouths(rivers: readonly RiverFeature[], W: number, H: number): Uint8Array {
+/** The edge tiles of each inflow's mouth, which hold its sources (not outlets): its row as the
+ *  build places it (D314, raster/terrain.ts `mouthRow`; item 27: the edge tiles beside the row
+ *  drain, and a wider seal hid the water running off there). */
+export function sealedMouths(rivers: readonly RiverFeature[], W: number, H: number): Uint8Array {
   const sealed = new Uint8Array(W * H);
-  for (const r of rivers) {
-    if (!("edge" in r.params.entry)) continue;
-    const [px, py] = r.params.path[Math.min(1, r.params.path.length - 1)];
-    const reach = Math.ceil(r.params.width / 2) + 2;
-    for (let i = 0; i < W * H; i++) {
-      const x = i % W;
-      const y = (i - x) / W;
-      if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && Math.abs(x - px) <= reach && Math.abs(y - py) <= reach) sealed[i] = 1;
-    }
-  }
+  for (const r of rivers) for (const i of mouthTilesOf(r, W, H)) sealed[i] = 1;
   return sealed;
 }
 
