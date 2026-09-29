@@ -1,5 +1,11 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **2026-09-29: the notices sit under the map.** D213's No badwater line (shown when a force or Delete
+> sources takes the map's last badwater spring) sat over the top of the map and covered the force rows.
+> The notices are now a strip under the map, never over it (EDITOR_PLAN.md, the overlays list);
+> `tests/e2e/notices.spec.ts` picks each force with the line showing, wide and narrow, and fails if the
+> line overlaps any control.
+
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
 > last at ea7cf14 (housekeeping's lock removal, #72; merge 5e1a3e2). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.
 > The queue, in order (the coordinator's, 2026-09-27):

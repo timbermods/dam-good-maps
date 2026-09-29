@@ -130,6 +130,8 @@ editor is desktop-first (D185).
   .timber, History, New map).
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the
   map. Never a pop-up.
+- **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
+  over it, so they cover no control in any layout (a force's rows, the view buttons, the water bar); Hide closes it.
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
 (D184, D212, D219.)
