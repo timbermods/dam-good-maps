@@ -1,0 +1,128 @@
+{
+ "result": "PASS",
+ "note": "128², installed Chrome, real-time animation; finalMs includes worker planning and final view update from the gesture end",
+ "cases": [
+  {
+   "case": "crater-sweep-100",
+   "worn": 1296,
+   "held": 210,
+   "fell": 18,
+   "dropped": 0,
+   "ms": 31.600000001490116,
+   "checkMs": 6.5,
+   "box": {
+    "x0": 85,
+    "y0": 69,
+    "x1": 127,
+    "y1": 127
+   },
+   "finalMs": 661.3999999985099
+  },
+  {
+   "case": "crater-click-100",
+   "worn": 749,
+   "held": 145,
+   "fell": 14,
+   "dropped": 0,
+   "ms": 13.399999998509884,
+   "checkMs": 7.200000002980232,
+   "box": {
+    "x0": 85,
+    "y0": 73,
+    "x1": 127,
+    "y1": 127
+   },
+   "finalMs": 662.5
+  },
+  {
+   "case": "wash-small",
+   "worn": 490,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 10.199999995529652,
+   "checkMs": 7.200000002980232,
+   "box": {
+    "x0": 34,
+    "y0": 45,
+    "x1": 127,
+    "y1": 81
+   },
+   "finalMs": 662.1000000014901,
+   "details": {
+    "winding": 86,
+    "sideGullies": 24,
+    "dryFalls": 78,
+    "undercutBanks": 24
+   }
+  },
+  {
+   "case": "wash-giant",
+   "worn": 13415,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 23,
+   "checkMs": 4.799999997019768,
+   "box": {
+    "x0": 26,
+    "y0": 37,
+    "x1": 127,
+    "y1": 87
+   },
+   "finalMs": 659.5,
+   "details": {
+    "winding": 86,
+    "sideGullies": 24,
+    "dryFalls": 78,
+    "undercutBanks": 24
+   }
+  },
+  {
+   "case": "wash-giant-auto-seed-2",
+   "worn": 15940,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 33.599999994039536,
+   "checkMs": 4.300000004470348,
+   "box": {
+    "x0": 26,
+    "y0": 36,
+    "x1": 127,
+    "y1": 85
+   },
+   "finalMs": 660.1000000014901,
+   "details": {
+    "winding": 70,
+    "sideGullies": 56,
+    "dryFalls": 33,
+    "undercutBanks": 66
+   }
+  },
+  {
+   "case": "wash-giant-all-pinned-100",
+   "worn": 15756,
+   "held": 0,
+   "fell": 21,
+   "dropped": 0,
+   "ms": 46.099999994039536,
+   "checkMs": 9.300000004470348,
+   "box": {
+    "x0": 23,
+    "y0": 34,
+    "x1": 127,
+    "y1": 89
+   },
+   "finalMs": 658.8999999985099,
+   "details": {
+    "winding": 100,
+    "sideGullies": 100,
+    "dryFalls": 100,
+    "undercutBanks": 100
+   }
+  }
+ ],
+ "controls": "PASS: Auto value pin, Try another, persisted pins/More, immediate next operation during lingering effects, Undo/Redo/Esc",
+ "pageErrors": []
+}
