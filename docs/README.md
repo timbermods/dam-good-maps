@@ -26,6 +26,9 @@ These record what happened and why. They stay as written; superseded parts may b
 - `PLAN.md` §20, the decision log: every decision, with its date. A later decision can supersede an earlier
   one; both stay.
 - [progress/](progress/README.md): one record per milestone or step.
+- [HISTORY.md](HISTORY.md): the story of the project's identity, one short chapter per major turn, each linking to its decisions.
+- [progress-log/](progress-log/README.md): the Progress log issue (#57), copied here monthly.
+- [chats/](chats/README.md): each previous `CHAT-HANDOFF.md`, kept when it is rewritten.
 - `investigation/`: the investigations and their reports; their INTEGRATION.md files are proposals.
 - [decisions-pending.md](decisions-pending.md): open and decided questions, each with its default.
 - [ingame-log.md](ingame-log.md): in-game checks and probe batches.
