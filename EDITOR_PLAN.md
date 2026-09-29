@@ -444,7 +444,10 @@ Make a valley, drop a source, and there's a river.
     canyon keeps a modest stream and a wide river a big one, shared among its sources; Dry canyon leaves none. Its
     operation keeps the row literally (the anchor at the origin and the rest), so projects replay exactly, and a carve
     from before keeps its single source. Each source is editable afterwards like any other. Unleash places none: the
-    player's source stays the river's origin (Kyler, D314);
+    player's source stays the river's origin (Kyler, D314). A row at the map's edge must flow into the map, never
+    straight off it (D321, item 27): `core/water/edgeSources.ts` checks every force's placed sources (Carve's row,
+    Glaciate's springs) and keeps what leaks with the run (`edgeLeaks`); the fix, M9b's edge lip, plugs into its
+    `EDGE_LIP` hook once batch 5 brings it to dev (pending);
   - the visible carving effects (a surging head, crumbling blocks, dust, its muddy surge, murky for badwater), the
     camera staying where the player left it (D265: no Follow); the whole run is worked out first (its surge gathering at
     the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
