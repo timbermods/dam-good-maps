@@ -294,7 +294,7 @@ describe("a brush stroke is one operation, one undo step (D235, D338)", () => {
     const s = open();
     const [x, y] = spot(s, 12, 12, 0, false);
     const op = stroke("woods", undefined, x + 6, y + 6, 5, 0.6, "mixed", 5);
-    const plan = planPaintObjects(s, (op as { params: never }).params);
+    const plan = planPaintObjects(s, (op as Extract<EditOp, { op: "paintObjects" }>).params);
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     const n = plan.plan.length;
