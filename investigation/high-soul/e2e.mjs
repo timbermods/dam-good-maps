@@ -1,0 +1,2 @@
+import {server,DIR} from './harness.mjs';import {spawn} from 'node:child_process';import {join} from 'node:path';
+const s=await server('proposal',4972,true);try{const p=spawn(process.execPath,[join(DIR,'local/node_modules/@playwright/test/cli.js'),'test','--config',join(DIR,'playwright.config.mjs')],{stdio:'inherit'});process.exitCode=await new Promise(r=>p.on('exit',r));}finally{await s.httpServer.close();}

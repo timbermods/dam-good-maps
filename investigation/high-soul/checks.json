@@ -1,0 +1,306 @@
+{
+  "round": 3,
+  "base": "8c975822c2691edef94ff4f96217167697a91177",
+  "reference": "dd7bcbece5ea6e54cf47c0da3fdf86a3a3111849",
+  "tests": {
+    "baseline": {
+      "passed": 120,
+      "failed": 0,
+      "suites": [
+        {
+          "file": "contract/look-mine-ruins.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "contract/look-waterfalls.test.ts",
+          "passed": 3,
+          "failures": []
+        },
+        {
+          "file": "contract/look.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/brush-ring.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/highLook.test.ts",
+          "passed": 21,
+          "failures": []
+        },
+        {
+          "file": "unit/look-badwater.test.ts",
+          "passed": 9,
+          "failures": []
+        },
+        {
+          "file": "unit/look-clean.test.ts",
+          "passed": 7,
+          "failures": []
+        },
+        {
+          "file": "unit/look-mine-ruins.test.ts",
+          "passed": 14,
+          "failures": []
+        },
+        {
+          "file": "unit/look-outline.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-readable.test.ts",
+          "passed": 10,
+          "failures": []
+        },
+        {
+          "file": "unit/look-water-slopes.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-waterfalls.test.ts",
+          "passed": 22,
+          "failures": []
+        },
+        {
+          "file": "unit/look.test.ts",
+          "passed": 18,
+          "failures": []
+        }
+      ]
+    },
+    "proposal": {
+      "passed": 114,
+      "failed": 6,
+      "suites": [
+        {
+          "file": "contract/look-mine-ruins.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "contract/look-waterfalls.test.ts",
+          "passed": 3,
+          "failures": []
+        },
+        {
+          "file": "contract/look.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/brush-ring.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/highLook.test.ts",
+          "passed": 21,
+          "failures": []
+        },
+        {
+          "file": "unit/look-badwater.test.ts",
+          "passed": 9,
+          "failures": []
+        },
+        {
+          "file": "unit/look-clean.test.ts",
+          "passed": 6,
+          "failures": [
+            {
+              "name": "the clean view colours dry ground a cool grey-brown, never reddish",
+              "message": "AssertionError: expected 0.19500000000000006 to be less than 0.17"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-mine-ruins.test.ts",
+          "passed": 13,
+          "failures": [
+            {
+              "name": "ruins are a rusty skeleton with beige panels close up (Kyler's colours), and from afar a lattice block in the skeleton's own muted rust (D305)",
+              "message": "AssertionError: expected '#d4781f' to be '#8d5631' // Object.is equality"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-outline.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-readable.test.ts",
+          "passed": 7,
+          "failures": [
+            {
+              "name": "the meanings in lightness keep their order: dead trees, moist, dry ground, badwater",
+              "message": "AssertionError: expected 0.500722 to be greater than 0.516974"
+            },
+            {
+              "name": "grass and dry earth, in greyscale and every colour-blindness simulation (D324's follow-up: the rule is 0.1) tell every grass from every patch of dry earth by 10 L* and 18 in Lab, in each simulation (the lowest of them, at 0.1, is 11 and 19)",
+              "message": "AssertionError: expected 7.686463112976753 to be greater than or equal to 10"
+            },
+            {
+              "name": "contamination is a layer: the ground's own look stays under it, its veins grow denser and brighter with contamination, wet and dry contaminated ground differ, and it reads in greyscale",
+              "message": "AssertionError: expected 0.15710301200000004 to be greater than 0.2"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-water-slopes.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-waterfalls.test.ts",
+          "passed": 22,
+          "failures": []
+        },
+        {
+          "file": "unit/look.test.ts",
+          "passed": 17,
+          "failures": [
+            {
+              "name": "the ground's colours keeps the meanings apart in brightness too (greyscale): grass, earth and its cracks, contamination's veins, water",
+              "message": "AssertionError: expected 0.18809709199999997 to be greater than 0.3"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "baselineNote": "Unchanged base; baseline unit result retained from round 1.",
+  "browser": {
+    "stats": {
+      "startTime": "2026-09-29T22:42:28.457Z",
+      "duration": 30385.598,
+      "expected": 11,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "capture": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "builds": {
+      "baseline": {
+        "signature": "a8c94af41863000bcc7c0d57d79a76c0dc1de6e9c0bfd0171ba2ada449c6a466",
+        "base": "8c975822c2691edef94ff4f96217167697a91177"
+      },
+      "proposal": {
+        "signature": "a4ed88025ace3ada25ebf878b78549623890558f206be34bbe9a12cb6409ea23",
+        "base": "8c975822c2691edef94ff4f96217167697a91177"
+      }
+    },
+    "errors": []
+  },
+  "fixtures": {
+    "views": {
+      "broad-cascade": {
+        "mode": "orbit",
+        "yaw": 0.12,
+        "pitch": 0.33,
+        "distance": 54,
+        "target": [
+          24,
+          6,
+          -22
+        ],
+        "fov": 40
+      },
+      "badwater-fall": {
+        "mode": "orbit",
+        "yaw": 0.48,
+        "pitch": 0.46,
+        "distance": 43,
+        "target": [
+          24,
+          6,
+          -22
+        ],
+        "fov": 40
+      },
+      "ground-veins": {
+        "mode": "orbit",
+        "yaw": 0,
+        "pitch": 1.18,
+        "distance": 35,
+        "target": [
+          16,
+          5,
+          -12
+        ],
+        "fov": 40
+      },
+      "water-comparison": {
+        "mode": "orbit",
+        "yaw": 0,
+        "pitch": 0.85,
+        "distance": 49,
+        "target": [
+          24,
+          4,
+          -16
+        ],
+        "fov": 40
+      }
+    },
+    "waterPixels": {
+      "cleanDeep": {
+        "pixel": [
+          543.7562519949665,
+          423.33985036202455
+        ],
+        "medianDisplayLuma": 31.197199999999995,
+        "p05": 24.333599999999997,
+        "p95": 44.337599999999995
+      },
+      "cleanShallow": {
+        "pixel": [
+          596.680422321986,
+          188.698426037332
+        ],
+        "medianDisplayLuma": 52.003,
+        "p05": 40.9898,
+        "p95": 68.5056
+      },
+      "badDeep": {
+        "pixel": [
+          1013.5364566708612,
+          423.33985036202455
+        ],
+        "medianDisplayLuma": 33.9646,
+        "p05": 24.8202,
+        "p95": 47.526199999999996
+      },
+      "badShallow": {
+        "pixel": [
+          969.432981398345,
+          188.698426037332
+        ],
+        "medianDisplayLuma": 40.168,
+        "p05": 25.0328,
+        "p95": 55.300399999999996
+      }
+    },
+    "errors": []
+  },
+  "typecheck": "Typecheck passed against proposal modules.",
+  "sheets": {
+    "updatedThisRound": [
+      "pair-1",
+      "pair-2",
+      "ground-veins",
+      "highlands-fall",
+      "broad-cascade"
+    ],
+    "otherSheets": "Retained round-2 evidence",
+    "count": 11,
+    "bytes": 2130596
+  }
+}

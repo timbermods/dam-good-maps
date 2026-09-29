@@ -1,0 +1,10 @@
+import {server,browser,open,shot,DIR} from './harness.mjs';import {readFileSync,writeFileSync} from 'node:fs';import {join} from 'node:path';import {PerspectiveCamera,Vector3} from './local/node_modules/three/build/three.module.js';
+const views=JSON.parse(readFileSync(join(DIR,'views.json'))),s=await server('baseline',4971,true),b=await browser();
+try{let p=await b.newPage({viewport:{width:1600,height:670}});await open(p,4971);await shot(p,views.close,join(DIR,'local/close-fit-before.jpg'));
+// Corresponding terrain landmarks, hand located in pair-2 and the fitted product frame.
+const samples=[{from:[409,259],to:[447,273],name:'left fall brink'},{from:[1014,224],to:[1044,209],name:'right fall brink'},{from:[917,475],to:[1070,483],name:'island east tip'},{from:[429,505],to:[637,578],name:'start ground'}];
+const points=await p.evaluate(samples=>samples.map(s=>({...s,point:window.dgm3d.renderer.pick(...s.from)?.point})),samples);
+function err(a){const[yaw,pitch,dist,tx,ty,tz,fov]=a,c=new PerspectiveCamera(fov,1600/670,.1,4000);c.position.set(tx+Math.sin(yaw)*Math.cos(pitch)*dist,ty+Math.sin(pitch)*dist,tz+Math.cos(yaw)*Math.cos(pitch)*dist);c.lookAt(tx,ty,tz);c.updateMatrixWorld();return points.reduce((s,p)=>{let q=new Vector3(...p.point).project(c);return s+((q.x+1)*800-p.to[0])**2+((1-q.y)*335-p.to[1])**2},0)}
+let v=views.close,a=[v.yaw,v.pitch,v.distance,...v.target,v.fov],step=[.035,.03,5,2,1,2,1];for(let round=0;round<350;round++){let changed=false;for(let i=0;i<a.length;i++)for(const dir of[-1,1]){let c=[...a];c[i]+=dir*step[i];if(c[6]<25||c[6]>70||c[2]<15)continue;if(err(c)<err(a)){a=c;changed=true}}if(!changed)step=step.map(s=>s*.85)}
+views.close={mode:'orbit',yaw:a[0],pitch:a[1],distance:a[2],target:a.slice(3,6),fov:a[6]};views.closeFit={rms:Math.sqrt(err(a)/points.length),points,note:'Hand-selected corresponding terrain points; approximate, because saved game camera/FOV is absent.'};console.log(views.close,views.closeFit.rms,points);await shot(p,views.close,join(DIR,'local/close-fit-after.jpg'));writeFileSync(join(DIR,'views.json'),JSON.stringify(views,null,2)+'\n');
+}finally{await b.close();await s.httpServer.close()}
