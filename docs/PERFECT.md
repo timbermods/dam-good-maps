@@ -36,6 +36,27 @@ The game's difficulty setting governs the game's difficulty. On the map, challen
 3. It's a canvas to reimagine: every tool and force works on it like any map, so a player can put a crater in Yosemite Valley and build a mega dam.
 4. The beauty of real places is the unique composition of terrain features. It's wonderful if it's playable, but not meeting the cutoff should not disqualify the place; the editor can fix shortcomings if a place is interesting enough to want to play.
 
+## Playing it
+What makes a map good to play (Kyler, feedback item 47; PLAN §20 D325). Applied in M9b and in Real places.
+
+Every generated map and real place has:
+* Enough wood in the starting zone (the starting-logs floor).
+* Berries near the start, enough for an Iron Teeth start.
+* At least two mine sites, reachable.
+* At least one badwater source, and fresh water the start can pump.
+
+Players hate, so these are rules:
+* Land built at the bottom: the deepest riverbed stands at least 3 levels above the map's floor, so there is room to dig and terraform early.
+* Badwater running far across the map: it stays contained, never crosses the start's water or first farmland, and how much land it reaches is reported per theme.
+* Stairs in the early game: the start's wood, berries, water and first farmland are reachable on foot, counting natural slopes.
+* Heavy terraforming to get going: the start has enough level buildable land for its first buildings.
+
+Players enjoy, so these are added or kept:
+* A good second district site close to the start, behind a small obstacle cleared early (debris, a ditch, trees).
+* High ground next to low, for gravity batteries.
+
+A map's difficulty comes from five levers: farmable land at the start, distance to the nearest metal, distance to the nearest badwater, how easily the start can be sheltered from a badtide, and how much easily buildable land there is. They are measured and shown only in "The page is the editor" (D325).
+
 ## The look
 1. It reads instantly as Timberborn, only cleaner.
 2. Nothing looks flat, plastic or wrong next to the game.
