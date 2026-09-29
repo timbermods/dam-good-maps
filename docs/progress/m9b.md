@@ -74,6 +74,45 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   Berries near start, Lakes and basins, Waterfalls, Mine sites, and one Verticality map failing a
   check; their targets want deciding (D148) with the release candidate's batches.
 
+## D333: M9b's answers (Kyler, 2026-09-29)
+
+### The pooled probe (D308 (2), D333 (1)): run m9b-20260929b, on 7695e6a8
+
+18 maps (the catalog's `M9b` group: two per theme at 128², two chaos maps at 256², two with
+Sources: None), played with Kyler's installed mods on his yes; the restore was clean (only Steam's
+`steam_autocloud.vdf` changed). Results in `C:\dgm-probe\results\m9b-20260929b\`. **14 of 18
+pass every check** (load, objects, water, terrain, cal-timeline, drought-start-water,
+m9a-badwater), both chaos maps with them.
+
+- **The two Sources: None maps "failed" water on 0 of 0 wet tiles** (the game and the model both
+  dry): the check read an empty map's volume as a failure. Now a map dry in the file and in the
+  game holds, and water on one side only fails (`compare.ts` `waterHolds`, with a self-test).
+- **River Valley 128² seed 2 and Lake Basin 128² seed 2 fail cal-timeline after the drought's
+  refill** (day 7 on): wet tiles, judged as D297 judges them, 646 in the game against 679 in the
+  model (5.2%) and 3,159 against 3,412 (7.6%); the water 3.4% and 3.5% apart. Both agree through
+  the drought. Tile by tile (`investigation/m9b/local/refill.ts`), every extra tile of the model's
+  lies in a thin sheet on a flat standing level with the water: River Valley's 728 tiles of the
+  level-4 flat round a tributary running on that flat (its bed the flat's level, its surface 4.04–
+  4.26; the file had 0.039 there, the game 0.044 or dry, the model 0.060); Lake Basin's level-7 and
+  level-8 shelves under a lake at 8.07 (the file 0.075–0.098, the game dry, the model 0.08–0.10).
+  Such a flat has two steady states under the game's spill threshold (a dry tile of the same floor
+  takes water only when the water beside it stands 0.1 higher): wet if it was wet, dry if it dried.
+  The drought dries it in both; on the refill the model re-wets it and the game mostly doesn't,
+  hundredths apart in a transient: D311's known weak spot, thin sheets, not a water rule. What a
+  player sees is the game's: water on those flats at the start that the first drought takes for
+  good. Thin sheets (under 0.1 deep over 20+ tiles of one level, `sheets.ts`) are on 59 of 70 first
+  maps at 128² (River Valley's median 1,310 tiles), and were on 52 of 70 before batch 5. The fix
+  belongs to the generator (no flat level with a water surface), not the model; below.
+- The runner's self-test: the High terrain group's test mesa covered Highlands 4242's start (moved
+  by generator 0.8.0); the mesa now stands at the first of a few places 30+ tiles from the start.
+
+### Items 24's and 47's numbers reach the page (#92)
+
+The worker's `GenerateResponse` carries `walkReach` and `levers` (the shapes of
+`PlayabilityAnalysis`, which "The page is the editor" part 1's map card mirrors) for every map it
+sends: a generated one, a version the background search found, a sibling, an edited document
+(`tests/contract/levers.test.ts`).
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows

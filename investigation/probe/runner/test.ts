@@ -84,6 +84,10 @@ async function main(): Promise<void> {
   code = consent.requestConsent(plan);
   check('consent: right plan accepted once', consent.consumeConsent(plan, code) && !consent.consumeConsent(plan, code));
   check('consent: the description says it launches Timberborn', /LAUNCHES TIMBERBORN/.test(consent.describe(plan)));
+  // the water check on a map with no water (Sources: None, D330): dry in the file and the game holds
+  const dry = { wetEither: 0, within01: 1, maxAbs: 0, meanAbs: 0, volumeFile: 0, volumeGame: 0, worst: '-' };
+  check('water: dry in the file and in the game holds', compare.waterHolds(dry));
+  check('water: water on one side only fails', !compare.waterHolds({ ...dry, volumeGame: 3, wetEither: 10, within01: 0 }) && !compare.waterHolds({ ...dry, volumeFile: 3, wetEither: 10, within01: 0 }));
 
   // 3. the catalog builds every game's job offline (maps generated, poses, moments)
   const t0 = Date.now();

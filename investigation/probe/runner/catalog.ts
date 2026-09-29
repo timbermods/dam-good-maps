@@ -391,11 +391,27 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     bytes: memo(() => raised(generated('canyon', 4242, 128), 5, 'DGM Probe high-terrain test: Canyon (4242) 128², every column raised 5 levels (terrain up to 21).')),
     faction: 'Folktails', mode: 'Normal', cycles: [calm], days: 1, tiles: () => [], sampleHours: 6, snapshotsAt: [0.5, 1], checks: HIGH,
   });
+  // (the mesa stands at (53, 107) where the start leaves room; generator 0.8.0 put Highlands 4242's
+  // start there, so the first of a few places 30+ tiles from it)
+  const mesaBase = memo(() => generated('highlands', 4242, 128));
+  const mesaAt = memo((): [number, number] => {
+    const st = readMapBytes(mesaBase(), 'mesa-base.timber').start;
+    const spots: [number, number][] = [[53, 107], [96, 100], [32, 32], [100, 32], [64, 64], [30, 90]];
+    return spots.find(([x, y]) => !st || Math.max(Math.abs(st.x - x), Math.abs(st.y - y)) >= 30) ?? spots[0];
+  });
   games.push({
     id: 'high-highlands-mesa21', title: 'High terrain · Highlands 128² with a level-21 mesa, a spring, trees and a bush on top', group: 'High terrain',
-    bytes: memo(() => mesa(generated('highlands', 4242, 128), 53, 107, 21, 'DGM Probe high-terrain test: Highlands (4242) 128² with a stepped mesa rising to level 21 at (53, 107), a spring in a pit on its top, and trees and a bush up there.')),
-    faction: 'Folktails', mode: 'Normal', cycles: [calm], days: 1.5, tiles: () => [[53, 107], [52, 106], [49, 103], [57, 111], [56, 107]], sampleHours: 2, snapshotsAt: [0.5, 1, 1.5],
-    poses: (m) => [{ id: 'mesa', kind: 'look', target: at(m, 53, 107), yaw: GAME_YAW, pitch: deg(40), distance: 60, fovY: 40, width: 1280, height: 800 }],
+    bytes: memo(() => {
+      const [x, y] = mesaAt();
+      return mesa(mesaBase(), x, y, 21, `DGM Probe high-terrain test: Highlands (4242) 128² with a stepped mesa rising to level 21 at (${x}, ${y}), a spring in a pit on its top, and trees and a bush up there.`);
+    }),
+    faction: 'Folktails', mode: 'Normal', cycles: [calm], days: 1.5,
+    tiles: () => {
+      const [x, y] = mesaAt();
+      return [[x, y], [x - 1, y - 1], [x - 4, y - 4], [x + 4, y + 4], [x + 3, y]];
+    },
+    sampleHours: 2, snapshotsAt: [0.5, 1, 1.5],
+    poses: (m) => [{ id: 'mesa', kind: 'look', target: at(m, ...mesaAt()), yaw: GAME_YAW, pitch: deg(40), distance: 60, fovY: 40, width: 1280, height: 800 }],
     checks: HIGH,
   });
 

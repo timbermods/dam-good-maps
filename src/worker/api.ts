@@ -86,6 +86,13 @@ export interface GenerateResponse {
   edits: number;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
+  /** Items 24's and 47's numbers (information, D325; the map card of "The page is the editor", #92,
+   *  reads them): the trees within the starting-logs floor's walk and their logs, the farmland and
+   *  level building land within 20 tiles' walk; and the five difficulty levers. The shapes of
+   *  `PlayabilityAnalysis`; null without a start. Every map carries them: generated, a background
+   *  version, a sibling, an edited document. */
+  walkReach: PlayabilityAnalysis["walkReach"];
+  levers: PlayabilityAnalysis["levers"];
   /** D329: the outcomes a generated map missed, when a background search for a version meeting
    *  them all is worth starting, and the note that version gets ("A version with its sea is ready"),
    *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
@@ -195,6 +202,8 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     ms: r.ms,
     edits: r.edits,
     intentions: r.intentions ?? [],
+    walkReach: a?.walkReach ? { ...a.walkReach } : null,
+    levers: a?.levers ? { ...a.levers } : null,
   };
 }
 
