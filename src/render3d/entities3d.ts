@@ -317,8 +317,9 @@ const MODELS: Record<string, () => Model> = {
     }
     m.add(box(2.14, 0.05, 2.14), [0.22, 0.085, 0.07], { y: 0.155 });
     m.add(ico(0.8), [0.31, 0.11, 0.09], { y: 0.17, sy: 0.3 });
-    const bubbles: [number, number, number][] = [[0.25, 0.2, 0.17], [-0.45, -0.1, 0.13], [0.1, -0.5, 0.11], [-0.2, 0.55, 0.15], [0.62, -0.42, 0.1], [-0.7, 0.4, 0.09], [0.55, 0.62, 0.12]];
-    for (const [x, z, r] of bubbles) m.add(ico(r), [0.56, 0.29, 0.13], { x, y: 0.24, z, sy: 0.7 });
+    const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
+    // (orange-brown, and no lighter than the mine test allows: a badwater source stays far darker than a mine's pale wood)
+    for (const [x, z, r] of bubbles) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.25, z, sy: 0.9 });
     return m;
   },
   UndergroundRuins: () => mineSite(),

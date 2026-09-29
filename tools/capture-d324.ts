@@ -8,7 +8,7 @@
 //   mkdir -p .scratch/before-d324 && tar -xf .scratch/before-d324.tar -C .scratch/before-d324
 //   npx tsx tools/capture-d324.ts [--before .scratch/before-d324] [--out docs/look/high] [--only water,clear,land,falls,sources]
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
@@ -21,6 +21,11 @@ const BEFORE = resolve(arg("before") ?? ".scratch/before-d324");
 const OUT = arg("out") ?? "docs/look/high";
 const ONLY = arg("only")?.split(",");
 const PORT = Number(arg("port") ?? 4971);
+/** Keep the before shots in .scratch/d324-before, and with --reuse-before use them instead of drawing the before site again. */
+const REUSE = process.argv.includes("--reuse-before");
+const CACHE = ".scratch/d324-before";
+/** Only this checkout, full-size PNGs into the given folder (for looking at, not for committing). */
+const RAW = arg("raw");
 const VIEWPORT = { width: 1280, height: 800 };
 const CLOCK = 12.5;
 const GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"];
@@ -178,7 +183,8 @@ const COMPOSE_JS = `async ({ images, labels, cols, scale, quality }) => {
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
-  const before = await site(BEFORE, "before", PORT);
+  mkdirSync(CACHE, { recursive: true });
+  const before = REUSE || RAW ? null : await site(BEFORE, "before", PORT);
   const after = await site(resolve("."), "after", PORT + 1);
   let browser: Browser | null = null;
   try {
@@ -189,7 +195,7 @@ async function main() {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     const tool = await browser.newPage();
-    await tool.goto(`http://localhost:${PORT}/`);
+    await tool.goto(`http://localhost:${PORT + 1}/`);
     for (const set of SETS) {
       if (ONLY && !ONLY.includes(set.id)) continue;
       console.log(set.id);
@@ -197,7 +203,16 @@ async function main() {
       const cells: Buffer[][] = set.rows.map(() => []);
       const labels: string[][] = set.rows.map(() => []);
       for (const [side, port] of [["before", PORT], ["after", PORT + 1]] as const) {
+        if (RAW && side === "before") continue;
         for (const [k, row] of set.rows.entries()) {
+          if (side === "before" && REUSE) {
+            for (const [look, name] of [["standard", "Standard"], ["high", "High"]] as const) {
+              const idx = look === "high" ? 2 : 0;
+              cells[k][idx] = readFileSync(join(CACHE, `${set.id}-${k}-${look}.png`));
+              labels[k][idx] = `${name}, before: ${row.label}`;
+            }
+            continue;
+          }
           await open(page, port, row.fragment);
           for (const [look, name] of [["standard", "Standard"], ["high", "High"]] as const) {
             await setLook(page, look);
@@ -205,10 +220,13 @@ async function main() {
             if (!v) throw new Error(`no ${row.kind} view on ${row.fragment}`);
             const idx = (look === "high" ? 2 : 0) + (side === "after" ? 1 : 0);
             cells[k][idx] = await shot(page, v, !!row.clear);
+            if (RAW) (mkdirSync(RAW, { recursive: true }), writeFileSync(join(RAW, `${set.id}-${k}-${look}.png`), cells[k][idx]));
+            if (side === "before") writeFileSync(join(CACHE, `${set.id}-${k}-${look}.png`), cells[k][idx]);
             labels[k][idx] = `${name}, ${side}: ${row.label}`;
           }
         }
       }
+      if (RAW) continue;
       // columns: Standard before, Standard after, High before, High after
       const images = cells.flat();
       const b64 = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: images.map((b) => b.toString("base64")), labels: labels.flat(), cols: 4, scale: 0.36, quality: 78 })})`)) as string;
@@ -219,7 +237,7 @@ async function main() {
     if (errors.length) console.log(`page errors: ${errors.join("; ")}`);
   } finally {
     await browser?.close();
-    await before.close();
+    await before?.close();
     await after.close();
   }
 }

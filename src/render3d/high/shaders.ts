@@ -455,19 +455,8 @@ const BUBBLES_GLSL = /* glsl */ `
 export function fallHooks(): ShaderHooks {
   return {
     ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
-    // D324 (feedback item 4, "too white"): falling water keeps its teal, with white streaks; foam
-    // where it lands; a one-level spill is gentle; and a cascade never stacks into a white wall
-    // (each step's whitewater is held down, the tall ones less than the short)
-    fallAmount: /* glsl */ `        if (hlWater > 0.5) {
-          float gentle = 1.0 - smoothstep(1.0, 2.2, h);
-          amount *= mix(0.86, 0.5, gentle);
-        }
-`,
-    fallSheet: /* glsl */ `          if (hlWater > 0.5) {
-            float gentleSpill = 1.0 - smoothstep(1.0, 2.2, h);
-            foam = min(foam, mix(0.62, 0.3, gentleSpill)) * mix(1.0, 0.6, gentleSpill);
-          }
-`,
+    // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
+    // gives the sheet its own water teal
     fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, badwaterBody(0.25), cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
     // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
     fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
@@ -538,7 +527,7 @@ export function slopeHooks(): ShaderHooks {
       float packed = floor(texture2D(tileTex, (floor(g) + 0.5) / mapSize).g * 255.0 + 0.5);
       float moist = step(1.0, floor(packed / 16.0));
       float grass = smoothstep(0.66, 0.96, hlLocal.z + 0.5 + (grain - 0.5) * 0.15) * moist;
-      color = mix(color, mix(vec3(0.60, 0.66, 0.31), vec3(0.56, 0.66, 0.26), earthPatch) * (0.87 + 0.14 * grain), grass);
+      color = mix(color, mix(vec3(0.55, 0.68, 0.36), vec3(0.51, 0.675, 0.335), earthPatch) * (0.87 + 0.14 * grain), grass);
     }
     return color;
   }`,

@@ -2,8 +2,7 @@
 
 > **Top note (2026-09-29, batch 4, D324): built on this branch, still a draft and held for Kyler's High look sitting.**
 > D310's option (a) (the mine pit's earth, then badwater, then the clean shallows, every readability rule at its old
-> strictness), item 5 (no hatching on badwater), item 10 (the land toward the game's, both looks), item 4 (High's falls
-> keep their teal and stay calm; D231's three foam issues were already in High), item 28 (sources as stone basins, both
+> strictness), item 5 (no hatching on badwater), item 10 (the land toward the game's, both looks), item 4 (falls keep their teal and stay calm, both looks; D231's three foam issues were already in High), item 28 (sources as stone basins, both
 > looks) and badwater's calibration re-measured once; item 3 waits for the sitting. Captures: `docs/look/high/d324-*.jpg`,
 > and every capture and the greyscale and colour-blindness sheets recaptured. See "D324 (batch 4)" below. **Standard now
 > differs from dev in more than water and ruins** (D324 amends D242/D284's "Standard stays exactly as it is" for items 5,
@@ -253,25 +252,31 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
     clean clear water over three beds in every simulation, and that no water shader carries a stripe. The greyscale and
     colour-blindness sheets in this folder are recaptured.
   - **Item 10, the land toward the game's** (both looks; the palette is shared). Sampled Kyler's screenshots in
-    `C:\dgm-reference` (numbers only; looked at, not copied): the game's dry ground reads about `#6C6862` (L\* 44, hue
-    30, saturation 0.05 to 0.15) against ours `#6B5F56` (L\* 41); its lit grass L\* 50 to 55 (hue 70) against ours L\* 63;
-    its cliff faces dark blue-grey-green (L\* 22 to 24; ours neutral grey). Moved by relationships: dry earth a little
-    lighter and greyer (`GROUND.dry` L\* 43.4 to about 46), cliff stone lighter and bluer (`WALL.stone`), and grass a touch
-    lighter as Kyler asked (+ about 2.5 L\*, which the rule that grass stays 0.2 lighter than dry earth needs anyway).
-    **Worth Kyler's eye:** measured, our lit grass was already lighter than the game's in the screenshots here; I lifted
-    it only the touch he asked for. The faint contamination veins' glow on dry earth went up (`glowDry` 0.45 to 0.55) so a
-    faint vein stays a light line on the lighter earth (`look-readable.test.ts`).
-  - **Item 4, waterfalls too white (High).** D231's three foam issues were already built in High (the crown continuous
-    along joined falls, an irregular landing, bubbly froth); this adds the rest: the sheet takes High's water teal, its
-    foam is capped so the teal shows between white streaks, a one-level spill is gentle (the foam and the landing's
-    whitewater halved), and each step of a cascade holds its whitewater down so steps don't stack into a wall
-    (`fallAmount`, `fallSheet` and `fallBody` hooks under High's Water switch). Standard's falls are as they were (item 4
-    is not in D324's list of both-look items).
-  - **Item 28, sources drawn like the game's (both looks).** A stone basin (four blocks, corner stones) with water
-    welling up in a dome over a spout, rings spreading from it; a badwater source a dark stone basin over its true 3 x 3
-    footprint (a stained rim of blocks and boulders, a crimson pool, a boiling dome, orange-brown bubbles). Models of
-    our own, in `entities3d.ts` (Standard) and `high/landmarks.ts` (High); Markers keeps its labels. On these maps a
-    source sits under water, so the captures show it with clear water (T).
+    `C:\dgm-reference` (numbers only; looked at, not copied). The game's dry ground is a neutral, slightly violet grey
+    (`#6C6862`, L\* 44, saturation 0.05, with tan patches); its lit grass a muted green, L\* 50 to 55, hue 70 to 110; its
+    cliff faces dark blue-grey-green. **Follow-up after Kyler's look beside the game:** the first pass still read brown on
+    screen (`#6B5F56` Standard, `#816F5D` High, saturation 0.15), so dry earth (`GROUND.dry` and its patches) is now a
+    neutral grey-beige: on screen `#6A655F` Standard (game `#6C6862`), saturation 0.05. Grass is less yellow: hue 75
+    to 88 degrees and saturation 0.43 to 0.33 on screen, palette `moistLow`/`moistHigh` `[0.55,0.68,0.36]`/`[0.51,0.675,0.335]`.
+    **Its lightness is capped, not matched:** the tested rule that grass stays 0.2 lighter than dry earth in greyscale
+    (`look-readable.test.ts`) against dry earth at the game's own lightness holds grass at about the lightness it had
+    (L\* about 58 Standard, 63 High on screen, against the game's 50 to 55); the game's grass is only about 8 L\* over its dry
+    earth. Matching it needs that rule loosened (to about 0.1), which is Kyler's call. Cliff stone is lighter and bluer
+    (`WALL.stone`). The faint contamination veins' glow on dry earth went up (`glowDry` 0.45 to 0.55) so a faint vein stays a
+    light line.
+  - **Item 4, waterfalls too white (both looks, after Kyler's follow-up).** D231's three foam issues were already
+    built in High (the crown continuous along joined falls, an irregular landing, bubbly froth). The falling sheet now
+    reads as teal water first, in both looks (`fallMaterial`): its white only in distinct streaks (`whiteStreak`), at the
+    brink and at the foot, the body more opaque (`WATER_FALL.clear` 0.28 to 0.4, so the dark cliff no longer dims it);
+    a one-level spill is gentle (foam and the landing's whitewater held down); each step of a cascade holds its
+    whitewater down so steps do not stack into a wall. High also gives the sheet its own water teal (`fallBody`).
+  - **Item 28, sources drawn like the game's (both looks).** A stone basin (four clean blocks, corner stones) with
+    water welling up in a dome over a spout, rings spreading from it; a badwater source a dark stone basin over its true
+    3 x 3 footprint (a rim of blocks and boulders, a crimson pool, a boiling dome, orange-brown bubbles you can see).
+    Models of our own: High's (`high/landmarks.ts`) follows Standard's (`entities3d.ts`) design, in High's materials
+    and lighting (a first High version, a pile of stones round a ball, was replaced). The bubbles stay no lighter than the
+    mine test allows a badwater source to be. On these maps a source sits under water, so the captures show it with clear
+    water (T).
   - **Badwater's calibration targets, re-measured once** after everything above (`tools/capture-badwater.ts --measure`,
     Standard held): badwater's typical `#612E2B` (was `#6E3431`), trough `#532926` (was `#5E2E2B`), streak `#6E3D32` (was
     `#7C4538`); clean water's quarter-level body `#3D6B76` (was `#3E707C`; the 1.25 and 4.25 deep ones did not move).

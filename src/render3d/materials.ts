@@ -370,10 +370,6 @@ export interface ShaderHooks {
   crownNoise?: string;
   /** Before the crown's colour (foam, swirl, up, bil). */
   crownFoam?: string;
-  /** After the whitewater's amount is set (amount, h: the drop in levels, strength, bad). */
-  fallAmount?: string;
-  /** After the sheet's foam is set, before its colour (foam, h, arc, streak, bad). */
-  fallSheet?: string;
   /** The sheet's translucent body colour (an expression; Standard: clean water's `WATER_SHALLOW`). */
   fallBody?: string;
   /** After the splash's froth (broken, tail, froth, g, t). */
@@ -1228,7 +1224,11 @@ ${hook(h, "fallVertex")}        vNormal = n;
         vec3 foamColour = mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.92 + 0.08 * lit);
         // whitewater where it lands: more for stronger and taller falls
         float amount = clamp(0.78 + 0.2 * strength + 0.04 * min(h, 6.0), 0.75, 1.0) * (1.0 - 0.3 * bad);
-${hook(h, "fallAmount")}        vec3 c;
+        // (D324, feedback items 4 and 2: a one-level spill is gentle, and each step of a cascade holds
+        // its whitewater down, so steps never stack into a white wall)
+        float gentle = 1.0 - smoothstep(1.0, 2.2, h);
+        amount *= mix(0.86, 0.5, gentle);
+        vec3 c;
         float alpha;
         if (kind > 4.5) {
           // the crown: whitewater thrown up and out along the impact line, billowing, with spray
@@ -1300,13 +1300,16 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           float lip = 1.0 - smoothstep(0.08 + 0.1 * rag, 0.3 + 0.2 * rag + 0.1 * strength, arc);
           float aerate = smoothstep(0.2, 2.0, arc);
           float foot = 1.0 - smoothstep(0.05, 0.55 + 0.35 * strength, above);
-          float foam = clamp(streak * (0.35 + 0.5 * aerate) + lip * 0.85 + foot * (0.7 + 0.3 * streak), 0.0, 1.0);
-          foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak);
-${hook(h, "fallSheet")}          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
+          // (D324: the falling sheet reads as teal water first, its white only in streaks, at the brink
+          // and at the foot; never a white curtain)
+          float whiteStreak = smoothstep(0.55, 0.9, streak);
+          float foam = clamp(whiteStreak * (0.22 + 0.3 * aerate) + lip * 0.7 + foot * (0.6 + 0.25 * streak), 0.0, 1.0);
+          foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak) * mix(1.0, 0.55, gentle);
+          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
           // thicker where seen edge-on (where it curves over the brink, and at its ends)
           vec3 body = ${hook(h, "fallBody", "waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)")};
           vec3 streaks = mix(WATER_FOAM, badwaterShade(BADWATER_STREAK, 0.25), bad);
-          c = mix(body, streaks, streak * 0.35) * light;
+          c = mix(body, streaks, whiteStreak * 0.3) * light;
           c = mix(c, foamColour, foam);
           float edgeOn = 1.0 - max(dot(N, V), 0.0);
           alpha = mix(FALL_CLEAR, FALL_STREAK, streak);

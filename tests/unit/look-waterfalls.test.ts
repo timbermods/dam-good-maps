@@ -13,7 +13,7 @@ import { arcLength, arcPoint, END, FALL_MIN, FALL_SHAPE, FALL_SPLASH, FALL_STRID
 import { fallMaterial, sceneUniforms } from "../../src/render3d/materials";
 import { surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
 import { changedWaterChunks, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
-import { CLEAR_WATER, WATER, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
+import { CLEAR_WATER, WATER, WATER_FALL, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
 import { DT } from "../../src/core/sim/water";
 
 /** A map of heights (rows from y = 0) with water `depth` deep on every tile where `wet` says. */
@@ -489,6 +489,16 @@ describe("a fall's colours", () => {
       expect(m.transparent).toBe(true);
       expect(m.depthWrite).toBe(false);
     }
+  });
+
+  it("read as teal water first: white only in streaks, at the brink and at the foot, gentle on a one-level spill, in both looks (D324, feedback items 4 and 2)", () => {
+    for (const lite of [false, true]) {
+      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
+      for (const use of ["whiteStreak", "float gentle = 1.0 - smoothstep(1.0, 2.2, h);", "amount *= mix(0.86, 0.5, gentle);", "mix(1.0, 0.55, gentle)"]) expect(m.fragmentShader).toContain(use);
+      // the sheet's body stays well opaque, so the cliff behind it does not turn it dark
+      expect(WATER_GLSL).toContain(`#define FALL_CLEAR ${WATER_FALL.clear}`);
+    }
+    expect(WATER_FALL.clear).toBeGreaterThanOrEqual(0.4);
   });
 
   it("turn see-through with clear water (T, or round the brush), and a fall is cut at the slice, as the water is", () => {

@@ -9,7 +9,7 @@
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
-import { badwaterBody, GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, START, THORNS, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, START, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -150,33 +150,30 @@ function relic(type: string): BufferGeometry {
 }
 
 function badSource(): BufferGeometry {
+  // a dark stone basin over the whole 3 × 3 footprint, as Standard draws it (D324, feedback item 28 and
+  // its follow-up): a clean rim of blocks and boulders round a crimson pool, the badwater boiling up
+  // in a low dome with orange-brown bubbles you can see; High's materials and lighting do the rest
   const m = new Parts();
-  // a dark stone basin over the whole 3 × 3 footprint (D324, feedback item 28): a stained rim of
-  // chipped blocks and boulders round a crimson pool, the badwater boiling up in a low dome with
-  // slow orange-brown bubbles
+  const rim: Rgb = [0.25, 0.22, 0.2];
   m.box(2.96, 0.1, 2.96, [0.13, 0.11, 0.1], 0, 0.05);
-  for (let k = 0; k < 7; k++) {
-    const t = -1.27 + (k * 2.54) / 6;
-    const w = 0.42 + hash(k + 3) * 0.1;
-    const rimColour = (n: number) => shade([0.25, 0.22, 0.2], 0.85 + hash(n) * 0.3);
-    m.box(w, 0.24 + hash(k) * 0.06, 0.4, rimColour(k), t, 0.22, -1.27, 0, (hash(k + 9) - 0.5) * 0.2);
-    m.box(w, 0.24 + hash(k + 20) * 0.06, 0.4, rimColour(k + 20), t, 0.22, 1.27, 0, (hash(k + 29) - 0.5) * 0.2);
-    if (k > 0 && k < 6) {
-      m.box(0.4, 0.24 + hash(k + 40) * 0.06, w, rimColour(k + 40), -1.27, 0.22, t, 0, (hash(k + 49) - 0.5) * 0.2);
-      m.box(0.4, 0.24 + hash(k + 60) * 0.06, w, rimColour(k + 60), 1.27, 0.22, t, 0, (hash(k + 69) - 0.5) * 0.2);
+  for (const s of [-1, 1]) {
+    m.box(2.96, 0.26, 0.42, rim, 0, 0.23, s * 1.27);
+    m.box(0.42, 0.26, 2.12, rim, s * 1.27, 0.23, 0);
+    for (const c of [-1, 1]) {
+      const g = new IcosahedronGeometry(0.38, 0);
+      g.scale(1, 0.75, 1);
+      m.add(g, [0.3, 0.26, 0.23], c * 1.28, 0.3, s * 1.28, 0, 0.4 * c * s);
     }
   }
-  for (let k = 0; k < 4; k++) rock(m, k % 2 ? 1.3 : -1.3, 0.3, k < 2 ? -1.3 : 1.3, 0.38, [0.3, 0.26, 0.23], k, 1);
-  m.box(2.14, 0.05, 2.14, badwaterBody(0.8), 0, 0.15);
+  m.box(2.14, 0.05, 2.14, [0.22, 0.085, 0.07], 0, 0.155);
   const dome = new IcosahedronGeometry(0.8, 1);
-  dome.scale(1, 0.26, 1);
-  m.add(dome, shade(badwaterBody(0.3), 1.05), 0, 0.17);
-  for (let k = 0; k < 9; k++) {
-    const a = k * 2.4;
-    const r = 0.15 + hash(k + 33) * 0.78;
-    const b = new IcosahedronGeometry(0.08 + hash(k) * 0.1, 1);
-    b.scale(1, 0.7, 1);
-    m.add(b, [0.56, 0.29, 0.13], Math.sin(a) * r, 0.23, Math.cos(a) * r);
+  dome.scale(1, 0.3, 1);
+  m.add(dome, [0.31, 0.11, 0.09], 0, 0.17);
+  const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
+  for (const [x, z, r] of bubbles) {
+    const b = new IcosahedronGeometry(r, 1);
+    b.scale(1, 0.85, 1);
+    m.add(b, [0.62, 0.3, 0.1], x, 0.25, z);
   }
   return m.geometry();
 }
@@ -202,25 +199,24 @@ function bramble(): BufferGeometry {
 
 function source(bad: boolean): BufferGeometry {
   if (bad) return badSource();
-  // a stone basin with water welling up (D324, feedback item 28): chipped blocks round a pool, the
-  // water domed over a small spout, rings spreading from it
+  // a stone basin with water welling up, as Standard draws it (D324, feedback item 28 and its follow-up):
+  // four clean blocks round a pool, corner stones, the water domed in the middle over a small spout,
+  // rings spreading from it; in High's materials and lighting
   const m = new Parts();
   const stone: Rgb = [0.5, 0.52, 0.52];
   m.box(0.98, 0.1, 0.98, [0.34, 0.36, 0.37], 0, 0.05);
-  for (let k = 0; k < 8; k++) {
-    const a = (k * Math.PI * 2) / 8 + 0.39;
-    const along = Math.abs(Math.cos(a)) > Math.abs(Math.sin(a));
-    const x = Math.cos(a) * 0.4 * (along ? 1.16 : 0.86);
-    const z = Math.sin(a) * 0.4 * (along ? 0.86 : 1.16);
-    m.box(0.3, 0.2 + hash(k) * 0.07, 0.3, shade(stone, 0.85 + hash(k + 7) * 0.3), x, 0.19, z, 0, a + hash(k + 3) * 0.3);
+  for (const s of [-1, 1]) {
+    m.box(0.98, 0.18, 0.2, stone, 0, 0.19, s * 0.39);
+    m.box(0.2, 0.18, 0.58, stone, s * 0.39, 0.19, 0);
+    for (const c of [-1, 1]) m.box(0.27, 0.27, 0.27, [0.56, 0.58, 0.57], c * 0.36, 0.235, s * 0.36, 0, 0.15 * c * s);
   }
-  m.box(0.58, 0.04, 0.58, [0.2, 0.5, 0.58], 0, 0.14);
-  m.add(new CylinderGeometry(0.25, 0.25, 0.012, 14), [0.78, 0.9, 0.92], 0, 0.165);
-  m.add(new CylinderGeometry(0.2, 0.2, 0.012, 14), [0.24, 0.56, 0.64], 0, 0.173);
+  m.box(0.58, 0.04, 0.58, [0.2, 0.5, 0.58], 0, 0.16);
+  m.add(new CylinderGeometry(0.25, 0.25, 0.012, 14), [0.78, 0.9, 0.92], 0, 0.182);
+  m.add(new CylinderGeometry(0.2, 0.2, 0.012, 14), [0.24, 0.56, 0.64], 0, 0.19);
   const dome = new IcosahedronGeometry(0.17, 1);
   dome.scale(1, 0.6, 1);
-  m.add(dome, [0.34, 0.68, 0.75], 0, 0.19);
-  m.add(new CylinderGeometry(0.04, 0.05, 0.14, 7), [0.8, 0.92, 0.94], 0, 0.26);
+  m.add(dome, [0.34, 0.68, 0.75], 0, 0.2);
+  m.add(new CylinderGeometry(0.04, 0.05, 0.14, 7), [0.8, 0.92, 0.94], 0, 0.27);
   return m.geometry();
 }
 

@@ -222,7 +222,7 @@ export const BADWATER = {
  *  white foam, badwater's crimson body with its streaks and foam, and water partly bad between
  *  them by the blend (`WATER_BLEND`). */
 export const WATER_FALL = {
-  clear: 0.28,
+  clear: 0.4,
   streak: 0.7,
   bad: 0.9,
   foam: 0.95,

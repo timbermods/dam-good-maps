@@ -30,7 +30,7 @@ and compared with this branch's pixel for pixel: see [The Standard look is uncha
 | [d324-water.jpg](d324-water.jpg) | D324, D310 option (a): badwater beside clean water and a mine pit, before and after (columns: Standard before, after, High before, after). |
 | [d324-clear-water.jpg](d324-clear-water.jpg) | D324, item 5: clear water (T) over badwater, before and after: no hatching; it reads by lightness, colour, dull troughs and bubbles. |
 | [d324-land.jpg](d324-land.jpg) | D324, item 10: the land's colours toward the game's (top-down and a cliff), before and after, both looks. |
-| [d324-falls.jpg](d324-falls.jpg) | D324, item 4: the tallest fall and a cascade of small falls, before and after; High's falls keep their teal. |
+| [d324-falls.jpg](d324-falls.jpg) | D324, item 4: the tallest fall and a cascade of small falls, before and after, both looks: the sheet reads as teal water with white only in streaks and at the landing. |
 | [d324-sources.jpg](d324-sources.jpg) | D324, item 28: a water source and a badwater source (3×3) as stone basins, with clear water on (they sit under water here), before and after. |
 
 ## What Standard has changed since dev (D304, D305, D310, D324)
@@ -41,5 +41,4 @@ clear water without hatching on badwater, the land's colours toward the game's, 
 basins. So of the shaders, `npx tsx tools/shader-sources.ts` now gives the same hash as `origin/dev` only for `sky`;
 `terrain`, `water`, `fall` and `object` (and their `.lite` forms) differ. The identity table that stood here (dev's
 site against this branch's, view by view) was written when only water and ruins differed; it is superseded, and
-`tools/capture-high.ts --identity` regenerates one. High-only changes (the falls' tone, item 4) stay behind High's
-switches. In the page, the Standard look drawn after High is the same as before it (`tests/e2e/look-high.spec.ts`).
+`tools/capture-high.ts --identity` regenerates one. In the page, the Standard look drawn after High is the same as before it (`tests/e2e/look-high.spec.ts`).
