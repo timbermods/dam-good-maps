@@ -15,12 +15,15 @@ import { DETAIL_LABELS, type WashDetails } from "../core/wash";
 import { LAYERS, Terrain } from "../core/terrain";
 import { waterPools } from "../core/water";
 import { Sounds } from "./audio";
-import { CASES, type Case } from "./cases";
+import { CASES as LAND_CASES, type Case } from "./cases";
+import { roofMap, ROOF_CASES } from "./roofs";
+import { settleThings } from "../core/objects";
 import { Effects } from "./effects";
 import { View, type CameraPose, type Hit } from "./view";
 import type { PlanReply, PlanRequest } from "./worker";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const CASES = [...LAND_CASES, ...ROOF_CASES];
 const canvas = $<HTMLCanvasElement>("view");
 const view = new View(canvas);
 const sounds = new Sounds();
@@ -72,6 +75,7 @@ const now = () => (state.manual ? clock : performance.now());
 
 const cache = new Map<string, ErodeMap>();
 async function loadMap(id: string): Promise<ErodeMap> {
+  if (id === "roof") return roofMap().map;
   if (id === "wash") return washMap();
   const uneven = unevenMap(id);
   if (uneven) return uneven;
@@ -90,8 +94,7 @@ async function loadMap(id: string): Promise<ErodeMap> {
 
 function things(): Thing[] {
   const t = state.terrain!;
-  // an object stays while its ground does (Erode keeps every surface, so all of them do)
-  return state.map!.things.filter((th) => th.z === 0 || t.solid(th.x, th.y, th.z - 1));
+  return settleThings(t, state.map!.things, state.map!.water);
 }
 
 function showWater(): void {
@@ -103,7 +106,7 @@ async function openCase(c: Case): Promise<void> {
   const m = await loadMap(c.map);
   state.map = m;
   state.caseId = c.id;
-  state.terrain = Terrain.fromHeights(m.W, m.H, m.heights);
+  state.terrain = m.id === "roof" ? roofMap().terrain : Terrain.fromHeights(m.W, m.H, m.heights);
   view.setLand(state.terrain, m.rock, m.moist);
   view.setThings(things());
   showWater();
@@ -246,10 +249,11 @@ function tryAnother(): void {
 // ------------------------------------------------------------------------------------------ the moment
 
 const tmp = new THREE.Vector3();
-function voxelWorld(v: number, N: number, W: number): { p: THREE.Vector3; dir: THREE.Vector3 } {
+function voxelWorld(v: number, N: number, W: number, falling = false): { p: THREE.Vector3; dir: THREE.Vector3 } {
   const t = state.terrain!;
   const z = Math.floor(v / N), i = v - z * N, x = i % W, y = (i - x) / W;
   const p = new THREE.Vector3(x + 0.5, z + 0.5, -(y + 0.5));
+  if (falling) return { p, dir: new THREE.Vector3(0, -1, 0) };
   const dir = new THREE.Vector3(0, 0.4, 0);
   for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (!t.solid(x + dx, y + dy, z)) dir.add(tmp.set(dx, 0, -dy));
   return { p, dir: dir.normalize() };
@@ -275,6 +279,9 @@ function stepPlay(now: number): void {
       gone.push(v);
       count++;
     }
+    for (let k = 0; k < (r.added?.length ?? 0); k++) if (r.addBucket![k] > pl.shown && r.addBucket![k] <= upTo) {
+      const v = r.added![k]; t.set(v % N, Math.floor(v / N), true);
+    }
     // the effects: a share of the worn voxels puff and drop stones
     const every = Math.max(1, Math.round(count / 14));
     let n = 0;
@@ -282,7 +289,7 @@ function stepPlay(now: number): void {
       const b = r.bucket[k];
       if (b <= pl.shown || b > upTo) continue;
       if (n++ % every) continue;
-      const { p, dir } = voxelWorld(r.removed[k], N, t.W);
+      const { p, dir } = voxelWorld(r.removed[k], N, t.W, !!r.roof);
       effects.puff(p, dir, 0.8, k * 0.013);
       if ((k * 7919) % 3 === 0) effects.drop(p.clone().addScaledVector(dir, 0.3), dir, k * 0.021);
     }
@@ -291,6 +298,7 @@ function stepPlay(now: number): void {
     if (relight) pl.lastLight = upTo;
     view.update(r.box, relight);
     if (!relight) view.openCells(gone);
+    if (r.roof) { view.setThings(things()); showWater(); }
     sounds.wear(Math.min(1, count / Math.max(8, r.worn / r.buckets) / 1.6));
   }
   if (e >= r.duration) finishPlay();
@@ -369,7 +377,7 @@ $("redo").addEventListener("click", redo);
 
 // ------------------------------------------------------------------------------------------ input
 
-let down: null | { x: number; y: number; hit: Hit; drag: boolean; tiles: { x: number; y: number; z: number }[]; world: THREE.Vector3[] } = null;
+let down: null | { x: number; y: number; hit: Hit; drag: boolean; tiles: Gesture["points"]; world: THREE.Vector3[] } = null;
 let orbiting: null | { x: number; y: number; pan: boolean } = null;
 
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -387,7 +395,7 @@ canvas.addEventListener("pointerdown", (e) => {
   sounds.wake().then(() => sounds.startWear());
   const n = new THREE.Vector3(hit.nx, hit.nz, -hit.ny);
   effects.puff(hit.point.clone().addScaledVector(n, 0.3), n, 4, Math.random());
-  down = { x: e.clientX, y: e.clientY, hit, drag: false, tiles: [{ x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 }], world: [hit.point.clone()] };
+  down = { x: e.clientX, y: e.clientY, hit, drag: false, tiles: [{ x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5, nz: hit.nz }], world: [hit.point.clone()] };
 });
 canvas.addEventListener("pointermove", (e) => {
   if (orbiting) {
@@ -409,7 +417,7 @@ canvas.addEventListener("pointermove", (e) => {
   const last = down.tiles[down.tiles.length - 1];
   const tx = hit.x + 0.5, ty = hit.y + 0.5;
   if (Math.hypot(tx - last.x, ty - last.y) >= 1) {
-    down.tiles.push({ x: tx, y: ty, z: hit.z + 0.5 });
+    down.tiles.push({ x: tx, y: ty, z: hit.z + 0.5, nz: hit.nz });
     down.world.push(hit.point.clone());
     view.showStroke(down.world);
     const n = new THREE.Vector3(hit.nx, hit.nz, -hit.ny);
@@ -570,8 +578,9 @@ window.erode = {
   },
   get last() {
     const r = state.undo[state.undo.length - 1]?.stats;
-    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box, finalMs: state.lastFinalMs, details: r.details } : null;
+    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box, finalMs: state.lastFinalMs, details: r.details, roof: r.roof, rubble: r.added?.length } : null;
   },
+  snapshot: () => ({ cols: Array.from(state.terrain!.cols), things: things(), pose: structuredClone(view.pose) }),
   quiet: () => effects.clear(),
   undo,
   /** Take the clock (captures): frames advance only through step(). */

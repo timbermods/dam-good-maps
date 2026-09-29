@@ -1,5 +1,23 @@
 # Erode: the report
 
+## Round 7: roofs
+
+Erode follows the touched rock face: thin roof beds open into irregular skylights, a larger collapse retains thicker spanning rock, and an inside stroke raises a domed ceiling. Fallen rock leaves supported rubble; roof objects go with their ground and the start moves to the nearest valid dry 3×3×5 site. Floor and source ground still hold.
+
+| Skylight · Power 25 / Size 45 | Bridge · 100 / 100 | Ceiling from inside · 65 / 60 |
+|---|---|---|
+| ![](captures/round7-roof-skylight.jpg) | ![](captures/round7-roof-bridge.jpg) | ![](captures/round7-roof-dome.jpg) |
+
+![The collapse, 1.84 seconds](captures/round7-collapse.gif)
+
+**PASS:** existing checks plus **88 roof gestures / 2,112 animation frames**, including 48 random roof/ceiling gestures and 24 on the existing crater, cave and arch: **0 dropped voxels, 0 leftover single blocks, 0 cuts below Floor**. The pinned skylight opens 15 tiles; the bridge leaves 32 rubble voxels; the dome raises 89 ceiling tiles. All ten Round 6 fixtures remain byte-identical: **no exceptions**. Real pointer hits, source ground, carried start, water refresh, Undo/Redo/Esc/Try another, unchanged camera and TypeScript pass. The same 24 buckets finish in **0.66 s** at 128². [Checks](checks/results.json) · [Demo checks](checks/round7-browser.json).
+
+Choice: original procedural cave only; retain a few broad rubble clusters, with most worn material leaving as fines. Existing dust/stones fall downward and the existing heavy fall closes the collapse; no new assets or sounds.
+
+Still short: voxel steps remain visible; rubble is suggestive rather than a mass-conserving rock simulation, and water uses the existing approximation, not an in-game check.
+
+Regenerate checks from the repo root with `npm --prefix investigation/erode run check`; regenerate these four captures with `cd investigation/erode` then `node --import tsx scripts/captures-round7.ts` (installed Chrome). JPEGs are 43–95 KB; the GIF is 2.74 MB. Transient frames stay in memory, with throwaway logs/cache in ignored `local/`.
+
 ## Round 6
 
 **Floor** in More sets the minimum cut level for every Erode form: default **1**, range **1–22**, pinnable with a fixed-default reset (never Auto). Washes run shallower where it limits depth.

@@ -9,7 +9,7 @@ export interface Case {
   map: string;
   /** What the player does, in words. */
   gesture: string;
-  points: { x: number; y: number; z: number }[];
+  points: { x: number; y: number; z: number; nz?: number }[];
   power: number;
   size: number | null;
   seed: number;

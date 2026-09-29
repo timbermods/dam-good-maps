@@ -1,6 +1,59 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round7": {
+  "result": "PASS",
+  "cases": [
+   {
+    "case": "roof-skylight",
+    "power": 25,
+    "size": 45,
+    "worn": 74,
+    "rubble": 4,
+    "skylightTiles": 15,
+    "raisedCeilingTiles": 0,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   },
+   {
+    "case": "roof-bridge",
+    "power": 100,
+    "size": 100,
+    "worn": 981,
+    "rubble": 32,
+    "skylightTiles": 247,
+    "raisedCeilingTiles": 1,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   },
+   {
+    "case": "roof-dome",
+    "power": 65,
+    "size": 60,
+    "worn": 292,
+    "rubble": 16,
+    "skylightTiles": 20,
+    "raisedCeilingTiles": 89,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   }
+  ],
+  "randomRoofCeilingGestures": 48,
+  "existingShelterGestures": 24,
+  "totalGestures": 88,
+  "animationFrames": 2112,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "support": "PASS",
+  "floorAndBottom": "PASS",
+  "sourceGround": "PASS",
+  "objectsAndStart": "PASS",
+  "waterResettled": "PASS",
+  "round6FixtureExceptions": []
+ },
  "round6": {
   "result": "PASS",
   "floorRange": "1–22 on all ten cases",
@@ -466,7 +519,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 12.3,
+   "msToFinal": 11.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -501,7 +554,7 @@
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 4.7,
+   "msToFinal": 2.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -536,7 +589,7 @@
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 2.8,
+   "msToFinal": 2.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -571,7 +624,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.3,
+   "msToFinal": 1.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -606,7 +659,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4,
+   "msToFinal": 3.4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -641,7 +694,7 @@
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 19,
+   "msToFinal": 23,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -676,7 +729,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 6.4,
+   "msToFinal": 5.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -711,7 +764,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 6.7,
+   "msToFinal": 4.9,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -746,7 +799,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4,
+   "msToFinal": 3.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -781,7 +834,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 10.7,
+   "msToFinal": 9.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -816,7 +869,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 12,
+   "slowestMs": 7,
    "result": "PASS"
   },
   {
@@ -829,7 +882,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 6,
+   "slowestMs": 5,
    "result": "PASS"
   },
   {
@@ -842,7 +895,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 8,
+   "slowestMs": 5,
    "result": "PASS"
   },
   {
@@ -855,7 +908,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 8,
+   "slowestMs": 6,
    "result": "PASS"
   }
  ]

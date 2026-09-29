@@ -6,6 +6,7 @@ import { clamp, hash, noise3 } from "./random";
 import { support } from "./support";
 import { LAYERS, Terrain } from "./terrain";
 import { planWash, type WashDetails, type WashTrace } from "./wash";
+import { planRoof } from "./roof";
 
 export interface ErodeSettings {
   /** How deep the rock wears, 0–100. */
@@ -31,7 +32,7 @@ export const autoSize = (power: number) => Math.round(clamp(25 + 0.6 * power, 0,
 /** A click (one point) or a painted sweep, in tile coordinates, with the level of the rock each
  *  point touched (the wear gathers round the height the player touched the land at). */
 export interface Gesture {
-  points: { x: number; y: number; z?: number }[];
+  points: { x: number; y: number; z?: number; nz?: number }[];
 }
 
 export interface ErodeInput {
@@ -50,6 +51,10 @@ export interface ErodePlan {
   removed: Int32Array;
   /** The bucket each goes in. */
   bucket: Uint8Array;
+  /** Supported rubble deposited when a roof falls, with its animation buckets. */
+  added?: Int32Array;
+  addBucket?: Uint8Array;
+  roof?: "roof" | "ceiling";
   buckets: number;
   /** Seconds the wear plays over. */
   duration: number;
@@ -106,6 +111,8 @@ function nearest(pts: Pt[], x: number, y: number): { d: number; z: number | unde
 
 /** Plan the cavity as a continuous volume, then retain only the rock that holds its roof. */
 export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
+  const roof = planRoof(input, gesture, set);
+  if (roof) return roof;
   const t0 = performance.now();
   const { terrain: before, keep, rock } = input;
   const cutFloor = erosionFloor(set);
@@ -443,6 +450,9 @@ export function landAt(before: Terrain, plan: ErodePlan, b: number): Terrain {
     const v = plan.removed[k];
     const z = Math.floor(v / N);
     out.set(v - z * N, z, false);
+  }
+  for (let k = 0; k < (plan.added?.length ?? 0); k++) if (plan.addBucket![k] <= b) {
+    const v = plan.added![k]; out.set(v % N, Math.floor(v / N), true);
   }
   return out;
 }

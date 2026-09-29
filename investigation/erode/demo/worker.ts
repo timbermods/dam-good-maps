@@ -22,6 +22,9 @@ export interface PlanReply {
   id: number;
   removed: Int32Array;
   bucket: Uint8Array;
+  added?: Int32Array;
+  addBucket?: Uint8Array;
+  roof?: "roof" | "ceiling";
   buckets: number;
   duration: number;
   finalCols: Uint32Array;
@@ -47,6 +50,9 @@ self.onmessage = (ev: MessageEvent<PlanRequest>) => {
     id: r.id,
     removed: plan.removed,
     bucket: plan.bucket,
+    added: plan.added,
+    addBucket: plan.addBucket,
+    roof: plan.roof,
     buckets: plan.buckets,
     duration: plan.duration,
     finalCols: plan.final.cols,
