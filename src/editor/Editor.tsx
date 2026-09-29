@@ -2810,6 +2810,11 @@ export default function Editor(props: EditorProps) {
       p.hideCursor();
     }
   }, [brushTool, ready]);
+  // a size saved on a larger map: at most this map's largest (D322, item 42)
+  useEffect(() => {
+    const max = sizeMax(info.W, info.H);
+    if (brushRef.current.size > max) setBrush({ ...brushRef.current, size: max }, false);
+  }, [info.W, info.H]);
   // a new size, strength or level shows on the brush under the cursor at once
   useEffect(() => painter.current?.showCursor(), [brush]);
   // level lines while the toggle is on (the brush kit)
