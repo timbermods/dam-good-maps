@@ -343,7 +343,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then set it to a level, work only inside it, or press Delete to clear what stands there (Ctrl+A: the whole map)"}
+            title={off ? why : "Select (M): mark an area, then raise, lower or level it, delete what stands there, or work only inside it (Ctrl+A: the whole map)"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -351,29 +351,26 @@ export function TopBar(p: TopBarProps) {
             <span class="icon-word">Select</span>
           </button>
         ) : null}
-        {SHOWN_FORCES.length ? (
-          <>
-            <span class="bar-divider" aria-hidden="true" />
-            <span class="bar-group" role="group" aria-label="Forces">
-              {SHOWN_FORCES.map((f) => (
-                <button
-                  type="button"
-                  key={f.id}
-                  class="icon-button"
-                  aria-pressed={p.force === f.id}
-                  aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-                  title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
-                  disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
-                  onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
-                >
-                  <Icon tool={f.id} />
-                  <span class="icon-word">{f.name}</span>
-                </button>
-              ))}
-            </span>
-          </>
-        ) : null}
       </div>
+      {SHOWN_FORCES.length ? (
+        <div class="map-bar" role="group" aria-label="Forces">
+          {SHOWN_FORCES.map((f) => (
+            <button
+              type="button"
+              key={f.id}
+              class="icon-button"
+              aria-pressed={p.force === f.id}
+              aria-label={f.key ? `${f.name} (${f.key})` : f.name}
+              title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
+              disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
+              onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
+            >
+              <Icon tool={f.id} />
+              <span class="icon-word">{f.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {t ? (
         <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">

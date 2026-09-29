@@ -151,3 +151,18 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   await idle(page);
   expect((await objects()).length).toBeGreaterThan(20);
 });
+
+test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only)", async ({ page }) => {
+  await refine(page);
+  await page.keyboard.press("1");
+  const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
+  const view = page.getByRole("button", { name: "Top-down" });
+  const tools = page.getByRole("toolbar", { name: "Tools" });
+  const forces = page.getByRole("group", { name: "Forces" });
+  const options = page.getByRole("group", { name: "Raise options" });
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Select"]);
+  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
+  const ys = [await y(view), await y(tools), await y(forces), await y(options)];
+  expect(ys).toEqual([...ys].sort((a, b) => a - b));
+  expect(new Set(ys).size).toBe(4);
+});
