@@ -59,7 +59,8 @@ Part 2:
 Z undo, C redo, X close the selection, V flip Quake's side, Up and Down raise and lower an open selection, Ctrl+A or
 Whole map select all. Batch 2's: Shift+scroll the target, Ctrl+scroll a source's strength, Ctrl+click the target, hold F
 to size. EDITOR_PLAN §7 on this branch had no "X Remove" line left (D288 had removed it); §7 now lists the keys above.
-After batch 1 lands, one final pass over the shortcuts and first-run hints for its keys. Not done here: adding the new
+The final pass over the shortcuts and first-run hints, with batches 1 and 2 in: batch 1 added no keys (its Watch is a
+view-bar toggle; Enter and Backspace no longer touch a path, and the forces' Space, Esc and Ctrl+Z are in §7). Not done here: adding the new
 names to `tools/retired-terms.json` (the old Set level, Dig out, Delete sources and Dice button are named in STATUS,
 ROADMAP and PLAN outside §20, which the retired-terms test would fail on): a milestone doc pass can do both.
 

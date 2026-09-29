@@ -554,7 +554,10 @@ Erupt, - Glaciate and M Select. **Z undoes, C redoes and X closes the selection*
 Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips
 the side of the fault that moves (it was X). With a selection open, Up and Down raise and lower it one level (the
 camera keeps W and S). Delete removes what the pointer is on, or what stands in an open selection, else the ground's
-top level (D288, D323); Ctrl+A selects the whole map.
+top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space pauses it, and Esc or Ctrl+Z takes
+it back (in Watch, Esc jumps it to its final land); the other keys wait, Z and C among them. A river's or a fault's
+line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Watch is a view-bar
+toggle with no key.
 Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
