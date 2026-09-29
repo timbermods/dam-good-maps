@@ -28,6 +28,7 @@ import { checkStartAt, startProblemAt, describeTile, entitiesByTile, FeatureInde
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { modalLevel } from "../core/features/footprintLevel";
 
 /** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
 const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources", "start"];
@@ -1246,19 +1247,21 @@ export default function Editor(props: EditorProps) {
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
       setFit({ tiles: own, problem });
       shelfWord(problem);
-      // (an opened map's start is cut level with the lowest tile under it: D328)
-      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : Math.min(...own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
+      // (an opened map's start is levelled to the height most of its footprint stands at: D328)
+      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : modalLevel(own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
       r.setGhost({ ...ghostAt.current, ok: !problem });
       return;
     }
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
-    // a source stands on the ground in its middle (a badwater source is 3 × 3); an object is cut
-    // level with the lowest tile under it (D290, D328)
+    // a source stands on the ground in its middle (a badwater source is 3 × 3); an object is levelled
+    // to the height most of its footprint stands at (D290, D328)
     let z = item.source ? h[y * W + x] : cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
     if (!item.source) {
-      for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) z = Math.min(z, h[ty * W + tx]);
+      const under: number[] = [];
+      for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) under.push(h[ty * W + tx]);
+      if (under.length) z = modalLevel(under);
     }
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
@@ -2683,7 +2686,7 @@ export default function Editor(props: EditorProps) {
         if (brushToolRef.current) return;
         renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
       },
-      // Ctrl+click on the land: Set level's target (as Flatten's sampling)
+      // Ctrl+click on the land: the Level number (as Flatten's sampling)
       sample: (level: number) => {
         setFlattenTo(level);
         flashNote(`level ${level}`);

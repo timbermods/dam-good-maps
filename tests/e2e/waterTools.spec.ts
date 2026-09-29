@@ -153,8 +153,8 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
     await page.waitForTimeout(120);
   }
   await page.keyboard.up("Control");
-  await expect(page.locator(".shape-note")).toHaveText("4 water/s");
-  await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 4 water/s");
+  await expect(page.locator(".shape-note")).toHaveText("3 water/s");
+  await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 3 water/s");
   await idle(page);
   expect((await info(page)).history.length).toBe(steps + 1);
 

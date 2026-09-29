@@ -156,12 +156,12 @@ export function Header(p: HeaderProps) {
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
-        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Ctrl+Z)">
+        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Z or Ctrl+Z)">
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
           </svg>
         </button>
-        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (Ctrl+Y)">
+        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (C or Ctrl+Y)">
           <svg {...ICON}>
             <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
           </svg>

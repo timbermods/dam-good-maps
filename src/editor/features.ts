@@ -2,6 +2,7 @@
 // each covers (for hover, selection and highlights), what stands on a tile in plain language, and
 // how a feature moves. Pure TypeScript on the map view and the feature list the worker sends.
 
+import { modalLevel } from "../core/features/footprintLevel";
 import { pathField, pointAtArc, polygonMask, type PathField } from "../core/features/geometry";
 import { BUILDERS } from "../core/features/setpieces";
 import type { Feature, Point, RiverFeature, StartFeature } from "../core/features/schema";
@@ -669,11 +670,10 @@ export function checkStartAt(
         if (inBench(f, xx, yy) && !(c.index && c.index.river[i] >= 0)) h[i] = bench.level;
       }
   } else if (!problem) {
-    // an opened map's start cuts its footprint and door down to the lowest of them (D328)
+    // an opened map's start levels its footprint and door to the height most of them stand at (D328)
     const own = [...tiles, doorI];
-    let low = Infinity;
-    for (const i of own) low = Math.min(low, h[i]);
-    for (const i of own) h[i] = low;
+    const level = modalLevel(own.map((i) => h[i]));
+    for (const i of own) h[i] = level;
   }
   // what blocks walking, and the slopes the colony walks on
   const blocked = new Uint8Array(N);

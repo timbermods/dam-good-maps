@@ -25,8 +25,8 @@ export interface ShelfItem {
 }
 
 export const SHELF: readonly ShelfItem[] = [
-  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "click where the water starts; its strength in the options. Over a source, Shift+scroll sets its strength; drag it to move it" },
-  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "click where badwater starts; its strength in the options. Over a source, Shift+scroll sets its strength; drag it to move it" },
+  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "click where the water starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
+  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "click where badwater starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "the district center: click where the colony starts; R turns its door" },
   { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
   { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },

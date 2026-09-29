@@ -89,7 +89,7 @@ async function settled(page: Page) {
 test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  const forces = bar.getByRole("group", { name: "Forces" });
+  const forces = page.getByRole("group", { name: "Forces" });
   await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
   await page.keyboard.press("8");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");

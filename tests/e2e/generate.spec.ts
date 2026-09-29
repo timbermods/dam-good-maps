@@ -43,10 +43,15 @@ test("Generate rolls a fresh seed every press; the box, the card, the caption an
   const third = await shownSeed(page);
   expect(third).not.toBe(second);
   expect(await seedBox(page).inputValue()).toBe(third);
-  // Refine opens the map the card shows
+  // Refine opens the map the card shows (a random seed can fail its checks: roll again until one passes)
+  let seed = third;
+  for (let k = 0; k < 6 && !(await page.evaluate(() => window.dgm!.current!()!.passed)); k++) {
+    await press(page);
+    seed = await shownSeed(page);
+  }
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
-  expect((await page.evaluate(() => window.dgmEditor!.info())).spec?.seed).toBe(Number(third));
+  expect((await page.evaluate(() => window.dgmEditor!.info())).spec?.seed).toBe(Number(seed));
 });
 
 test("a typed seed is pinned: Generate makes the same map until it is unlocked or cleared; a share link pins its seed; no Dice", async ({ page }) => {

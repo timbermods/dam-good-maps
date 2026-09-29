@@ -4,9 +4,9 @@
 // brushes' size) and Wand (a click takes the ground joined to it at its level, or on water that
 // river's or lake's water as the view draws it: a snapshot). Shift adds, Alt takes away (Alt+drag: a
 // plain Alt+click is the game's layer pick), in every mode; Ctrl+click on the land takes its level as
-// Set level's target. While dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What
-// it does to the selection (raise or lower by some levels, set to a level, cut down or fill up to
-// it, dig out, water no deeper than a depth; Delete clears what stands there, D288) is exact, one undo step each; while it
+// the Level number. While dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What
+// it does to the selection (raise or lower one level, flatten to a level, cut down or fill up to
+// it, water no deeper than a depth; Delete takes what stands there or the ground, D288, D323) is exact, one undo step each; while it
 // is open it is the working area (D254): the brushes and the forces work only inside it.
 
 import { polygonMask } from "../core/features/geometry";
@@ -216,7 +216,7 @@ export interface SelectHost {
   brushSize?(): number;
   /** The Brush mode's ring under the pointer (null: none). */
   ring?(at: [number, number] | null, radius: number): void;
-  /** Ctrl+click on the land while a selection is open: that tile's level, as Set level's target. */
+  /** Ctrl+click on the land while a selection is open: that tile's level, as the Level number. */
   sample?(level: number): void;
 }
 
@@ -231,7 +231,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   let tiles: number[] = [];
   /** Brush mode: the tiles painted so far in this drag. */
   let painted: Set<number> | null = null;
-  /** Ctrl held on a click: Set level's target, unless it drags. */
+  /** Ctrl held on a click: the Level number, unless it drags. */
   let sampling: TileHit | null = null;
   const mode = () => forced ?? host.mode();
   const words = (list: readonly number[]): string | null => {
@@ -274,7 +274,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
     wantsAlt: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
-      // Ctrl+click: the tile's level, as Set level's target
+      // Ctrl+click: the tile's level, as the Level number
       // (a brush's Ctrl+drag hands its drag here: that one selects)
       if ((ev.ctrlKey || ev.metaKey) && !forced && sel.count && host.sample) {
         sampling = hit;

@@ -66,8 +66,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
   expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
-  // the forces, all five ready (D216, D219, D291), in their own group between the brushes and Remove
-  const forces = bar.getByRole("group", { name: "Forces" });
+  // the forces, all five ready (D216, D219, D291), in their own row under the tools (D323, item 9)
+  const forces = page.getByRole("group", { name: "Forces" });
   for (const name of ["Carve (7)", "Craterize (8)", "Quake (9)", "Erupt (0)", "Glaciate (-)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
   // F and R do nothing with no brush or object out: the old camera zoom on R and F is gone (D212;
   // F sizes the brush, R turns the shelf's object)
@@ -267,10 +267,11 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   expect(mine).not.toBeNull();
   await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(Math.max(0, mine[2] - 2)));
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  // (below the rows over the map, which are three now: D323 item 9)
   // (a stroke that runs up to the mine site's west edge and holds there: its rim crosses the site
   // however fast the machine paints)
-  const pm = await client(page, Math.max(2, mine[0] - 7), mine[1] + 2);
-  const pe = await client(page, Math.max(2, mine[0] - 2), mine[1] + 2);
+  const pm = await client(page, Math.max(2, mine[0] - 7), mine[1] - 4);
+  const pe = await client(page, Math.max(2, mine[0] - 2), mine[1] - 4);
   await page.mouse.move(pm.x, pm.y);
   await page.mouse.down();
   await page.mouse.move(pe.x, pe.y, { steps: 8 });
@@ -299,7 +300,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   expect((await lastStroke(page))!.walkable).toBeUndefined();
   expect((await lastStroke(page))!.size).toBe(sized);
 
-  // the Select tool: M, a rectangle with its size, raise it by 2, one step
+  // the Select tool: M, a rectangle with its size, raise it one level a click (D323 item 6), one step
   await page.keyboard.press("Escape");
   await page.keyboard.press("m");
   const sel = page.getByRole("group", { name: "Selection" });
@@ -314,11 +315,10 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.mouse.up();
   await expect(sel.getByRole("status")).toHaveText("6 × 5 tiles");
   const before = await heightAt(page, ...c0);
-  await sel.getByRole("combobox", { name: "Levels" }).selectOption("2");
-  await sel.getByRole("button", { name: "Raise" }).click();
+  await sel.getByRole("button", { name: "Raise", exact: true }).click();
   await idle(page);
-  expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 2");
-  await expect.poll(() => heightAt(page, ...c0)).toBe(before + 2);
+  expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
+  await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);
   // Shift adds, and Esc closes it
   await page.keyboard.down("Shift");
   const q2 = await client(page, c0[0] + 3, c0[1]);

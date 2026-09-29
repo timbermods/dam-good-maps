@@ -250,7 +250,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
         <div class="row">
           <input id="seed" value={p.seedText} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} aria-describedby="seed-band" />
           {p.seedPinned ? (
-            <button type="button" class="ghost icon-button" aria-label="Seed kept: click to let Generate pick a new one" title="Seed kept: Generate makes this map again. Click to let Generate pick a new seed" onClick={p.onUnpinSeed}>
+            <button type="button" class="ghost icon-button" aria-label="Seed kept: click to unlock" title="Seed kept: pressing Generate makes this map again. Click to unlock the seed" onClick={p.onUnpinSeed}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="5" y="11" width="14" height="9" rx="2" />
                 <path d="M8 11V8a4 4 0 0 1 8 0v3" />

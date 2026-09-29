@@ -7,7 +7,7 @@ export type FirstStep = "paint" | "place" | "water";
 
 const LINES: [FirstStep, string][] = [
   ["paint", "Paint the land: pick a brush above, then drag on the map."],
-  ["place", "Place things: pick one on the left, then click the map."],
+  ["place", "Place things: pick one on the left, then click the map, or drag it there."],
   ["water", "Add water: pick Water source on the left, then click where the water starts."],
 ];
 

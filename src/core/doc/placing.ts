@@ -9,6 +9,7 @@ import { BUILDERS } from "../features/setpieces";
 import { badwaterMouth } from "../features/build";
 import { mouthTiles } from "../features/raster/terrain";
 import { entityTiles } from "../features/edits";
+import { modalLevel } from "../features/footprintLevel";
 import { DERIVED_SLOPES } from "../features/ids";
 import { pathField, polygonMask } from "../features/geometry";
 import { footprintAt, fitProblems, isLine, OBJECT_NAMES, objectTiles, type FitGround } from "../features/objects";
@@ -409,7 +410,7 @@ export interface EntityRequest {
 }
 
 /** Plan an entity placed from the shelf: the loader's rules first; where its ground isn't level it
- *  cuts its own footprint down to the lowest tile under it (D290, D328), in the same step. */
+ *  levels its own footprint (D290 cuts, D328 fills where dry), in the same step. */
 export function planEntity(s: MapSession, req: EntityRequest, id: string): PlannedOps {
   if (!FOOTPRINTS[req.template]) return fail(`${req.template} can't be placed`);
   const why = entityProblem(s, req, null, { level: true });
@@ -474,20 +475,7 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   if (list.every((i) => h[i] === h[list[0]])) return ops;
   const water = waterDepth(s);
   // the level most of the footprint stands at; of equal shares, the one that moves the ground least
-  const counts = new Map<number, number>();
-  for (const i of list) counts.set(h[i], (counts.get(h[i]) ?? 0) + 1);
-  const most = Math.max(...counts.values());
-  let level = low;
-  let reach = Infinity;
-  for (const [hv, c] of [...counts].sort((a, c) => a[0] - c[0])) {
-    if (c !== most) continue;
-    let far = 0;
-    for (const i of list) far = Math.max(far, Math.abs(h[i] - hv));
-    if (far < reach) {
-      reach = far;
-      level = hv;
-    }
-  }
+  let level = modalLevel(list.map((i) => h[i]));
   // never fill a wet tile: where the level would, the footprint is cut down instead
   if (list.some((i) => h[i] < level && water[i] > 0)) level = low;
   const target = new Map<number, number>();

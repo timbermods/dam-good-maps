@@ -165,8 +165,8 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), start.position);
   await page.mouse.click(p.x, p.y);
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);
-  // water is never an object (D196): a click on the river picks nothing, and Delete then removes
-  // nothing
+  // water is never an object (D196): a click on the river picks nothing, and Delete then takes the
+  // bed's top block, never an object (D323 item 1: under water, the ground's top block)
   const river = (await info(page)).features.find((f) => f.kind === "river")!.params as { path: [number, number][] };
   const w = river.path[Math.floor(river.path.length / 2)];
   const wp = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [Math.round(w[0]), Math.round(w[1])] as [number, number]);
@@ -174,7 +174,8 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);
   await page.keyboard.press("Delete");
   await page.evaluate(() => window.dgmEditor!.idle());
-  expect((await info(page)).edits).toBe(0);
+  expect((await info(page)).edits).toBe(1);
+  expect((await info(page)).history.at(-1)!.label).toBe("Delete a level of ground");
   // hover reads the tile in plain words
   const q = await page.evaluate(() => window.dgmEditor!.tileToClient(40, 40));
   await page.mouse.move(q.x, q.y);
