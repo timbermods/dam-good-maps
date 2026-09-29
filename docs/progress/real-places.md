@@ -1,8 +1,11 @@
 # Real places
 
-> **Parked by Kyler (D319, 2026-09-29) until he says it resumes.** Changes still coming (the forces-preview feedback's
-> item 47, the base raised so the deepest riverbed stands 3 levels above the floor, and item 27, the edge lip at a
-> river's head) affect every rebuild. #35 stays open and unreleased; its red CI is expected. The 37 converted places
+> **Parked by Kyler (D319, 2026-09-29) until he says it resumes.** Item 27 (the edge lip at a river's head) still waits with it.
+> **Item 47 (D331):** real places keep the real land. Out: the base raise, the second district site, high ground next to
+> low. In, when it resumes, never changing the land, gating or dropping a place: the starting-logs and water floors;
+> two reachable mine sites, a badwater spring clear of the start's water and first farmland, and berries for an Iron
+> Teeth start, where the land offers a natural spot; a start with walkable, level surroundings where one qualifies;
+> the five difficulty levers as information. See docs/PERFECT.md's Real places section on `dev`. #35 stays open and unreleased; its red CI is expected. The 37 converted places
 > (VERSION 11) are attached to the draft release `cache-real-places-2-v11`. On Kyler's main PC, fetch the land data
 > first (`npx tsx tools/places/worldcover.ts`, then `tools/places/osm.ts`); without it every place fails at once.
 >
