@@ -224,7 +224,12 @@ editor is desktop-first (D185).
   heavy) and ridges come from the land and the seed (D289). The ground stirs, then the volcano
   swells level by level, its **terrain final in about two seconds** (D312: its 28 stages at 55 ms); its effects (the lava's
   glow cooling, the smoke) play on, but the player never waits for them and can act again at once; its plume billows bigger and darker the more powerful the eruption (D216),
-  the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
+  the lava glows along its flows, then cools to a dark crust and fades into the ground. **A volcano always
+  looks like a volcano** (D321, item 14): its cone is the dominant shape at every setting, rising to a clear summit
+  (with Summit: Crater, a bowl a fifth of its height deep under the rim), the flows running down its sides; heavy
+  flows spread a wider, thicker skirt of lava along them, never a round plateau that turns it into a mound; its
+  surface reads as rock (no lone raised tile above or below its neighbours, the summit aside); High Power grows it
+  toward the height ceiling (22, D244). A volcano
   always keeps a peak within the headroom it has: near the height ceiling it spreads wider rather
   than rising taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
   always completes, as in the demo Kyler approved (D226). Fresh volcanic rock is hard for Carve; flows
@@ -925,10 +930,11 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   slice at a time, each step's changed tiles and the objects its cut took recorded, then played back (`carve/play.ts`,
   D321); its water no longer runs while it cuts (the head's surge is the effects'), and its fan's height reads the water
   as it was, so the land is the same at any pace (164 carves checked against the earlier code: the same land). Erupt is the prototype's
-  volcano exactly where it has the room under the map's ceiling (16, or the map's own top up to 22);
+  volcano, reshaped by D321's item 14 (its crater deeper, its apron's reach 1.75 radii and thickest along its lava
+  lobes, its lava ridges fading out by it, lone tiles settled), where it has the room under the map's ceiling;
   where it hasn't, `eruptAnatomy` fits it (D226): every level it raises (cone, apron, ridges) scaled
   together so its summit reaches the ceiling at most, broader rather than taller while Size follows
-  Power (at most 1.6 times, never so broad that a low peak's top spreads past a few tiles), Auto's
+  Power (at most 1.25 times since item 14, never so broad that a low peak's top spreads past a few tiles), Auto's
   summit a peak when it keeps less than three quarters of its rise; with too little room at the vent
   (under four levels) it erupts from its flank, the nearest place with room (the seed choosing
   among the nearest); a fissure rises less where its line is high; at the ceiling with no flank near,
