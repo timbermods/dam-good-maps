@@ -22,7 +22,8 @@ import { CraterRun, EruptRun, modelOf, QuakeRun } from "../../src/core/forces/ru
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { WaterSim } from "../../src/core/sim/water";
 import { fixture } from "./forceFixtures";
-import { erupt as protoErupt, quake as protoQuake } from "../../investigation/forces-core/verbs";
+import { carve as protoCarve, erupt as protoErupt, quake as protoQuake } from "../../investigation/forces-core/verbs";
+import { FLOOR_DEFAULT, holdAtFloor } from "../../src/core/forces/floor";
 import { fixture as protoFixture } from "../../investigation/forces-core/demo/maps";
 import { snapshot as protoSnapshot } from "../../investigation/forces-core/core/map";
 
@@ -84,7 +85,7 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's, without the start: D257)", () => {
+  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's height and reach, reshaped by D321 item 14; without the start: D257)", () => {
     for (const seed of [0, 1, 42])
       for (const mode of ["vent", "fissure"] as const)
         for (const shape of ["steep", "broad"] as const) {
@@ -92,18 +93,32 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
           const intent = { origin: 40 * 64 + 35, path: [{ x: 30, y: 40 }, { x: 50, y: 42 }] };
           const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, mode, shape, power: 45 }, intent);
           const q = protoErupt.erupt(protoSnapshot(proto), { ...protoErupt.DEFAULTS, seed, mode, shape, power: 45 }, intent);
-          expect(digest(p.map), `${mode} ${shape} ${seed}`).toBe(digest(q.map as unknown as ForceMap));
+          // (item 14 reshapes its crater, its skirt of lava and its rock: the same height, a like reach)
+          const what = `${mode} ${shape} ${seed}`;
+          expect(Math.abs(Math.max(...p.map.heights) - Math.max(...q.map.heights)), what).toBeLessThanOrEqual(3);
+          const raised = (h: ArrayLike<number>) => Array.from(h).filter((v, i) => v !== m.heights[i]).length;
+          // (its skirt reaches less far than the prototype's: under a third less of the land, never more)
+          expect(raised(p.map.heights), what).toBeGreaterThan(raised(q.map.heights) * 0.3);
+          expect(raised(p.map.heights), what).toBeLessThan(raised(q.map.heights) * 1.6);
         }
   });
 
-  it("Carve: straight to winding, three personalities, every step to the end", () => {
+  it("Carve: straight to winding, three personalities, every step to the end (the prototype's land held at the Floor, D321 item 40)", () => {
     for (const seed of [0, 1, 42])
       for (const wander of [0, 35, 100]) {
         const m = fixture("plain", 64);
-        const r = new CarveRun(snapshotMap(m), { ...CARVE_DEFAULTS, mode: "aim", dry: true, defyGravity: true, width: 5, power: 75, wander, seed }, { origin: 55 * 64 + 40, end: 3 * 64 + 40 });
+        const settings = { ...CARVE_DEFAULTS, mode: "aim" as const, dry: true, defyGravity: true, width: 5, power: 75, wander, seed };
+        const r = new CarveRun(snapshotMap(m), settings, { origin: 55 * 64 + 40, end: 3 * 64 + 40 });
         for (let k = 0; k < 1400 && !r.metrics.stable; k++) r.step();
         expect(r.metrics.stable).toBe(true);
-        expect(digest(r.map), `wander ${wander} seed ${seed}`).toBe(pinned({ verb: "carve", wander, seed }));
+        // the prototype, run as pinned (its own 45 cases: the same land), then held at the Floor,
+        // which it didn't have: the port cuts to 1 at most, exactly where the prototype went lower
+        const proto = new protoCarve.CarveRun(protoSnapshot(protoFixture("plain", 64)), { ...protoCarve.DEFAULTS, ...settings }, { origin: 55 * 64 + 40, end: 3 * 64 + 40 });
+        for (let k = 0; k < 1400 && !proto.metrics.stable; k++) proto.step();
+        expect(digest(proto.map as unknown as ForceMap), `the prototype, wander ${wander} seed ${seed}`).toBe(pinned({ verb: "carve", wander, seed }));
+        const held = { ...(proto.map as unknown as ForceMap), heights: proto.map.heights.slice() };
+        holdAtFloor(m.heights, held.heights, FLOOR_DEFAULT);
+        expect(digest(r.map), `wander ${wander} seed ${seed}`).toBe(digest(held));
       }
   });
 });

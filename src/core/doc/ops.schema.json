@@ -205,7 +205,10 @@
             "benches": { "enum": ["none", "some", "many"] },
             "steps": { "enum": ["few", "some", "many"] },
             "tarn": { "type": "boolean" },
-            "scree": { "type": "boolean" }
+            "scree": { "type": "boolean" },
+            "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
+            "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
+            "banks": { "type": "number", "minimum": 0, "maximum": 10 }
           }
         },
         "where": {

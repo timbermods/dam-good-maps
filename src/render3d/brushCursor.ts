@@ -166,3 +166,74 @@ export class BrushCursor {
     (this.plane.material as MeshBasicMaterial).dispose();
   }
 }
+
+/** Most dashes a force's ring takes (a crater's, 90 tiles round at most). */
+const RING_DASHES = 720;
+
+/** A force's size at the cursor (D312; one ring, never two, D321 item 13): one calm ring, white with
+ *  the brush ring's thin dark edge, drawn once where the cursor is: on the water's surface over water,
+ *  on the ground elsewhere. How big, never what shape (D258). */
+export class ForceRing {
+  readonly mesh: Mesh;
+  private readonly pos = new Float32Array(RING_DASHES * 2 * 12);
+  private readonly col = new Float32Array(RING_DASHES * 2 * 16);
+  private readonly geo = new BufferGeometry();
+
+  constructor(scene: Scene) {
+    const n = RING_DASHES * 2;
+    const idx = new Uint32Array(n * 6);
+    for (let q = 0; q < n; q++) {
+      const v = q * 4;
+      idx.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
+    }
+    this.geo.setAttribute("position", new BufferAttribute(this.pos, 3));
+    this.geo.setAttribute("color", new BufferAttribute(this.col, 4));
+    this.geo.setIndex(new BufferAttribute(idx, 1));
+    this.mesh = new Mesh(this.geo, new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 7;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+
+  /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's
+   *  surface where there is water, else the ground); null hides it. */
+  set(s: { x: number; y: number; r: number } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
+    if (!s) {
+      this.mesh.visible = false;
+      return;
+    }
+    const r = Math.max(0.75, s.r);
+    const n = Math.max(24, Math.min(RING_DASHES, Math.round(r * 8)));
+    const w = 0.08 + Math.min(r, 40) * 0.003;
+    const o = w + 0.035;
+    const edge: [number, number, number] = [...WATER_UI.ringEdge];
+    let q = 0;
+    const quad = (px: number, py: number, h: number, half: number, a: number, c: readonly number[]) => {
+      this.pos.set([px - half, h, -(py - half), px + half, h, -(py - half), px + half, h, -(py + half), px - half, h, -(py + half)], q * 12);
+      for (let v = 0; v < 4; v++) this.col.set([c[0], c[1], c[2], a], q * 16 + v * 4);
+      q++;
+    };
+    for (let pass = 0; pass < 2; pass++)
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        const px = s.x + Math.cos(a) * r;
+        const py = s.y + Math.sin(a) * r;
+        const tx = Math.floor(px);
+        const ty = Math.floor(py);
+        if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
+        const h = level(tx, ty) + 0.06;
+        if (pass === 0) quad(px, py, h - 0.005, o, 0.7, edge);
+        else quad(px, py, h, w, 0.82, [1, 1, 1]);
+      }
+    this.geo.setDrawRange(0, q * 6);
+    (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
+    (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;
+    this.mesh.visible = q > 0;
+  }
+
+  dispose(): void {
+    this.geo.dispose();
+    (this.mesh.material as MeshBasicMaterial).dispose();
+  }
+}

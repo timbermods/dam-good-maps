@@ -4,8 +4,8 @@
 // the page's), Esc takes it back at once, Try another replaces it and undo brings the first one back.
 // A force is bound only by nature (D257): through the start it goes on, and the start is carried to
 // level ground in the same step. Its gestures are clean (D258): no footprint, route or fit on the
-// land, only a small cursor where a click acts, a thin arrow while Aim drags, and the stroke a
-// fault or a fissure is painted with. Keys 7, 8, 9, 0 pick them, X flips a quake's side, Esc puts a
+// land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
+// glancing blow's way, a fault, a fissure, a travelling force's path). Keys 7, 8, 9, 0 pick them, X flips a quake's side, Esc puts a
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -336,7 +336,7 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; X flips 
   expect(await worker(page)).toEqual(await heights(page));
 });
 
-test("Craterize's drag aims it (D258, D289): only a thin arrow, no crater's outline; let go, a glancing blow", async ({ page }) => {
+test("Craterize's drag aims it (D258, D289; D321 item 41): only the line drawn, no crater's outline; let go, a glancing blow", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
@@ -347,14 +347,11 @@ test("Craterize's drag aims it (D258, D289): only a thin arrow, no crater's outl
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 6 });
-  const g = await gesture(page);
-  expect(g.arrow?.from).toEqual(far);
-  expect(g.stroke).toBeNull();
-  expect(g.cursor).toBeNull();
-  await expect(page.locator(".aim-arrow")).toBeVisible();
+  await expect.poll(async () => (await gesture(page)).stroke ?? 0).toBeGreaterThan(5);
+  expect((await gesture(page)).cursor).toBeNull();
   await expect(page.locator(".shape-note")).toHaveCount(0);
   await page.mouse.up();
-  await expect(page.locator(".aim-arrow")).toHaveCount(0);
+  await expect.poll(async () => (await gesture(page)).stroke).toBeNull();
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Craterize");
 });
@@ -478,44 +475,37 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
   expect((await gesture(page)).cursor).toBeNull();
 });
 
-test("Carve's waypoints (D312): Shift+click drops them, Backspace takes the last off, Esc drops all; a plain click launches through them", async ({ page }) => {
+test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc drops it; let go, the river carves along it as one step", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("7");
   await page.getByRole("group", { name: "Carve options" }).getByRole("slider", { name: "Power" }).fill("40");
   const { far } = await places(page);
   const dx = far[0] > 48 ? -1 : 1;
   const pts: [number, number][] = [far, [far[0] + 8 * dx, far[1] + 3], [far[0] + 16 * dx, far[1] - 2]];
-  const shiftClick = async (x: number, y: number) => {
-    const p = await client(page, x, y);
-    await page.mouse.move(p.x, p.y);
-    await page.keyboard.down("Shift");
-    await page.mouse.click(p.x, p.y);
-    await page.keyboard.up("Shift");
+  const draw = async (release: boolean) => {
+    const a = await client(page, pts[0][0], pts[0][1]);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (const [x, y] of pts.slice(1)) {
+      const p = await client(page, x, y);
+      await page.mouse.move(p.x, p.y, { steps: 8 });
+    }
+    if (release) await page.mouse.up();
   };
-  for (const [x, y] of pts) await shiftClick(x, y);
-  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts);
-  // nothing runs while they're dropped
+  await draw(false);
+  await expect.poll(async () => (await gesture(page)).stroke ?? 0).toBeGreaterThan(10);
+  // nothing runs while it's drawn; Esc drops the line
   expect(await status(page)).toBeNull();
-  await page.keyboard.press("Backspace");
-  await expect.poll(async () => (await gesture(page)).waypoints).toEqual(pts.slice(0, 2));
   await page.keyboard.press("Escape");
-  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  await expect.poll(async () => (await gesture(page)).stroke).toBeNull();
+  await page.mouse.up();
   expect(await status(page)).toBeNull();
-  // again, and a plain click at the end: it runs through them, one step
+  // drawn and let go: it runs along it, one step, the page's land the worker's
   const n0 = (await labels(page)).length;
-  for (const [x, y] of pts.slice(0, 2)) await shiftClick(x, y);
-  await clickTile(page, pts[2][0], pts[2][1]);
-  await expect.poll(async () => (await gesture(page)).waypoints).toEqual([]);
+  await draw(true);
   await settled(page);
   expect((await labels(page)).length).toBe(n0 + 1);
   expect(await worker(page)).toEqual(await heights(page));
-  // Enter launches too, the last waypoint its end
-  await page.keyboard.press("Control+z");
-  await idle(page);
-  for (const [x, y] of pts) await shiftClick(x, y);
-  await page.keyboard.press("Enter");
-  await settled(page);
-  expect((await labels(page)).length).toBe(n0 + 1);
 });
 
 test("Erupt's terrain is final in about two seconds (D312); its effects may linger, the player acts at once", async ({ page }) => {

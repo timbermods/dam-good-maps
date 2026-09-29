@@ -12,7 +12,10 @@
 // More button at each row's end opens its other settings, each on Auto until pinned (`AutoDetail`,
 // `MoreButton`, `MoreRow`, D309). Built from the shared bar and button styles (D176).
 
-import type { ComponentChildren } from "preact";
+import { createContext, type ComponentChildren } from "preact";
+import { useContext } from "preact/hooks";
+import { FLOOR_DEFAULT, FLOOR_MIN } from "../core/forces/floor";
+import { CEILING } from "../core/format/world";
 import { BRUSHES, type BrushSettings, type BrushTool } from "./brushes";
 import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MAX, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
@@ -112,11 +115,11 @@ export interface Force {
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it; Shift+click waypoints, then click (or Enter) to run through them. Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or drag the way it grinds through the ridges. Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Esc takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Esc takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -258,11 +261,41 @@ export function MoreButton(p: { open: boolean; onToggle(): void }) {
   );
 }
 
-/** A force's details row (D309): shown under its options row while More is open, the same shape. */
+/** The forces' Floor (D321, item 40): one level every force that digs keeps to, set in any force's
+ *  More and shared by all of them; null when there is no editor to keep it. */
+export const ForceFloor = createContext<{ value: number; set(v: number): void } | null>(null);
+
+/** The Floor in a force's More (D321, item 40): the lowest level it cuts down to, 1 up to the height
+ *  ceiling; a rule, never Auto: set, it is kept (the player's editor preferences), and Default puts
+ *  it back to 1. */
+export function FloorControl() {
+  const f = useContext(ForceFloor);
+  if (!f) return null;
+  return (
+    <span class="size-control">
+      <label class="slider-field" title="The lowest level any force cuts down to: where it would go deeper, it runs shallower (every force shares it)">
+        Floor
+        <input type="range" min={FLOOR_MIN} max={CEILING} step={1} aria-label="Floor" value={f.value} onInput={(e) => f.set(Number((e.target as HTMLInputElement).value))} />
+        <output>{f.value}</output>
+      </label>
+      {f.value !== FLOOR_DEFAULT ? (
+        <button type="button" class="auto-button" aria-label="Floor back to 1" title="Back to the default floor, level 1" onClick={() => f.set(FLOOR_DEFAULT)}>
+          Default
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
+/** A force's details row (D309): shown under its options row while More is open, the same shape;
+ *  the forces' shared Floor ends it (D321, item 40). */
 export function MoreRow(p: { force: Force; children: ComponentChildren }) {
   return (
     <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} details`}>
-      <div class="bar-group">{p.children}</div>
+      <div class="bar-group">
+        {p.children}
+        <FloorControl />
+      </div>
     </div>
   );
 }

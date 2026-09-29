@@ -1,5 +1,5 @@
-// Where a carve's head goes (D194, D199). Aim steers toward its end point, or through its waypoints
-// (D312): along a smooth curve (Catmull-Rom) through the origin, the waypoints and the end, toward a
+// Where a carve's head goes (D194, D199). Aim steers toward its end point, or along its drawn path
+// (D321, item 41): along a smooth curve (Catmull-Rom) through the origin, the path's points and the end, toward a
 // point a few tiles ahead on it, its cost the length of curve still to go; Unleash follows the way
 // the land drains (the priority flood, so flats and hollows still have a way down). Wander swings
 // the heading round that guide, never more than 110° off it, and never by adding turn to turn. A
@@ -15,7 +15,7 @@ import type { CarveIntent, CarveSettings } from "./run";
 
 export const HEADING_LIMIT = (110 * Math.PI) / 180;
 export const PROGRESS_WINDOW = 16;
-/** Waypoints: how far ahead on the curve the head steers (tiles), and the curve's sample spacing. */
+/** A drawn path: how far ahead on its curve the head steers (tiles), and the curve's sample spacing. */
 const LOOK_AHEAD = 5;
 const CURVE_STEP = 0.5;
 /** How far along the curve the head's nearest point is searched from where it was (samples). */
@@ -23,7 +23,7 @@ const CURVE_WINDOW = 60;
 
 /** A smooth curve through the points (uniform Catmull-Rom, the ends doubled), sampled about every
  *  `CURVE_STEP` tiles, with each sample's length along it. */
-export function waypointCurve(points: readonly { x: number; y: number }[]): { x: number[]; y: number[]; s: number[] } {
+export function pathCurve(points: readonly { x: number; y: number }[]): { x: number[]; y: number[]; s: number[] } {
   const xs: number[] = [points[0].x];
   const ys: number[] = [points[0].y];
   const ss: number[] = [0];
@@ -66,7 +66,7 @@ export class Course {
   readonly potential: Float64Array | null;
   private receivers: Int32Array | null = null;
   private forward = 0;
-  /** Aimed through waypoints: the curve, and the sample the head was last nearest. */
+  /** Aimed along a drawn path: its curve, and the sample the head was last nearest. */
   private readonly curve: { x: number[]; y: number[]; s: number[] } | null = null;
   private along = 0;
 
@@ -79,7 +79,7 @@ export class Course {
     this.potential = null;
     if (settings.mode === "aim" && intent.via?.length) {
       const pt = (i: number) => ({ x: i % m.W, y: Math.floor(i / m.W) });
-      this.curve = waypointCurve([pt(intent.origin), ...intent.via.map(pt), pt(intent.end!)]);
+      this.curve = pathCurve([pt(intent.origin), ...intent.via.map(pt), pt(intent.end!)]);
     }
     if (settings.mode === "unleash") {
       const d = drainage(m.heights, m.W, m.H, 0.0001);
@@ -112,7 +112,7 @@ export class Course {
     return best;
   }
 
-  /** Whether the head has come to the last stretch of its course (always, without waypoints). */
+  /** Whether the head has come to the last stretch of its course (always, without a drawn path). */
   nearEnd(): boolean {
     const c = this.curve;
     return !c || c.s[c.s.length - 1] - c.s[this.along] < 3;

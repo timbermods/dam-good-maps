@@ -26,7 +26,7 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 }
 
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
-  const out = viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  const out = viewBuffers({ heights: f.heights, entities: f.entities }) as Transferable[];
   if (f.heat) out.push(f.heat.buffer as Transferable);
   return out;
 }

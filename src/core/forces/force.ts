@@ -95,6 +95,8 @@ export interface ForceHead {
   /** Blocks cut at the front in the last step (the effects' dust). */
   cut: number;
   lanes?: Lane[];
+  /** Its water is badwater (an unleashed badwater source's carve): the effects' surge is murky. */
+  bad?: boolean;
 }
 
 /** A force at work, as the editor drives it: a step at a time on its own copy of the map. */

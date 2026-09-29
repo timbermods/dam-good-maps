@@ -40,6 +40,8 @@ export interface EruptSettings {
   /** Its breadth across, in tiles (D226): null (or absent: operations from before D226) follows
    *  Power. Power sets how high it throws; Size how broad it spreads. */
   size?: number | null;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1, size: null };
@@ -220,8 +222,9 @@ export const naturalBreadth = (s: EruptSettings) => 2 * ventRadius({ ...s, size:
 export const FLANK_ROOM = 4;
 /** Why it cannot erupt there: at the map's ceiling, with no lower flank near. */
 export const NO_ROOM_REASON = "No room to rise here";
-/** How much broader it grows, at most, when it has to be lower (while Size follows Power). */
-const BROADEN_MAX = 1.6;
+/** How much broader it grows, at most, when it has to be lower (while Size follows Power): a little,
+ *  so near the ceiling it stays a cone with a summit (item 14), not a broad mound. */
+const BROADEN_MAX = 1.25;
 /** A low volcano's summit stays a summit: its top level spans this many tiles at most (a peak's
  *  radius, a crater's rim). */
 const SUMMIT_TOP = 3;
@@ -229,12 +232,34 @@ const SUMMIT_TOP = 3;
  *  follows Power). */
 const NARROW_MIN = 0.6;
 
-/** A vent's profile at r (0 at its vent, 1 at its foot): the prototype's, by summit and shape. */
-function ventProfile(s: EruptSettings, summit: EruptSettings["summit"], r: number): number {
-  const e = s.shape === "steep" ? 1.7 : 1.65;
-  if (summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
-  if (summit === "crater" && r < 0.16) return 0.64 + (Math.pow(0.84, e) - 0.64) * smooth(r / 0.16);
+/** A crater's radius, in radii, and how deep it sinks under its rim (a share of the cone's height):
+ *  a clear bowl at the summit (D321, item 14; the prototype's was a tenth of the height, often under
+ *  two levels, so a crater read as a rounded top). */
+const CRATER_R = 0.19;
+const CRATER_DEPTH = 0.22;
+
+/** The cone's profile at r (0 at its vent, 1 at its foot), by summit and shape: a vent's cone, its
+ *  crater or caldera; a fissure's ridge (its line, not its summit, shapes it). */
+export function coneProfile(s: Pick<EruptSettings, "shape">, summit: EruptSettings["summit"], r: number, fissure = false): number {
+  const e = s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65;
+  if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  if (!fissure && summit === "crater" && r < CRATER_R) {
+    const rim = (1 - CRATER_R) ** e;
+    return rim - CRATER_DEPTH * (1 - smooth(r / CRATER_R));
+  }
   return Math.max(0, 1 - r) ** e;
+}
+
+/** A vent's profile at r (0 at its vent, 1 at its foot), by summit and shape. */
+function ventProfile(s: EruptSettings, summit: EruptSettings["summit"], r: number): number {
+  return coneProfile(s, summit, r);
+}
+
+/** How far a vent's apron of lava reaches, in radii, and how thick it is at most (levels): heavy flows
+ *  spread it wider and thicker, but it stays a skirt under the cone (item 14: never a round plateau
+ *  that turns the volcano into a mound). */
+function apronOf(s: Pick<EruptSettings, "flows" | "power">): { reach: number; thick: number } {
+  return s.flows === "heavy" ? { reach: 1.75, thick: 2 + s.power * 0.014 } : { reach: 1.25, thick: 0.8 };
 }
 
 /** How wide the top level of a vent `height` levels high is, in radii: the widest run of the profile
@@ -268,17 +293,15 @@ export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "su
   let top = 0;
   for (let k = 0; k <= 260; k++) {
     const r = k / 100;
-    let profile = Math.max(0, 1 - r) ** (s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65);
-    if (!fissure && a.summit === "crater" && r < 0.16) profile = 0.64 + (Math.pow(0.84, s.shape === "steep" ? 1.7 : 1.65) - 0.64) * smooth(r / 0.16);
-    if (!fissure && a.summit === "caldera") profile = r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
-    const reach = s.flows === "heavy" ? 2.55 : 1.25;
-    const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4;
+    const profile = coneProfile(s, a.summit, r, fissure);
+    const { reach, thick } = apronOf(s);
+    const apron = thick * Math.max(0, 1 - r / reach) ** 1.4;
     const ridge = s.ridges
       ? fissure
         ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : strength * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)
+        : strength * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2)
       : 0;
-    const basin = !fissure && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? 0.16 : 0);
+    const basin = !fissure && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? CRATER_R : 0);
     const rise = basin ? a.height * profile : Math.max(a.height * profile, apron) + ridge;
     if (rise > top) top = rise;
   }
@@ -346,8 +369,8 @@ function fits(m: { W: number; H: number; heights: Uint8Array }, s: EruptSettings
   const over = (t: number) => Math.round(Math.round(t * 4096) / 4096) > a.ceiling;
   if (s.mode === "vent") {
     const basin = a.summit === "caldera" || a.summit === "crater";
-    const peak = a.summit === "caldera" ? 0.34 : a.summit === "crater" ? 0.64 : 1;
-    const apron = basin ? 0 : (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * 0.86;
+    const peak = a.summit === "caldera" ? 0.34 : a.summit === "crater" ? coneProfile(s, "crater", 0) : 1;
+    const apron = basin ? 0 : apronOf(s).thick;
     if (!keep?.[a.y * m.W + a.x] && over(a.datum + Math.max(a.height * peak, apron))) return false;
   }
   const box = coreBox(m, a);
@@ -461,9 +484,7 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const r = f.r;
   const local = m.heights[Math.round(f.cy) * m.W + Math.round(f.cx)];
   const datum = s.mode === "vent" ? a.datum : local;
-  let profile = Math.max(0, 1 - r) ** (s.shape === "steep" ? (s.mode === "fissure" ? 0.83 : 1.7) : 1.65);
-  if (s.mode === "vent" && a.summit === "crater" && r < 0.16) profile = 0.64 + (Math.pow(0.84, s.shape === "steep" ? 1.7 : 1.65) - 0.64) * smooth(r / 0.16);
-  if (s.mode === "vent" && a.summit === "caldera") profile = r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  let profile = coneProfile(s, a.summit, r, s.mode === "fissure");
   if (s.mode === "fissure") {
     const bowl = 1 - smooth(f.ventDistance / Math.max(2.4, a.radius * 0.19));
     profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
@@ -473,18 +494,20 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   // a fitted volcano's lava runs downhill from its vent: its apron and ridges never pile onto higher
   // ground (an older cone's upper slopes, pressed against the ceiling, would become a mesa)
   const flowsHere = k === 1 && s.mode === "fissure" ? 1 : s.mode === "vent" && (a.scale < 1 || a.asked) && h > datum ? 0 : 1;
-  const reach = s.flows === "heavy" ? 2.55 : 1.25;
-  const apron = (s.flows === "heavy" ? 2.6 + s.power * 0.018 : 0.8) * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * k * flowsHere;
+  const { reach, thick } = apronOf(s);
+  // (a vent's apron is thickest where its lava lobes run: flows down its sides, never a round skirt)
+  const lobed = s.mode === "vent" && a.lobes.length ? 0.7 + 0.3 * Math.min(1, flows[i] / 1.1) : 1;
+  const apron = thick * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
   const ridge = s.ridges
     ? (s.mode === "fissure"
         ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : 0.16)) / 0.2)) *
+        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2) * (1 - smooth((r - reach * 0.7) / (reach * 0.3)))) *
       k *
       flowsHere
     : 0;
   let target = Math.max(h, cone, h + apron) + ridge;
   // Keep broad summit basins open; flow ridges begin below the rim.
-  if (s.mode === "vent" && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? 0.16 : 0)) target = Math.max(h, cone);
+  if (s.mode === "vent" && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? CRATER_R : 0)) target = Math.max(h, cone);
   return target;
 }
 
@@ -587,9 +610,39 @@ export class EruptPlan {
       }
     this.row = end;
     if (end < H) return false;
+    this.despeckle();
     this.finishObjects();
     this.done = true;
     return true;
+  }
+
+  /** Its surface reads as rock, never single-tile noise (item 14): a raised tile standing alone above
+   *  all four neighbours, or sunk alone below them, takes its neighbours' level (twice over, so a pair
+   *  settles too); the crater and the vent's own ground are left as they are. */
+  private despeckle(): void {
+    const { W, H } = this.map;
+    const h = this.map.heights;
+    const b = this.before.heights;
+    const a = this.anatomy;
+    for (let pass = 0; pass < 2; pass++)
+      for (let y = 1; y < H - 1; y++)
+        for (let x = 1; x < W - 1; x++) {
+          const i = y * W + x;
+          if (h[i] === b[i] || this.keep[i]) continue;
+          // (the summit is its own: a peak's tip stands above everything round it by design)
+          if (a.vents.some((v) => Math.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
+          const n = [h[i - 1], h[i + 1], h[i - W], h[i + W]];
+          const lo = Math.min(...n);
+          const hi = Math.max(...n);
+          let v = h[i];
+          if (v > hi) v = hi;
+          else if (v < lo && Math.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
+          if (v === h[i]) continue;
+          v = Math.max(v, b[i]);
+          h[i] = v;
+          this.map.lava[i] &= v >= 31 ? 0xffffffff : (1 << v) - 1;
+          for (let z = b[i]; z < v; z++) this.map.lava[i] |= 1 << z;
+        }
   }
 
   private finishObjects(): void {

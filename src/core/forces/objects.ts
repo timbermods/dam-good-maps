@@ -8,8 +8,9 @@ import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
 
-/** A tree a force knocked down: dead, and lying from (x, y) along (dx, dy). Its pose is the
- *  editor's view of it (project data, never the game's: a .timber map keeps it a dead tree). */
+/** A tree a force knocked down: dead, and which way the blow threw it, (dx, dy) from (x, y). The
+ *  editor draws every tree upright on its tile (D321, item 7), as the game does: the direction is only
+ *  the operation's record. */
 export interface Fallen {
   id: string;
   x: number;
@@ -21,6 +22,24 @@ export interface Fallen {
 }
 
 export const isPlant = (e: EntitySpec) => /^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template);
+
+/** No force leaves a tree leaning (D321, item 7): a tree it knocked down stands upright and dead on
+ *  its tile where its ground held, and is gone where the force broke that ground (moved its level:
+ *  a fault through it, a cone rising under it). The rest ride their ground, upright. */
+export function settleKnocked(before: { heights: ArrayLike<number>; fallen?: readonly Fallen[] }, after: { W: number; heights: ArrayLike<number>; entities: EntitySpec[]; fallen: Fallen[] }): void {
+  const was = new Set((before.fallen ?? []).map((f) => f.id));
+  const at = new Map(after.entities.map((e) => [e.id, e]));
+  const gone = new Set<string>();
+  for (const f of after.fallen) {
+    const e = at.get(f.id);
+    if (!e || was.has(f.id)) continue;
+    const i = e.y * after.W + e.x;
+    if (after.heights[i] !== before.heights[i]) gone.add(f.id);
+  }
+  if (!gone.size) return;
+  after.entities = after.entities.filter((e) => !gone.has(e.id));
+  after.fallen = after.fallen.filter((f) => !gone.has(f.id));
+}
 
 /** The tiles an object stands on, and `margin` tiles round them. */
 export function footprint(m: { W: number; H: number }, e: Pick<EntitySpec, "template" | "x" | "y" | "orientation" | "flipped">, margin = 0): number[] {

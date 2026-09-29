@@ -16,6 +16,7 @@ import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
 import { guidFrom, hash32 } from "../../math/hash";
 import { placeSourceGroup } from "../../water/sourceGroups";
+import { forceFloor, holdAtFloor } from "../floor";
 import { MinHeap, N8 } from "../../math/grid";
 import { EMITTERS } from "../../sim/model";
 import { prefill, spillLevels } from "../../sim/prefill";
@@ -135,6 +136,7 @@ export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, i
 function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley: Valley, style: FloorStyle | null): Generator<void, GlaciatePlan, void> {
   const finish = style !== null;
   const top = input.maxHeight;
+  const cutFloor = forceFloor(settings, top);
   const before = snapshotMap(input);
   const m = snapshotMap(input);
   const s = { ...settings };
@@ -208,7 +210,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const i = y * W + x;
         if (before.water.depth[i] > 0.05 && Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
       }
-  for (const q of path) q.floor = Math.max(0, q.floor - riverClearance);
+  // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
+  // still sink into the floor without going below the Floor; the plan is held at it below as well)
+  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);
@@ -966,6 +970,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       return false;
     });
   }
+  // the Floor (D321, item 40): where the trough, its channels or its tarn would go below it, they run
+  // shallower, held at it (its water and tarn are worked out on the held ground, below)
+  holdAtFloor(before.heights, m.heights, cutFloor);
   trimRock(m);
   const model = modelOf(m);
   const spill = spillLevels(model);

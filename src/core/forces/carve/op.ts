@@ -20,6 +20,12 @@ export interface CarveParams {
   width: number | null;
   /** Its Depth set by hand, in levels below the land (D226; absent: it followed Power). */
   depth?: number;
+  /** Its Floor (D321, item 40), when set above 1. */
+  floor?: number;
+  /** Its River depth (item 17): a number of levels, or null for Off; absent on carves from before. */
+  riverDepth?: number | null;
+  /** Its Banks (item 18), in tiles; absent on carves from before (none). */
+  banks?: number;
   seed: number;
   walls: "steep" | "wide";
   defyGravity: boolean;

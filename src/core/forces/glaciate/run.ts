@@ -1,10 +1,12 @@
 // Glaciate at work (PLAN §20 D246, D291, D292; the investigation's two acts, INTEGRATION.md): while
 // it is planned (a few slices a step: the worker answers the page between them) the ice gathers where
 // it was asked; then the ice advances for three seconds, the land under it taking its final levels as
-// the front passes (every height is the plan's before the retreat begins), and melts back for two,
-// revealing the valley's water as it goes. Ten steps are a second on every machine (D266: its own
-// pace, whatever the water's speed); what is kept is always the plan's final map (the stages only show
-// it), so the result never depends on the pace, the machine or the effects.
+// the front passes (every height is the plan's before the retreat begins), and melts back for two.
+// The editor paces the stages (D321, item 29: Fast, or Watch); nothing changes before the ice reaches
+// it (item 30): the objects in its path go as the front passes, and the water stays as it was until
+// the land is final, when the valley's own water (its tarn, its meltwater river) takes over. What is
+// kept is always the plan's final map (the stages only show it), so the result never depends on the
+// pace, the machine or the effects.
 
 import { prefill } from "../../sim/prefill";
 import type { WarmState } from "../../sim/preview";
@@ -15,6 +17,7 @@ import { trimRock } from "../rock";
 import { modelOf, respectKeep, type Finalize, type ForceCue, type StagedRun } from "../runs";
 import { sizeOf, Valley, type GlaciateIntent, type GlaciateSettings } from "./model";
 import { planGlaciate, type GlaciatePlan } from "./plan";
+import { keepSourcesOnMap, type PlacedSource } from "../../water/edgeSources";
 
 /** Steps of its advance and its retreat (ten a second: three seconds, then two). */
 export const ADVANCE_STEPS = 30;
@@ -39,6 +42,8 @@ export class GlaciateRun implements StagedRun {
   private stage = 0;
   private ended = false;
   private sim: WaterSim | null = null;
+  /** Its meltwater springs whose water can still run straight off the map's edge (item 27). */
+  edgeLeaks: PlacedSource[] = [];
 
   constructor(
     readonly before: FullForceMap,
@@ -60,6 +65,12 @@ export class GlaciateRun implements StagedRun {
   }
   get planned(): boolean {
     return this.plan0 !== null;
+  }
+  get total(): number {
+    return ADVANCE_STEPS + RETREAT_STEPS;
+  }
+  get shown(): number {
+    return this.stage;
   }
   /** The glacier's own ground (its trough, benches, moraine, channels and outwash): every level
    *  there is the glacier's, the ones it left as they were included (its banks), so the build's
@@ -96,6 +107,10 @@ export class GlaciateRun implements StagedRun {
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   private settle(p: GlaciatePlan): void {
     const m = p.map;
+    // its springs at the map's edge flow into the map (item 27: M9b's edge lip, once callable)
+    const had = new Set(this.before.entities.map((e) => e.id));
+    const springs = m.entities.filter((e) => e.template === "WaterSource" && !had.has(e.id)).map((e) => ({ x: e.x, y: e.y }));
+    this.edgeLeaks = keepSourcesOnMap(m, springs).leaks.map((l) => l.source);
     trimRock(m);
     respectKeep(this.before, m, this.keep);
     this.pending = p;
@@ -138,9 +153,8 @@ export class GlaciateRun implements StagedRun {
   }
 
   /** The land at `stage` of the two acts (the investigation's reveal): under the advancing ice each
-   *  tile takes its final level as the front passes it; the water already there keeps its surface
-   *  over the ground the ice changes; in the retreat the valley's own water shows behind the melting
-   *  front. The last stage is the plan's map itself. */
+   *  tile takes its final level as the front passes it, and the objects there go; the water stays as
+   *  it was (D321, item 30). The last stage is the plan's map itself, with the valley's water. */
   private show(stage: number): void {
     const p = this.plan0!;
     const total = ADVANCE_STEPS + RETREAT_STEPS;
@@ -153,16 +167,11 @@ export class GlaciateRun implements StagedRun {
     const f = p.map;
     const m = snapshotMap(b);
     const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
-    const retreat = clamp((stage - ADVANCE_STEPS) / RETREAT_STEPS, 0, 1);
     const retreating = stage > ADVANCE_STEPS;
     for (let i = 0; i < m.heights.length; i++) {
       if (p.arrival[i] > advance) continue;
       m.heights[i] = f.heights[i];
       m.lava[i] = f.lava[i];
-      if (retreating && p.arrival[i] >= 1 - retreat) {
-        m.water.depth[i] = f.water.depth[i];
-        m.water.contamination[i] = f.water.contamination[i];
-      } else m.water.depth[i] = b.water.depth[i] > 0.01 ? Math.max(0, b.water.depth[i] + b.heights[i] - m.heights[i]) : 0;
     }
     const W = m.W;
     const final = new Map(f.entities.map((e) => [e.id, e]));

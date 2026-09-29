@@ -1,6 +1,8 @@
-// Quake, a force of nature (PLAN §20 D203, D219): it splits the land along a painted fault. Lift
-// raises the chosen side (the other drops a little, with a natural tilt and small secondary faults);
-// Slide carries the chosen side 3–20 tiles along the stroke's heading while the other bank stays, and
+// Quake, a force of nature (PLAN §20 D203, D219): it splits the land along a fault drawn freehand
+// (D327). Lift raises the chosen side along it (the other drops a little, with a natural tilt and small
+// secondary faults); Slide carries the chosen side 3–20 tiles along the fault's own direction where
+// each part of it lies (a straight fault's one heading; a curved one's, bending with it) while the
+// other bank stays, and
 // a river that crossed the fault is joined again along it. Power sets the throw and the shaking's
 // reach; Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it
@@ -18,6 +20,7 @@ import type { WaterState } from "../sim/water";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
+import { PathBrush } from "./path";
 
 export interface Point {
   x: number;
@@ -37,6 +40,8 @@ export interface QuakeSettings {
   power: number;
   scarp: "sheer" | "stepped";
   seed: number;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "sheer", seed: 1 };
@@ -73,6 +78,9 @@ export class Fault {
   readonly slide: number;
   /** The block's one heading (the stroke's first point to its last). */
   readonly heading: Point;
+  /** The drawn line's own direction along it (D327): each tile slides the way the line runs where it
+   *  is nearest, over a stretch of it (never the crack's roughness), every tile of its length. */
+  private readonly directions: Point[] = [];
 
   constructor(
     readonly settings: QuakeSettings,
@@ -127,6 +135,30 @@ export class Fault {
       this.segments.push({ a, b, dx: (b.x - a.x) / l, dy: (b.y - a.y) / l, length: l, along: this.length });
       this.length += l;
     }
+    // (a straight line runs one way all along it: its heading, exactly)
+    const pos = (t: number): Point => {
+      const d = clamp(t, 0, length);
+      const r = raw.find((s) => d <= s.along + s.length) ?? raw[raw.length - 1];
+      const f = d - r.along;
+      return { x: r.a.x + r.dx * f, y: r.a.y + r.dy * f };
+    };
+    const straight = raw.every((r) => Math.abs(r.dx * this.heading.y - r.dy * this.heading.x) < 1e-9 && r.dx * this.heading.x + r.dy * this.heading.y > 0);
+    for (let t = 0; t <= Math.ceil(length); t++) {
+      if (straight) {
+        this.directions.push(this.heading);
+        continue;
+      }
+      const a = pos(t - 6);
+      const b = pos(t + 6);
+      const l = Math.hypot(b.x - a.x, b.y - a.y);
+      this.directions.push(l > 0.5 ? { x: (b.x - a.x) / l, y: (b.y - a.y) / l } : this.heading);
+    }
+  }
+
+  /** The way the ground slides where the fault is `along` tiles long (its drawn line's direction there). */
+  private directionAt(along: number): Point {
+    const n = this.directions.length;
+    return this.directions[clamp(Math.round((along / Math.max(1e-9, this.length)) * (n - 1)), 0, n - 1)];
   }
 
   /** Where (x, y) lies against the fault: its signed distance (the moving side positive), how far
@@ -166,7 +198,7 @@ export class Fault {
       // full offset at the fault itself.
       const weight = s.scarp === "stepped" ? Math.ceil(envelope * 3) / 3 : envelope;
       const amount = (f.d >= -0.01 ? this.slide : 0) * weight;
-      const direction = this.heading;
+      const direction = this.directionAt(f.along);
       let dx = Math.round(direction.x * amount);
       let dy = Math.round(direction.y * amount);
       // Rounding a diagonal must not silently subtract a tile from Power.
@@ -458,9 +490,13 @@ export function revealQuake(plan: QuakePlan, previous: FullForceMap, step: numbe
   const progress = step / steps;
   const { W, H } = out;
   for (let i = 0; i < out.heights.length; i++) if (plan.arrival[i] <= progress) out.heights[i] = plan.map.heights[i];
-  out.entities = plan.before.entities.map((e, k) => {
+  // (by id: a tree the quake knocked down where it broke the ground is gone from the plan, D321 item 7)
+  const final = new Map(plan.map.entities.map((e) => [e.id, e]));
+  out.entities = plan.before.entities.flatMap((e) => {
     const t = e.y * W + e.x;
-    return structuredClone(plan.arrival[t] <= progress ? plan.map.entities[k] : e);
+    if (plan.arrival[t] > progress) return [structuredClone(e)];
+    const f = final.get(e.id);
+    return f ? [structuredClone(f)] : [];
   });
   out.fallen = plan.map.fallen.filter((f) =>
     out.entities.some((e) => {
@@ -488,38 +524,19 @@ export function revealQuake(plan: QuakePlan, previous: FullForceMap, step: numbe
 
 // --------------------------------------------------------------------------------- the fault brush
 
-/** The painted stroke (continuous, sub-tile pen input): the page consumes it at display rate, the
- *  worker takes replaceable copies at its own pace. */
-export class FaultBrush {
-  readonly points: Point[] = [];
-  private smoothed: Point;
-  private target: Point;
-
+/** The painted fault: the shared pen (path.ts `PathBrush`, every drawn path's, D321 item 41, D327),
+ *  and the side of it that moves. */
+export class FaultBrush extends PathBrush {
   constructor(
     p: Point,
-    readonly W: number,
-    readonly H: number,
+    W: number,
+    H: number,
     public side: 1 | -1 = 1,
   ) {
-    this.smoothed = { ...p };
-    this.target = { ...p };
-    this.points.push({ ...p });
-  }
-
-  aim(p: Point): void {
-    this.target = { x: clamp(p.x, 0, this.W - 1), y: clamp(p.y, 0, this.H - 1) };
-  }
-
-  advance(dt: number, finish = false): void {
-    const a = finish ? 1 : 1 - Math.exp(-Math.max(0, dt) / 0.018);
-    this.smoothed = { x: this.smoothed.x + (this.target.x - this.smoothed.x) * a, y: this.smoothed.y + (this.target.y - this.smoothed.y) * a };
-    const last = this.points.at(-1)!;
-    if (Math.hypot(this.smoothed.x - last.x, this.smoothed.y - last.y) > 0.45) this.points.push({ ...this.smoothed });
-    // Bound both the worker and line buffers, retaining the beginning and end.
-    if (this.points.length > 480) this.points.splice(1, this.points.length - 2, ...this.points.slice(1, -1).filter((_, i) => i % 2 === 0));
+    super(p, W, H);
   }
 
   intent(): QuakeIntent {
-    return { side: this.side, path: [...this.points.map((p) => ({ ...p })), { ...this.smoothed }] };
+    return { side: this.side, path: this.path() };
   }
 }

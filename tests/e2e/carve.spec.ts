@@ -2,8 +2,9 @@
 // canyon and Try another path, nothing more; a click unleashes a river that runs visibly, a frame at
 // a time, and keeps itself as one undo step when it ends (the ground as it was shown; no Stop); Esc
 // or undo takes all of it back at once; Try another path replaces the kept carve, and undoing it
-// brings the first one back. A drag aims it (D258, D289: the gesture is the mode): only a thin arrow
-// from where it began to the pointer, no route on the land; on release it goes that way.
+// brings the first one back. A drag draws its path freehand (D321, item 41: the gesture is the mode):
+// the line shows as it is drawn, nothing else on the land; on release the river carves along it, from
+// the line's higher end to its lower, whichever way it was drawn.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -134,11 +135,14 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
   await row.getByRole("button", { name: "More" }).click();
   const details = page.getByRole("group", { name: "Carve details" });
   await expect(details).toBeVisible();
-  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Depth"]);
+  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
+  // River depth (D321 item 17) is 2 unless set, with Off beside it; it sits beside Canyon depth (item 25)
+  await expect(details.getByRole("slider", { name: "River depth" })).toHaveValue("2");
+  await expect(details.getByRole("button", { name: "River depth off" })).toHaveAttribute("aria-pressed", "false");
   await expect(details.getByRole("combobox", { name: "Walls" })).toBeVisible();
   // every detail starts on Auto (D309); the land and the seed lean and vary them, tested at
   // tests/contract/forceNature.test.ts
-  for (const name of ["Wander follows the land", "Walls follows the land", "Depth follows Power"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["Wander follows the land", "Walls follows the land", "Canyon depth follows Power", "Banks follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
 
   const at = await highGround(page);
   await row.getByRole("slider", { name: "Power" }).fill("15");
@@ -161,7 +165,7 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
   await expect(details).toBeVisible();
 });
 
-test("Carve: a drag aims it, with only an arrow, and on release it runs that way, uphill or not; undo while it runs takes it back", async ({ page }) => {
+test("Carve: a drag draws its path, the line showing as it is drawn; on release the river carves along it from its higher end, whichever way it was drawn; undo while it runs takes it back", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Carve (7)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
@@ -176,24 +180,52 @@ test("Carve: a drag aims it, with only an arrow, and on release it runs that way
   await page.mouse.move(a.x + 3, a.y);
   await page.mouse.move(a.x, a.y);
   await expect.poll(async () => (await gesture()).cursor).toEqual(at);
-  // pressed and dragged (from the high ground, uphill or not: it cuts through rises on its way): only the arrow, from where it began to the pointer, and no route
+  // drawn toward the high ground (uphill: the water still runs from the higher end), bending on the way:
+  // the line shows as it is drawn, and nothing runs yet
   const endX = at[0] > 48 ? at[0] - 24 : at[0] + 24;
-  const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [endX, at[1]] as [number, number]);
-  await page.mouse.move(a.x, a.y);
+  const bendY = at[1] > 48 ? at[1] - 10 : at[1] + 10;
+  const tile = (x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
+  const s0 = await tile(endX, at[1]);
+  const s1 = await tile(Math.round((endX + at[0]) / 2), bendY);
+  await page.mouse.move(s0.x, s0.y);
   await page.mouse.down();
-  await page.mouse.move(p.x, p.y, { steps: 6 });
+  await page.mouse.move(s1.x, s1.y, { steps: 10 });
+  await page.mouse.move(a.x, a.y, { steps: 10 });
   const g = await gesture();
-  expect(g.arrow?.from).toEqual(at);
-  expect(g.stroke).toBeNull();
-  await expect(page.locator(".aim-arrow")).toBeVisible();
+  expect(g.stroke).toBeGreaterThan(20);
   expect(await status(page)).toBeNull();
-  // let go: it runs that way, and the arrow goes as it starts
+  // let go: it carves along the line, and the line goes as it starts
   await page.mouse.up();
-  await expect(page.locator(".aim-arrow")).toHaveCount(0);
+  await expect.poll(async () => (await gesture()).stroke).toBeNull();
+  await page.waitForFunction(() => !window.dgmEditor!.carve(), null, { timeout: 20_000 });
+  await idle(page);
+  expect((await labels(page)).at(-1)).toBe("Carve a river");
+  expect((await labels(page)).length).toBe(n0 + 1);
+  // (it ran from the high ground, the line's higher end, and bent through the middle of the line)
+  const after = await heights(page);
+  const W = (await info(page)).W;
+  const cut = (x: number, y: number) => {
+    let n = 0;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (after[(y + dy) * W + x + dx] < before[(y + dy) * W + x + dx]) n++;
+    return n;
+  };
+  expect(cut(at[0], at[1])).toBeGreaterThan(0);
+  expect(cut(Math.round((endX + at[0]) / 2), bendY)).toBeGreaterThan(0);
+  // undo while it runs takes it back (Watch: long enough to catch it running)
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(before);
+  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await page.mouse.move(s0.x, s0.y);
+  await page.mouse.down();
+  await page.mouse.move(s1.x, s1.y, { steps: 10 });
+  await page.mouse.move(a.x, a.y, { steps: 10 });
+  await page.mouse.up();
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 10, null, { timeout: 20_000 });
   await page.keyboard.press("Control+z");
   await expect.poll(() => status(page)).toBeNull();
   await idle(page);
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
+  await page.getByRole("button", { name: "Watch", exact: true }).click();
 });

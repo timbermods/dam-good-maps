@@ -10,6 +10,7 @@ import { keptObject, literalOf } from "../result";
 import type { CarveParams } from "./op";
 import { sourceStrength, type CarveRun, type CarveSettings } from "./run";
 import { oxbowLake } from "./water";
+import { FLOOR_DEFAULT } from "../floor";
 
 /** The map a force starts from: the build's ground and objects (those standing on the map), and
  *  the water as it stands (`water`: the water in flight, when there is some). */
@@ -56,6 +57,9 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     defyGravity: set.defyGravity,
     dry: set.dry,
     ...(set.depth != null ? { depth: set.depth } : {}),
+    ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
+    ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
+    ...(set.banks != null ? { banks: set.banks } : {}),
     ...(rec.cut !== null ? { cut: rec.cut } : {}),
     steps: run.steps,
     reason: run.done ? run.reason : "stopped",

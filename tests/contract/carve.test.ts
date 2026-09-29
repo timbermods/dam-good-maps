@@ -609,7 +609,7 @@ describe("a carve in the document (breakage rule)", () => {
 });
 
 describe("a carve at work in the editor's worker", () => {
-  it("frames as it runs; Esc drops all of it; Stop keeps it as one step, exactly as shown; Try another path replaces it", async () => {
+  it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
@@ -621,7 +621,7 @@ describe("a carve at work in the editor's worker", () => {
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const origin = farFromStart(s);
     const settings = { ...DEFAULTS, power: 70 };
-    // a frame at a time: the ground near the head, the water with it
+    // worked out a slice a call (nothing changes on the land meanwhile), then shown a frame at a time
     const st = ed.carveStart({ settings, origin, cut: null });
     expect(st.errors).toEqual([]);
     expect(ed.carving()).toBe(true);
@@ -629,25 +629,39 @@ describe("a carve at work in the editor's worker", () => {
     const show = (f: ed.ForceFrame | null) => {
       expect(f).not.toBeNull();
       if (f!.heights) shown = f!.heights;
+      return f!;
     };
     show(st.frame);
+    for (let k = 0; k < 200 && !show(ed.carveAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
+    const worked = ed.carveAdvance(0)!;
+    expect(worked.planned).toBe(true);
+    expect(worked.total).toBeGreaterThan(3 * STEPS_PER_SECOND);
     for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
-    expect(ed.carveAdvance(0)!.steps).toBe(3 * STEPS_PER_SECOND);
+    expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
+    // (the water stays as it was: no frame carries any)
+    expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
     const back = ed.carveCancel();
     expect(Array.from(back.heights!)).toEqual(Array.from(ground));
     expect(ed.carving()).toBe(false);
     expect(steps()).toBe(n0);
-    // Stop: one step, the ground exactly as the page showed it
+    // kept part way (Watch's jump to the end): one step, the whole result, the same as shown to its end
     show(ed.carveStart({ settings, origin, cut: null }).frame);
     for (let k = 0; k < 4; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
+    const partWay = shown;
     const kept = ed.carveStop();
     expect(kept.errors).toEqual([]);
     expect(kept.kept).toBe(true);
     expect(steps()).toBe(n0 + 1);
     expect(kept.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Carve a river");
     const first = ed.terrainNow().heights;
+    expect(Array.from(first)).not.toEqual(Array.from(partWay));
+    ed.undo();
+    show(ed.carveStart({ settings, origin, cut: null }).frame);
+    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
+    expect(ed.carveStop().kept).toBe(true);
+    expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     expect(Array.from(first)).toEqual(Array.from(shown));
     expect(kept.info.carveAgain).toBe(true);
     // Try another path: the same carve from the same land, the next seed; it replaces the first
@@ -655,7 +669,7 @@ describe("a carve at work in the editor's worker", () => {
     expect(again.errors).toEqual([]);
     expect(again.settings!.seed).toBe(1);
     show(again.frame);
-    for (let k = 0; k < 4; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
+    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
     const other = ed.carveStop();
     expect(other.kept).toBe(true);
     expect(other.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Try another path");

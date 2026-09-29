@@ -159,7 +159,8 @@ describe("Unleash, on a source (D239)", () => {
     expect(aimed.where.source).toBe(id);
     ed.undo();
 
-    // a badwater source's river is badwater: the water it shows as it carves is bad
+    // a badwater source's river is badwater: its surge shows murky as it carves (the water itself stays
+    // as it was until the land is final, D321 item 30)
     const bad = "1b1c2d3e-4f50-4617-8899-aabbccddeeff";
     expect(ed.apply({ op: "deleteEntities", params: { entities: [id] } }).errors).toEqual([]);
     // (its 3 x 3 on level, dry ground, away from the start)
@@ -177,13 +178,13 @@ describe("Unleash, on a source (D239)", () => {
     expect(ed.apply({ op: "placeEntity", params: { id: bad, template: "BadwaterSource", x: spot![0], y: spot![1], orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }).errors).toEqual([]);
     const sb = ed.forceStart({ verb: "carve", settings: { ...CARVE_DEFAULTS, power: 70 }, origin: [spot![0] + 1, spot![1] + 1], cut: null, source: bad });
     expect(sb.errors).toEqual([]);
-    let contaminated = 0;
-    for (let k = 0; k < 120; k++) {
+    let murky = 0;
+    for (let k = 0; k < 400; k++) {
       const f = ed.forceAdvance(4)!;
-      if (f.water) for (const c of f.water.contamination) if (c > 0.5) contaminated++;
+      if (f.head.bad) murky++;
       if (f.done) break;
     }
-    expect(contaminated).toBeGreaterThan(0);
+    expect(murky).toBeGreaterThan(0);
     expect(ed.forceStop().kept).toBe(true);
     expect((open().logOps.at(-1)!.params as ForceResultParams).where.source).toBe(bad);
   });
