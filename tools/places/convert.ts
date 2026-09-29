@@ -54,6 +54,7 @@ import { riverTiles } from "./osm";
 import { readWater } from "./worldcover";
 import { placeSourceGroup } from "../../src/core/water/sourceGroups";
 import { hash32 } from "../../src/core/math/hash";
+import type { Finished } from "./finish";
 
 export const PATCHES = "investigation/landscapes/.cache/patches";
 const HALO = 32;
@@ -156,6 +157,9 @@ export interface Converted {
   notes?: string[];
   /** Advisory checks the map does not meet (information). */
   advisories?: string[];
+  /** The finish (finish.ts, D331, item 27): the edge lip, the start by D331's preferences, and the
+   *  objects placed. Absent on a conversion not yet finished. */
+  finish?: Finished;
   ms: number;
 }
 
@@ -509,17 +513,17 @@ function strengths(groups: Group[], size: number, flow = Infinity): [number, num
   }
 }
 
-function sourceEntities(sources: [number, number, number][], h: Uint8Array, size: number): EntitySpec[] {
+export function sourceEntities(sources: [number, number, number][], h: Uint8Array, size: number): EntitySpec[] {
   return sources.map(([x, y, strength]) => waterSource({ id: `s${x},${y}`, owner: "convert", x, y, z: h[y * size + x], strength }));
 }
 
-function mapObject(e: EntitySpec): MapObject {
+export function mapObject(e: EntitySpec): MapObject {
   return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, components: { ...(e.before ?? {}), ...e.components } };
 }
 
 /** Sources whose water reaches no map edge (water.outflow's rule: their wet region touches no
  *  edge tile but a source's own). */
-function noOutflow(model: ReturnType<typeof waterModel>, depth: ArrayLike<number>): Set<number> {
+export function noOutflow(model: ReturnType<typeof waterModel>, depth: ArrayLike<number>): Set<number> {
   const { W, H } = model;
   const N = W * H;
   const any = new Uint8Array(N);
@@ -598,7 +602,7 @@ export function walkToPumpShore(h: Uint8Array, W: number, H: number, depth: Arra
  *  to the water, as Pick a place's designed water chooses it, rather than the water being made to
  *  reach the start) puts first, in each block and among them, the starts with pumpable water within
  *  their walk (`walkToPumpShore`). Returns the StartingLocation's corner tile. */
-function starts(h: Uint8Array, W: number, H: number, water: Pick<CanonicalWater, "depth" | "contamination">, M: ArrayLike<number>, shoreFirst = false): [number, number][] {
+export function starts(h: Uint8Array, W: number, H: number, water: Pick<CanonicalWater, "depth" | "contamination">, M: ArrayLike<number>, shoreFirst = false): [number, number][] {
   const N = W * H;
   const D = water.depth;
   const rules = DIFFICULTY_RULES.normal;

@@ -1,6 +1,11 @@
 # Real places
 
-> **Parked by Kyler (D319, 2026-09-29) until he says it resumes.** Item 27 (the edge lip at a river's head) still waits with it.
+> **Parked by Kyler (D319, 2026-09-29) until he says it resumes.**
+> **Built while parked (2026-09-29), code only:** the finish (`tools/places/finish.ts`, run on every conversion by
+> `places-convert.ts`, kept in `v11/finish-1/`): item 27's edge lip (M9b's `water/edgeLip.ts`), the start by D331's
+> preferences, and D331 (3)'s objects when a place is built (two reachable mine sites, badwater clear of the start's
+> water and farmland, berries). `npx tsx tools/places-convert.ts --finish-only --threads 2` finishes the kept
+> conversions without converting; see "The finish" below for the 37.
 > **Item 47 (D331):** real places keep the real land. Out: the base raise, the second district site, high ground next to
 > low. In, when it resumes, never changing the land, gating or dropping a place: the starting-logs and water floors;
 > two reachable mine sites, a badwater spring clear of the start's water and first farmland, and berries for an Iron
@@ -836,3 +841,66 @@ a6346fe4 on `feature/source-groups`, with its README and test) wired into the co
   single spring until M9b's switch.
 - Tests: `places-water.test.ts` (a head's row across its flow), `sourceGroups.test.ts` (the module's
   own), `places.test.ts` (the floor's group among the sources, and out of D214's cap sum).
+
+## The finish: item 27's lip, the start and the objects (Kyler, 2026-09-29, D331; item 27)
+
+Built while parked, code only; the one rebuild runs it on every place. Nothing changes the real land but the lip.
+
+- **The lip** (`tools/places/finish.ts` `edgeLips`, M9b's `water/edgeLip.ts` unchanged): round each row of sources
+  on the edge (a river coming in), from the settled water's surface at its head. The water floor's spring (D300) is
+  no river's head and gets none. A spring downstream that the head's water now reaches goes (D171). Where the lip
+  leaves no start meeting the absolutes (4 places; Verdon Gorge's start lost its water floor), it is withheld.
+- **The start** (D331): kept when its wood, berries, water, 100 tiles of moist farmland and 113 of level land
+  (`analysis/startLand.ts`, M9b's numbers) are within 20 tiles' walk without stairs; else the nearest that
+  qualifies, built in full; where none does, the conversion's stands.
+- **The objects** (`resources/plan.ts`, asked for by places only): two mine sites on the start's land first
+  (`reachableMines`, M9b's `landRegions`, from 30 tiles out); badwater springs whose stream (`analysis/sources.ts`
+  `streamOf`: down the land, filling pools, a sheet over flats) keeps 2 tiles off the start's water and farmland
+  (`clearOfStart`), then settled and checked, and never where other water comes down to it (D171); berries as
+  before (Normal's 30 bushes near the start cover an Iron Teeth start).
+
+The 37 converted places (VERSION 11), finished without reconverting:
+
+| Place | Mine sites (reachable of placed) | Badwater | Berries near the start | Start | Lip tiles |
+|---|---|---|---|---|---|
+| Thousand Islands | 2 of 3 | 4 | 48 | stayed | 32 |
+| Badlands National Park | 2 of 3 | 3 | 234 | stayed | 0 |
+| Toklat River | 3 of 3 | 3 | 48 | stayed | 5 |
+| Crater Lake | 2 of 3 | 3 | 48 | stayed | 0 |
+| Colca Canyon | 2 of 3 | 3 | 48 | stayed | 8 |
+| Twelve Apostles | 2 of 3 | 3 | 48 | moved 13 | 3 |
+| Mount Mayon | 3 of 3 | 4 | 48 | stayed | 85 |
+| Rhine and Moselle | 2 of 3 | 4 | 48 | stayed | 57 |
+| Lena Delta | 2 of 3 | 4 | 48 | stayed | 0 |
+| Drakensberg Amphitheatre | 2 of 3 | none | 48 | stayed | none (57 withheld for the absolutes) |
+| Kaieteur Falls | 3 of 3 | none | 48 | stayed (none qualifies) | none (95 withheld for the absolutes) |
+| Death Valley | 3 of 3 | 4 | 48 | stayed | 0 |
+| Torres del Paine | 3 of 3 | 3 | 48 | stayed | 33 |
+| Tiger Leaping Gorge | 2 of 3 | none | 48 | moved 12 | 4 |
+| Phong Nha | 2 of 3 | 3 | 48 | stayed | 0 |
+| Lake District | 0 of 3 | 3 | 48 | moved 17 | 54 |
+| Uvac River | 2 of 3 | 3 | 50 | stayed | 25 |
+| Mount Roraima | 3 of 3 | 4 | 48 | stayed | 21 |
+| Ethiopian Highlands | 3 of 3 | 4 | 48 | moved 5 | 78 |
+| Lofoten | 2 of 3 | none | 48 | stayed | 74 |
+| Drumheller | 2 of 3 | none | 48 | moved 19 | 34 |
+| Tagliamento River | 3 of 3 | 3 | 48 | moved 51 | 29 |
+| Aso Caldera | 3 of 3 | 3 | 148 | stayed | 0 |
+| Blyde River Canyon | 2 of 3 | 4 | 48 | moved 9 | 44 |
+| Cliffs of Moher | 2 of 3 | 4 | 48 | moved 66 (none qualifies) | 51 |
+| Paricutin | 3 of 3 | 3 | 114 | stayed | 0 |
+| Alaknanda and Bhagirathi | 2 of 3 | 4 | 48 | stayed | 6 |
+| Danube Delta | 2 of 3 | 4 | 46 | stayed | 5 |
+| Mahabaleshwar, Western Ghats | 2 of 3 | none | 48 | moved 19 | none (86 withheld for the absolutes) |
+| Niagara Falls | 3 of 3 | 4 | 48 | stayed | 33 |
+| Roaring River Fan | 3 of 3 | 1 | 69 | stayed | 33 |
+| Aysen Fjord | 2 of 3 | 3 | 48 | stayed | 0 |
+| Glencoe | 3 of 3 | 3 | 48 | stayed | 24 |
+| Verdon Gorge | 3 of 3 | 4 | 48 | stayed | none (4 withheld for the absolutes) |
+| Chocolate Hills | 2 of 3 | 3 | 48 | stayed | 36 |
+| Lake Saimaa | 2 of 3 | 3 | 48 | stayed | 166 |
+| Kinabatangan River | 3 of 3 | 4 | 48 | stayed | 22 |
+
+37 places: 36 with 2 reachable mine sites, 31 with a badwater source, 37 with berries for an Iron Teeth start (30+ bushes), 35 with a start meeting D331's preferences, 9 starts moved, 962 lip tiles on 25 places. Short: Lake District's start land has no room for a
+mine site (its 3 stand off it); six places go without badwater; two starts meet no candidate's preferences (wood).
+Lip tiles are edgeLip's own count, as small as it allows.

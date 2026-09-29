@@ -11,6 +11,9 @@
 //   npm run places:convert -- --reselect    (choose again: the first round's places, then additions)
 //   npm run places:convert -- --target 150  (how many places a reselection aims at)
 //   npm run places:convert -- --threads 8
+//   npm run places:convert -- --finish-only (only finish the kept conversions, places/finish.ts:
+//                                            the edge lip, the start and the objects, D331; no
+//                                            conversion runs; prints the table for the progress log)
 //
 // It needs the survey's patches, which stay out of git: from investigation/landscapes/, run
 // `npm ci --ignore-scripts --cache ./npm-cache` and `npm run sample` (about 1.1 GB of Terrain
@@ -45,7 +48,9 @@ import { gunzipSync } from "node:zlib";
 import { gzipSync, strToU8 } from "fflate";
 import { isMainThread } from "node:worker_threads";
 import { LOG_FLOOR, PLACE_FORMAT, type PlaceData } from "../src/core/places/place";
+import { DIFFICULTY_RULES } from "../src/core/spec/mapspec";
 import { convertRow, coverOf, FLOW_CAP, MAX_COVER, PATCHES, type Converted, type PlaceMeta } from "./places/convert";
+import { FINISH, finishPlace } from "./places/finish";
 import { defaultThreads, runPool, serve } from "./places/pool";
 import { FAMILIES, slug, title } from "./places/titles";
 
@@ -72,10 +77,13 @@ interface Job {
   focus?: number;
   /** A conversion kept from before its water cover was recorded: measure it. */
   kept?: Converted;
+  /** A conversion to finish (places/finish.ts). */
+  finish?: Converted;
 }
 
 serve<Job, Converted>((job) => {
   try {
+    if (job.finish) return finishPlace(job.finish, job.meta);
     if (job.kept) {
       const cover = coverOf(job.kept);
       return cover > MAX_COVER ? { ...job.kept, ok: false, cover, reason: `water covers ${Math.round(cover * 100)}% of the map (at most ${Math.round(MAX_COVER * 100)}%)` } : { ...job.kept, cover };
@@ -185,6 +193,10 @@ async function main(): Promise<void> {
   // every conversion, from the kept ones or run now
   const results = new Map<string, Converted>();
   const cachePath = (key: string) => join(CACHE, `${key.replace("@", "-f")}.json`);
+  // the finished conversions (places/finish.ts), kept beside them, once per FINISH version
+  const finishPath = (key: string) => join(CACHE, `finish-${FINISH}`, `${key.replace("@", "-f")}.json`);
+  mkdirSync(join(CACHE, `finish-${FINISH}`), { recursive: true });
+  const finishOnly = process.argv.includes("--finish-only");
   let ran = 0;
   const t0 = performance.now();
   /** A conversion's key: its row, and `@<focus>` when it frames its signature wider (D306). */
@@ -197,13 +209,34 @@ async function main(): Promise<void> {
       if (kept && (!kept.ok || kept.cover !== undefined)) results.set(key, kept);
       else todo.push({ row, meta: meta(byRow.get(row)!), ...(focus ? { focus: Number(focus) } : {}), ...(kept ? { kept } : {}) });
     }
-    if (!todo.length) return;
+    if (todo.length && finishOnly) console.log(`not converted (--finish-only): ${todo.length}`);
+    if (todo.length && !finishOnly)
     await runPool<Job, Converted>(new URL(import.meta.url), todo, threads, (r, job) => {
       const key = job.focus ? `${job.row}@${job.focus}` : job.row;
       results.set(key, r);
       writeFileSync(cachePath(key), JSON.stringify(r));
       ran++;
       console.log(`${r.ok ? "ok  " : "FAIL"} ${String(r.size).padStart(3)}² ${(r.ms / 1000).toFixed(1).padStart(5)} s  flow ${r.flow ?? "-"} tilt ${r.tiltKept} beds ${r.beds}${r.spring ? ` spring ${r.spring.strength} (${r.spring.why})` : ""} rivers ${r.rivers ?? "-"}/${r.beginnings ?? "-"}${r.observed ? ` observed ${r.observed.water} found ${r.observed.recall} on it ${r.observed.precision}` : ""}${r.moved ? " start moved" : ""}${r.notes?.length ? ` notes: ${r.notes.join("; ")}` : ""}  ${r.row}  ${surveyName(byRow.get(r.row)!)}${r.ok ? "" : `: ${r.reason}`}`);
+    });
+    // the finish (places/finish.ts, D331, item 27): every conversion that passed, once
+    const fin: (Job & { key: string })[] = [];
+    for (const key of new Set(list)) {
+      const r = results.get(key);
+      if (!r?.ok || r.finish?.v === FINISH) continue;
+      if (existsSync(finishPath(key))) {
+        results.set(key, JSON.parse(readFileSync(finishPath(key), "utf8")) as Converted);
+        continue;
+      }
+      const [row, focus] = key.split("@");
+      fin.push({ key, row, meta: meta(byRow.get(row)!), ...(focus ? { focus: Number(focus) } : {}), finish: r });
+    }
+    const t1 = performance.now();
+    await runPool<Job, Converted>(new URL(import.meta.url), fin, threads, (r, job) => {
+      const key = (job as Job & { key: string }).key;
+      results.set(key, r);
+      if (r.ok) writeFileSync(finishPath(key), JSON.stringify(r));
+      const f = r.finish;
+      console.log(`${r.ok ? "fin " : "FAIL"} ${key}  ${f ? `lip ${f.lip}${f.pooled ? ` (${f.pooled} pooled)` : ""}, start ${f.moved ? `moved ${f.moved}` : "stayed"}${f.qualifies ? "" : ` (none qualifies: ${f.unmet.join(", ")})`}${f.inFlow ? `, ${f.inFlow} springs reached` : ""}, mines ${f.reachableMines}/${f.mines}, badwater ${f.badwater}, bushes ${f.bushes}, farmland ${f.farmland}, level ${f.level}` : r.reason}  ${Math.round((performance.now() - t1) / 1000)} s`);
     });
   }
 
@@ -248,8 +281,30 @@ async function main(): Promise<void> {
       return sizeOf(sig) < WIDE && byRow.has(w) && existsSync(`${PATCHES}/${patchOf(w)}.f32.gz`) ? `${w}@${sizeOf(sig)}` : null;
     };
     await convert(sel.places.map((p) => wide(p) ?? sigRow(p)));
-    const narrow = sel.places.filter((p) => wide(p) && !results.get(wide(p)!)!.ok);
+    const narrow = sel.places.filter((p) => wide(p) && results.get(wide(p)!) && !results.get(wide(p)!)!.ok);
     await convert(narrow.map(sigRow));
+    if (finishOnly) {
+      // the table for the progress log: each finished place, what it was given
+      const rows: string[] = ["| Place | Mine sites (reachable of placed) | Badwater | Berries near the start | Start | Lip tiles |", "|---|---|---|---|---|---|"];
+      const tot = { places: 0, twoMines: 0, badwater: 0, berries: 0, moved: 0, qualify: 0, lip: 0, lipPlaces: 0 };
+      for (const p of sel.places) {
+        const key = wide(p) && results.get(wide(p)!)?.ok ? wide(p)! : sigRow(p);
+        const f = results.get(key)?.finish;
+        if (!f) continue;
+        tot.places++;
+        if (f.reachableMines >= 2) tot.twoMines++;
+        if (f.badwater) tot.badwater++;
+        if (f.bushes >= DIFFICULTY_RULES.normal.bushesWithin20) tot.berries++;
+        if (f.moved) tot.moved++;
+        if (f.qualifies) tot.qualify++;
+        tot.lip += f.lip;
+        if (f.lip) tot.lipPlaces++;
+        rows.push(`| ${p.name} | ${f.reachableMines} of ${f.mines} | ${f.badwater || "none"} | ${f.bushes} | ${f.moved ? `moved ${f.moved}` : "stayed"}${f.qualifies ? "" : " (none qualifies)"} | ${f.lipWithheld ? `none (${f.lipWithheld} withheld for the absolutes)` : f.lip}${f.pooled ? ` (${f.pooled} pooled)` : ""} |`);
+      }
+      console.log(rows.join("\n"));
+      console.log(`\n${tot.places} places: ${tot.twoMines} with 2 reachable mine sites, ${tot.badwater} with a badwater source, ${tot.berries} with berries for an Iron Teeth start (${DIFFICULTY_RULES.normal.bushesWithin20}+ bushes), ${tot.qualify} with a start meeting D331's preferences, ${tot.moved} starts moved, ${tot.lip} lip tiles on ${tot.lipPlaces} places.`);
+      return;
+    }
     // Real places are kept on their own land (Kyler, 2026-09-26, D245): a place is never dropped,
     // moved to another part of its region, or given another height mapping or scale for a
     // playability check; it converts, and says what it falls short of. Only the absolutes fail a
