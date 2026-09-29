@@ -135,11 +135,14 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
   await row.getByRole("button", { name: "More" }).click();
   const details = page.getByRole("group", { name: "Carve details" });
   await expect(details).toBeVisible();
-  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Depth", "Floor"]);
+  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
+  // River depth (D321 item 17) is 2 unless set, with Off beside it; it sits beside Canyon depth (item 25)
+  await expect(details.getByRole("slider", { name: "River depth" })).toHaveValue("2");
+  await expect(details.getByRole("button", { name: "River depth off" })).toHaveAttribute("aria-pressed", "false");
   await expect(details.getByRole("combobox", { name: "Walls" })).toBeVisible();
   // every detail starts on Auto (D309); the land and the seed lean and vary them, tested at
   // tests/contract/forceNature.test.ts
-  for (const name of ["Wander follows the land", "Walls follows the land", "Depth follows Power"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["Wander follows the land", "Walls follows the land", "Canyon depth follows Power", "Banks follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
 
   const at = await highGround(page);
   await row.getByRole("slider", { name: "Power" }).fill("15");

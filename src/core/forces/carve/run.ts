@@ -39,6 +39,7 @@ import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
 import { floorProblem, forceFloor } from "../floor";
+import { shapeRiver } from "./river";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -61,7 +62,17 @@ export interface CarveSettings {
   layers: boolean;
   /** The Floor (D321, item 40, floor.ts): it never cuts below this level; absent, 1. */
   floor?: number;
+  /** River depth (D321, item 17, river.ts): its water never deeper than this many levels over the
+   *  ground it cut, 1 up to the ceiling; null or absent, Off (as deep as it cuts). The editor's row
+   *  gives 2 unless set. */
+  riverDepth?: number | null;
+  /** Banks (item 18, river.ts): about how many tiles of flat land at the waterline on each side before
+   *  the walls, 0 (none) to 10; absent, none. */
+  banks?: number | null;
 }
+
+/** The most tiles of banks a carve leaves (item 18). */
+export const BANKS_MAX = 10;
 
 export interface CarveIntent {
   origin: number;
@@ -239,7 +250,9 @@ export class CarveRun implements ForceRun {
       settings.seed > 0xffffffff ||
       (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24)) ||
       (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX)) ||
-      floorProblem(settings.floor)
+      floorProblem(settings.floor) ||
+      (settings.riverDepth != null && !(Number.isInteger(settings.riverDepth) && settings.riverDepth >= 1 && settings.riverDepth <= 22)) ||
+      (settings.banks != null && !(Number.isFinite(settings.banks) && settings.banks >= 0 && settings.banks <= BANKS_MAX))
     )
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
@@ -685,7 +698,28 @@ export class CarveRun implements ForceRun {
     if (frontCut > 60 && this.head.event === "surge") this.head.event = "breakthrough";
     else if (!frontCut && this.active.size) this.head.event = "rock";
     for (const i of touched) delta[i] = 0;
-    if (changed.length) {
+    if (changed.length) this.dropObjects(changed);
+    this.quiet = changed.length || infill.length ? 0 : this.quiet + 1;
+    if (this.ended && (!this.active.size || this.quiet >= 24 || this.tail >= 220)) {
+      this.metrics.stable = true;
+      // the river's own shape once its canyon is cut: its depth and its banks (items 17, 18)
+      const shaped = this.planning ? [] : shapeRiver(this);
+      if (shaped.length) {
+        if (this.map.lava) for (const i of shaped) this.map.lava[i] &= (1 << this.map.heights[i]) - 1;
+        this.dropObjects(shaped);
+        changed.push(...shaped);
+      }
+      if (this.metrics.reason === "map edge") {
+        this.metrics.exported = this.metrics.suspended;
+        this.metrics.suspended = 0;
+      }
+    }
+    return changed;
+  }
+
+  /** The objects on ground that changed go (the start, its own sources and an unleashed one ride it). */
+  private dropObjects(changed: readonly number[]): void {
+    {
       const W = this.map.W;
       const H = this.map.H;
       if (!this.occupants) {
@@ -714,15 +748,6 @@ export class CarveRun implements ForceRun {
             return own ? { ...e, z: this.map.heights[own.tile] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e;
           });
     }
-    this.quiet = changed.length || infill.length ? 0 : this.quiet + 1;
-    if (this.ended && (!this.active.size || this.quiet >= 24 || this.tail >= 220)) {
-      this.metrics.stable = true;
-      if (this.metrics.reason === "map edge") {
-        this.metrics.exported = this.metrics.suspended;
-        this.metrics.suspended = 0;
-      }
-    }
-    return changed;
   }
 
   private rejectIsolated(d: Int8Array, touched: readonly number[]) {

@@ -43,7 +43,7 @@ editor is desktop-first (D185).
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
   unleashes a carve, strikes, or vents; a drag aims a carve or an impact, or opens a fissure. Everything else (Carve's
-  wander, walls and depth; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
+  wander, walls, Canyon depth and Banks; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
   scarp; Glaciate's benches, steps, tarn and scree) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
   ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
   shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
@@ -420,6 +420,19 @@ Make a valley, drop a source, and there's a river.
     (D289), with natural variation within each carve (bends wider and deeper on the outside, narrower on the
     straights, never a uniform tube), and **Try another path**, which re-rolls them; a bend cut off becomes an oxbow
     lake, sealed by sediment at both ends;
+  - behind More, beside **Canyon depth** (how deep the cut goes, so how tall the walls are; item 25's name for its
+    Depth), **River depth** (D321, item 17): how deep its water may be, a number from 1 up to the height ceiling, or
+    **Off**; 2 unless set, remembered. Once the canyon is cut, wherever the game's water would pool deeper than that
+    over the ground the carve cut (a bend's scour, the canyon's end behind its own fan) the bed is raised under the
+    pool's spill level (one level under it less the setting, the water flowing over the sill standing a little
+    above it), the walls as tall as Power made them; Off leaves it as deep as it cuts, and a dry canyon has no river
+    to limit. **Banks** (item 18, on Auto: open ground leaves wider ones, a gorge few): about how many tiles of flat
+    land lie on each side of the river before the walls, 0 to 10, wider inside a bend and narrower outside it, with
+    a slow swell along the course, never a constant strip. The banks stand at the river's waterline: the bed below
+    them by the river's depth (at least two levels, so its normal surface stays just below their top and never
+    spreads over them as a standing sheet), running only downhill; the carve's own source row stands in the river;
+    the walls step back by the banks' width; the banks are moist for crops and, like any low floor, may flood when
+    the river refills (D307). Built after the carve in `core/forces/carve/river.ts`; its operation keeps both;
   - its one choice, **Keep river** (the default) or **Dry canyon**. Keep river leaves a
     source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the carve's heading, fewer where
     cramped, as the official maps' rows are) whose total strength follows the river's Width, not its Power, so a slot
