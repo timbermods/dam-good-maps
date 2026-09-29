@@ -1,5 +1,11 @@
 # Real places
 
+> **Parked by Kyler (D319, 2026-09-29) until he says it resumes.** Changes still coming (the forces-preview feedback's
+> item 47, the base raised so the deepest riverbed stands 3 levels above the floor, and item 27, the edge lip at a
+> river's head) affect every rebuild. #35 stays open and unreleased; its red CI is expected. The 37 converted places
+> (VERSION 11) are attached to the draft release `cache-real-places-2-v11`. On Kyler's main PC, fetch the land data
+> first (`npx tsx tools/places/worldcover.ts`, then `tools/places/osm.ts`); without it every place fails at once.
+>
 > **Where a fresh session resumes (handoff 2026-09-27 night, for Tuesday 8:01 PDT; branch
 > `feature/real-places-2`, PR #35 into `dev`). The rebuild is PAUSED; start it only as below.**
 > The one Real places rebuild: D300 (tilt out, beds lowered, the water floor) + D306 (256² framing,
