@@ -72,8 +72,9 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await expect(row.getByRole("combobox")).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Keep river" })).toHaveAttribute("aria-pressed", "true");
-  // (a creek, so it ends by itself soon)
-  await row.getByRole("slider", { name: "Power" }).fill("15");
+  // (a long river first, so Esc still finds it running on a slow machine: which tile is picked
+  // depends on the rows over the map, and a short creek there can end before Esc arrives)
+  await row.getByRole("slider", { name: "Power" }).fill("60");
   // the other forces beside it, in the forces group (D216, D219)
   for (const name of ["Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(page.getByRole("button", { name })).toBeVisible();
 
@@ -92,7 +93,8 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   expect((await labels(page)).length).toBe(n0);
 
   // again, to its end: one undo step, the ground as the page showed it; its row while it works is
-  // Pause and Revert, no Stop
+  // Pause and Revert, no Stop (a creek, so it ends by itself soon)
+  await row.getByRole("slider", { name: "Power" }).fill("15");
   await clickTile(page, at[0], at[1]);
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 4, null, { timeout: 20_000 });
   // the other tools wait while it works
