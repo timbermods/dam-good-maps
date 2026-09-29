@@ -3,8 +3,9 @@
 > **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
 > (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
 > step by step below ("Batch 5"). Steps 1–5 in (the one re-pin done, the quick suite green), and
-> D330's two generator pieces (Sources: None, the automatic water fix). Next: steps 6–7 (item 24's
-> and 47's numbers as data, the release candidate up to the pooled probe, which needs Kyler's yes).
+> D330's two generator pieces (Sources: None, the automatic water fix), and step 6 (the numbers as
+> data). Next: step 7, the release candidate (the batches, the chaos batch, then the pooled probe on
+> Kyler's yes, then the review set).
 > Defaults this session chose: decisions-pending #135–#146.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
@@ -60,6 +61,11 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   The automatic water fix (`src/core/doc/waterFix.ts`, callable as `waterFixOps` in the worker's
   session): a spring by the start, tried on a copy and settled, when the start's water, berries or
   farmland fail after edits (`tests/contract/waterFix.test.ts`).
+- **Step 6, items 24's and 47's numbers as data** (no display until "The page is the editor"):
+  `analysis.walkReach` (trees within the floor's 40-tile walk and the logs they hold; the start's
+  farmland and level land within 20) and `analysis.levers` (farmland, the nearest metal, the
+  nearest badwater, the shortest dam within 40 tiles that stores the drought's need, buildable
+  land), all from the start's one walk (`tests/contract/levers.test.ts`).
 
 ## Handoff (2026-09-27, evening)
 

@@ -151,6 +151,12 @@ export interface PlayabilityAnalysis {
    *  floor's walk (40 tiles) and the logs their grown trees hold; the farmland (moist, dry, clean
    *  soil) and the level building land (tiles of a level, dry 2×2) within 20 tiles' walk. */
   walkReach: { trees: number; logs: number; farmland: number; level: number } | null;
+  /** Item 47's five difficulty levers (information, computed here and shown only in "The page is
+   *  the editor", D325): the start's farmland and its level building land within 20 tiles' walk,
+   *  the tiles from the start to the nearest metal (a mine site or a ruin column) and to the nearest
+   *  badwater, and how easily it is sheltered from a badtide (the shortest dam within 40 tiles that
+   *  stores the colony's drought need, in tiles; null: none does). */
+  levers: { farmland: number; metal: number | null; badwater: number | null; shelter: number | null; buildable: number } | null;
   /** Starting wood (D164): the logs of the grown trees within 20 tiles' walk, and by species;
    *  and the logs of the saplings there, still growing. */
   woodNear: number;
@@ -284,6 +290,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     woodBySpecies: noWood(),
     woodGrowing: 0,
     walkReach: null,
+    levers: null,
     damSites: [],
     bestDam: null,
     naturalStorage: 0,
@@ -891,6 +898,19 @@ function checkStart(
   const stored = Math.max(held, levee);
   analysis.storage = { running, runningNeed, dam: best ? best.volume : 0, natural, levee, need };
   const how = best && best.volume >= need ? "a dam" : natural >= need ? "natural pools" : levee >= need ? "levees" : "";
+  // item 47's five levers (information): computed on the start's walk and the checks' own numbers
+  {
+    let metal = Infinity;
+    for (const o of objects) {
+      if (o.template !== "UndergroundRuins" && !o.template.startsWith("RuinColumnH")) continue;
+      for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && y >= 0 && x < W && y < H) metal = Math.min(metal, sd[y * W + x]);
+    }
+    let shelter = Infinity;
+    for (const s of sites) if (sd[s.y * W + s.x] <= RESERVOIR_RADIUS && s.volume >= need) shelter = Math.min(shelter, s.length);
+    const r = analysis.walkReach;
+    const fin = (v: number) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+    analysis.levers = { farmland: r?.farmland ?? 0, metal: fin(metal), badwater: fin(db), shelter: fin(shelter), buildable: r?.level ?? 0 };
+  }
   c.add({
     id: "water.storage_possible",
     class: "playability",
