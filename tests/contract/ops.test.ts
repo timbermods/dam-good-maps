@@ -110,7 +110,7 @@ describe("invalid operations are rejected with a reason and change nothing", () 
     ["a set piece whose stored plan is out of bounds", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "plugSpillway", request: { lake: "x" }, plan: {}, report: [] } } } }, /belongs to a lake/],
     ["the naturalize brush", { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } }, /roadmap M10/],
     ["a faction-only plant", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "Maple", x: 3, y: 3, orientation: "Cw0" } }, /cannot be placed/],
-    ["an object without its required components", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "UnstableCore", x: 3, y: 3, orientation: "Cw0" } }, /needs its components/],
+    ["an object without its required components", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "UnstableCore", x: 3, y: 3, orientation: "Cw0", components: {} } }, /needs the components UnstableCore/],
     ["a malformed id", { op: "placeEntity", params: { id: "not-a-guid", template: "Pine", x: 3, y: 3, orientation: "Cw0" } }, /must match/],
   ];
   it.each(bad)("%s", (_name, op, reason) => {

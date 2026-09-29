@@ -324,6 +324,143 @@ const MODELS: Record<string, () => Model> = {
   },
 };
 
+// ------------------------------------------------------------------ water objects, cores and reserves
+
+// PLAN §20 D337, D338: an original model for each object the game's map editor places beyond the sources, in
+// the stone basins' style (the sources' low stone rims and their pools), shaped after the footprints and the
+// reference screenshots and none of the game's files. Each is centred on its footprint (`CENTRED`).
+
+const STONE: Rgb = [0.47, 0.46, 0.44];
+const STONE_DARK: Rgb = [0.34, 0.33, 0.32];
+const POOL: Rgb = [0.32, 0.62, 0.95];
+const POOL_BAD: Rgb = [0.26, 0.13, 0.1];
+const IRON: Rgb = [0.36, 0.38, 0.41];
+const RUST: Rgb = [0.55, 0.33, 0.2];
+const PLANK: Rgb = [0.63, 0.48, 0.29];
+const CORE_STONE: Rgb = [0.3, 0.2, 0.36];
+const CORE_GLOW: Rgb = [1.15, 0.5, 1.25];
+
+/** A seep over its 2 × 2 footprint: a broad stone rim round a shallow pool with bubbles rising in it (clean),
+ *  or a dark pool with a slow brown swirl (badwater). */
+function seep(bad: boolean): Model {
+  const m = new Model();
+  const rim = bad ? shade(STONE_DARK, 1.05) : STONE;
+  m.add(box(1.9, 0.14, 0.32), rim, { y: 0.07, z: -0.79 });
+  m.add(box(1.9, 0.14, 0.32), rim, { y: 0.07, z: 0.79 });
+  m.add(box(0.32, 0.14, 1.26), rim, { x: -0.79, y: 0.07 });
+  m.add(box(0.32, 0.14, 1.26), rim, { x: 0.79, y: 0.07 });
+  m.add(box(1.28, 0.05, 1.28), bad ? POOL_BAD : POOL, { y: 0.06 });
+  if (bad) {
+    for (let k = 0; k < 2; k++) for (let j = 0; j < 2; j++) m.add(box(0.5 - j * 0.14, 0.03, 0.12), j % 2 ? [0.5, 0.3, 0.18] : [0.44, 0.24, 0.15], { x: (k ? 1 : -1) * (0.3 - j * 0.12), y: 0.1, z: (k ? -1 : 1) * (0.3 - j * 0.12), ry: k * 1.6 + j * 0.7 });
+  } else {
+    const bubbles: [number, number, number][] = [[0.15, 0.16, 0.1], [-0.3, 0.14, -0.2], [0.35, 0.13, -0.32], [-0.1, 0.18, 0.35]];
+    for (const [x, y, z] of bubbles) m.add(ico(0.07), [0.75, 0.9, 1], { x, y, z });
+  }
+  return m;
+}
+
+/** An aquifer over its plus-shaped 3 × 3 footprint: a low round stone cover with a dark well in it and an iron
+ *  grate across, a glint of water below. */
+function aquifer(): Model {
+  const m = new Model().add(cyl(1.32, 1.26, 0.16, 12), STONE, { y: 0.08 }).add(new CylinderGeometry(0.86, 0.86, 0.05, 12), [0.1, 0.18, 0.3], { y: 0.17 });
+  for (let k = 0; k < 3; k++) m.add(box(1.75, 0.05, 0.09), IRON, { y: 0.21, ry: (k * Math.PI) / 3 });
+  m.add(ico(0.1), [0.55, 0.78, 1], { x: 0.25, y: 0.13, z: -0.15 });
+  return m;
+}
+
+/** The ancient aquifer drill over its 3 × 3 footprint, 5 levels high: an iron base plate, four braced legs, a
+ *  rusty shaft with a flywheel at its head and a pipe out to the side. */
+function drill(): Model {
+  const m = new Model().add(box(2.4, 0.16, 2.4), IRON, { y: 0.08 }).add(cyl(0.34, 0.3, 0.5, 8), RUST, { y: 0.41 });
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+    m.add(bar(0.055, 3.6), IRON, { x: sx * 0.62, y: 1.9, z: sz * 0.62, rx: sz * 0.12, rz: -sx * 0.12 });
+    m.add(box(0.2, 0.12, 0.2), STONE_DARK, { x: sx * 0.95, y: 0.2, z: sz * 0.95 });
+  }
+  m.add(cyl(0.2, 0.2, 3.8, 8), RUST, { y: 2.25 });
+  for (const y of [1.2, 2.4]) m.add(box(1.5, 0.07, 1.5), shade(IRON, 0.85), { y });
+  m.add(cyl(0.6, 0.6, 0.12, 10), IRON, { y: 4.15, rx: Math.PI / 2 });
+  m.add(cone(0.22, 0.4, 6), RUST, { y: 4.6 });
+  m.add(cyl(0.11, 0.11, 1.5, 6), STONE_DARK, { x: 1.0, y: 0.5, rz: Math.PI / 2 });
+  return m;
+}
+
+/** A badtide drain over its 1 × 3 footprint, centred on its middle tile, facing north (−Z) as a Cw0 one flows:
+ *  a dark stone back with an iron pipe out of it into a stained outlet. */
+function drain(): Model {
+  const m = new Model().add(box(0.92, 1.6, 0.92), STONE_DARK, { y: 0.8, z: 1 }).add(box(0.96, 0.14, 0.96), STONE, { y: 1.65, z: 1 });
+  m.add(cyl(0.24, 0.24, 1.3, 8), IRON, { y: 0.85, z: 0.25, rx: Math.PI / 2 });
+  m.add(cyl(0.32, 0.32, 0.16, 8), RUST, { y: 0.85, z: -0.42, rx: Math.PI / 2 });
+  m.add(box(0.7, 0.05, 1.05), POOL_BAD, { y: 0.03, z: -0.4 });
+  m.add(box(0.5, 0.04, 0.7), [0.5, 0.3, 0.18], { y: 0.06, z: -0.75, ry: 0.15 });
+  return m;
+}
+
+/** An unstable core over its 2 × 2 footprint: a rough dark stone with a violet glow in its cracks, a few crystal
+ *  shards standing round it. */
+function unstableCore(): Model {
+  const m = new Model().add(ico(0.78), CORE_STONE, { y: 0.72, sy: 0.9 }).add(oct(0.42), CORE_GLOW, { y: 0.78 });
+  for (let k = 0; k < 5; k++) {
+    const a = (k * Math.PI * 2) / 5 + 0.3;
+    m.add(cone(0.1, 0.6 + 0.12 * (k % 2), 4), CORE_GLOW, { x: Math.cos(a) * 0.62, y: 0.7, z: Math.sin(a) * 0.62, rz: -Math.cos(a) * 0.5, rx: Math.sin(a) * 0.5 });
+  }
+  m.add(box(1.7, 0.1, 1.7), STONE_DARK, { y: 0.05, ry: 0.4 });
+  return m;
+}
+
+/** A reserve pile over its 2 × 2 footprint: sacks and crates heaped on a low pallet. */
+function reservePile(): Model {
+  const m = new Model().add(box(1.9, 0.12, 1.9), shade(PLANK, 0.75), { y: 0.06 });
+  const cells: [number, number, number, number][] = [
+    [-0.45, -0.45, 0.12, 0.4], [0.45, -0.45, 0.12, 0.36], [-0.45, 0.45, 0.12, 0.38], [0.45, 0.45, 0.12, 0.34],
+    [0, -0.4, 0.5, 0.36], [0, 0.4, 0.48, 0.38], [-0.4, 0, 0.5, 0.34], [0.4, 0, 0.5, 0.36], [0, 0, 0.9, 0.42],
+  ];
+  cells.forEach(([x, z, y, s], k) => m.add(box(s * 2, s * 1.4, s * 2), shade(PLANK, 0.85 + 0.07 * (k % 3)), { x, y: y + s * 0.7, z, ry: 0.15 * k }));
+  return m;
+}
+
+/** A reserve warehouse over its 2 × 2 footprint: a low plank shed under a shallow roof, its door toward the
+ *  entrance side (south, +Z, for a Cw0 one). */
+function reserveWarehouse(): Model {
+  const m = new Model().add(box(1.86, 0.1, 1.86), STONE_DARK, { y: 0.05 }).add(box(1.7, 0.7, 1.7), PLANK, { y: 0.45 });
+  for (const y of [0.3, 0.55, 0.8]) m.add(box(1.74, 0.04, 1.74), shade(PLANK, 0.78), { y });
+  const x = 1.0;
+  const z = 1.0;
+  const y0 = 0.8;
+  const y1 = 1.05;
+  const roof: Rgb = [0.38, 0.27, 0.2];
+  m.tris([-x, y0, z, x, y0, z, x, y1, 0, -x, y0, z, x, y1, 0, -x, y1, 0], roof);
+  m.tris([x, y0, -z, -x, y0, -z, -x, y1, 0, x, y0, -z, -x, y1, 0, x, y1, 0], shade(roof, 0.85));
+  m.tris([x, y0, z, x, y0, -z, x, y1, 0], PLANK);
+  m.tris([-x, y0, -z, -x, y0, z, -x, y1, 0], PLANK);
+  m.add(box(0.5, 0.55, 0.06), [0.2, 0.13, 0.08], { y: 0.38, z: 0.87 });
+  return m;
+}
+
+/** A reserve tank over its 2 × 2 footprint, 3 levels high: an iron drum on a stone plinth with banded
+ *  seams, a shallow dome, a pipe and a ladder. */
+function reserveTank(): Model {
+  const m = new Model().add(cyl(0.95, 0.95, 0.16, 12), STONE_DARK, { y: 0.08 }).add(cyl(0.84, 0.84, 2.3, 12), [0.55, 0.6, 0.62], { y: 1.31 });
+  for (const y of [0.55, 1.3, 2.05]) m.add(cyl(0.865, 0.865, 0.08, 12), IRON, { y });
+  m.add(cone(0.84, 0.5, 12), [0.5, 0.55, 0.58], { y: 2.7 });
+  m.add(cyl(0.09, 0.09, 0.7, 6), IRON, { x: 0.55, y: 3.05, z: -0.2 });
+  m.add(cyl(0.1, 0.1, 0.9, 6), IRON, { x: -0.95, y: 0.5, z: 0.1, rz: Math.PI / 2 });
+  for (const s of [-0.12, 0.12]) m.add(bar(0.02, 2.2), IRON, { x: 0.35 + s, y: 1.2, z: 0.85 });
+  for (let k = 0; k < 6; k++) m.add(box(0.28, 0.03, 0.03), IRON, { x: 0.35, y: 0.3 + k * 0.34, z: 0.86 });
+  return m;
+}
+
+Object.assign(MODELS, {
+  WaterSeep: () => seep(false),
+  BadwaterSeep: () => seep(true),
+  Aquifer: aquifer,
+  AncientAquiferDrill: drill,
+  BadtideDrain: drain,
+  UnstableCore: unstableCore,
+  ReservePile: reservePile,
+  ReserveWarehouse: reserveWarehouse,
+  ReserveTank: reserveTank,
+});
+
 // ------------------------------------------------------------------------------ mine sites
 
 /** A mine site's pit: sunk into its whole 5 × 5 footprint (whose tops the terrain leaves out,
@@ -582,6 +719,16 @@ const LITE_MODELS: Record<string, () => Model> = {
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
   Succulent: () => new Model().add(cone(0.2, 0.5, 4), [0.4, 0.6, 0.5], { y: 0.25 }),
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.75 }),
+  // the water objects, the core and the reserves (D337, D338): a handful of triangles each
+  WaterSeep: () => new Model().add(box(1.9, 0.14, 1.9), STONE, { y: 0.07 }).add(box(1.28, 0.05, 1.28), POOL, { y: 0.15 }),
+  BadwaterSeep: () => new Model().add(box(1.9, 0.14, 1.9), STONE_DARK, { y: 0.07 }).add(box(1.28, 0.05, 1.28), POOL_BAD, { y: 0.15 }),
+  Aquifer: () => new Model().add(cyl(1.3, 1.25, 0.16, 8), STONE, { y: 0.08 }).add(new CylinderGeometry(0.8, 0.8, 0.05, 8), [0.1, 0.18, 0.3], { y: 0.17 }),
+  AncientAquiferDrill: () => new Model().add(box(2.2, 0.16, 2.2), IRON, { y: 0.08 }).add(cyl(0.22, 0.2, 3.8, 5), RUST, { y: 2.05 }),
+  BadtideDrain: () => new Model().add(box(0.9, 1.6, 0.9), STONE_DARK, { y: 0.8, z: 1 }).add(box(0.7, 0.05, 1.05), POOL_BAD, { y: 0.03, z: -0.4 }),
+  UnstableCore: () => new Model().add(oct(0.8), CORE_STONE, { y: 0.75 }).add(oct(0.4), CORE_GLOW, { y: 0.8 }),
+  ReservePile: () => new Model().add(box(1.9, 0.12, 1.9), shade(PLANK, 0.75), { y: 0.06 }).add(box(1.5, 0.8, 1.5), PLANK, { y: 0.52 }),
+  ReserveWarehouse: () => new Model().add(box(1.7, 0.8, 1.7), PLANK, { y: 0.4 }).add(box(1.9, 0.12, 1.9), [0.38, 0.27, 0.2], { y: 0.86 }),
+  ReserveTank: () => new Model().add(cyl(0.85, 0.85, 2.5, 8), [0.55, 0.6, 0.62], { y: 1.25 }).add(cone(0.85, 0.5, 8), [0.5, 0.55, 0.58], { y: 2.75 }),
 };
 /** The light look's ruin: a column one block per ruin, as it looks from afar (scaled to its height). */
 const LITE_RUIN = () => {
@@ -599,7 +746,24 @@ function liteDead(r: number, h: number, length: number, color: Rgb): Model {
 }
 
 /** Templates whose model stands in the middle of a footprint: the local point it is centred on. */
-const CENTRED: Record<string, [number, number]> = { BadwaterSource: [1, 1], UndergroundRuins: [2, 2], GeothermalField: [1, 1], SmallRelic: [0.5, 0], MediumRelic: [1, 0.5], LargeRelic: [1, 1] };
+const CENTRED: Record<string, [number, number]> = {
+  BadwaterSource: [1, 1],
+  UndergroundRuins: [2, 2],
+  GeothermalField: [1, 1],
+  SmallRelic: [0.5, 0],
+  MediumRelic: [1, 0.5],
+  LargeRelic: [1, 1],
+  // the water objects, the core and the reserves (D337, D338)
+  WaterSeep: [0.5, 0.5],
+  BadwaterSeep: [0.5, 0.5],
+  Aquifer: [1, 1],
+  AncientAquiferDrill: [1, 1],
+  BadtideDrain: [0, 1],
+  UnstableCore: [0.5, 0.5],
+  ReservePile: [0.5, 0.5],
+  ReserveWarehouse: [0.5, 0.5],
+  ReserveTank: [0.5, 0.5],
+};
 
 /** The district center, its door toward +Z (south, a Cw0 start's entrance side), centred on its
  *  3 × 3 footprint: pale walls under a dark roof on a pale deck, so it stands out on any ground. */

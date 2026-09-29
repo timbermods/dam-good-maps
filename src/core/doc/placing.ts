@@ -16,6 +16,7 @@ import { footprintAt, fitProblems, isLine, OBJECT_NAMES, objectTiles, type FitGr
 import { lakeWater } from "../features/setpieces/plugSpillway";
 import type { Feature, ForestFeature, MapObjectFeature, MapObjectKind, Point, RuinFieldFeature } from "../features/schema";
 import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
+import { FLUIDS } from "../data/parity";
 import { density, FOREST, RUIN_HEIGHT_SHARES, RUINS } from "../gen/calibrated";
 import { growBlob, punchHoles } from "../gen/blobs";
 import { guidFrom, hash32, tileHash01 } from "../math/hash";
@@ -30,7 +31,7 @@ const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: fa
 
 /** Resource features make room for what is placed by hand (they are placed after it, build step
  *  11): their entities do not count as taking a tile. */
-function resourceOwners(s: MapSession): Set<string> {
+export function resourceOwners(s: MapSession): Set<string> {
   return new Set(s.features.filter((f) => f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField").map((f) => f.id));
 }
 
@@ -373,6 +374,9 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   }
   const level = !!opts.level;
   const pool = level && p.template === "BadwaterSource";
+  // the drill stands on an aquifer (its `UnderstructureConstraintSpec`), at the aquifer's own coordinates
+  const understructure = FLUIDS[p.template]?.on;
+  if (understructure && !b.entities.some((e) => e.id !== ignore && understructure.includes(e.template) && e.x === p.x && e.y === p.y)) return "a drill needs an aquifer under it";
   for (const blk of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z, orientation: p.orientation, flipped: !!p.flipped })) {
     if (blk.x < 0 || blk.y < 0 || blk.x >= W || blk.y >= H || blk.z >= 33) return "it does not fit on the map";
     const i = blk.y * W + blk.x;
@@ -383,6 +387,8 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
       if (other === "StartingLocation") return "the district center stands there";
       continue;
     }
+    // (an aquifer under a drill is what the drill needs, not what is in its way)
+    if (understructure && other && understructure.includes(other)) continue;
     if (!level) {
       if (blk.z < top) return "the ground under it is not level";
       if ((blk.below === "ground" || blk.below === "groundOrStackable") && blk.z > top) return "the ground under it is not level";
@@ -457,7 +463,8 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   let low = Infinity;
   for (const i of list) low = Math.min(low, b.heights[i]);
   const ops: EditOp[] = [];
-  const isSource = template === "BadwaterSource" || template === "WaterSource";
+  // (the water objects are cut-only, so no water is dammed: the sources, the seeps, an aquifer, the drain)
+  const isSource = template === "BadwaterSource" || template === "WaterSource" || !!FLUIDS[template]?.tiles;
   if (template === "BadwaterSource") {
     const skip = resourceOwners(s);
     const gone = new Set<string>();

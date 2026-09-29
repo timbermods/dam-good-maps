@@ -21,6 +21,8 @@ import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { REQUIRED } from "../validate/checks";
+import { optionProblems } from "./objectOps";
+import { paintParamProblems, type PaintParams } from "./paintParams";
 import type { Feature, FeatureKind } from "../features/schema";
 import type { Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
@@ -64,6 +66,9 @@ export interface OpParams {
   removeSlope: { x: number; y: number };
   /** A JSON Merge Patch on the MapSpec, then regenerate (PLAN §19.1). */
   specPatch: { patch: Record<string, unknown> };
+  /** A brush stroke of trees, bushes, succulents, woods, ruin fields or thorn patches (D235, D338): planned on
+   *  the map as it stands and placed as one step. Not a log operation: the log keeps the objects it placed. */
+  paintObjects: PaintParams;
 }
 
 export type OpName = keyof OpParams;
@@ -427,6 +432,8 @@ export interface OpContext {
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
   placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  /** The template of an entity in the current build, for the options an operation sets on it. */
+  templateOf?: (id: string) => string | undefined;
 }
 
 /** Kinds a player can add in this version. */
@@ -438,6 +445,8 @@ export const PLACEABLE = new Set([
   "NaturalDam", "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "Slope", "Thorns", "UnstableCore",
   "RuinColumnH1", "RuinColumnH2", "RuinColumnH3", "RuinColumnH4", "RuinColumnH5", "RuinColumnH6", "RuinColumnH7", "RuinColumnH8",
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
+  // the rest of the game's map editor water objects and the reserves (PLAN §20 D337, D338)
+  "Aquifer", "AncientAquiferDrill", "BadtideDrain", "ReservePile", "ReserveWarehouse", "ReserveTank",
 ]);
 
 /** The highest level a carve may leave: the editor's one ceiling (D244). */
@@ -632,6 +641,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         const missing = (REQUIRED[p.template] ?? []).filter((c) => !(c in p.components!));
         if (missing.length) return [`${p.template} needs the components ${missing.join(", ")}`];
         if ("BlockObject" in p.components) return ["BlockObject comes from the operation's position"];
+        const bad = optionProblems(p.template, p.components);
+        if (bad.length) return bad;
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
@@ -648,14 +659,21 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const missing = op.params.entities.filter((id) => !ctx.entityIds.has(id));
       return missing.length ? [`${missing.length} of the entities do not exist (${missing.slice(0, 3).join(", ")})`] : [];
     }
-    case "setEntityProps":
+    case "setEntityProps": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
-      return "BlockObject" in op.params.components ? ["BlockObject changes through moveEntity"] : [];
+      if ("BlockObject" in op.params.components) return ["BlockObject changes through moveEntity"];
+      const t = ctx.templateOf?.(op.params.id);
+      return t ? optionProblems(t, op.params.components) : [];
+    }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
     case "specPatch":
       return ctx.generated ? [] : ["an imported map has no settings to change"];
+    case "paintObjects": {
+      const errors = runsProblems(op.params.area, W, H, "the stroke's area");
+      return errors.length ? errors : paintParamProblems(op.params);
+    }
   }
 }

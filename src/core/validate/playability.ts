@@ -45,6 +45,8 @@ export const BLUEBERRY_DAYS_TO_DIE_DRY = 9;
 export const TREES = ["Pine", "Birch", "Oak"] as const;
 export const WALK_BLOCKERS = new Set([
   "Thorns", "Blockage", "NaturalDam", "UnstableCore", "GeothermalField", "UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic",
+  // the reserves and the drill fill their tiles, and the drain's two (PLAN §20 D337, D338)
+  "ReservePile", "ReserveWarehouse", "ReserveTank", "AncientAquiferDrill", "BadtideDrain",
 ]);
 const START_AREA = { small: 0.6, normal: 1, large: 1.8 } as const;
 
