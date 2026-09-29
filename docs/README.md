@@ -20,6 +20,7 @@ pull request.
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardsticks for every piece of work and every review (D225). |
 | [UI-QUESTIONS.md](UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
+| [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance; stale ones marked. |
 
 ## History
 
