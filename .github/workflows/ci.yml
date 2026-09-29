@@ -14,7 +14,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
