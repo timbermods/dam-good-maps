@@ -1,10 +1,13 @@
-// The top bar and the brush kit (PLAN §20 D183, D184, D193, D204, D205, D212): Raise … Naturalize |
+// The top bar and the brush kit (PLAN §20 D183, D184, D204, D205, D212, D322): Raise … Naturalize |
 // Select | the forces, and a row with only the picked tool's options (the sources are on the
-// shelf); square, precise with a hold that digs a level more at a steady pace down to its stop
-// level, straight lines with their length, level lines (a view switch beside Height colours, with
-// any tool: D248), Flatten in steps and with ramped edges, "the start fits here" after a Flatten
-// stroke, Smooth with no walkable option (D247); hold F to size the brush; the sounds' switch; the
-// Select tool (M, or Ctrl+drag) with its size and its actions.
+// shelf); the height brushes' target level as the game's editor has it (D322, item 37: beside the
+// pointer, following the ground until Shift+scroll or the row sets it, exact with hard edges, Esc
+// lets it follow again; no Precise); the mode and the sources choice in every brush's row (items 2
+// and 31); square, straight lines with their length, level lines (a view switch beside Height
+// colours, with any tool: D248), Flatten in steps (no Ramped edges, D322), "the start fits here" after
+// a Flatten stroke, Smooth with no walkable option (D247); hold F to size the brush, its size beside
+// the pointer, kept when F is let go; the sounds' switch; the Select tool (M, or Ctrl+drag) with its
+// size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -13,6 +16,21 @@ const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
 const heightAt = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), [x, y] as const);
 const lastStroke = (page: Page) => page.evaluate(() => window.dgmEditor!.lastStroke());
+/** The ring is on tile (x, y): the page has taken the pointer's move (F sizes the ring from there;
+ *  where the browser draws in software, a move can land a frame later than the key). */
+const ringOn = (page: Page, x: number, y: number) =>
+  expect.poll(() => page.evaluate(() => { const c = window.dgm3d!.renderer.brushCursorState; return c ? [Math.floor(c.x), Math.floor(c.y)] : null; })).toEqual([x, y]);
+/** The words beside the pointer once they stop changing (the last of a move's frames drawn). */
+async function steadyNote(page: Page): Promise<string> {
+  const read = () => page.locator(".shape-note").textContent();
+  let last = await read();
+  for (;;) {
+    await page.waitForTimeout(200);
+    const now = await read();
+    if (now === last) return now ?? "";
+    last = now;
+  }
+}
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
 
 /** Flat, dry, empty ground away from the start: a tile with `r` tiles of it all round. */
@@ -37,7 +55,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("the top bar and the brush kit: options, precise hold with a stop, straight lines, terraces, Smooth with no walkable option, Level lines in the view bar, Select", async ({ page }) => {
+test("the top bar and the brush kit: options, the target level, straight lines, terraces, Smooth with no walkable option, Level lines in the view bar, Select", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -90,7 +108,11 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("2");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });
-  for (const t of ["Square", "Precise", "Straight lines", "Clear sources"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
+  for (const t of ["Square", "Straight lines"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
+  // no Precise and no Stop at (D322); Both and Ride by default (items 2 and 31)
+  for (const t of ["Precise", "Stop at", "Clear sources"]) await expect(lowerRow.getByLabel(t, { exact: true })).toHaveCount(0);
+  await expect(lowerRow.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Both" })).toHaveAttribute("aria-pressed", "true");
+  await expect(lowerRow.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");
   await expect(lowerRow.getByLabel("In steps")).toHaveCount(0);
   await expect(lowerRow.getByLabel("Level lines")).toHaveCount(0);
 
@@ -111,38 +133,52 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.keyboard.press("2");
   await expect(lowerRow).toBeVisible();
 
-  // precise, square, and a hold that stops at its level (D193)
+  // the target (D322, item 37): beside the pointer, a level below the ground while it follows it;
+  // Shift+scroll sets it; a click cuts exactly to it with hard edges; holding adds nothing
   const pit = (await flatDry(page, start, 3))!;
   expect(pit).not.toBeNull();
   const h0 = await heightAt(page, ...pit);
   await lowerRow.getByLabel("Square").check();
-  await lowerRow.getByLabel("Precise").check();
-  await lowerRow.getByLabel("Stop at").check();
-  await lowerRow.getByRole("combobox", { name: "Stop level" }).selectOption(String(h0 - 2));
   const pp = await client(page, ...pit);
-  await page.mouse.move(pp.x, pp.y);
-  // a small brush: 3 × 3 tiles ([ steps the size down: 5, 4, 3, 2)
-  // (the keys go to the map, not to the list just used)
+  // (the keys go to the map, not to the toggle just used)
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(pp.x + 2, pp.y);
+  await page.mouse.move(pp.x, pp.y);
+  const note = page.locator(".shape-note");
+  await expect(note).toHaveText(`down to ${h0 - 1}`);
+  await page.keyboard.down("Shift");
+  await page.mouse.wheel(0, 100);
+  await page.keyboard.up("Shift");
+  await expect(note).toHaveText(`down to ${h0 - 2}`);
+  await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue(String(h0 - 2));
+  // a small brush: 3 × 3 tiles ([ steps the size down: 5, 4, 3, 2)
   for (let k = 0; k < 3; k++) await page.keyboard.press("[");
   await page.waitForTimeout(100);
   await page.mouse.down();
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(1200);
   await page.mouse.up();
   await settle(page);
   await idle(page);
   expect(await heightAt(page, ...pit)).toBe(h0 - 2);
   let st = (await lastStroke(page))!;
-  expect(st.precise).toBe(true);
+  expect(st.target).toBe(h0 - 2);
+  expect(st.precise).toBeUndefined();
   expect(st.shape).toBe("square");
-  expect(st.stop).toBe(h0 - 2);
-  expect(Math.max(...st.levels!)).toBeGreaterThanOrEqual(3);
+  // (held still, no dab more than the press)
+  expect(st.dabs.length).toBe(2);
   expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower, \d+ tiles$/);
-  // vertical walls: the pit's edge at the stop, the ground right beside it untouched
+  // vertical walls: the pit's edge at the target, the ground right beside it untouched
   expect(await heightAt(page, pit[0] + 1, pit[1] + 1)).toBe(h0 - 2);
   expect(await heightAt(page, pit[0] + 2, pit[1])).toBe(h0);
+  // Esc: the target follows the ground again (the brush stays out); Free past the list's end
+  await page.keyboard.press("Escape");
+  await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue("follow");
+  await lowerRow.getByRole("combobox", { name: "Target level" }).selectOption("free");
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(pp.x + 2, pp.y);
+  await expect(note).toHaveText("Free");
+  await page.keyboard.press("Escape");
   for (let k = 0; k < 3; k++) await page.keyboard.press("]");
-  await lowerRow.getByLabel("Precise").uncheck();
   await lowerRow.getByLabel("Square").uncheck();
 
   // straight lines: the stroke is one straight line, its length beside the pointer (D183)
@@ -170,19 +206,20 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   // benches every 3 levels from a level just below this ground: the click takes it down to one
   const hb = await heightAt(page, a[0], a[1] + 6);
   await flatRow.getByRole("combobox", { name: "Steps apart" }).selectOption("3");
-  await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption(String(hb - 1));
+  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(hb - 1));
   const b = await client(page, a[0], a[1] + 6);
   await page.mouse.click(b.x, b.y);
   await settle(page);
   expect((await lastStroke(page))!.steps).toBe(3);
   expect(await heightAt(page, a[0], a[1] + 6)).toBe(hb - 1);
-  // ramped edges, from the ground where the stroke starts a level up: a plateau the start fits on
+  // no Ramped edges (D322: a walkable edge is the shelf's Slope); a level up from the ground: a
+  // plateau the start fits on
   await flatRow.getByLabel("In steps").uncheck();
-  await flatRow.getByRole("combobox", { name: "Edges" }).selectOption("ramped");
+  await expect(flatRow.getByRole("combobox", { name: "Edges" })).toHaveCount(0);
   const f = (await flatDry(page, start, 4, [pit, a]))!;
   expect(f).not.toBeNull();
   const hf = await heightAt(page, ...f);
-  await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption(String(hf + 1));
+  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(hf + 1));
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const pf = await client(page, ...f);
   await page.mouse.move(pf.x, pf.y);
@@ -192,8 +229,8 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await page.mouse.up();
   await settle(page);
   st = (await lastStroke(page))!;
-  expect(st.edges).toBe("ramped");
-  expect(st.level).toBe(hf + 1);
+  expect(st.edges).toBeUndefined();
+  expect(st.target).toBe(hf + 1);
   expect(await heightAt(page, ...f)).toBe(hf + 1);
   // the start fits there: a quiet hint, found in the background; a click moves the start there
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.startHint()), { timeout: 15_000 }).not.toBeNull();
@@ -204,24 +241,46 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   await idle(page);
   await expect.poll(async () => ((await info(page)).features.find((g) => g.kind === "start")!.params as { position: [number, number] }).position).toEqual([hint.x, hint.y]);
   for (let k = 0; k < 2; k++) await page.keyboard.press("[");
-  await flatRow.getByRole("combobox", { name: "Edges" }).selectOption("cliff");
-  await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption("start");
+  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
 
   // hold F and move the mouse: the ring's size follows, a click sets it (D205)
   const s0 = await client(page, ...f);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(s0.x + 2, s0.y);
   await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
   const steps0 = (await info(page)).history.length;
   await page.keyboard.down("f");
   const s1 = await client(page, f[0] + 7, f[1]);
   await page.mouse.move(s1.x, s1.y, { steps: 5 });
-  await expect(page.locator(".shape-note")).toHaveText(/^size (6\.5|7|7\.5)$/);
-  const sized = Number((await page.locator(".shape-note").textContent())!.split(" ")[1]);
+  const sizedWords = await steadyNote(page);
+  expect(sizedWords).toMatch(/^size (6\.5|7|7\.5)$/);
+  const sized = Number(sizedWords.split(" ")[1]);
   await page.mouse.click(s1.x, s1.y);
   await page.keyboard.up("f");
   // (the click set the size: it painted nothing)
   await idle(page);
   expect((await info(page)).history.length).toBe(steps0);
+  // again, and F let go keeps it (D322, item 37)
+  await page.mouse.move(s0.x + 2, s0.y);
+  await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
+  await page.keyboard.down("f");
+  const s2 = await client(page, f[0] + 4, f[1]);
+  await page.mouse.move(s2.x, s2.y, { steps: 5 });
+  const keptWords = await steadyNote(page);
+  expect(keptWords).toMatch(/^size (3\.5|4|4\.5)$/);
+  const kept = Number(keptWords.split(" ")[1]);
+  await page.keyboard.up("f");
+  await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" })).toHaveValue(String(kept));
+  await page.mouse.move(s0.x + 2, s0.y);
+  await page.mouse.move(s0.x, s0.y);
+  await ringOn(page, ...f);
+  await page.keyboard.down("f");
+  await page.mouse.move(s1.x, s1.y, { steps: 5 });
+  expect(await steadyNote(page)).toBe(`size ${sized}`);
+  await page.keyboard.up("f");
+  await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" })).toHaveValue(String(sized));
 
   // objects ride the ground (D204): a Flatten whose rim crosses a mine site leaves its footprint
   // level, never on a step, so the game keeps it
@@ -231,7 +290,7 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
     return null;
   }))!;
   expect(mine).not.toBeNull();
-  await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption(String(Math.max(0, mine[2] - 2)));
+  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(Math.max(0, mine[2] - 2)));
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   // (a stroke that runs up to the mine site's west edge and holds there: its rim crosses the site
   // however fast the machine paints)
@@ -247,16 +306,18 @@ test("the top bar and the brush kit: options, precise hold with a stop, straight
   st = (await lastStroke(page))!;
   expect(st.keep?.length ?? 0).toBeGreaterThan(0);
   expect((await page.evaluate(() => window.dgmEditor!.instant())).filter((c) => /floating|buried/i.test(c.message))).toEqual([]);
-  await flatRow.getByRole("combobox", { name: "Flatten level" }).selectOption("start");
+  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
 
   await page.keyboard.press("4");
-  // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted); its stroke
-  // over the precise pit's walls carries none
+  // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted) and no target;
+  // its stroke over the pit's walls carries none
   const smoothRow = page.getByRole("group", { name: "Smooth options" });
   await expect(smoothRow).toBeVisible();
-  // (only the toggles all five brushes share: Square, Precise, Straight lines and Clear sources, D249)
-  await expect(smoothRow.getByRole("checkbox")).toHaveCount(4);
-  await expect(smoothRow.getByLabel("Clear sources")).toHaveCount(1);
+  // (only the toggles all five brushes share: Square and Straight lines; its mode and sources)
+  await expect(smoothRow.getByRole("checkbox")).toHaveCount(2);
+  await expect(smoothRow.getByRole("group", { name: "Sources" }).getByRole("button")).toHaveText(["Ride", "Keep", "Clear"]);
+  await expect(smoothRow.getByRole("group", { name: "Mode" }).getByRole("button")).toHaveText(["Ground", "Water", "Both"]);
+  await expect(smoothRow.getByRole("combobox", { name: "Target level" })).toHaveCount(0);
   await expect(smoothRow.getByLabel(/walkable/i)).toHaveCount(0);
   await page.mouse.click(pp.x, pp.y);
   await settle(page);

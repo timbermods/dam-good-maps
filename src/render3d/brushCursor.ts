@@ -1,7 +1,8 @@
 // The brush on the map (live editing): a soft disc laid on the terrain under the cursor, as strong
-// as the brush's falloff, with a ring at its edge; for flatten, a see-through plane at the level
-// it flattens to. It follows the ground's steps, and is rebuilt as the cursor moves (a few thousand
-// quads at the largest size, in buffers made once).
+// as the brush's falloff (even, for a target's hard edges, D322), with a ring at its edge; for a
+// target, a see-through plane at the level it works to. It follows the ground's steps, and is rebuilt
+// as the cursor moves (a few thousand quads at most, in buffers made once: past a 24-tile radius the
+// disc is laid a few tiles at a time, D322 item 42's brushes up to half the map).
 
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type Scene } from "three";
 import { WATER_UI } from "./palette";
@@ -14,15 +15,17 @@ export interface BrushCursorState {
   radius: number;
   /** Tint: raise warm, lower cool, flatten pale, smooth green, naturalize brown. */
   tool: "raise" | "lower" | "flatten" | "smooth" | "naturalize";
-  /** Flatten's level (its plane), or null. */
+  /** The target's level (its plane), or null. */
   level: number | null;
+  /** A target's stroke (D322): hard edges, the disc even. */
+  hard?: boolean;
   /** Smart Lower: a stroke here carves a bed the water follows (the ring turns water-blue, D198). */
   water?: boolean;
   /** A square brush: a square disc and ring. */
   square?: boolean;
-  /** The ring pulses (a precise hold reached its stop level, D193). */
+  /** The ring pulses once. */
   pulse?: boolean;
-  /** Clear sources is on (D249): a small red mark on the ring, so it's never on unnoticed. */
+  /** Sources: Clear is on (D249, D322): a small red mark on the ring, so it's never on unnoticed. */
   mark?: boolean;
 }
 
@@ -34,14 +37,15 @@ const TINT: Record<BrushCursorState["tool"], [number, number, number]> = {
   naturalize: [0.85, 0.62, 0.38],
 };
 
-/** Clear sources' mark on the ring (D249): Remove's red. */
+/** Clear's mark on the ring (D249): Remove's red. */
 const MARK: [number, number, number] = [0.86, 0.2, 0.16];
 
 /** Smart Lower, where the water will follow the brush: the faint fill, in the ring's water-blue. */
 const WATER_TINT: [number, number, number] = [...WATER_UI.ring];
 
-/** Most quads the disc can take: a 24-tile radius, and the ring (a dash and its outline). */
-const MAX_QUADS = 49 * 49 + 512;
+/** Most quads the disc can take: a 24-tile radius, and the ring (a dash and its outline, up to 1024
+ *  dashes round the largest brush). */
+const MAX_QUADS = 49 * 49 + 2 * 1024 + 8;
 
 export class BrushCursor {
   readonly mesh: Mesh;
@@ -82,7 +86,9 @@ export class BrushCursor {
       this.plane.visible = false;
       return;
     }
-    const r = Math.max(0.5, Math.min(24, s.radius));
+    const r = Math.max(0.5, s.radius);
+    // past a 24-tile radius, the disc a block of tiles at a time (the ring stays exact)
+    const cell = Math.max(1, Math.ceil(r / 24));
     const [cr, cg, cb] = s.water ? WATER_TINT : TINT[s.tool];
     const pos = this.pos;
     const col = this.col;
@@ -100,18 +106,20 @@ export class BrushCursor {
     const R2 = r * r;
     // the soft disc: each tile's top, as strong as the brush presses there (square: by the larger
     // of the two distances)
-    for (let y = ty0; y <= ty1; y++)
-      for (let x = tx0; x <= tx1; x++) {
-        const d2 = s.square ? Math.max((x + 0.5 - s.x) ** 2, (y + 0.5 - s.y) ** 2) : (x + 0.5 - s.x) ** 2 + (y + 0.5 - s.y) ** 2;
+    for (let y = ty0; y <= ty1; y += cell)
+      for (let x = tx0; x <= tx1; x += cell) {
+        const cx = x + cell / 2;
+        const cy = y + cell / 2;
+        const d2 = s.square ? Math.max((cx - s.x) ** 2, (cy - s.y) ** 2) : (cx - s.x) ** 2 + (cy - s.y) ** 2;
         if (d2 >= R2) continue;
-        const f = (1 - d2 / R2) ** 2;
-        const h = heights[y * W + x] + 0.03;
-        quad(x, y, x + 1, y + 1, h, 0.12 + 0.3 * f);
+        const f = s.hard ? 0.35 : (1 - d2 / R2) ** 2;
+        const h = heights[Math.min(H - 1, y + (cell >> 1)) * W + Math.min(W - 1, x + (cell >> 1))] + 0.03;
+        quad(x, y, Math.min(W, x + cell), Math.min(H, y + cell), h, 0.12 + 0.3 * f);
       }
     // the ring at its edge: short dashes laid on the ground, each with a thin dark outline so it
     // holds on bright shallows and pale ground; white, or with smart Lower a clear water-blue and a
     // little thicker (D198)
-    const n = Math.max(24, Math.min(256, Math.round(r * 12)));
+    const n = Math.max(24, Math.min(1024, Math.round(r * 12)));
     const ring: [number, number, number] = s.water ? [...WATER_UI.ring] : [1, 1, 1];
     const edge: [number, number, number] = [...WATER_UI.ringEdge];
     const w = (0.09 + r * 0.004) * (s.water ? 1.45 : 1) * (s.pulse ? 1.8 : 1);
@@ -132,7 +140,7 @@ export class BrushCursor {
         if (pass === 0) quad(px - o, py - o, px + o, py + o, h - 0.005, 0.85, edge);
         else quad(px - w, py - w, px + w, py + w, h, 0.97, ring);
       }
-    // Clear sources (D249): a small red mark on the ring's north-east, outlined like the ring
+    // Clear (D249, D322): a small red mark on the ring's north-east, outlined like the ring
     if (s.mark) {
       const a = -Math.PI / 4;
       const f = s.square ? Math.SQRT2 : 1;
@@ -149,7 +157,7 @@ export class BrushCursor {
     (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
     (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;
     this.mesh.visible = q > 0;
-    // flatten: the level it flattens to, as a plane over the brush
+    // a target: the level it works to, as a plane over the brush
     if (s.level !== null) {
       const y = s.level + 0.04;
       const p = this.planeGeo.getAttribute("position") as BufferAttribute;

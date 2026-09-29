@@ -19,7 +19,21 @@
 // - Shapes (the brush kit, PLAN §20 D182, D179 (3)): round, or square (by the larger of the two
 //   distances, on the tile grid). A pen's pressure scales each dab's pressure (a mouse presses
 //   fully).
-// - Precise (D182, D193): hard edges, no falloff and vertical walls. Each dab moves every tile under
+// - A target (D322, item 37: the game editor's own way): Raise, Lower and Flatten act exactly, with
+//   the brush's footprint and hard edges (no falloff, no edge rule, vertical walls). Raise lifts every
+//   tile under it that is below `target` to it and leaves the rest (a relative raise); Lower cuts every
+//   tile above it down to it (a relative lower); Flatten sets every tile to it, higher or lower (an
+//   absolute height; with `steps`, each to its nearest bench from it). Holding does nothing more. The
+//   build leaves the tiles it changed out of its integrity pass, as for a precise stroke. Without a
+//   target, Raise and Lower sculpt softly ("Free", below); Smooth and Naturalize are always soft.
+// - Which tiles (D322, item 2): `mode` "ground" changes only the tiles that were dry when the stroke
+//   began, and never lowers one beside the water below that water's surface (`bank`); "water" only
+//   the tiles that were wet (`wet`, fixed at the start); absent, every tile (Both).
+// - Sources kept (D322, item 31): `sources: "keep"` marks the `keep` runs as the ground of the
+//   sources the stroke passed over; they stay exactly as they were, and the build's integrity pass
+//   leaves them too, so a kept source may stand on a small pillar or in a small pit.
+// - Precise (D182, D193; retired by D322, its strokes still replay exactly): hard edges, no falloff
+//   and vertical walls. Each dab moves every tile under
 //   it to a depth of its level (1 unless the page's hold gave it more: a level more every so often
 //   while the button is held); a tile takes the deepest dab that covered it. Raise and lower stop at
 //   `stop` when it is set (a ceiling, a floor), never past the map's bottom or top, and leave the
@@ -68,13 +82,28 @@ export interface BrushParams {
   size: number;
   /** How fast it works, 1–10: at 5 the middle of a raise moves a level every 6 dabs. */
   strength: number;
-  /** Flatten: the level it flattens to. */
+  /** Flatten, soft (strokes before D322): the level it flattens to. */
   level?: number;
+  /** Raise, Lower and Flatten, exact (D322, item 37): the level they work to, with hard edges. */
+  target?: number;
+  /** Which tiles it changes (D322, item 2): only the dry ones ("ground") or only the wet ones
+   *  ("water"); every tile when absent (Both). */
+  mode?: "ground" | "water";
+  /** The tiles that were wet when the stroke began, within its reach, as runs [y, x0, x1] (its
+   *  `mode`'s water: the map's own, never a drought's or a badtide's). */
+  wet?: [number, number, number][];
+  /** Ground: the dry tiles beside the water, and the level of that water's surface, as runs
+   *  [y, x0, x1, level]: the stroke never lowers them below it, so nothing spills. */
+  bank?: [number, number, number, number][];
+  /** Keep (D322, item 31): the `keep` runs are the ground of the sources the stroke passed over, left
+   *  exactly as they were (the integrity pass leaves them too). */
+  sources?: "keep";
   /** Naturalize: the seed of its noise. */
   seed?: number;
   /** Square (by the larger distance, on the tile grid); round when absent. */
   shape?: "square";
-  /** Precise: hard edges, no falloff, vertical walls (see `levels`). */
+  /** Precise (retired by D322; its strokes replay): hard edges, no falloff, vertical walls (see
+   *  `levels`). */
   precise?: boolean;
   /** Precise raise, lower and flatten: each dab's depth in levels, 1–16 (a hold digs deeper); 1 when
    *  absent. */
@@ -130,7 +159,9 @@ export const BRUSH_TOOLS: readonly BrushTool[] = ["raise", "lower", "flatten", "
 /** The brushes' ceiling: the editor's one ceiling on every map (D244). */
 export const BRUSH_MAX_LEVEL = CEILING;
 export const BRUSH_SIZE_MIN = 0.5;
-export const BRUSH_SIZE_MAX = 24;
+/** The largest radius: half the widest map's width (256², D322 item 42: the largest brush paints a
+ *  whole map in one stroke). The page's own limit is half its map's width. */
+export const BRUSH_SIZE_MAX = 128;
 /** Pressure for one level. */
 export const LEVEL = 1024;
 /** Most dabs one stroke may hold (a long stroke; the page starts a new one past it). */
@@ -150,7 +181,12 @@ export function dabPressure(strength: number): number {
 
 /** The brush's radius in quarter tiles. */
 function radius4(size: number): number {
-  return Math.max(2, Math.min(96, Math.round(size * 4)));
+  return Math.max(2, Math.min(4 * BRUSH_SIZE_MAX, Math.round(size * 4)));
+}
+
+/** Whether a stroke acts with hard edges and exact levels: a target's (D322) or a precise one's. */
+export function brushHard(p: Pick<BrushParams, "precise" | "target">): boolean {
+  return p.precise === true || p.target !== undefined;
 }
 
 /** Falloff by squared distance (in sixteenths of a tile²): 256 at the middle, 0 at the edge,
@@ -173,9 +209,9 @@ function preciseReach(size: number): number {
 
 /** The tiles a stroke can change: its dabs' discs (plus the tiles next to them that smooth and
  *  naturalize read), on the map. Null for a stroke without dabs. */
-export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise" | "rigid">, W: number, H: number): Rect | null {
+export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise" | "target" | "rigid">, W: number, H: number): Rect | null {
   if (p.dabs.length < 2) return null;
-  const r = Math.ceil((p.precise ? preciseReach(p.size) + 2 : radius4(p.size)) / 4) + (p.tool === "smooth" || p.tool === "naturalize" ? 1 : 0);
+  const r = Math.ceil((brushHard(p) ? preciseReach(p.size) + 2 : radius4(p.size)) / 4) + (p.tool === "smooth" || p.tool === "naturalize" ? 1 : 0);
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -204,9 +240,10 @@ export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "pre
 }
 
 /** Mark in `out` the tiles a stroke presses on (its dabs' discs or squares, as `add` reaches). */
-export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | "precise">, W: number, H: number, out: Uint8Array): void {
-  const r4 = p.precise ? preciseReach(p.size) : radius4(p.size);
-  const R2 = p.precise ? r4 * r4 : r4 * r4 - 1;
+export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | "precise" | "target">, W: number, H: number, out: Uint8Array): void {
+  const hard = brushHard(p);
+  const r4 = hard ? preciseReach(p.size) : radius4(p.size);
+  const R2 = hard ? r4 * r4 : r4 * r4 - 1;
   const r = Math.ceil((r4 + 2) / 4);
   for (let k = 0; k + 1 < p.dabs.length; k += 2) {
     const cx = p.dabs[k];
@@ -225,9 +262,10 @@ export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | 
 
 /** Whether a dab at (cx, cy), in quarter tiles, presses on tile (x, y): the same tiles
  *  `markBrushTiles` marks (the ring's reach, D249's Clear sources). */
-export function dabPresses(p: Pick<BrushParams, "size" | "shape" | "precise">, cx: number, cy: number, x: number, y: number): boolean {
-  const r4 = p.precise ? preciseReach(p.size) : radius4(p.size);
-  const R2 = p.precise ? r4 * r4 : r4 * r4 - 1;
+export function dabPresses(p: Pick<BrushParams, "size" | "shape" | "precise" | "target">, cx: number, cy: number, x: number, y: number): boolean {
+  const hard = brushHard(p);
+  const r4 = hard ? preciseReach(p.size) : radius4(p.size);
+  const R2 = hard ? r4 * r4 : r4 * r4 - 1;
   const dx = 4 * x + 2 - cx;
   const dy = 4 * y + 2 - cy;
   return (p.shape === "square" ? Math.max(dx * dx, dy * dy) : dx * dx + dy * dy) <= R2;
@@ -286,8 +324,13 @@ export class BrushStroke {
    *  deepening pass's tiles (the brush's middle passed over them: a level down). */
   private readonly floorBed: Uint8Array | null;
   private readonly deep: Uint8Array | null;
-  /** Precise raise, lower and flatten: each tile's depth in levels (the deepest dab over it). */
+  /** Precise raise, lower and flatten: each tile's depth in levels (the deepest dab over it); a
+   *  target's: the tiles under it (as deep as it goes). */
   private readonly depth: Uint8Array | null;
+  /** A target's stroke (D322): exact, hard-edged. */
+  private readonly exact: boolean;
+  /** Ground mode (D322): the lowest each bank tile may go (0 elsewhere); null without a bank. */
+  private readonly low: Uint8Array | null;
   /** Tiles the middle of the brush has passed over (the first pass moves them a whole level). */
   private readonly swept: Uint8Array;
   private dabCount = 0;
@@ -317,7 +360,22 @@ export class BrushStroke {
     this.deep = smart && settings.deepen ? new Uint8Array(W * H) : null;
     this.cap = smart && !this.deep ? new Uint8Array(W * H).fill(255) : null;
     this.floorBed = this.cap && settings.bed !== undefined ? new Uint8Array(W * H).fill(255) : null;
-    this.depth = settings.precise && pointwise ? new Uint8Array(W * H) : null;
+    this.exact = pointwise && settings.target !== undefined;
+    this.depth = (settings.precise || this.exact) && pointwise ? new Uint8Array(W * H) : null;
+    // which tiles (D322): the dry ones, or the wet ones, as they were when the stroke began
+    if (settings.mode) {
+      const wet = new Uint8Array(W * H);
+      for (const [y, a, b] of settings.wet ?? []) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) wet[y * W + x] = 1;
+      const inner = this.write;
+      const want = settings.mode === "water" ? 1 : 0;
+      this.write = (i) => wet[i] === want && inner(i);
+    }
+    let low: Uint8Array | null = null;
+    if (settings.mode === "ground" && settings.bank?.length) {
+      low = new Uint8Array(W * H);
+      for (const [y, a, b, level] of settings.bank) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) low[y * W + x] = Math.max(0, Math.min(BRUSH_MAX_LEVEL, level));
+    }
+    this.low = low;
     // the tiles the stroke leaves alone
     if (settings.keep?.length) {
       const kept = new Uint8Array(W * H);
@@ -352,7 +410,7 @@ export class BrushStroke {
     const { W, H, r4, table } = this;
     const R2 = r4 * r4;
     const square = this.settings.shape === "square";
-    const precise = this.settings.precise === true;
+    const precise = this.settings.precise === true || this.exact;
     const reach = preciseReach(this.settings.size);
     const r = Math.ceil((precise ? reach + 2 : r4) / 4);
     const sequential = !this.before;
@@ -383,7 +441,8 @@ export class BrushStroke {
             if (d2 > reach * reach) continue;
             if (this.depth) {
               // raise, lower, flatten: the tile takes the deepest dab over it
-              const lv = levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
+              // (a target's: all the way)
+              const lv = this.exact ? 255 : levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
               if (lv > this.depth[i]) this.depth[i] = lv;
               continue;
             }
@@ -471,7 +530,8 @@ export class BrushStroke {
       const was = this.start ? this.start[i] : h;
       const room = this.inside ? this.inside[i] : 255;
       const up = h < was + room;
-      const down = h > was - room;
+      // (ground mode, D322: a bank tile never below its water's surface)
+      const down = h > was - room && !(this.low && h - 1 < this.low[i]);
       if (this.settings.tool === "smooth") {
         if (this.settings.walkable) {
           // walkable: a step of 2 levels or more wears down to 1 first
@@ -551,10 +611,12 @@ export class BrushStroke {
         const row = (b.y0 + y) * W + b.x0;
         for (let x = 0; x < bw; x++) if (m[y * bw + x] > inside[row + x]) m[y * bw + x] = inside[row + x];
       }
-    const { tool, level, stop, steps } = this.settings;
-    const L = Math.max(0, Math.min(BRUSH_MAX_LEVEL, level ?? 0));
-    const ceil = Math.min(BRUSH_MAX_LEVEL, stop ?? BRUSH_MAX_LEVEL);
-    const floor = Math.max(0, stop ?? 0);
+    const { tool, level, stop, steps, target } = this.settings;
+    const L = Math.max(0, Math.min(BRUSH_MAX_LEVEL, level ?? target ?? 0));
+    // (a target is Raise's ceiling and Lower's floor, D322)
+    const ceil = Math.min(BRUSH_MAX_LEVEL, stop ?? BRUSH_MAX_LEVEL, target ?? BRUSH_MAX_LEVEL);
+    const floor = Math.max(0, stop ?? 0, target ?? 0);
+    const low = this.low;
     for (let y = 0; y < bh; y++) {
       const row = (b.y0 + y) * W + b.x0;
       for (let x = 0; x < bw; x++) {
@@ -576,6 +638,8 @@ export class BrushStroke {
           const T = steps ? Math.max(0, Math.min(BRUSH_MAX_LEVEL, L + steps * Math.round((h0 - L) / steps))) : L;
           h = h0 > T ? Math.max(T, h0 - d) : Math.min(T, h0 + d);
         }
+        // ground mode (D322): a bank tile never below its water's surface
+        if (low && h < h0) h = Math.max(h, Math.min(h0, low[i]));
         heights[i] = h;
       }
     }
@@ -658,7 +722,15 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (!BRUSH_TOOLS.includes(p.tool)) return [`there is no ${String(p.tool)} brush`];
   if (!(p.size >= BRUSH_SIZE_MIN && p.size <= BRUSH_SIZE_MAX)) return [`a brush is ${BRUSH_SIZE_MIN} to ${BRUSH_SIZE_MAX} tiles across its radius`];
   if (!(p.strength >= 1 && p.strength <= 10)) return ["a brush's strength is 1 to 10"];
-  if (p.tool === "flatten" && !(Number.isInteger(p.level) && p.level! >= 0 && p.level! <= BRUSH_MAX_LEVEL)) return [`flatten needs a level from 0 to ${BRUSH_MAX_LEVEL}`];
+  if (p.target !== undefined && (!(p.tool === "raise" || p.tool === "lower" || p.tool === "flatten") || !Number.isInteger(p.target) || p.target < 0 || p.target > BRUSH_MAX_LEVEL)) return [`only raise, lower and flatten have a target, a level from 0 to ${BRUSH_MAX_LEVEL}`];
+  if (p.target !== undefined && (p.precise || p.level !== undefined || p.levels !== undefined || p.stop !== undefined || p.edges !== undefined || p.channel)) return ["a stroke with a target has no precise levels, stop, flatten level, edges or channel"];
+  if (p.tool === "flatten" && p.target === undefined && !(Number.isInteger(p.level) && p.level! >= 0 && p.level! <= BRUSH_MAX_LEVEL)) return [`flatten needs a level from 0 to ${BRUSH_MAX_LEVEL}`];
+  if (p.mode !== undefined && p.mode !== "ground" && p.mode !== "water") return ["a brush's mode is ground or water (both when absent)"];
+  if ((p.wet !== undefined || p.bank !== undefined) && p.mode === undefined) return ["only a stroke with a mode keeps its wet tiles or banks"];
+  if (p.bank !== undefined && p.mode !== "ground") return ["only a ground stroke has banks"];
+  if (p.wet !== undefined && !(Array.isArray(p.wet) && p.wet.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a stroke's wet tiles are runs [y, x0, x1]"];
+  if (p.bank !== undefined && !(Array.isArray(p.bank) && p.bank.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= BRUSH_MAX_LEVEL))) return [`a stroke's banks are runs [y, x0, x1, level 0 to ${BRUSH_MAX_LEVEL}]`];
+  if (p.sources !== undefined && (p.sources !== "keep" || p.keep === undefined)) return ["a stroke keeps its sources with their kept runs"];
   if (p.seed !== undefined && !Number.isInteger(p.seed)) return ["a brush's seed is a whole number"];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
   if (p.dabs.length > 2 * MAX_DABS) return [`a stroke holds at most ${MAX_DABS} dabs`];

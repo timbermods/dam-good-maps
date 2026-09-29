@@ -374,6 +374,13 @@
   gap: 4px;
 }
 
+/* a switch with its word before it (a brush's Sources: Ride, Keep, Clear) */
+.segmented-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .slider-field input[type="range"] {
   width: 90px;
 }

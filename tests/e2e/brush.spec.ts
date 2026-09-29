@@ -1,8 +1,9 @@
 // Live editing: the terrain brushes in the page. The ground changes under the cursor while the
 // button is down; the stroke becomes one step of the history ("Raise, 38 tiles") whose map, built
 // by the worker, is the one painted, byte for byte; undo and redo show at once; Esc cancels a
-// stroke with no trace; Shift inverts; Ctrl+click picks flatten's level; [ ] size and Shift+wheel
-// strength; the stroke is still there after a reload (the autosave).
+// stroke with no trace; Shift inverts; Ctrl+click takes the land's level as the target (D322); [ ]
+// size, and Shift+wheel the strength of Smooth and Naturalize (D196; the height brushes' target,
+// D322); the stroke is still there after a reload (the autosave).
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -95,26 +96,28 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   expect(await heights(page)).toEqual(clean);
   expect((await info(page)).history.length).toBe(steps);
 
-  // flatten: Ctrl+click picks the level from the ground
+  // flatten: Ctrl+click takes the level from the ground as its target (D322)
   await page.keyboard.press("3");
   const p = await client(page, ...start.position);
   const level = await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), start.position);
   await page.keyboard.down("Control");
   await page.mouse.click(p.x, p.y);
   await page.keyboard.up("Control");
-  await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Flatten level" })).toHaveValue(String(level));
+  await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" })).toHaveValue(String(level));
   expect((await info(page)).history.length).toBe(steps);
 
-  // [ and ] size the brush; Shift+wheel sets its strength (D196, as the game); each shows beside the
-  // pointer while it changes (D184: no sliders), and the brush keeps it
+  // [ and ] size the brush; Shift+wheel sets Smooth's strength (D196, as the game); each shows
+  // beside the pointer while it changes (D184), and the brush keeps it
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size: number; strength: number });
-  const s0 = (await saved()).size;
+  // (nothing saved yet: the default size, 5)
+  const s0 = (await saved()).size ?? 5;
   await page.keyboard.press("]");
   await expect.poll(async () => (await saved()).size).toBeGreaterThan(s0);
   await expect(page.locator(".shape-note")).toHaveText(`size ${(await saved()).size}`);
   await page.keyboard.press("[");
   await expect.poll(async () => (await saved()).size).toBe(s0);
   const k0 = (await saved()).strength;
+  await page.keyboard.press("4");
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -100);
@@ -124,7 +127,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
 
   // Esc puts the brush away
   await page.keyboard.press("Escape");
-  await expect(bar.getByRole("button", { name: "Flatten brush (3)" })).toHaveAttribute("aria-pressed", "false");
+  await expect(bar.getByRole("button", { name: "Smooth brush (4)" })).toHaveAttribute("aria-pressed", "false");
 
   // the strokes are kept: a reload opens the map with them (the autosave)
   i = await info(page);

@@ -27,8 +27,8 @@ editor is desktop-first (D185).
 - **Forgiveness.** Every stroke or placement is one instant undo step, and Esc always backs out.
 - **One grammar:** pick, paint or place, see.
 - **Tools read intent.** Small quality-of-life tricks remove decisions the player would otherwise
-  make: smart Lower, flatten from the stroke's start, clear water round a brush over water, a stop
-  level for holding, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
+  make: smart Lower, a target level that follows the ground until set (D322), clear water round a brush over
+  water, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
@@ -100,7 +100,7 @@ editor is desktop-first (D185).
   **Power and size are separate in every force** (D226): each size control follows Power by default, or is
   set by hand: Carve's **Size** (how wide it cuts; its depth follows Power and the width), Craterize's **Size**,
   Erupt's **Size** (breadth); Quake's drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
-  resize (D226).
+  resize (D226, D322).
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
@@ -164,31 +164,47 @@ editor is desktop-first (D185).
 ## 4. Shaping the land
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
-  slope exactly where the player puts it) and Flatten's **Ramped** edges; Smooth has no walkable option (D247, on the
-  preview, released with the forces). **Naturalize** leaves protected tiles as they are (set pieces', the start's bench,
-  rivers', precise strokes' and forces'), and its wear never leaves a slope joining nothing (D253). Pen pressure on drawing
-  tablets. Every brush's options row starts with its **Size**, a number and a slider, as well as hold F to drag the size on
-  the map and [ and ] to step it (D226). **Clear sources** (D249): one toggle in the options
-  row shared by the five terrain brushes, off by default and remembered; on, the sources the brush passes over are removed
-  in the same undo step (they glow red under the ring first, and the ring carries a small mark). With it off, sources ride
-  the ground like trees and bushes (a 3×3 source as one level piece), never left in a pit or on a pillar.
-- **Precision when wanted:** precise mode (one tile, one level), straight lines, level lines (a view switch, D248), exact
-  levels by sampling (Ctrl-click; on water, the riverbed's level), a Select tool for big shaped edits
-  (a small button on the bar beside the brushes; M and Ctrl+drag still open it, D259), and live dimensions (a selection's size, a straight line's
-  length, the level while flattening).
-- **Hold to dig:** in precise mode, holding Lower (or Raise) keeps working, one level at a time at a
-  steady pace tied to strength, with vertical walls, until let go; each hold is one undo step. An
-  optional "stop at" level (off by default; set by Ctrl-clicking a tile, or water for its riverbed)
-  makes it stop there, with a faint plane at that level and one pulse of the ring on arrival. It
-  never digs below the map's bottom or out from under the start or placed objects (D193).
-- **Flatten** (D204): the target is the height where the stroke starts (Ctrl-click samples any other
-  level); it cuts and fills, so one stroke makes a clean plateau; **Edges**: **Cliff** (default) or
-  **Ramped**, where the rim steps down to the land around, and the stroke lays its own natural slopes wherever that
-  rim meets ground one level lower, spaced along every stretch of it (the middle of a short one, else about every six
-  tiles), so the pad is walkable from each side that has such ground (D270; before, it asked the slope planner, which
-  often laid none); a
-  quiet "the start fits here" hint when the area is big and flat enough for the district center, and a
-  stronger one when the start requirements would also hold there; trees and objects ride the ground.
+  slope exactly where the player puts it); Smooth has no walkable option (D247) and Flatten no Ramped edges (D322).
+  **Naturalize** leaves protected tiles as they are (set pieces', the start's bench, rivers', exact strokes' and forces'),
+  and its wear never leaves a slope joining nothing (D253). Pen pressure on drawing tablets (a soft stroke's strength).
+  Every brush's options row starts with its **Size**, a number and a slider up to half the map's width, so the largest
+  brush paints the whole map in one stroke (D322, item 42); hold F and move the mouse to size the ring on the map, its
+  size beside the pointer, and let go to keep it (a click sets it too; Esc or a right click puts it back); [ and ] step
+  it (D205, D226).
+- **The height brushes work as the game's editor does** (D322, item 37; replaces item 8's stop levels and D193's
+  held digging): Raise, Lower and Flatten each have a **target level**, shown beside the pointer at all times ("up to 8",
+  "down to 5", "level 7") and as a plane over the ring. Raise lifts every tile under the brush below the target to it
+  and leaves higher ground (the game editor's relative raise); Lower cuts every tile above it down to it (relative
+  lower); Flatten sets every tile to it, higher or lower (absolute height). They act exactly, with the brush's
+  footprint and hard edges; holding adds nothing. Until the player sets it, the target follows the ground under the
+  pointer (a level above for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. **Shift+scroll**
+  changes it (0 to the height ceiling; plain scroll still zooms), **Ctrl+click** on the land takes its level (on water,
+  the bed's), and the row's **Level** list sets it; once set it stays until the tool changes or Esc (the next Esc puts
+  the brush away). Past either end of the range Raise and Lower are **Free**: they sculpt softly, building up as the
+  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll sets their strength. The tooltips
+  name the game editor's terms. Under a layer cut (D207) Raise stops at the cut. An exact stroke's tiles stay as it
+  leaves them (the build's integrity pass leaves them out, so a one-tile pit stays a pit).
+- **Ground, Water and Both** (D322, item 2): every brush's row has its mode. **Ground** changes only dry tiles and
+  never lowers a tile beside water below that water's surface, so rivers and lakes stay where they are and nothing
+  spills; **Water** changes only the wet tiles (those drawn as water), so a bed is reshaped without its banks; **Both**
+  (the default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never
+  a drought's or a badtide's shown at the time). In Both, a Lower stroke that starts in water still carves a flowing
+  channel (smart Lower, §5); no other brush has an automatic behaviour of its own. Inside an open selection the mode
+  applies within it. The Wand (Select) stays for whole-body jobs.
+- **Sources: Ride · Keep · Clear** (D322, item 31; D249): one choice in every brush's row. **Ride** (the default): the
+  sources the stroke passes over ride the ground like trees and bushes (a 3 × 3 source as one level piece), never left
+  in a pit or on a pillar. **Keep**: every source under the stroke and the ground it stands on stay exactly where they
+  were while the stroke changes everything round them (hard sculpting may leave one on a small pillar or in a small
+  pit, as the player chose). **Clear**: the sources the brush passes over are removed in the same undo step (they glow
+  red under the ring first, and the ring carries a small mark), even when the stroke changes no ground, and their
+  water drains at once as a deleted source's does (item 15, D260). Each brush remembers its mode and its choice.
+- **Precision when wanted:** the target level, straight lines, level lines (a view switch, D248), a Select tool for big
+  shaped edits (a small button on the bar beside the brushes; M and Ctrl+drag still open it, D259), and live
+  dimensions (a selection's size, a straight line's length, the target beside the pointer).
+- **Flatten** (D204, D322): sets the ground to its target, cutting and filling, so one stroke makes a clean plateau with
+  the game editor's hard edges; a walkable edge is the shelf's Slope. A quiet "the start fits here" hint when the area
+  is big and flat enough for the district center, and a stronger one when the start requirements would also hold
+  there; trees and objects ride the ground (a piece whose footprint the edge would split keeps its ground).
 - **Hills, plateaus, ridges and valleys come from the brushes,** not buttons.
 - **Craterize, a force of nature** (D202): its own top-bar button next to Carve (key 8), simulating a
   giant impact. A click strikes; a drag from the impact the way the impactor travels aims it (a glancing blow, an
@@ -313,7 +329,7 @@ editor is desktop-first (D185).
   16"). The selection stays open after an action until
   Esc or the × closes it.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
-  selection is open, the brushes, the forces and Clear sources work only inside it; everything outside is locked, exactly
+  selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked, exactly
   as it is, and dimmed. A **feathered edge**: inside the area a tool's effect tapers off toward the boundary, so edited
   land meets locked land naturally, never a cliff or a straight wall. To the forces, locked land is unbreakable rock (the
   forces core's hardness): Carve's river turns away from it, lava pools against it, a crater's rim stops at it. Water is
@@ -324,10 +340,10 @@ editor is desktop-first (D185).
   area is not an edit. As built: the feathered edge lets a tile change at most as many levels as it is steps inside the
   area (the edit meets the locked land a level a tile); a stroke keeps its `area` (runs) so it replays exactly; a force
   treats the land outside as land it keeps, eases its result to the edge the same way once it is kept, and refuses to
-  start outside the area ("Outside the working area: Esc clears it"); Clear sources takes only the sources wholly inside.
+  start outside the area ("Outside the working area: Esc clears it"); a brush's Clear takes only the sources wholly inside.
   Set level's list follows the height ceiling's constant (16 until D244's step 2 lifts it).
 
-(D180, D182, D183, D184, D193, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259.)
+(D180, D182, D183, D184, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259, D322.)
 
 ## 5. Water
 
@@ -345,7 +361,7 @@ Make a valley, drop a source, and there's a river.
 - **Water source and Badwater source** (D212): first on the left shelf, before the start (D226's
   order). Click to
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
-  Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
+  Ctrl+scroll over any source sets its strength (D322 moved it off Shift+scroll, the brushes' target; strong waterfalls allowed, with a friendly note
   past the official range); drag to move. A click on a placed source selects it and shows its
   strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
@@ -507,7 +523,7 @@ the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
 Erupt and M Select; with Quake picked, X flips the side of the fault that moves. Delete removes what the
 pointer is on, or everything in an open selection (D288).
-Shift+scroll sets strength (brushes and a hovered source), [ and ] set size, Esc backs out. Hold F and move the mouse to resize the brush live, then click to set. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
@@ -624,21 +640,24 @@ in is a deepening pass (`deepen`: a level off what the brush's middle passes ove
 inside the water as a deepening pass and repaints it as a new channel the moment a dab leaves that water. Strokes saved
 before D263 (`channel` alone) keep their old start, the lowest ground there, and replay exactly. The bed never rises
 along the stroke, so the replay carves the same bed. A stroke also records the brush
-kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
-keeps (a precise hold's objects, not the sources since D249; the footprints a Flatten's rim would
-leave on a step, D204), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's
+kit's options it used: square; its `target` (D322, item 37: Raise, Lower and Flatten exact, with hard edges; a stroke
+without one is soft, Free); its `mode` with the tiles that were wet when it started and, for Ground, the banks'
+levels (`wet`, `bank`, D322 item 2: only runs its dabs reach); `sources: "keep"` (D322 item 31: its `keep` runs are the
+sources' ground, which the integrity pass leaves too); the tiles it keeps (a layer cut's, the footprints its edge
+would leave on a step, D204; a precise hold's objects in strokes saved before D322), the pieces that ride it whole (`rigid`: a 3 × 3 badwater source's
 rectangle, which takes its middle tile's level once the stroke is applied, D249; strokes saved
 before keep their `keep` runs and replay exactly), the working area it was painted in (`area`, D254: runs; it changes
 only inside, feathered),
-Flatten's level (the ground where the stroke started, unless one was picked), its steps and ramped
-edges with the slopes a ramped stroke laid on its rim (`slopes`, D270: worked out when the stroke is applied, on the
+a soft Flatten's level (strokes saved before D322), its steps, and in strokes saved before D322 precise (each dab's
+depth in levels, a stop level) and ramped edges with the slopes a ramped stroke laid on its rim (`slopes`, D270: worked out when the stroke is applied, on the
 ground it leaves, clear of objects, water and the tiles the build keeps free; each placed again by every build while it
-still fits; a ramped stroke from before D270 has none and the slope planner joins its steps, as it did), Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. A source's strength changed in
-steps (a slider, Shift+scroll) is one undo step. An object from the shelf is `placeEntity` (a
+still fits; a ramped stroke from before D270 has none and the slope planner joins its steps, as it did), Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. Strokes saved before D322 replay
+exactly (`tests/contract/strokesBeforeD322.test.ts`, on strokes recorded by the code before it). A source's strength
+changed in steps (a slider, Ctrl+scroll) is one undo step. An object from the shelf is `placeEntity` (a
 drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
 with the shelf's R, in one step; Delete is `deleteEntities`, with `removeSlope` for the slopes the
-build places, and never touches the ground or the start. A stroke with **Clear sources** on is one
-step of the `brush` and a `deleteEntities` of the sources it pressed on (D249). A force's run becomes one operation whose
+build places, and never touches the ground or the start. A stroke with Sources: **Clear** is one
+step of the `brush` and a `deleteEntities` of the sources it pressed on (D249, D322), also when it changed no ground. A force's run becomes one operation whose
 result is stored literally, so a replay assigns it and never runs the force again: `forceResult`,
 shared by the four forces (D220): the force, its settings and where it acted (a record), then the
 changed tiles and their levels, the fresh volcanic rock where it changed (a bit per level), the
@@ -1056,7 +1075,11 @@ These were planned or built before Kyler's current decisions. They must not come
 | The Remove tool (X, its filters, its drag and its red hover); Select's Clear objects | D288: Select and Delete; Delete on what the pointer is on |
 | The forces' mode switches (Unleash or Aim, Strike or Aim, Vent or Fissure); Carve's Defy gravity, its mid-carve Stop, and Quake's Side that moves control | D289: the gesture is the mode; an aimed carve cuts through rises instead; D309 confirms Defy gravity and the mid-carve Stop stay gone; X flips Quake's side |
 | The Orbit and Top-down pair; the Dam sites view, the map card's best dam site and the preview's hatched dam site; the Moisture and Drought views | D287: one Top-down toggle; the land shows moisture; the water bar's Drought, day by day |
-| Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247: Ramp is the shelf's Slope and Flatten's ramped edges |
+| Terrace and Ramp as separate brushes | D184: Flatten "in steps"; D247, D322: Ramp is the shelf's Slope |
+| Precise mode, hold to dig and its "stop at" level (D193, item 8's Up to level and Down to level) | D322 (item 37): Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor |
+| Flatten's Ramped edges (D204, D270) | D322: the game editor's hard-edged Flatten; a walkable edge is the shelf's Slope |
+| The shared Clear sources toggle | D322 (item 31): each brush's Sources, Ride, Keep or Clear |
+| Shift+scroll over a source for its strength | D322: Ctrl+scroll over a source; Shift+scroll is the brushes' target |
 | Four text tabs (Land, Water, Resources, Start), the inspector, simple and advanced mode, the Advanced checkbox, the Show dropdown, help paragraphs | D184: the top bar, the left shelf, the view buttons, smart defaults |
 | The health pill, and a confirmation before exporting with warnings | D184: the quiet dot; never a pop-up |
 | The legend always beside the map | D184: only while an overlay is on |

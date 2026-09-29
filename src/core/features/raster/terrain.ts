@@ -12,7 +12,7 @@ import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFe
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
-import { applyBrush, brushBounds, brushReadsNeighbours, type BrushParams } from "./brush";
+import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -369,13 +369,15 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
-    const was = s.params.precise ? heights.slice() : null;
+    const was = brushHard(s.params) ? heights.slice() : null;
+    // kept sources' ground (D322, item 31): the integrity pass leaves it as it is
+    if (s.params.sources === "keep") for (const [y, a, bb] of s.params.keep ?? []) if (y >= 0 && y < t.H) for (let x = Math.max(0, a); x <= Math.min(W - 1, bb); x++) if (t.inRegion(y * W + x)) t.protectedMask[y * W + x] = 1;
     // Naturalize roughens only open land: it leaves every protected tile as it is (a set piece's,
     // the start's bench, a precise stroke's, a force's), so it never breaks what they hold (D253)
     const open = s.params.tool === "naturalize" ? (i: number) => !t.protectedMask[i] : () => true;
     applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
-    // a precise stroke's tiles stay as it left them: the integrity pass leaves them out (a one-tile
-    // pit stays a pit, D193)
+    // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
+    // one-tile pit stays a pit, D193, D322)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;

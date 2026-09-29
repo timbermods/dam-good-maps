@@ -923,7 +923,8 @@ they conflict):
 - **Principles:** the land is the interface (feedback from the land itself, not from panels,
   dialogs or readouts); direct manipulation; few tools, each obvious; smart defaults, with options
   hidden until wanted; forgiveness (instant undo, Esc always backs out); one grammar (pick, paint or
-  place, see the result; [ and ] for size, Shift+scroll for strength, in every tool; plain scroll
+  place, see the result; [ and ] for size, Shift+scroll for a height brush's target level (D322) or a soft brush's
+  strength, in every tool; plain scroll
   always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
   full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
@@ -939,24 +940,25 @@ they conflict):
    `investigation/quake` (#52, ready with Lift and Slide, D219). All four forces share one forces core, built on
    `investigation/forces-core` (#59, D220). Craterize (D202) simulates a giant impact (a click strikes, a drag aims;
    Power, Size, Try another); built from `investigation/craterize` (#51, ready, D216). A small row
-   beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
-   only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines (level lines moved
-   to the view buttons, D248). Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
-   puts the shelf's Slope (D247 removed Smooth's walkable option; the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
-   slot. Pen pressure sets strength on a drawing tablet.
-   Hold to dig (D193): in precise mode, holding Lower or Raise keeps working a level at a time,
-   with an optional "stop at" level (a faint plane, a pulse on arrival); never below the map's bottom
-   or under placed objects.
-   Flatten (D204) starts from the stroke's own height, cuts and fills, has Cliff or Ramped edges,
-   hints where the start fits, and carries trees and objects with the ground.
-   Hold F to resize the brush by dragging (D205); the camera's old R and F zoom are gone (D212).
+   beneath shows only the picked tool's options. The size ring is drawn on the land, up to half the map (D322).
+   Raise, Lower and Flatten work as the game's editor, to a target level beside the pointer (D322, item 37: exact,
+   hard-edged; Free past the range's ends sculpts softly); every brush has its mode, Ground, Water or Both (item 2), and
+   Sources: Ride, Keep or Clear (item 31). Toggles, off by default: square shape, straight lines (level lines moved
+   to the view buttons, D248). Flatten has "in steps" (terraces); a natural slope goes exactly where the player
+   puts the shelf's Slope (D247 removed Smooth's walkable option, D322 Flatten's ramped edges; the start's reach updates
+   live). Select opens with a key or a modifier-drag, with no permanent slot. Pen pressure sets a soft stroke's strength
+   on a drawing tablet.
+   Flatten (D204) cuts and fills to its target, hints where the start fits, and carries trees and objects with the
+   ground.
+   Hold F to resize the brush by moving the mouse, its size beside the pointer (D205, D322); the camera's old R and F
+   zoom are gone (D212).
 2. **Water:** a reflection of the land being painted.
    - **Smart Lower:** a stroke that starts in or next to water carves a bed that keeps flowing
      downhill, so the water follows the brush; the ring turns softly blue. Anywhere else it is an
      ordinary Lower.
    - **Water source and Badwater source** (D212): on the left shelf, right after the start; click
      to place, and water spreads at once; the row beneath sets the next one's strength.
-     Shift+scroll over any source changes its strength live (a friendly note past the official
+     Ctrl+scroll over any source changes its strength live (D322; a friendly note past the official
      range, never a block); drag to move it; a click selects it (its strength, clean or bad,
      Remove); Delete or that Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
