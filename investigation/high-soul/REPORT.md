@@ -1,41 +1,45 @@
 # High's soul: investigation
 
-Base: `feature/high-look` at `8c975822` (includes the crisp tile boundary and anisotropy fix).
-Reference source: `origin/dev` at `dd7bcbec`. No product source is changed by this investigation.
+Base: `feature/high-look` at `8c975822`; references: `origin/dev` at `dd7bcbec`.
+All work stays in this directory. Product source is unchanged; `adoption.patch` is for the milestone session.
+Round 1 established warm brown/mauve earth, orange/cream ruins, red-orange veins and exposure **1.00**.
+Kyler accepted these choices and the game's own readability trade-offs; no extra lightness gap or pattern is required.
 
-The largest improvement is **bright patterned tops against dark, jointed sides**, not lowering the whole frame.
-The proposal combines warm/mauve cracked earth, olive flagstones with painted bevels, a narrow dark top lip,
-stronger contact shadows, lime grass strokes, red contamination veins, orange ruins, and exposure **1.00 instead
-of 1.22**. High also gets a wider navy/teal depth ramp, moving caustic networks, less white in falls, and clouds below
-the map. Shared terrain, ruin and fall changes also apply to Standard.
+## Round 2
+
+- **Water:** broken, two-phase caustics and stretched highlights follow the existing estimated current; rough-water
+  regions gain coloured crests. Pools retain navy depth, including grazing views. In the dedicated rendered study,
+  deep clean water's median display luma is **31.2**, shallow **52.0** (0–255; sampled regions, not a universal margin).
+- **Grass / repetition:** less yellow and bright; weaker, rotated, irregular blade strokes, darker mottling and
+  macro coordinate warping break the atlas's obvious repeat. Large dry areas get the same varied sampling.
+- **Cliffs / edges:** rounded stone relief, softer mortar and directional bevel shading; lighter level joints.
+  Grass boundaries wobble within a narrow band and carry a thin dark rim, respecting equal-height neighbours.
+- **Falls / sky:** more lengthwise threads and coloured highlights in clean and badwater sheets, little white;
+  a blue horizon and smaller cloud patches remain visible in close views.
+- **Ruins:** retained orange/cream and existing material grain. Convincing sacks need bulging panel geometry;
+  thin rectangular panels cannot supply rounded silhouettes. The precise adoption follow-up is in INTEGRATION.
+
+**Still short of the references:** cliffs remain more regular and embossed, with no geometric stone relief; channel
+highlights are finer and more procedural than the game's broad rolling wavelets. Grass can still look stippled close
+up; clouds are more evenly scattered. Block silhouettes, vegetation and the starting building remain different.
+The new studies cover the missing fall/ground cases; day-by-day contamination scrubbing still belongs to adoption.
 
 [Pair overview](captures/pair-1.jpg) · [Pair close](captures/pair-2.jpg) ·
 [Highlands fall](captures/highlands-fall.jpg) · [Lake badwater](captures/lake-badwater.jpg) ·
-[Delta overview](captures/delta-overview.jpg) · [Standard](captures/standard.jpg) ·
-[Colour-blindness](captures/accessibility.jpg)
+[Delta overview](captures/delta-overview.jpg) · [Standard](captures/standard.jpg)
 
-The overview is fitted to four map corners (~1.5 px RMS at 1600 px); the close view is an approximation from four
-terrain landmarks (~21 px RMS), not the game's unavailable saved camera. Baseline and proposal cameras are identical.
-The known flat bottom-left quadrant is excluded from the assessment. References are comparison panels only.
+[Badwater fall](captures/badwater-fall.jpg) · [Broad clean cascade](captures/broad-cascade.jpg) ·
+[Veins on earth and grass](captures/ground-veins.jpg) · [Colour-blind scene sheet](captures/accessibility.jpg) ·
+[Clean/bad water and clean/contaminated soil in each simulation](captures/accessibility-cues.jpg)
 
-| Region | Difference and remaining gap |
-|---|---|
-| Pair 1, upper/right terraces | Dark risers and the lip recover the stacked silhouette; warm/mauve patches replace grey. Texture repetition remains visible. |
-| Pair 1, northern pool / eastern channel | Depth reads more strongly; the channel is still too uniform and lacks the game's complex flowing highlights. |
-| Pair 2, left and right cliff faces | Large olive stones, mortar and bevels replace soft horizontal strata. They still look more graphic and less sculpted than the reference. |
-| Pair 2, dry foreground / grass island | Crisp cracks and strokes survive the comparison scale. Grass is still too regular at some close distances. |
-| Pair 2, falls / skyline ruins | Sheets keep their colour; ruins become orange/cream. Falls need richer longitudinal highlights; existing ruin geometry lacks rounded sacks. |
-| Other references, badwater / poisoned banks | Dark red water, pink networks and orange veins are restored, including grass. Very dark water carries an accessibility trade-off; see READABILITY. |
+Pair cameras are unchanged from round 1: overview corner fit ~1.5 px RMS; close landmark fit ~21 px RMS at 1600 px.
+Baseline/proposal share cameras; the known flat bottom-left map quadrant is excluded. Dedicated studies use original
+synthetic geometry, explicitly labelled; their game reference panels have different geometry. No reference is a texture.
 
-**This is a direction proposal, not a claim of visual parity.** The procedural textures still need a more varied painted
-finish; existing vegetation and start silhouettes remain visibly different. Badwater falls, a broad clean cascade,
-and moving day-by-day contamination need dedicated adoption captures; the delivered map cases do not cover them fully.
+Validation: baseline **120/120** (unchanged round-1 baseline), final proposal **114/120**; **11/11** browser checks and
+product-source typecheck pass. The original four conflicts plus two grass gap rules are documented with exact adoption
+replacements in [INTEGRATION.md](INTEGRATION.md). No product tests were edited. [READABILITY.md](READABILITY.md) records
+information-only simulations and accepted limitations. Builds/captures have no browser errors.
 
-Validation: baseline **120/120**, proposal **116/120** unit/contract checks; **11/11** browser checks and product-source
-typecheck pass. The four reference-driven failures and additional High-water gaps are in
-[READABILITY.md](READABILITY.md). No thresholds were weakened. Existing tests largely measure Standard's palette;
-the additional High-water audit explicitly exposes the dark-water contrast gap.
-
-Adopt through [INTEGRATION.md](INTEGRATION.md). It includes exact regeneration commands and every decision conflict.
-Large builds, map/reference copies, raw captures and test JSON stay in ignored `local/`; only code, compact evidence
-and this report belong in git. New patterns are original procedural code under the repository's MIT license.
+Regeneration is in INTEGRATION. Large outputs, raw captures and reference/map copies stay in ignored `local/`;
+only the report, code, small evidence and compact sheets are committed. All new procedural assets are original, MIT.
