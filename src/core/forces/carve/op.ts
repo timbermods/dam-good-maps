@@ -20,6 +20,8 @@ export interface CarveParams {
   width: number | null;
   /** Its Depth set by hand, in levels below the land (D226; absent: it followed Power). */
   depth?: number;
+  /** Its Floor (D321, item 40), when set above 1. */
+  floor?: number;
   seed: number;
   walls: "steep" | "wide";
   defyGravity: boolean;

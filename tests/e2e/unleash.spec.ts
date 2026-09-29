@@ -119,7 +119,7 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   await expect.poll(() => heights(page)).toEqual(before);
   expect(await labels(page)).toHaveLength(n0);
 
-  // dragged from Unleash onto lower land: it aims there
+  // dragged from Unleash onto lower land: its river follows the line drawn there
   row = await select();
   const button = (await row.getByRole("button", { name: "Unleash" }).boundingBox())!;
   const q = await client(page, spot.end[0], spot.end[1]);
@@ -129,11 +129,10 @@ test("Unleash: a selected source carves its own course, kept as one step when it
     await page.mouse.move(button.x + button.width / 2 + ((q.x - button.x - button.width / 2) * k) / 12, button.y + button.height / 2 + ((q.y - button.y - button.height / 2) * k) / 12);
     await page.waitForTimeout(20);
   }
-  // (only a thin arrow from the source to the pointer shows the way, D258)
-  await expect(page.locator(".aim-arrow")).toBeVisible();
-  expect((await page.evaluate(() => window.dgmEditor!.gesture())).stroke).toBeNull();
+  // (only the line drawn from the source shows the way, D258, D321 item 41)
+  await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.gesture())).stroke ?? 0).toBeGreaterThan(0);
   await page.mouse.up();
-  await expect(page.locator(".aim-arrow")).toHaveCount(0);
+  await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.gesture())).stroke).toBeNull();
   await expect(work).toBeVisible();
   await expect.poll(() => running(page), { timeout: 60_000 }).toBeNull();
   await idle(page);

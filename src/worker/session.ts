@@ -67,6 +67,7 @@ import { changedRect } from "../render3d/mesh";
 import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
+import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import type { CraterSettings } from "../core/forces/craterize";
 import type { EruptSettings, Point } from "../core/forces/erupt";
@@ -265,15 +266,14 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
-/** The objects as the view draws them; `down`: the trees a force knocked down, and which way each
- *  lies (D202). */
-function entityInputs(list: readonly EntitySpec[], down?: ReadonlyMap<string, { dx: number; dy: number }>) {
+/** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
+ *  (D321, item 7: no force leaves a tree leaning). */
+function entityInputs(list: readonly EntitySpec[]) {
   const out = [];
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components };
-    const fall = down?.get(e.id);
-    out.push({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...(fall ? { fallen: fall } : {}) });
+    out.push({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
   }
   return out;
 }
@@ -353,7 +353,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), ...(v.fall ? { fall: v.fall.slice() } : {}) };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice() };
 }
 
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
@@ -362,7 +362,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && !a.fall === !b.fall && (!a.fall || eq(a.fall, b.fall!));
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner);
 }
 
 function markSent(s: MapSession): void {
@@ -382,7 +382,7 @@ export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
   const b = s.built;
-  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))), soil: soilOf(s) };
+  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
   sentEntities = copyEntityView(view.entities);
   markSent(s);
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
@@ -393,7 +393,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
   const out: ViewUpdate = {};
   const prev = sent;
   if (!prev || prev.heights.length !== b.heights.length) {
-    const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))), soil: soilOf(s), terrain: s.terrainState() };
+    const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s), terrain: s.terrainState() };
     sentEntities = copyEntityView(all.entities!);
     markSent(s);
     return all;
@@ -411,7 +411,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
   // (a rebuild that placed the same objects again sends none: the page keeps its own)
   if (b.entities !== prev.entities) {
-    const v = entityView(entityInputs(b.entities, fallenOf(s)));
+    const v = entityView(entityInputs(b.entities));
     if (!sameEntityView(v, sentEntities)) out.entities = v;
     sentEntities = copyEntityView(v);
   }
@@ -1749,19 +1749,23 @@ export interface TrailPoint {
 
 /** A frame of a force at work: how far it has come, its head (where it is: the camera follows it),
  *  what the effects and sounds need (its cue), and what changed on the map since the last frame
- *  (the heights and the rectangle they changed in; the water it shows; the objects, when they
- *  changed; an eruption's heat on the land, once). */
+ *  (the heights and the rectangle they changed in; the objects, when they changed; an eruption's heat
+ *  on the land, once). No water: it stays as it was until the land is final (D321, item 30). Once
+ *  the force is worked out (`planned`), `total` steps show it and `shown` of them have: the page
+ *  paces them (Fast or Watch, item 29). */
 export interface ForceFrame {
   verb: Verb;
   steps: number;
   done: boolean;
   reason: string;
+  planned: boolean;
+  total: number;
+  shown: number;
   head: ForceHead;
   trail: TrailPoint[];
   cue: ForceCue;
   heights?: Uint8Array;
   rect?: { x0: number; y0: number; x1: number; y1: number };
-  water?: WaterView;
   entities?: EntityView;
   heat?: Uint8Array;
 }
@@ -1782,6 +1786,8 @@ let force: {
   session: MapSession;
   verb: Verb;
   carve: CarveRun | null;
+  /** A carve as the page is shown it: worked out first, then played back (carve/play.ts). */
+  play: CarvePlay | null;
   staged: StagedRun | null;
   before: FullForceMap;
   /** The terrain the build's last steps start from, before the force (buildTouches). */
@@ -1796,10 +1802,12 @@ let force: {
   viewAt: number;
 } | null = null;
 
-/** A force's water and objects go to the page at most this often (and always with its last frame):
- *  each is a whole map's update on the page (about 25 ms at 256²), so the land's own changes keep the
- *  page's frames free. */
+/** A force's objects go to the page at most this often (and always with its last frame): each is a
+ *  whole map's update on the page, so the land's own changes keep the page's frames free. */
 const FORCE_VIEW_MS = 120;
+
+/** A carve's working-out slice (ms): the worker answers the page's other calls between them. */
+const CARVE_PLAN_MS = 24;
 
 /** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
  *  again from its original land, with the next seed, while one of them is the latest step of the
@@ -1976,7 +1984,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
           const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), keep, aimed ? at(aimed) : null);
           const settings: CarveSettings = { ...req.settings, width: unleashWidth(strength), dry: true };
-          const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}) };
+          // (drawn from it, D321 item 41: its river follows the line)
+          const via = aimed && req.via?.length ? req.via.map(at) : [];
+          const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
           try {
             carve = new CarveRun(base, settings, intent, { keep, sourceId: crypto.randomUUID(), unleashed: e.id, bad: e.template === "BadwaterSource" });
           } catch (err) {
@@ -1985,7 +1995,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           }
           break;
         }
-        // (waypoints, D312: a smooth curve through them to the end)
+        // (its drawn path, D321 item 41: a smooth curve through its points to the end)
         const via = aimed && req.via?.length ? req.via.map(at) : [];
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
         carve = new CarveRun(base, req.settings, intent, { keep, sourceId: crypto.randomUUID() });
@@ -2010,7 +2020,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
         map = stagedForceMap(base);
         const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
-        // waypoints (D312): the ones that move on from the last, between the origin and the end
+        // its drawn path (D321, item 41): the tiles that move on from the last, between the origin and the end
         const stops: [number, number][] = [];
         for (const p of aimed ? (req.via ?? []) : []) {
           const last = stops.at(-1) ?? req.origin;
@@ -2043,6 +2053,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     session: s,
     verb: req.verb,
     carve,
+    play: carve ? new CarvePlay(carve) : null,
     staged,
     before: map,
     state,
@@ -2099,8 +2110,10 @@ export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
   sr.nextSeed = sr.request.verb === "glaciate" ? glaciateNextSeed(sr.nextSeed) : nextSeed(sr.nextSeed);
-  const settings = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
-  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
+  const settings: Record<string, unknown> = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
+  // (a pin sent as undefined is back to its default: the Floor at 1 is no floor in the record)
+  for (const [k, v] of Object.entries(settings)) if (v === undefined) delete settings[k];
+  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as unknown as ForceRequest;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
 
@@ -2120,28 +2133,32 @@ function trailOf(run: CarveRun): TrailPoint[] {
   return run.path.slice(-28).map((p) => ({ x: p.x, y: p.y, dx: p.dx, dy: p.dy, width: p.width, lanes: p.lanes.map((l) => ({ ...l })) }));
 }
 
-/** A carve's cue (its head, cutting). */
-function carveCue(r: CarveRun): ForceCue {
-  return { verb: "carve", phase: r.done ? "done" : "carve", progress: 0, x: r.head.x, y: r.head.y, z: r.head.z, size: r.head.width, power: r.settings.power };
+/** A carve's cue (its head where the land shown has it, cutting). */
+function carveCue(p: CarvePlay): ForceCue {
+  const h = p.head;
+  return { verb: "carve", phase: p.done ? "done" : "carve", progress: p.total ? p.shown / p.total : 0, x: h.x, y: h.y, z: h.z, size: h.width, power: p.run.settings.power };
 }
 
 function forceFrame(f: NonNullable<typeof force>): ForceFrame {
-  const map = f.carve ? f.carve.map : f.staged!.map;
+  const map = f.play ? f.play.map : f.staged!.map;
   const { W, H } = map;
   let head: ForceHead;
   let trail: TrailPoint[] = [];
   let cue: ForceCue;
-  if (f.carve) {
-    const r = f.carve;
-    head = { ...r.head, ...(r.head.lanes ? { lanes: r.head.lanes.map((l) => ({ ...l })) } : {}) };
-    trail = trailOf(r);
-    cue = carveCue(r);
+  let out: ForceFrame;
+  if (f.play) {
+    const p = f.play;
+    const h = p.head;
+    head = { ...h, ...(h.lanes ? { lanes: h.lanes.map((l) => ({ ...l })) } : {}), ...(p.run.badwater ? { bad: true } : {}) };
+    trail = p.trail().map((q) => ({ x: q.x, y: q.y, dx: q.dx, dy: q.dy, width: q.width, lanes: q.lanes.map((l) => ({ ...l })) }));
+    cue = carveCue(p);
+    out = { verb: f.verb, steps: p.shown, done: p.done, reason: p.done ? p.run.reason : "", planned: p.planned, total: p.planned ? p.total : 0, shown: p.shown, head, trail, cue };
   } else {
-    cue = f.staged!.cue();
+    const r = f.staged!;
+    cue = r.cue();
     head = { x: cue.x, y: cue.y, z: cue.z, dx: 1, dy: 0, width: Math.min(24, cue.size), event: "surge", cut: 0 };
+    out = { verb: f.verb, steps: r.steps, done: r.done, reason: r.reason, planned: r.planned, total: r.planned ? r.total : 0, shown: r.shown, head, trail, cue };
   }
-  const run = f.carve ?? f.staged!;
-  const out: ForceFrame = { verb: f.verb, steps: run.steps, done: run.done, reason: run.reason, head, trail, cue };
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     f.shown = map.heights.slice();
@@ -2149,21 +2166,17 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     out.rect = rect;
   }
   const now = performance.now();
-  const view = run.done || now - f.viewAt >= FORCE_VIEW_MS;
-  if (view) {
-    f.viewAt = now;
-    out.water = waterFromDepth(map.heights, map.water.depth, map.water.contamination);
-  }
+  const view = out.done || now - f.viewAt >= FORCE_VIEW_MS;
+  if (view) f.viewAt = now;
   if (view && map.entities !== f.lastEntities) {
     f.lastEntities = map.entities;
-    const down = new Map((map.fallen ?? []).map((g) => [g.id, { dx: g.dx, dy: g.dy }]));
-    const v = entityView(entityInputs(map.entities, down));
+    const v = entityView(entityInputs(map.entities));
     if (!sameEntityView(v, f.shownEntities)) {
       out.entities = v;
       f.shownEntities = copyEntityView(v);
     }
   }
-  if (!f.heatSent && f.staged?.heat) {
+  if (!f.heatSent && f.staged?.heat && f.staged.planned) {
     const heat = f.staged.heat();
     if (heat) {
       out.heat = heat.slice();
@@ -2177,8 +2190,16 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
 export function forceAdvance(steps: number): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session) return null;
-  if (f.carve) for (let k = 0; k < steps && !f.carve.done; k++) f.carve.step();
-  else for (let k = 0; k < steps && !f.staged!.done; k++) f.staged!.step();
+  if (f.play) {
+    // (worked out a slice at a time first, then shown `steps` at a time)
+    if (!f.play.planned) f.play.plan(CARVE_PLAN_MS);
+    else f.play.advance(steps);
+  } else {
+    const r = f.staged!;
+    // (a planning slice a call until it is planned; then `steps` of its showing)
+    if (!r.planned) r.step();
+    else for (let k = 0; k < steps && !r.done; k++) r.step();
+  }
   return forceFrame(f);
 }
 
@@ -2204,7 +2225,7 @@ export function carveAdvance(steps: number): ForceFrame | null {
 /** The page's view back to the map as it stands (a force dropped, or refused). */
 function restoreView(s: MapSession): ViewUpdate {
   const b = s.built;
-  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))) };
+  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)) };
   sentEntities = copyEntityView(view.entities!);
   markSent(s);
   return view;
@@ -2243,7 +2264,7 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
       const r = f.staged as GlaciateRun;
       const W = f.before.W;
       const via = r.intent.via ?? [];
-      // (its waypoints, D312: the whole line it was given, origin to end, as the path)
+      // (its drawn path, D321 item 41: the whole line it was given, origin to end)
       return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}), ...(via.length ? { path: pathRecord([req.origin, ...via.map((i) => [i % W, Math.floor(i / W)] as [number, number]), req.end!].map(([x, y]) => ({ x, y }))) } : {}) } };
     }
     default:
@@ -2268,13 +2289,16 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
   let water: WarmState;
   if (f.carve) {
     const r = f.carve;
+    // a carve kept part way (Watch's jump to the end, D321) keeps its whole result: the playback only
+    // shows it
+    f.play?.plan(Infinity);
     const req = f.request as Extract<ForceRequest, { verb: "carve" }>;
     const aimed = req.settings.mode === "aim" && req.end ? req.end : undefined;
     // (an unleashed source's carve starts where it broke out, with its width and dry: the run's own)
     const origin: [number, number] = req.source ? [r.intent.origin % f.before.W, Math.floor(r.intent.origin / f.before.W)] : req.origin;
     params = carveForceParams(f.before, r, { settings: req.source ? r.settings : req.settings, origin, ...(aimed ? { end: aimed } : {}), cut: req.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (params && req.source) params = { ...params, where: { ...params.where, source: req.source } };
-    // (its waypoints, D312: the curve's points from the origin to the end, kept with its record)
+    // (its drawn path, D321 item 41: the curve's points from the origin to the end, kept with its record)
     if (params && aimed && req.via?.length) params = { ...params, where: { ...params.where, path: [origin, ...req.via, aimed].map(([x, y]) => [x, y] as [number, number]) } };
     if (!params) return refused([req.source ? "Its water found nothing to carve from there: more Power, or drag from Unleash to aim it" : "Nothing was carved"]);
     water = r.liveWater();

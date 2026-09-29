@@ -27,7 +27,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
 7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.
 8. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
-   branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's
+<!-- retired-terms:allow -->   branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's<!-- /retired-terms:allow -->
    softer sound, re-encoded sounds and a quieter default (D313), and **Delete sources** on the Select row (D315)
    (`feature/forces-sounds`, #81); Glaciate's meltwater springs in groups (D314, `feature/glaciate`, #76). Carve's own source is a row too (D314; Unleash places none). Tuesday's
    first job is to merge them and refresh the preview; you'll get a toast. Your checklist is below (items 21–23 are the new ones).
@@ -132,7 +132,7 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
     the values it took; pin one and Try another: the pinned detail stays, the others vary; pin all the shown values and it repeats.
 22. **From your sitting** (D312, D313; once built, the preview refreshed): the faint size ring on every force, growing with Power and
-    Size; Shift+click waypoints for Carve and Glaciate (Enter or a click launches, Backspace removes, Esc cancels); Erupt's land final
+<!-- retired-terms:allow -->    Size; Shift+click waypoints for Carve and Glaciate (Enter or a click launches, Backspace removes, Esc cancels); Erupt's land final<!-- /retired-terms:allow -->
     in about two seconds; Smooth's softer sound beside Flatten's; the quieter default volume.
 23. **Delete sources** (D315, once built): Ctrl+A, then Delete sources: every source goes, every tree and ruin stays, the water drains;
     undo brings them all back.
@@ -423,7 +423,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D315: the Select row gains Delete sources: every source in the selection (Ctrl+A: the map), nothing else, one undo step.
 - D314: sources in rows and clusters as in the official maps (the investigation #78; the rule `src/core/water/sourceGroups.ts`, #79): a row across the flow for clean water, single or a close pair for badwater; wired into the generator (M9b), Real places, Carve's source and Glaciate's meltwater. The shelf's source stays single, and Unleash carves from the source it was given (no row at its head).
 - D313: Smooth's sound a softer relative of Flatten's; over-compressed sounds re-encoded; the default volume a quarter lower (saved volumes kept).
-- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.
+<!-- retired-terms:allow -->- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.<!-- /retired-terms:allow -->
 - D311: the game's water rules in M9b accepted where thin sheets form less; the pooled probe checks against the game.
 - D310: clean water and badwater's floor darken together toward the game; the readability tests restored; bubbles and texture help the faintest badwater.
 - D309: the forces' details come back behind a More button, each on Auto (nature's pick), pinnable; after a run each Auto detail shows its value with one click to pin it; Try another re-rolls only Auto. On feature/forces (`build-light`).

@@ -31,7 +31,9 @@
     { "term": "Dam sites view", "retired": "D287", "instead": "none: dam sites are never drawn; the analysis stays internal" },
     { "term": "Moisture view", "retired": "D287", "instead": "the land shows moisture itself" },
     { "term": "hold to dig", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
-    { "term": "precise mode", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" }
+    { "term": "precise mode", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
+    { "term": "waypoint", "retired": "D321", "instead": "the freehand path: a drag draws the travelling force's path (item 41)" },
+    { "term": "aim arrow", "retired": "D321", "instead": "the drawn line: a drag shows the line the player draws (item 41)" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

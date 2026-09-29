@@ -16,6 +16,7 @@ import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
 import { guidFrom, hash32 } from "../../math/hash";
 import { placeSourceGroup } from "../../water/sourceGroups";
+import { forceFloor, holdAtFloor } from "../floor";
 import { MinHeap, N8 } from "../../math/grid";
 import { EMITTERS } from "../../sim/model";
 import { prefill, spillLevels } from "../../sim/prefill";
@@ -135,6 +136,7 @@ export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, i
 function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley: Valley, style: FloorStyle | null): Generator<void, GlaciatePlan, void> {
   const finish = style !== null;
   const top = input.maxHeight;
+  const cutFloor = forceFloor(settings, top);
   const before = snapshotMap(input);
   const m = snapshotMap(input);
   const s = { ...settings };
@@ -966,6 +968,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       return false;
     });
   }
+  // the Floor (D321, item 40): where the trough, its channels or its tarn would go below it, they run
+  // shallower, held at it (its water and tarn are worked out on the held ground, below)
+  holdAtFloor(before.heights, m.heights, cutFloor);
   trimRock(m);
   const model = modelOf(m);
   const spill = spillLevels(model);

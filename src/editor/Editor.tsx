@@ -43,9 +43,10 @@ import { eruptNature } from "../core/forces/nature";
 import { DEFAULT_GLACIATE, glaciateDetails, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
 import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forceReach } from "../core/forces/reach";
-import { MAX_WAYPOINTS } from "../core/forces/carve/run";
-import { waypointTiles, Waypoints, type Waypoint } from "./waypoints";
-import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
+import { MAX_PATH_POINTS } from "../core/forces/carve/run";
+import { FreehandPath } from "./freehand";
+import { downhillPath, pathLength, pathTiles, resamplePath, type PathPoint } from "../core/forces/path";
+import { forceCeiling } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
 import type { ForceCue } from "../core/forces/runs";
@@ -54,7 +55,8 @@ import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
-import { FORCES, forceShown, TopBar, type TopTool } from "./TopBar";
+import { FORCES, ForceFloor, forceShown, TopBar, type TopTool } from "./TopBar";
+import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
 import { depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
 import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
@@ -65,7 +67,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, FAINT, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -118,6 +120,8 @@ declare global {
       carve(): ForceStatus | null;
       /** Any force at work (D202, D203, D206), or null. */
       force(): ForceStatus | null;
+      /** The last force's times from its gesture (D321, item 29): worked out, and its land final. */
+      forceTiming(): { worked: number; final: number; kept: number } | null;
       /** The last stroke painted (its operation's params), or null. */
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
@@ -127,7 +131,7 @@ declare global {
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
        *  fault that moves (1 its left, -1 its right: X flips it, D289). */
-      gesture(): { stroke: number | null; cursor: [number, number] | null; arrow: { from: [number, number]; to: { x: number; y: number } } | null; side: 1 | -1; ring: number | null; waypoints: [number, number][] };
+      gesture(): { stroke: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
       /** The sources glowing red for Sources: Clear (D249, D322), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
       sourceGlow(): number[];
@@ -168,33 +172,16 @@ export default function Editor(props: EditorProps) {
   const anchorRef = useRef<QuakePoint | null>(null);
   const flipRef = useRef<(() => void) | null>(null);
   const forceEscRef = useRef<(() => boolean) | null>(null);
-  /** The picked force's own keys while it isn't at work (Carve's waypoints: Enter, Backspace, D312);
-   *  true when the key was its. */
-  const forceKeyRef = useRef<((key: string) => boolean) | null>(null);
-  /** What a force draws (D258: clean gestures, never a prediction): the stroke the player paints
-   *  (Quake's fault, Erupt's fissure: the gesture itself), a small cursor where a click would act,
-   *  and Aim's thin arrow from where the drag began (a tile) to the pointer (the page's point). */
+  /** What a force draws (D258: clean gestures, never a prediction): the line the player draws (a
+   *  travelling force's path, Craterize's aim, Quake's fault, Erupt's fissure: the gesture itself,
+   *  D321 item 41), and where the cursor is (its tile), round which one calm ring shows the force's
+   *  size (D312, item 13), on the water's surface over water. */
   const [forceStroke, setForceStroke] = useState<number[] | null>(null);
   const [forceCursor, setForceCursor] = useState<[number, number] | null>(null);
-  /** The force's reach round the cursor (D312): a faint ring, its radius from Power and Size. */
+  /** The force's reach round the cursor (D312): its ring, its radius from Power and Size. */
   const [forceRing, setForceRing] = useState<{ x: number; y: number; r: number } | null>(null);
-  /** Carve's and Glaciate's waypoints (D312): the shared gesture (waypoints.ts), drawn on the land as
-   *  they are dropped; launched, the force picked runs from the first through the rest to the last. */
-  const [waypointsShown, setWaypointsShown] = useState<readonly Waypoint[]>([]);
-  const waypoints = useRef<Waypoints | null>(null);
-  waypoints.current ??= new Waypoints(
-    {
-      changed: (points) => setWaypointsShown(points.slice()),
-      launch: (points) =>
-        toolRef.current === "glaciate"
-          ? forceCalls.current!.glaciate(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][])
-          : forceCalls.current!.carve(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][]),
-    },
-    MAX_WAYPOINTS,
-  );
-  const [aimArrow, setAimArrow] = useState<{ from: [number, number]; to: { x: number; y: number } } | null>(null);
-  const gestureRef = useRef({ forceStroke, forceCursor, aimArrow, forceRing });
-  gestureRef.current = { forceStroke, forceCursor, aimArrow, forceRing };
+  const gestureRef = useRef({ forceStroke, forceCursor, forceRing });
+  gestureRef.current = { forceStroke, forceCursor, forceRing };
   const [options, setOptions] = useState<ToolOptions>(DEFAULT_OPTIONS);
   /** The object picked on the shelf, its options and its turn (D184). */
   const [shelf, setShelf] = useState<ShelfItem | null>(null);
@@ -595,7 +582,6 @@ export default function Editor(props: EditorProps) {
     // a force this build doesn't show can't be picked (release.ts, D219)
     const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
     if (force && !forceShown(force)) return;
-    setAimArrow(null);
     if (force) {
       pickBrush(null);
       pickShelf(null);
@@ -830,21 +816,18 @@ export default function Editor(props: EditorProps) {
       layers.push({ tiles: selection.current.tiles(), color: SELECTED, outline: true });
     }
     if (selectDraw) layers.push({ tiles: selectDraw, color: DRAWING });
-    // a force's painted stroke (the gesture itself), and its small cursor where a click would act
+    // the line a force is drawn with (the gesture itself, D258, D321 item 41)
     if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
-    if (forceCursor) layers.push({ tiles: rimTiles(forceCursor[0], forceCursor[1], 1.5, 1.5, 0), color: DRAWING });
-    // its reach (D312): how big, never what shape
-    if (forceRing && forceRing.r >= 2) layers.push({ tiles: rimTiles(forceRing.x, forceRing.y, forceRing.r, forceRing.r, 0), color: FAINT });
-    // the waypoints being dropped (D312): the player's own gesture, markers and a thin line
-    if (waypointsShown.length) {
-      const w = waypointTiles(waypointsShown, info.W, info.H);
-      layers.push({ tiles: w.line, color: FAINT });
-      layers.push({ tiles: w.markers, color: DRAWING });
-    }
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke, forceCursor, forceRing, waypointsShown]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, painted, forceStroke]);
+  // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
+  // is (the water's surface over water); a click's small reach still shows a ring round the cursor
+  useEffect(() => {
+    const at = forceRing ?? (forceCursor ? { x: forceCursor[0] + 0.5, y: forceCursor[1] + 0.5, r: 0 } : null);
+    renderer.current?.setForceRing(at ? { ...at, r: Math.max(1.5, at.r) } : null);
+  }, [forceRing, forceCursor, ready]);
 
   // ------------------------------------------------------------------------------ the pointer
 
@@ -1499,10 +1482,21 @@ export default function Editor(props: EditorProps) {
   glaciateUiRef.current = glaciateUi;
   /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
   const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
+  /** Watch (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
+  const [watch, setWatch] = useState(forcesPrefs.watch);
+  const watchRef = useRef(watch);
+  watchRef.current = watch;
+  /** The forces' Floor (D321, item 40): the lowest level any of them cuts to, shared, remembered. */
+  const [floor, setFloor] = useState(forcesPrefs.floor);
+  const floorRef = useRef(floor);
+  floorRef.current = floor;
+  const floorContext = useMemo(() => ({ value: floor, set: setFloor }), [floor]);
   // the pins and the open More panels are remembered with the player's other editor preferences
   // (D309); Power, Size, dry and mode last only the visit, as before
   useEffect(() => {
     saveForcesPrefs({
+      watch,
+      floor,
       more: moreOpen,
       carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth },
       craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
@@ -1510,7 +1504,7 @@ export default function Editor(props: EditorProps) {
       quake: { scarp: quakeUi.scarp },
       glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
     });
-  }, [moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -1521,43 +1515,28 @@ export default function Editor(props: EditorProps) {
   /** The last moment shown (an eruption's cooling hiss starts from it). */
   const lastCue = useRef<ForceCue | null>(null);
 
-  /** A frame of a force at work: the ground it changed, its water, its objects. */
-  /** A force's water and objects waiting for the next animation frames (the latest of each), so
-   *  the land's change, its water and its objects never all land in one frame (each is a whole
-   *  map's update). */
-  const forceView = useRef<{ water: WaterView | null; entities: EntityView | null; frame: number }>({ water: null, entities: null, frame: 0 });
+  /** A force's objects waiting for the next animation frame (the latest), so the land's change and
+   *  its objects never land in one frame (each is a whole map's update). Its water stays as it was
+   *  until the land is final (D321, item 30): the kept map's view brings it. */
+  const forceView = useRef<{ entities: EntityView | null; frame: number }>({ entities: null, frame: 0 });
 
   function flushForceView(drop = false) {
     const v = forceView.current;
     if (v.frame) cancelAnimationFrame(v.frame);
     v.frame = 0;
-    if (drop) {
-      v.water = null;
-      v.entities = null;
-      return;
-    }
-    const r = renderer.current;
+    const e = v.entities;
+    v.entities = null;
+    if (drop || !e) return;
     const m = mirror.current;
-    // the water first, the objects a frame later
-    if (v.water) {
-      const w = v.water;
-      v.water = null;
-      r?.updateWater(w);
-      m.water = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, w);
-      m.waterView = w;
-    } else if (v.entities) {
-      const e = v.entities;
-      v.entities = null;
-      m.entities = e;
-      m.entitiesAt = null;
-      m.coverAt = null;
-      r?.updateEntities(e);
-      reglow();
-      sourcesChanged();
-    }
-    if (v.water || v.entities) v.frame = requestAnimationFrame(() => flushForceView());
+    m.entities = e;
+    m.entitiesAt = null;
+    m.coverAt = null;
+    renderer.current?.updateEntities(e);
+    reglow();
+    sourcesChanged();
   }
 
+  /** A frame of a force at work: the ground it changed, its objects. */
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
@@ -1566,9 +1545,8 @@ export default function Editor(props: EditorProps) {
       r?.updateTerrainRect(f.heights, f.rect);
     }
     const v = forceView.current;
-    if (f.water) v.water = f.water;
     if (f.entities) v.entities = f.entities;
-    if ((f.water || f.entities) && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
+    if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
     if (f.heat) r?.setHeat(f.heat);
   }
 
@@ -1634,7 +1612,7 @@ export default function Editor(props: EditorProps) {
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
                       : undefined;
-          return api.forceAgain(pins);
+          return api.forceAgain(pins && { ...pins, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined });
         }
         return api.forceStart(q);
       }),
@@ -1651,6 +1629,7 @@ export default function Editor(props: EditorProps) {
       renderer.current?.setForceMoment(f.cue);
       juice.current?.forceMoment(f.cue, f.head);
     },
+    speed: () => (watchRef.current ? "watch" : "fast"),
     ended: (kept) => {
       if (kept) renderer.current?.forceDone();
       else renderer.current?.clearForce();
@@ -1668,6 +1647,18 @@ export default function Editor(props: EditorProps) {
   });
   // (a force at work when the editor closes goes with it)
   useEffect(() => () => forcer.current?.cancel(), []);
+  // Watch (D321, item 29): a click anywhere jumps the playing force straight to its final land, so
+  // Watch never traps the player (the force's own row keeps its Pause and Revert)
+  useEffect(() => {
+    const down = (ev: PointerEvent) => {
+      const st = forcer.current?.status;
+      if (!st || st.speed !== "watch" || st.painting || st.stopping) return;
+      if ((ev.target as HTMLElement | null)?.closest?.('[aria-label$=" at work"]')) return;
+      void forcer.current!.jump();
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, []);
 
   // ------------------------------------------------------------------------ Unleash, on a source
 
@@ -1683,14 +1674,14 @@ export default function Editor(props: EditorProps) {
   /** Unleash a placed source (D239): it carves its own course downhill with Carve's engine (from a
    *  pool, breaking out where it would spill over), or to `end`, aimed; its strength sets the width,
    *  Power how hard it cuts, the rest Carve's defaults; the source stays its origin. */
-  function unleash(e: EntityInfo, end?: [number, number]) {
+  function unleash(e: EntityInfo, end?: [number, number], via?: [number, number][]) {
     if (forcer.current?.running) return;
     const x = e.template === "BadwaterSource" ? e.x + 1 : e.x;
     const y = e.template === "BadwaterSource" ? e.y + 1 : e.y;
     unleashRef.current = { id: e.id, x, y };
     setUnleashing(true);
     const settings = { ...carveSettingsOf({ ...DEFAULT_CARVE, power: unleashPowerRef.current }, !!end), defyGravity: false };
-    startForce({ verb: "carve", settings, origin: [x, y], ...(end ? { end } : {}), cut: renderer.current?.slice ?? null, source: e.id });
+    startForce({ verb: "carve", settings, origin: [x, y], ...(end ? { end } : {}), ...(end && via?.length ? { via } : {}), cut: renderer.current?.slice ?? null, source: e.id });
   }
 
   /** Try another for an unleashed source: another course from the same land, in its place. */
@@ -1701,32 +1692,34 @@ export default function Editor(props: EditorProps) {
     forceAgain();
   }
 
-  /** Unleash's button: a click unleashes it downhill; pressed and dragged out onto the land, it aims
-   *  that way (D258: only a thin arrow from the source to the pointer; the source's own drag still
-   *  moves it). */
+  /** Unleash's button: a click unleashes it downhill; pressed and dragged out onto the land, the
+   *  source's river follows the line drawn from it (D321, item 41: the line shows as it is drawn;
+   *  the source's own drag still moves it). */
   function unleashDown(ev: PointerEvent, e: EntityInfo) {
     if (ev.button !== 0 || forcer.current?.running) return;
     ev.preventDefault();
-    const x0 = ev.clientX;
-    const y0 = ev.clientY;
-    const from: [number, number] = [e.template === "BadwaterSource" ? e.x + 1 : e.x, e.template === "BadwaterSource" ? e.y + 1 : e.y];
+    const from: PathPoint = { x: e.template === "BadwaterSource" ? e.x + 1 : e.x, y: e.template === "BadwaterSource" ? e.y + 1 : e.y };
+    const g = new FreehandPath(infoRef.current.W, infoRef.current.H);
+    g.down(from, ev.clientX, ev.clientY);
     let aim: [number, number] | null = null;
-    let moved = false;
     const move = (m: PointerEvent) => {
-      if (Math.hypot(m.clientX - x0, m.clientY - y0) > 6) moved = true;
-      if (!moved) return;
-      const hit = renderer.current?.pick(m.clientX, m.clientY) ?? null;
+      const hit = renderer.current?.pickSurface(m.clientX, m.clientY) ?? null;
       const onMap = hit && document.elementFromPoint(m.clientX, m.clientY)?.tagName === "CANVAS";
-      aim = onMap && hit && Math.hypot(hit.x - from[0], hit.y - from[1]) >= 2 ? [hit.x, hit.y] : null;
-      setAimArrow({ from, to: { x: m.clientX, y: m.clientY } });
+      const path = g.move(onMap && hit ? { x: hit.x, y: hit.y } : null, m.clientX, m.clientY);
+      if (!path) return;
+      aim = onMap && hit && Math.hypot(hit.x - from.x, hit.y - from.y) >= 2 ? [hit.x, hit.y] : null;
+      showPath(path);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      setAimArrow(null);
+      showPath(null);
+      const end = g.up(aim ? { x: aim[0], y: aim[1] } : null);
       // (a click starts it from the button's own click: starting it here would put the row's
       // controls under the pointer before the click lands)
-      if (moved && aim) unleash(e, aim);
+      if (!aim || !end || !("path" in end)) return;
+      const tiles = steerTiles(end.path, false);
+      if (tiles) unleash(e, tiles.end, tiles.via);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -1736,13 +1729,12 @@ export default function Editor(props: EditorProps) {
   function unleashRow(): { label: string; content: ComponentChildren } | null {
     const st = forcer.current?.status ?? null;
     if (!unleashing || !st) return null;
-    const secs = (st.steps / STEPS_PER_SECOND).toFixed(1);
     return {
       label: "Unleash at work",
       content: (
         <>
           <span class="bar-status" role="status">
-            {st.stopping ? "Keeping the river…" : st.paused ? `Paused at ${secs} s` : `The source carves its way… ${secs} s`}
+            {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
           </span>
           <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
@@ -1769,18 +1761,41 @@ export default function Editor(props: EditorProps) {
     // the working area (D254, D259): outside it the land is unbreakable rock to the force
     const area = workingArea();
     if (area) req = { ...req, area };
-    // the choices the row doesn't show come from the land and the seed (D289)
-    req = { ...req, natural: true };
+    // the choices the row doesn't show come from the land and the seed (D289); the Floor is the
+    // player's (D321, item 40)
+    req = { ...req, natural: true, ...(floorRef.current !== FLOOR_DEFAULT ? { settings: { ...req.settings, floor: floorRef.current } } : {}) } as ForceRequest;
     forceReq.current = req;
     clearForForce();
-    // (the arrow goes as the force starts; a painted Lift keeps its stroke while it is painted)
-    setAimArrow(null);
+    // (the drawn line goes as the force starts; a painted Lift keeps its stroke while it is painted)
     setForceCursor(null);
     if (!painting) setForceStroke(null);
     // (refused: the ice gathered under the pointer goes too)
     void forcer.current?.start(false, painting).then((ok) => {
       if (!ok) renderer.current?.clearForce();
     });
+  }
+
+  /** A drawn path as a travelling force takes it (D321, item 41): a tile every two along it (at most
+   *  the force's own limit), `downhill` from its higher end to its lower (a river's water runs
+   *  downhill, whichever way it was drawn); its origin, its end and the tiles between. Null when it is
+   *  too short to steer by (under two tiles). */
+  function steerTiles(path: readonly PathPoint[], downhill: boolean): { origin: [number, number]; end: [number, number]; via: [number, number][] } | null {
+    const { W, H } = infoRef.current;
+    if (pathLength(path) < 2) return null;
+    let pts = resamplePath(path, 2, MAX_PATH_POINTS + 2);
+    if (downhill) pts = downhillPath(pts, mirror.current.heights, W, H);
+    const tiles = pathTiles(pts, W, H);
+    // (a path that comes back to where it began ends a tile short of it)
+    while (tiles.length > 2 && tiles.at(-1)![0] === tiles[0][0] && tiles.at(-1)![1] === tiles[0][1]) tiles.pop();
+    if (tiles.length < 2) return null;
+    return { origin: tiles[0], end: tiles.at(-1)!, via: tiles.slice(1, -1) };
+  }
+
+  /** The line a force is drawn with, on the land as it is drawn (null: none), at most once a frame. */
+  const pathFrame = useRef(0);
+  function showPath(path: readonly PathPoint[] | null) {
+    cancelAnimationFrame(pathFrame.current);
+    pathFrame.current = requestAnimationFrame(() => setForceStroke(path ? strokeTiles(path) : null));
   }
 
   function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][]) {
@@ -1839,82 +1854,59 @@ export default function Editor(props: EditorProps) {
     else if (r !== ring.r) setForceRing({ ...ring, r });
   }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, tool]);
 
-  // Carve takes the map's clicks and drags while it is picked (D258, D289: the gesture is the mode): a
-  // click unleashes it where the cursor is; a drag aims it, with only a thin arrow from where it
-  // began to the pointer, and on release the carve goes that way, cutting through rises on its way
+  // Carve takes the map's clicks and drags while it is picked (D258, D289; D321 item 41): a click
+  // unleashes it where the cursor is; a drag draws its path freehand, the line showing as it is drawn,
+  // and on release the river carves along it, from the path's higher end to its lower (whichever way
+  // it was drawn), cutting through rises to keep flowing; its Wander meanders it round the line
   useEffect(() => {
     const r = renderer.current;
     if (!r || tool !== "carve") return;
-    let down: TileHit | null = null;
-    /** The drag has left the tile it began on: it aims (a click stays within a tile of it). */
-    let aiming = false;
-    const wp = waypoints.current!;
-    /** A Shift+click drops a waypoint (D312), never a drag of its own. */
-    let dropping = false;
+    const g = new FreehandPath(infoRef.current.W, infoRef.current.H);
     const t: PointerTool = {
+      surface: true,
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
-        dropping = ev.shiftKey;
-        down = hit;
-        aiming = false;
+        g.down({ x: hit.x, y: hit.y }, ev.clientX, ev.clientY);
         showForceCursor(null);
         return true;
       },
       move: (hit, ev) => {
         notePointer(ev);
-        if (!down || dropping) return;
-        if (!aiming && hit && Math.hypot(hit.x - down.x, hit.y - down.y) >= 2) aiming = true;
-        if (aiming) setAimArrow({ from: [down.x, down.y], to: { x: ev.clientX, y: ev.clientY } });
+        const path = g.move(hit ? { x: hit.x, y: hit.y } : null, ev.clientX, ev.clientY);
+        if (path) showPath(path);
       },
       up: (hit) => {
-        const d = down;
-        const aimed = aiming;
-        const drop = dropping;
-        down = null;
-        aiming = false;
-        dropping = false;
-        setAimArrow(null);
-        if (!d || !hit) return;
-        // Shift+click: a waypoint; a click with waypoints down: launch, this tile the end (D312)
-        if (drop) return wp.add([d.x, d.y]);
-        if (!aimed && Math.max(Math.abs(hit.x - d.x), Math.abs(hit.y - d.y)) <= 1 && wp.click([d.x, d.y])) return;
-        if (!aimed || Math.hypot(hit.x - d.x, hit.y - d.y) < 2) {
-          if (Math.max(Math.abs(hit.x - d.x), Math.abs(hit.y - d.y)) <= 1) forceCalls.current!.carve([d.x, d.y]);
-          return;
-        }
-        // (a drag aims, as before; waypoints dropped before it go)
-        wp.clear();
-        forceCalls.current!.carve([d.x, d.y], [hit.x, hit.y]);
+        const end = g.up(hit ? { x: hit.x, y: hit.y } : null);
+        showPath(null);
+        if (!end) return;
+        if ("click" in end) return forceCalls.current!.carve([end.click.x, end.click.y]);
+        const tiles = steerTiles(end.path, true);
+        if (tiles) forceCalls.current!.carve(tiles.origin, tiles.end, tiles.via);
       },
       hover: (hit, ev) => {
         notePointer(ev);
         showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
       },
       cancel: () => {
-        down = null;
-        aiming = false;
-        dropping = false;
-        setAimArrow(null);
+        g.cancel();
+        showPath(null);
       },
     };
     r.tool = t;
     forceEscRef.current = () => {
-      // (Esc drops the waypoints too)
-      if (!down) return wp.key("Escape");
-      down = null;
-      aiming = false;
-      setAimArrow(null);
+      if (!g.pressed) return false;
+      g.cancel();
+      showPath(null);
       return true;
     };
-    forceKeyRef.current = (key) => wp.key(key);
     return () => {
       if (r.tool === t) r.tool = null;
       forceEscRef.current = null;
-      forceKeyRef.current = null;
-      wp.clear();
       cancelAnimationFrame(cursorFrame.current);
-      setAimArrow(null);
+      cancelAnimationFrame(pathFrame.current);
+      setForceStroke(null);
       setForceCursor(null);
+      setForceRing(null);
       setShapeNote(null);
     };
   }, [tool, ready]);
@@ -1957,28 +1949,13 @@ export default function Editor(props: EditorProps) {
     return [...out];
   }
 
-  /** An ellipse's rim on the land (the force cursor's small ring). */
-  function rimTiles(cx: number, cy: number, a: number, b: number, angle: number): number[] {
-    const { W, H } = infoRef.current;
-    const out = new Set<number>();
-    const n = Math.max(24, Math.ceil((a + b) * 3));
-    for (let k = 0; k < n; k++) {
-      const t = (k / n) * Math.PI * 2;
-      const u = Math.cos(t) * a;
-      const v = Math.sin(t) * b;
-      const x = Math.round(cx + u * Math.cos(angle) - v * Math.sin(angle));
-      const y = Math.round(cy + u * Math.sin(angle) + v * Math.cos(angle));
-      if (x >= 0 && y >= 0 && x < W && y < H) out.add(y * W + x);
-    }
-    return [...out];
-  }
-
   // Craterize, Erupt and Quake take the map's clicks and drags while picked (D258: clean gestures):
-  // a click strikes or erupts at once, where the small cursor is; Craterize's Aim is a drag in a
-  // direction, with only a thin arrow from the impact to the pointer; a fissure or a fault is painted,
-  // its stroke drawn as it is painted (the gesture itself), and letting go starts it (a Lift shows its
-  // result as it is painted, and is kept when let go). Nothing predicts the result on the land; the
-  // only word is Erupt's when a vent can't rise at all.
+  // a click strikes or erupts at once, where the cursor is; Craterize's Aim is a drag the way the
+  // impactor travels, its line drawn as it goes (D321 item 41: the drawn line, never an arrow); a
+  // fissure or a fault is drawn freehand with the same pen (D327), its line showing as it is drawn (the
+  // gesture itself), and letting go starts it (a Lift shows its result as it is drawn, and is kept when
+  // let go). Nothing predicts the result on the land; the only word is Erupt's when a vent can't rise
+  // at all.
   useEffect(() => {
     const r = renderer.current;
     if (!r || !tool || tool === "carve" || tool === "glaciate") return;
@@ -2028,6 +2005,7 @@ export default function Editor(props: EditorProps) {
       }
     };
     const t: PointerTool = {
+      surface: true,
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         cancelAnimationFrame(wordFrame);
@@ -2036,6 +2014,11 @@ export default function Editor(props: EditorProps) {
         notePointer(ev);
         showForceCursor(null);
         setShapeNote(null);
+        // (Craterize's aim is drawn with the same pen; its line shows once it is a drag)
+        if (!painted()) {
+          brush = new FaultBrush(point(hit), W, H, 1);
+          lastMove = performance.now();
+        }
         if (painted()) {
           const p = point(hit);
           // Shift: a straight line on from where the last stroke ended
@@ -2061,17 +2044,17 @@ export default function Editor(props: EditorProps) {
           lastMove = now;
           if (verb === "quake" && quakeUiRef.current.mode === "lift") sendPaint();
           else if (verb === "quake" || dragged) showStroke(brush.intent().path);
-          return;
         }
-        // Craterize: a drag aims a glancing blow, with only a thin arrow
-        if (dragged) setAimArrow({ from: [down.x, down.y], to: { x: ev.clientX, y: ev.clientY } });
       },
       up: (hit) => {
         const d = down;
         down = null;
-        setAimArrow(null);
         if (!d) return;
         const p = hit ? point(hit) : null;
+        if (brush && verb === "craterize") {
+          brush = null;
+          showStroke(null);
+        }
         if (brush) {
           const b = brush;
           brush = null;
@@ -2100,7 +2083,7 @@ export default function Editor(props: EditorProps) {
           return;
         }
         if (!p) return;
-        // Craterize: a drag is a glancing blow that way; a click strikes where it began
+        // Craterize: a drag is a glancing blow the way its line runs; a click strikes where it began
         const glancing = dragged && Math.hypot(p.x - d.x, p.y - d.y) > 1;
         if (!glancing && Math.max(Math.abs(p.x - d.x), Math.abs(p.y - d.y)) > 1) return;
         startForce({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current, glancing), origin: [d.x, d.y], ...(glancing ? { end: [p.x, p.y] as [number, number] } : {}), cut: cut() });
@@ -2126,7 +2109,6 @@ export default function Editor(props: EditorProps) {
         brush = null;
         if (painting) forcer.current?.cancel();
         painting = false;
-        setAimArrow(null);
         showStroke(null);
       },
     };
@@ -2135,7 +2117,6 @@ export default function Editor(props: EditorProps) {
       if (!down && !brush) return false;
       down = null;
       brush = null;
-      setAimArrow(null);
       showStroke(null);
       setShapeNote(null);
       return true;
@@ -2150,26 +2131,22 @@ export default function Editor(props: EditorProps) {
       if (painting) forcer.current?.cancel();
       setForceStroke(null);
       setForceCursor(null);
-      setAimArrow(null);
+      setForceRing(null);
       setShapeNote(null);
     };
   }, [tool, ready]);
 
-  // Glaciate takes the map's clicks and drags while picked (D258, D291): the ice gathers under the
-  // pointer the moment it is pressed; a click Flows (the glacier follows the valleys down from there);
-  // a drag of six pixels or more Aims, with only a thin arrow from where it began to the pointer, and
-  // on release it grinds that way through the ridges. Nothing predicts its valley on the land; the
-  // camera never moves (D265).
+  // Glaciate takes the map's clicks and drags while picked (D258, D291; D321 item 41): the ice gathers
+  // under the pointer the moment it is pressed; a click Flows (the glacier follows the valleys down from
+  // there); a drag draws its path freehand, the line showing as it is drawn, and on release it grinds
+  // along it, through the ridges. Nothing predicts its valley on the land; the camera never moves
+  // (D265).
   useEffect(() => {
     const r = renderer.current;
     if (!r || tool !== "glaciate") return;
-    let down: { hit: TileHit; x: number; y: number } | null = null;
-    let aiming = false;
-    /** A Shift+click drops a waypoint (D312), never a drag or a gather of its own. */
-    let dropping = false;
-    const wp = waypoints.current!;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
+    const g = new FreehandPath(W, H);
     const point = (hit: TileHit): [number, number] => [Math.max(0, Math.min(W - 1, hit.x)), Math.max(0, Math.min(H - 1, hit.y))];
     const gather = (at: [number, number] | null) => {
       if (!at) return renderer.current?.clearForce();
@@ -2178,79 +2155,61 @@ export default function Editor(props: EditorProps) {
       renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u), power: u.power, glaciate: { seconds: 0 } });
     };
     const t: PointerTool = {
+      surface: true,
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
-        down = { hit, x: ev.clientX, y: ev.clientY };
-        aiming = false;
-        dropping = ev.shiftKey;
+        const at = point(hit);
+        g.down({ x: at[0], y: at[1] }, ev.clientX, ev.clientY);
         notePointer(ev);
         showForceCursor(null);
-        if (!dropping) gather(point(hit));
+        gather(at);
         return true;
       },
-      move: (_hit, ev) => {
+      move: (hit, ev) => {
         notePointer(ev);
-        if (!down || dropping) return;
-        if (!aiming && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) >= 6) {
-          aiming = true;
-          gather(null);
-        }
-        if (aiming) setAimArrow({ from: point(down.hit), to: { x: ev.clientX, y: ev.clientY } });
+        const was = g.drawing;
+        const path = g.move(hit ? { x: point(hit)[0], y: point(hit)[1] } : null, ev.clientX, ev.clientY);
+        if (path && !was) gather(null);
+        if (path) showPath(path);
       },
       up: (hit) => {
-        const d = down;
-        const aimed = aiming;
-        const drop = dropping;
-        down = null;
-        aiming = false;
-        dropping = false;
-        setAimArrow(null);
-        if (!d) return;
-        const from = point(d.hit);
-        const to = hit ? point(hit) : null;
-        // Shift+click: a waypoint; a click with waypoints down: launch, this tile the end (D312)
-        if (drop) return wp.add(from);
-        if (!aimed && wp.click(from)) return void gather(null);
-        // (a drag aims, as before; waypoints dropped before it go)
-        if (aimed) wp.clear();
-        // (an Aim needs somewhere to go: let go off the map, or where it began, and nothing happens)
-        if (aimed && (!to || (to[0] === from[0] && to[1] === from[1]))) return void gather(null);
-        startForce({ verb: "glaciate", settings: glaciateSettingsOf(glaciateUiRef.current), origin: from, ...(aimed ? { end: to! } : {}), cut: renderer.current?.slice ?? null });
+        const end = g.up(hit ? { x: point(hit)[0], y: point(hit)[1] } : null);
+        showPath(null);
+        if (!end) return;
+        if ("click" in end) return startForce({ verb: "glaciate", settings: glaciateSettingsOf(glaciateUiRef.current), origin: [end.click.x, end.click.y], cut: renderer.current?.slice ?? null });
+        // (a path too short to steer by does nothing)
+        const tiles = steerTiles(end.path, false);
+        if (!tiles) return void gather(null);
+        forceCalls.current!.glaciate(tiles.origin, tiles.end, tiles.via);
       },
       hover: (hit, ev) => {
         notePointer(ev);
-        if (down) return;
+        if (g.pressed) return;
         showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
       },
       cancel: () => {
-        if (down && !dropping && !forcer.current?.running) gather(null);
-        down = null;
-        aiming = false;
-        dropping = false;
-        setAimArrow(null);
+        if (g.pressed && !g.drawing && !forcer.current?.running) gather(null);
+        g.cancel();
+        showPath(null);
       },
     };
     r.tool = t;
     forceEscRef.current = () => {
-      // (Esc drops the waypoints too)
-      if (!down) return wp.key("Escape");
-      down = null;
-      aiming = false;
-      dropping = false;
-      setAimArrow(null);
+      if (!g.pressed) return false;
+      g.cancel();
+      showPath(null);
       if (!forcer.current?.running) gather(null);
       return true;
     };
-    forceKeyRef.current = (key) => wp.key(key);
     return () => {
       if (r.tool === t) r.tool = null;
       forceEscRef.current = null;
-      forceKeyRef.current = null;
-      wp.clear();
       cancelAnimationFrame(cursorFrame.current);
-      if (down && !forcer.current?.running) renderer.current?.clearForce();
-      setAimArrow(null);
+      cancelAnimationFrame(pathFrame.current);
+      if (g.pressed && !forcer.current?.running) renderer.current?.clearForce();
+      setForceStroke(null);
       setForceCursor(null);
+      setForceRing(null);
     };
   }, [tool, ready]);
 
@@ -3093,12 +3052,20 @@ export default function Editor(props: EditorProps) {
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
       // a force at work (D199, D202, D203, D206): Esc or Ctrl+Z takes it back, Space holds a carve,
-      // X flips a painted Lift's side as it goes; the other tools wait
+      // X flips a painted Lift's side as it goes; the other tools wait. In Watch (D321, item 29) Esc,
+      // or any other key of a new gesture, jumps it straight to its final land instead
       const c = forcer.current;
       if (c?.running) {
-        if (ev.key === "Escape" || (mod && ev.key.toLowerCase() === "z")) {
+        const watching = c.status!.speed === "watch" && !c.status!.painting;
+        if (mod && ev.key.toLowerCase() === "z") {
           ev.preventDefault();
           c.cancel();
+          return;
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          if (watching) void c.jump();
+          else c.cancel();
           return;
         }
         if (ev.key === " ") {
@@ -3110,15 +3077,15 @@ export default function Editor(props: EditorProps) {
           flipRef.current?.();
           return;
         }
+        // (a new gesture's key in Watch: the force jumps to its final land first)
+        if (watching && !mod && (/^[0-9-]$/.test(ev.key) || ev.key.toLowerCase() === "m")) {
+          void c.jump();
+          return;
+        }
         if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "r", "f", "delete", "backspace"].includes(ev.key.toLowerCase())) return;
       }
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
-      // Carve's waypoints (D312): Enter launches, Backspace takes the last one off
-      if (!mod && (ev.key === "Enter" || ev.key === "Backspace") && forceKeyRef.current?.(ev.key)) {
-        ev.preventDefault();
-        return;
-      }
       // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Shift+1–9 glides back
       // to it (the number keys alone pick the brushes)
       const digit = /^Digit([1-9])$/.exec(ev.code);
@@ -3307,13 +3274,14 @@ export default function Editor(props: EditorProps) {
       pendingTerrain: () => pendingTerrain.current,
       carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
+      forceTiming: () => (forcer.current?.timing ? { ...forcer.current.timing } : null),
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
       selection: () => selection.current.tiles(),
       gesture: () => {
         const g = gestureRef.current;
-        return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, arrow: g.aimArrow, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null, waypoints: waypoints.current!.points.map((p) => [p[0], p[1]] as [number, number]) };
+        return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };
       },
     };
     return () => {
@@ -3370,6 +3338,7 @@ export default function Editor(props: EditorProps) {
   const importChanges = info.importReport?.changes.length ?? 0;
 
   return (
+    <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
       <Header
         info={info}
@@ -3419,6 +3388,9 @@ export default function Editor(props: EditorProps) {
                   <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
                   <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
                     Minimap
+                  </button>
+                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change. Off: each force's land is final in about two seconds">
+                    Watch
                   </button>
                   <span class="reveal-group">
                     <button type="button" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title="The editor's little sounds: on or off (the volume beside it)">
@@ -3487,7 +3459,6 @@ export default function Editor(props: EditorProps) {
                   viewTick={viewTick}
                 />
               ) : null}
-              {aimArrow ? <AimArrow from={aimArrow.from} to={aimArrow.to} renderer={renderer.current} /> : null}
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
                   {shapeNote.text}
@@ -3549,6 +3520,7 @@ export default function Editor(props: EditorProps) {
       </div>
       <DropTarget onFile={props.onOpenFile} />
     </div>
+    </ForceFloor.Provider>
   );
 }
 
@@ -3598,6 +3570,10 @@ const FORCES_KEY = "dgm.forces";
 /** Each force's More (open or closed), and the details the player has pinned (D309); a detail still
  *  on Auto is null. Power, Size, dry and mode last only the visit, as before. */
 interface ForcesPrefs {
+  /** Watch (D321, item 29): off, Fast. */
+  watch: boolean;
+  /** The forces' Floor (D321, item 40): 1 unless set. */
+  floor: number;
   more: Partial<Record<Verb, boolean>>;
   carve: Pick<CarveUi, "wander" | "walls" | "depth">;
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
@@ -3607,6 +3583,8 @@ interface ForcesPrefs {
 }
 
 const AUTO_FORCES_PREFS: ForcesPrefs = {
+  watch: false,
+  floor: FLOOR_DEFAULT,
   more: {},
   carve: { wander: null, walls: null, depth: null },
   craterize: { walls: null, centre: null, debris: null, rays: null },
@@ -3623,11 +3601,13 @@ function among<T>(v: unknown, options: readonly T[]): T | null {
 
 function loadForcesPrefs(): ForcesPrefs {
   try {
-    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
+    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ watch: unknown; floor: unknown; more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
     if (!s) return AUTO_FORCES_PREFS;
     const more: Partial<Record<Verb, boolean>> = {};
     if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
     return {
+      watch: s.watch === true,
+      floor: floorProblem(s.floor) === null && typeof s.floor === "number" ? s.floor : FLOOR_DEFAULT,
       more,
       carve: { wander: typeof s.carve?.wander === "number" ? s.carve.wander : null, walls: among(s.carve?.walls, ["steep", "wide"]), depth: typeof s.carve?.depth === "number" ? s.carve.depth : null },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
@@ -3718,32 +3698,3 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
   return null;
 }
 
-/** Aim's arrow (D258): a thin straight arrow from where the drag began (a tile on the land) to the
- *  pointer, showing only its direction and distance; it goes as the force starts. */
-function AimArrow(p: { from: [number, number]; to: { x: number; y: number }; renderer: MapRenderer | null }) {
-  const r = p.renderer;
-  if (!r) return null;
-  const a = r.tileToClient(p.from[0], p.from[1]);
-  const box = r.canvas.getBoundingClientRect();
-  const x0 = a.x - box.left;
-  const y0 = a.y - box.top;
-  const x1 = p.to.x - box.left;
-  const y1 = p.to.y - box.top;
-  const len = Math.hypot(x1 - x0, y1 - y0);
-  if (len < 4) return null;
-  const ux = (x1 - x0) / len;
-  const uy = (y1 - y0) / len;
-  const head = Math.min(14, len / 2);
-  const bx = x1 - ux * head;
-  const by = y1 - uy * head;
-  const wing = head * 0.45;
-  const tip = `${x1},${y1} ${bx - uy * wing},${by + ux * wing} ${bx + uy * wing},${by - ux * wing}`;
-  return (
-    <svg class="aim-arrow" aria-hidden="true" width={box.width} height={box.height}>
-      <line x1={x0} y1={y0} x2={bx} y2={by} class="aim-arrow-edge" />
-      <polygon points={tip} class="aim-arrow-edge" />
-      <line x1={x0} y1={y0} x2={bx} y2={by} class="aim-arrow-line" />
-      <polygon points={tip} class="aim-arrow-head" />
-    </svg>
-  );
-}

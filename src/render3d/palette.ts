@@ -72,6 +72,8 @@ export const JUICE = {
   foam: [0.92, 0.96, 0.87] as Rgb,
   debris: [0.59, 0.51, 0.41] as Rgb,
   mud: [0.57, 0.5, 0.34] as Rgb,
+  /** A badwater carve's surge (an unleashed badwater source, D239): murky, never the clean mud. */
+  badMud: [0.36, 0.3, 0.2] as Rgb,
   /** The other forces (D202, D203, D206): an impact's dust, flash and falling streak and the
    *  blocks it throws; a fault's crack. */
   impactDust: [0.78, 0.7, 0.58] as Rgb,

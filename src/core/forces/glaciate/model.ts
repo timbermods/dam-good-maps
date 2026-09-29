@@ -23,6 +23,8 @@ export interface GlaciateSettings {
   steps?: GlaciateDetails["steps"];
   tarn?: boolean;
   scree?: boolean;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 /** Glaciate's details (D309): the benches on its walls' soft rock (none, some stretches as round 4
@@ -42,13 +44,13 @@ export const ROUND4_DETAILS: GlaciateDetails = { benches: "some", steps: "some",
 export interface GlaciateIntent {
   origin: number;
   end?: number;
-  /** Waypoints between the origin and an Aim's end (D312: Shift+click), in order: the glacier
-   *  follows a smooth curve through them, finding its own way near the line. */
+  /** Its drawn path's tiles between the origin and an Aim's end (D321, item 41), in order: the
+   *  glacier follows a smooth curve along them. */
   via?: number[];
 }
 
-/** Waypoints a glacier takes at most. */
-export const GLACIATE_WAYPOINTS_MAX = 32;
+/** The most tiles of a drawn path a glacier takes between its ends. */
+export const GLACIATE_PATH_MAX = 128;
 
 export interface Point {
   x: number;
@@ -127,10 +129,10 @@ export function glaciateProblem(W: number, H: number, s: GlaciateSettings, inten
   if (!(Number.isInteger(intent.origin) && intent.origin >= 0 && intent.origin < n)) return "the glacier's head is off the map";
   if (s.mode === "aim" && !(Number.isInteger(intent.end) && intent.end! >= 0 && intent.end! < n && intent.end !== intent.origin)) return "an aimed glacier needs its end on the map";
   if (intent.via !== undefined) {
-    if (s.mode !== "aim") return "only an aimed glacier goes through waypoints";
-    if (!(Array.isArray(intent.via) && intent.via.length <= GLACIATE_WAYPOINTS_MAX && intent.via.every((i) => Number.isInteger(i) && i >= 0 && i < n))) return `a glacier's waypoints are up to ${GLACIATE_WAYPOINTS_MAX} tiles on the map`;
+    if (s.mode !== "aim") return "only an aimed glacier follows a drawn path";
+    if (!(Array.isArray(intent.via) && intent.via.length <= GLACIATE_PATH_MAX && intent.via.every((i) => Number.isInteger(i) && i >= 0 && i < n))) return `a glacier's path is up to ${GLACIATE_PATH_MAX} tiles on the map`;
     const all = [intent.origin, ...intent.via, intent.end];
-    if (all.some((i, k) => k > 0 && i === all[k - 1])) return "a glacier's waypoints each move on from the last";
+    if (all.some((i, k) => k > 0 && i === all[k - 1])) return "a glacier's path moves on from each of its tiles to the next";
   }
   return glaciateDetailsProblem(s as unknown as Record<string, unknown>);
 }
@@ -256,16 +258,17 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
     }
     return out;
   }
-  // Aim: a directional least-cost pass to the dragged end; through waypoints (D312), one pass a leg,
-  // joined and smoothed into one curve
+  // Aim: a directional least-cost pass to the dragged end; along a drawn path (D321, item 41), the
+  // path itself, a point each tile, smoothed into one curve (two passes of the leg's seven-tile average)
   if (intent.via?.length) {
-    const stops = [intent.origin, ...intent.via, intent.end!];
-    let out: Point[] = [];
+    const stops = [intent.origin, ...intent.via, intent.end!].map((i) => ({ x: (i % m.W) + 0.5, y: Math.floor(i / m.W) + 0.5 }));
+    let out: Point[] = [stops[0]];
     for (let k = 1; k < stops.length; k++) {
-      const leg = aimLeg(m, stops[k - 1], stops[k]);
-      out = out.concat(k > 1 ? leg.slice(1) : leg);
+      const a = stops[k - 1];
+      const b = stops[k];
+      const n = Math.max(1, Math.round(distance(a, b)));
+      for (let j = 1; j <= n; j++) out.push({ x: a.x + ((b.x - a.x) * j) / n, y: a.y + ((b.y - a.y) * j) / n });
     }
-    // (a smooth curve through the waypoints: two passes of the leg's own seven-tile average)
     for (let pass = 0; pass < 2; pass++) out = smooth7(out);
     return out;
   }
