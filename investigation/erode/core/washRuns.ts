@@ -1,9 +1,9 @@
 // Uneven washes follow existing downhill routes. No route may cut through a crest to escape.
-export interface WashRun { path: number[]; outlet: number; outletKind: "edge" | "water" }
+export interface WashRun { path: number[]; outlet: number; outletKind: "edge" | "water" | "low" }
 export interface CappedRun extends WashRun { painted: number; levels: number[] }
 
 export function downhillRuns(centre: number[], heights: Uint8Array, depth: number, falls: number,
-  neighbours: (i: number) => number[], terminal: (i: number) => "edge" | "water" | undefined): CappedRun[] {
+  neighbours: (i: number) => number[], terminal: (i: number) => "edge" | "water" | undefined, localSinks = false): CappedRun[] {
   const parent = new Int32Array(heights.length).fill(-1), queue: number[] = [];
   for (let i = 0; i < heights.length; i++) if (terminal(i)) { parent[i] = i; queue.push(i); }
   // Reverse flow from real outlets. A closed basin is deliberately not excavated.
@@ -12,6 +12,22 @@ export function downhillRuns(centre: number[], heights: Uint8Array, depth: numbe
     for (const j of neighbours(i)) if (parent[j] < 0 && heights[j] >= heights[i]) {
       parent[j] = i; queue.push(j);
     }
+  }
+  // Mixed strokes still wear a closed crater's floor. Its wash ends at local low ground;
+  // it cannot escape a basin without a deeper cut through the rim.
+  const sinks = new Set<number>();
+  if (localSinks) {
+    const seen = new Uint8Array(heights.length);
+    for (let i = 0; i < heights.length; i++) if (parent[i] < 0 && !seen[i]) {
+      const patch = [i]; seen[i] = 1; let lower = false;
+      for (let k = 0; k < patch.length; k++) for (const j of neighbours(patch[k])) {
+        if (heights[j] < heights[i]) lower = true;
+        if (heights[j] === heights[i] && parent[j] < 0 && !seen[j]) { seen[j] = 1; patch.push(j); }
+      }
+      if (!lower) { sinks.add(i); parent[i] = i; queue.push(i); }
+    }
+    for (let k = 0; k < queue.length; k++) for (const j of neighbours(queue[k]))
+      if (parent[j] < 0 && heights[j] >= heights[queue[k]]) { parent[j] = queue[k]; queue.push(j); }
   }
   const bands: { first: number; last: number; h: number }[] = [];
   centre.forEach((i, k) => {
@@ -41,7 +57,7 @@ export function downhillRuns(centre: number[], heights: Uint8Array, depth: numbe
       (k < painted ? count - Math.floor(k / Math.max(1, painted - 1) * count) : 0)));
     // Raising a proposed upstream bed keeps incision capped, and never adds ground.
     for (let k = levels.length - 2; k >= 0; k--) levels[k] = Math.max(levels[k], levels[k + 1]);
-    runs.push({ path, painted, levels, outlet: i, outletKind: terminal(i)! });
+    runs.push({ path, painted, levels, outlet: i, outletKind: sinks.has(i) ? "low" : terminal(i)! });
   };
   for (let k = 1; k < cuts.length; k++) {
     const segment = centre.slice(cuts[k - 1], cuts[k] + 1);

@@ -5,7 +5,7 @@ import { support } from "./support";
 import { LAYERS, Terrain } from "./terrain";
 
 type Roof = { i: number; x: number; y: number; bottom: number; top: number; ground: number; inside: boolean };
-function touched(t: Terrain, p: Gesture["points"][number]): Roof | undefined {
+export function touchedRoof(t: Terrain, p: Gesture["points"][number]): Roof | undefined {
   const x = Math.floor(p.x), y = Math.floor(p.y);
   if (x < 0 || y < 0 || x >= t.W || y >= t.H || p.nz === 0) return;
   const i = y * t.W + x, runs = t.runs(i), z = p.z ?? t.surface(i) - 0.5;
@@ -17,9 +17,9 @@ function touched(t: Terrain, p: Gesture["points"][number]): Roof | undefined {
   }
 }
 
-export function planRoof(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan | null {
+export function planRoof(input: ErodeInput, gesture: Gesture, set: ErodeSettings, animate = true): ErodePlan | null {
   const started = performance.now(), before = input.terrain, { W, H, N } = before;
-  const hits = gesture.points.map(p => touched(before, p)).filter((p): p is Roof => !!p);
+  const hits = gesture.points.map(p => touchedRoof(before, p)).filter((p): p is Roof => !!p);
   if (!hits.length) return null;
   const t = before.clone(), floor = erosionFloor(set), P = clamp(set.power / 100, 0, 1);
   const S = clamp((set.size ?? 25 + 0.6 * set.power) / 100, 0, 1);
@@ -123,7 +123,7 @@ export function planRoof(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   removed.sort((a, b) => (inside ? 1 : -1) * (Math.floor(a / N) - Math.floor(b / N)) || hash(set.seed, a) - hash(set.seed, b));
   const buckets = new Map(removed.map((v, k) => [v, Math.min(BUCKETS - 1, Math.floor(k / removed.length * BUCKETS))]));
   const shown = before.clone(), pending = new Set(removed);
-  for (let b = 0; b < BUCKETS; b++) {
+  if (animate) for (let b = 0; b < BUCKETS; b++) {
     for (const v of removed) if (buckets.get(v) === b) { shown.set(v % N, Math.floor(v / N), false); pending.delete(v); }
     for (;;) {
       const loose = support(shown).unsupported;

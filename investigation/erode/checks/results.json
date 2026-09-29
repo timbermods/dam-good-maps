@@ -1,6 +1,41 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round8": {
+  "result": "PASS",
+  "gestures": 43,
+  "animationBuckets": 1032,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "bottomLayer": "PASS",
+  "chosenFloor": "PASS",
+  "sourceGround": "PASS",
+  "supportedObjects": "PASS",
+  "powerUndiluted": "PASS",
+  "preservedRound7Fixtures": 12,
+  "deliberatelyChanged": [
+   "wash-step: whole-face gallery plus the shallow wash"
+  ],
+  "longestStrokeTiles": 399,
+  "slowestPlannerMs": 374,
+  "maxWorn": 11985,
+  "kyler": {
+   "power": 72,
+   "size": 68,
+   "beforeWorn": 861,
+   "worn": 6597,
+   "beforeChangedSamples": 34,
+   "changedSamples": 152,
+   "strokeSamples": 152,
+   "parts": {
+    "parts": 23,
+    "galleries": 22,
+    "washes": 1,
+    "roofs": 0
+   },
+   "sha256": "9f575170dc4abd3d8441d7a66d1ae0647170be22a1d8e53ab18224b3c9398a46"
+  }
+ },
  "round7": {
   "result": "PASS",
   "cases": [
@@ -52,7 +87,7 @@
   "sourceGround": "PASS",
   "objectsAndStart": "PASS",
   "waterResettled": "PASS",
-  "round6FixtureExceptions": []
+  "fixturePreservation": "See round6 and round8 checks for local and mixed results"
  },
  "round6": {
   "result": "PASS",
@@ -63,8 +98,8 @@
   "bottomLayer": "PASS",
   "chosenFloor": "PASS",
   "belowFloorVoxelsRemoved": 0,
-  "defaultResultsUnchanged": "PASS",
-  "shallowerWashesWithDrainage": 58
+  "defaultResultsUnchanged": "PASS (tall-step local wash; mixed result checked in round 8)",
+  "shallowerWashesWithDrainage": 45
  },
  "round5": {
   "result": "PASS",
@@ -269,6 +304,7 @@
  },
  "round4": {
   "result": "PASS",
+  "scope": "Local washes; round 8 separately checks mixed cliff crossings",
   "cases": [
    {
     "case": "wash-terraces-up",
@@ -519,7 +555,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 11.5,
+   "msToFinal": 17.9,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -554,7 +590,7 @@
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 2.8,
+   "msToFinal": 5.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -589,7 +625,7 @@
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 2.1,
+   "msToFinal": 4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -624,7 +660,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.5,
+   "msToFinal": 2.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -659,7 +695,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 3.4,
+   "msToFinal": 4.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -694,7 +730,7 @@
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 23,
+   "msToFinal": 32.2,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -729,7 +765,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 5.7,
+   "msToFinal": 13.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -764,7 +800,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4.9,
+   "msToFinal": 11.6,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -790,34 +826,34 @@
   {
    "case": "wash-step",
    "map": "step",
-   "worn": 1362,
-   "held": 0,
+   "worn": 2028,
+   "held": 140,
    "fell": 0,
    "droppedOnLoad": 0,
    "bottomVoxelsRemoved": 0,
-   "reach": 0,
-   "blocksOverAir": 0,
-   "deepest": 0,
-   "roofedTiles": 0,
-   "msToFinal": 3.8,
+   "reach": 3,
+   "blocksOverAir": 101,
+   "deepest": 17,
+   "roofedTiles": 101,
+   "msToFinal": 67.7,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 1497,
-     "held": 0,
+     "worn": 2126,
+     "held": 115,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 1320,
-     "held": 0,
+     "worn": 1955,
+     "held": 166,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 1282,
-     "held": 0,
+     "worn": 2032,
+     "held": 145,
      "dropped": 0
     }
    ]
@@ -834,7 +870,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 9.5,
+   "msToFinal": 24.9,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -869,7 +905,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 7,
+   "slowestMs": 41,
    "result": "PASS"
   },
   {
@@ -882,7 +918,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 5,
+   "slowestMs": 51,
    "result": "PASS"
   },
   {
@@ -895,7 +931,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 5,
+   "slowestMs": 57,
    "result": "PASS"
   },
   {
@@ -908,7 +944,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 6,
+   "slowestMs": 40,
    "result": "PASS"
   }
  ]

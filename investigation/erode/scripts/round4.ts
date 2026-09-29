@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { checkSupport } from "../../terrain3d/proto/support";
-import { landAt, planErode, type ErodeSettings } from "../core/erode";
+import { landAt, planErode, planLocal, type ErodeSettings } from "../core/erode";
 import { washMap, type ErodeMap } from "../core/map";
 import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
@@ -9,9 +9,11 @@ import { UNEVEN_CASES, unevenMap } from "../demo/uneven";
 import { bottomCheck, drainageMetrics, shelterMetrics } from "./round2";
 
 export function round4Checks(load: (id: string) => ErodeMap) {
-  const run = (m: ErodeMap, points: { x: number; y: number; z?: number }[], settings: ErodeSettings) => {
+  // Round 8 composes tall cliff crossings with galleries. Keep these drainage/cap assertions
+  // on the unchanged local wash; round8.ts checks the full mixed crossing independently.
+  const run = (m: ErodeMap, points: { x: number; y: number; z?: number }[], settings: ErodeSettings, local = false) => {
     const before = Terrain.fromHeights(m.W, m.H, m.heights);
-    const p = planErode({ terrain: before, rock: m.rock, keep: m.keep, water: m.water }, { points }, settings);
+    const p = (local ? planLocal : planErode)({ terrain: before, rock: m.rock, keep: m.keep, water: m.water }, { points }, settings);
     bottomCheck(before, p);
     return { before, p };
   };
@@ -31,9 +33,9 @@ export function round4Checks(load: (id: string) => ErodeMap) {
   assert.equal(digest.digest("hex"), "71d3abb647710b848db7c7f66e8cab09515a3e43b109721c9ea0a17601945aaa", "flat land changed from round 3");
 
   const cases = UNEVEN_CASES.filter(c => c.map !== "rise").map(c => {
-    const m = load(c.map), { before, p } = run(m, c.points, c), a = p.final;
+    const m = load(c.map), { before, p } = run(m, c.points, c, true), a = p.final;
     const drainage = drainageMetrics(before, p), path = p.wash!.path;
-    assert.deepEqual(a.cols, run(m, c.points.slice().reverse(), c).p.final.cols, "drawing direction changed the wash");
+    assert.deepEqual(a.cols, run(m, c.points.slice().reverse(), c, true).p.final.cols, "drawing direction changed the wash");
     const drops = path.slice(1).map((i, k) => a.run0Top(path[k]) - a.run0Top(i)).filter(d => d > 0);
     const depths = path.map(i => before.surface(i) - a.run0Top(i));
     assert.ok(Math.min(...depths) >= 1, "wash disappears on lower ground");
@@ -56,20 +58,20 @@ export function round4Checks(load: (id: string) => ErodeMap) {
     const points = Array.from({ length: 10 }, (_, k) => ({ x: 18.5 + k * 10, y: 53.5 + k * 2 }));
     const settings = { power, size: power, seed, ...(seed > 2 ? { details: { winding: seed === 3 ? 0 : 100,
       sideGullies: seed === 3 ? 0 : 100, dryFalls: seed === 3 ? 0 : 100, undercutBanks: seed === 3 ? 0 : 100 } } : {}) };
-    const { before, p } = run(m, points, settings);
+    const { before, p } = run(m, points, settings, true);
     drainageMetrics(before, p);
-    assert.deepEqual(p.final.cols, run(m, points.slice().reverse(), settings).p.final.cols);
+    assert.deepEqual(p.final.cols, run(m, points.slice().reverse(), settings, true).p.final.cols);
     variants++;
   }
   const cliff = unevenMap("step")!;
   const crossing = [UNEVEN_CASES[2].points[0], ...Array.from({ length: 5 }, (_, k) => ({ x: 64.5, y: 62.5, z: 20 - k * 2 })), UNEVEN_CASES[2].points[2]];
-  const wallHits = run(cliff, crossing, { power: 85, size: 80, seed: 1 });
+  const wallHits = run(cliff, crossing, { power: 85, size: 80, seed: 1 }, true);
   drainageMetrics(wallHits.before, wallHits.p); // intermediate pointer hits on the step still belong to one wash
   const gallery = run(cliff, [{ x: 65.5, y: 44.5, z: 10.5 }, { x: 65.5, y: 79.5, z: 10.5 }], { power: 85, size: 80, seed: 1 }).p;
   assert.equal(gallery.wash, undefined, "a sweep along the cliff foot switched to wash");
   assert.ok(gallery.worn > 0 && gallery.final.multiRun() > 0);
   assert.equal(checkSupport(cliff.W, cliff.H, gallery.final.voxels(), LAYERS).unsupported.length, 0);
-  const row = { result: "PASS", cases, unevenVariantsBothDirections: variants, preservedFlatVariants: 16,
+  const row = { result: "PASS", scope: "Local washes; round 8 separately checks mixed cliff crossings", cases, unevenVariantsBothDirections: variants, preservedFlatVariants: 16,
     preservedRound3Cases: 6, cliffFootGallery: "PASS", stepFacePointerHits: "PASS", animationSupport: "PASS" };
   console.log(JSON.stringify(row)); return row;
 }

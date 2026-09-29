@@ -1,5 +1,28 @@
 # Erode: the report
 
+## Round 8: large sweeps
+
+The replay selected **one gallery floor at level 10 for the entire stroke**: only 34/152 sampled stroke tiles changed, wearing 861 blocks. Length did not dilute Power.
+Rounds 6 and 7 produced byte-identical land on the fresh crater. On an existing cave, Round 7's whole-stroke roof dispatch could also discard the non-roof part (47 blocks worn in the mixed replay).
+
+Mixed sweeps now combine full-strength local galleries, shallow downhill washes and roof wear into one supported operation. Cliff patches reach the face's outside floor regardless of hit height; overlaps do not stack Power. The pinned replay at **Power 72 / Auto Size 68** wears **6,597 blocks**, changing **152/152** sampled stroke tiles.
+
+| Before | After |
+|---|---|
+| ![](captures/round8-before.jpg) | ![](captures/round8-after.jpg) |
+
+![The large sweep, 1.84 seconds](captures/round8-sweep.gif)
+
+**PASS:** existing suite, including 160 random gestures and their Floor variants, plus **43 long/mixed gestures / 1,032 displayed buckets** (36 seeded crater, plateau-to-cliff and canyon sweeps): **0 dropped voxels, 0 leftover single blocks, 0 cuts below Floor**. Source ground, objects/start, single Undo, Redo/Esc/Try another, fixed camera, TypeScript and demo pass. Longest tested: **399 tiles at 128², Power 100 / Size 100; 0.99 s worst release-to-final-land across three runs**. Kyler replay: **0.67 s**. [Checks](checks/results.json) · [Demo timings](checks/round8-browser.json).
+
+**12/13 Round 7 pinned terrain results remain byte-identical.** Exception: `wash-step` now adds a cliff gallery to the crossing wash; its old local wash still passes the original drainage/depth checks. The three roof fixtures are unchanged.
+
+Choice: pin a 133-tile route matching Kyler's description; no pointer recording was supplied.
+Choice: a shallow wash inside a closed crater ends at local low ground, preserving the rim rather than cutting a deep outlet.
+Still short: voxel terraces remain angular; a closed basin can retain water, and water settling remains the demo approximation.
+
+Regenerate from the repo root: `npm --prefix investigation/erode run check`; for these captures, `cd investigation/erode` then `node --import tsx scripts/captures-round8.ts` (installed Chrome). Two 960×640 JPEGs total 181 KB; the 640×420 GIF is 2.49 MB. Frames stay in memory; throwaway logs/cache stay in ignored `local/`.
+
 ## Round 7: roofs
 
 Erode follows the touched rock face: thin roof beds open into irregular skylights, a larger collapse retains thicker spanning rock, and an inside stroke raises a domed ceiling. Fallen rock leaves supported rubble; roof objects go with their ground and the start moves to the nearest valid dry 3×3×5 site. Floor and source ground still hold.

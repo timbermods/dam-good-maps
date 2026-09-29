@@ -17,13 +17,14 @@ import { waterPools } from "../core/water";
 import { Sounds } from "./audio";
 import { CASES as LAND_CASES, type Case } from "./cases";
 import { roofMap, ROOF_CASES } from "./roofs";
+import { kylerCase } from "./sweeps";
 import { settleThings } from "../core/objects";
 import { Effects } from "./effects";
 import { View, type CameraPose, type Hit } from "./view";
 import type { PlanReply, PlanRequest } from "./worker";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const CASES = [...LAND_CASES, ...ROOF_CASES];
+const CASES = [...LAND_CASES, ...ROOF_CASES, kylerCase()];
 const canvas = $<HTMLCanvasElement>("view");
 const view = new View(canvas);
 const sounds = new Sounds();
@@ -289,7 +290,7 @@ function stepPlay(now: number): void {
       const b = r.bucket[k];
       if (b <= pl.shown || b > upTo) continue;
       if (n++ % every) continue;
-      const { p, dir } = voxelWorld(r.removed[k], N, t.W, !!r.roof);
+      const { p, dir } = voxelWorld(r.removed[k], N, t.W, !!r.roof || !!r.falling?.[k]);
       effects.puff(p, dir, 0.8, k * 0.013);
       if ((k * 7919) % 3 === 0) effects.drop(p.clone().addScaledVector(dir, 0.3), dir, k * 0.021);
     }
@@ -298,7 +299,7 @@ function stepPlay(now: number): void {
     if (relight) pl.lastLight = upTo;
     view.update(r.box, relight);
     if (!relight) view.openCells(gone);
-    if (r.roof) { view.setThings(things()); showWater(); }
+    if (r.roof || r.sweep) { view.setThings(things()); showWater(); }
     sounds.wear(Math.min(1, count / Math.max(8, r.worn / r.buckets) / 1.6));
   }
   if (e >= r.duration) finishPlay();
@@ -578,7 +579,7 @@ window.erode = {
   },
   get last() {
     const r = state.undo[state.undo.length - 1]?.stats;
-    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box, finalMs: state.lastFinalMs, details: r.details, roof: r.roof, rubble: r.added?.length } : null;
+    return r ? { worn: r.worn, held: r.held, fell: r.fell, dropped: r.dropped, ms: r.ms, checkMs: r.checkMs, box: r.box, finalMs: state.lastFinalMs, details: r.details, roof: r.roof, sweep: r.sweep, rubble: r.added?.length } : null;
   },
   snapshot: () => ({ cols: Array.from(state.terrain!.cols), things: things(), pose: structuredClone(view.pose) }),
   quiet: () => effects.clear(),

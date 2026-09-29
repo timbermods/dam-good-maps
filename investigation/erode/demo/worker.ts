@@ -2,7 +2,7 @@
 // planned), and checks the final land with the game's support rule (terrain3d's port, over every
 // voxel of the map): the number the demo shows as "dropped on load".
 import { checkSupport } from "../../terrain3d/proto/support";
-import { planErode, type ErodeSettings, type Gesture } from "../core/erode";
+import { planErode, type ErodePlan, type ErodeSettings, type Gesture } from "../core/erode";
 import { LAYERS, Terrain } from "../core/terrain";
 import type { WashDetails } from "../core/wash";
 
@@ -25,6 +25,8 @@ export interface PlanReply {
   added?: Int32Array;
   addBucket?: Uint8Array;
   roof?: "roof" | "ceiling";
+  sweep?: ErodePlan["sweep"];
+  falling?: Uint8Array;
   buckets: number;
   duration: number;
   finalCols: Uint32Array;
@@ -53,6 +55,8 @@ self.onmessage = (ev: MessageEvent<PlanRequest>) => {
     added: plan.added,
     addBucket: plan.addBucket,
     roof: plan.roof,
+    sweep: plan.sweep,
+    falling: plan.falling,
     buckets: plan.buckets,
     duration: plan.duration,
     finalCols: plan.final.cols,

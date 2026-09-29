@@ -7,7 +7,7 @@ import { LAYERS } from "./terrain";
 import { downhillRuns, drainCappedBanks, type WashRun } from "./washRuns";
 
 export interface WashDetails { winding: number; sideGullies: number; dryFalls: number; undercutBanks: number }
-export interface WashTrace { path: number[]; bedTiles: number[]; outlet: number; outletKind: "edge" | "water"; runs?: WashRun[] }
+export interface WashTrace { path: number[]; bedTiles: number[]; outlet: number; outletKind: "edge" | "water" | "low"; runs?: WashRun[] }
 export const DETAIL_LABELS: Record<keyof WashDetails, string> = {
   winding: "Winding", sideGullies: "Side gullies", dryFalls: "Dry falls", undercutBanks: "Undercut banks",
 };
@@ -17,7 +17,7 @@ export function pickDetails(set: ErodeSettings, height: number): WashDetails {
     Math.round(15 + 75 * hash(set.seed ^ (height * 101), i + 71)), 0, 100)])) as unknown as WashDetails;
 }
 
-export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
+export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings, animate = true, followLand = false): ErodePlan {
   const started = performance.now(), before = input.terrain, t = before.clone(), { W, H, N } = t;
   const cutFloor = erosionFloor(set);
   const P = clamp(set.power / 100, 0, 1), S = clamp((set.size ?? 25 + 0.6 * set.power) / 100, 0, 1);
@@ -26,7 +26,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   const large = clamp((Math.min(P, S) - 0.45) / 0.55, 0, 1);
   const points = gesture.points.map(p => ({ x: clamp(p.x, 1, W - 2), y: clamp(p.y, 1, H - 2) }));
   const tile = (x: number, y: number) => clamp(Math.floor(y), 0, H - 1) * W + clamp(Math.floor(x), 0, W - 1);
-  const neighbours = (i: number) => [i % W > 0 ? i - 1 : -1, i % W < W - 1 ? i + 1 : -1,
+  const neighbours = (i: number) => followLand && input.keep?.[i] ? [] : [i % W > 0 ? i - 1 : -1, i % W < W - 1 ? i + 1 : -1,
     i >= W ? i - W : -1, i < N - W ? i + W : -1].filter(j => j >= 0 && !input.keep?.[j]);
   const edge = (i: number) => i % W === 0 || i % W === W - 1 || i < W || i >= N - W;
   const heights = before.heights();
@@ -38,7 +38,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     const a = points[k - 1], b = points[k], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
     for (let j = 0; j <= n; j++) ground.push(heights[tile(a.x + (b.x - a.x) * j / n, a.y + (b.y - a.y) * j / n)]);
   }
-  let uneven = ground.some(z => z !== ground[0]);
+  let uneven = followLand || ground.some(z => z !== ground[0]);
   if (uneven) {
     const first = tile(points[0].x, points[0].y), last = tile(points[points.length - 1].x, points[points.length - 1].y);
     if (heights[first] < heights[last] || (heights[first] === heights[last] && first > last)) points.reverse();
@@ -90,7 +90,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   if (points.length === 1) {
     const route = outletRoute(start, Math.max(0, heights[start] - incision));
     const endIndex = Math.min(route.length - 1, Math.round(8 + 16 * P)), end = route[endIndex];
-    uneven = route.slice(0, endIndex + 1).some(i => heights[i] !== heights[start]);
+    uneven = followLand || route.slice(0, endIndex + 1).some(i => heights[i] !== heights[start]);
     points.push({ x: end % W + 0.5, y: Math.floor(end / W) + 0.5 });
   }
   // Smooth meanders around the painted line; even zero Winding has a slight natural wander.
@@ -130,7 +130,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   });
   const cap = 1 + Math.round(2 * P * P);
   const runs = uneven ? downhillRuns(centre, heights, cap, details.dryFalls, neighbours,
-    i => input.keep?.[i] ? undefined : edge(i) ? "edge" : (input.water?.[i] ?? 0) > 0.05 ? "water" : undefined) : undefined;
+    i => input.keep?.[i] ? undefined : edge(i) ? "edge" : (input.water?.[i] ?? 0) > 0.05 ? "water" : undefined, followLand) : undefined;
   const tail = uneven ? [] : outletRoute(centre[centre.length - 1], bed);
   for (const i of tail.slice(1)) {
     centre.push(i); bed = Math.min(bed, Math.max(0, heights[i] - (uneven ? incision : 0))); levels.push(bed);
@@ -251,7 +251,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   removed.sort((a, b) => Math.floor(b / N) - Math.floor(a / N) || hash(set.seed, a) - hash(set.seed, b));
   const buckets = new Map(removed.map((v, k) => [v, Math.min(23, Math.floor(k / removed.length * 24))]));
   const show = before.clone(), pending = new Set(removed);
-  for (let b = 0; b < 24; b++) {
+  if (animate) for (let b = 0; b < 24; b++) {
     for (const v of removed) if (buckets.get(v) === b) { show.set(v % N, Math.floor(v / N), false); pending.delete(v); }
     for (;;) {
       const loose = support(show).unsupported;
@@ -267,7 +267,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     buckets: 24, duration: 0.65, worn: removed.length, held: 0, fell,
     focus: { x: start % W + 0.5, y: Math.floor(start / W) + 0.5, z: heights[start] },
     box: { x0, y0, x1, y1 }, ms: performance.now() - started, details,
-    wash: { path: runs ? runs[0]?.path ?? [] : centre, bedTiles: order, outlet, outletKind: edge(outlet) ? "edge" : "water",
+    wash: { path: runs ? runs[0]?.path ?? [] : centre, bedTiles: order, outlet, outletKind: runs?.[0]?.outletKind ?? (edge(outlet) ? "edge" : "water"),
       ...(runs ? { runs: runs.map(({ path, outlet, outletKind }) => ({ path, outlet, outletKind })) } : {}) },
     ...(!removed.length ? { reason: runs?.length === 0 ? "No downhill outlet within shallow ground" : "At the map's floor" } : {}) };
 }

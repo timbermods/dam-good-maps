@@ -85,6 +85,6 @@ export function round7Checks(load?: (id: string) => ErodeMap) {
   assert.ok(waterPools(p.final, m.water).every(pool => p.final.at(pool.tile, pool.floor - 1)), "water has no ground");
   const result = { result: "PASS", cases, randomRoofCeilingGestures: 48, existingShelterGestures, totalGestures: gestures, animationFrames: frames,
     droppedVoxels: 0, leftoverSingleBlocks: 0, support: "PASS", floorAndBottom: "PASS", sourceGround: "PASS",
-    objectsAndStart: "PASS", waterResettled: "PASS", round6FixtureExceptions: [] };
+    objectsAndStart: "PASS", waterResettled: "PASS", fixturePreservation: "See round6 and round8 checks for local and mixed results" };
   console.log(JSON.stringify(result)); return result;
 }

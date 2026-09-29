@@ -23,6 +23,7 @@ import { round4Checks } from "./round4";
 import { round5Checks } from "./round5";
 import { floorCheck, round6Checks } from "./round6";
 import { round7Checks } from "./round7";
+import { round8Checks } from "./round8";
 
 const show = process.argv.includes("--show");
 const only = process.argv.find((a) => a.startsWith("--case="))?.slice(7);
@@ -190,7 +191,8 @@ if (!only) {
   const round5 = round5Checks();
   const round6 = round6Checks(load);
   const round7 = round7Checks(load);
-  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round7, round6, round5, round4, round3, round2, cases: results, random }, null, 1) + "\n");
+  const round8 = round8Checks(load);
+  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round8, round7, round6, round5, round4, round3, round2, cases: results, random }, null, 1) + "\n");
 }
 console.log(failures ? `FAILED: ${failures} results drop voxels` : "Every result drops 0 voxels under the support rule.");
 process.exit(failures ? 1 : 0);

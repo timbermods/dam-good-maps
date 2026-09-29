@@ -7,6 +7,7 @@ import { support } from "./support";
 import { LAYERS, Terrain } from "./terrain";
 import { planWash, type WashDetails, type WashTrace } from "./wash";
 import { planRoof } from "./roof";
+import { planSweep } from "./sweep";
 
 export interface ErodeSettings {
   /** How deep the rock wears, 0–100. */
@@ -29,8 +30,8 @@ export const erosionFloor = (set: ErodeSettings) =>
 /** The size Auto gives at a power. */
 export const autoSize = (power: number) => Math.round(clamp(25 + 0.6 * power, 0, 100));
 
-/** A click (one point) or a painted sweep, in tile coordinates, with the level of the rock each
- *  point touched (the wear gathers round the height the player touched the land at). */
+/** A click or painted sweep in tile coordinates. Height/normal identify roofs and ceilings;
+ *  a mixed sweep reaches the nearby cliff's whole face, independently of its hit height. */
 export interface Gesture {
   points: { x: number; y: number; z?: number; nz?: number }[];
 }
@@ -55,6 +56,9 @@ export interface ErodePlan {
   added?: Int32Array;
   addBucket?: Uint8Array;
   roof?: "roof" | "ceiling";
+  /** Mixed terrain in one stroke; falling marks only roof debris in the removal stream. */
+  sweep?: { parts: number; galleries: number; washes: number; roofs: number };
+  falling?: Uint8Array;
   buckets: number;
   /** Seconds the wear plays over. */
   duration: number;
@@ -111,7 +115,12 @@ function nearest(pts: Pt[], x: number, y: number): { d: number; z: number | unde
 
 /** Plan the cavity as a continuous volume, then retain only the rock that holds its roof. */
 export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
-  const roof = planRoof(input, gesture, set);
+  return planSweep(input, gesture, set) ?? planLocal(input, gesture, set);
+}
+
+/** A continuous local patch; mixed sweeps combine these before scheduling the one animation. */
+export function planLocal(input: ErodeInput, gesture: Gesture, set: ErodeSettings, animate = true): ErodePlan {
+  const roof = planRoof(input, gesture, set, animate);
   if (roof) return roof;
   const t0 = performance.now();
   const { terrain: before, keep, rock } = input;
@@ -178,12 +187,12 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
     }
   }
   const overCrest = pts.some(q => q.z === undefined) || Math.max(...pts.map(q => q.z!)) >= crest - 1;
-  if (overCrest && crest > trough && along > 0.5 && along > across * 0.75) return planWash(input, gesture, set);
+  if (overCrest && crest > trough && along > 0.5 && along > across * 0.75) return planWash(input, gesture, set, animate);
   // A flat stroke wears a wash instead of searching far away for a cliff to hollow.
   if (!face || (toStroke(pts, face.x, face.y) > 2.5 && pts.every(q => {
     const i = Math.floor(q.y) * W + Math.floor(q.x);
     return q.z === undefined || q.z >= before.surface(i) - 1;
-  }))) return planWash(input, gesture, set);
+  }))) return planWash(input, gesture, set, animate);
   const floor = face.floor;
   // In a thin fin, supports belong at the ends of the opening. Reserve an actual building
   // footprint when the original ground can carry it; never raise the floor or invent a roof.
@@ -405,7 +414,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   order.forEach((v, k) => bucketOf.set(v, Math.min(BUCKETS - 1, Math.floor(((k + 0.5) / order.length) * BUCKETS))));
   const show = before.clone();
   const pending = new Set(order);
-  for (let b = 0; b < BUCKETS; b++) {
+  if (animate) for (let b = 0; b < BUCKETS; b++) {
     for (const v of order) {
       if (bucketOf.get(v) !== b) continue;
       const z = Math.floor(v / N);
