@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D326) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D329) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
@@ -45,19 +45,19 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
 3. Done with item 1: model and task suitability (item 39, D318).
 4. **The six batches** (Kyler's build order, `docs/feedback/2026-09-29-build-order.md`; PLAN §20 D321–D326; all started 2026-09-29 and run in parallel;
    short reports, real checks, nothing ceremonial). Each: branch, worktree, definition and model, state.
-   - **Batch 1, the forces** (D321; items 7, 13, 14, 17, 18, 25, 29, 30, 40, 41): `feature/forces`, `DamGoodMaps-forces`,
+   - **Batch 1, the forces** (D321; items 7, 13, 14, 17, 18, 25, 29, 30, 40, 41; D327's curved faults and fissures after item 41's path piece): `feature/forces`, `DamGoodMaps-forces`,
      `build` (Opus 5.5, high); started 2026-09-29. Order: 29 and 30, then 40 (absorbing Erode's Floor), 7, 41 and 13
      (one freehand-path piece), Carve's 17, 25, 18, Erupt's 14; item 27's check at edges once batch 5 makes the lip callable.
    - **Batch 2, the brushes** (D322; items 15, 37, 2, 31, 42): `feature/brushes`, `DamGoodMaps-brushes`, `build`
      (Opus 5.5, high); started 2026-09-29. Item 15 first; the stroke record changes once (D158).
-   - **Batch 3, Select, Delete, the shelf and shortcuts** (D323; items 11 with 32, 12, 1, 44, 6, 43, 16, 46, 20, then 9):
+   - **Batch 3, Select, Delete, the shelf and shortcuts** (D323; items 11 with 32, 12, 1, 44, 6, 43, 16, 46, 20, then 9; D328, placed objects fit the land, with 11 and 32):
      `feature/select-shelf`, `DamGoodMaps-select`, `build-light-medium` (Sonnet 5.5, medium; D318 (2)'s trial: its
      report says in one line whether medium matched high); started 2026-09-29. Owns the key map: updates the shortcuts
      and first-run hints once after batches 1 and 2 land.
    - **Batch 4, the look** (D324; D310's option (a), then items 5, 10, 4 with D231's leftovers, 28, then badwater's
      calibration once): `feature/high-look`, `DamGoodMaps-high`, `build-light` (Sonnet 5.5, high); started 2026-09-29.
      Item 3 waits for Kyler's High look sitting.
-   - **Batch 5, M9b** (D325; items 47, 36, 26, 27, 22, 21, 24): `feature/m9b`, `DamGoodMaps-m9b`, `m9b-build`
+   - **Batch 5, M9b** (D325; items 47, 36, 26, 27, 22, 21, 24; step 4 as amended by D329, time to an editable map): `feature/m9b`, `DamGoodMaps-m9b`, `m9b-build`
      (Opus 5.5, xhigh); started 2026-09-29. One re-pin (D308) after every map-changing item; see item 8.
    - **Batch 6, documents** (D326; items 33, 23, then 34): `dev`, the main clone, `routine` (Sonnet 5.5, medium);
      started 2026-09-29.
@@ -118,7 +118,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D327**.
+number on `dev` is **#94**. The next decision is **D330**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -219,7 +219,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D327), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D330), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away

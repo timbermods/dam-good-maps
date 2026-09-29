@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D326), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D329), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -236,10 +236,10 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 
 | Workstream | Branch (worktree), last commit | Agent, model | State and next step |
 |---|---|---|---|
-| The forces (batch 1, D321) | `feature/forces` (`-forces`, #77) | `build`, Opus 5.5 high | started 2026-09-29 |
+| The forces (batch 1, D321, D327) | `feature/forces` (`-forces`, #77) | `build`, Opus 5.5 high | started 2026-09-29 |
 | The brushes (batch 2, D322) | `feature/brushes` (`-brushes`) | `build`, Opus 5.5 high | started 2026-09-29; merges into the forces |
-| Select, shelf, shortcuts (batch 3, D323) | `feature/select-shelf` (`-select`) | `build-light-medium`, Sonnet 5.5 medium | started 2026-09-29; merges first; the medium trial |
-| M9b (batch 5, D325; D273–D278, D298, D308, D311, D314) | `feature/m9b` (`-m9b`, #70), 66146f34 | `m9b-build`, Opus 5.5 xhigh | re-pin half done (quick suite 765 passed, 10 failed: 9 map-bound, one resources measure at 0.5225 against < 0.52); next: merge `dev` (M9a), re-seed six tests, re-pin 4242, then the release candidate |
+| Select, shelf, shortcuts (batch 3, D323, D328) | `feature/select-shelf` (`-select`) | `build-light-medium`, Sonnet 5.5 medium | started 2026-09-29; merges first; the medium trial |
+| M9b (batch 5, D325, D329; D273–D278, D298, D308, D311, D314) | `feature/m9b` (`-m9b`, #70), 66146f34 | `m9b-build`, Opus 5.5 xhigh | re-pin half done (quick suite 765 passed, 10 failed: 9 map-bound, one resources measure at 0.5225 against < 0.52); next: merge `dev` (M9a), re-seed six tests, re-pin 4242, then the release candidate |
 | Real places, round 2 (D271, D300, D306, D314) | `feature/real-places-2` (`-places`, #35), cbaf6cf6 | `build`, Opus 5.5 high; release on `build-light` | grouped sources wired (VERSION 11); 37 of 136 converted; next: `npx tsx tools/places-convert.ts --threads 3` (1.5–3 h), check, release |
 | Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
 | The look (batch 4, D324; D284, D304, D305, D310) | `feature/high-look` (`-high`, #75) | `build-light`, Sonnet 5.5 high | started 2026-09-29; the High look held for your sitting |
@@ -547,7 +547,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D326.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D329.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

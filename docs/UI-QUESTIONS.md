@@ -33,8 +33,7 @@ are in [the forces-preview feedback](feedback/2026-09-28-forces-preview.md) and
   replace the aim arrow and the waypoints (item 41, D321).
 - **Watch** (item 29, D321): one toggle in the view bar beside Sound; off means Fast (land final in about two seconds).
   It is not the water bar's replay button that exists today, and not the water's pace (D268).
-- **The candidates strip** (item 22, D325): the first passing map shows at once and never swaps; later passing candidates
-  appear as thumbnails, with More making further siblings. It replaces the "Another like this" button, which M9b keeps until the strip exists (it is not on `dev` yet).
+- **The candidates strip** (item 22, D325, D329): the first map that passes the absolutes shows at once, editable, and never swaps; if it misses one of the three outcomes, a background search adds the first version meeting all three, with a short notification where the miss matters; More makes further siblings on demand. It replaces the "Another like this" button, which M9b keeps until the strip exists (it is not on `dev` yet).
 - **Two numbers as information** (items 24 and 47, D325): trees within walking reach with their logs, updating live as the
   player edits, and the five difficulty levers. M9b computes them; they are shown only here, not in today's editor or card.
 - **Select's actions and Delete's menu** (items 1, 6, 43, 44; D323): Whole map, per-type Delete with counts, the start
