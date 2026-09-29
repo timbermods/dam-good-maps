@@ -21,6 +21,8 @@ pull request.
 | [UI-QUESTIONS.md](UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 | [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance; stale ones marked. |
+| [GLOSSARY.md](GLOSSARY.md) | The shared terms (force, working area, candidate, the absolutes and the rest), each defined once with the decision that set it; retired terms marked (item 34 (4)). |
+| Folder READMEs | Each `src/core/` folder, `tools/` and `prototype/` has a short README: its purpose, rules, entry points and tests. Keep it current when the folder's rules or entry points change. |
 
 ## History
 
