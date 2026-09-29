@@ -18,7 +18,7 @@ import { slopeHighSide } from "../format/footprints";
 import { entityTiles } from "../features/edits";
 import { fitProblems, rasterizeObjects } from "../features/objects";
 import type { MapObjectFeature } from "../features/schema";
-import { walkRegions } from "../analysis/regions";
+import { landRegions, walkRegions } from "../analysis/regions";
 import { distanceFrom } from "../math/grid";
 import { stream } from "../math/rng";
 import { soilContamination as soilOf } from "../sim/contamination";
@@ -31,7 +31,8 @@ import { hash32 } from "../math/hash";
 import type { WaterRules } from "../sim/water";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
-import { badwaterBudget, pickBadwaterSprings, springEntities, type BadwaterSetting, type BadwaterSpring } from "./badwater";
+import { badwaterBudget, pickBadwaterSprings, springEntities, type BadwaterSetting, type BadwaterSpring, type SpringInput } from "./badwater";
+import { sourcesInFlow, waterWays } from "../analysis/sources";
 import { baselineEntities, pickMineSite, planBaseline, type BaselinePlan, type MineSpot, type ResourceSettings } from "./baseline";
 
 export interface MapResourcesInput {
@@ -61,7 +62,19 @@ export interface MapResourcesInput {
   /** Badwater (D200): the map's Badwater setting ("off" is No badwater, a peaceful map: none is
    *  placed; any other asks for at least one) and the difficulty's badwater distance, no badwater
    *  within this many tiles of the start (`DIFFICULTY_RULES[d].badwaterWithin`: 30 / 15 / 8). */
-  badwater: { setting: BadwaterSetting; within: number };
+  badwater: {
+    setting: BadwaterSetting;
+    within: number;
+    /** Real places (D331 (3)): never a spring whose stream reaches the start's water or its first
+     *  farmland (`clearOfStart`): the water a pump reaches within this many tiles' walk of the start,
+     *  and the moist land within 20 tiles' walk (analysis/startLand.ts), stay clean. */
+    clearOfStart?: number;
+  };
+  /** Real places (D331 (3)): this many mine sites the colony reaches from the start first, on its
+   *  land (dry ground joined to the start's by steps of one level at most, a flight of stairs,
+   *  never across water or up a cliff: analysis/regions.ts `landRegions`), from `MINE_REACH_LO`
+   *  tiles out; then the rest as the generator places them. */
+  reachableMines?: number;
   /** The water's and the soil's rules the badwater resettle uses (sim/water.ts, sim/soil.ts): the
    *  defaults when absent. Real places use the game's (D293, D298, D308). */
   rules?: { water?: WaterRules; soil?: SoilRules };
@@ -82,6 +95,10 @@ export interface MapResources {
    *  writes these instead of the caller's settle. Null when no badwater source was placed. */
   water: { settle: CanonicalWater; moisture: Float64Array; soilContamination: Float64Array } | null;
 }
+
+/** A mine site the colony reaches may stand this near the start (M9b's `MINE_REACH_LO`, item 47);
+ *  one it cannot reach keeps the generator's band (60+, the official maps' nearest). */
+export const MINE_REACH_LO = 30;
 
 const mapObject = (e: EntitySpec): MapObject => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, components: { ...(e.before ?? {}), ...e.components } });
 
@@ -112,6 +129,20 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   const startMask = new Uint8Array(N);
   for (let y = start.y - 1; y <= start.y + 1; y++) for (let x = start.x - 1; x <= start.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) startMask[y * W + x] = 1;
   const sd = distanceFrom(startMask, W, H);
+  // the colony's walk from the start (slopes allowed)
+  const d = walkDistance(h, W, H, walkBlocked, links, start);
+  const walk = new Float64Array(N);
+  for (let i = 0; i < N; i++) walk[i] = reachAt(d, W, H, i);
+  // the start's water and first farmland, which no badwater may reach (`clearOfStart`)
+  const clear = inp.badwater.clearOfStart === undefined ? null : clearOfStart(W, H, inp.water, inp.moisture, walk, inp.badwater.clearOfStart);
+  // (and the way water runs on the map, for each spring's stream)
+  let avoid: SpringInput["avoid"];
+  if (clear) {
+    const model = waterModel(W, H, h, inp.entities.map(mapObject));
+    const emitting = new Uint8Array(N);
+    for (const e of model.emitters) for (const c of e.cells) emitting[c] = 1;
+    avoid = { tiles: clear, ways: waterWays(model, emitting) };
+  }
 
   // ---- badwater sources first (D200): springs in hollows and side valleys, the water settled again
   //      with them; a spring whose badwater comes nearer the start than the badwater distance is
@@ -136,8 +167,9 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   let springs: BadwaterSpring[] = [];
   let settled: MapResources["water"] = null;
   const refused = new Uint8Array(N);
-  for (let round = 0; round < 3 && budget.sources > 0; round++) {
-    springs = pickBadwaterSprings({ W, H, heights: h, water: inp.water, taken, start, within: inp.badwater.within, budget, seed: inp.seed, refused });
+  // (a few more rounds where the start's water and farmland are kept clear too)
+  for (let round = 0; round < (clear ? 5 : 3) && budget.sources > 0; round++) {
+    springs = pickBadwaterSprings({ W, H, heights: h, water: inp.water, taken, start, within: inp.badwater.within, budget, seed: inp.seed, refused, ...(avoid ? { avoid } : {}) });
     if (!springs.length) break;
     const objects = [...inp.entities, ...badOf(springs)].map(mapObject);
     const settle = canonicalSettle(waterModel(W, H, h, objects), inp.rules?.water ? { rules: inp.rules.water } : {});
@@ -155,13 +187,33 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
     // the start's badwater distance, as `start.badwater` measures it
     let near = Infinity;
     for (let i = 0; i < N; i++) if ((soil[i] > 0 || (settle.depth[i] > WET && settle.contamination[i] >= BAD)) && sd[i] < near) near = sd[i];
-    if (near >= inp.badwater.within) {
+    // and none reaches the start's water or first farmland (`clearOfStart`)
+    const reached: number[] = [];
+    if (clear) for (let i = 0; i < N; i++) if (clear[i] && (soil[i] > 0 || (settle.depth[i] > WET && settle.contamination[i] >= BAD))) reached.push(i);
+    // and no spring stands where other water comes down to it, nor sends its water down to another
+    // source (D171, `water.source_in_flow`: a source is where water begins)
+    const flowing = sourcesInFlow(waterModel(W, H, h, objects), objects, settle.depth).inFlow;
+    if (near >= inp.badwater.within && !reached.length && !flowing.length) {
       settled = { settle, moisture: moist, soilContamination: soil };
       break;
     }
-    // refuse the ground of the spring nearest the start, and pick again
-    const worst = springs.reduce((a, b) => (b.fromStart < a.fromStart ? b : a));
-    for (let y = worst.y - 1; y <= worst.y + 3; y++) for (let x = worst.x - 1; x <= worst.x + 3; x++) if (x >= 0 && y >= 0 && x < W && y < H) refused[y * W + x] = 1;
+    const nearest = (x: number, y: number) => springs.reduce((a, b) => (Math.hypot(x - b.x - 1, y - b.y - 1) < Math.hypot(x - a.x - 1, y - a.y - 1) ? b : a));
+    const refuse = (s: BadwaterSpring) => {
+      for (let y = s.y - 1; y <= s.y + 3; y++) for (let x = s.x - 1; x <= s.x + 3; x++) if (x >= 0 && y >= 0 && x < W && y < H) refused[y * W + x] = 1;
+    };
+    if (flowing.length) {
+      for (const k of flowing) refuse(nearest(objects[k].x, objects[k].y));
+      continue;
+    }
+    // refuse the ground of the spring nearest the start (or the nearest to what it reached), and
+    // pick again
+    const from = (s: BadwaterSpring) => {
+      if (near < inp.badwater.within || !reached.length) return s.fromStart;
+      let best = Infinity;
+      for (const i of reached) best = Math.min(best, Math.hypot((i % W) - s.x - 1, Math.floor(i / W) - s.y - 1));
+      return best;
+    };
+    refuse(springs.reduce((a, b) => (from(b) < from(a) ? b : a)));
   }
   if (!settled) springs = [];
   const water = settled ? settled.settle.depth : inp.water;
@@ -190,25 +242,44 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   const root = regions[start.y * W + start.x];
   const band = EXTRA_BANDS.mineSite;
   const scale = bandScale(W, H);
-  const want = Math.max(1, Math.min(4, inp.settings.mineSites));
+  const want = Math.max(1, Math.min(4, inp.settings.mineSites), inp.reachableMines ?? 0);
   const rng = stream(inp.seed, "resources", "mines");
   const mines: MineSpot[] = [];
   const fits = (tiles: [number, number][]) => !fitProblems("mineSite", tiles, { W, H, heights: h, water }).length;
+  const claim = (spot: MineSpot) => {
+    mines.push(spot);
+    for (const [x, y] of spot.tiles)
+      for (let dy = -3; dy <= 3; dy++)
+        for (let dx = -3; dx <= 3; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
+        }
+    for (const [x, y] of spot.tiles) taken[y * W + x] = 1;
+  };
+  // (Real places, D331 (3): the ones the colony reaches first, on the start's land, the far ground
+  // first; where the land has no spot for them, the place goes without)
+  if (inp.reachableMines) {
+    const wet = new Uint8Array(N);
+    for (let i = 0; i < N; i++) wet[i] = water[i] > WET ? 1 : 0;
+    const land = landRegions(h, W, H, wet);
+    const landRoot = land[start.y * W + start.x];
+    const onLand = blocked.slice();
+    for (let i = 0; i < N; i++) if (land[i] !== landRoot) onLand[i] = 1;
+    while (landRoot >= 0 && mines.length < Math.min(want, inp.reachableMines)) {
+      const spot = pickMineSite({ W, H, heights: h, blocked: onLand, startDist: sd, regions: land, root: landRoot }, rng, { lo: MINE_REACH_LO * scale, hi: Infinity, far: band.lo * scale + 1 }, fits);
+      if (!spot) break;
+      claim(spot);
+      for (let i = 0; i < N; i++) if (blocked[i]) onLand[i] = 1;
+    }
+  }
   // the band as the generator keeps it; a map too small or too wet for it takes the nearest ground
   // beyond half of it for its one mine site
   for (const lo of [band.lo * scale + 1, (band.lo * scale) / 2]) {
     while (mines.length < want) {
       const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root }, rng, { lo, hi: Infinity, far: lo + (band.lo * scale) / 3 }, fits);
       if (!spot) break;
-      mines.push(spot);
-      for (const [x, y] of spot.tiles)
-        for (let dy = -3; dy <= 3; dy++)
-          for (let dx = -3; dx <= 3; dx++) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-          }
-      for (const [x, y] of spot.tiles) taken[y * W + x] = 1;
+      claim(spot);
     }
     if (mines.length) break;
   }
@@ -218,10 +289,7 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
     mineEntities.push(...rasterizeObjects(f, W, H, h));
   });
 
-  // ---- the resources, near the start first: the colony's walk from the start (slopes allowed)
-  const d = walkDistance(h, W, H, walkBlocked, links, start);
-  const walk = new Float64Array(N);
-  for (let i = 0; i < N; i++) walk[i] = reachAt(d, W, H, i);
+  // ---- the resources, near the start first, over the colony's walk
   const plan = planBaseline({
     ground: { W, H, heights: h, water, moisture: moistureNow, soilContamination: soilNow, taken },
     settings: inp.settings,
@@ -233,4 +301,21 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   });
   const entities = [...badEntities, ...baselineEntities(plan, { W, moisture: moistureNow, soilContamination: soilNow, water }, h, owner), ...mineEntities];
   return { plan, mines, badwater: springs, entities, water: settled };
+}
+
+/** The start's water and first farmland (Real places, D331 (3)): the water beside the ground within
+ *  `within` tiles' walk of the start (what a pump there reaches), and the moist dry land within 20
+ *  tiles' walk (analysis/startLand.ts's farmland). */
+function clearOfStart(W: number, H: number, water: ArrayLike<number>, moisture: ArrayLike<number>, walk: Float64Array, within: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!(walk[i] <= Math.max(within, 20)) || water[i] > WET) continue;
+    if (walk[i] <= 20 && moisture[i] > 0) out[i] = 1;
+    if (walk[i] > within) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) if (n >= 0 && water[n] > WET) out[n] = 1;
+  }
+  return out;
 }

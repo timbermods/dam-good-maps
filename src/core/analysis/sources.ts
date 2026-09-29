@@ -108,38 +108,9 @@ export function sourcesInFlow(model: WaterModel, objects: readonly MapObject[], 
 
   // 3. which way water runs: down the spill levels, across a flat toward its way out, and all
   //    through a pool
-  const spill = spillLevels(model);
-  const pool = new Uint8Array(N);
-  for (let i = 0; i < N; i++) pool[i] = spill[i] > model.floor[i] + (model.dam && model.dam[i] >= 0 ? model.dam[i] : 0) ? 1 : 0;
   const emitting = new Uint8Array(N);
   for (const u of units) for (const c of u.cells) emitting[c] = 1;
-  const exitDist = new Int32Array(N).fill(-1);
-  const flatQueue: number[] = [];
-  for (let c = 0; c < N; c++) {
-    const x = c % W;
-    const y = (c - x) / W;
-    let exit = (x === 0 || y === 0 || x === W - 1 || y === H - 1) && !emitting[c];
-    for (let d = 0; d < 4 && !exit; d++) {
-      const n = d === 0 ? (y > 0 ? c - W : -1) : d === 1 ? (x > 0 ? c - 1 : -1) : d === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
-      if (n >= 0 && spill[n] < spill[c]) exit = true;
-    }
-    if (exit) {
-      exitDist[c] = 0;
-      flatQueue.push(c);
-    }
-  }
-  for (let head = 0; head < flatQueue.length; head++) {
-    const c = flatQueue[head];
-    const x = c % W;
-    const y = (c - x) / W;
-    for (let d = 0; d < 4; d++) {
-      const n = d === 0 ? (y > 0 ? c - W : -1) : d === 1 ? (x > 0 ? c - 1 : -1) : d === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
-      if (n < 0 || exitDist[n] >= 0 || spill[n] !== spill[c]) continue;
-      exitDist[n] = exitDist[c] + 1;
-      flatQueue.push(n);
-    }
-  }
-  const runs = (c: number, n: number) => spill[n] < spill[c] || (spill[n] === spill[c] && ((pool[c] === 1 && pool[n] === 1) || exitDist[n] <= exitDist[c]));
+  const { runs } = waterWays(model, emitting);
 
   // 4. where each group's water goes
   const reach = groups.map((g) => {
@@ -183,4 +154,88 @@ export function sourcesInFlow(model: WaterModel, objects: readonly MapObject[], 
   }
   inFlow.sort((p, q) => p[0] - q[0]);
   return { sources, inFlow: inFlow.map(([o]) => o), tiles: inFlow.map(([, t]) => t) };
+}
+
+/** Which way water runs on a map (step 3 of `sourcesInFlow`'s rule): down the spill levels (the
+ *  priority flood from the draining map edge, sim/prefill.ts), on a flat of one spill level across it
+ *  toward its way out (`exitDist`: steps to a tile beside lower ground or a draining map edge), and
+ *  all through a pool (`pool`: its spill level above its floor). `emitting` tiles (sources) are not
+ *  ways out. */
+export function waterWays(model: WaterModel, emitting: Uint8Array): { spill: Float64Array; pool: Uint8Array; exitDist: Int32Array; runs: (c: number, n: number) => boolean } {
+  const { W, H } = model;
+  const N = W * H;
+  const spill = spillLevels(model);
+  const pool = new Uint8Array(N);
+  for (let i = 0; i < N; i++) pool[i] = spill[i] > model.floor[i] + (model.dam && model.dam[i] >= 0 ? model.dam[i] : 0) ? 1 : 0;
+  const exitDist = new Int32Array(N).fill(-1);
+  const flatQueue: number[] = [];
+  for (let c = 0; c < N; c++) {
+    const x = c % W;
+    const y = (c - x) / W;
+    let exit = (x === 0 || y === 0 || x === W - 1 || y === H - 1) && !emitting[c];
+    for (let d = 0; d < 4 && !exit; d++) {
+      const n = d === 0 ? (y > 0 ? c - W : -1) : d === 1 ? (x > 0 ? c - 1 : -1) : d === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
+      if (n >= 0 && spill[n] < spill[c]) exit = true;
+    }
+    if (exit) {
+      exitDist[c] = 0;
+      flatQueue.push(c);
+    }
+  }
+  for (let head = 0; head < flatQueue.length; head++) {
+    const c = flatQueue[head];
+    const x = c % W;
+    const y = (c - x) / W;
+    for (let d = 0; d < 4; d++) {
+      const n = d === 0 ? (y > 0 ? c - W : -1) : d === 1 ? (x > 0 ? c - 1 : -1) : d === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
+      if (n < 0 || exitDist[n] >= 0 || spill[n] !== spill[c]) continue;
+      exitDist[n] = exitDist[c] + 1;
+      flatQueue.push(n);
+    }
+  }
+  const runs = (c: number, n: number) => spill[n] < spill[c] || (spill[n] === spill[c] && ((pool[c] === 1 && pool[n] === 1) || exitDist[n] <= exitDist[c]));
+  return { spill, pool, exitDist, runs };
+}
+
+/** Where a new spring's water would go (Real places' badwater, D331 (3)): its stream from `cells`
+ *  down the land, over `waterWays`: at each tile the lowest way down (the nearer way out breaking
+ *  ties, then the lower tile index), filling every pool it runs into and spreading over every flat
+ *  it crosses (the settle lays a thin sheet over a flat of one level, as the places' conversion
+ *  reads it, tools/places/convert.ts `offWater`), until it leaves the map or ends in a pool with no
+ *  way out. Every tile it runs over. */
+export function streamOf(ways: ReturnType<typeof waterWays>, W: number, H: number, cells: readonly number[]): Uint8Array {
+  const { spill, pool, exitDist } = ways;
+  const seen = new Uint8Array(W * H);
+  const queue: number[] = [];
+  for (const c of cells)
+    if (!seen[c]) {
+      seen[c] = 1;
+      queue.push(c);
+    }
+  for (let head = 0; head < queue.length; head++) {
+    const c = queue[head];
+    const x = c % W;
+    const y = (c - x) / W;
+    let best = -1;
+    for (let d = 0; d < 4; d++) {
+      const n = d === 0 ? (y > 0 ? c - W : -1) : d === 1 ? (x > 0 ? c - 1 : -1) : d === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
+      if (n < 0) continue;
+      // a pool fills, and a flat takes a sheet: all of it
+      if (spill[n] === spill[c]) {
+        if (!seen[n]) {
+          seen[n] = 1;
+          queue.push(n);
+        }
+        continue;
+      }
+      const down = spill[n] < spill[c] || (spill[n] === spill[c] && exitDist[n] >= 0 && exitDist[n] < exitDist[c]);
+      if (!down) continue;
+      if (best < 0 || spill[n] < spill[best] || (spill[n] === spill[best] && (exitDist[n] < exitDist[best] || (exitDist[n] === exitDist[best] && n < best)))) best = n;
+    }
+    if (best >= 0 && !seen[best]) {
+      seen[best] = 1;
+      queue.push(best);
+    }
+  }
+  return seen;
 }

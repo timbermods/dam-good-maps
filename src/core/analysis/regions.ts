@@ -57,6 +57,37 @@ export function walkRegions(h: Uint8Array, W: number, H: number, blocked: Uint8A
   return labels;
 }
 
+/** Land a colony reaches without crossing water or climbing a cliff (item 47's reachable mine
+ *  sites): dry tiles 4-connected by steps of at most one level (the map's slopes, or one flight of
+ *  player stairs). Labels −1 on wet tiles. */
+export function landRegions(h: ArrayLike<number>, W: number, H: number, wet: ArrayLike<number>): Int32Array {
+  const N = W * H;
+  const labels = new Int32Array(N).fill(-1);
+  const queue = new Int32Array(N);
+  let lab = 0;
+  for (let s = 0; s < N; s++) {
+    if (labels[s] >= 0 || wet[s]) continue;
+    labels[s] = lab;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = s;
+    while (head < tail) {
+      const c = queue[head++];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (let k = 0; k < 4; k++) {
+        const n = k === 0 ? (y + 1 < H ? c + W : -1) : k === 1 ? (y > 0 ? c - W : -1) : k === 2 ? (x + 1 < W ? c + 1 : -1) : x > 0 ? c - 1 : -1;
+        if (n >= 0 && labels[n] < 0 && !wet[n] && Math.abs(h[n] - h[c]) <= 1) {
+          labels[n] = lab;
+          queue[tail++] = n;
+        }
+      }
+    }
+    lab++;
+  }
+  return labels;
+}
+
 /** Connected set tiles (4- or 8-connected). Labels −1 on unset tiles; sizes per label. */
 export function components(mask: Uint8Array, W: number, H: number, eight = false): { labels: Int32Array; sizes: number[] } {
   const N = W * H;

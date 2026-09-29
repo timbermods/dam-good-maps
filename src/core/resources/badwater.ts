@@ -22,6 +22,7 @@ import { distanceFrom } from "../math/grid";
 import { stream } from "../math/rng";
 import type { Settings } from "../spec/mapspec";
 import { lownessAt } from "./measure";
+import { streamOf, type waterWays } from "../analysis/sources";
 
 export type BadwaterSetting = Settings["hazards"]["badwater"];
 
@@ -98,6 +99,10 @@ export interface SpringInput {
   seed: number;
   /** Tiles no spring may use (ones tried before and dropped). */
   refused?: Uint8Array;
+  /** Real places (D331 (3)): tiles a spring's stream may not come within 2 tiles of (the start's
+   *  water and first farmland), its way down the land read from `ways` (analysis/sources.ts
+   *  `waterWays`, `streamOf`); nor within `within` tiles of the start. */
+  avoid?: { tiles: Uint8Array; ways: ReturnType<typeof waterWays> };
 }
 
 /** A spring's least distance from the start: the difficulty's distance plus the reach of its water
@@ -154,20 +159,56 @@ export function pickBadwaterSprings(inp: SpringInput): BadwaterSpring[] {
     }
   const out: BadwaterSpring[] = [];
   const used = new Uint8Array(N);
+  // (`avoid`: the tiles within 2 of the start's water and farmland, and within `within` of the start)
+  let near: Uint8Array | null = null;
+  if (inp.avoid) {
+    near = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (sd[i] < inp.within) near[i] = 1;
+      if (!inp.avoid.tiles[i]) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) near[yy * W + xx] = 1;
+        }
+    }
+  }
+  /** Whether a spring's stream stays clear of the start's water and farmland (`avoid`). */
+  const clear = (c: (typeof cands)[number]) => {
+    if (!near || !inp.avoid) return true;
+    const cells: number[] = [];
+    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) cells.push((c.y + dy) * W + c.x + dx);
+    const stream = streamOf(inp.avoid.ways, W, H, cells);
+    for (let i = 0; i < N; i++) if (stream[i] && near[i]) return false;
+    return true;
+  };
+  const muddy = new Uint8Array(cands.length);
   for (let k = 0; k < want; k++) {
     const target = least + 6 * k;
-    // nearest the target first, the lowest ground breaking near ties
+    // nearest the target first, the lowest ground breaking near ties (a spring whose stream would
+    // reach the start's water or farmland never)
     let best: (typeof cands)[number] | null = null;
-    let bestKey = Infinity;
-    for (const c of cands) {
-      if (used[c.y * W + c.x]) continue;
-      const key = Math.abs(c.d - target) + 6 * c.jitter - 8 * c.low;
-      if (key < bestKey || (key === bestKey && best && c.y * W + c.x < best.y * W + best.x)) {
-        best = c;
-        bestKey = key;
-      }
+    for (;;) {
+      best = null;
+      let at = -1;
+      let bestKey = Infinity;
+      cands.forEach((c, j) => {
+        if (used[c.y * W + c.x] || muddy[j]) return;
+        const key = Math.abs(c.d - target) + 6 * c.jitter - 8 * c.low;
+        if (key < bestKey || (key === bestKey && best && c.y * W + c.x < best.y * W + best.x)) {
+          best = c;
+          at = j;
+          bestKey = key;
+        }
+      });
+      if (!best || clear(best)) break;
+      muddy[at] = 1;
     }
     if (!best) break;
+    best = best as (typeof cands)[number];
     out.push({ x: best.x, y: best.y, z: best.z, strength: inp.budget.strength, lowness: best.low, fromStart: Math.round(best.d * 10) / 10 });
     // the next springs keep 12 tiles from this one
     for (let dy = -14; dy <= 14; dy++)

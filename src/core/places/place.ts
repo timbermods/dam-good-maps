@@ -93,6 +93,10 @@ export function placeProblems(checks: readonly CheckResult[]): { blocking: strin
   return { blocking: failing.filter((c) => c.class !== "playability").map((c) => c.id), shortOf: failing.filter((c) => c.class === "playability").map((c) => c.id) };
 }
 
+/** Mine sites a place wants the colony to reach from its start (D331 (3), as generated maps' item
+ *  47): a preference, where the land offers a natural spot (resources/plan.ts `reachableMines`). */
+export const PLACE_MINES = 2;
+
 /** The water's and the soil's rules real places are settled, planted and checked under: the game's
  *  own (Kyler, D293, D297, D298, D303, D308), while generated maps stay on the port's until M9b
  *  moves them. */
@@ -329,7 +333,10 @@ export function buildPlace(p: PlaceData, settled?: CanonicalWater, opts: { badwa
     // badwater on every map (D200, D213): a spring where the land allows, at Normal's distance from
     // the start, as the generator places it
     // (`badwater: false`: none, for the conversion's quick look at a start, tools/places/convert.ts)
-    badwater: { setting: opts.badwater === false ? "off" : "normal", within: rules.badwaterWithin },
+    // (D331 (3): never where its stream reaches the start's water or first farmland)
+    badwater: { setting: opts.badwater === false ? "off" : "normal", within: rules.badwaterWithin, clearOfStart: rules.waterWithin },
+    // two mine sites the colony reaches, where the land offers them (D331 (3))
+    reachableMines: PLACE_MINES,
     rules: PLACE_RULES,
     // each badwater spring a group by D314's rule: alone or in a close pair
     groupedBadwater: true,
