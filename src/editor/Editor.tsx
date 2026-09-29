@@ -1399,12 +1399,17 @@ export default function Editor(props: EditorProps) {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects standing on these tiles, the start's aside. */
-  function objectsOn(tiles: readonly number[]): number[] {
+  /** The corner tiles of the objects standing on these tiles (kinds filtered, D315), the start's
+   *  aside. */
+  function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
     const out = new Set<number>();
-    for (const i of tiles) for (const k of at.get(i) ?? []) if (removeKindOf(e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
+    for (const i of tiles)
+      for (const k of at.get(i) ?? []) {
+        const kind = removeKindOf(e.templates[e.template[k]]);
+        if (kind && kinds.includes(kind)) out.add(e.y[k] * info.W + e.x[k]);
+      }
     return [...out];
   }
   /** Whether the start stands on one of these tiles. */
@@ -1413,18 +1418,19 @@ export default function Editor(props: EditorProps) {
     const at = coverAt();
     return tiles.some((i) => (at.get(i) ?? []).some((k) => e.templates[e.template[k]] === "StartingLocation"));
   }
-  /** Delete everything standing on these tiles, objects and sources (never the start), as one
-   *  step with its whuff; the start says it stays. `quiet`: nothing there says nothing. */
-  function deleteOn(tiles: number[], quiet = false): boolean {
-    const corners = objectsOn(tiles);
+  /** Delete everything of `kinds` standing on these tiles (every kind, and sources and the start
+   *  aside, by default; D315 passes `["sources"]`), as one step with its whuff; the start says it
+   *  stays. `quiet`: nothing there says nothing. */
+  function deleteOn(tiles: number[], quiet = false, kinds: RemoveKind[] = ALL_KINDS): boolean {
+    const corners = objectsOn(tiles, kinds);
     if (!corners.length) {
-      if (startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
-      else if (!quiet) setMessage({ kind: "info", text: "Nothing stands there to delete." });
-      return startOn(tiles);
+      if (kinds === ALL_KINDS && startOn(tiles)) flashNote("The start stays: pick it on the shelf to move it");
+      else if (!quiet) setMessage({ kind: "info", text: kinds === ALL_KINDS ? "Nothing stands there to delete." : "No water or badwater sources there." });
+      return kinds === ALL_KINDS && startOn(tiles);
     }
     const W = info.W;
     void run(
-      () => api.removeAt(tiles, ALL_KINDS),
+      () => api.removeAt(tiles, kinds),
       (u) => u.ok && feel("remove", corners[0] % W, Math.floor(corners[0] / W)),
     );
     return true;
@@ -1436,8 +1442,17 @@ export default function Editor(props: EditorProps) {
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (tiles.length) deleteOn(tiles);
   }
-  const deleteCalls = useRef({ deleteOn, deleteSelection });
-  deleteCalls.current = { deleteOn, deleteSelection };
+  /** Select's Delete sources (D315): every water and badwater source inside the selection, and
+   *  nothing else (no trees, ruins or other objects); their water drains as its causes are gone
+   *  (D260). With Ctrl+A first, this clears every source on the map. */
+  function deleteSourcesSelection() {
+    const h = mirror.current.heights;
+    const cut = renderer.current?.slice ?? null;
+    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    if (tiles.length) deleteOn(tiles, false, ["sources"]);
+  }
+  const deleteCalls = useRef({ deleteOn, deleteSelection, deleteSourcesSelection });
+  deleteCalls.current = { deleteOn, deleteSelection, deleteSourcesSelection };
 
   // ------------------------------------------------------------------------------ the forces
 
@@ -2695,6 +2710,9 @@ export default function Editor(props: EditorProps) {
             </button>
             <button type="button" title="Everything standing there, objects and sources; the start stays (Delete)" onClick={deleteSelection}>
               Delete
+            </button>
+            <button type="button" title="Only water and badwater sources in the selection; their water drains (Ctrl+A first clears every source on the map)" onClick={deleteSourcesSelection}>
+              Delete sources
             </button>
             {deepest >= 1 ? (
               <>

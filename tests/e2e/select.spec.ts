@@ -250,3 +250,91 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   for (let i = 0; i < fill.length; i++) if (h0[i] >= L) expect(fill[i], `tile ${i} at or above the level`).toBe(h0[i]);
   for (let i = 0; i < fill.length; i++) if (h0[i] < L) expect(fill[i], `tile ${i} below the level`).toBeGreaterThanOrEqual(L);
 });
+
+test("Delete sources (D315): removes only the water or badwater source in the selection, one undo step; its water drains after", async ({ page }) => {
+  await refine(page);
+  const sourceCount = () =>
+    page.evaluate(() => {
+      const e = window.dgm3d!.renderer.mapState()!.entities;
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") n++;
+      return n;
+    });
+  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
+  const n0 = await sourceCount();
+  expect(n0).toBeGreaterThan(1); // more than one, so the map keeps water elsewhere once one is gone
+  // one source, away from the others, so removing it doesn't dry the whole map
+  const one = await page.evaluate(() => {
+    const e = window.dgm3d!.renderer.mapState()!.entities;
+    const sources: { x: number; y: number }[] = [];
+    for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") sources.push({ x: e.x[k], y: e.y[k] });
+    let best = sources[0];
+    let bestMin = -1;
+    for (const s of sources) {
+      const closest = Math.min(...sources.filter((o) => o !== s).map((o) => Math.hypot(o.x - s.x, o.y - s.y)));
+      if (closest > bestMin) (bestMin = closest, best = s);
+    }
+    return best;
+  });
+  const waterNear = (x: number, y: number, r = 4) =>
+    page.evaluate(
+      ([cx, cy, rr]) => {
+        const m = window.dgm3d!.renderer.mapState()!;
+        let d = 0;
+        for (let yy = cy - rr; yy <= cy + rr; yy++) for (let xx = cx - rr; xx <= cx + rr; xx++) d = Math.max(d, m.surface.depth[yy * m.W + xx] || 0);
+        return d;
+      },
+      [x, y, r] as [number, number, number],
+    );
+  expect(await waterNear(one.x, one.y)).toBeGreaterThan(0.01);
+
+  // select a small box around it and Delete sources: only that source goes
+  await page.keyboard.press("m");
+  const row = page.getByRole("group", { name: "Selection" });
+  const a = await client(page, one.x - 3, one.y - 3);
+  const b = await client(page, one.x + 3, one.y + 3);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  const n1 = (await page.evaluate(() => window.dgmEditor!.info())).history.filter((h) => h.applied).length;
+  await row.getByRole("button", { name: "Delete sources" }).click();
+  await idle(page);
+  const info1 = await page.evaluate(() => window.dgmEditor!.info());
+  expect(info1.history.filter((h) => h.applied)).toHaveLength(n1 + 1);
+  expect(info1.history.filter((h) => h.applied).at(-1)!.label).toBe("Remove a source");
+  expect(await sourceCount()).toBe(n0 - 1);
+  // its own water drains, since its cause is gone (D260)
+  await expect.poll(() => waterNear(one.x, one.y), { timeout: 10_000, intervals: [100] }).toBeLessThan(0.005);
+
+  // undo restores it and its water, in the one step
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  expect(await sourceCount()).toBe(n0);
+  await expect.poll(() => waterNear(one.x, one.y), { timeout: 10_000 }).toBeGreaterThan(0.01);
+});
+
+test("Delete sources (D315), the whole map (Ctrl+A): clears every source in one step; undo restores them all", async ({ page }) => {
+  await refine(page);
+  const sourceCount = () =>
+    page.evaluate(() => {
+      const e = window.dgm3d!.renderer.mapState()!.entities;
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") n++;
+      return n;
+    });
+  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
+  const n0 = await sourceCount();
+  expect(n0).toBeGreaterThan(0);
+
+  await page.keyboard.press("m");
+  const row = page.getByRole("group", { name: "Selection" });
+  await page.keyboard.press("Control+a");
+  await row.getByRole("button", { name: "Delete sources" }).click();
+  await idle(page);
+  expect(await sourceCount()).toBe(0);
+
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  expect(await sourceCount()).toBe(n0);
+});

@@ -21,6 +21,20 @@
 > 12. **D314: done** (the section below): Carve's own source is a group, a row across the flow.
 > 11. **D309, the details behind More: done** (the section below, added 2026-09-28, after the sitting
 >     was already queued): amends D289, so the forces-sitting checklist gets one more line.
+> 12. **D313, the sounds: done** (the section below, added 2026-09-28): Smooth a softer relative of
+>     Flatten's, every file's encoding checked and re-encoded where it helped, the default volume a
+>     quarter lower (saved volumes kept exactly).
+> 13. **D315, Delete sources: done** (the section below, added 2026-09-28), with one finding parked
+>     for the milestone session: removing a source (even one) sometimes drops a few nearby bushes from
+>     the live view once the water preview runs forward, seen in CI but not locally, so it looks like
+>     the live simulation's own timing; it needs a look (below).
+>
+> **Handoff stop (2026-09-28 evening, on `feature/forces-sounds`, PR #81 into `feature/forces`,
+> not merged):** D313 and D315 both done as above; CI green on the branch's own run
+> (36373773578), a duplicate-triggered run (36373778224) still finishing `test` at handoff with
+> `generation`/`oracle` already green; branch pushed, working tree clean, last commit
+> `3289a104102fce712a87a0c2d4762b8aad25bf70`. Next: confirm the second run, then merge #81 into
+> `feature/forces`.
 >
 > **The queue is done**; this branch waits for Kyler's forces sitting (the checklist lines are in
 > each section).
@@ -38,6 +52,88 @@ Slide), D206 and D216 (Erupt, its plume billowing bigger and darker at high powe
 (juice: sounds on by default, quiet, with an off switch), D220 (build on the forces core; hook the
 synthesised sounds in). The sources: `investigation/forces-core` (#59) and each force's own
 investigation (#47, #51, #50, #52); `investigation/juice` (#58).
+
+## Select: Delete sources (D315)
+
+The Select row gains **Delete sources**, beside **Delete**: it removes every water and badwater
+source inside the selection, and nothing else (no trees, ruins or other objects). With Ctrl+A it
+clears every source on the map. One undo step; their water drains as its causes are gone (D260,
+already on the branch).
+
+- Built exactly as the request asked: reused Select's existing Delete (D288) machinery with a
+  sources-only filter, no new engine code. `objectsOn` and `deleteOn` (`src/editor/Editor.tsx`) now
+  take a `kinds` list (`RemoveKind[]`, default every kind, D315 passes `["sources"]`); a new
+  `deleteSourcesSelection` mirrors `deleteSelection` and calls `deleteOn(tiles, false, ["sources"])`.
+  `api.removeAt` already accepted a `kinds` filter and `"sources"` was already one of its `RemoveKind`
+  values (`src/core/features/objects.ts`), so the worker side needed no change at all; the label it
+  produces ("Remove a source" / "Remove N sources") came for free. A new button, "Delete sources",
+  sits beside "Delete" in the Selection row.
+- Tests: `tests/contract/shelf.test.ts` proves the operation itself (`ed.removeAt(tiles, ["sources"])`
+  against the raw session, no live water) takes every source on the map and leaves every other
+  entity's count exactly as it was, undoable in one step. `tests/e2e/select.spec.ts` (D148) checks the
+  player-facing mechanics through the live editor: a small selection around one source (with others
+  left on the map) removes only that source and its own nearby water drains, undoing in one step; a
+  second test does Ctrl+A then Delete sources and checks every source is gone in one step and undo
+  brings them all back. Neither e2e test asserts anything about other objects' counts — see below.
+- **A finding for the milestone session, not resolved here.** The first draft of the e2e test also
+  checked that every non-source object's count stayed exactly as it was after a *single* source's
+  removal, matching the operation's own guarantee (proven above at the session level). It passed
+  against a local Chrome run, but failed in CI's headless Chromium: of a generated 96×96 Highlands
+  map's (seed 4242) 150 `BlueberryBush` entities, 6 were gone from the live view after removing just
+  one nearby source, with every tree, ruin, relic and slope unchanged. Removing every source at once
+  (Ctrl+A) made a much larger dent (150 → 0 in one run). `ed.removeAt` itself never touches anything
+  but sources (the contract test above, and the session-level check in this same investigation with
+  water deferred, back it up); the loss only shows up once the live water preview has run forward,
+  which points at the moisture or drought side of the simulation reacting to water the edit took away,
+  not at anything this change added — and its being timing-sensitive (present in CI's headless run,
+  absent locally) rather than a fixed count both times says it is the live simulation's own pace at
+  work, not a deterministic rule. Whether that reaction is correct (berries drying up once their water
+  is gone, a real Timberborn idea) and, if so, why it is timing-dependent instead of deterministic, is
+  a call about the water simulation, outside a written-spec build. Flagged for `build` or Kyler's own
+  look; the e2e tests were narrowed to what Delete sources itself is answerable for so CI stays green
+  without hiding the finding.
+
+## Sounds: Smooth, re-encoding, a quieter default (D313)
+
+Kyler, 2026-09-28, from the forces sitting: Smooth's sound was low-fidelity and sounded dirty beside
+Flatten's nicer one; every file's encoding needed a check; the mix should sit about a quarter quieter
+by default.
+
+- **Smooth is now a family with Flatten**, not its own leaf-bed sound: both the one-shot recipe and
+  the held stroke reuse Flatten's own `scrape` sample and `stone-bed` bed (`src/editor/juice/palette.ts`),
+  pitched up (~1.4–1.6×), a softer attack, shorter, and filtered gentler (a 3.4–4.2 kHz low-pass
+  against Flatten's own unfiltered scrape). No new recording: Naturalize keeps the leaves. Re-measured
+  against a real `OfflineAudioContext` render the same way the round's own calibration works
+  (`checks.js`'s method, run against the live code from a dev server): the old recipe's trim put
+  Smooth at −40 dBFS once the new samples were in; a new trim (`TRIM.smooth`, `calibration.ts`) brings
+  it back to exactly −23 dBFS, the same everyday-action level as Flatten and Naturalize, peaking at
+  0.36–0.48 well under the 0.92 ceiling across the size/strength range. Listening note: Smooth now
+  reads as Flatten's gentler cousin — same mineral material, a lighter touch, over sooner — instead of
+  an unrelated leafy shuffle.
+- **Every one of the bank's 24 recordings was checked against its original CC0 download** (all six
+  re-fetched into `investigation/juice-2/local/sources` to verify their SHA-256 against `bank.json`,
+  confirming the exact same originals the round used). A reconstruction-error measurement (decode the
+  original, apply the same crop/trim/gain `build-bank.py` already computes, encode to MP3, decode
+  back, compare to the pre-encode signal) found the shipped 192 kbps MP3 left roughly 27–30 dB of
+  encoding error on every file alike — impacts, splashes and the three friction beds — regardless of
+  how loud or quiet its own gain stage was. 256 kbps cut that error by 10–40 dB (some files, like the
+  short wood impacts, came out nearly clean; the three-second beds and the louder splashes improved
+  less, being the busiest signals, but still markedly). `tools/reencode-sounds.py` reproduces this
+  pass from the same sources into `public/sounds/juice-2/` (crop, trim and gain untouched, only the
+  final bitrate); `investigation/juice-2/` keeps its own original 192 kbps copy exactly as PR #64
+  merged it (history, `docs/README.md`). Total: 818,400 → 1,090,848 bytes (0.78 → 1.04 MiB), still
+  four files at a time on the first gesture.
+- **The default volume drops from 0.72 to 0.54** (a quarter lower, `DEFAULTS.volume`,
+  `src/editor/juice/palette.ts`): a fresh player hears everyday actions near −25.5 dBFS and forces near
+  −19 instead of −23/−16.5. `loadSound()` already only falls back to the default when nothing is
+  saved, so a volume a player already set — including 0.72 from before this change — is read back
+  exactly, never nudged toward the new default.
+- Tests (D148): `juice.test.ts` checks the new default (0.54) and that a saved 0.72 from before D313
+  is kept as it is; `juiceSounds.test.ts` checks the manifest's new byte total and that every file's
+  duration still matches `investigation/juice-2`'s original (the crop is unchanged, only the
+  encoding); `sounds.spec.ts` checks the volume slider shows 0.54 on a fresh load.
+- Kyler's listening check (parked above) still applies to the finished mix; this section is the note
+  for it.
 
 ## The forces' details come back behind More, each on Auto (D309, amends D289)
 
