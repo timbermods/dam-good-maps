@@ -10,7 +10,7 @@
 // "the start" through one function, which Timber Together maps (D5) can call per colony.
 
 import { damSites, type DamSite } from "../analysis/damsites";
-import { components, walkRegions } from "../analysis/regions";
+import { components, landRegions, walkRegions } from "../analysis/regions";
 import { reachAt, startWaterShore, walkDistance, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
 import { leveeStorage, runningFlow, SECONDS_PER_DAY } from "../analysis/storage";
@@ -21,7 +21,7 @@ import { polygonMask } from "../features/geometry";
 import { OBJECT_NAMES, objectTiles } from "../features/objects";
 import { channelTiles } from "../features/route";
 import type { Feature, MapObjectFeature } from "../features/schema";
-import { DROUGHT, officialRange, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
+import { DROUGHT, OFFICIAL_LAYOUT, officialRange, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
@@ -58,6 +58,10 @@ export interface Rules {
   badwaterWithin: number;
   ruinsWithin: number;
   reachMin: number;
+  /** Item 47 (no stairs, no heavy terraforming to get going): the level building land (tiles of a
+   *  level, dry 2×2) and the moist farmland within 20 tiles' walk the start needs. */
+  levelLand: number;
+  farmland: number;
   droughtDays: number;
   /** Stored water needed near the start: the colony's drought need × the drought reserve. */
   reservoirNeed: number;
@@ -70,6 +74,15 @@ export interface Rules {
    *  badwater, or, for a map without its settings, its description does not say No badwater. */
   badwaterSource: boolean;
 }
+
+/** The level building land a start needs within 20 tiles' walk, by Start area (item 47: its first
+ *  buildings without reshaping): the start's bench the settler asks for (radius 5 / 6 / 8, PLAN
+ *  §5.7), as tiles of a level, dry 2×2. */
+export const LEVEL_LAND = { small: 79, normal: 113, large: 180 } as const;
+/** Moist farmland (dry, clean soil the water keeps moist) a start needs within 20 tiles' walk (item
+ *  47: its first farmland without stairs); the settler asks for 160 of moist land before the
+ *  resources take some. */
+export const FARMLAND_NEAR = 100;
 
 export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal", description = ""): Rules {
   const difficulty = spec?.designedFor ?? designedFor;
@@ -85,6 +98,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     badwaterWithin: s ? Math.max(s.hazards.badwaterDistance, s.start.rules.badwaterWithin) : r.badwaterWithin,
     ruinsWithin: r.ruinsWithin,
     reachMin: REACH_MIN[s?.terrain.buildableLand ?? "normal"] * START_AREA[s?.start.area ?? "normal"],
+    levelLand: LEVEL_LAND[s?.start.area ?? "normal"],
+    farmland: FARMLAND_NEAR,
     droughtDays: DROUGHT[difficulty].days,
     reservoirNeed: reservoirNeeded(difficulty) * RESERVE[s?.water.droughtReserve ?? "normal"],
     reservoirDepth: difficulty === "hard" ? 3 : 0,
@@ -128,6 +143,11 @@ export interface PlayabilityAnalysis {
   /** Living trees and living berry bushes within 20 tiles' walk of the start (slopes allowed). */
   treesNear: number;
   bushesNear: number;
+  /** The start's walk, computed once (the starting-logs floor's, over the map's own ground and
+   *  slopes; the forces-preview feedback's items 24 and 47, information): the trees within the
+   *  floor's walk (40 tiles) and the logs their grown trees hold; the farmland (moist, dry, clean
+   *  soil) and the level building land (tiles of a level, dry 2×2) within 20 tiles' walk. */
+  walkReach: { trees: number; logs: number; farmland: number; level: number } | null;
   /** Starting wood (D164): the logs of the grown trees within 20 tiles' walk, and by species;
    *  and the logs of the saplings there, still growing. */
   woodNear: number;
@@ -243,23 +263,12 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
     woodNear: 0,
     woodBySpecies: noWood(),
     woodGrowing: 0,
+    walkReach: null,
     damSites: [],
     bestDam: null,
     naturalStorage: 0,
     storage: null,
   };
-
-  // ---- a mine site on every map (Kyler, 2026-09-25): the late game's lasting source of scrap
-  let mines = 0;
-  for (const o of objects) if (o.template === "UndergroundRuins") mines++;
-  c.add({
-    id: "resources.mine_site",
-    class: "playability",
-    ok: mines >= 1,
-    value: mines,
-    limit: 1,
-    message: mines ? `${mines} mine site${mines > 1 ? "s" : ""} (every map needs at least one)` : "no mine site: every map needs at least one, the late game's lasting source of scrap metal",
-  });
 
   // ---- a badwater source on every map (Kyler, 2026-09-26, D200): the late game's lasting badwater
   //      (Extract, then Catalyst, Grease and Explosives); a badwater seep counts, as on the official
@@ -284,10 +293,54 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
   const starts = objects.map((o, k) => [o, k] as const).filter(([o]) => o.template === "StartingLocation");
   if (starts.length !== 1) {
     for (const cid of START_CHECKS) c.notApplicable(cid, "playability", `needs exactly one start (the map has ${starts.length})`, ADVISORY_START.has(cid));
+    checkMines(objects, W, H, null, c);
     return analysis;
   }
   checkStart(inp, c, starts[0][0], { M, SC, wet, clean, blocked, barrier }, analysis, id);
   return analysis;
+}
+
+/** The mine sites a map needs (item 47 of the forces-preview feedback, PLAN §20 D325; Kyler,
+ *  2026-09-25, before it: one): at least two, the late game's lasting source of scrap metal, and
+ *  with a start, two the colony reaches from it (a mine's entrance ring on the start's reach, or on
+ *  dry land joined to the start's by steps of one level: a flight of stairs at most, never across
+ *  water or up a cliff; decisions-pending, the session's default). */
+export const MINES_WANTED = 2;
+
+function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector): void {
+  let mines = 0;
+  let walked = 0;
+  for (const o of objects) {
+    if (o.template !== "UndergroundRuins") continue;
+    mines++;
+    if (!reach) continue;
+    const own = new Set<number>();
+    for (const [x, y] of footprintTiles(o.template, o)) own.add(y * W + x);
+    let hit = false;
+    for (const i of own) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -1; dy <= 1 && !hit; dy++)
+        for (let dx = -1; dx <= 1 && !hit; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H && !own.has(yy * W + xx) && reach[yy * W + xx]) hit = true;
+        }
+      if (hit) break;
+    }
+    if (hit) walked++;
+  }
+  const n = reach ? walked : mines;
+  c.add({
+    id: "resources.mine_site",
+    class: "playability",
+    ok: n >= MINES_WANTED,
+    value: n,
+    limit: MINES_WANTED,
+    message: !reach
+      ? `${mines} mine site${mines === 1 ? "" : "s"} (every map needs at least ${MINES_WANTED}, the late game's lasting source of scrap metal)`
+      : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (every map needs at least ${MINES_WANTED})`,
+  });
 }
 
 /** `water.badwater_contained` (PLAN §9.5, D57): with a levee on its outlet (the outlet channel's
@@ -396,7 +449,7 @@ function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
 
 /** The checks that need the start, in report order. */
 const START_CHECKS = [
-  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_floor", "start.ruins_clear",
+  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_floor", "start.farmland", "start.level_land", "start.ruins_clear",
   "plants.survive", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
   "ruins.access", "extras.placement",
 ];
@@ -621,6 +674,53 @@ function checkStart(
     if (tree) trees++;
     else bushes++;
   }
+  const land = landRegions(h, W, H, wet);
+  const landRoot = land[sy * W + sx];
+  const landReach = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (reach[i] || (landRoot >= 0 && land[i] === landRoot)) landReach[i] = 1;
+  checkMines(objects, W, H, landReach, c);
+  // the start's walk once more (items 24 and 47): the trees within the floor's walk and their logs,
+  // and the farmland and level building land within 20 tiles' walk
+  {
+    let floorTrees = 0;
+    for (const o of objects) {
+      if (LOGS_PER_TREE_SPECIES[o.template] === undefined || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
+      if (reachAt(walk, W, H, o.y * W + o.x) <= LOG_FLOOR_WALK) floorTrees++;
+    }
+    let farmland = 0;
+    let level = 0;
+    const flat = new Uint8Array(N);
+    for (let y = 0; y + 1 < H; y++)
+      for (let x = 0; x + 1 < W; x++) {
+        const i = y * W + x;
+        const v = h[i];
+        if (h[i + 1] !== v || h[i + W] !== v || h[i + W + 1] !== v) continue;
+        if (wet[i] || wet[i + 1] || wet[i + W] || wet[i + W + 1] || blocked[i] || blocked[i + 1] || blocked[i + W] || blocked[i + W + 1]) continue;
+        flat[i] = flat[i + 1] = flat[i + W] = flat[i + W + 1] = 1;
+      }
+    for (let i = 0; i < N; i++) {
+      if (wet[i] || reachAt(walk, W, H, i) > NEAR) continue;
+      if (M[i] > 0 && !(SC[i] > 0) && !blocked[i]) farmland++;
+      if (flat[i]) level++;
+    }
+    analysis.walkReach = { trees: floorTrees, logs: floorWood, farmland, level };
+    c.add({
+      id: "start.farmland",
+      class: "playability",
+      ok: farmland >= rules.farmland,
+      value: farmland,
+      limit: rules.farmland,
+      message: `${farmland} tiles of moist farmland within ${NEAR} tiles' walk of the start, no stairs needed (at least ${rules.farmland})`,
+    });
+    c.add({
+      id: "start.level_land",
+      class: "playability",
+      ok: level >= rules.levelLand,
+      value: level,
+      limit: rules.levelLand,
+      message: `${level} tiles of level building land within ${NEAR} tiles' walk of the start, no reshaping needed (at least ${rules.levelLand})`,
+    });
+  }
   analysis.treesNear = trees;
   analysis.bushesNear = bushes;
   analysis.woodNear = wood;
@@ -801,16 +901,19 @@ function checkStart(
     if (o.template.startsWith("RuinColumnH")) {
       scrap += 15 * Number(o.template.slice(11));
       ruins.push(o);
-    } else if ((TREES as readonly string[]).includes(o.template) || o.template === "Succulent") treeTotal++;
+    } else if (((TREES as readonly string[]).includes(o.template) || o.template === "Succulent") && !(o.components.LivingNaturalResource as { IsDead?: boolean } | undefined)?.IsDead) treeTotal++;
     else if (o.template === "BlueberryBush") bushTotal++;
   }
   const res: ["scrap" | "trees" | "bushes", number, string][] = [
     ["scrap", scrap, "scrap metal in ruins"],
-    ["trees", treeTotal, "trees"],
+    ["trees", treeTotal, "living trees"],
     ["bushes", bushTotal, "berry bushes"],
   ];
   for (const [key, have, what] of res) {
-    const band = officialRange(key, area);
+    // (living trees only, item 26: against the official maps' living share of their trees)
+    const all = officialRange(key, area);
+    const [la, lb] = OFFICIAL_LAYOUT.livingShare;
+    const band = key === "trees" ? { median: (all.median * (la + lb)) / 2, low: all.low * la, high: all.high * lb } : all;
     const k = rules.multipliers[key];
     const need2 = 0.5 * band.median * k;
     const lo = Math.round(band.low * k);
@@ -880,12 +983,17 @@ function checkStart(
 /** Distance bands of the 1.0 objects from the start (PLAN §5.4–5.5, §11.4), in tiles on maps of
  *  128² and larger; smaller maps scale the scaled bands by their side ÷ 128. Thorn belts and unstable
  *  cores keep their distance on every map. */
+/** A mine site stands 60+ tiles from the start where it can (the official maps' nearest is 61); one
+ *  the colony reaches may stand nearer, from 30 (item 47: two mine sites it reaches). */
+export const MINE_REACH_LO = 30;
+export const MINE_LO = 60;
+
 export const EXTRA_BANDS: Record<string, { lo: number; hi: number; scaled: boolean }> = {
   relicSmall: { lo: 13, hi: 70, scaled: true },
   relicMedium: { lo: 40, hi: 140, scaled: true },
   relicLarge: { lo: 140, hi: Infinity, scaled: true },
   geothermal: { lo: 30, hi: 120, scaled: true },
-  mineSite: { lo: 60, hi: Infinity, scaled: true },
+  mineSite: { lo: MINE_REACH_LO, hi: Infinity, scaled: true },
   thornBelt: { lo: 20, hi: Infinity, scaled: false },
   unstableCore: { lo: 40, hi: Infinity, scaled: false },
 };

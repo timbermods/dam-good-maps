@@ -18,6 +18,7 @@ import { validateSpec } from "./schema";
 import {
   defaultSettings,
   GENERATOR_VERSION,
+  highestTerrainDefault,
   makeSpec,
   MAX_SIDE,
   MIN_SIDE,
@@ -175,6 +176,8 @@ export function encodeSpecFragment(spec: MapSpec): string {
   put("z", sizeText(spec.size));
   put("d", DIFF_CODES[spec.designedFor]);
   const base = defaultSettings(spec.theme, spec.designedFor, spec.size);
+  // (Highest terrain's default follows Verticality, item 36)
+  base.terrain.highestTerrain = highestTerrainDefault(spec.settings.terrain.verticality);
   for (const sk of SETTING_KEYS) {
     const v = getAt(spec.settings, sk.path);
     const b = getAt(base, sk.path);
@@ -265,8 +268,8 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       const bytes = fromBase64Url(raw);
       v = bytes && bytes.length === 4 ? Object.fromEntries(SPECIES.map((n, k) => [n, bytes[k]])) : undefined;
     }
-    // every map has at least one mine site (Kyler, 2026-09-25): an old link's 0 asks for one
-    if (sk.key === "ms" && v === 0) v = 1;
+    // every map has at least two mine sites (item 47): an old link's 0 or 1 asks for two
+    if (sk.key === "ms" && (v === 0 || v === 1)) v = 2;
     const before = getAt(spec.settings, sk.path);
     setAt(spec.settings, sk.path, v);
     if (v === undefined || (typeof v === "number" && Number.isNaN(v)) || validateSpec(spec).length) {
@@ -274,6 +277,8 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       problems.push(`setting ${sk.key}=${raw} is not valid here, so the preset's value is kept`);
     }
   }
+  // Highest terrain's default follows Verticality (item 36): a link that does not give it takes it
+  if (!params.has("ht")) spec.settings.terrain.highestTerrain = highestTerrainDefault(spec.settings.terrain.verticality);
   // a link from before D164 counts starting trees (`st`): its wood is `woodForTrees` of them,
   // unless the link also gives the wood (`sl`)
   const st = params.get("st");

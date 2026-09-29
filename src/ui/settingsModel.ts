@@ -3,11 +3,25 @@
 // feasibility guards (PLAN §5.3). The share text for "Copy seed + settings" is built here too.
 
 import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
-import { density, LAKES, OFFICIAL_BADWATER, officialPerMap, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
+import { density, LAKES, OFFICIAL_BADWATER, OFFICIAL_LAYOUT, officialPerMap, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
 import { badwaterBudget } from "../core/resources/badwater";
 import { resourceBudget } from "../core/resources/budget";
 import { flowBudget } from "../core/features/setpieces/common";
-import { THEME_NAMES, type Difficulty, type MapSpec, type Settings } from "../core/spec/mapspec";
+import { BED_FLOOR } from "../core/land/genome";
+import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_NAMES, VT_TALL, type Difficulty, type MapSpec, type Settings } from "../core/spec/mapspec";
+
+/** Highest terrain's slider reaches 22 where Verticality allows tall land (item 36), else 16. */
+export function highestMax(verticality: number): number {
+  return verticality >= VT_TALL ? TALL_TOP : EDITOR_LEVEL;
+}
+
+/** Verticality moved: Highest terrain at its default follows it (16 below 70, 22 from it), and any
+ *  other value stays within the slider's reach, so the two controls never contradict (item 36). */
+export function setVerticality(t: Settings["terrain"], v: number): void {
+  const followed = t.highestTerrain === highestTerrainDefault(t.verticality);
+  t.verticality = v;
+  t.highestTerrain = followed ? highestTerrainDefault(v) : Math.min(t.highestTerrain, highestMax(v));
+}
 
 export type Choice<T extends string> = { value: T; label: string; disabled?: string };
 
@@ -113,15 +127,18 @@ export function band(key: string, spec: MapSpec): string {
   };
   switch (key) {
     case "relief":
-      return `Height range about ${Math.round(7 + 0.08 * s.terrain.relief)} levels. Official maps: 9–15, most 13.`;
+      // (the land stands a level over the beds' floor, item 47: its range fits under Highest terrain)
+      return `Height range about ${Math.min(Math.round(7 + 0.08 * s.terrain.relief), s.terrain.highestTerrain - BED_FLOOR)} levels. Official maps: 9–15, most 13.`;
     case "verticality":
-      return s.terrain.verticality >= 70
-        ? "Sheer cliffs, spires and deep gorges. From 70 the land may rise above level 16, where the game's map editor can't edit it."
-        : "How tall and sheer the land grows: higher brings cliffs, spires and deep gorges.";
+      return s.terrain.verticality < VT_TALL
+        ? "How tall and sheer the land grows: higher brings cliffs, spires and deep gorges."
+        : s.terrain.highestTerrain > EDITOR_LEVEL
+          ? "Sheer cliffs, spires and deep gorges. The land may rise above level 16, up to Highest terrain."
+          : "Sheer cliffs, spires and deep gorges, kept under Highest terrain.";
     case "variety":
       return s.terrain.variety >= 85 ? "Anything goes: any landform, lake or cliff can turn up, whatever the theme." : "How far the land strays from its theme. Higher brings the unexpected.";
     case "highestTerrain":
-      return "Official maps all top out at 16, the map editor's limit.";
+      return s.terrain.highestTerrain > EDITOR_LEVEL ? "Above 16 the game's own map editor can't edit the land; Dam Good Maps can." : "Official maps all top out at 16, the map editor's limit.";
     case "terracing":
       return `About ${Math.round((0.86 - 0.0059 * s.terrain.terracing) * 100)}% of steps are one level. Official maps: 27–86%.`;
     case "buildableLand":
@@ -155,9 +172,14 @@ export function band(key: string, spec: MapSpec): string {
     case "geothermal":
       return "Free power for a geothermal engine, on dry ground 30–120 tiles out.";
     case "mineSites":
-      return "Where the late scrap mine can be built. Every map has at least one. Official maps: 1–4.";
+      return "Where the late scrap mine can be built. Every map has at least two the colony walks to. Official maps: 1–4.";
     case "forestDensity":
-      return `About ${budget().trees.toLocaleString()} trees, in groves with clearings. Official maps this size: ${range("trees")}.`;
+    {
+      // living trees only (item 26): the official maps' living share of their trees
+      const t = officialRange("trees", area);
+      const [a, b] = OFFICIAL_LAYOUT.livingShare;
+      return `About ${budget().living.toLocaleString()} living trees, in groves with clearings. Official maps this size: ${roundNice(t.low * a).toLocaleString()}–${roundNice(t.high * b).toLocaleString()} living.`;
+    }
     case "groveSize":
       return "Official groves: most about 40 trees.";
     case "berriesNearStart":

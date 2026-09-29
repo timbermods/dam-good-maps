@@ -299,6 +299,9 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + 40) + 1;
     return storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
   };
+  // (the last resort too joins the land the start needs, item 47: a pad on a strip cut off by water
+  // and cliffs reaches neither its mine sites nor room to grow)
+  const footed = (p: StartPick | null): StartPick | null => (p && opts.foot && opts.minFoot && opts.foot.size[opts.foot.lab[p.y * W + p.x]] < opts.minFoot ? null : p);
   const roomWant = opts.room ?? 900;
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
@@ -404,7 +407,7 @@ export function pickStart(
         cands.push({ i, score, kind, o, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
-  if (!cands.length) return bankStart(h, W, H, water, hydro, rng, margin, avoid);
+  if (!cands.length) return footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
   cands.sort((a, b) => b.score - a.score || a.i - b.i);
   // the best few, far enough apart that the choice matters
   const top: typeof cands = [];
@@ -426,7 +429,7 @@ export function pickStart(
     }
     top.push(c);
   }
-  if (!top.length) return bankStart(h, W, H, water, hydro, rng, margin, avoid);
+  if (!top.length) return footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);

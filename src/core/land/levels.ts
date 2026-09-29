@@ -22,7 +22,7 @@ import { fbm } from "../math/noise";
 import { levelRegions, MinHeap } from "../math/grid";
 import { stream } from "../math/rng";
 import { clamp, N4, pctSorted, smoothstep } from "./num";
-import type { Genome } from "./genome";
+import { BED_FLOOR, VT_HIGH, type Genome } from "./genome";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -64,12 +64,44 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         const m = smoothstep((fbm(ts, x, y, g.terrace.cell, 2) + 1) / 2 - (1 - g.terrace.share) + 0.5);
         if (m > 0.5) L = Math.floor((L - phase) / st + 0.5) * st + phase;
       }
-      out[i] = clamp(Math.round(L), 1, maxLv);
+      // (the land stands a level above the beds' floor, item 47)
+      out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }
+  // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
+  // two tiles wide standing two levels or more over the land round it
+  if (g.vt >= VT_HIGH) readable(out, W, H);
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
   return out;
+}
+
+/** The land's opening and closing by a 3×3 square, applied only where they move a tile two levels
+ *  or more: a spike, a wall or a trench one or two tiles wide that stands out that far goes to the
+ *  land round it; one-level steps and broader shapes stay as they are. */
+export function readable(h: Uint8Array, W: number, H: number): void {
+  const N = W * H;
+  const pass = (src: Uint8Array, max: boolean): Uint8Array => {
+    const out = new Uint8Array(N);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let v = src[y * W + x];
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy < 0 ? 0 : y + dy >= H ? H - 1 : y + dy;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx < 0 ? 0 : x + dx >= W ? W - 1 : x + dx;
+            const u = src[yy * W + xx];
+            if (max ? u > v : u < v) v = u;
+          }
+        }
+        out[y * W + x] = v;
+      }
+    return out;
+  };
+  const opened = pass(pass(h, false), true);
+  for (let i = 0; i < N; i++) if (h[i] - opened[i] >= 2) h[i] = opened[i];
+  const closed = pass(pass(h, true), false);
+  for (let i = 0; i < N; i++) if (closed[i] - h[i] >= 2) h[i] = closed[i];
 }
 
 // ------------------------------------------------------------------------------------ natural ramps
@@ -504,7 +536,7 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
   }
   let cut = 0;
   basins.forEach((b, id) => {
-    if (b.tiles.length < minArea || b.level < 1) return;
+    if (b.tiles.length < minArea || b.level < BED_FLOOR + 1) return;
     const S = b.level;
     // the flat at the spill level joined to the basin: a sheet of water would spread over all of it
     const seen = new Uint8Array(N);
@@ -832,7 +864,7 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
           if (target[j] < 0) band.push(j);
           if (d2 < best[j]) {
             best[j] = d2;
-            target[j] = h[r] >= S && !nearSea[r] ? Math.max(0, S - 1) : h[r];
+            target[j] = h[r] >= S && !nearSea[r] ? Math.max(BED_FLOOR, S - 1) : h[r];
           }
         }
     }

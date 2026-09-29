@@ -19,7 +19,7 @@
 
 import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
-import { THEME_PRESETS, VT_DEFAULT, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
+import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
 import { drawIntentions, nudgeFor, type IntentionId } from "./intentions";
 import { clamp, unit } from "./num";
 import { TWO_PI } from "../math/detmath";
@@ -102,6 +102,8 @@ export interface Genome {
    *  big lake's outlet. */
   relicHigh?: boolean;
   plugLake?: boolean;
+  /** Item 47's second district close to the start, behind debris on its ramps. */
+  districtBehind?: boolean;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -162,11 +164,15 @@ export interface Genome {
 
 export { VT_DEFAULT };
 /** "High Verticality" (D123, D132): heights above 16 from here. */
-export const VT_HIGH = 70;
+export const VT_HIGH = VT_TALL;
 /** The game's highest terrain (FORMAT.md: 23 layers, layer 22 kept empty). */
-export const GAME_TOP = 22;
+export const GAME_TOP = TALL_TOP;
 /** The in-game map editor's highest level, and the top of every map below high Verticality. */
-export const EDITOR_TOP = 16;
+export const EDITOR_TOP = EDITOR_LEVEL;
+/** The land isn't built at the bottom (the forces-preview feedback's item 47, PLAN §20 D325): the
+ *  deepest bed of any water stands at least this many levels above the map's floor, so a player has
+ *  room to dig and terraform early. The land's lowest level is a level above it. */
+export const BED_FLOOR = 3;
 /** Variety's default (M9b adds the setting). */
 export const DEFAULT_VARIETY = 70;
 
@@ -819,8 +825,20 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.terrace.share = clamp(g.terrace.share + 0.15, 0, 1);
     g.noise.amp *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
-  // the highest terrain, below high Verticality (a tall map's top is Verticality's)
-  if (!g.tall) g.top = Math.min(g.top, s.terrain.highestTerrain);
+  // the highest terrain (item 36): a cap on every map; at its default (22 from Verticality 70, 16
+  // below) a tall map's top is Verticality's, and one drawn tall by Variety keeps it too
+  const cap = s.terrain.highestTerrain;
+  if (!g.tall) g.top = Math.min(g.top, cap, EDITOR_TOP);
+  else if (cap < highestTerrainDefault(s.terrain.verticality)) {
+    g.top = Math.min(g.top, cap);
+    if (g.top <= EDITOR_TOP) g.tall = false;
+  }
+  // the land stands on a floor (item 47): every level moves up by `BED_FLOOR`, so the deepest bed
+  // is that far above the map's floor, and the relief is kept within the ceiling (the land squeezed
+  // only where it would rise past it)
+  const ceiling = g.tall ? g.top : Math.min(EDITOR_TOP, cap);
+  g.base += BED_FLOOR;
+  g.top = Math.min(g.top + BED_FLOOR, ceiling);
   g.relief = g.top - g.base;
   // terracing: the benched share
   const dt = (s.terrain.terracing - p.terracing) / 100;

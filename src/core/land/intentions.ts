@@ -29,6 +29,7 @@ import type { Rng } from "../math/rng";
 import type { ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
+import { levelRegions } from "../math/grid";
 
 export const INTENTIONS = [
   "under-cliff",
@@ -53,6 +54,7 @@ export const INTENTIONS = [
   "badwater-rich",
   "relic-pinnacle",
   "plug-lake",
+  "district-behind",
 ] as const;
 export type IntentionId = (typeof INTENTIONS)[number];
 /** The intentions a map may draw (the set). */
@@ -86,6 +88,7 @@ export const INTENTION_TEXT: Record<IntentionId, string> = {
   "badwater-rich": "Badwater spills through the richest land: tame it and the land is yours.",
   "relic-pinnacle": "A relic waits on a pinnacle, reached only by building up to it.",
   "plug-lake": "A plug holds back a lake: open it when you are ready.",
+  "district-behind": "A good second district site close to the start waits behind debris you clear early.",
 };
 
 type ThemeWeights = Record<Exclude<ThemeId, "any">, number>;
@@ -114,6 +117,9 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "badwater-rich": { riverValley: 1, canyon: 0.7, highlands: 0.7, lakeBasin: 0.9, delta: 1.1, islands: 0.6 },
   "relic-pinnacle": { riverValley: 0.6, canyon: 1.3, highlands: 1.2, lakeBasin: 0.6, delta: 0.3, islands: 0.8 },
   "plug-lake": { riverValley: 0.9, canyon: 0.8, highlands: 1, lakeBasin: 1.3, delta: 0.5, islands: 0.4 },
+  // (item 47: a second district close to the start behind a small early obstacle; benched land
+  // gives the ramps it sits behind)
+  "district-behind": { riverValley: 1, canyon: 0.8, highlands: 1.1, lakeBasin: 0.9, delta: 0.8, islands: 0.6 },
 };
 
 /** "Any" weighs each intention by its mean over the six themes. */
@@ -302,6 +308,13 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
         part(g, rng, "mesa", 1.4);
         g.relicHigh = true;
       };
+    case "district-behind":
+      // benched ground (a site up a few ramps), and the site sought close to the start, its ramps
+      // under debris (gen/extras.ts `rampEnds`)
+      return (g) => {
+        g.terrace.share = Math.min(1, g.terrace.share + 0.1);
+        g.districtBehind = true;
+      };
     case "plug-lake":
       // lakes along the rivers, and a plug across a big one's way out
       return (g) => {
@@ -485,6 +498,8 @@ export interface FinalCtx {
   start: { x: number; y: number; z: number };
   /** Walking distance from the start with the map's slopes (Infinity: not on foot). */
   walk: Float64Array;
+  /** The same walk with every Blockage (debris) cleared, as a player would early. */
+  walkCleared?: Float64Array;
   /** Water left after the Normal difficulty's longest drought (9 days, analytic). */
   kept9: Float64Array;
   objects: { template: string; x: number; y: number; z?: number }[];
@@ -1672,6 +1687,26 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
       }
       return { ok: false, note: "no plug holding back a lake" };
+    }
+    case "district-behind": {
+      // a site's level ground, 300+ tiles (at 128²) and 35–70 tiles out, that the colony reaches only
+      // once the debris on its ramps is cleared
+      const open = c.walkCleared;
+      if (!open) return { ok: false, note: "no debris" };
+      const want = (300 * N) / 16384;
+      const regions = new Map<number, { n: number; near: number }>();
+      const lab = levelRegions(h, W, H).labels;
+      for (let i = 0; i < N; i++) {
+        if (Number.isFinite(c.walk[i]) || !Number.isFinite(open[i]) || D[i] >= 0.05) continue;
+        const e = eu(i);
+        const r = regions.get(lab[i]) ?? { n: 0, near: Infinity };
+        r.n++;
+        r.near = Math.min(r.near, e);
+        regions.set(lab[i], r);
+      }
+      for (const r of regions.values())
+        if (r.n >= want && r.near >= 35 && r.near <= 70) return { ok: true, note: `${r.n} tiles of level land ${Math.round(r.near)} tiles out, behind debris`, say: `A second district site ${Math.round(r.near)} tiles out, ${r.n} tiles of level land, waits behind debris: clear it early and the land is yours.` };
+      return { ok: false, note: "no site close to the start behind debris" };
     }
     case "long-view": {
       const sorted = Array.from(h).sort((p, q) => p - q);

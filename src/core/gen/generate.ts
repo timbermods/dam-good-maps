@@ -38,7 +38,7 @@ import type { Feature, MapObjectFeature, StartFeature } from "../features/schema
 import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { makeField } from "../land/field";
-import { drawGenome, leanGenome, type Genome } from "../land/genome";
+import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges } from "../land/courses";
 import { orientationOf, orientDir, orientField } from "../land/orient";
@@ -59,7 +59,8 @@ import { WALK_BLOCKERS, type PlayabilityAnalysis } from "../validate/playability
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
-import { districtCandidates, planExtras, riseSpots, riseStands } from "./extras";
+import { BEHIND_CUT, CLOSE_DISTRICT, districtCandidates, neckCut, planExtras, riseSpots, riseStands } from "./extras";
+import { DISTRICT_RADIUS } from "../features/setpieces/secondDistrict";
 import { lakeFeatures } from "./readback";
 import { planWeir } from "./weir";
 import { planPlug } from "./plug";
@@ -476,6 +477,41 @@ function startWalkable(b: BuildResult): number {
   return n;
 }
 
+/** Whether the colony walks to (x, y) from the start over the map's ground and slopes, round the
+ *  objects that block walking (debris among them), however far. */
+function startWalksTo(b: BuildResult, x: number, y: number): boolean {
+  if (!b.start) return false;
+  const { W, H } = b;
+  const blocked = new Uint8Array(W * H);
+  const links: [number, number][] = [];
+  for (const e of b.entities) {
+    if (e.template === "Slope") {
+      const [dx, dy] = slopeHighSide(e.orientation);
+      const hx = e.x + dx;
+      const hy = e.y + dy;
+      if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
+      continue;
+    }
+    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
+  }
+  return Number.isFinite(walkDistance(b.heights, W, H, blocked, links, b.start, 4 * (W + H))[y * W + x]);
+}
+
+/** The walk regions of the built map (same level, and the built slopes). */
+function walkLabels(b: BuildResult): Int32Array {
+  const { W, H } = b;
+  const links: [number, number][] = [];
+  for (const e of b.entities) {
+    if (e.template !== "Slope") continue;
+    const [dx, dy] = slopeHighSide(e.orientation);
+    const hx = e.x + dx;
+    const hy = e.y + dy;
+    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
+    links.push([e.y * W + e.x, hy * W + hx]);
+  }
+  return walkRegions(b.heights, W, H, null, links);
+}
+
 /** Whether (x, y) is on ground the colony walks to from the start (same level, and the built slopes). */
 function walkableFromStart(b: BuildResult, x: number, y: number): boolean {
   if (!b.start) return false;
@@ -626,6 +662,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal, hy.lakes.map((l) => l.tiles));
   }
+  // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
+  // shallower there)
+  for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR && !ctx?.locked?.mask[i]) h[i] = BED_FLOOR;
   // the courses checked on the finished land (M9b, D273 (1)): an inflow's water running back out by
   // its own edge is held by a lip on the edge row (up to two levels, four where the player set the
   // Rivers count, whose mouths may lie low on their edge); anything else is planned again below
@@ -710,7 +749,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
   // D171: every source starts a river; a hydrology that puts one inside a flow is planned again
   if (springsInFlow(hy, W)) return fail("source in a flow", null, true);
-  const foot = footComponents(h, W, H, keep);
+  let foot = footComponents(h, W, H, keep);
   // the start's ground joins at least Buildable land's walkable land (PLAN §5.2), and more is
   // preferred up to twice it
   const reachMin = REACH_MIN[spec.settings.terrain.buildableLand];
@@ -858,6 +897,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   // (near the guess the hollows were planned from, so they keep the distance the settings ask for)
   const near = bad.features.length ? guess : null;
+  // the land the start's ground joins, on the settled water and the ground as it now stands (a
+  // floodplain's water or a hollow cuts the planned land apart: item 47, a start on a strip of land
+  // cut off by water and cliffs reaches neither its mine sites nor room to grow)
+  const footOf = (b: BuildResult) => {
+    const wetNow = new Uint8Array(N);
+    for (let i = 0; i < N; i++) wetNow[i] = b.water[i] > 0.05 ? 1 : 0;
+    return footComponents(h, W, H, wetNow);
+  };
+  foot = footOf(b1);
   let pick = settlerOn(b1.water, b1.contamination, b1.moisture, 1, beyondBad(b1), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
   if (!pick && bad.features.length) {
     // the hollow took the only good place for a start: the start first, then the hollow
@@ -865,6 +913,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (const f of bad.features) contains.delete(f.id);
     bad = noBad;
     b1 = build([...rivers], "resources");
+    foot = footOf(b1);
     pick = settlerOn(b1.water, b1.contamination, b1.moisture, 2, avoidOf(null));
     if (pick && badAsk.count > 0) bad = badAt(b1.water, pick, 1);
   }
@@ -944,20 +993,47 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      with its own water, found on the land (it changes no terrain), joined to the start's
   //      ground by the derived slopes; groves and bushes grow round it
   const sites: { x: number; y: number }[] = [];
-  if (N >= 128 * 128 && base.start) {
-    for (const [x, y] of districtCandidates(base, layout, avoid, 4)) {
-      const role = "setpiece/secondDistrict/primary";
-      const pctx = { W, H, seed, features: layout, heights: base.heights, channel: base.channel, water: base.water, contamination: base.contamination, start: { x: base.start.x, y: base.start.y, radius: 4 } };
-      const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role }, true);
-      if (!r.ok) continue;
-      const b2 = build([...layout, r.feature], "resources");
-      if (!walkableFromStart(b2, x, y)) continue;
-      layout.push(r.feature);
-      base = b2;
-      sites.push({ x, y });
-      break;
+  // (item 47's intention, a second district close to the start behind a small obstacle: a site
+  // 40–70 tiles out on level ground the colony walks up to by a few ramps, debris at their tops,
+  // the second district and the obstacle with a payoff combined; else the usual site)
+  const bands = g.districtBehind ? [CLOSE_DISTRICT, null] : [null];
+  if ((N >= 128 * 128 || g.districtBehind) && base.start)
+    for (const band of bands) {
+      if (sites.length || (!band && N < 128 * 128)) break;
+      // (a close site on ground the colony walks to from the start: the debris then cuts that walk)
+      let onWalk: ((i: number) => boolean) | null = null;
+      if (band) {
+        const lab = walkLabels(base);
+        const root = lab[base.start!.y * W + base.start!.x];
+        onWalk = (i) => lab[i] === root;
+      }
+      for (const [x, y] of districtCandidates(base, layout, avoid, band ? 8 : 4, band ?? undefined, onWalk)) {
+        const role = "setpiece/secondDistrict/primary";
+        const pctx = { W, H, seed, features: layout, heights: base.heights, channel: base.channel, water: base.water, contamination: base.contamination, start: { x: base.start!.x, y: base.start!.y, radius: 4 } };
+        const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role }, true);
+        if (!r.ok) continue;
+        let b2 = build([...layout, r.feature], "resources");
+        if (!walkableFromStart(b2, x, y)) continue;
+        const extra: Feature[] = [r.feature];
+        if (band) {
+          // the debris: a Blockage across the narrowest way from the start to the site (a pass, the
+          // top of its ramps), nearest the site; the site then stands out of the colony's walk until
+          // it is cleared
+          const ends = neckCut(b2, x, y, BEHIND_CUT, DISTRICT_RADIUS + 2);
+          if (!ends) continue;
+          const drole = "mapObject/plug/districtDebris";
+          const debris: MapObjectFeature = { id: featureId(seed, "mapObject", drole), kind: "mapObject", origin: "generated", role: drole, locked: false, params: { kind: "plug", placement: { area: tilesToRuns(ends, W) } } };
+          const b3 = build([...layout, r.feature, debris], "resources");
+          if (startWalksTo(b3, x, y)) continue;
+          extra.push(debris);
+          b2 = b3;
+        }
+        layout.push(...extra);
+        base = b2;
+        sites.push({ x, y });
+        break;
+      }
     }
-  }
   // ---- ruins on a natural rise (PLAN §9.4, found on the land and never raised: stairs-only ground
   //      is a reward): a ruin field on level ground one flight of player stairs above the colony's
   const keepOff = new Uint8Array(N);

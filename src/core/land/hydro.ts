@@ -37,7 +37,7 @@ import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
-import type { Genome } from "./genome";
+import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom } from "../math/grid";
 import { clamp, DIRS8 } from "./num";
@@ -728,8 +728,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
           if (d > reach) continue;
           const u = at / (pts.length - 1);
           const depth = Math.round((1 + 2.5 * 4 * u * (1 - u)) * (1 - d / reach) + 0.4);
-          const target = level - depth;
-          if (depth > 0 && target >= 0 && h[i] > target) h[i] = target;
+          const target = Math.max(BED_FLOOR, level - depth);
+          if (depth > 0 && h[i] > target) h[i] = target;
         }
     };
     // M9b ("lakes step down the valley", D274): a chain of valley lakes down the main river, each
@@ -766,7 +766,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const a1 = a0 + len;
       if (cells.slice(a0, a1 + 1).some((c) => borderDist(c) < 8)) continue;
       const level = h[cells[a1]];
-      if (level < 2) continue;
+      if (level < BED_FLOOR + 2) continue;
       const reach = (5 + 7 * tr.float()) * scale;
       deepen(t, a0, a1, reach, level);
       n--;
@@ -901,7 +901,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       }
       run = Math.min(run, ring - cut);
       if (run < endBed) run = endBed;
-      if (run < 0) run = 0;
+      // (never below the beds' floor, item 47: a river there runs shallower)
+      if (run < BED_FLOOR) run = BED_FLOOR;
       prof[j] = Math.round(run);
     }
     return { st, prof, L, n, lakeAt };
@@ -1023,7 +1024,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     // below is long enough to keep a lip (pools and riffles: standing water deep enough to pump)
     const bedOf = prof.slice();
     for (let j = 1; j <= n; j++) {
-      if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < 1) continue;
+      if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < BED_FLOOR + 1) continue;
       let level = 0;
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
@@ -1117,7 +1118,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const span = 9 + Math.round(3 * Math.abs(bend.turn));
       const j = Math.min(m.n, Math.max(0, Math.round((bend.k / (n - 1)) * m.n)));
       const bed = m.prof[j];
-      if (bed < 1) continue;
+      if (bed < BED_FLOOR + 1) continue;
       const floor = bed - 1;
       const crescent: number[] = [];
       let ok = true;

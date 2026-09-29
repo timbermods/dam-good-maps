@@ -40,6 +40,7 @@ const TITLES: Record<IntentionId, string[]> = {
   "badwater-rich": ["Tainted Meadows", "Bitter Bottoms", "Poisoned Plenty", "Fouled Fields", "Sour Lowlands"],
   "relic-pinnacle": ["Relic Spire", "The Relic Pillar", "Summit Relic", "Relic Perch", "Crowned Rock"],
   "plug-lake": ["The Plug", "Stopper Lake", "Held Water {land}", "Bottled Lake", "Pent Lake"],
+  "district-behind": ["Beyond the Rubble", "Cleared Way", "Second Shelf {land}", "The Blocked Ramp", "Neighbor Terrace"],
 };
 
 /** When a map has no standout (the best candidate after the cap): its land. */

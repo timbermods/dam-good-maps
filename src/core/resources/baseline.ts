@@ -134,6 +134,10 @@ export interface GroveOptions {
   waterDist?: Float64Array | null;
   /** Grow each grove to exactly this many trees (near the start) instead of drawing its size. */
   size?: number;
+  /** Groves on dry ground: dead pines, birches and oaks or living succulents by the mix (true, the
+   *  official maps' way, which Real places keep), or living succulents only (the generator since
+   *  the forces-preview feedback's item 26: dead trees rare and deliberate). */
+  deadOnDry?: boolean;
 }
 
 /** A single grove of about `n` trees seeded at `seedTile`: its ground grown as a blob over the
@@ -193,8 +197,9 @@ export function planGroves(g: BaselineGround, want: { living: number; dry: numbe
         misses++;
         continue;
       }
-      // the species: by what is left of each (succulents only on dry ground)
-      const w = living ? [left[0], left[1], left[2], 0] : [...left];
+      // the species: by what is left of each (succulents only on dry ground; only succulents there
+      // when dry groves are never dead)
+      const w = living ? [left[0], left[1], left[2], 0] : o.deadOnDry === false ? [0, 0, 0, Math.max(1e-9, left[3])] : [...left];
       let k = w.some((v) => v > 0) ? o.rng.weighted(w.map((v) => Math.max(0, v))) : o.rng.weighted(mix.map((v, j) => (living && j === 3 ? 0 : v)));
       if (living && k === 3) k = 0;
       const species = MAP_TREES[k];
@@ -508,6 +513,10 @@ export interface MineGround {
    *  ring touches it is reachable. */
   regions?: Int32Array | null;
   root?: number;
+  /** Land regions (analysis/regions.ts `landRegions`) and the start's: a site on that land the
+   *  colony reaches with a flight of stairs, never across water or up a cliff (item 47). */
+  land?: Int32Array | null;
+  landRoot?: number;
 }
 
 /** A mine site (UndergroundRuins, 5×5) on flat free ground with a level ring round it, its nearest
@@ -516,7 +525,7 @@ export interface MineGround {
  *  band's edge is in the way of moving the start), and on ground the colony walks to when there is
  *  any at that distance.
  *  Null when nothing fits. `fits` is the caller's placement rule (objects.ts `fitProblems`). */
-export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: number; far?: number }, fits: (tiles: [number, number][]) => boolean): MineSpot | null {
+export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: number; far?: number; reachLo?: number }, fits: (tiles: [number, number][]) => boolean): MineSpot | null {
   const { W, H, heights: h, blocked, startDist: sd } = m;
   const N = W * H;
   const orientation: Orientation = ORIENTATIONS[rng.int(0, 4)];
@@ -538,9 +547,9 @@ export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: nu
       if (h[a] !== h[i] || h[c] !== h[i] || h[d] !== h[i]) sq[i] = 1;
       else sq[i] = 1 + Math.min(sq[a], sq[c], sq[d]);
     }
-  const reach = (x: number, y: number) => {
+  const reach = (x: number, y: number, labels = m.regions, root = m.root) => {
     // the ring round the footprint: the square's border tiles
-    if (!m.regions || m.root === undefined || m.root < 0) return false;
+    if (!labels || root === undefined || root < 0) return false;
     for (let k = 0; k < side; k++)
       for (const [tx, ty] of [
         [x - 1 + k, y - 1],
@@ -548,26 +557,37 @@ export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: nu
         [x - 1, y - 1 + k],
         [x - 2 + side, y - 1 + k],
       ])
-        if (tx >= 0 && ty >= 0 && tx < W && ty < H && m.regions[ty * W + tx] === m.root) return true;
+        if (tx >= 0 && ty >= 0 && tx < W && ty < H && labels[ty * W + tx] === root) return true;
     return false;
   };
   const near: number[] = [];
+  const landed: number[] = [];
   const any: number[] = [];
   const far = band.far ?? band.lo;
+  // (a site the colony walks to may stand nearer, down to `reachLo`: item 47 asks for two it reaches)
+  const lo = Math.min(band.lo, band.reachLo ?? band.lo);
   for (let y = 1; y + side <= H; y++)
     for (let x = 1; x + side <= W; x++) {
       const i = (y - 1) * W + (x - 1);
       if (sq[i] < side) continue;
       const d = sd[y * W + x];
-      if (d < band.lo - side || d > band.hi + side) continue;
-      (reach(x, y) ? near : any).push(y * W + x);
+      if (d < lo - side || d > band.hi + side) continue;
+      if (reach(x, y)) near.push(y * W + x);
+      else if (reach(x, y, m.land, m.landRoot)) landed.push(y * W + x);
+      else if (d >= band.lo - side) any.push(y * W + x);
     }
-  const beyond = (cands: number[]) => cands.filter((i) => sd[i] >= far);
-  for (const [cands, reachable] of [
-    [beyond(near), true],
-    [beyond(any), false],
-    [near, true],
-    [any, false],
+  const beyond = (cands: number[], at: number) => cands.filter((i) => sd[i] >= at);
+  // (reachable first, item 47: a mine site the colony walks to from the start, as far out as the
+  // band's own start and farther where there is room, else nearer; then one it cannot walk to)
+  for (const [cands, reachable, least] of [
+    [beyond(near, far), true, band.lo],
+    [beyond(near, band.lo), true, band.lo],
+    [near, true, lo],
+    [beyond(landed, far), false, band.lo],
+    [beyond(landed, band.lo), false, band.lo],
+    [landed, false, lo],
+    [beyond(any, far), false, band.lo],
+    [any, false, band.lo],
   ] as const) {
     for (let tries = 0; tries < 40 && cands.length; tries++) {
       const pick = cands[rng.int(0, cands.length)];
@@ -577,7 +597,7 @@ export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: nu
       const tiles = footprintTiles("UndergroundRuins", { template: "UndergroundRuins", x: cx, y: cy, z: 0, orientation, flipped: false });
       let d = Infinity;
       for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) d = Math.min(d, sd[ty * W + tx]);
-      if (d < band.lo || d > band.hi) continue;
+      if (d < least || d > band.hi) continue;
       if (!fits(tiles)) continue;
       return { x, y, orientation, tiles, reachable };
     }

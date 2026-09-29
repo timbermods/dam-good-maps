@@ -174,6 +174,7 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hy
     moist: b.moisture,
     start: { x: start.x, y: start.y, z: start.z },
     walk: reachWalk(b.heights, W, H, objs, start),
+    ...(objs.some((o) => o.template === "Blockage") ? { walkCleared: reachWalk(b.heights, W, H, objs.filter((o) => o.template !== "Blockage"), start) } : {}),
     kept9: droughtStorage(b.waterModel, b.water, 9),
     objects: objs,
     falls: fallsOf(b.heights, b.water, W, H, 1.5),
