@@ -54,3 +54,10 @@ Keep the pinned [nine-step tunnel operation](checks/tunnel-operations.json), the
 independent terrain3d support oracle, and the real-input tests in `scripts/captures.ts`. The sweep also adds a
 one-block supported shelf on each heightfield so it can test all six normals, including ceilings, on real land.
 Run the milestone's edited-map probe cases when separately authorized; this demo never launches Timberborn.
+
+## Sound (added by Kyler at approval, 2026-09-29)
+
+The Block tool has its own sounds in the product, through the editor's sound system (its volume and the Sound
+switch, D313), from CC0 recordings: a stone set-down when adding, a chip when removing, and a rhythmic chip per
+block while a Shift-hold digs, never harsh when repeated a hundred times. Refused actions make no sound. The
+recordings and their licences are listed with the editor's other sounds.
