@@ -46,7 +46,7 @@ describe("Clear sources and the water (item 15)", () => {
     // a Flatten two levels down round the source: a pit
     const dabs: number[] = [];
     for (let k = 0; k < 8; k++) dabs.push(4 * x + 2, 4 * y + 2);
-    const op: EditOp = { op: "brush", params: { tool: "flatten", level: h0 - 2, size: 4, strength: 10, precise: true, dabs } };
+    const op: EditOp = { op: "brush", params: { tool: "flatten", target: h0 - 2, size: 4, strength: 10, dabs } };
     const shown = MapSession.open(decodeProject(ed.project().bytes));
     expect(shown.apply(op).errors).toEqual([]);
     const pit: number[] = [];

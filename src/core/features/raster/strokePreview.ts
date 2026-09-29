@@ -6,7 +6,7 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, type BrushParams, type Rect } from "./brush";
+import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
 import { integrityAt } from "./terrain";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
@@ -56,8 +56,11 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
-    this.precise = settings.precise === true;
-    this.protect = this.precise ? state.protect.slice() : state.protect;
+    // (a target's stroke too, D322: exact, as a precise one was)
+    this.precise = brushHard(settings);
+    this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
+    // kept sources' ground stays exactly as it is (D322, item 31): the integrity pass leaves it too
+    if (settings.sources === "keep") for (const [y, a, b] of settings.keep ?? []) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) this.protect[y * W + x] = 1;
     let keep: Uint8Array | null = null;
     if (state.columns.length) {
       keep = new Uint8Array(W * H);
