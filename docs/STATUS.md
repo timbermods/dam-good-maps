@@ -101,12 +101,13 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check (the blocking list, "No water a pump
    can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release, `real-places-2-done`. CI on #35 is red until then:
    the tests are for the new rules, the committed gallery still D271's.
-11. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the
-   repository folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge;
-   the Case menu has the crater lip, the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view. Every result
-   drops 0 voxels under the game's support rule. Its shortfalls: blocky, regular forms; small arches; faces under about four levels
-   can't be worn (on terraced Highlands 24 of 40 random gestures say "No rock to wear here"); water under new roofs is an
-   approximation; not yet checked in the game.
+11. **Erode (Codex; #74): round 2 approved, round 3 with Codex.** Your verdict on round 2 (cddf2d9f) was "magical, almost
+   perfect": the cliff side is right, with a buildable gallery under the cliff, natural columns, no debris, and land final
+   in about two-thirds of a second. Round 3 is with Codex now, narrow: give the giant dry wash its character (varied
+   walls, side gullies, dry falls, a floor that isn't one flat sheet) instead of a canal, and open the thin-ridge arch
+   wide enough to build under; everything else stays as round 2 made it. Next: wait for round 3; the automatic support
+   check at 0 dropped voxels; then hold #74 for your look at the wash and the arch; merge as an investigation on your
+   yes; adoption at 3D step 3 under the forces' rules.
 12. **Drought and Badtide, day by day** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for a sitting of
    its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). The day strip follows the game
    within 5%; D307's flooded floor says so on hover. Two findings: on water-rich maps the last day takes 16–48 s to work out at 128²
@@ -297,7 +298,7 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 | Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
 | The High look and the water shades (D284, D304, D305, D310) | `feature/high-look` (`-high`, #75), b62188ba | `build`, Opus 5.5 high | held: your shades pick (§1 item 7) and your look |
 | Drought and Badtide, day by day | `feature/weather-days` (`-weather`, #73), 5bb13406 | `build`, then `build-light` | held for its own sitting |
-| The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), cddf2d9f | `build` | round 2 pushed 2026-09-28 (buildable shelters, dry washes, fast gestures); held until you've tried it |
+| The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), cddf2d9f | `build` | round 2 approved by you ("magical, almost perfect"); round 3 (the dry wash, the arch) with Codex; then your look |
 | 3D foundations: new modules | `feature/terrain3d-a` (`-3d`, #71), 24b88b9b | `build` | verified in the game; the wiring waits for the forces and M9b on `dev` |
 | Orchestrating, merging, releasing, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
 

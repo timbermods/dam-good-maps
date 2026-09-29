@@ -125,11 +125,19 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.
 11. **Held for Kyler, nothing to do until he answers** (STATUS §1): the water shades (D310, on `feature/high-look` at
    30d7a767; he picks (a), (b) or (c); my pick (a)); the High look (#75, `build`); Drought and Badtide day by day
-   (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting);
-   Erode (#74, `investigation/erode`).
-12. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
+   (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting).
+12. **Erode (Codex; #74, `investigation/erode`):** Kyler's verdict on round 2 (cddf2d9f) is "magical, almost perfect" —
+   the cliff side is right: a buildable gallery under the cliff, natural columns, no debris, land final in about
+   two-thirds of a second. Round 3 is with Codex now, narrow: give the giant dry wash its character (varied walls,
+   side gullies, dry falls, a floor that isn't one flat sheet) instead of reading like a canal, and open the
+   thin-ridge arch wide enough to build under; everything else stays as round 2 made it. **Next:** wait for Codex's
+   round 3; when it lands, check the automatic support check passes (0 dropped voxels); then hold #74 for Kyler's
+   look at the wash and the arch; merge it as an investigation on his yes. Adoption into the editor stays at 3D
+   step 3 (after the 3D view), on the forces core under the forces' rules (fast by default with Watch, item 29;
+   changing things only when the force reaches them, item 30; no refusals; one size ring).
+13. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
    (terrain3d-20260927 probe). **Next:** the wiring, after the forces and M9b merge into `dev` (D280).
-13. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
+14. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
    D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
    generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision
    in the planning chat and approved the written UI brief that comes from it; first, prepare a short document in
@@ -160,7 +168,7 @@ clean and matched origin at the pause.
 | The High look (with D310's shades) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | b62188ba | held for Kyler (the shades choice, his look) |
 | Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
-| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | cddf2d9f | round 2 pushed 2026-09-28 (buildable shelters, dry washes, fast gestures); held until Kyler has tried it (D281) |
+| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | cddf2d9f | round 2 approved by Kyler ("magical, almost perfect"); round 3 (the dry wash, the arch) with Codex; then Kyler's look |
 | The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aaa | done; already in `feature/forces` |
 | Kyler's review worktree | `review/m9a-set` | — | `DamGoodMaps-review` | 6575ebc9 | the M9a review set; not written to by agents |
 
