@@ -1,5 +1,28 @@
 # Erode: the report
 
+## Round 4
+
+Erode now chooses one face from the whole sweep's direction across or along the terrain's contours. Uneven washes run from the higher end, follow each terrace's ground level, notch intervening rises and drop at steps; the tall-step case has a twelve-level dry fall. Round 3's flat washes and existing cliff results remain unchanged.
+
+| Terraces: drawn uphill, after | Low along that wash, looking uphill |
+|---|---|
+| ![](captures/round4-terraces-up-after.jpg) | ![](captures/round4-terraces-up-low.jpg) |
+| Same sweep drawn downhill, after | Low along that wash, looking downhill |
+| ![](captures/round4-terraces-down-after.jpg) | ![](captures/round4-terraces-down-low.jpg) |
+
+Across the tall step, after:
+
+![](captures/round4-step-after.jpg)
+
+**PASS:** all nine cases and three extra seeds each, all 160 random gestures, and 48 uneven variants in both directions drop **0 voxels**. Review cases leave **0 single blocks or small debris clusters**; wash beds have **0 downstream rises or trapped carved tiles**. Reversed sweeps match exactly, including slopes and intervening rises; six round 3 fixtures and 16 flat click/sweep variants are byte-identical. Animation support, cliff-foot classification, step-face pointer hits and TypeScript pass. Browser final land: **0.661–0.669 s**, including 100/100 at 128²; immediate next action passes. [Checks](checks/results.json) · [Timings](checks/round4-browser.json).
+
+- Choice: capture the same terrace path in opposite directions at Power 85 / Size 80, Auto details, seed 1, on original dry 128² fixtures; time 100/100 separately.
+- Choice: natural terrain steps set required drops; equal-height ends use a stable tile-order tie-break, so reversing a sweep still produces the same wash.
+
+Still short: the voxel grid makes the dry falls abrupt; drainage is checked geometrically, not in Timberborn's water simulation.
+
+---
+
 ## Round 3
 
 Large washes now expose sheer reaches, broad shelves, slumped banks and undercuts, with longer tributaries and two two-level dry falls in the 100/100 Auto case; flat bed reaches drain between the falls. The thin-ridge opening now clears a level **3×3 footprint with five air levels**, with supports beside it.

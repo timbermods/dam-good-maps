@@ -1,6 +1,77 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round4": {
+  "result": "PASS",
+  "cases": [
+   {
+    "case": "wash-terraces-up",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1827,
+    "worn": 7154,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 4,
+    "maxStepDrop": 3,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1827,
+    "worn": 7154,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 4,
+    "maxStepDrop": 3,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-step",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1486,
+    "worn": 6045,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 4,
+    "maxStepDrop": 12,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   }
+  ],
+  "unevenVariantsBothDirections": 48,
+  "preservedFlatVariants": 16,
+  "preservedRound3Cases": 6,
+  "cliffFootGallery": "PASS",
+  "stepFacePointerHits": "PASS",
+  "animationSupport": "PASS"
+ },
  "round3": {
   "result": "PASS",
   "unchangedRound2Cases": [
@@ -181,7 +252,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 10.2,
+   "msToFinal": 10.3,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -215,7 +286,7 @@
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 2,
+   "msToFinal": 2.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -249,7 +320,7 @@
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 2,
+   "msToFinal": 2.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -283,7 +354,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.3,
+   "msToFinal": 1.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -317,7 +388,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 3.2,
+   "msToFinal": 2.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -351,7 +422,7 @@
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 15,
+   "msToFinal": 15.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -373,6 +444,108 @@
      "dropped": 0
     }
    ]
+  },
+  {
+   "case": "wash-terraces-up",
+   "map": "terraces",
+   "worn": 7154,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 216,
+   "deepest": 3,
+   "roofedTiles": 216,
+   "msToFinal": 8.6,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 6240,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 4520,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 4934,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-terraces-down",
+   "map": "terraces",
+   "worn": 7154,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 216,
+   "deepest": 3,
+   "roofedTiles": 216,
+   "msToFinal": 8.6,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 6240,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 4520,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 4934,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-step",
+   "map": "step",
+   "worn": 6045,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "reach": 3,
+   "blocksOverAir": 199,
+   "deepest": 3,
+   "roofedTiles": 199,
+   "msToFinal": 7,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 5465,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 4499,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 5673,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
   }
  ],
  "random": [
@@ -382,7 +555,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 7,
+   "slowestMs": 6,
    "result": "PASS"
   },
   {
@@ -391,7 +564,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 5,
+   "slowestMs": 8,
    "result": "PASS"
   },
   {
@@ -400,7 +573,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 11,
+   "slowestMs": 5,
    "result": "PASS"
   },
   {

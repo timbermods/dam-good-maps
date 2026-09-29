@@ -18,12 +18,16 @@ import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
 import { drainageMetrics, round2Checks, washChecks } from "./round2";
 import { round3Checks } from "./round3";
+import { unevenMap } from "../demo/uneven";
+import { round4Checks } from "./round4";
 
 const show = process.argv.includes("--show");
 const only = process.argv.find((a) => a.startsWith("--case="))?.slice(7);
 const maps = new Map<string, ErodeMap>();
 const load = (id: string) => {
   if (id === "wash") return washMap();
+  const uneven = unevenMap(id);
+  if (uneven) return uneven;
   if (!maps.has(id)) maps.set(id, fromJson(JSON.parse(gunzipSync(readFileSync(new URL(`../maps/${id}.json.gz`, import.meta.url))).toString())));
   return maps.get(id)!;
 };
@@ -171,7 +175,8 @@ if (!only) {
   const round2 = round2Checks(load);
   Object.assign(round2, { wash: washChecks(load) });
   const round3 = round3Checks(load);
-  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round3, round2, cases: results, random }, null, 1) + "\n");
+  const round4 = round4Checks(load);
+  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round4, round3, round2, cases: results, random }, null, 1) + "\n");
 }
 console.log(failures ? `FAILED: ${failures} results drop voxels` : "Every result drops 0 voxels under the support rule.");
 process.exit(failures ? 1 : 0);

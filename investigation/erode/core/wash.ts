@@ -28,6 +28,19 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     i >= W ? i - W : -1, i < N - W ? i + W : -1].filter(j => j >= 0 && !input.keep?.[j]);
   const edge = (i: number) => i % W === 0 || i % W === W - 1 || i < W || i >= N - W;
   const heights = before.heights();
+  // Only the painted land decides this branch, so a flat wash and its outlet remain exactly
+  // as in round 3. Canonical downhill order also keeps Auto and the meanders independent of
+  // which end the player starts drawing at.
+  const ground: number[] = [];
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1], b = points[k], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
+    for (let j = 0; j <= n; j++) ground.push(heights[tile(a.x + (b.x - a.x) * j / n, a.y + (b.y - a.y) * j / n)]);
+  }
+  const uneven = ground.some(z => z !== ground[0]);
+  if (uneven) {
+    const first = tile(points[0].x, points[0].y), last = tile(points[points.length - 1].x, points[points.length - 1].y);
+    if (heights[first] < heights[last] || (heights[first] === heights[last] && first > last)) points.reverse();
+  }
   const start = tile(points[0].x, points[0].y);
   const details = pickDetails(set, heights[start]);
 
@@ -108,16 +121,17 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   const fallCount = Math.min(Math.floor((incision - 1) / fallHeight), Math.round(details.dryFalls / 100 * (4 - 2 * large)));
   let bed = Math.max(0, heights[centre[0]] - incision + fallCount * fallHeight);
   const levels = centre.map((i, k) => {
-    bed = Math.min(bed, Math.max(0, heights[i] - 1), Math.max(0, heights[centre[0]] - incision +
+    bed = Math.min(bed, Math.max(0, heights[i] - 1), Math.max(0, heights[uneven ? i : centre[0]] - incision +
       (fallCount - Math.floor(k / Math.max(1, mainLength - 1) * fallCount)) * fallHeight));
     return bed;
   });
   const tail = outletRoute(centre[centre.length - 1], bed);
   for (const i of tail.slice(1)) {
-    centre.push(i); bed = Math.min(bed, heights[i]); levels.push(bed);
+    centre.push(i); bed = Math.min(bed, Math.max(0, heights[i] - (uneven ? incision : 0))); levels.push(bed);
   }
   const outlet = centre[centre.length - 1];
   const floor = new Int16Array(N).fill(-1), mask = new Uint8Array(N);
+  const closest = new Float32Array(N).fill(Infinity);
   const stamp = (i: number, level: number, radius: number, banks = false) => {
     const x = i % W, y = Math.floor(i / W);
     for (let yy = Math.max(0, Math.floor(y - radius - 1)); yy <= Math.min(H - 1, Math.ceil(y + radius + 1)); yy++)
@@ -125,7 +139,15 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
         const j = yy * W + xx;
         if (input.keep?.[j]) continue;
         const r = radius * (0.87 + 0.26 * noise3(set.seed, xx, yy, 0, 6));
-        if (Math.hypot(xx - x, yy - y) > r) continue;
+        const distance = Math.hypot(xx - x, yy - y);
+        if (distance > r) continue;
+        // Across a step, use the nearest cross-section: overlapping low downstream disks must
+        // not pull the upstream terrace down into one deep, flat trench.
+        if (uneven && banks) {
+          if (distance > closest[j] + 0.00001) continue;
+          if (distance < closest[j] - 0.00001) floor[j] = -1;
+          closest[j] = distance;
+        }
         let rise = 0;
         if (banks && large > 0) {
           const across = Math.hypot(xx - x, yy - y) / r;
@@ -162,7 +184,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   const parent = new Int32Array(N).fill(-1), order = [outlet]; parent[outlet] = outlet;
   // Feed broad shelves toward the trunk, not across other shelves on a shortest path to the
   // outlet. The old cross-bed shortcut was cutting long straight trenches through the benches.
-  if (large > 0) for (let k = centre.length - 2; k >= 0; k--) {
+  if (large > 0 || uneven) for (let k = centre.length - 2; k >= 0; k--) {
     const i = centre[k];
     if (parent[i] < 0) { parent[i] = centre[k + 1]; order.push(i); }
   }

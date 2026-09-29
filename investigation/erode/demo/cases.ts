@@ -1,6 +1,7 @@
 // The cases the investigation shows and measures: real Dam Good Maps land at 128², each with the
 // gesture a player would make there. The land decides what forms; the names say what it made.
 import type { CameraPose } from "./view";
+import { UNEVEN_CASES } from "./uneven";
 
 export interface Case {
   id: string;
@@ -91,3 +92,4 @@ for (const [id, power, size] of [["wash-small", 30, 30], ["wash-giant", 100, 100
   overview: { target: [76, 6, -72], yaw: -0.55, pitch: 0.78, distance: 106 },
   low: { target: [70, 6, -62], yaw: -1.1, pitch: 0.12, distance: 18, fov: 68 }, lowName: "Along the wash",
 });
+CASES.push(...UNEVEN_CASES);

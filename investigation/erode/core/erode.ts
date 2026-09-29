@@ -145,6 +145,27 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   }
   faces.sort((a, b) => a.score - b.score);
   const face = faces[0];
+  // Decide once for the whole sweep: crossing contours on the surface wears a wash; following
+  // their foot wears a gallery. Pointer height distinguishes a stroke under a thin arch from
+  // one over its crest. Clicks and the existing cliff planner retain their original behavior.
+  let along = 0, across = 0, crest = 0, trough = Infinity;
+  const height = (x: number, y: number) => before.surface(
+    Math.floor(clamp(y, 0, H - 1)) * W + Math.floor(clamp(x, 0, W - 1)));
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1], b = pts[k], L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!L) continue;
+    const dx = (b.x - a.x) / L, dy = (b.y - a.y) / L;
+    const n = Math.ceil(L * 2), weight = L / n;
+    for (let j = 0; j < n; j++) {
+      const d = (j + 0.5) * weight, x = a.x + dx * d, y = a.y + dy * d;
+      crest = Math.max(crest, height(x, y));
+      trough = Math.min(trough, height(x, y));
+      along += weight * Math.abs(height(x + 2 * dx, y + 2 * dy) - height(x - 2 * dx, y - 2 * dy));
+      across += weight * Math.abs(height(x - 2 * dy, y + 2 * dx) - height(x + 2 * dy, y - 2 * dx));
+    }
+  }
+  const overCrest = pts.some(q => q.z === undefined) || Math.max(...pts.map(q => q.z!)) >= crest - 1;
+  if (overCrest && crest > trough && along > 0.5 && along > across * 0.75) return planWash(input, gesture, set);
   // A flat stroke wears a wash instead of searching far away for a cliff to hollow.
   if (!face || (toStroke(pts, face.x, face.y) > 2.5 && pts.every(q => {
     const i = Math.floor(q.y) * W + Math.floor(q.x);

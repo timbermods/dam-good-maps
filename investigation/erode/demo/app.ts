@@ -10,6 +10,7 @@
 import * as THREE from "three";
 import { autoSize, DEFAULTS, type ErodeSettings, type Gesture } from "../core/erode";
 import { fromJson, washMap, type ErodeMap, type MapJson, type Thing } from "../core/map";
+import { unevenMap } from "./uneven";
 import { DETAIL_LABELS, type WashDetails } from "../core/wash";
 import { Terrain } from "../core/terrain";
 import { waterPools } from "../core/water";
@@ -68,6 +69,8 @@ const now = () => (state.manual ? clock : performance.now());
 const cache = new Map<string, ErodeMap>();
 async function loadMap(id: string): Promise<ErodeMap> {
   if (id === "wash") return washMap();
+  const uneven = unevenMap(id);
+  if (uneven) return uneven;
   const hit = cache.get(id);
   if (hit) return hit;
   const bytes = new Uint8Array(await (await fetch(`maps/${id}.json.gz`)).arrayBuffer());
