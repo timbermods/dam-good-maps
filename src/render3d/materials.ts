@@ -149,7 +149,7 @@ const f = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000)).join(", ")})`;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
-const PATTERN_SIZE = 512;
+const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
 const CRACK_CELLS = 16;
 const COBBLE_CELLS: [number, number] = [16, 24];
@@ -228,9 +228,23 @@ export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
         float crack = 1.0 - smoothstep(width * 0.4, width, v.y - v.x);
         // cobbles: wider than tall, mortar between them
         vec2 kp = vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])});
-        vec3 k = voronoi(vUv * kp, kp, vec2(1.0, 1.5), 0.75);
-        float mortar = smoothstep(0.05, 0.16, k.y - k.x);
-        float stone = mortar * (0.5 + 0.5 * k.z) * (0.9 + 0.2 * valueNoise(vUv * kp * 3.0, kp * 3.0));
+        vec2 stoneP = vUv * kp;
+        stoneP += vec2(valueNoise(stoneP * 0.25, kp * 0.25), valueNoise(stoneP * 0.5 + 31.0, kp * 0.5)) * 0.65;
+        vec2 stoneCell = floor(stoneP), stoneFr = fract(stoneP);
+        float first = 9.0, second = 9.0, stoneId = 0.0, face = 0.0;
+        for (int sy = -1; sy <= 1; sy++) for (int sx = -1; sx <= 1; sx++) {
+          vec2 off = vec2(float(sx), float(sy)), id = stoneCell + off;
+          float seed = hash12(id + 11.0, kp);
+          vec2 delta = (off + 0.5 + (hash22(id, kp) - 0.5) * 0.96 - stoneFr) * vec2(1.0, 1.28);
+          float distance = length(delta) + (seed < 0.16 ? 3.0 : 0.0);
+          if (distance < first) {
+            second = first; first = distance; stoneId = seed;
+            face = dot(delta, normalize(hash22(id + 47.0, kp) - 0.5)) * 0.42;
+          } else second = min(second, distance);
+        }
+        vec3 k = vec3(first, second, stoneId);
+        float mortar = smoothstep(0.012, 0.19, k.y - k.x);
+        float stone = mortar * clamp(0.70 + 0.25 * k.z + face - k.x * 0.07, 0.38, 1.0);
         gl_FragColor = vec4(noise, crack, clamp(stone, 0.0, 1.0), v.z);
       }
     `,
@@ -556,6 +570,29 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
        *  its contamination level (0–1), and in glow the light of the contamination's veins. Noise
        *  shapes the edges between soils (grass bleeds onto the earth in patches) and their grain. */
+            vec2 soulVeins(vec2 p, float lvl) {
+        vec2 q = p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+        vec2 cell = floor(q), f = fract(q);
+        float first = 9.0, second = 9.0, id1 = 0.0, id2 = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 off = vec2(float(x), float(y)), id = cell + off;
+          vec2 rnd = fract(sin(vec2(dot(id,vec2(127.1,311.7)),dot(id,vec2(269.5,183.3)))) * 43758.5453);
+          float tag = fract(sin(dot(id,vec2(91.7,37.1))) * 17213.371);
+          float d = length(off + 0.10 + rnd * 0.80 - f);
+          if (d < first) {second=first;id2=id1;first=d;id1=tag;}
+          else if (d < second) {second=d;id2=tag;}
+        }
+        // Adjacent cells agree on each edge's importance. Removing edges opens the net;
+        // retained main cracks and thinner tributaries meet at the same junctions.
+        float importance = fract(sin((id1 + id2) * 173.71) * 31741.13);
+        float present = smoothstep(0.42, 0.47, importance);
+        float width = mix(0.007, 0.039, smoothstep(0.54, 0.84, importance)) * mix(0.65, 1.0, lvl);
+        float aa = max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
+        float distance = (second - first) * 0.5;
+        float rim = 1.0 - smoothstep(width, width + aa, distance);
+        float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
+        return vec2(rim,core) * present * smoothstep(0.0,0.06,lvl);
+      }
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {
         #if LITE
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
@@ -564,6 +601,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
         #endif
+        vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
+        vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
+        g += patternWarp * 3.2;
         float n1 = vnoise(g * 1.3);
         float n2 = vnoise(g * 4.1 + 17.0);
         float n3 = vnoise(g * 19.0 + 5.0) - 0.5;
@@ -571,7 +611,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float b1 = vnoise(g * 0.09 + 31.0);
         float b2 = vnoise(g * 0.23 + 57.0);
         float b3 = vnoise(g * 0.55 + 83.0);
-        vec2 dry = cracks(g * 1.9);
+        vec2 dry = cracks(g * 3.1);
         vec2 rust = cracks(g * 1.2 + 11.3);
         // grass meets the earth along the tile's edge
         // (a slight wobble along the tile's edge only: the soil itself changes there, not in ragged patches)
@@ -584,9 +624,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // there, as real cracks are, and fainter from afar
         float open = smoothstep(0.2, 0.55, vnoise(g * 0.8 + 3.7));
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
-        c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.5, 0.8, b2) * 0.6);
-        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.05 * (dry.y - 0.5) + detail * 0.07 * n3);
-        c = mix(c, ${glColor(GROUND.crack)}, dry.x * open * (0.4 + 0.25 * detail));
+        c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
+        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
+        c = mix(c, ${glColor(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));
         // moist: grass, a muted yellowish green, deeper by the water, in lighter and deeper patches
         // and darker blotches; up close, clumps a few to a tile with yellower tips, and blades
         vec3 grass = mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0));
@@ -594,33 +634,24 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float blot = smoothstep(0.62, 0.82, vnoise(g * 0.7 + 5.3));
         float tuft = vnoise(g * 3.3 + 21.0) - 0.5;
         float blade = vnoise(vec2(g.x * 9.0 + g.y * 3.0, g.y * 9.0 - g.x * 3.0) + 40.0) - 0.5;
-        grass = mix(grass, grass * vec3(1.1, 1.04, 0.78), smoothstep(0.05, 0.35, tuft) * 0.6);
-        float tex = 1.0 + 0.16 * tuft + (0.14 * blade + 0.2 * n3) * detail;
-        c = mix(c, grass * (0.84 + 0.18 * b1 + 0.08 * (n1 - 0.5)) * tex * (1.0 - 0.12 * blot), moist);${hook(h, "groundVariation")}
-        // contamination: a layer over the ground, as in the game (palette.ts's contaminationVeins
-        // says the same, for the tests). The ground keeps its own look; red-orange veins run over
-        // it, more of them and brighter the more contaminated: on dry earth its own cracks glow
-        // orange in rust rims, through grass run dark red veins; a finer network joins the more
-        // contaminated; the soil round them is stained a little; from afar, where the veins are too
-        // fine to see, they tint the ground instead (rust on earth, dark red on grass)
+        grass = mix(grass, grass * vec3(1.035, 1.045, 0.97), smoothstep(0.05, 0.35, tuft) * 0.6);
+        vec2 bladeUV = mat2(0.91, -0.415, 0.415, 0.91) * g * 7.0;
+        bladeUV += vec2(vnoise(g * 2.7), vnoise(g * 2.1 + 41.0)) * 2.0;
+        vec2 bladeCell = floor(bladeUV);
+        float bladeHash = fract(sin(dot(bladeCell, vec2(127.1, 311.7))) * 43758.5453);
+        float bladeTurn = bladeHash * 6.28318;
+        vec2 bf = fract(bladeUV) - vec2(0.20 + bladeHash * 0.6, 0.20 + fract(bladeHash * 13.7) * 0.6);
+        bf = mat2(cos(bladeTurn), -sin(bladeTurn), sin(bladeTurn), cos(bladeTurn)) * bf;
+        float bladeAA = max(0.025, max(fwidth(bladeUV.x), fwidth(bladeUV.y)));
+        float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
+        float tex = 0.91 + 0.31 * tuft + painted * (0.08 + bladeHash * 0.16) * detail + 0.09 * blade * detail;
+        c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
         float lvl = clamp(clev, 0.0, 1.0);
-        float reach = mix(${f(CT.reach[0])}, ${f(CT.reach[1])}, lvl);
-        float gate = smoothstep(0.9 - reach, 1.1 - reach, vnoise(g * 0.9 + 61.0));
-        vec2 fineNet = cracks(g * 3.1 + 7.7);
-        float fine = smoothstep(${f(CT.fineFrom)}, 1.0, lvl);
-        float onDry = bad * (1.0 - moist) * (1.0 - wet);
-        float onGrass = bad * moist * (1.0 - wet);
-        float veinD = max(dry.x * gate, fineNet.x * fine * 0.8) * onDry;
-        float veinW = max(rust.x * gate, fineNet.x * fine * 0.7) * onGrass;
-        float stain = mix(${f(CT.stain[0])}, ${f(CT.stain[1])}, lvl);
-        // (the veins are a few hundredths of a tile wide: they fade once a pixel spans that much)
-        float cover = mix(${f(CT.cover[0])}, ${f(CT.cover[1])}, lvl) * smoothstep(0.02, 0.1, fwidth(g.x));
-        c = mix(c, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedGrass)}, moist), stain * bad * (1.0 - wet));
-        c = mix(c, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedWet)}, moist), cover * bad * (1.0 - wet));
-        c = mix(c, ${glColor(GROUND.contaminated)} * ${f(CT.rim)}, veinD);
-        c = mix(c, ${glColor(GROUND.contaminatedWet)}, veinW);
-        // (the glow is added after the light: the veins' cores, narrower than their rims)
-        glow = smoothstep(0.4, 0.95, veinD) * mix(${f(CT.glowDry[0])}, ${f(CT.glowDry[1])}, lvl) + smoothstep(0.35, 0.9, veinW) * mix(${f(CT.glowWet[0])}, ${f(CT.glowWet[1])}, lvl);
+        vec2 fracture = vec2(0.0);
+        if (bad > 0.0 && wet < 1.0) fracture = soulVeins(g, lvl) * bad * (1.0 - wet);
+        vec3 cleanSoil = c;
+        c = mix(cleanSoil, vec3(0.52, 0.13, 0.035), fracture.x * 0.92);
+        glow = fracture.y * mix(0.16, 0.30, lvl);
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), wet);
       }
       void main() {
@@ -663,7 +694,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // pixel, at least a twenty-fifth of a tile) instead of a blend across the whole tile; the light
           // and the contamination's level (shading) keep the smooth weights above
           float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
-          vec2 ws = smoothstep(0.5 - bandW, 0.5, w) * 0.5;
+          vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
+          vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
           float v10 = ws.x * (1.0 - ws.y) * sx;
           float v01 = (1.0 - ws.x) * ws.y * sy;
           float v11 = ws.x * ws.y * sg;
@@ -683,14 +715,19 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           if (groundMode > 0.5) {
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
             glow = 0.0;
-          } else c = ground;
+          } else {
+            float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));
+            c = ground * (1.0 - rim * 0.22);
+          }
           // contact shadow at the foot of higher neighbours, fading within half a tile
           float rx = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.x);
           float ry = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.y);
           float ox = min(max(hx - h0, 0.0), 2.0) * 0.5 * rx;
           float oy = min(max(hy - h0, 0.0), 2.0) * 0.5 * ry;
           float od = min(max(hd - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, hx - h0), step(0.5, hy - h0)));
-          float ao = 1.0 - 0.55 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
+          c *= 1.0 - topLip * 0.30;
+          float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
           light = lightOf(n, mix(0.55, 1.0, sky), ao, sunLit(g, h0));
           if (vWorld.y < h0 - 0.5) {
             // a floor under an overhang (a cave's or a ledge's): the top's soil, never its water,
@@ -717,7 +754,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           #if LITE
             float k = 0.75;
           #else
-            float k = cobble(vec2(along * 2.0, y * 2.0));
+            float k = cobble(vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6));
           #endif
           float shade = mix(${f(WALL.low)}, ${f(WALL.high)}, clamp(level / 16.0, 0.0, 1.0)) * (mod(level, 2.0) > 0.5 ? ${f(WALL.alternate)} : 1.0);
           vec3 wc = mix(${glColor(WALL.mortar)}, ${glColor(WALL.stone)} * shade * (0.78 + 0.44 * (k - 0.5)), smoothstep(0.1, 0.4, k));
@@ -730,7 +767,14 @@ ${hook(h, "wall")}          float py = fwidth(y);
           float lip = 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
           vec3 top = groundMode > 0.5 ? heightColor(h0) : (s0.x > 0.5 ? ${glColor(GROUND.moistHigh)} : ${glColor(GROUND.dry)} * 0.85);
-          c = mix(wc, top, lip * 0.9);
+          vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
+          float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
+          float seamAA = max(0.012, fwidth(y));
+          float seam = (1.0 - smoothstep(0.025, 0.025 + seamAA, min(fy, 1.0 - fy))) * (1.0 - smoothstep(0.25, 0.6, seamAA));
+          float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
+          c = mix(wc, top * 0.58, lip * 0.55);
           float ao = mix(0.5, 1.0, smoothstep(0.0, 1.1, y - base));
           light = lightOf(n, 1.0, ao, sunLit(g + out2 * 0.26, y));
         }
@@ -1262,8 +1306,8 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           foam = max(foam, smoothstep(0.52, 0.78, spray) * (1.0 - smoothstep(0.35, 1.0, up)) * 0.85) * amount;
           // (ragged at a free end)
           foam *= smoothstep(0.0, 0.25, end + 0.15 * (bil - 0.6)) * mix(0.7, 1.0, weak);${hook(h, "crownFoam")}
-          c = foamColour;
-          alpha = foam * FALL_FOAM;
+          c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, 0.20);
+          alpha = foam * FALL_FOAM * 0.46;
         } else if (kind > 3.5) {
           // the splash: white along the impact line (its edge ragged), churning back to the foot of
           // the cliff, and soft white water drifting out past it, thinning as it goes and fading
@@ -1290,8 +1334,8 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           float foam = (core * (0.85 + 0.15 * churn) + (1.0 - core) * broken) * amount;
           // (fading at its edges: raggedly past a free end, toward the cliff, and at its outer edge)
           foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);${hook(h, "splashFoam")}
-          c = foamColour;
-          alpha = foam * FALL_FOAM;
+          c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, 0.20);
+          alpha = foam * FALL_FOAM * 0.46;
         } else {
           float arc = vRib.y;
           float above = vRib.z;
@@ -1314,17 +1358,19 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           float foot = 1.0 - smoothstep(0.05, 0.55 + 0.35 * strength, above);
           // (D324: the falling sheet reads as teal water first, its white only in streaks, at the brink
           // and at the foot; never a white curtain)
-          float whiteStreak = smoothstep(0.55, 0.9, streak);
+          float whiteStreak = smoothstep(0.43, 0.82, streak);
+            float thread = vnoise(vec2(along * 37.0 + sin(phi * 1.2) * 0.5, phi * 0.46 - t * 2.3));
+            whiteStreak = clamp(whiteStreak * 0.68 + smoothstep(0.48, 0.76, thread) * 0.55, 0.0, 1.0);
           float foam = clamp(whiteStreak * (0.22 + 0.3 * aerate) + lip * 0.7 + foot * (0.6 + 0.25 * streak), 0.0, 1.0);
           foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak) * mix(1.0, 0.55, gentle);
           // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
           // thicker where seen edge-on (where it curves over the brink, and at its ends)
           vec3 body = ${hook(h, "fallBody", "waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)")};
           vec3 streaks = mix(WATER_FOAM, badwaterShade(BADWATER_STREAK, 0.25), bad);
-          c = mix(body, streaks, whiteStreak * 0.3) * light;
-          c = mix(c, foamColour, foam);
+          c = mix(body, mix(SOUL_FALL_TEAL, SOUL_FALL_BAD_STREAK, bad), whiteStreak * 0.78) * light;
+          c = mix(c, foamColour, foam * 0.18);
           float edgeOn = 1.0 - max(dot(N, V), 0.0);
-          alpha = mix(FALL_CLEAR, FALL_STREAK, streak);
+          alpha = mix(0.76, 0.94, streak);
           alpha = mix(alpha, BADWATER_FALL, waterMurk(cont));
           alpha = mix(alpha, FALL_FOAM, foam);
           alpha = mix(alpha, 1.0, edgeOn * edgeOn * 0.5) * mix(0.6, 1.0, weak);

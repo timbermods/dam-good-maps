@@ -77,13 +77,13 @@ export const GRADE_GLSL = /* glsl */ `
       float chroma = peak - min(c.r, min(c.g, c.b));
       float vividness = chroma / max(peak, 0.0001);
       float warmNeutral = smoothstep(0.0, 0.25, (c.r - c.g) / max(chroma, 0.0001)) * (1.0 - smoothstep(0.70, 0.95, vividness));
-      float restraint = mix(0.65, 0.98, smoothstep(0.35, 0.75, vividness)) * (1.0 - 0.20 * warmNeutral);
+      float restraint = mix(0.90, 1.0, smoothstep(0.35, 0.75, vividness));
       c = mix(vec3(litLuma), c, restraint);
       float yellowGreen = smoothstep(-0.12, 0.10, (c.g - c.r) / max(chroma, 0.0001)) * smoothstep(0.25, 0.70, (c.r - c.b) / max(chroma, 0.0001));
       float shift = 0.06 * chroma * yellowGreen * smoothstep(0.14, 0.40, litLuma);
       c += vec3(-shift, shift * (0.2126 / 0.7152), 0.0);
     }
-    if (hlTone > 0.5) c = hlShoulder(c * 1.22);
+    if (hlTone > 0.5) c = hlShoulder(c * 1.0);
     return clamp(hlEncode(max(c, vec3(0.0))), 0.0, 1.0);
   }
 `;
@@ -132,7 +132,7 @@ const AMBIENT_GLSL = /* glsl */ `
     float above = max(0.0, world.y - ground);
     float terrain = mix(a.r, 1.0, smoothstep(0.1, 3.5, above));
     float canopy = mix(a.g, 1.0, smoothstep(0.0, 2.4, above));
-    return max(0.58, terrain * canopy);
+    return max(0.40, terrain * canopy);
   }
 `;
 
@@ -178,17 +178,13 @@ export function terrainHooks(): ShaderHooks {
         }
         // D324 (Kyler's follow-up): the tone curve's exposure lifts grass about 5 L* above Standard's; hold it to
         // the game's (L* 50-55) like Standard's, by the grass's own share of the ground
-        c *= 1.0 - 0.11 * moist * hlTone;
+        c *= 1.0;
         vec3 hlCleanGround = c;`,
     // poisoned soil (#67's High proposal, D250): the same contamination, a dark olive-brown stain and
     // dark sickly veins instead of the glow
-    groundEnd: /* glsl */ `        if (hlPoison > 0.5 && bad > 0.0) {
-          float scum = smoothstep(0.48, 0.76, vnoise(g * 2.1 + 19.2));
-          vec3 stainColour = mix(vec3(0.245, 0.24, 0.17), vec3(0.35, 0.36, 0.20), scum * 0.55);
-          c = mix(hlCleanGround, stainColour, bad * (0.30 + 0.35 * lvl) * (1.0 - wet));
-          c = mix(c, vec3(0.105, 0.13, 0.08), max(veinD, veinW) * 0.84);
-          c = mix(c, vec3(0.41, 0.42, 0.23), fineNet.x * scum * bad * 0.12 * (1.0 - wet));
-          glow = 0.0;
+    groundEnd: /* glsl */ `        if (hlPoison > 0.5) {
+          c = mix(hlCleanGround, vec3(0.52, 0.13, 0.035), fracture.x * 0.92);
+          glow = fracture.y * mix(0.16, 0.30, lvl);
         }
 `,
     // the poisoned bed (#38): under polluted water, the ground's own contamination shows through
@@ -204,20 +200,11 @@ export function terrainHooks(): ShaderHooks {
           }`,
     // rock strata (#65): warped bedding, grain, faint fractures, a quiet line at each level
     wall: /* glsl */ `          if (hlStrata > 0.5) {
-            float warp = (vnoise(vec2(along * 0.34, y * 0.21)) - 0.5) * 0.85;
-            float beds = y * 3.2 + warp;
-            float grain = vnoise(vec2(along * 7.7, y * 13.1)) - 0.5;
-            float slab = vnoise(vec2(along * 0.71, y * 2.7));
-            float band = sin(beds * 6.28318) * (1.0 - smoothstep(0.09, 0.30, fwidth(beds)));
-            vec3 rock = mix(vec3(0.43, 0.445, 0.405), vec3(0.56, 0.545, 0.47), slab);
-            rock *= shade * (0.90 + band * 0.075 + grain * 0.16 + (k - 0.5) * 0.24);
-            float fissure = cracks(vec2(along * 0.83, y * 1.27) + 8.2).x;
-            rock *= 1.0 - fissure * 0.20 * (1.0 - smoothstep(0.04, 0.22, fwidth(along)));
-            wc = rock;
-            n = normalize(n + vec3(0.0, band * 0.06, 0.0));
+            vec3 stone = mix(vec3(0.35, 0.355, 0.26), vec3(0.51, 0.47, 0.34), vnoise(vec2(along * 0.32, y * 0.4)));
+            wc = mix(vec3(0.235, 0.23, 0.18) * shade, stone * shade * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
           }
 `,
-    wallLines: "max(markers, hlStrata * 0.22)",
+    wallLines: "markers",
     // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, with a soil
     // cap and the water's section; inland cliffs keep the strata
     lit: /* glsl */ `
@@ -237,7 +224,7 @@ export function terrainHooks(): ShaderHooks {
           stone *= 0.87 + broad * 0.18 + grain * 0.10;
           stone *= 1.0 - joint * 0.18 * (1.0 - smoothstep(0.06, 0.22, fwidth(a)));
           stone *= 0.86 + 0.14 * smoothstep(-3.0, 1.0, y);
-          if (hlGeology > 0.5) c = stone * light;
+          if (hlGeology > 0.5) c *= 0.94;
           if (hlSoilCap > 0.5) {
             float depth = h0 - y;
             float soilDepth = 0.54 + 0.22 * vnoise(vec2(a * 1.53, 7.2));
@@ -301,12 +288,12 @@ ${HIGH_WATER_GLSL}
   }
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
-    float deep = smoothstep(1.25, 4.25, depth);
+    float deep = smoothstep(1.0, 3.5, depth);
     vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
     float facing = clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0);
     float low = 1.0 - smoothstep(0.50, 0.82, facing);
     float grazing = 1.0 - smoothstep(0.18, 0.50, facing);
-    body = mix(body, HW_GRAZING, grazing);
+    body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
     vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
@@ -323,11 +310,32 @@ ${HIGH_WATER_GLSL}
     vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);
     float pixel = max(fwidth(g.x), fwidth(g.y));
     float near = 1.0 - smoothstep(0.18, 0.80, pixel);
-    float texture = 0.5 + (mix(chop(p), chop(p2), blend) - 0.5) / sqrt(blend * blend + (1.0 - blend) * (1.0 - blend));
-    float streak = smoothstep(0.51, 0.79, texture) * near;
-    vec3 colour = mix(body, streakColour, streak);
+    float waterTexture = 0.5 + (mix(chop(p), chop(p2), blend) - 0.5) / sqrt(blend * blend + (1.0 - blend) * (1.0 - blend));
+    float streak = smoothstep(0.51, 0.79, waterTexture) * near;
+    vec3 colour = mix(body, streakColour, streak * 0.45);
+    vec2 direction = normalize(mix(vec2(0.8, 0.6), normalize(velocity + vec2(0.0001, 0.0002)), speed));
+    vec2 across = vec2(-direction.y, direction.x);
+    vec2 flowA = vec2(dot(p, across) * 2.8, dot(p, direction) * mix(2.1, 0.42, speed));
+    vec2 flowB = vec2(dot(p2, across) * 2.8, dot(p2, direction) * mix(2.1, 0.42, speed));
+    flowA += vec2(vnoise(p * 0.71), vnoise(p * 0.83 + 8.1)) * 2.2;
+    flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
+    float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
+    float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
+    float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
+    float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
+    float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
+    float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
+    float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
+    float rolling = mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend);
+    highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
+    colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
+    highlights *= mix(1.0, 0.68, deep);
+    vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), contamination);
+    colour *= 0.80 + broad * 0.40;
+    colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
+    colour += vec3(0.26, 0.035, 0.008) * contamination * (1.0 - smoothstep(0.0, 0.32, shore));
     if (contamination > 0.25) {
-      float trough = (1.0 - smoothstep(0.20, 0.38, texture)) * near;
+      float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
       signalOpacity = max(signalOpacity, grazing * 0.62);
@@ -389,8 +397,8 @@ export function waterHooks(): ShaderHooks {
               vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0);
-            c = mix(hlSurface.rgb, mix(HW_FOAM, HW_BAD_FOAM, hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
+            c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
             alpha = mix(hlSurface.a, 0.97, hlFoam);
           } else {
             // the water's side: streaks where it steps down, the water's body at the map's edge
@@ -421,8 +429,8 @@ export function waterHooks(): ShaderHooks {
               alpha = joined.a;
               hlFoam = 0.0;
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0);
-            c = mix(c, mix(HW_FOAM, HW_BAD_FOAM, hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
+            c = mix(c, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
             alpha = mix(alpha, 0.97, hlFoam);
             if (alpha < 0.01) discard;
           }
@@ -461,7 +469,7 @@ export function fallHooks(): ShaderHooks {
     ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
     // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
     // gives the sheet its own water teal
-    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, badwaterBody(0.25), cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
+    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, vec3(0.55, 0.15, 0.065), cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
     // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
     fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
     fallVertex: /* glsl */ `        if (kind > 4.5 && hlCrown > 0.5) {
@@ -583,12 +591,13 @@ export function skyHooks(): ShaderHooks {
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
-          c = mix(vec3(0.39, 0.65, 0.91), vec3(0.78, 0.84, 0.91), horizon);
-          if (d.y < 0.0) c = mix(vec3(0.49, 0.71, 0.89), c, exp(d.y * 3.0));
-          vec2 hp = d.xz / max(abs(d.y), 0.12) * 1.1;
+          c = mix(vec3(0.30, 0.49, 0.76), vec3(0.29, 0.52, 0.79), horizon);
+          if (d.y < 0.0) c = mix(vec3(0.19, 0.36, 0.55), c, exp(d.y * 3.0));
+          vec2 hp = d.xz / (0.28 + abs(d.y)) * 4.2;
           float hn = vn(hp) * 0.52 + vn(hp * 2.07 + 3.7) * 0.30 + vn(hp * 4.31 + 19.1) * 0.18;
-          float hcloud = smoothstep(0.55, 0.79, hn) * smoothstep(0.03, 0.22, d.y);
-          c = mix(c, vec3(0.97, 0.96, 0.89), hcloud * 0.55);
+          float cloudBank = smoothstep(0.34, 0.62, vn(hp * 0.29 + 17.1));
+          float hcloud = cloudBank * smoothstep(0.52, 0.73, hn) * (0.65 + 0.35 * smoothstep(0.0, 0.22, abs(d.y)));
+          c = mix(c, vec3(0.97, 0.96, 0.89), hcloud * 0.46);
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
         }

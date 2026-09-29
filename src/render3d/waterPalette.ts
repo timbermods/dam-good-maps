@@ -26,6 +26,9 @@ export type Rgb = readonly [number, number, number];
 const BAD_BODY: Rgb = [0.379, 0.18, 0.158];
 
 export const WATER = {
+  fallTeal: [0.27, 0.64, 0.71] as Rgb,
+  fallBad: [0.55, 0.15, 0.065] as Rgb,
+  fallBadStreak: [0.87, 0.32, 0.12] as Rgb,
   /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
    *  `navy` darkened further by D310, toward the game's own reading, while `shallow` and badwater
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
@@ -130,18 +133,18 @@ export const HIGH_WATER = {
    *  these against the game's own reading and found them already close (within half an L\* of the
    *  sampled shallow/middle/deep), so they are unchanged; `bad` is unchanged too, for the same reason
    *  Standard's `WATER.bad` is (the mine pit's margin under it, and #38's approved measurement). */
-  shallow: [46.5 / 255, 91.5 / 255, 108.5 / 255] as Rgb,
-  body: [44.5 / 255, 88 / 255, 104 / 255] as Rgb,
-  deep: [37 / 255, 73.5 / 255, 87 / 255] as Rgb,
+  shallow: [0.13, 0.29, 0.36] as Rgb,
+  body: [0.08, 0.20, 0.28] as Rgb,
+  deep: [0.045, 0.12, 0.19] as Rgb,
   streakAbove: [45 / 255, 83 / 255, 96 / 255] as Rgb,
   streakLow: [56 / 255, 86 / 255, 98 / 255] as Rgb,
-  grazing: [51 / 255, 79 / 255, 91 / 255] as Rgb,
+  grazing: [0.07, 0.14, 0.23] as Rgb,
   streakGrazing: [82.5 / 255, 127.5 / 255, 137 / 255] as Rgb,
-  bad: [94 / 255, 45 / 255, 43 / 255] as Rgb,
+  bad: [0.32, 0.075, 0.062] as Rgb,
   badTrough: [-18.5 / 255, -7 / 255, -6 / 255] as Rgb,
   badStreak: [10.5 / 255, 13 / 255, 4.5 / 255] as Rgb,
   glint: [0.97, 0.985, 1.0] as Rgb,
-  badGlint: [0.78, 0.67, 0.56] as Rgb,
+  badGlint: [0.86, 0.58, 0.55] as Rgb,
   foam: [0.9, 0.96, 0.98] as Rgb,
   badFoam: [0.31, 0.17, 0.085] as Rgb,
   sideShallow: [0.13, 0.58, 0.6] as Rgb,
@@ -397,6 +400,8 @@ export const HIGH_WATER_GLSL = Object.entries(HIGH_WATER)
 export const WATER_GLSL = /* glsl */ `
   #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_CREST ${glColor(WATER.crest)}
+  #define SOUL_FALL_TEAL ${glColor(WATER.fallTeal)}
+  #define SOUL_FALL_BAD_STREAK ${glColor(WATER.fallBadStreak)}
   #define WATER_TEAL ${glColor(WATER.teal)}
   #define WATER_NAVY ${glColor(WATER.navy)}
   #define WATER_FOAM ${glColor(WATER.foam)}

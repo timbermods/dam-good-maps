@@ -45,18 +45,18 @@ export const GROUND = {
    *  0.1 (the game's own contrast; every colour-blindness simulation still tells them apart, with room,
    *  `look-readable.test.ts`); the lightness stops where the other, untouched rule binds, that moist
    *  contaminated ground stays 0.15 lighter than dry contaminated ground; the cliffs' stone lighter and bluer-grey. */
-  dry: [0.41, 0.415, 0.39] as Rgb,
+  dry: [0.48, 0.405, 0.35] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.4, 0.4, 0.415] as Rgb,
+  dryCool: [0.46, 0.415, 0.445] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.46, 0.415, 0.365] as Rgb,
+  dryWarm: [0.54, 0.44, 0.345] as Rgb,
   /** The cracks in dry ground. */
-  crack: [0.19, 0.17, 0.17] as Rgb,
+  crack: [0.19, 0.14, 0.125] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted, yellowish grass
    *  green, lighter than dry ground. */
-  moistLow: [0.5, 0.655, 0.32] as Rgb,
+  moistLow: [0.445, 0.575, 0.28] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.48, 0.635, 0.3] as Rgb,
+  moistHigh: [0.415, 0.55, 0.265] as Rgb,
   /** Contamination (badwater spoils the soil and plants die), a layer over the ground as in the
    *  game: the rust of the veins' rims on dry earth and of the stain round them... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -88,8 +88,8 @@ export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.
  *  shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
  *  groove between levels, so levels can be counted. */
 export const WALL = {
-  stone: [0.49, 0.535, 0.56] as Rgb,
-  mortar: [0.2, 0.215, 0.23] as Rgb,
+  stone: [0.40, 0.395, 0.29] as Rgb,
+  mortar: [0.13, 0.125, 0.095] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   alternate: 0.86,
@@ -108,7 +108,7 @@ export const CONTAMINATION = {
   /** The veins' glow on dry earth (D324: 0.45 to 0.55 at the least, so a faint vein stays a light line on the lighter dry earth) and on grass, at the least and the most contamination, and how
    *  strongly the glow shines (added after the light, so it shows in shade too). */
   glowDry: [0.55, 1] as const,
-  glowWet: [0.05, 0.25] as const,
+  glowWet: [0.32, 0.65] as const,
   glowAdd: 0.85,
   /** How dark a vein's rust rim is on dry earth (a share of the rust). */
   rim: 0.75,
@@ -190,8 +190,8 @@ export const START = {
  *  makes ruins read from afar), a pale panel set in where it has one. The rust and the panels are
  *  lighter than rusty contaminated ground. */
 export const RUIN = {
-  rust: [0.553, 0.337, 0.192] as Rgb,
-  panel: [0.722, 0.655, 0.459] as Rgb,
+  rust: [0.83, 0.47, 0.12] as Rgb,
+  panel: [0.89, 0.81, 0.59] as Rgb,
   ivy: [0.251, 0.337, 0.204] as Rgb,
   /** The ivy's brighter leaves, on its clusters' edges. */
   leaf: [0.36, 0.5, 0.24] as Rgb,
@@ -201,7 +201,7 @@ export const RUIN = {
    *  `top` was, while staying apart from contaminated ground in lightness (`look-water-slopes.test.ts`).
    *  Both the far block's four faces and its top use it; the lattice pattern (materials.ts,
    *  `RUIN_LATTICE_SCALE`) is what tells it apart from a solid box, not a colour split between faces. */
-  far: [0.47, 0.39, 0.28] as Rgb,
+  far: [0.72, 0.43, 0.19] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
