@@ -516,6 +516,27 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     ],
   });
 
+  // M9b's pooled batch (PLAN §20 D308 (2), D325 step 7, D333 (1)): generator 0.8.0's maps from
+  // feature/m9b, played through M9a's weather (3 temperate days, a 3-day drought, 3 temperate, a
+  // 3-day badtide, then calm) and compared with the cycle model day by day, with M9a's tolerances
+  // stated above. Two maps per theme at 128²; two chaos maps (Any at Variety 100 and Verticality 100,
+  // 256², D273 (6)); two maps with Sources: None (D330: no source and no water, the land and plants
+  // as generated). What batch 5 changed and these checks watch: the base raise and the edge lip (the
+  // water holds as in the file after a day, and a river's head keeps its water: `water` and
+  // cal-timeline's volume), living trees only (cal-timeline's plants against the model), and badwater
+  // contained (m9a-badwater: before the badtide the start's water stays clean and badwater stays
+  // within 3 tiles of the file's).
+  const m9bGame = (id: string, title: string, fragment: string, extra: CheckDef[]): GameDef => ({
+    id, title: `M9b · ${title}`, group: 'M9b', bytes: memo(() => generatedFrom(fragment)), faction: 'Folktails', mode: 'Normal',
+    cycles: M9A_CYCLES, days: 12.5, tiles: (m) => startWater(m, 'Normal').slice(0, 6), sampleHours: 1, daily: true, model: true,
+    checks: [...GENERIC, M9A_WEATHER[0], ...extra, M9A_SHOTS],
+  });
+  for (const [theme, name] of [['any', 'Any'], ['riverValley', 'River Valley'], ['canyon', 'Canyon'], ['highlands', 'Highlands'], ['lakeBasin', 'Lake Basin'], ['delta', 'Delta'], ['islands', 'Islands']] as const)
+    for (const seed of [1, 2]) games.push(m9bGame(`m9b-${theme}-128-${seed}`, `${name} 128² (seed ${seed})`, `s=${seed}&t=${theme}&z=128&d=n`, [M9A_WEATHER[1], M9A_BADWATER]));
+  for (const seed of [1, 2]) games.push(m9bGame(`m9b-chaos-256-${seed}`, `Chaos: Any 256², Variety 100, Verticality 100 (seed ${seed})`, `s=${seed}&t=any&z=256&d=n&vy=100&vt=100`, [M9A_WEATHER[1], M9A_BADWATER]));
+  games.push(m9bGame('m9b-none-any', 'Any 128², Sources: None (seed 3)', 's=3&t=any&z=128&d=n&so=n', []));
+  games.push(m9bGame('m9b-none-rv', 'River Valley 128², Sources: None (seed 5)', 's=5&t=riverValley&z=128&d=n&so=n', []));
+
   // Any time: E4, a map with no StartingLocation (last: the game may stop on it)
   const e4 = memo(() => withoutStart(new Uint8Array(readFileSync(join(REPO, m1)))));
   const e4game: GameDef = {
