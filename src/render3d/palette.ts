@@ -214,23 +214,25 @@ export const THORNS: Rgb = [0.34, 0.16, 0.14];
  *  colour, so distant ground fades into it). */
 export const SKY = { zenith: [0.36, 0.55, 0.8] as Rgb, horizon: [0.64, 0.75, 0.87] as Rgb, below: [0.46, 0.6, 0.77] as Rgb, cloud: [0.93, 0.95, 0.97] as Rgb } as const;
 
-/** Mine sites (Kyler's rounds, D178; his colours, measured in the game): a rusty frame in a dull
+/** Mine sites (Kyler's rounds, D178; his colours, measured in the game; the pit's earth a little darker
+ *  since D324): a rusty frame in a dull
  *  brown-orange (#844D2F) round the edge of the 5 × 5 footprint, and a pit with real depth filling
  *  the rest, its earth a dark grey-brown with roots, rubble and cracks; scaffold towers on the
  *  frame's corners with pale wooden platforms, crates and planks (#A78E65). With **Markers** on, an
  *  orange line between dark edges outlines the footprint, a few pixels wide from any distance. */
 export const MINE = {
-  /** The pit as it shows in its shade (about #373A34): the legend's colour. */
-  pit: [0.216, 0.227, 0.204] as Rgb,
+  /** The pit as it shows in its shade (about #2F312C: Kyler's #373A34 darkened a little by D324, option (a),
+   *  to keep it 5 L* under the darker badwater): the legend's colour. */
+  pit: [0.184, 0.193, 0.173] as Rgb,
   /** The pit's earth as the model colours it: lit only by the sky down there, it shows about as
    *  `pit`. The walls' topsoil is browner and lighter, with a pale seam, and the earth darkens
    *  toward the floor; the floor darkens toward its edges. */
-  earthTop: [0.66, 0.58, 0.45] as Rgb,
-  earth: [0.56, 0.55, 0.46] as Rgb,
-  earthLow: [0.43, 0.43, 0.37] as Rgb,
-  seam: [0.68, 0.64, 0.53] as Rgb,
-  floor: [0.43, 0.45, 0.37] as Rgb,
-  floorEdge: [0.34, 0.35, 0.3] as Rgb,
+  earthTop: [0.561, 0.493, 0.383] as Rgb,
+  earth: [0.476, 0.468, 0.391] as Rgb,
+  earthLow: [0.365, 0.365, 0.315] as Rgb,
+  seam: [0.578, 0.544, 0.451] as Rgb,
+  floor: [0.365, 0.383, 0.315] as Rgb,
+  floorEdge: [0.289, 0.297, 0.255] as Rgb,
   crack: [0.16, 0.16, 0.15] as Rgb,
   floorCrack: [0.24, 0.24, 0.21] as Rgb,
   /** The shaft in the pit's floor. */

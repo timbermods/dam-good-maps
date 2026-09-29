@@ -117,14 +117,14 @@ describe("mine sites", () => {
     expect(frameTop).toBeGreaterThan(0.1);
   });
 
-  it("have Kyler's colours: the pit's earth shows about #373A34 in its shade, a dull rusty frame, pale wood", () => {
+  it("have Kyler's colours: the pit's earth shows about #2F312C (D324's option (a): #373A34 darkened a little to keep its margin under the darker badwater), a dull rusty frame, pale wood", () => {
     expect(cssColor(MINE.frame)).toBe("#844d2f");
     expect(cssColor(MINE.wood)).toBe("#a78e65");
-    expect(cssColor(MINE.pit)).toBe("#373a34");
+    expect(cssColor(MINE.pit)).toBe("#2f312c");
     // the frame is no longer bright orange
     expect(Math.max(...MINE.frame)).toBeLessThan(0.6);
     // down in the pit only the sky lights it (the object shader: sky × 1.15, the foot's shade 0.72,
-    // the warm grade): the floor and the earth show within a few steps of #373A34
+    // the warm grade): the floor and the earth show within a few steps of #2F312C
     const seen = (c: readonly number[], up: number) => c.map((v, k) => v * LIGHT.sky[k] * 1.15 * (0.8 + 0.2 * up) * 0.72 * [1.01, 1, 0.98][k]);
     const floor = seen(MINE.floor, 1);
     const earth = seen(MINE.earth, 0);
@@ -149,8 +149,9 @@ describe("mine sites", () => {
     for (let k = 0; k < badwater.length; k += 3) lightest = Math.max(lightest, lum([badwater[k], badwater[k + 1], badwater[k + 2]]));
     expect(lum(MINE.wood)).toBeGreaterThan(lightest + 0.2);
     // the pit's earth is darker than badwater by about 5 L* or more, as in the game (Kyler's review
-    // of D177 and D178, 2026-09-26: both colours stay, #373A34 and #38's crimson; it was lighter than
-    // the red-black badwater before)
+    // of D177 and D178, 2026-09-26: it was lighter than the red-black badwater before). D324 (option
+    // (a) of D310) darkened both, the pit's earth (from #373A34) and badwater's crimson, a little,
+    // so clean water could come down toward the game; the margin is what it was, never loosened
     const lightness = (c: readonly number[]) => {
       const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const y = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);

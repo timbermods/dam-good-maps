@@ -950,13 +950,14 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
 ${hook(h, "water")}        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
         // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
-        // its shore; badwater keeps its colour, half see-through, with dark diagonal stripes
+        // its shore; badwater keeps its colour, murky and half see-through, with its dull troughs
+        // and slow glowing bubbles (never a hatching: it reads by lightness, colour and texture, D324)
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
-          vec3 bc = mix(murky, murky * CLEAR_STRIPE, stripe);
+          vec3 bc = mix(murky, badwaterShade(BADWATER_TROUGH, depth), trough * BADWATER_TROUGH_AMOUNT);
+          bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES;
           vec3 cc = c;
           float ca = alpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {
@@ -1312,14 +1313,11 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
         }
 ${hook(h, "fallEnd")}        // clear water (D196, D212; waterPalette.ts CLEAR_WATER), as the water has it: all of it with
         // T, else round the brush while it paints a submerged bed. A clean fall turns to a faint
-        // veil (the cliff and the bed show); a badwater fall keeps its colour, half see-through,
-        // with dark diagonal stripes
+        // veil (the cliff and the bed show); a badwater fall keeps its colour, half see-through
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          float stripe = step(0.55, fract((g.x - g.y + vWorld.y) * 2.5));
-          c = mix(c, mix(c, c * CLEAR_STRIPE, stripe), badish * clr);
           alpha = mix(alpha, mix(alpha * CLEAR_FALL, min(alpha, CLEAR_BAD_OPACITY), badish), clr);
         }
         if (alpha < 0.01) discard;

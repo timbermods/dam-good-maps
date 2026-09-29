@@ -494,7 +494,9 @@ describe("a fall's colours", () => {
   it("turn see-through with clear water (T, or round the brush), and a fall is cut at the slice, as the water is", () => {
     for (const lite of [false, true]) {
       const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
-      for (const use of ["clearWater", "clearAround", "CLEAR_FADE", "CLEAR_FALL", "CLEAR_BAD_OPACITY", "CLEAR_STRIPE"]) expect(m.fragmentShader).toContain(use);
+      for (const use of ["clearWater", "clearAround", "CLEAR_FADE", "CLEAR_FALL", "CLEAR_BAD_OPACITY"]) expect(m.fragmentShader).toContain(use);
+      // never a hatching on badwater, however it is seen (D324, feedback item 5)
+      expect(m.fragmentShader).not.toContain("CLEAR_STRIPE");
       expect(m.fragmentShader).toMatch(/if \(vWorld\.y > slice \+ 0\.05\) discard;/);
     }
     // a clean fall keeps a faint veil, from the shared palette

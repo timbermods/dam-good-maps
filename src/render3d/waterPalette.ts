@@ -16,13 +16,14 @@
 
 export type Rgb = readonly [number, number, number];
 
-/** Badwater's crimson body (calibrated to #38's targets). D310 looked at darkening this too (its
- *  floor, alongside clean water), but it is left exactly as it was: darkening it at all erases the
- *  mine pit's own margin under it (`look-mine-ruins.test.ts`, Kyler's review of D177/D178,
- *  2026-09-26: the pit stays at least 5 L* darker than badwater; the two already clear it by only
- *  0.4 L*, no room to spare) and its `WATER_CALIBRATION` targets are #38's approved measurement, not
- *  ours to move. D310's darkening is clean water's alone. */
-const BAD_BODY: Rgb = [0.431, 0.204, 0.18];
+/** Badwater's crimson body (calibrated to #38's targets, then darkened a little by D324). D310 found
+ *  that darkening it erased the mine pit's margin under it (`look-mine-ruins.test.ts`, Kyler's review
+ *  of D177/D178, 2026-09-26: the pit stays at least 5 L* darker than badwater; they cleared it by
+ *  0.4 L*), so it held. Kyler chose option (a) (D324): the pit's earth darkened first (from #373A34), then
+ *  badwater (L* 29.3 to 25.6, about a tenth darker, nearer the game's own murky reading), then clean
+ *  shallows brought down toward the game, every readability rule at its old strictness. Its
+ *  `WATER_CALIBRATION` targets were re-measured once for it. */
+const BAD_BODY: Rgb = [0.379, 0.18, 0.158];
 
 export const WATER = {
   /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
@@ -30,13 +31,14 @@ export const WATER = {
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
    *  teal-blue body, a calmer surface with subtle ripples and glints, still see-through so the bed
    *  shows through. `teal` and `navy` sit close to the game's own reading (D310: within about 3 L*
-   *  of the sampled #305965/#264A58 â€” `navy` almost exactly `#264A58`'s own lightness). `shallow`
-   *  stays well above that literal reading: badwater's colours don't move (see `BAD_BODY`), so
-   *  clearing `look-readable.test.ts`'s restored raw margin (0.3) and `look-waterfalls.test.ts`'s
-   *  colour-blind margin (D201, at least 20 L*, cleared by 32+ in every simulation) takes a lighter
-   *  shallow than the literal reading would. Water still reads as water by its shore foam, glints and
+   *  of the sampled #305965/#264A58 — `navy` almost exactly `#264A58`'s own lightness). `shallow`
+   *  stays above that literal reading, by exactly what the readability rules need: it clears
+   *  badwater's body by `look-readable.test.ts`'s raw margin (0.3, restored by D310) and
+   *  `look-waterfalls.test.ts`'s colour-blind margin (D201, at least 20 L*). D324 (option (a)) darkened
+   *  badwater and the mine pit's earth first (see `BAD_BODY`), which let it come down from L* 65.9 to
+   *  58.8; it is as low as the margin allows. Water still reads as water by its shore foam, glints and
    *  ripples, not by a wide light-to-dark swing across its own depths. */
-  shallow: [0.278, 0.682, 0.74] as Rgb,
+  shallow: [0.245, 0.602, 0.654] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
   crest: [0.26, 0.5, 0.62] as Rgb,
   /** The body of water a level or so deep (D310: close to the game's own #305965). */
@@ -54,8 +56,8 @@ export const WATER = {
   badDeep: [0.14, 0.066, 0.058] as Rgb,
   /** Badwater's darker troughs, in the ripples' low parts (`BADWATER.trough` of the way), and
    *  its subdued, lighter flow streaks; both in its shallows, darkening with depth as the body. */
-  badTrough: [0.332, 0.163, 0.145] as Rgb,
-  badStreak: [0.478, 0.266, 0.22] as Rgb,
+  badTrough: [0.292, 0.143, 0.128] as Rgb,
+  badStreak: [0.421, 0.234, 0.194] as Rgb,
   /** Badwater's slow glowing bubbles, denser the more of the water is bad. */
   badVein: [0.98, 0.5, 0.16] as Rgb,
   /** Foam on badwater: along its shores and below its falls. */
@@ -135,9 +137,9 @@ export const HIGH_WATER = {
   streakLow: [56 / 255, 86 / 255, 98 / 255] as Rgb,
   grazing: [51 / 255, 79 / 255, 91 / 255] as Rgb,
   streakGrazing: [82.5 / 255, 127.5 / 255, 137 / 255] as Rgb,
-  bad: [107 / 255, 51 / 255, 49 / 255] as Rgb,
-  badTrough: [-21 / 255, -8 / 255, -7 / 255] as Rgb,
-  badStreak: [12 / 255, 15 / 255, 5 / 255] as Rgb,
+  bad: [94 / 255, 45 / 255, 43 / 255] as Rgb,
+  badTrough: [-18.5 / 255, -7 / 255, -6 / 255] as Rgb,
+  badStreak: [10.5 / 255, 13 / 255, 4.5 / 255] as Rgb,
   glint: [0.97, 0.985, 1.0] as Rgb,
   badGlint: [0.78, 0.67, 0.56] as Rgb,
   foam: [0.9, 0.96, 0.98] as Rgb,
@@ -160,8 +162,9 @@ export const HIGH_WATER = {
  *  right round the brush while it paints a submerged bed, or the whole map with T. Clean water
  *  still reads as water: a faint blue tint (`WATER.clearTint`), its ripples catching the light and
  *  a soft bright line along its shore (`WATER.clearShore`), never pale grey glass. Badwater keeps
- *  its own colour, half see-through, with dark diagonal stripes: a pattern, so it stays apart from
- *  clean water in greyscale and every colour-blindness. */
+ *  its own crimson, murky and darker than the bed, its dull troughs and its slow glowing bubbles;
+ *  never a hatching (D324, feedback item 5): it stays apart from clean water in greyscale and every
+ *  colour-blindness by lightness, colour and texture (`look-readable.test.ts`). */
 export const CLEAR_WATER = {
   /** Clean water's opacity, and how much more its ripples' crests and glints take. */
   opacity: 0.13,
@@ -171,14 +174,13 @@ export const CLEAR_WATER = {
   /** The line along the shore: its opacity, and its width (a share of a tile). */
   shoreOpacity: 0.6,
   shoreWidth: 0.2,
-  /** Badwater's opacity, and how dark its stripes are (a share of its colour). */
-  badOpacity: 0.62,
-  stripe: 0.45,
+  /** Badwater's opacity: murky enough to stay darker than the bed it lies on. */
+  badOpacity: 0.72,
   /** Round the brush, the clear water fades back to normal over this many tiles. */
   fade: 1.5,
   /** A clean fall, its splash and its crown keep this share of their opacity (D201): a faint veil of
    *  streaks and foam, so the cliff behind it and the bed below show; a badwater fall keeps its
-   *  colour, at most `badOpacity` opaque, with the stripes. */
+   *  colour, at most `badOpacity` opaque. */
   fall: 0.3,
 } as const;
 
@@ -414,7 +416,6 @@ export const WATER_GLSL = /* glsl */ `
   #define CLEAR_SHORE_OPACITY ${f(CLEAR_WATER.shoreOpacity)}
   #define CLEAR_SHORE_WIDTH ${f(CLEAR_WATER.shoreWidth)}
   #define CLEAR_BAD_OPACITY ${f(CLEAR_WATER.badOpacity)}
-  #define CLEAR_STRIPE ${f(CLEAR_WATER.stripe)}
   #define CLEAR_FADE ${f(CLEAR_WATER.fade)}
   #define CLEAR_FALL ${f(CLEAR_WATER.fall)}
   #define WATER_WARM ${glColor(WATER.warm)}
