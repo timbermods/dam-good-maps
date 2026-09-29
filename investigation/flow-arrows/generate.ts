@@ -3,12 +3,14 @@ import { generate } from '../../src/core/gen/generate';
 import { buildMap } from '../../src/core/features/build';
 import { makeSpec } from '../../src/core/spec/mapspec';
 import { emptyColumns, entityView, soilView, waterFromDepth, surfaceWater } from '../../src/render3d/model';
-import { surfaceFlow } from '../../src/render3d/high/flow';
+import { settledVelocity } from './flow';
 import { lifeOf, variantOf } from '../../src/worker/api';
 
 function view(b: any) {
+  if (!b.settle.out) throw new Error('Canonical settle did not retain outflows');
   return { W: b.W, H: b.H, heights: b.heights, columns: emptyColumns(),
     water: waterFromDepth(b.heights, b.water, b.contamination),
+    flow: { source: 'canonical-settle.out' as const, out: b.settle.out.slice(), depth: b.settle.depth.slice() },
     entities: entityView(b.entities.map((e: any) => ({ ...e, ...lifeOf(e.components), ...variantOf(e.components) }))),
     soil: soilView(b.moisture, b.soilContamination) };
 }
@@ -23,7 +25,7 @@ for (const [theme, seed] of [['riverValley', 4242], ['delta', 5]] as const) {
   writeFileSync(`local/${theme}-features.json`, JSON.stringify(r.features, null, 2));
   const original = view(r.built);
   const sw = surfaceWater(128, 128, original.water);
-  const flow = surfaceFlow(128, 128, sw);
+  const flow = settledVelocity(128, 128, original.flow)!;
   // Pick an interior moving-water tile near the map centre; a real 5 x 5 bed-lowering edit.
   let at = -1, best = Infinity;
   for (let y = 12; y < 116; y++) for (let x = 12; x < 116; x++) {

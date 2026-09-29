@@ -1,11 +1,10 @@
-# Flow arrows — feedback 45
+# Flow arrows — round 2, feedback 45
 
-Small standalone demo, based on `feature/high-look` at `8c975822`.
-All authored changes live here; product modules are imported read-only. No game files or assets are used.
+Standalone demo on `investigation/flow-arrows`, based on high-look `8c975822`. Product modules are read-only imports; all authored changes stay here. Original generated maps and glyphs only, no Timberborn files.
 
-## Run
+## Run / regenerate
 
-Use Node 24 (or a Vite 8 compatible Node version). From this directory:
+Use Node 24 (or a Vite 8 compatible version). From this directory:
 
 ```sh
 npm ci
@@ -13,27 +12,28 @@ npm run generate
 npm run dev
 ```
 
-Open http://127.0.0.1:5184/. Flow arrows starts **off**. Choose either map and either look, enable the toggle, orbit/zoom, and try **Edit riverbed** / **Undo riverbed edit**.
-The edit lowers a 5 × 5 riverbed patch by two blocks. Generation saves both canonical product-pipeline results; the button applies those snapshots immediately. It is a bounded edit demonstration, not an editor or a new simulation.
+Open http://127.0.0.1:5184/. **Flow arrows starts off.** Choose High or Standard and either map, enable it, orbit/zoom, then try **Edit riverbed** / **Undo riverbed edit**. Enable reduced motion in your OS/browser to make the arrows stand still.
 
-Fixtures: River Valley seed 4242, default settings; Delta seed 5 with badwater off so its three clean-water distributaries are visible. Both are 128 × 128. The generator uses the product's `generate` and `buildMap`; arrows use `surfaceWater` and the unchanged `high/flow.ts` estimator.
+Fixtures are River Valley seed 4242 with defaults, and Delta seed 5 with badwater off to expose its three clean-water distributaries, both 128². Generation uses the existing `generate` and `buildMap`, saving original and lowered-5×5-riverbed results. Every snapshot now includes its own `settle.out` and settle depth. The edit button replaces water and flow together; it replays these real canonical results, not an interactive simulation.
 
-## Regenerate the three captures
+**Rerun generation after updating from round 1.** Missing flow data disables arrows rather than guessing from the surface. `flow.ts` derives centre currents from opposing net face outflows divided by depth. Direction order and rate units follow `src/core/sim/water.ts`; rates are not divided by DT again. The retained field is the solver's balanced outflow momentum, not its unretained pre-balancing transport array. No surface-slope estimator is used.
 
-With the server running, in a second terminal in this directory:
+The glyph is 22–27 CSS pixels long with a pale 2.8 px stroke and 1.2 px dark edge; placement starts 54–70 px apart. Faster current gives longer arrows, closer placement and faster drift (3–11 px/s, deliberately slowed/compressed). Arrows remain anchored to wet water, retire at banks/falls, and hide as whole glyphs behind terrain. At distant zoom a glyph may extend beyond a narrow channel's pixel width to preserve its readable shape. Entity footprints are avoided. Open centres preserve the view below; no opaque panel or depth writing.
+
+## Captures / focused checks
+
+With the server running, from a second terminal here:
 
 ```sh
 npm run capture
 ```
 
-The capture script uses installed Microsoft Edge through Playwright (Windows, D3D11). It explicitly enables the renderer's existing GPU test hook so the High comparison is not downgraded by software detection. The ordinary demo keeps the product's normal fallback behavior; its footer reports the actual look.
+Uses installed Microsoft Edge through Playwright with D3D11 and the product's GPU test hook to compare actual High/Standard. Normal use retains the product's fallback. Drift is frozen for reproducible captures. Each pair is downscaled from two 1440×1000 browser captures to 1728×600: **High left, Standard right**.
 
-Each JPEG is a 1728 × 600 pair, **High left / Standard right**, downscaled from two 1440 × 1000 browser captures. River overview uses the product's default camera; Delta frames the split; the close view frames the riverbed edit location. The arrows are enabled for all three.
-
-- [River overview](captures/river-overview.jpg)
+- [Default river overview](captures/river-overview.jpg)
 - [Delta split channels](captures/delta-split.jpg)
 - [Close view](captures/close-view.jpg)
 
-Generated map snapshots, bundled generator, feature metadata, full-size captures, Vite cache and smoke results stay in gitignored `local/`. Recreate them with the commands above. Only the three small JPEGs are committed.
+The same command checks actual-flow direction/units, still and unavailable flow, edits/undo, six zoom distances, slow drift and reduced motion, and writes diagnostic views of the shallowest/deepest moving clean/bad water. Generated map/flow JSON, generator bundle, metadata, full-size screenshots, contrast sheet, Vite cache and smoke results stay in gitignored `local/`. Only the three small JPEG pairs are committed.
 
 See [REPORT.md](REPORT.md) and [INTEGRATION.md](INTEGRATION.md).
