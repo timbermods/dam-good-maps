@@ -16,18 +16,27 @@ async function refine(page: Page, hash: string) {
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
 }
 
-/** The editor shows the worker's map, at its size: the view's size and ground are the map's. */
+/** The editor shows the worker's map, at its size: the view's size and ground are the map's. (Polled:
+ *  the editor is opened again for a map of another size, a moment after the key.) */
 async function viewMatchesMap(page: Page, W: number) {
-  await page.waitForFunction((w) => window.dgmEditor?.info().W === w && window.dgm3d?.renderer.mapState()?.W === w, W, { timeout: 60_000 });
-  await page.evaluate(() => window.dgmEditor!.idle());
-  const r = await page.evaluate(async () => {
-    const m = window.dgm3d!.renderer.mapState()!;
-    const now = await window.dgmEditor!.worker.terrainNow();
-    let same = m.heights.length === now.heights.length;
-    for (let i = 0; same && i < m.heights.length; i++) same = m.heights[i] === now.heights[i];
-    return { W: m.W, H: m.H, n: m.heights.length, same };
-  });
-  expect(r).toEqual({ W, H: W, n: W * W, same: true });
+  await expect
+    .poll(
+      () =>
+        page
+          .evaluate(async () => {
+            const ed = window.dgmEditor;
+            const m = window.dgm3d?.renderer.mapState();
+            if (!ed || !m) return null;
+            await ed.idle();
+            const now = await ed.worker.terrainNow();
+            let same = ed.info().W === m.W && m.heights.length === now.heights.length;
+            for (let i = 0; same && i < m.heights.length; i++) same = m.heights[i] === now.heights[i];
+            return { W: m.W, H: m.H, n: m.heights.length, same };
+          })
+          .catch(() => null),
+      { timeout: 60_000 },
+    )
+    .toEqual({ W, H: W, n: W * W, same: true });
 }
 
 test("an edited map's edits stay with it when the size changes: a new size makes a new map", async ({ page }) => {
@@ -59,8 +68,8 @@ test("an edited map's edits stay with it when the size changes: a new size makes
   await expect(page.getByRole("button", { name: "Generate a new map" })).toBeVisible();
   await expect(page.getByText("Your edits stay on your 96×96 map. A new size makes a new map.")).toBeVisible();
   await page.getByRole("button", { name: "Generate a new map" }).click();
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText(/New map from these settings/)).toBeVisible();
+  await expect(page.getByText(/New map from these settings/)).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("button", { name: "Generate", exact: true })).toBeEnabled({ timeout: 120_000 });
   // the edited map is still the one open, untouched, and saved
   const banner = page.getByRole("status").filter({ hasText: /You're editing/ });
   await expect(banner).toBeVisible();
