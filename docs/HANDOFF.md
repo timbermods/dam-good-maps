@@ -181,9 +181,9 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
 - **Progress log** (D221): a short, plain comment on [#57](https://github.com/timbermods/dam-good-maps/issues/57) each time
   a step finishes, something is released, a probe batch runs or something is parked for Kyler (what happened, links, what's
   next). `docs/STATUS.md` stays the full record, with its summary at the top.
-- **Pings:** when Kyler asks for one, or something waits on him and he may have walked away: `powershell -NoProfile
+- **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his eye, an approval, a probe batch awaiting his yes, work stuck on his side, anything broken he sees or plays), never for progress, green CI or information. Each ping: one or two lines on what's needed, where, and what carries on meanwhile; batch non-urgent asks; never wait silently. The toast: `powershell -NoProfile
   -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body "<where>"` (a Windows toast on this
-  machine; the PushNotification tool is skipped while he is at the terminal) and a chat line such as "🔔🔔 … 🔔🔔".
+  machine; the PushNotification tool is skipped while he is at the terminal), a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; give each e2e run its own free port; CI runs the specs in four parallel shards, `--shard=i/4`, so a run there is `browser (i/4)` jobs, not one long job),
   `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
