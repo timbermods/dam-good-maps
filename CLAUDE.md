@@ -38,6 +38,11 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
 
 ## Standing rules
 
+- **The editor's architecture (PLAN §20, D342):** every change to a map is an operation in `ops.schema.json`, in plain
+  terms, validated and rejected with a one-line reason, never silently clamped; all editing logic lives in `src/core/`
+  and runs headless in Node (`src/editor/` turns input into operations and shows results); every question the editor
+  answers is a plain core function returning plain data; contract tests exercise the core directly. Apply it to
+  everything new; fix older code that breaks it when next touched.
 - Before any editor work, read `EDITOR_PLAN.md`. It opens with the editor's vision (Kyler's decisions, PLAN §20
   D158, D179–D188); what it lists as superseded must not come back.
 - Docs are part of done (PLAN §20, D188):

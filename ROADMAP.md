@@ -1075,6 +1075,10 @@ terrain steps extend the same brushes to caves and tunnels.
 
 ---
 
+## Crop map to selection (D340)
+
+After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
+
 ## The page is the editor (D232–D234)
 
 **The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), approved by Kyler on 2026-09-29, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
