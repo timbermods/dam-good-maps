@@ -66,13 +66,14 @@ export interface CarveSettings {
 export interface CarveIntent {
   origin: number;
   end?: number;
-  /** Aim through waypoints (D312): tiles between the origin and the end, in order; the carve steers
-   *  along a smooth curve through them (course.ts), with its own wander and physics. */
+  /** Its drawn path (D321, item 41; D312's Shift+click points before it): tiles between the origin and the end,
+   *  in order; the carve steers along a smooth curve through them (course.ts), with its own wander and
+   *  physics. */
   via?: number[];
 }
 
-/** The most waypoints an aimed carve takes (D312). */
-export const MAX_WAYPOINTS = 32;
+/** The most points of a drawn path a carve takes between its ends (D321, item 41; 32 before). */
+export const MAX_PATH_POINTS = 128;
 
 export const DEFAULTS: CarveSettings = { mode: "unleash", power: 65, wander: 35, width: null, seed: 0, walls: "steep", defyGravity: false, dry: false, layers: true };
 
@@ -242,7 +243,7 @@ export class CarveRun implements ForceRun {
     )
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
-    if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_WAYPOINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("Waypoints need an aimed carve, on the map");
+    if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
     this.depth = settings.depth ?? null;
     this.floor = forceFloor(settings);
     this.initialWater = input.water.depth.slice();

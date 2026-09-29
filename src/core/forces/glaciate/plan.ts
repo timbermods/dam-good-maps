@@ -210,8 +210,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const i = y * W + x;
         if (before.water.depth[i] > 0.05 && Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
       }
-  // (the Floor, D321 item 40: the trough runs shallower there, never below it)
-  for (const q of path) q.floor = Math.max(cutFloor, q.floor - riverClearance);
+  for (const q of path) q.floor = Math.max(0, q.floor - riverClearance);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);
@@ -969,7 +968,8 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       return false;
     });
   }
-  // the Floor (D321, item 40): its channels and tarn too
+  // the Floor (D321, item 40): where the trough, its channels or its tarn would go below it, they run
+  // shallower, held at it (its water and tarn are worked out on the held ground, below)
   holdAtFloor(before.heights, m.heights, cutFloor);
   trimRock(m);
   const model = modelOf(m);

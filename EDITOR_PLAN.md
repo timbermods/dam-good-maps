@@ -86,13 +86,17 @@ editor is desktop-first (D185).
   berry bushes, plant oaks for the starting logs.
   **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
   (Carve unleashed, Craterize's strike, Erupt's vent, Unleash on a source) starts the force at once, finding its own
-  way; a small cursor shows where it will act, and a **faint ring round it shows the force's size** at its Power and
-  Size (D312): the crater's radius, the volcano's, Quake's reach from its fault, Carve's width (where a carve goes depends
-  on the land), like a brush's ring: how big, never what shape. A drag in a direction aims Carve or Craterize: while dragging, only a
-  thin straight arrow from where the drag began to the pointer; on release the force goes that way (an aimed carve
-  cuts through rises on its way, D289) and the arrow goes. A stroke the player paints stays drawn as it is painted,
-  since it is the gesture itself (Quake's fault, Erupt's fissure). The only word a force shows is why it won't act at
-  all (Erupt's "No room to rise here").
+  way; **one ring at the cursor shows the force's size** at its Power and Size (D312; one ring, never two, D321 item
+  13): the crater's radius, the volcano's, Quake's reach from its fault, Carve's width (where a carve goes depends on
+  the land), like a brush's ring: how big, never what shape. It is drawn once, in one calm colour, where the cursor
+  actually is: on the water's surface over water (the force's pointer meets the water there, not the bed below), on
+  the ground elsewhere; a force's small reach still shows a small ring round the cursor. **A drag draws a line
+  freehand** (D321, item 41; D327): the one way to steer, a shared piece lifted from Erode's sweep
+  (`src/editor/freehand.ts`, its pen `core/forces/path.ts`): a press becomes a drawn line once the pointer moves six
+  pixels, the line shows on the land as it is drawn (the player's own gesture, D258), and on release the force goes:
+  Carve and Glaciate along it, Craterize's impactor the way it runs (a glancing blow), Quake's fault and Erupt's
+  fissure are it. Anything less than a drag is the force's own click. The only word a force shows is why it won't act
+  at all (Erupt's "No room to rise here").
   **Power and size are separate in every force** (D226): each size control follows Power by default, or is
   set by hand: Carve's **Size** (how wide it cuts; its depth follows Power and the width), Craterize's **Size**,
   Erupt's **Size** (breadth); Quake's drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
@@ -190,8 +194,8 @@ editor is desktop-first (D185).
   giant impact. A click strikes; a drag from the impact the way the impactor travels aims it (a glancing blow, an
   oval crater thrown forward); **Power** (a pebble to a cataclysm); **Size** (following Power, or set: D226); **Try
   another**. Its walls (steep or terraced), centre (bowl, peak, ring or flat), debris (light or heavy) and rays come
-  from the land and the seed (D289). A small
-  cursor under the pointer, and Aim's thin arrow while dragging (D258). The impact moment: a streak falls, a flash, a shock
+  from the land and the seed (D289). Its ring
+  at the cursor, and the line drawn while dragging (D258, D321 item 41). The impact moment: a streak falls, a flash, a shock
   ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing upright where their
   ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
@@ -199,12 +203,14 @@ editor is desktop-first (D185).
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
   (D219; ready: D216, D226).
 - **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
-  painted fault: **Lift** or **Slide** (its one choice, D289); **Power**; **Try another** (another tilt and crack).
+  fault drawn freehand (D327, with the travelling forces' pen): **Lift** or **Slide** (its one choice, D289); **Power**;
+  **Try another** (another tilt and crack).
   **X** flips the side of the stroke that moves, even while painting; its scarp (sheer or stepped) comes from the land
   and the seed. The drawn line sets its length (D226). The fault shows on the land as it is
-  painted (D258: the stroke is the gesture). Lift shows its whole result as it is painted (the ground reacts behind
-  the pointer) and is kept when let go; Slide shows the fault while it is painted, then its block
-  slides along it tile by tile, 3 to 20 tiles, and a river that crossed the fault is joined again
+  painted (D258: the stroke is the gesture). Lift raises along the curve and shows its whole result as it is painted
+  (the ground reacts behind the pointer), kept when let go; Slide shows the fault while it is painted, then its block
+  slides along it tile by tile, 3 to 20 tiles, each part of it the way the drawn line runs there (a straight fault's one
+  heading; a curved one's bending with it, D327), and a river that crossed the fault is joined again
   along it. A crack runs along the fault and dust rises at its head (the view stays still, D265).
   Objects ride with the land (a rigid one on flat ground of its own), trees on the fault go (their ground broke;
   no tree is ever left leaning, D321 item 7); a fault
@@ -233,13 +239,12 @@ editor is desktop-first (D185).
   steep walls stepping down by bars; a tarn in its cirque; hanging side valleys with springs and falls (Meltwater);
   scree, a moraine and an outwash plain from the material it cut; the river leaving by the old outlet. "Carve gives you
   water; Glaciate gives you land." Its own button in the forces group (key -). A **click Flows** (it follows the valleys
-  down from there; on flat ground a seeded way to lower ground or an edge) and a **drag Aims** (it grinds through ridges
-  the way it was dragged): the ice gathers under the pointer as it's pressed, a drag of six pixels or more shows only a
-  thin arrow, and nothing predicts the valley on the land (D258). A faint ring at the cursor shows its width at the
-  current Power and Size (D312; how big, never what shape). **Waypoints** (D312, the gesture Carve shares,
-  `editor/waypoints.ts`): Shift+click drops them, small markers joined by a thin line; a plain click, or Enter, launches;
-  Backspace removes the last; Esc drops them all; the glacier aims through them along one smooth curve (one aimed pass a
-  leg, smoothed), finding its own way near the line; its operation keeps the line (`where.path`). Its row is **Power**, **Size** (Auto: 30 at Power 60)
+  down from there; on flat ground a seeded way to lower ground or an edge) and a **drag draws its path** freehand
+  (D321, item 41: the gesture Carve shares): the ice gathers under the pointer as it's pressed, a drag of six pixels or
+  more draws the line, which shows as it is drawn, and on release the glacier grinds along it through the ridges, the
+  way it was drawn (the line resampled every two tiles, smoothed into one curve); nothing predicts the valley on the
+  land (D258); its operation keeps the line (`where.path`). Its ring at the cursor shows its width at the current Power
+  and Size (D312; how big, never what shape). Its row is **Power**, **Size** (Auto: 30 at Power 60)
   and **Meltwater** (on by default), with **Try another** once one is kept (D289), and **More** (D309): its **Benches**
   (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,
@@ -358,8 +363,8 @@ Make a valley, drop a source, and there's a river.
   with Carve's engine (momentum, wander, waterfalls, the carving moment and its effects; the camera stays where the player left it, D265); where it stands in
   a pool or a lake (water half a level deep or more round it) it breaks out where the water would spill over, the lowest
   point of its rim (an outlet it already has, or its lowest bank), like a lake breaching, and carves on. Pressed and
-  dragged out onto the land, it aims that way (only a thin arrow from the source to the pointer, D258; aimed from a pool, it breaks out
-  where the rim is nearest the aim; uphill, it says the water runs downhill); the source's own drag still moves it. Its
+  dragged out onto the land, its river follows the line drawn from it (D321, item 41: the line shows as it is drawn;
+  aimed from a pool, it breaks out where the rim is nearest the line's end; uphill, it says the water runs downhill); the source's own drag still moves it. Its
   width is the width whose Carve source would have the source's strength (a stronger source, a wider river); the rest is
   Carve's defaults, so it's one click. The source stays the river's origin: the carve is a dry one and adds no other
   source; a badwater source carves a badwater river. While it works the row is Carve's own (Pause, Revert; it keeps
@@ -402,14 +407,13 @@ Make a valley, drop a source, and there's a river.
   Weather step's summary and map-card lines build on these buttons (D133).
 - **Carve, a force of nature** (D194, D199, D216): the first button of the forces group (key 7),
   with its full set:
-  - a click unleashes it where the small cursor is; a drag aims it (only a thin arrow from where it began to the
-    pointer, D258), and an aimed carve goes where the player dragged, cutting through rises on its way (D289);
-  - **waypoints** (D312): Shift+click drops them (the first is where it starts), drawn as small markers joined by a thin
-    line (the player's own gesture); a click without Shift launches, its tile the end, or Enter, the last waypoint the
-    end; Backspace takes the last one off; Esc drops them all. The carve steers along a smooth curve through them
-    (Catmull-Rom, a point five tiles ahead on it), finding its own way near the line with its own wander and physics,
-    as Aim does; its operation keeps them (`where.path`: the origin, the waypoints, the end), and Try another runs
-    through the same ones. The gesture is a shared piece (`src/editor/waypoints.ts`), Glaciate's too;
+  - a click unleashes it where the cursor is: the river finds its own way downhill;
+  - **a drag draws its path freehand** (D321, item 41: one way to steer, the piece Glaciate shares): the line shows as
+    it is drawn, and on release the river carves along it, its water running from the line's higher end to its lower,
+    whichever way it was drawn, cutting through rises to keep flowing (D289), with its depth, walls and the Floor. The
+    path is kept a tile every two along it (at most 128 between its ends); the carve steers along a smooth curve
+    through them (Catmull-Rom, a point five tiles ahead on it): at Wander 0 it follows the line, higher it meanders
+    naturally round it. Its operation keeps the line (`where.path`), and Try another runs along the same one;
   - **Power** (creek to catastrophe) and **Size** (how wide it cuts: following Power by default, or set by hand for
     slot canyons or wide lazy rivers; its depth follows Power and the width, D226, D289);
   - its wander (straight to winding) and walls (a steep gorge or wide terraces) drawn from the land and the seed
@@ -1044,3 +1048,6 @@ These were planned or built before Kyler's current decisions. They must not come
 | "Superior to the in-game editor by being easier": the editor as a simpler copy of the game's | Part 1, §1: a studio, deliberately different from the game's precision workshop |
 | The milestone list E1–E9 | `ROADMAP.md`: E1–E5 were built in M3–M8; M12–M13 and the 3D stages are built brush-first |
 | The audit's change list (2026-09-23) | `AUDIT.md` keeps it |
+| D312's Shift+click points for Carve and Glaciate (Enter, Backspace), and Aim's thin straight arrow (D258 (3)) | D321, item 41: a drag draws the path freehand, the line showing as it is drawn; one way to steer |
+| A force's second small ring round the cursor, and its ring drawn on the bed under water | D321, item 13: one ring, drawn once where the cursor is, on the water's surface over water |
+| Trees knocked down by a force drawn lying along the blow | D321, item 7: every tree stands upright on its tile; a knocked-down one whose ground broke is gone |

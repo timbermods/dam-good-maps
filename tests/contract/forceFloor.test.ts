@@ -16,6 +16,12 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { CraterRun, EruptRun, QuakeRun } from "../../src/core/forces/runs";
 import { CEILING } from "../../src/core/format/world";
 import { fixture } from "./forceFixtures";
+import { MapSession } from "../../src/core/doc/session";
+import { decodeProject } from "../../src/core/doc/document";
+import type { ForceResultParams } from "../../src/core/forces/op";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 import { study } from "./carveFixtures";
 
 /** No tile below `floor` that wasn't already, and how many tiles the force changed. */
@@ -100,5 +106,27 @@ describe("the Floor (D321, item 40)", () => {
     // it still ran its course (it never stopped at the floor)
     expect(held.metrics.distance).toBeGreaterThan(deep.metrics.distance * 0.5);
     expect(() => new CarveRun(m, { ...CARVE_DEFAULTS, floor: 0 }, { origin: 88 * W + 48 })).toThrow();
+  });
+
+  it("its operation keeps it when it isn't 1; Try another takes the row's Floor now (back at 1: none in the record)", async () => {
+    await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: 96, y: 96 } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const last = () => MapSession.open(decodeProject(ed.project().bytes)).state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
+    const keep = () => {
+      for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++);
+      const r = ed.forceStop();
+      expect(r.errors).toEqual([]);
+    };
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 40, floor: 3 }, origin: [30, 60], cut: null, natural: true }).errors).toEqual([]);
+    keep();
+    expect((last().settings as { floor?: number }).floor).toBe(3);
+    expect(ed.forceAgain({ walls: null, centre: null, debris: null, rays: null, floor: undefined }).errors).toEqual([]);
+    keep();
+    expect("floor" in last().settings).toBe(false);
+    expect(ed.forceAgain({ walls: null, centre: null, debris: null, rays: null, floor: 5 }).errors).toEqual([]);
+    keep();
+    expect((last().settings as { floor?: number }).floor).toBe(5);
+    ed.settleWater();
   });
 });

@@ -1984,7 +1984,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
           const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), keep, aimed ? at(aimed) : null);
           const settings: CarveSettings = { ...req.settings, width: unleashWidth(strength), dry: true };
-          const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}) };
+          // (drawn from it, D321 item 41: its river follows the line)
+          const via = aimed && req.via?.length ? req.via.map(at) : [];
+          const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
           try {
             carve = new CarveRun(base, settings, intent, { keep, sourceId: crypto.randomUUID(), unleashed: e.id, bad: e.template === "BadwaterSource" });
           } catch (err) {
@@ -1993,7 +1995,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
           }
           break;
         }
-        // (waypoints, D312: a smooth curve through them to the end)
+        // (its drawn path, D321 item 41: a smooth curve through its points to the end)
         const via = aimed && req.via?.length ? req.via.map(at) : [];
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
         carve = new CarveRun(base, req.settings, intent, { keep, sourceId: crypto.randomUUID() });
@@ -2018,7 +2020,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
         map = stagedForceMap(base);
         const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
-        // waypoints (D312): the ones that move on from the last, between the origin and the end
+        // its drawn path (D321, item 41): the tiles that move on from the last, between the origin and the end
         const stops: [number, number][] = [];
         for (const p of aimed ? (req.via ?? []) : []) {
           const last = stops.at(-1) ?? req.origin;
@@ -2108,8 +2110,10 @@ export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
   sr.nextSeed = sr.request.verb === "glaciate" ? glaciateNextSeed(sr.nextSeed) : nextSeed(sr.nextSeed);
-  const settings = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
-  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
+  const settings: Record<string, unknown> = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
+  // (a pin sent as undefined is back to its default: the Floor at 1 is no floor in the record)
+  for (const [k, v] of Object.entries(settings)) if (v === undefined) delete settings[k];
+  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as unknown as ForceRequest;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
 
@@ -2260,7 +2264,7 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
       const r = f.staged as GlaciateRun;
       const W = f.before.W;
       const via = r.intent.via ?? [];
-      // (its waypoints, D312: the whole line it was given, origin to end, as the path)
+      // (its drawn path, D321 item 41: the whole line it was given, origin to end)
       return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}), ...(via.length ? { path: pathRecord([req.origin, ...via.map((i) => [i % W, Math.floor(i / W)] as [number, number]), req.end!].map(([x, y]) => ({ x, y }))) } : {}) } };
     }
     default:
@@ -2294,7 +2298,7 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     const origin: [number, number] = req.source ? [r.intent.origin % f.before.W, Math.floor(r.intent.origin / f.before.W)] : req.origin;
     params = carveForceParams(f.before, r, { settings: req.source ? r.settings : req.settings, origin, ...(aimed ? { end: aimed } : {}), cut: req.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (params && req.source) params = { ...params, where: { ...params.where, source: req.source } };
-    // (its waypoints, D312: the curve's points from the origin to the end, kept with its record)
+    // (its drawn path, D321 item 41: the curve's points from the origin to the end, kept with its record)
     if (params && aimed && req.via?.length) params = { ...params, where: { ...params.where, path: [origin, ...req.via, aimed].map(([x, y]) => [x, y] as [number, number]) } };
     if (!params) return refused([req.source ? "Its water found nothing to carve from there: more Power, or drag from Unleash to aim it" : "Nothing was carved"]);
     water = r.liveWater();

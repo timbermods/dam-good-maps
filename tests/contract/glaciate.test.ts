@@ -19,6 +19,7 @@ import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
 import { makePlan } from "../../src/core/forces/glaciate/plan";
+import { FLOOR_DEFAULT, holdAtFloor } from "../../src/core/forces/floor";
 import { floodAllowance } from "../../src/core/forces/glaciate/floor";
 import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
 import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
@@ -81,7 +82,7 @@ function run(req: ed.ForceRequest): { shown: Uint8Array } {
 }
 
 describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
-  it("gives the investigation's land, water and objects on its hero click and Kyler's cross-valley Aim, with the floor's water left as round 4 left it", () => {
+  it("gives the investigation's land, water and objects on its hero click and Kyler's cross-valley Aim, with the floor's water left as round 4 left it (held at the Floor, D321 item 40)", () => {
     for (const [x, y, end] of [
       [22, 22, null],
       [24, 80, [96, 36]],
@@ -93,7 +94,13 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
       const q = protoPlan(snapshotMap(m) as never, settings, intent);
       // (the investigation moves the start itself; in the editor the start is the editor's, D257)
       const without = (e: { template: string }) => e.template !== "StartingLocation";
-      expect(digest({ ...p.map, entities: p.map.entities.filter(without) }), `${x},${y}`).toBe(digest({ ...(q.map as unknown as FullForceMap), entities: q.map.entities.filter(without) }));
+      // the Floor (D321, item 40), which the investigation didn't have: its land held at level 1, and
+      // its water only where the Floor held nothing (the water is worked out on the held ground)
+      const held = q.map.heights.slice();
+      const n = holdAtFloor(m.heights, held, FLOOR_DEFAULT);
+      expect(Array.from(p.map.heights), `${x},${y}`).toEqual(Array.from(held));
+      expect(p.map.entities.filter(without).map((e) => e.id).sort(), `${x},${y}`).toEqual(q.map.entities.filter(without).map((e) => e.id).sort());
+      if (!n) expect(digest({ ...p.map, entities: p.map.entities.filter(without) }), `${x},${y}`).toBe(digest({ ...(q.map as unknown as FullForceMap), entities: q.map.entities.filter(without) }));
     }
   });
 

@@ -45,7 +45,7 @@ import {
   LinearFilter,
   ColorManagement,
 } from "three";
-import { BrushCursor, type BrushCursorState } from "./brushCursor";
+import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
@@ -126,6 +126,9 @@ export interface PointerTool {
   cancel?(): void;
   /** It takes Alt+click and Alt+drag itself (the Select tool's subtract), instead of the layer pick. */
   wantsAlt?: boolean;
+  /** It points at the water's surface over water, where the cursor is seen (the forces, D321 item
+   *  13), not at the bed under it. */
+  surface?: boolean;
 }
 
 interface MapState {
@@ -260,6 +263,9 @@ export class MapRenderer {
   private pageOverlay: Uint8Array | null = null;
   /** The brush under the cursor (live editing), made on first use. */
   private cursor: BrushCursor | null = null;
+  private ring: ForceRing | null = null;
+  /** A force's ring as last shown (tests). */
+  forceRingState: { x: number; y: number; r: number } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -1311,6 +1317,25 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
+   *  water, on the ground elsewhere; null hides it. */
+  setForceRing(s: { x: number; y: number; r: number } | null): void {
+    const m = this.map;
+    if (!m) return;
+    this.forceRingState = s;
+    if (!this.ring) {
+      if (!s) return;
+      this.ring = new ForceRing(this.scene);
+    }
+    const level = (tx: number, ty: number) => {
+      const i = ty * m.W + tx;
+      const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
+      return m.surface.depth[i] > 0.05 && this.slice === null ? Math.max(top, m.surface.surface[i]) : top;
+    };
+    this.ring.set(s, level, m.W, m.H);
+    this.requestRender();
+  }
+
   /** Where the water is clear round the pointer (D212): the middle and radius, or null (tests). */
   clearNear: { x: number; y: number; radius: number } | null = null;
 
@@ -1615,6 +1640,24 @@ export class MapRenderer {
     return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, this.sliced);
   }
 
+  /** The tile under a point on the screen as it is seen: over water, where the ray meets the water's
+   *  surface (D321, item 13: a force's cursor is where the pointer is, not on the bed below). */
+  pickSurface(clientX: number, clientY: number): TileHit | null {
+    const hit = this.pick(clientX, clientY);
+    const m = this.map;
+    if (!hit || !m || this.slice !== null) return hit;
+    const i = hit.y * m.W + hit.x;
+    if (!(m.surface.depth[i] > 0.05)) return hit;
+    const p = pickPlane(this.rayAt(clientX, clientY), m.surface.surface[i]);
+    if (!p || p.x < 0 || p.y < 0 || p.x >= m.W || p.y >= m.H) return hit;
+    return { x: p.x, y: p.y, point: p.point, face: "top", t: hit.t };
+  }
+
+  /** The tile under the pointer for a tool (the water's surface for one that asks for it). */
+  private pickFor(t: PointerTool | null, clientX: number, clientY: number): TileHit | null {
+    return t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
+  }
+
   /** The tile under a point on the screen, on a level plane (steady while dragging). */
   pickAtLevel(clientX: number, clientY: number, level: number): { x: number; y: number; point: [number, number, number] } | null {
     return pickPlane(this.rayAt(clientX, clientY), level);
@@ -1684,7 +1727,7 @@ export class MapRenderer {
         return;
       }
       if (ev.button === 0 && this.tool) {
-        const hit = this.pick(ev.clientX, ev.clientY);
+        const hit = this.pickFor(this.tool, ev.clientX, ev.clientY);
         if (this.tool.down(hit, ev)) {
           this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
           capture(ev.pointerId);
@@ -1705,7 +1748,10 @@ export class MapRenderer {
         d.y = ev.clientY;
         d.moved += Math.abs(dx) + Math.abs(dy);
         if (d.kind !== "tool" && d.moved < 4) return;
-        if (d.kind === "tool") (this.grabbed ?? this.tool)?.move(this.pick(ev.clientX, ev.clientY), ev);
+        if (d.kind === "tool") {
+          const t = this.grabbed ?? this.tool;
+          t?.move(this.pickFor(t, ev.clientX, ev.clientY), ev);
+        }
         else if (d.kind === "orbit") this.setView({ yaw: this.view.yaw - dx * 0.006, pitch: this.view.pitch + dy * 0.005 });
         else this.panPixels(dx, dy);
         return;
@@ -1713,7 +1759,7 @@ export class MapRenderer {
       const hit = this.pick(ev.clientX, ev.clientY);
       this.hoverHit = hit;
       this.setHoverTile(hit ? hit.x : null, hit?.y ?? 0);
-      this.tool?.hover?.(hit, ev);
+      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY) : hit, ev);
       this.onHover?.(hit);
     });
     const end = (e: Event) => {
@@ -1726,7 +1772,7 @@ export class MapRenderer {
         const t = this.grabbed ?? this.tool;
         this.grabbed = null;
         if (ev.type === "pointercancel" && t?.cancel) t.cancel();
-        else t?.up(this.pick(ev.clientX, ev.clientY), ev);
+        else t?.up(this.pickFor(t ?? null, ev.clientX, ev.clientY), ev);
       } else if (d.button === 0 && d.moved < 4 && ev.type === "pointerup") this.onClick?.(this.pick(ev.clientX, ev.clientY), ev);
     };
     this.on(c, "pointerup", end);
@@ -1957,6 +2003,7 @@ export class MapRenderer {
     cancelAnimationFrame(this.glideFrame);
     this.clearMap();
     this.cursor?.dispose();
+    this.ring?.dispose();
     this.effects?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

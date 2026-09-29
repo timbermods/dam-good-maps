@@ -115,11 +115,11 @@ export interface Force {
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or drag the way it runs to aim it; Shift+click waypoints, then click (or Enter) to run through them. Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or drag the way it grinds through the ridges. Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Esc takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Esc takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
