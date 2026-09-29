@@ -53,7 +53,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, THEME_PRESETS, type MapSpec } from "../spec/mapspec";
+import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -82,8 +82,6 @@ import { pickStart, type DroughtPolicy, type StartPick } from "./settler";
 export type { IntentionResult };
 
 export const MAX_ATTEMPTS = 12;
-/** The most candidates (passing maps) made before the best of them stands (D278 (1a)). */
-export const CANDIDATES = 4;
 /** Plans on one field before a new genome is drawn. */
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
@@ -162,7 +160,9 @@ export interface GenerateOptions {
   context?: PlanContext | null;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
-  /** Each candidate as it is found (D278: the first shown at once, progress after it). */
+  /** The map, as soon as it passed (D329: the first candidate that passes the absolutes is the map,
+   *  shown at once and never swapped; its outcomes say whether a background search for a version
+   *  that meets all three is worth starting, gen/versions.ts). */
   onCandidate?: (c: { attempt: number; candidate: number; of: number; result: GenerateResult; outcomes: Outcomes }) => void;
   /** The drought-aware start (#59): by default Easy requires water that lasts the first drought,
    *  Normal and Hard prefer it. */
@@ -199,8 +199,6 @@ interface Attempt {
   passed: boolean;
   /** The failure leaves the land usable: plan again on the same field. */
   replannable: boolean;
-  /** A passing map without water storage near the start: kept, but another plan may find one. */
-  noStorage: boolean;
 }
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
@@ -218,25 +216,14 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   let genomes = 0;
   let replans = 0;
   let settles = 0;
-  // storage near the start is preferred, never required (#67). When the player asked for more drought
-  // reserve than the theme's own, a passing map without it (a dam site or natural water that holds
-  // the need) is kept while up to four more attempts look for one (the same field once, then new
-  // land); otherwise the first passing map stands
-  const reserveAsked = RESERVE[specIn.settings.water.droughtReserve] / RESERVE[THEME_PRESETS[specIn.theme].droughtReserve];
-  const storageTries = reserveAsked > 1 ? 4 : 0;
-  let tried = 0;
-  // a field that passed twice without storage near the start has none to offer: new land
-  let fresh = false;
-  // M9b (D278 (1a)): every passing map is a candidate, judged by the outcomes (a readable water
-  // story, the theme's promise, a standout intention; gen/outcomes.ts). The first that meets them
-  // is the map; else the next candidate grows on new land, and after `CANDIDATES` the best stands
-  // (the most outcomes met, then stored water near the start where the player asked for more).
-  let best: { a: Attempt; score: number } | null = null;
-  let candidates = 0;
-  const rank = (a: Attempt, o: Outcomes) => 2 * o.score + (a.noStorage ? 0 : 1);
+  // D329 (Kyler, amending D278 (1a) and D325's reading of item 22): the first candidate that passes
+  // the absolutes (plays exactly right, the starting-logs floor, item 47's must-haves: the blocking
+  // checks) is the map, shown at once and never swapped. Its outcomes (a readable water story, the
+  // theme's promise, a standout intention; gen/outcomes.ts) are measured for the page: a miss that
+  // matters starts a background search for a version that meets all three (gen/versions.ts), never
+  // held before the map is shown. Water storage near the start stays a preference of the settler.
   for (let attempt = 0; attempt < max; attempt++) {
-    if (fresh || !land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
-      fresh = false;
+    if (!land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
       opts.onProgress?.({ attempt, stage: "land" });
       // (Variety is a setting since M9b; Another like this draws a sibling, keeping its intentions)
       const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
@@ -262,7 +249,6 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     a.result.failures = failures;
     last = a;
     if (a.passed) {
-      candidates++;
       const o = outcomesOf(a.result);
       a.result.outcomes = o;
       // its name and how it plays (D278 (1b)), from its standout and what the map holds
@@ -270,24 +256,12 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
       a.result.name = words.name;
       a.result.description = words.description;
-      const score = rank(a, o);
-      if (!best || score > best.score) best = { a, score };
-      opts.onCandidate?.({ attempt, candidate: candidates, of: CANDIDATES, result: a.result, outcomes: o });
-      const done = o.met && (!a.noStorage || tried++ >= storageTries);
-      if (done || candidates >= CANDIDATES) {
-        // (the attempts the map took, the later ones included)
-        best.a.result.attempts = attempt + 1;
-        return best.a.result;
-      }
-      // a map that meets the outcomes but lacks storage is planned again on its field once; one that
-      // misses an outcome grows new land
-      if (!o.met || replans > 0) fresh = true;
-      failures.push({ attempt, failed: o.met ? ["water.storage_possible (preferred)"] : [`outcomes: ${o.summary}`] });
-      continue;
+      opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
+      return a.result;
     }
     failures.push({ attempt, failed: failedIds(a.result) });
   }
-  const out = (best?.a ?? last!).result;
+  const out = last!.result;
   out.attempts = max;
   return out;
 }
@@ -749,7 +723,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return {
         passed: false,
         replannable,
-        noStorage: false,
         result: { spec: shown, features: [...rivers], built: land, report: { profile: "generate", checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), file: toTimberFile(spec, land), attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
       };
     }
@@ -759,7 +732,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return {
       passed: false,
       replannable,
-      noStorage: false,
       result: { spec: shown, features: [...rivers], built, report: { ...v.report, passed: false }, analysis: v.analysis, bytes: new Uint8Array(), file, attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
     };
   };
@@ -1161,9 +1133,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     passed,
     // (a map that passed without storage near the start may be planned again on its field, for one)
     replannable: same && (!passed || info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
-    // (what Drought reserve asks for, PLAN §5.3: a dam site or natural water near the start that
-    // holds the need, not a line of levees)
-    noStorage: passed && (info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
     result: {
       spec: shown,
       features,

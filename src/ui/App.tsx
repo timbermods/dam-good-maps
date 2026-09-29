@@ -7,7 +7,7 @@
 
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { createGenerator, readFile, saveFile, saveToTimberborn, storage, type Autosave, type SaveToTimberbornResult } from "../platform";
+import { createBackground, createGenerator, readFile, saveFile, saveToTimberborn, storage, type Autosave, type SaveToTimberbornResult } from "../platform";
 import {
   decodeSpecFragment,
   defaultSettings,
@@ -153,6 +153,12 @@ export function App() {
   const [exporting, setExporting] = useState(false);
   /** A real place being opened in the editor: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
+  /** D329: a version of the map that meets every outcome, found in the background, for the player to
+   *  take or ignore (until "The page is the editor" draws the candidates strip). */
+  const [version, setVersion] = useState<{ response: GenerateResponse; note: string } | null>(null);
+  const background = useRef<ReturnType<typeof createBackground> | null>(null);
+  /** The map shown came from the background: its project opens in the editor. */
+  const shownVersion = useRef<Uint8Array | null>(null);
   const saveTimer = useRef(0);
   const screenRef = useRef(screen);
   screenRef.current = screen;
@@ -227,8 +233,47 @@ export function App() {
 
   // ------------------------------------------------------------------------------ generating
 
+  /** D329: stop any background search (a new map was asked for). */
+  function stopBackground() {
+    background.current?.stop();
+    background.current = null;
+    setVersion(null);
+  }
+
+  /** D329: the map missed an outcome that matters (its theme's promise, or readable water): look for
+   *  a version that meets all three in a worker of its own, while the player keeps going. */
+  function searchVersion(r: GenerateResponse) {
+    stopBackground();
+    if (!r.passed || !r.version) return;
+    const note = r.version.note;
+    const bg = createBackground();
+    background.current = bg;
+    void bg.api.findVersion({ spec: r.spec, intentions: r.intentions, heights: r.heights }).then(
+      (found) => {
+        if (background.current !== bg) return;
+        bg.stop();
+        background.current = null;
+        if (found?.passed) setVersion({ response: found, note });
+      },
+      () => undefined,
+    );
+  }
+
+  /** Take the version: it becomes the map shown, with its own share link. */
+  function takeVersion() {
+    if (!version) return;
+    const r = version.response;
+    setVersion(null);
+    shownVersion.current = r.project;
+    setResult(r);
+    setSibling(r.spec.variation ? { variation: r.spec.variation, intentions: r.spec.intentions ?? r.intentions } : null);
+    history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
+  }
+
   async function run(s: MapSpec): Promise<GenerateResponse | null> {
     let made: GenerateResponse | null = null;
+    stopBackground();
+    shownVersion.current = null;
     setBusy(true);
     setError(null);
     setDownloaded(false);
@@ -273,6 +318,7 @@ export function App() {
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
       if (!r.passed) setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
+      else searchVersion(r);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
@@ -390,7 +436,11 @@ export function App() {
     setError(null);
     try {
       if (fromSession && session?.kind === "generated") enterEditor(await generator.sessionView());
-      else guard(() => void generator.refine().then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
+      else if (shownVersion.current) {
+        // (a version found in the background: its project file opens, the same map)
+        const bytes = shownVersion.current;
+        guard(() => void generator.openProject(bytes).then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
+      } else guard(() => void generator.refine().then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
@@ -644,6 +694,17 @@ export function App() {
             ) : null}
           </div>
           {note && <p class="note">{note}</p>}
+          {version ? (
+            <p class="note version-ready" role="status">
+              {version.note}.{" "}
+              <button type="button" class="linkish" onClick={takeVersion}>
+                Show it
+              </button>{" "}
+              <button type="button" class="linkish" onClick={() => setVersion(null)} aria-label="Dismiss">
+                Keep this map
+              </button>
+            </p>
+          ) : null}
           {openInput}
           <details class="more">
             <summary>What's in this version</summary>

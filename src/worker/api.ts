@@ -9,6 +9,7 @@ import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
 import { writeTimber } from "../core/format/timber";
 import { generate, type GenerateResult } from "../core/gen/generate";
+import { findVersion, missesOf, versionNote, worthSearching, type Misses } from "../core/gen/versions";
 import { fileName, mapName, description, toTimberFile } from "../core/gen/pack";
 import type { MapSpec } from "../core/spec/mapspec";
 import { rulesFor, type PlayabilityAnalysis } from "../core/validate/playability";
@@ -85,6 +86,9 @@ export interface GenerateResponse {
   edits: number;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
+  /** D329: the outcomes a generated map missed, and the note a version meeting them all would get
+   *  ("A version with its sea is ready"), when a background search for one is worth starting. */
+  version?: { misses: Misses; note: string } | null;
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -193,14 +197,46 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
   };
 }
 
+/** D329's background search (gen/versions.ts): siblings of the map until one meets all three
+ *  outcomes. Run in a worker of its own, so the editor never waits on it; `stop` is checked between
+ *  siblings. Null when none was found. */
+let searchId = 0;
+export function stopVersionSearch(): void {
+  searchId++;
+}
+
+export async function runFindVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
+  const id = ++searchId;
+  const t0 = performance.now();
+  const found = findVersion(from, { stop: () => id !== searchId });
+  const r = found.result;
+  if (!r || id !== searchId) return null;
+  return responseOf({
+    spec: r.spec,
+    features: r.features,
+    built: r.built,
+    checks: r.report.checks,
+    passed: r.report.passed,
+    analysis: r.analysis,
+    attempts: r.attempts,
+    ms: Math.round(performance.now() - t0),
+    timber: r.bytes,
+    project: encodeProject(generatedDocument(r)),
+    edits: 0,
+    ...(r.name ? { name: r.name } : {}),
+    ...(r.description ? { premise: r.description } : {}),
+    intentions: r.info.genome?.intentions ?? [],
+  });
+}
+
 /** What the page hears while a map is made (ROADMAP M9a: generating shows its progress): each
  *  attempt's stage, and its first look, the land and the water the hydrology planned (channels 1,
  *  lakes 2, floors 3), before the water is settled. */
 export type GenProgress =
   | { kind: "stage"; attempt: number; stage: string }
   | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array }
-  /** A map that passed its checks (D278: the first is shown at once, while the generator looks on
-   *  for one that meets every outcome): its land and its settled water (1 where wet). */
+  /** The map, once it passed its checks (D329: the first that passes is the map, shown at once):
+   *  its land and its settled water (1 where wet). */
   | { kind: "candidate"; attempt: number; candidate: number; of: number; met: boolean; W: number; H: number; heights: Uint8Array; water: Uint8Array };
 
 export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
@@ -238,6 +274,13 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],
+  }).then((resp) => {
+    // (a miss worth a background search, D329)
+    if (r.report.passed && r.outcomes) {
+      const m = missesOf(r.outcomes);
+      resp.version = worthSearching(m) ? { misses: m, note: versionNote(r.spec.theme, m) } : null;
+    }
+    return resp;
   });
 }
 
