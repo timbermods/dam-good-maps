@@ -86,19 +86,9 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 12, null, { timeout: 20_000 });
   await expect(page.getByRole("group", { name: "Carve at work" })).toBeVisible();
   expect(await heights(page)).not.toEqual(before);
-  const atEsc = await status(page);
   await page.keyboard.press("Escape");
   await expect.poll(() => status(page)).toBeNull();
   await idle(page);
-  {
-    const now = await heights(page);
-    const W = Math.round(Math.sqrt(now.length));
-    const diff: number[] = [];
-    for (let i = 0; i < now.length; i++) if (now[i] !== before[i]) diff.push(i);
-    const xs = diff.map((i) => i % W);
-    const ys = diff.map((i) => Math.floor(i / W));
-    console.log("DIAG", JSON.stringify({ at, atEsc, n: diff.length, x: [Math.min(...xs), Math.max(...xs)], y: [Math.min(...ys), Math.max(...ys)], labels: await labels(page), start: (await info(page)).features.find((f) => f.kind === "start")?.params }));
-  }
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
 
