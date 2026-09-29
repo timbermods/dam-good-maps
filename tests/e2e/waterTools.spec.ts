@@ -50,7 +50,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("water: smart Lower carves a bed the water follows; sources placed, strengthened with Shift+scroll, moved", async ({ page }) => {
+test("water: smart Lower carves a bed the water follows; sources placed, strengthened with Ctrl+scroll, moved", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -143,15 +143,16 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   expect(await sources(page, sx, sy)).toEqual([{ template: "WaterSource", x: sx, y: sy }]);
   await expect.poll(() => wet(page), { timeout: 30_000 }).toBeGreaterThan(wet1);
 
-  // Shift+scroll over it (D196): stronger, the new strength beside the pointer, one undo step
+  // Ctrl+scroll over it (D196; D322 moved it off Shift+scroll): stronger, the new strength beside
+  // the pointer, one undo step
   const steps = (await info(page)).history.length;
   await page.mouse.move(sp.x, sp.y);
-  await page.keyboard.down("Shift");
+  await page.keyboard.down("Control");
   for (let k = 0; k < 3; k++) {
     await page.mouse.wheel(0, -120);
     await page.waitForTimeout(120);
   }
-  await page.keyboard.up("Shift");
+  await page.keyboard.up("Control");
   await expect(page.locator(".shape-note")).toHaveText("4 water/s");
   await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 4 water/s");
   await idle(page);

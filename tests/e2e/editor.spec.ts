@@ -42,7 +42,8 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   const lowered: [number, number] = [x, 12];
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
-  await drag(page, [lowered[0] - 3, lowered[1]], [lowered[0] + 3, lowered[1]]);
+  // (from the tile itself: its target is a level below where the stroke starts, D322)
+  await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   // a spring on dry, empty ground beside the river, its water running straight in: away from the

@@ -37,21 +37,27 @@ The editor:
   zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
 - Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
-- [ and ] size the brush, or hold F and move the mouse. Shift+scroll sets its strength. Shift while
-  painting swaps Raise and Lower. Esc cancels a stroke.
-- **Flatten** levels the ground to the height where you start. Ctrl+click picks another level; on
-  water, the riverbed's.
-- The row under the brushes holds their options: their **Size** (a number and a slider), **Square**,
-  **Precise** and **Straight lines**. **Flatten** adds **In steps** and **Edges** (ramped edges lay
-  the game's slopes on its rim). **Level lines** is a view switch beside **Height colours**. A
-  natural slope goes exactly where you want it from the shelf's **Slope**.
+- [ and ] size the brush, or hold F and move the mouse. Shift while painting swaps Raise and Lower.
+  Esc cancels a stroke.
+- **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
+  shown beside the pointer, with hard edges.
+- Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
+  either end, **Free** raises or digs softly.
+- The row under the brushes holds their options: **Size**, **Level**, **Mode** and **Sources**, then
+  **Square** and **Straight lines**. **Flatten** adds **In steps**.
+- **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
+  changes everything.
+- **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
+  removes them.
+- **Level lines** is a view switch beside **Height colours**. A slope goes exactly where you want it
+  from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
 - A new source's water flows at once. The row under the brushes sets its strength.
-- Over a placed source, Shift+scroll sets its strength. Drag it to move it. Click it to change or
+- Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
 - Point at an object or a source and press **Delete** to remove it. The start stays.
 - **Select** (M) marks an area, as does Ctrl+drag with a brush. Raise it, lower it, level it or dig

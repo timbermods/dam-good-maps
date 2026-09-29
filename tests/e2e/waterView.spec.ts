@@ -1,7 +1,7 @@
 // Water is never an object, and the ways to see it (PLAN §20 D196, D197, D212): clicking water
 // picks nothing; the hover readout gives its depth, bed and badwater; T or Clear water make all of
 // it see-through, and a brush over water clears the water round it (on dry land it stays as it
-// is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets strength; a source is
+// is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets a soft brush's strength; a source is
 // always findable (its marker with a source picked on the shelf, and the sources feeding the water
 // under the pointer); a selected source's Delete makes its water recede; clean or bad belongs to
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
@@ -173,7 +173,9 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await expect.poll(async () => (await depthAt(page, channel)).some((d, k) => d > before[k] + 0.02), { timeout: 10_000 }).toBe(true);
   await page.mouse.up();
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
-  // Shift+scroll sets the brush's strength, and says it beside the pointer
+  // Shift+scroll sets a soft brush's strength (Smooth's), and says it beside the pointer (a height
+  // brush's target, D322: brushKit.spec)
+  await page.keyboard.press("4");
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -100);
   await page.keyboard.up("Shift");
