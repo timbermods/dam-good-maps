@@ -6,12 +6,14 @@ import { washMap, type ErodeMap } from "../core/map";
 import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
 import { UNEVEN_CASES, unevenMap } from "../demo/uneven";
-import { drainageMetrics, shelterMetrics } from "./round2";
+import { bottomCheck, drainageMetrics, shelterMetrics } from "./round2";
 
 export function round4Checks(load: (id: string) => ErodeMap) {
   const run = (m: ErodeMap, points: { x: number; y: number; z?: number }[], settings: ErodeSettings) => {
     const before = Terrain.fromHeights(m.W, m.H, m.heights);
-    return { before, p: planErode({ terrain: before, rock: m.rock, keep: m.keep, water: m.water }, { points }, settings) };
+    const p = planErode({ terrain: before, rock: m.rock, keep: m.keep, water: m.water }, { points }, settings);
+    bottomCheck(before, p);
+    return { before, p };
   };
   // Supplement round 3's four preservation hashes with its improved arch and giant wash.
   for (const [id, expected] of Object.entries({
@@ -28,7 +30,7 @@ export function round4Checks(load: (id: string) => ErodeMap) {
   }
   assert.equal(digest.digest("hex"), "71d3abb647710b848db7c7f66e8cab09515a3e43b109721c9ea0a17601945aaa", "flat land changed from round 3");
 
-  const cases = UNEVEN_CASES.map(c => {
+  const cases = UNEVEN_CASES.filter(c => c.map !== "rise").map(c => {
     const m = load(c.map), { before, p } = run(m, c.points, c), a = p.final;
     const drainage = drainageMetrics(before, p), path = p.wash!.path;
     assert.deepEqual(a.cols, run(m, c.points.slice().reverse(), c).p.final.cols, "drawing direction changed the wash");
@@ -37,14 +39,8 @@ export function round4Checks(load: (id: string) => ErodeMap) {
     assert.ok(Math.min(...depths) >= 1, "wash disappears on lower ground");
     assert.ok(new Set(path.map(i => a.run0Top(i))).size >= (c.map === "step" ? 3 : 5), "bed flattened the terrain's levels");
     assert.ok(Math.max(...drops) >= (c.map === "step" ? 10 : 3), "natural step needs a dry fall");
-    const incision = 1 + Math.round(7 * (c.power / 100) ** 2);
-    // Away from the actual step/slot, depth must follow the adjacent plateau, not the high end.
-    for (const i of path) {
-      const x = i % m.W, y = Math.floor(i / m.W), h = before.surface(i);
-      const local = [-3, 3].every(d => x + d >= 0 && x + d < m.W && y + d >= 0 && y + d < m.H &&
-        before.surface(i + d) === h && before.surface(i + d * m.W) === h);
-      if (local) assert.ok(h - a.run0Top(i) <= incision + 1, "wash overcuts a whole plateau");
-    }
+    const incision = 1 + Math.round(2 * (c.power / 100) ** 2);
+    for (let i = 0; i < before.N; i++) assert.ok(before.surface(i) - a.run0Top(i) <= incision, "wash exceeds the shallow cap");
     const debris = shelterMetrics(before, { ...p, focus: { ...p.focus!, z: Math.min(...path.map(i => a.run0Top(i))) } });
     assert.equal(debris.leftoverSingleBlocks + debris.leftoverSmallClusters, 0);
     for (let b = 0; b < p.buckets; b++) assert.equal(checkSupport(m.W, m.H, landAt(before, p, b).voxels(), LAYERS).unsupported.length, 0);
@@ -52,7 +48,7 @@ export function round4Checks(load: (id: string) => ErodeMap) {
       leftoverSingleBlocks: debris.leftoverSingleBlocks, leftoverSmallClusters: debris.leftoverSmallClusters };
   });
 
-  // Slopes, a rise requiring a notch, varied Power/Size and pinned extremes, both directions.
+  // Slopes, an intervening rise, varied Power/Size and pinned extremes, both directions.
   let variants = 0;
   for (const id of ["terraces", "slope", "step", "rise"]) for (const power of [30, 85, 100]) for (let seed = 1; seed <= 4; seed++) {
     const m = unevenMap(id === "rise" ? "slope" : id)!;

@@ -16,10 +16,11 @@ import { hash } from "../core/random";
 import { support } from "../core/support";
 import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
-import { drainageMetrics, round2Checks, washChecks } from "./round2";
+import { bottomCheck, drainageMetrics, round2Checks, washChecks } from "./round2";
 import { round3Checks } from "./round3";
 import { unevenMap } from "../demo/uneven";
 import { round4Checks } from "./round4";
+import { round5Checks } from "./round5";
 
 const show = process.argv.includes("--show");
 const only = process.argv.find((a) => a.startsWith("--case="))?.slice(7);
@@ -114,11 +115,12 @@ for (const c of CASES) {
   // Try another: three more personalities of the same gesture
   const others = [1, 2, 3].map((k) => {
     const p = planErode(input, { points: c.points }, { ...settings, seed: settings.seed + k });
+    bottomCheck(t, p);
     const d = checkSupport(m.W, m.H, p.final.voxels(), LAYERS).unsupported.length;
     if (d) failures++;
     return { seed: settings.seed + k, worn: p.worn, held: p.held, dropped: d };
   });
-  const r = { case: c.id, map: c.map, worn: plan.worn, held: plan.held, fell: plan.fell, droppedOnLoad: chk.unsupported.length, ...meas, msToFinal: Math.round(times[2] * 10) / 10, seconds: plan.duration, tryAnother: others };
+  const r = { case: c.id, map: c.map, worn: plan.worn, held: plan.held, fell: plan.fell, droppedOnLoad: chk.unsupported.length, bottomVoxelsRemoved: bottomCheck(t, plan), ...meas, msToFinal: Math.round(times[2] * 10) / 10, seconds: plan.duration, tryAnother: others };
   results.push(r);
   console.log(JSON.stringify(r));
   if (show) {
@@ -158,6 +160,7 @@ if (!only)
       }
       const p = planErode({ terrain: t, rock: m.rock, keep: m.keep, water: m.water }, { points: pts }, { power: Math.round(r(7) * 100), size: r(8) < 0.4 ? null : Math.round(r(9) * 100), seed: k });
       if (!p.reason) acted++;
+      bottomCheck(t, p);
       if (p.wash && !p.reason) drainageMetrics(t, p);
       const d = checkSupport(m.W, m.H, p.final.voxels(), LAYERS).unsupported.length;
       dropped += d;
@@ -165,7 +168,7 @@ if (!only)
       maxReach = Math.max(maxReach, measure(t, p.final).reach);
     }
     if (dropped) failures++;
-    const row = { map: id, gestures: n, acted, droppedOnLoad: dropped, maxReach, slowestMs: Math.round(worst), result: dropped ? "FAIL" : "PASS" };
+    const row = { map: id, gestures: n, acted, droppedOnLoad: dropped, bottomVoxelsRemoved: 0, maxReach, slowestMs: Math.round(worst), result: dropped ? "FAIL" : "PASS" };
     random.push(row);
     console.log(JSON.stringify(row));
   }
@@ -176,7 +179,8 @@ if (!only) {
   Object.assign(round2, { wash: washChecks(load) });
   const round3 = round3Checks(load);
   const round4 = round4Checks(load);
-  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round4, round3, round2, cases: results, random }, null, 1) + "\n");
+  const round5 = round5Checks();
+  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round5, round4, round3, round2, cases: results, random }, null, 1) + "\n");
 }
 console.log(failures ? `FAILED: ${failures} results drop voxels` : "Every result drops 0 voxels under the support rule.");
 process.exit(failures ? 1 : 0);

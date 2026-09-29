@@ -3,13 +3,13 @@ import { washMap, type ErodeMap } from "../core/map";
 import type { Case } from "./cases";
 
 export function unevenMap(id: string): ErodeMap | undefined {
-  if (!["terraces", "step", "slope"].includes(id)) return;
+  if (!["terraces", "step", "slope", "rise"].includes(id)) return;
   const m = washMap();
   m.id = id; m.name = `${id === "step" ? "Tall step" : id === "slope" ? "Sloping country" : "Dry terraces"} · 128²`;
   m.source = "Original procedural dry terrain for Erode round 4";
   for (let i = 0; i < m.heights.length; i++) {
     const x = i % m.W, y = Math.floor(i / m.W), contour = x + 2 * Math.sin(y / 13);
-    m.heights[i] = id === "step" ? (contour < 64 ? 22 : 10) : id === "slope" ?
+    m.heights[i] = id === "rise" ? 8 + Math.max(0, 9 - Math.floor(Math.abs(contour - 64) / 5)) : id === "step" ? (contour < 64 ? 22 : 10) : id === "slope" ?
       Math.max(8, Math.min(22, 22 - Math.floor((contour - 12) / 7))) :
       22 - 3 * Math.max(0, Math.min(4, Math.floor((contour - 10) / 20)));
   }
@@ -35,4 +35,8 @@ export const UNEVEN_CASES: Case[] = [
     points: on("step", [[36.5, 53.5], [61.5, 62.5], [98.5, 72.5]]), power: 85, size: 80, seed: 1,
     overview: { target: [65, 12, -63], yaw: 1.0, pitch: 0.55, distance: 75 },
     low: { target: [64, 10, -62], yaw: 1.1, pitch: -0.1, distance: 18, fov: 64 }, lowName: "Below the dry fall" },
+  { id: "wash-rise", title: "Over a rise → two downhill washes", map: "rise", gesture: "Sweep over the crest",
+    points: on("rise", [[18.5, 53.5], [47.5, 58.5], [64.5, 62.5], [79.5, 67.5], [108.5, 72.5]]), power: 100, size: 100, seed: 1,
+    overview: { target: [64, 10, -62], yaw: 0.7, pitch: 0.7, distance: 100 },
+    low: { target: [73, 13, -65], yaw: 1.8, pitch: -0.08, distance: 22, fov: 64 }, lowName: "Along the shallow wash" },
 ];

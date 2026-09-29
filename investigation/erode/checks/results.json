@@ -1,6 +1,207 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round5": {
+  "result": "PASS",
+  "cases": [
+   {
+    "case": "wash-terraces-down",
+    "power": 10,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2293,
+    "worn": 2293,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 30,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2293,
+    "worn": 2293,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 85,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2104,
+    "worn": 2311,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 2,
+    "maxDepth": 2,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 100,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2300,
+    "worn": 4363,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 3,
+    "maxDepth": 3,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 10,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2191,
+    "worn": 2191,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 30,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2191,
+    "worn": 2191,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 85,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2114,
+    "worn": 2547,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 2,
+    "maxDepth": 2,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 100,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2554,
+    "worn": 4834,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 3,
+    "maxDepth": 3,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   }
+  ],
+  "thinGroundRepeatedGestures": 54,
+  "protectedSource": "PASS",
+  "bottomLayer": "PASS: no bottom voxels removed or scheduled",
+  "animationSupport": "PASS"
+ },
  "round4": {
   "result": "PASS",
   "cases": [
@@ -10,8 +211,8 @@
     "droppedOnLoad": 0,
     "undrainedBedTiles": 0,
     "downstreamRises": 0,
-    "bedTiles": 1827,
-    "worn": 7154,
+    "bedTiles": 1408,
+    "worn": 1574,
     "outlet": "edge",
     "details": {
      "winding": 60,
@@ -19,7 +220,7 @@
      "dryFalls": 51,
      "undercutBanks": 62
     },
-    "minDepth": 4,
+    "minDepth": 1,
     "maxStepDrop": 3,
     "leftoverSingleBlocks": 0,
     "leftoverSmallClusters": 0
@@ -30,8 +231,8 @@
     "droppedOnLoad": 0,
     "undrainedBedTiles": 0,
     "downstreamRises": 0,
-    "bedTiles": 1827,
-    "worn": 7154,
+    "bedTiles": 1408,
+    "worn": 1574,
     "outlet": "edge",
     "details": {
      "winding": 60,
@@ -39,7 +240,7 @@
      "dryFalls": 51,
      "undercutBanks": 62
     },
-    "minDepth": 4,
+    "minDepth": 1,
     "maxStepDrop": 3,
     "leftoverSingleBlocks": 0,
     "leftoverSmallClusters": 0
@@ -50,8 +251,8 @@
     "droppedOnLoad": 0,
     "undrainedBedTiles": 0,
     "downstreamRises": 0,
-    "bedTiles": 1486,
-    "worn": 6045,
+    "bedTiles": 1142,
+    "worn": 1362,
     "outlet": "edge",
     "details": {
      "winding": 60,
@@ -59,7 +260,7 @@
      "dryFalls": 51,
      "undercutBanks": 62
     },
-    "minDepth": 4,
+    "minDepth": 1,
     "maxStepDrop": 12,
     "leftoverSingleBlocks": 0,
     "leftoverSmallClusters": 0
@@ -248,11 +449,12 @@
    "held": 131,
    "fell": 17,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 3,
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 10.3,
+   "msToFinal": 9.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -282,11 +484,12 @@
    "held": 47,
    "fell": 0,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 2,
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 2.7,
+   "msToFinal": 3.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -316,11 +519,12 @@
    "held": 25,
    "fell": 1,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 2,
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 2.1,
+   "msToFinal": 3.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -350,11 +554,12 @@
    "held": 24,
    "fell": 0,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 2,
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.8,
+   "msToFinal": 1.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -384,11 +589,12 @@
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 0,
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 2.8,
+   "msToFinal": 4.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -418,11 +624,12 @@
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "reach": 2,
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 15.7,
+   "msToFinal": 18.4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -448,32 +655,33 @@
   {
    "case": "wash-terraces-up",
    "map": "terraces",
-   "worn": 7154,
+   "worn": 1574,
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
-   "reach": 3,
-   "blocksOverAir": 216,
-   "deepest": 3,
-   "roofedTiles": 216,
-   "msToFinal": 8.6,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 7,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 6240,
+     "worn": 1615,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 4520,
+     "worn": 1451,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 4934,
+     "worn": 1479,
      "held": 0,
      "dropped": 0
     }
@@ -482,32 +690,33 @@
   {
    "case": "wash-terraces-down",
    "map": "terraces",
-   "worn": 7154,
+   "worn": 1574,
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
-   "reach": 3,
-   "blocksOverAir": 216,
-   "deepest": 3,
-   "roofedTiles": 216,
-   "msToFinal": 8.6,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 6.4,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 6240,
+     "worn": 1615,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 4520,
+     "worn": 1451,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 4934,
+     "worn": 1479,
      "held": 0,
      "dropped": 0
     }
@@ -516,32 +725,68 @@
   {
    "case": "wash-step",
    "map": "step",
-   "worn": 6045,
+   "worn": 1362,
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
-   "reach": 3,
-   "blocksOverAir": 199,
-   "deepest": 3,
-   "roofedTiles": 199,
-   "msToFinal": 7,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 4.3,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 5465,
+     "worn": 1497,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 4499,
+     "worn": 1320,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 5673,
+     "worn": 1282,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-rise",
+   "map": "rise",
+   "worn": 4834,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 9.9,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 4901,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 4676,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 6459,
      "held": 0,
      "dropped": 0
     }
@@ -554,8 +799,9 @@
    "gestures": 40,
    "acted": 40,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 6,
+   "slowestMs": 16,
    "result": "PASS"
   },
   {
@@ -563,8 +809,9 @@
    "gestures": 40,
    "acted": 40,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 8,
+   "slowestMs": 6,
    "result": "PASS"
   },
   {
@@ -572,8 +819,9 @@
    "gestures": 40,
    "acted": 40,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 5,
+   "slowestMs": 6,
    "result": "PASS"
   },
   {
@@ -581,8 +829,9 @@
    "gestures": 40,
    "acted": 40,
    "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 6,
+   "slowestMs": 8,
    "result": "PASS"
   }
  ]

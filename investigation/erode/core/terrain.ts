@@ -35,6 +35,8 @@ export class Terrain {
   }
 
   set(i: number, z: number, on: boolean): void {
+    // The map's bottom voxel is bedrock, for every planner and animation frame.
+    if (!on && z === 0) return;
     if (on) this.cols[i] = (this.cols[i] | (1 << z)) >>> 0;
     else this.cols[i] = (this.cols[i] & ~(1 << z)) >>> 0;
   }

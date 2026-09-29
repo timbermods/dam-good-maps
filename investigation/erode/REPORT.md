@@ -1,5 +1,24 @@
 # Erode: the report
 
+## Round 5
+
+Every Erode gesture now preserves the bottom voxel. Uneven washes cut **one to three levels at most**, measured from the local ground; a crest feeds separate downhill runs instead of being notched through. These two 128² captures use Power 100 / Size 100, Auto details, seed 1.
+
+| Across terraces: after | Low along the wash |
+|---|---|
+| ![](captures/round5-terraces-after.jpg) | ![](captures/round5-terraces-low.jpg) |
+| Over a rise: after, two downhill runs | Low along one run |
+| ![](captures/round5-rise-after.jpg) | ![](captures/round5-rise-low.jpg) |
+
+**PASS — support and bottom layer:** all ten cases and three extra seeds each, 160 random gestures, 48 uneven variants in both directions, and 54 repeated gestures on thin ground have **0 dropped voxels and 0 bottom voxels removed**. Animation buckets preserve the floor too. The review cases have **0 debris clusters, 0 downstream rises and 0 trapped carved tiles**; measured depth is 1 / 2 / 3 at Power 30 / 85 / 100, and the rise has two opposite outlets. Six existing fixtures and 16 flat variants remain byte-identical; protected source ground and TypeScript pass. Final land at 128²: **0.663–0.668 s**, with immediate next action. [Checks](checks/results.json) · [Timings](checks/round5-browser.json).
+
+- Choice: apply the shallow cap to uneven washes; preserve the flat-ground profile except for the required bottom-layer safeguard, and keep the cliff planner and round 4's face selection unchanged.
+- Choice: follow existing downhill terrain to an edge or water; adjust proposed cuts shallower when necessary to keep drainage within the cap.
+
+Still short: existing tall terrain steps still make tall dry falls. Closed basins without a downhill outlet stay uncut; flow is checked geometrically, not in Timberborn.
+
+---
+
 ## Round 4
 
 Erode now chooses one face from the whole sweep's direction across or along the terrain's contours. Uneven washes run from the higher end, follow each terrace's ground level, notch intervening rises and drop at steps; the tall-step case has a twelve-level dry fall. Round 3's flat washes and existing cliff results remain unchanged.

@@ -101,7 +101,9 @@ export function drainageMetrics(before: Terrain, p: ErodePlan) {
   assert.ok(p.wash, "flat land must make a wash");
   const { W, H, N } = before, after = p.final;
   const height = Uint8Array.from({ length: N }, (_, i) => after.run0Top(i));
-  const seen = new Uint8Array(N), q = [p.wash.outlet]; seen[q[0]] = 1;
+  const runs = p.wash.runs ?? [p.wash];
+  const seen = new Uint8Array(N), q = [...new Set(runs.map(run => run.outlet))];
+  for (const i of q) seen[i] = 1;
   for (let k = 0; k < q.length; k++) {
     const i = q[k], x = i % W, y = Math.floor(i / W);
     for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y > 0 ? i - W : -1, y < H - 1 ? i + W : -1])
@@ -110,16 +112,26 @@ export function drainageMetrics(before: Terrain, p: ErodePlan) {
   const changed = Array.from({ length: N }, (_, i) => i).filter(i => height[i] < before.run0Top(i));
   const undrained = changed.filter(i => !seen[i]).length;
   let rises = 0;
-  for (let k = 1; k < p.wash.path.length; k++) if (height[p.wash.path[k]] > height[p.wash.path[k - 1]]) rises++;
+  for (const run of runs) for (let k = 1; k < run.path.length; k++) if (height[run.path[k]] > height[run.path[k - 1]]) rises++;
   const dropped = checkSupport(W, H, after.voxels(), LAYERS).unsupported.length;
   assert.ok(changed.length > 0, "flat land did nothing");
   assert.equal(undrained, 0, "carved bed contains trapped floor tiles");
   assert.equal(rises, 0, "trunk bed rises downstream");
   assert.equal(dropped, 0, "wash loses support");
-  const end = p.wash.outlet;
-  assert.ok(p.wash.outletKind === "water" || end % W === 0 || end % W === W - 1 || end < W || end >= N - W);
+  for (const run of runs) {
+    const end = run.outlet;
+    assert.ok(run.outletKind === "water" || end % W === 0 || end % W === W - 1 || end < W || end >= N - W);
+  }
   return { droppedOnLoad: dropped, undrainedBedTiles: undrained, downstreamRises: rises,
     bedTiles: changed.length, worn: p.worn, outlet: p.wash.outletKind, details: p.details };
+}
+
+export function bottomCheck(before: Terrain, p: ErodePlan) {
+  let lost = 0;
+  for (let i = 0; i < before.N; i++) if (before.at(i, 0) && !p.final.at(i, 0)) lost++;
+  assert.equal(lost, 0, "Erode removed the map's bottom layer");
+  assert.ok([...p.removed].every(v => v >= before.N), "an animation bucket removes bottom terrain");
+  return lost;
 }
 
 export function washChecks(load: (id: string) => ErodeMap) {

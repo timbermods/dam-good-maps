@@ -4,9 +4,10 @@ import type { ErodeInput, ErodePlan, ErodeSettings, Gesture } from "./erode";
 import { clamp, hash, noise3 } from "./random";
 import { support } from "./support";
 import { LAYERS } from "./terrain";
+import { downhillRuns, drainCappedBanks, type WashRun } from "./washRuns";
 
 export interface WashDetails { winding: number; sideGullies: number; dryFalls: number; undercutBanks: number }
-export interface WashTrace { path: number[]; bedTiles: number[]; outlet: number; outletKind: "edge" | "water" }
+export interface WashTrace { path: number[]; bedTiles: number[]; outlet: number; outletKind: "edge" | "water"; runs?: WashRun[] }
 export const DETAIL_LABELS: Record<keyof WashDetails, string> = {
   winding: "Winding", sideGullies: "Side gullies", dryFalls: "Dry falls", undercutBanks: "Undercut banks",
 };
@@ -36,7 +37,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     const a = points[k - 1], b = points[k], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
     for (let j = 0; j <= n; j++) ground.push(heights[tile(a.x + (b.x - a.x) * j / n, a.y + (b.y - a.y) * j / n)]);
   }
-  const uneven = ground.some(z => z !== ground[0]);
+  let uneven = ground.some(z => z !== ground[0]);
   if (uneven) {
     const first = tile(points[0].x, points[0].y), last = tile(points[points.length - 1].x, points[points.length - 1].y);
     if (heights[first] < heights[last] || (heights[first] === heights[last] && first > last)) points.reverse();
@@ -87,7 +88,8 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   };
   if (points.length === 1) {
     const route = outletRoute(start, Math.max(0, heights[start] - incision));
-    const end = route[Math.min(route.length - 1, Math.round(8 + 16 * P))];
+    const endIndex = Math.min(route.length - 1, Math.round(8 + 16 * P)), end = route[endIndex];
+    uneven = route.slice(0, endIndex + 1).some(i => heights[i] !== heights[start]);
     points.push({ x: end % W + 0.5, y: Math.floor(end / W) + 0.5 });
   }
   // Smooth meanders around the painted line; even zero Winding has a slight natural wander.
@@ -125,11 +127,14 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
       (fallCount - Math.floor(k / Math.max(1, mainLength - 1) * fallCount)) * fallHeight));
     return bed;
   });
-  const tail = outletRoute(centre[centre.length - 1], bed);
+  const cap = 1 + Math.round(2 * P * P);
+  const runs = uneven ? downhillRuns(centre, heights, cap, details.dryFalls, neighbours,
+    i => input.keep?.[i] ? undefined : edge(i) ? "edge" : (input.water?.[i] ?? 0) > 0.05 ? "water" : undefined) : undefined;
+  const tail = uneven ? [] : outletRoute(centre[centre.length - 1], bed);
   for (const i of tail.slice(1)) {
     centre.push(i); bed = Math.min(bed, Math.max(0, heights[i] - (uneven ? incision : 0))); levels.push(bed);
   }
-  const outlet = centre[centre.length - 1];
+  const outlet = runs?.[0]?.outlet ?? centre[centre.length - 1];
   const floor = new Int16Array(N).fill(-1), mask = new Uint8Array(N);
   const closest = new Float32Array(N).fill(Infinity);
   const stamp = (i: number, level: number, radius: number, banks = false) => {
@@ -160,11 +165,13 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
           if (style > 0.68) rise = Math.round(shoulder * relief * large);
           else if (style > 0.28) rise = Math.floor(shoulder * 2.5) * Math.max(1, Math.round(relief * large / 3));
         }
-        const z = Math.min(heights[j], level + rise);
+        const z = Math.min(heights[j], Math.max(1, uneven ? heights[j] - cap : 1, level + rise));
         floor[j] = floor[j] < 0 ? z : Math.min(floor[j], z); mask[j] = 1;
       }
   };
-  centre.forEach((i, k) => stamp(i, levels[k], k < mainLength ? width : Math.max(1, width * 0.65), true));
+  if (runs) {
+    for (const run of runs) run.path.forEach((i, k) => stamp(i, run.levels[k], k < run.painted ? width : Math.max(1, width * 0.65), true));
+  } else centre.forEach((i, k) => stamp(i, levels[k], k < mainLength ? width : Math.max(1, width * 0.65), true));
   // Tributaries climb from their confluence into the plain, with narrow winding heads.
   const gullies = Math.round(details.sideGullies / 100 * (2 + 5 * S));
   for (let g = 0; g < gullies; g++) {
@@ -176,27 +183,31 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     for (let d = 0; d <= reach; d += 0.45) {
       const bend = Math.sin(d / 3 + g) * 1.2 * d / reach;
       const j = tile(i % W - dy / L * d * side + dx / L * bend, Math.floor(i / W) + dx / L * d * side + dy / L * bend);
-      stamp(j, Math.min(heights[j], levels[k] + Math.floor(d / reach * Math.min(3 + 3 * large, incision - 1))), Math.max(0.8, width * 0.35 * (1 - d / reach) + 0.6));
+      stamp(j, uneven ? Math.max(1, heights[j] - Math.max(1, cap - Math.floor(d / reach * cap))) :
+        Math.min(heights[j], levels[k] + Math.floor(d / reach * Math.min(3 + 3 * large, incision - 1))), Math.max(0.8, width * 0.35 * (1 - d / reach) + 0.6));
     }
   }
-  // Connect every bed tile to the outlet, then propagate only lowering along that tree and the
-  // trunk. This also removes tiny pits where meanders, gullies or original low ground overlap.
-  const parent = new Int32Array(N).fill(-1), order = [outlet]; parent[outlet] = outlet;
-  // Feed broad shelves toward the trunk, not across other shelves on a shortest path to the
-  // outlet. The old cross-bed shortcut was cutting long straight trenches through the benches.
-  if (large > 0 || uneven) for (let k = centre.length - 2; k >= 0; k--) {
-    const i = centre[k];
-    if (parent[i] < 0) { parent[i] = centre[k + 1]; order.push(i); }
-  }
-  for (let k = 0; k < order.length; k++) for (const j of neighbours(order[k]))
-    if (mask[j] && parent[j] < 0) { parent[j] = order[k]; order.push(j); }
-  const next = new Map<number, number[]>();
-  for (let k = 0; k + 1 < centre.length; k++) next.set(centre[k], [...(next.get(centre[k]) ?? []), centre[k + 1]]);
-  const lowering = order.slice();
-  for (let k = 0; k < lowering.length; k++) {
-    const i = lowering[k];
-    for (const j of [parent[i], ...(next.get(i) ?? [])])
-      if (j >= 0 && floor[j] > floor[i]) { floor[j] = floor[i]; lowering.push(j); }
+  // Capped banks drain into the downhill runs; retain the flat-ground drainage unchanged.
+  let order: number[];
+  if (runs) order = drainCappedBanks(runs, floor, mask, heights, cap, neighbours);
+  else {
+    const parent = new Int32Array(N).fill(-1); order = [outlet]; parent[outlet] = outlet;
+    // Feed broad shelves toward the trunk, not across other shelves on a shortest path to the
+    // outlet. The old cross-bed shortcut was cutting long straight trenches through the benches.
+    if (large > 0 || uneven) for (let k = centre.length - 2; k >= 0; k--) {
+      const i = centre[k];
+      if (parent[i] < 0) { parent[i] = centre[k + 1]; order.push(i); }
+    }
+    for (let k = 0; k < order.length; k++) for (const j of neighbours(order[k]))
+      if (mask[j] && parent[j] < 0) { parent[j] = order[k]; order.push(j); }
+    const next = new Map<number, number[]>();
+    for (let k = 0; k + 1 < centre.length; k++) next.set(centre[k], [...(next.get(centre[k]) ?? []), centre[k + 1]]);
+    const lowering = order.slice();
+    for (let k = 0; k < lowering.length; k++) {
+      const i = lowering[k];
+      for (const j of [parent[i], ...(next.get(i) ?? [])])
+        if (j >= 0 && floor[j] > floor[i]) { floor[j] = floor[i]; lowering.push(j); }
+    }
   }
   for (const i of order) for (let z = floor[i]; z < LAYERS; z++) t.set(i, z, false);
   // Short cantilevers along pockets of the banks, with the same flat bed and up to five levels
@@ -213,7 +224,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
           if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) break;
           const j = yy * W + xx;
           if (input.keep?.[j] || mask[j] || heights[j] < z0 + 4) break;
-          for (let z = z0; z < Math.min(heights[j] - 2, z0 + 5); z++) t.set(j, z, false);
+          for (let z = Math.max(1, z0, uneven ? heights[j] - cap : 1); z < Math.min(heights[j] - 2, z0 + 5); z++) t.set(j, z, false);
         }
       }
     }
@@ -251,6 +262,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
     buckets: 24, duration: 0.65, worn: removed.length, held: 0, fell,
     focus: { x: start % W + 0.5, y: Math.floor(start / W) + 0.5, z: heights[start] },
     box: { x0, y0, x1, y1 }, ms: performance.now() - started, details,
-    wash: { path: centre, bedTiles: order, outlet, outletKind: edge(outlet) ? "edge" : "water" },
-    ...(!removed.length ? { reason: "At the map's floor" } : {}) };
+    wash: { path: runs ? runs[0]?.path ?? [] : centre, bedTiles: order, outlet, outletKind: edge(outlet) ? "edge" : "water",
+      ...(runs ? { runs: runs.map(({ path, outlet, outletKind }) => ({ path, outlet, outletKind })) } : {}) },
+    ...(!removed.length ? { reason: runs?.length === 0 ? "No downhill outlet within shallow ground" : "At the map's floor" } : {}) };
 }
