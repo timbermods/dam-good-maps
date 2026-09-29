@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Block · Dam Good Maps</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/style.css"></head>
+<body style="height:100vh"><canvas id="land" aria-label="Terrain. Click adds; Shift-click removes." tabindex="0"></canvas>
+<header><div class="brand">DAM GOOD MAPS <span>FIELD STUDY / 01</span></div><div class="actions"><button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Y">Redo</button><label class="sound"><input id="sound" type="checkbox" checked> Sound</label></div></header>
+<section class="panel"><div class="eyebrow">TERRAIN ABOVE TERRAIN</div><h1>Block</h1><p class="intro">A little more here.<br>A little less there.</p>
+<label class="case">Land <select id="case"><option value="cliff">Canyon · cliff</option><option value="cave">Canyon · Erode’s cave</option><option value="flat">Highlands · flat ground</option></select></label>
+<div class="row"><label for="size">Size</label><output id="size-value">1 × 1</output></div><input id="size" aria-label="Size" type="range" min="1" max="8" value="1">
+<div class="row"><label for="layer">Show through level</label><output id="layer-value">All</output></div><input id="layer" aria-label="Visible layer" type="range" min="1" max="22" value="22">
+<div class="buttons"><button id="near">Close view</button><button id="overview">Overview</button><button id="reset">Reset land</button></div>
+<hr><p><b>Click</b> to add · <b>Shift</b> to remove</p><p><b>Drag</b> to paint one layer</p><p><b>Shift-hold a wall</b> to tunnel</p><p><b>Hold F + move</b> to resize</p><p><b>Esc</b> cancels the whole gesture</p>
+<div class="key"><i class="add"></i> Add <i class="remove"></i> Remove <i class="refuse"></i> Unsupported</div></section>
+<div id="notice" role="status">Point at a face to begin.</div><div id="pointer" hidden></div>
+<footer><span>Right-drag orbit · Middle-drag pan · Wheel zoom · WASD / arrows pan · Q / E turn</span><span>128 × 128 · Water is approximated</span></footer>
+<script type="module" src="/demo/app.ts"></script></body></html>
