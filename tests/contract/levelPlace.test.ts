@@ -38,14 +38,21 @@ function groundNow(): Ground {
 
 /** A spot where `tiles(x, y)` stands on dry, empty, uneven ground (a step of one or two levels
  *  across it), clear of the start; `nearWater`: with water within three tiles of it. */
-function slopedSpot(g: Ground, tiles: (x: number, y: number) => [number, number][], nearWater: boolean): [number, number] {
+function slopedSpot(g: Ground, tiles: (x: number, y: number) => [number, number][], nearWater: boolean | null, minSpread = 1, maxSpread = 2, slope = false): [number, number] {
   for (let y = 6; y < W - 6; y++)
     for (let x = 6; x < W - 6; x++) {
       if (Math.hypot(x - g.start[0], y - g.start[1]) < 14) continue;
       const own = tiles(x, y);
       const hs = own.map(([tx, ty]) => g.heights[ty * W + tx]);
       const spread = Math.max(...hs) - Math.min(...hs);
-      if (spread < 1 || spread > 2) continue;
+      if (spread < minSpread || spread > maxSpread) continue;
+      // a slope, not a pit: nothing is more than half the spread (rounded up) from the modal level
+      if (slope) {
+        const counts = new Map<number, number>();
+        for (const v of hs) counts.set(v, (counts.get(v) ?? 0) + 1);
+        const modal = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+        if (Math.max(...hs.map((v) => Math.abs(v - modal))) > Math.ceil(spread / 2)) continue;
+      }
       let ok = true;
       let wet = false;
       for (let dy = -4; dy <= 4 && ok; dy++)
@@ -56,7 +63,7 @@ function slopedSpot(g: Ground, tiles: (x: number, y: number) => [number, number]
           if (inside && g.depth[i] > 0) ok = false;
           if (!inside && g.depth[i] > 0 && Math.abs(dx) <= 3 && Math.abs(dy) <= 3) wet = true;
         }
-      if (ok && wet === nearWater) return [x, y];
+      if (ok && (nearWater === null || wet === nearWater)) return [x, y];
     }
   throw new Error("no such spot");
 }
@@ -80,7 +87,10 @@ describe("placed objects fit the land (D328)", () => {
       const g = groundNow();
       const [x, y] = slopedSpot(g, cover(template), false);
       const own = cover(template)(x, y).map(([tx, ty]) => ty * W + tx);
-      const low = Math.min(...own.map((i) => g.heights[i]));
+      const counts = new Map<number, number>();
+      for (const i of own) counts.set(g.heights[i], (counts.get(g.heights[i]) ?? 0) + 1);
+      const most = Math.max(...counts.values());
+      const modal = [...counts].filter(([, c]) => c === most).map(([h]) => h);
       const before = heightsNow();
       // the hover check says it fits (no "not level" any more)
       expect(ed.footprintCheck({ tool: "entity", template, x, y, orientation: "Cw0" }).problem).toBeNull();
@@ -89,9 +99,11 @@ describe("placed objects fit the land (D328)", () => {
       expect(r.ok, JSON.stringify(r.errors)).toBe(true);
       expect(steps()).toBe(n + 1);
       const after = heightsNow();
-      for (const i of own) expect(after[i], `tile ${i}`).toBe(low);
-      // cut, never filled: nothing on the map is higher than it was
-      for (let i = 0; i < after.length; i++) expect(after[i]).toBeLessThanOrEqual(before[i]);
+      // the level most of the footprint stood at (or, of equal shares, one of them)
+      expect(modal).toContain(after[own[0]]);
+      for (const i of own) expect(after[i], `tile ${i}`).toBe(after[own[0]]);
+      // the water is not dammed: no wet tile is filled
+      for (let i = 0; i < after.length; i++) if (g.depth[i] > 0) expect(after[i]).toBeLessThanOrEqual(before[i]);
       expect(ed.exportCheck().blocking.map((b) => b.message)).toEqual([]);
       // one undo puts the ground and the object back
       ed.undo();
@@ -99,6 +111,53 @@ describe("placed objects fit the land (D328)", () => {
       expect([...heightsNow()]).toEqual([...before]);
     });
   }
+
+  it("a ruin across a 3-level slope moves no tile by more than about half the slope, meets the land in short slopes, and dams no water", async () => {
+    const template = "UndergroundRuins";
+    let g!: Ground;
+    let spot: [number, number] | null = null;
+    for (let seed = 4; seed < 16 && !spot; seed++) {
+      await fresh(seed);
+      g = groundNow();
+      try {
+        spot = slopedSpot(g, cover(template), null, 3, 3, true);
+      } catch {
+        spot = null;
+      }
+    }
+    if (!spot) throw new Error("no 3-level slope for a ruin on any of the seeds");
+    const [x, y] = spot;
+    const before = heightsNow();
+    const r = place(template, x, y);
+    expect(r.ok, JSON.stringify(r.errors)).toBe(true);
+    const after = heightsNow();
+    let moved = 0;
+    for (let i = 0; i < after.length; i++) {
+      moved = Math.max(moved, Math.abs(after[i] - before[i]));
+      if (g.depth[i] > 0) expect(after[i], `wet tile ${i}`).toBeLessThanOrEqual(before[i]);
+    }
+    expect(moved).toBeLessThanOrEqual(2);
+    // no wall: a step the placement made is at most two levels, where the land it started from had none larger
+    for (let ty = 1; ty < W - 1; ty++)
+      for (let tx = 1; tx < W - 1; tx++) {
+        const i = ty * W + tx;
+        for (const j of [i + 1, i + W]) {
+          if (after[i] === before[i] && after[j] === before[j]) continue;
+          const wasStep = Math.abs(before[i] - before[j]);
+          expect(Math.abs(after[i] - after[j]), `step at ${tx},${ty}`).toBeLessThanOrEqual(Math.max(2, wasStep));
+        }
+      }
+    // the water re-settles: nothing the placement did leaves a wet tile above where it was
+    ed.refine();
+    const now = groundNow();
+    let wetBefore = 0;
+    let wetNow = 0;
+    for (let i = 0; i < W * W; i++) {
+      if (g.depth[i] > 0) wetBefore++;
+      if (now.depth[i] > 0) wetNow++;
+    }
+    expect(wetNow).toBeGreaterThanOrEqual(wetBefore - 2);
+  });
 
   it("a ruin column placed on a slope stands there as it does on flat ground", async () => {
     await fresh();
@@ -109,21 +168,19 @@ describe("placed objects fit the land (D328)", () => {
     expect(steps()).toBe(n + 1);
   });
 
-  it("beside water it raises no dam: the ground only goes down", async () => {
+  it("a badwater source stays cut-only (D290): its ground only goes down, to its lowest tile", async () => {
     await fresh();
-    const template = "UndergroundRuins";
+    const template = "BadwaterSource";
     const g = groundNow();
     const [x, y] = slopedSpot(g, cover(template), true);
+    const own = cover(template)(x, y).map(([tx, ty]) => ty * W + tx);
+    const low = Math.min(...own.map((i) => g.heights[i]));
     const before = heightsNow();
     const r = place(template, x, y);
     expect(r.ok, JSON.stringify(r.errors)).toBe(true);
     const after = heightsNow();
-    let lowered = 0;
-    for (let i = 0; i < after.length; i++) {
-      expect(after[i]).toBeLessThanOrEqual(before[i]);
-      if (after[i] < before[i]) lowered++;
-    }
-    expect(lowered).toBeGreaterThan(0);
+    for (let i = 0; i < after.length; i++) expect(after[i]).toBeLessThanOrEqual(before[i]);
+    for (const i of own) expect(after[i]).toBe(low);
   });
 
   it("still refuses at the map edge, and on another object, with one plain reason", async () => {
@@ -151,15 +208,13 @@ describe("placed objects fit the land (D328)", () => {
     };
     const [x, y] = slopedSpot(g, at, false);
     const own = at(x, y).map(([tx, ty]) => ty * W + tx);
-    const low = Math.min(...own.map((i) => g.heights[i]));
     const before = heightsNow();
     const n = steps();
     const r = ed.moveStartTo(x, y, o);
     expect(r.ok, JSON.stringify(r.errors)).toBe(true);
     expect(steps()).toBe(n + 1);
     const after = heightsNow();
-    for (const i of own) expect(after[i]).toBe(low);
-    for (let i = 0; i < after.length; i++) expect(after[i]).toBeLessThanOrEqual(before[i]);
+    for (const i of own) expect(after[i]).toBe(after[own[0]]);
     ed.undo();
     expect([...heightsNow()]).toEqual([...before]);
   });

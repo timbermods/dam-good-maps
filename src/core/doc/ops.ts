@@ -622,7 +622,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const p = op.params;
       if (!GUID.test(p.id)) return [`${p.id} is not a lowercase GUID`];
       if (ctx.entityIds.has(p.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
-      if (!PLACEABLE.has(p.template) || !FOOTPRINTS[p.template]) return [`${p.template} cannot be placed by hand`];
+      // (the start too, on a map that has none: its own was deleted, D323 item 44)
+      const noStart = p.template === "StartingLocation" && !state.features.some((f) => f.kind === "start") && (ctx.otherStarts ?? 0) === 0;
+      if (!(PLACEABLE.has(p.template) || noStart) || !FOOTPRINTS[p.template]) return [`${p.template} cannot be placed by hand`];
       if (!inMap(p.x, p.y)) return [`(${p.x}, ${p.y}) is outside the map`];
       if (!ORIENTATIONS.includes(p.orientation)) return [`bad orientation ${String(p.orientation)}`];
       if (!p.components && !hasDefaults(p.template)) return [`${p.template} needs its components`];

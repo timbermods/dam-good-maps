@@ -422,15 +422,25 @@ export function planEntity(s: MapSession, req: EntityRequest, id: string): Plann
   return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: `Place ${name}`, tiles: [...new Set(tiles)] };
 }
 
-/** An object's own levelling (D290 for the badwater source, D328 for every object the shelf places):
- *  where the ground under its footprint isn't level, the tiles are cut down to the lowest of them
- *  (never filled, so no water is dammed), in the placement's own step, before it. A badwater source
- *  is 3 × 3 and the game keeps it only on level ground: it also takes what stands on its nine tiles
- *  (hand-placed objects; a generated tree makes room by itself; never the start, which
- *  `entityProblem` refuses). Other objects keep the objects on their tiles: `entityProblem` refuses
- *  those. `extra`: further tiles to level with it (the start's door). The operations that make it,
- *  none on level ground. `ignore`: entities the same step removes already (a clean source switched
- *  to bad). */
+/** The most distance a placement's natural edge reaches past its footprint, in tiles. */
+const EDGE_REACH = 6;
+
+/** An object's own levelling (D290 for the badwater source, D328 for every object the shelf places).
+ *  A water or badwater source is cut-only (D290): the ground under its footprint is cut down to the
+ *  lowest of its tiles, so no water is dammed. Every other object (and the start) levels to the
+ *  height most of its footprint already stands at (of equal shares, the one that moves the ground
+ *  least): what is above is cut, what is below is filled, except that a wet tile is never filled
+ *  (the settled water is the map's own): where the level would fill one, the footprint is cut down
+ *  to its lowest tile instead. The edge then meets the land around it in short natural slopes (one
+ *  level a tile, out to `EDGE_REACH`), never a step or a wall, and leaves wet tiles, other objects'
+ *  tiles and caves as they are. All in the placement's own step, before it.
+ *
+ *  A badwater source is 3 × 3 and the game keeps it only on level ground: it also takes what stands
+ *  on its nine tiles (hand-placed objects; a generated tree makes room by itself; never the start,
+ *  which `entityProblem` refuses). Other objects keep the objects on their tiles: `entityProblem`
+ *  refuses those. `extra`: further tiles to level with it (the start's door). The operations that
+ *  make it, none on level ground. `ignore`: entities the same step removes already (a clean source
+ *  switched to bad). */
 export function levelFootprint(s: MapSession, p: { template?: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: ReadonlySet<string> = new Set(), extra: readonly number[] = []): EditOp[] {
   const template = p.template ?? "BadwaterSource";
   const fp = FOOTPRINTS[template];
@@ -446,6 +456,7 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   let low = Infinity;
   for (const i of list) low = Math.min(low, b.heights[i]);
   const ops: EditOp[] = [];
+  const isSource = template === "BadwaterSource" || template === "WaterSource";
   if (template === "BadwaterSource") {
     const skip = resourceOwners(s);
     const gone = new Set<string>();
@@ -455,7 +466,74 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
     }
     if (gone.size) ops.push({ op: "deleteEntities", params: { entities: [...gone] } });
   }
-  if (list.some((i) => b.heights[i] !== low)) ops.push({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(list, W), level: low } });
+  if (isSource) {
+    if (list.some((i) => b.heights[i] !== low)) ops.push({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(list, W), level: low } });
+    return ops;
+  }
+  const h = b.heights;
+  if (list.every((i) => h[i] === h[list[0]])) return ops;
+  const water = waterDepth(s);
+  // the level most of the footprint stands at; of equal shares, the one that moves the ground least
+  const counts = new Map<number, number>();
+  for (const i of list) counts.set(h[i], (counts.get(h[i]) ?? 0) + 1);
+  const most = Math.max(...counts.values());
+  let level = low;
+  let reach = Infinity;
+  for (const [hv, c] of [...counts].sort((a, c) => a[0] - c[0])) {
+    if (c !== most) continue;
+    let far = 0;
+    for (const i of list) far = Math.max(far, Math.abs(h[i] - hv));
+    if (far < reach) {
+      reach = far;
+      level = hv;
+    }
+  }
+  // never fill a wet tile: where the level would, the footprint is cut down instead
+  if (list.some((i) => h[i] < level && water[i] > 0)) level = low;
+  const target = new Map<number, number>();
+  for (const i of list) target.set(i, level);
+  // the natural edge: out from the footprint the land keeps within a level a tile of the platform
+  // (a bank rising, an embankment falling), only where it differs, dry, and free of other objects
+  const skip = resourceOwners(s);
+  const held = new Set<number>();
+  for (const e of b.entities) {
+    if (ignore.has(e.id) || skip.has(e.owner)) continue;
+    for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) held.add(ty * W + tx);
+  }
+  // the edge fades: the ground moves by no more than the footprint's own biggest move, less a level
+  // a tile out, so a steep hillside is left alone rather than cut back
+  let biggest = 0;
+  for (const i of list) biggest = Math.max(biggest, Math.abs(h[i] - level));
+  const dist = new Set<number>(list);
+  let ring = list;
+  for (let d = 1; d <= EDGE_REACH && ring.length; d++) {
+    const next: number[] = [];
+    for (const i of ring) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx;
+        if (dist.has(j)) continue;
+        dist.add(j);
+        next.push(j);
+      }
+    }
+    for (const j of next) {
+      if (s.columns.has(j) || held.has(j) || water[j] > 0) continue;
+      const hv = h[j];
+      const want = hv > level ? Math.min(hv, level + d) : Math.max(hv, level - d);
+      const room = biggest - d + 1;
+      const to = want < hv ? Math.max(want, hv - room) : Math.min(want, hv + room);
+      if (room > 0 && to !== hv && to >= 0 && to <= 32) target.set(j, to);
+    }
+    ring = next;
+  }
+  const byLevel = new Map<number, number[]>();
+  for (const [i, t] of target) if (h[i] !== t) (byLevel.get(t) ?? byLevel.set(t, []).get(t)!).push(i);
+  for (const [lv, ts] of [...byLevel].sort((a, c) => a[0] - c[0])) ops.push({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(ts, W), level: lv } });
   return ops;
 }
 

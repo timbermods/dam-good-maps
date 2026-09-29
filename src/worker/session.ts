@@ -31,7 +31,7 @@ import {
   type RiverRequest,
 } from "../core/doc/tools";
 import type { PlanRecord } from "../core/features/setpieces";
-import { removeKindOf, type RemoveKind } from "../core/features/objects";
+import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
 import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
 import type { SetPieceKind } from "../core/features/schema";
@@ -1123,7 +1123,12 @@ export function specPatch(from: MapSpec, to: MapSpec): Record<string, unknown> {
 /** The start checks a move fixes: its ground, its door, its dry ring, what covers it. */
 const START_FIXABLE = new Set(["start.flat", "start.entrance", "start.dry", "start.clear"]);
 
+/** A map with no start (D323 item 44): the checks say so in two words; the save says what to do. */
+const NO_START = "No start";
+const NO_START_REFUSAL = "Place a start first: pick the Start on the shelf";
+
 function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
+  if (c.id === "start.count" && c.value === 0) c = { ...c, message: NO_START };
   let fix = c.fix?.length ? c.fix : undefined;
   // (a planting fix only where the game takes each plant: the rest of it still helps)
   if (fix && s && fix.some((op) => op.op === "placeEntity")) {
@@ -1362,7 +1367,7 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   for (let k = 0; !bg && k < 4 && session === s && version === v0; k++) bg = await backgroundCheck(onProgress);
   if (!bg) return { ok: false, errors: ["the map changed while it was checked: export again"], bytes: new Uint8Array(), fileName: "" };
   const c = bg.check;
-  if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => b.message), bytes: new Uint8Array(), fileName: "" };
+  if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
   const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
@@ -1478,40 +1483,47 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
- *  the ground, and the start stays. The tiles the removed objects stood on (their corners). */
-export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[]): SessionUpdate & { removed: number[] } {
+ *  the ground. The start goes like any object when its kind is named (D323 item 44). The tiles the
+ *  removed objects stood on (their corners). */
+export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
   const { x: W, y: H } = s.size;
   const want = new Set(tiles);
-  const take = new Set(kinds);
   const ids: string[] = [];
   const slopes: { x: number; y: number }[] = [];
+  const startFeatures = new Set<string>();
   const removed: number[] = [];
-  let start = false;
   const counts = new Map<RemoveKind, number>();
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
     if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
     const kind = removeKindOf(e.template);
-    if (!kind) {
-      start = true;
-      continue;
-    }
-    if (!take.has(kind)) continue;
+    if (!kind || !removeTakes(kinds, e.template)) continue;
     if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
+    else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
     else ids.push(e.id);
     removed.push(e.y * W + e.x);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
-  if (!removed.length) return { ...changed(s, false, [start ? "the start stays: pick it on the shelf to move it" : "nothing to remove there"], t0), removed };
+  if (!removed.length) return { ...changed(s, false, ["nothing to remove there"], t0), removed };
   const ops: EditOp[] = [];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
   for (const p of slopes) ops.push({ op: "removeSlope", params: p });
-  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"] };
-  const label = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
-  const r = s.applyAll(ops, "user", label);
+  for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
+  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
+  const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
+  const r = s.applyAll(ops, "user", label ?? auto);
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
+}
+
+/** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope
+ *  and the start, as one undo step, leaving only the terrain; the water drains as its sources go
+ *  (D260). */
+export function clearEverything(): SessionUpdate & { removed: number[] } {
+  const s = need();
+  const all = Array.from({ length: s.size.x * s.size.y }, (_, i) => i);
+  return removeAt(all, ["trees", "bushes", "ruins", "sources", "slopes", "objects", "start"], "Clear everything");
 }
 
 /** A Select action (D259, D264): its operations as one step, exact; objects and sources on the
@@ -1583,7 +1595,7 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
     return changed(s, r.ok, r.errors, t0);
   }
   const e = s.built.entities.find((g) => g.template === "StartingLocation");
-  if (!e) return changed(s, false, ["this map has no start to move"], t0);
+  if (!e) return placeStart(s, x, y, orientation ?? "Cw0", t0);
   const o = orientation ?? e.orientation;
   const [cx, cy] = cornerFor(x, y, o);
   // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
@@ -1592,6 +1604,24 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
   const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
   const r = s.applyAll([...level, move], "user", o !== e.orientation ? "Move and turn the start" : "Move start");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** The Start from the shelf on a map that has none (it was deleted, D323 item 44): a generated map
+ *  gets a start feature with its small bench, an opened map an entity on its own ground, its footprint
+ *  and door levelled as for a move (D328); one step. */
+function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: number): SessionUpdate {
+  if (s.mode !== "import") {
+    const z = s.built.heights[y * s.size.x + x];
+    const feature = { id: crypto.randomUUID(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel: z, player: 0 } } as unknown as Feature;
+    const r = s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Place the start");
+    return changed(s, r.ok, r.errors, t0);
+  }
+  const [cx, cy] = cornerFor(x, y, o);
+  const door = startEntranceTile(cx, cy, o);
+  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set(), [door[1] * s.size.x + door[0]]);
+  const place: EditOp = { op: "placeEntity", params: { id: crypto.randomUUID(), template: "StartingLocation", x: cx, y: cy, orientation: o, components: {} } };
+  const r = s.applyAll([...level, place], "user", "Place the start");
   return changed(s, r.ok, r.errors, t0);
 }
 
