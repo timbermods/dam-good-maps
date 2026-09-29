@@ -1282,7 +1282,7 @@ M9 waits for that approval.
   information the generator prefers, not a guard (#67); Kyler picks the candidate intentions later
   (#66).
 - **Models and priority** (D210, amended by D262 and D278): the M9a build on Opus 5.5 at xhigh; M9b
-  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5 at medium; M9a comes first when
+  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5.5 at medium; M9a comes first when
   work competes for the machine. M9c is removed (D278): `m9-build` stays defined but unused.
 
 **Staging: M9a and M9b, approved by Kyler** (2026-09-25; PLAN §20 D145; M9c folded into M9b, D278).
@@ -1710,7 +1710,7 @@ flow (search, frame, one click, share link, credits, D255's keep-the-land rule) 
 3. **Preview inside the square, built on release:** when the player lets go of the square (not live
    while dragging, D285 (3)), the land inside is shown turned into Timberborn blocks at Timberborn's
    levels, so the player sees the map, not just the place, before building.
-4. **Confirm with as little as possible:** map size (96, 128 or 256) and height (auto by default:
+4. **Confirm with as little as possible:** map size (96, 128 or 256; the square defaults to 256² at the scale that frames the place's signature, D306) and height (auto by default:
    tall when the relief deserves it, once the probe confirms tall maps). Scale, difficulty and
    water (designed by default) sit in an optional **More** drawer.
 5. **One click, "Build my map":** a short progress strip (terrain, rivers, start, forests, checks),
@@ -1757,7 +1757,7 @@ doesn't need a separate naturalness pass over stamped shapes, because nothing in
 decisions-pending #29 (containment should look natural) and #13 (moot since D184) go with them.
 
 Its remaining small items become housekeeping: no milestone, no release, no gate — each is fixed
-when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, medium, D286 (5)):
+when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5.5, medium, D286 (5)):
 - pending decision [#2](docs/decisions-pending.md): `plants.drought` warns on every River Valley
   map, because the berry bushes near the start grow on water that drains in a drought;
 - pending decision [#12](docs/decisions-pending.md): narrow a generated fall's channel to 1–3
@@ -1776,6 +1776,8 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
   stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
   does; each with its round-trip test (`tests/unit/format.test.ts`);
+- **three stale capture tools** (`tools/capture-look.ts`, `capture-objects.ts`, `capture-saplings.ts`): they look for tabs retired
+  since D184 and no longer run against today's interface; bring them up to date, or retire them if nothing uses them;
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
