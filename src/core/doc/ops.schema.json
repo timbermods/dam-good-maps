@@ -346,21 +346,21 @@
         "WaterSource": {
           "type": "object",
           "properties": {
-            "SpecifiedStrength": { "type": "number", "maximum": 72 },
-            "CurrentStrength": { "type": "number", "maximum": 72 }
+            "SpecifiedStrength": { "type": "number" },
+            "CurrentStrength": { "type": "number" }
           }
         },
-        "WaterDepthStrengthModifier": { "type": "object", "properties": { "CurrentModifier": { "type": "number", "minimum": 0, "maximum": 1 } } },
+        "WaterDepthStrengthModifier": { "type": "object", "properties": { "CurrentModifier": { "type": "number" } } },
         "TimeActivatedComponent": {
           "type": "object",
           "properties": {
             "IsEnabled": { "type": "boolean" },
-            "CyclesUntilCountdownActivation": { "type": "integer", "minimum": 1 },
-            "DaysUntilActivation": { "type": "number", "minimum": 0 },
-            "DaysPassed": { "type": "number", "minimum": 0 }
+            "CyclesUntilCountdownActivation": { "type": "number" },
+            "DaysUntilActivation": { "type": "number" },
+            "DaysPassed": { "type": "number" }
           }
         },
-        "UnstableCore": { "type": "object", "properties": { "ExplosionRadius": { "type": "integer", "minimum": 0, "maximum": 5 } } },
+        "UnstableCore": { "type": "object", "properties": { "ExplosionRadius": { "type": "number" } } },
         "FixedStockpile": { "type": "object", "properties": { "FixedGoodId": { "type": "string" } } },
         "SingleGoodAllower": { "type": "object", "properties": { "AllowedGood": { "type": "string" } } },
         "Inventory:Stockpile": { "type": "object" },

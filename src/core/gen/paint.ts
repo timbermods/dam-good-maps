@@ -113,16 +113,43 @@ export interface ScatterOptions {
 export function scatterTiles(g: PaintGround, o: ScatterOptions): number[] {
   const { W, H } = g;
   const inRegion = new Set(o.region);
-  const cands: { i: number; key: number }[] = [];
+  // how far each tile of the stroke is from its edge, in steps (a tile beside the outside is 1)
+  const depth = new Map<number, number>();
+  let frontier: number[] = [];
+  for (const i of inRegion) {
+    if (i < 0 || i >= W * H) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    let edge = false;
+    for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1 && !edge; dx++) if ((dx || dy) && !inRegion.has((y + dy) * W + x + dx)) edge = true;
+    if (edge) {
+      depth.set(i, 1);
+      frontier.push(i);
+    }
+  }
+  for (let d = 2; frontier.length; d++) {
+    const next: number[] = [];
+    for (const i of frontier) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const j = (y + dy) * W + x + dx;
+        if (x + dx < 0 || x + dx >= W || y + dy < 0 || y + dy >= H || !inRegion.has(j) || depth.has(j)) continue;
+        depth.set(j, d);
+        next.push(j);
+      }
+    }
+    frontier = next;
+  }
+  // the lean toward the middle: as far in as half the stroke's own radius, so a big stroke has a solid heart
+  const reach = Math.max(2, 0.5 * Math.sqrt(inRegion.size / Math.PI));
   const s = hash32(o.seed, "scatter");
+  const cands: { i: number; key: number }[] = [];
   for (const i of inRegion) {
     if (i < 0 || i >= W * H || !g.free[i]) continue;
     const x = i % W;
     const y = (i - x) / W;
-    let inner = 0;
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && inRegion.has((y + dy) * W + x + dx)) inner++;
-    cands.push({ i, key: tileHash01(s, x, y) + 0.5 * (1 - inner / 8) });
+    cands.push({ i, key: tileHash01(s, x, y) + 0.6 * Math.max(0, 1 - (depth.get(i) ?? 1) / reach) });
   }
   const plantable = cands.length + o.existing;
   const want = Math.round(Math.max(0, Math.min(1, o.density)) * plantable) - o.existing;
@@ -267,7 +294,7 @@ export function planRuins(g: PaintGround, region: readonly number[], densityShar
 
 /** What the official maps' thorn patches measure (docs/FINDINGS.md "Thorns", 223 patches of thorns within a tile
  *  of each other on eight maps): tiles a patch, its stretch and how much of its box it fills. */
-export const THORN_PATCH = { median: 7, sigma: 0.45, min: 3, max: 24, fill: 0.62, aspect: [1.3, 3.0] as const, compactness: 1.5 as const };
+export const THORN_PATCH = { median: 8, sigma: 0.5, min: 3, max: 24, fill: 0.45, aspect: [1.5, 3.2] as const, compactness: 0.8 as const };
 
 const AXES: readonly (readonly [number, number])[] = [
   [1, 0],

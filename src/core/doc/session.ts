@@ -596,12 +596,15 @@ export class MapSession {
       if (op.op === "placeEntity") {
         const p = op.params;
         const fp = FOOTPRINTS[p.template];
+        const own = new Set<number>();
         for (const b of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped })) {
           if (b.x < 0 || b.y < 0 || b.x >= W || b.y >= H) {
             errors.push("it does not fit on the map");
             break;
           }
-          const i = b.y * W + b.x;
+          own.add(b.y * W + b.x);
+        }
+        for (const i of own) {
           if (columns.has(i)) errors.push("there is a cave or overhang there");
           else if (taken.has(i)) errors.push(`${taken.get(i)} stands there`);
           else taken.set(i, p.template);

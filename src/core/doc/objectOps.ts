@@ -11,7 +11,7 @@
 
 import { CORE, defaultStock, defaultStrength, FLUIDS, goodsFor, isReserve, MAX_STRENGTH_PER_TILE, maxStrength, NO_DELAY, RESERVES, TIMED, type Timed } from "../data/parity";
 import { fluidObject, reserve, unstableCore, waterSource } from "../format/entities";
-import { plainOf, type JsonObject } from "../format/json";
+import { plainOf, type JsonObject, type JsonValue } from "../format/json";
 import type { Orientation } from "../format/footprints";
 import type { EditOp } from "./ops";
 
@@ -69,8 +69,10 @@ export function placeComponents(template: string, o: ObjectOptions = {}): Record
 }
 
 /** The patch that sets an object's options (a `setEntityProps`), from the object as it stands now. */
-export function optionsPatch(template: string, current: Record<string, unknown>, o: ObjectOptions): Record<string, unknown> {
+export function optionsPatch(template: string, currentIn: Record<string, unknown>, o: ObjectOptions): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
+  // (the object's components as the game's file has them, floats and all, or plain: either reads the same)
+  const current = plainOf(currentIn as JsonValue) as Record<string, unknown>;
   const spec = FLUIDS[template];
   if (spec?.tiles) {
     const ws = current.WaterSource as { SpecifiedStrength?: number; CurrentStrength?: number } | undefined;
