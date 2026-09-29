@@ -1,5 +1,8 @@
 # Readability evidence, round 2
 
+Round 3 retains these readability decisions and the two round-2 CVD sheets. Its six test conflicts are unchanged;
+`round3-checks.json` adds sparse-vein and displayed-soil clearing evidence without any new CVD rule.
+
 Kyler's round-2 decision supersedes the earlier request for extra lightness gaps or an additional badwater pattern.
 Match the game's cues: pink caustics, bubbles, red contact at rock, and orange-red contamination veins through grass
 and dry earth. The dark High-water trade-off is accepted. The sheets are information, not accessibility certification.

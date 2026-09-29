@@ -1,5 +1,5 @@
 {
-  "round": 2,
+  "round": 3,
   "base": "8c975822c2691edef94ff4f96217167697a91177",
   "reference": "dd7bcbece5ea6e54cf47c0da3fdf86a3a3111849",
   "tests": {
@@ -177,8 +177,8 @@
   "baselineNote": "Unchanged base; baseline unit result retained from round 1.",
   "browser": {
     "stats": {
-      "startTime": "2026-09-29T22:20:55.509Z",
-      "duration": 39579.918000000005,
+      "startTime": "2026-09-29T22:42:28.457Z",
+      "duration": 30385.598,
       "expected": 11,
       "skipped": 0,
       "unexpected": 0,
@@ -193,7 +193,7 @@
         "base": "8c975822c2691edef94ff4f96217167697a91177"
       },
       "proposal": {
-        "signature": "a8337e60544adf436e4254ef3a68472080abec7cd1bb7c86db4b93671149b1c4",
+        "signature": "a4ed88025ace3ada25ebf878b78549623890558f206be34bbe9a12cb6409ea23",
         "base": "8c975822c2691edef94ff4f96217167697a91177"
       }
     },
@@ -292,7 +292,15 @@
   },
   "typecheck": "Typecheck passed against proposal modules.",
   "sheets": {
+    "updatedThisRound": [
+      "pair-1",
+      "pair-2",
+      "ground-veins",
+      "highlands-fall",
+      "broad-cascade"
+    ],
+    "otherSheets": "Retained round-2 evidence",
     "count": 11,
-    "bytes": 2138834
+    "bytes": 2130596
   }
 }
