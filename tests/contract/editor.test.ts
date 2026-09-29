@@ -97,6 +97,31 @@ describe("the editor's document in the worker", () => {
     expect(one.view.entities!.count).toBe(r.built.entities.length - 1);
   });
 
+  it("undo and redo across a change of size send the whole map at its own size (fix/size-edits)", async () => {
+    // an unedited map generated again at another size (the settings step of Claude, later a replaced
+    // map brought back): the view the page built is for the other size, so it is sent whole
+    const spec = makeSpec({ seed: 5, size: { x: W, y: W } });
+    const r = generate(spec);
+    await runGenerate(spec);
+    ed.refine();
+    const g = await ed.regenerate(makeSpec({ seed: 5, size: { x: 128, y: 128 } }));
+    expect(g.ok).toBe(true);
+    const big = ed.sessionView();
+    expect(big.view.W).toBe(128);
+    const back = ed.undo();
+    expect(back.info.W).toBe(W);
+    expect(back.view.reopen?.view.W).toBe(W);
+    expect(back.view.reopen?.view.H).toBe(W);
+    expect(Buffer.from(back.view.reopen!.view.heights).equals(Buffer.from(r.built.heights))).toBe(true);
+    expect(back.view.reopen!.view.entities.count).toBe(r.built.entities.length);
+    expect(back.view.heights).toBeUndefined();
+    const fwd = ed.redo();
+    expect(fwd.view.reopen?.view.W).toBe(128);
+    expect(Buffer.from(fwd.view.reopen!.view.heights).equals(Buffer.from(big.view.heights))).toBe(true);
+    // the history's jump too
+    expect(ed.jump(-1).view.reopen?.view.W).toBe(W);
+  });
+
   it("an imported map opens with its own water, and exports unchanged even with its own problems", async () => {
     // a generated file, opened as an import: its water comes from the file
     const r = generate(makeSpec({ seed: 9, size: { x: W, y: W } }));

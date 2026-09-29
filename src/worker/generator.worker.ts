@@ -18,7 +18,8 @@ function responseBuffers(r: GenerateResponse): Transferable[] {
 }
 
 function sendUpdate<T extends ed.SessionUpdate>(u: T): T {
-  return transfer(u, viewBuffers(u.view) as Transferable[]);
+  const o = u.view.reopen;
+  return transfer(u, viewBuffers(o ? { ...o.view, terrain: o.terrain } : u.view) as Transferable[]);
 }
 
 function sendOpen(o: ed.SessionOpen): ed.SessionOpen {

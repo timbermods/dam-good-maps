@@ -137,3 +137,53 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
     expect(s.spec!.settings.resources.ruins).toBe(100);
   });
 });
+
+// Kyler's map (seed 2828713082, 2026-09-29): made at 128², the whole map set to one level, then
+// generated again at 256² "keeping my edits". The edit's tiles, recorded on the 128² map, landed on
+// the 256² map's first 128 rows and columns: a flat, bare corner with straight edges. And Undo
+// brought the 128² map back into a view built for 256².
+describe("a change of size never moves the player's edits (fix/size-edits)", () => {
+  const S = 96;
+  const small = generate(makeSpec({ seed: 21, size: { x: S, y: S } }));
+  const all = (n: number) => tilesToRuns(Array.from({ length: n * n }, (_, i) => i), n);
+
+  it("an edited map's size change is refused, and the map stays exactly as it was", () => {
+    const s = MapSession.fromGenerated(small);
+    // Select all, Set level 4
+    expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: all(S), level: 4 } }).ok).toBe(true);
+    const before = s.exportTimber().bytes;
+    const g = s.regenerate({ size: { x: 128, y: 128 } });
+    expect(g.ok).toBe(false);
+    expect(g.errors[0]).toMatch(/96×96/);
+    expect(s.size).toEqual({ x: S, y: S });
+    expect(s.editCount).toBe(1);
+    expect(s.history().length).toBe(1);
+    expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(before))).toBe(true);
+    // a smaller size too (the edit would be cut off, or land on other tiles)
+    expect(s.regenerate({ size: { x: 64, y: 64 } }).ok).toBe(false);
+  });
+
+  it("the same size keeps the edits, on the same tiles", () => {
+    const s = MapSession.fromGenerated(small);
+    expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: all(S), level: 4 } }).ok).toBe(true);
+    const g = s.regenerate({ seed: 22 });
+    expect(g.ok).toBe(true);
+    expect(s.editCount).toBe(1);
+    expect(s.orphans()).toEqual([]);
+  });
+
+  it("undo and redo across a change of size bring back each map exactly", () => {
+    const s = MapSession.fromGenerated(small);
+    const g = s.regenerate({ size: { x: 128, y: 128 } });
+    expect(g.ok).toBe(true);
+    expect(s.size).toEqual({ x: 128, y: 128 });
+    const big = s.exportTimber().bytes;
+    expect(s.undo()).toBe(true);
+    expect(s.size).toEqual({ x: S, y: S });
+    expect(s.built.heights.length).toBe(S * S);
+    expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(small.bytes))).toBe(true);
+    expect(s.redo()).toBe(true);
+    expect(s.size).toEqual({ x: 128, y: 128 });
+    expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(big))).toBe(true);
+  });
+});

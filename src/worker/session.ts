@@ -116,6 +116,9 @@ export interface ViewUpdate {
   entities?: EntityView;
   /** The soil the ground's colours show; it follows the water (Map look, D86). */
   soil?: SoilView;
+  /** The map changed size (an undo or redo across a regeneration at another size): the whole map,
+   *  as when it is opened, and nothing else; the page builds its view again for it. */
+  reopen?: SessionOpen;
 }
 
 export interface SessionUpdate {
@@ -179,7 +182,7 @@ export interface ExportCheck {
 let session: MapSession | null = null;
 let version = 0;
 /** What the page last received, to send only what changed. */
-let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
+let sent: { W: number; H: number; heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
 let originalFull: Validation | null = null;
 let lastCheck: ExportCheck | null = null;
@@ -346,7 +349,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
 
 function markSent(s: MapSession): void {
   const b = s.built;
-  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
+  sent = { W: b.W, H: b.H, heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
 }
 
 /** The map's heights and the terrain the page paints on, as they stand (the page takes them
@@ -371,6 +374,8 @@ function viewUpdate(s: MapSession): ViewUpdate {
   const b = s.built;
   const out: ViewUpdate = {};
   const prev = sent;
+  // a map of another size: the page's view was built for the old one
+  if (prev && (prev.W !== b.W || prev.H !== b.H)) return { reopen: sessionView() };
   if (!prev || prev.heights.length !== b.heights.length) {
     const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s), terrain: s.terrainState() };
     sentEntities = copyEntityView(all.entities!);

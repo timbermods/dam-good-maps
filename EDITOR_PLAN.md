@@ -349,7 +349,9 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 **As built today:**
 
 - **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
-  what the player has painted, showing it grow, never a frozen wait.
+  what the player has painted, showing it grow, never a frozen wait. Edits are kept only at the same
+  size: with another size the button reads **Generate a new map**, the new map is made beside the
+  edited one, which stays open and saved, and **Back to editing** returns to it (decisions-pending #94).
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players
   won't use it, so it never takes permanent space. Claude steers the generator for character and
   uses the tools only for precise edits (D139, D187).
@@ -458,7 +460,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
 
 **Conflict rules**
 - Regeneration never touches locked regions or the player's own strokes and placements. The generator receives them as constraints (`MapSpec.constraints`, `PLAN.md` §7.0) and plans around them.
-- "Generate, keeping my edits" rebuilds the generated land but keeps the player's strokes, placements and Claude's accepted changes, re-snapping them to the new terrain and flagging any that no longer fit.
+- "Generate, keeping my edits" rebuilds the generated land but keeps the player's strokes, placements and Claude's accepted changes, re-snapping them to the new terrain and flagging any that no longer fit. Only at the same size: edits are recorded in the map's tiles, so on a map of another size they would land on other tiles. A regeneration at another size is refused while the map has edits, and the page makes a new map beside the edited one instead (decisions-pending #94).
 - `RegenerateRegion` replaces generated content in its area but keeps the player's strokes and placements, unless the player chooses to replace them.
 - When terrain changes under an entity, the entity snaps to the new ground if placement stays valid; otherwise it's flagged with a fix option.
 
@@ -473,7 +475,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
 - Autosave in the browser through the storage adapter (`PLAN.md` §19.9; IndexedDB on the website), guarded against storage failures; recover the last session on reload (`PLAN.md` §20, D44).
 - `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into a new imported map.
 
-**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The history is visible as a list the user can step back through.
+**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The history is visible as a list the user can step back through. An undo or redo across a regeneration at another size (an unedited map regenerated, or a replaced map brought back) restores that map exactly, and the page builds its view again for it: the worker sends the whole map, as when it is opened.
 
 ## Checks and water
 

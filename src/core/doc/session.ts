@@ -629,6 +629,13 @@ export class MapSession {
     if (specErrors.length) return fail(specErrors.map((e) => `settings${e.path}: ${e.message}`));
     const W = spec.size.x;
     const H = spec.size.y;
+    // the edits are recorded in this map's tiles: on a map of another size they would land on other
+    // tiles (a whole-map Set level made a flat corner, fix/size-edits), so they are kept only at the
+    // same size; the page makes a new map instead and the edited one stays as it is
+    // (decisions-pending #94)
+    if ((W !== old.size.x || H !== old.size.y) && this.log.length) {
+      return fail([`the size can't change while the map has edits: they were made on its ${old.size.x}×${old.size.y} tiles`]);
+    }
     // locks and the retired regenerateRegion operation were removed (D253, D270): a regeneration
     // never keeps anything of the previous generation any more (an old project's own kept content,
     // from before, stays put until its next regeneration, same as always).

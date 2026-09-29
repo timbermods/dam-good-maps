@@ -164,6 +164,12 @@ export function App() {
   );
   const stale = !!result && encodeSpecFragment(result.spec) !== encodeSpecFragment(spec);
   const edited = fromSession && !!session && session.kind === "generated" && session.edits > 0;
+  // edits are recorded in the map's tiles, so they are kept only at the same size: a new size makes
+  // a new map, and the edited one stays open and saved (decisions-pending #94)
+  const resized = edited && (size.x !== session!.W || size.y !== session!.H);
+  const keeping = edited && !resized;
+  // an edited map the settings page isn't showing (a new map was made beside it)
+  const aside = !!session && (session.kind === "import" || (!fromSession && session.edits > 0));
 
   function showSpec(s: MapSpec) {
     setSeedText(String(s.seed));
@@ -222,7 +228,7 @@ export function App() {
     setDownloaded(false);
     setTimberborn(null);
     try {
-      if (edited) {
+      if (keeping) {
         // keep the player's edits: regenerate the open document with the new settings
         const r = await generator.regenerate(s);
         setSession(r.info);
@@ -476,7 +482,7 @@ export function App() {
     return (
       <>
         {EditorMod ? (
-          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} saveState={saveState} />
+          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} onReopen={enterEditor} saveState={saveState} />
         ) : (
           <div class="placeholder">Opening the editor…</div>
         )}
@@ -539,10 +545,10 @@ export function App() {
           </button>
         </div>
       ) : null}
-      {session && session.kind === "import" ? (
+      {aside ? (
         <div class="banner accent" role="status">
           <span>
-            You're editing <strong>{session.name}</strong>. The map below is a new one, made from these settings.
+            You're editing <strong>{session!.name}</strong>. The map below is a new one, made from these settings.
           </span>
           <button type="button" class="primary" onClick={() => void generator.sessionView().then(enterEditor)}>
             Back to editing
@@ -564,9 +570,13 @@ export function App() {
           />
           <div class="generate-bar">
             <button type="button" class="primary" disabled={busy || !!opening} onClick={() => run(spec)}>
-              {busy ? "Generating…" : edited ? "Generate, keeping my edits" : stale ? "Generate (settings changed)" : "Generate"}
+              {busy ? "Generating…" : keeping ? "Generate, keeping my edits" : resized ? "Generate a new map" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
-            {edited ? (
+            {resized ? (
+              <p class="note">
+                Your edits stay on your {session!.W}×{session!.H} map. A new size makes a new map.
+              </p>
+            ) : keeping ? (
               <p class="note">
                 Your {session!.edits} edit{session!.edits > 1 ? "s stay" : " stays"} when you generate again.{" "}
                 <button type="button" class="linkish" onClick={discardEdits}>
@@ -629,7 +639,7 @@ export function App() {
                 </>
               ) : (
                 <>
-                  {session && session.kind === "import" ? "New map from these settings" : "This map"}: <strong>{result.name}</strong>, seed {result.spec.seed}
+                  {aside ? "New map from these settings" : "This map"}: <strong>{result.name}</strong>, seed {result.spec.seed}
                 </>
               )}
             </p>
