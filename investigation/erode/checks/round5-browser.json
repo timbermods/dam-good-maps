@@ -1,0 +1,96 @@
+{
+ "result": "PASS",
+ "note": "128², installed Chrome; finalMs includes worker planning and final view update from gesture end",
+ "cases": [
+  {
+   "case": "wash-terraces-down",
+   "worn": 4363,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 30.200000002980232,
+   "checkMs": 10.5,
+   "box": {
+    "x0": 9,
+    "y0": 43,
+    "x1": 127,
+    "y1": 86
+   },
+   "finalMs": 662.7999999970198,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  },
+  {
+   "case": "wash-terraces-down-seed-2",
+   "worn": 4743,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 19.299999997019768,
+   "checkMs": 9.700000002980232,
+   "box": {
+    "x0": 10,
+    "y0": 36,
+    "x1": 127,
+    "y1": 97
+   },
+   "finalMs": 667.9000000059605,
+   "details": {
+    "winding": 74,
+    "sideGullies": 77,
+    "dryFalls": 32,
+    "undercutBanks": 26
+   }
+  },
+  {
+   "case": "wash-rise",
+   "worn": 4834,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 13.299999997019768,
+   "checkMs": 4.100000008940697,
+   "box": {
+    "x0": 0,
+    "y0": 22,
+    "x1": 127,
+    "y1": 81
+   },
+   "finalMs": 666.9000000059605,
+   "details": {
+    "winding": 62,
+    "sideGullies": 42,
+    "dryFalls": 39,
+    "undercutBanks": 53
+   }
+  },
+  {
+   "case": "wash-rise-seed-2",
+   "worn": 4901,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 15.799999997019768,
+   "checkMs": 3.800000011920929,
+   "box": {
+    "x0": 0,
+    "y0": 31,
+    "x1": 127,
+    "y1": 96
+   },
+   "finalMs": 666.7999999970198,
+   "details": {
+    "winding": 41,
+    "sideGullies": 50,
+    "dryFalls": 58,
+    "undercutBanks": 18
+   }
+  }
+ ],
+ "immediateNextGesture": "PASS",
+ "pageErrors": []
+}

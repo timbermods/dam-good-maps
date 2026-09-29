@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D331), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D333), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -47,7 +47,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    (the blocking list, "No water a pump can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release,
    `real-places-2-done`. CI on #35 is red until then: the tests are for the new rules, the committed gallery still
    D271's. From item 47, real places take only what never changes the real land (D331; PERFECT.md's Real places section); item 27 still waits with D319.
-11. **Erode (Codex; #74): rounds 2 and 3 approved, round 4 with Codex.** You approved round 2 ("magical, almost
+11. **Erode (#74): merged into `dev` as an investigation (be2342a2), rounds 2–9 at 47c02e67, approved by you; adoption at 3D step 3 (D281).** Earlier notes, kept as history: You approved round 2 ("magical, almost
    perfect") and round 3 (89305ca6) landed and you approved its flat-ground wash. Round 4 is with Codex now,
    narrow: washes across uneven ground, and telling a wash sweep from a cliff sweep. Next: wait for round 4; the
    automatic support check at 0 dropped voxels; then hold #74 for your look; merge as an investigation on your
@@ -242,7 +242,7 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 | Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
 | The look (batch 4, D324; D284, D304, D305, D310) | `feature/high-look` (`-high`, #75) | `build-light`, Sonnet 5.5 high | built 2026-09-29 (86eddaea, CI green); held for your High look sitting (captures in `docs/look/high/d324-*.jpg`) |
 | Drought and Badtide, day by day | `feature/weather-days` (`-weather`, #73), 5bb13406 | `build`, then `build-light` | held for its own sitting |
-| The Erode investigation (D281) | `investigation/erode` (`-erode`, #74), 89305ca6 | `build` | rounds 2 and 3 approved by you; round 4 (washes on uneven ground, wash vs cliff sweep) with Codex; then your look |
+| The Erode investigation (D281) | `investigation/erode` (#74), 47c02e67 | Codex | merged into `dev` as an investigation (be2342a2), rounds 2–9 approved by you; adoption at 3D step 3 |
 | 3D foundations: new modules | `feature/terrain3d-a` (`-3d`, #71), 24b88b9b | `build` | verified in the game; the wiring waits for the forces and M9b on `dev` |
 | Orchestrating, merging, releasing, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
 
@@ -545,7 +545,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D331.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D333.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

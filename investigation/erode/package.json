@@ -1,0 +1,13 @@
+{
+  "name": "dam-good-maps-erode",
+  "private": true,
+  "type": "module",
+  "description": "Erode, a force of nature: caves, overhangs and arches (an investigation). Uses the repository root's packages.",
+  "scripts": {
+    "demo": "node launch.mjs",
+    "check": "node --import tsx scripts/check.ts",
+    "maps": "node --import tsx scripts/maps.ts",
+    "captures": "node --import tsx scripts/captures.ts",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
+  }
+}
