@@ -125,6 +125,10 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     f.startsWith("resources.badwater_source:") ||
     f.startsWith("start.wood:") ||
     f.startsWith("start.wood_floor:") ||
+    // (item 47's start land is a preference for real places, D331: a place whose start lacks it
+    // still opens; its conversion picks a start with it where one qualifies, when it resumes)
+    f.startsWith("start.farmland:") ||
+    f.startsWith("start.level_land:") ||
     (f.startsWith("start.water:") && f.includes("sealed puddle"));
   return {
     other: all.filter((f) => !known(f)),

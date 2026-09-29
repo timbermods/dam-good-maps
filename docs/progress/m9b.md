@@ -2,9 +2,9 @@
 
 > **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
 > (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
-> step by step below ("Batch 5"). Steps 1–4 in (`068b4fac`); next: the one re-pin (step 5), then
-> D330's two generator pieces (Sources: None, the automatic water fix). The quick suite is red on
-> map-bound tests until the re-pin. Defaults this session chose: decisions-pending #135–#146.
+> step by step below ("Batch 5"). Steps 1–5 in: the one re-pin done, the quick suite green. Next:
+> D330's two generator pieces (Sources: None, the automatic water fix), then steps 6–7.
+> Defaults this session chose: decisions-pending #135–#146.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -46,6 +46,11 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   drainage reused across pit candidates, far badwater kept (#145), the bank start's land 800
   tiles. One map at a time on this PC: to the map 128² median 1.7 s (p90 4.9), 256² 11.1 s (p90
   25); first maps meeting all three 39% and 34%; targets proposed in #146.
+- **Step 5, the one re-pin (D308, D148).** The quick suite green (782 passed, 13 skipped); every
+  change under "Tests updated" below. The Python validator (`prototype/playability.py`) takes the
+  new checks (two reachable mine sites, the start's farmland and level land, living trees in the
+  amounts) and Hard's berries, so the real places' parity holds; item 47's start land is a known
+  shortfall for real places (D331: a preference there).
 
 ## Handoff (2026-09-27, evening)
 
@@ -430,3 +435,19 @@ check, the start, the water settling).
   on (seed 2), a second district's site, ruins on a rise, the weir, the builders' ranges (seed 7),
   the narrows (seed 5), the 16-level fall (seed 7), the oxbow carve (Canyon 22), the tall river's
   reopen (Highlands 10), the edge lake (Lake Basin 6), two brush strokes (seed 4); the 4242 sha.
+- Batch 5 (D325, D329), decisions: `spec.test.ts` rejects Highest terrain above 22, not 16 (item
+  36), and its round trip draws 2–4 mine sites; `start.test.ts` and the Python `calibrated.py`:
+  Hard's berries 30 (item 47); `resources.test.ts`: mine sites two to four, a project or link asking
+  for 0 or 1 opens asking for 2, every generated map has two, and "the official amounts" counts
+  living trees against the official living share with dead trees under a tenth (item 26; it was
+  "two thirds dead"); `validate.test.ts`: the map without objects asks for two mine sites;
+  `projects.test.ts`: the deep fall is a bed step of 19 on the map's tallest river (the beds' floor
+  makes a generated one rare), the edge lake Lake Basin 96² seed 8; `brush.test.ts`: the ramped
+  flatten's spot among living trees (dry ground holds no dead groves); `places.test.ts` and
+  `placesCommon.ts`: the start's farmland and level land known for real places (D331); new:
+  `tests/unit/edgeLip.test.ts`, `tests/contract/versions.test.ts`.
+- Batch 5, re-seeded for its maps: the oxbow carve (Canyon 96² seed 44, (86, 10) toward (10, 86)),
+  the removed slope (one the edits leave), the weir (Canyon 4, 6, 7, 16, Highlands 2), the second
+  district (Islands 2, 8, Lake Basin 2, River Valley 4), ruins on a rise (Islands 10, 6, Highlands
+  13, River Valley 7), the badwater river (River Valley 128² seed 3), the builders' ranges (seed
+  13), the dropped source (River Valley 96² seed 2); the 4242 sha `050fe985…`.

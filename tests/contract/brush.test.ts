@@ -372,22 +372,25 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     };
     const s = make();
     const st = s.built.start!;
-    // dry ground beyond the start's own slopes (40 tiles round it), where a cliff's rim gets none
+    // dry ground beyond the start's own slopes (40 tiles round it), where a cliff's rim gets none,
+    // with plants on it (item 26, D148: dry ground holds no dead groves any more, so the spot is
+    // looked for among the living ones)
     const b = s.built;
+    const growing = b.entities.filter((e) => /^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
     let cx = -1;
     let cy = -1;
     for (let y = 10; y < 86 && cx < 0; y++)
       for (let x = 10; x < 86 && cx < 0; x++) {
         if (Math.max(Math.abs(x - st.x), Math.abs(y - st.y)) < 50) continue;
         let dry = true;
-        for (let yy = y - 9; yy <= y + 9 && dry; yy++) for (let xx = x - 9; xx <= x + 9 && dry; xx++) if (b.water[yy * 96 + xx] > 0 || b.channel[yy * 96 + xx]) dry = false;
-        if (dry) [cx, cy] = [x, y];
+        for (let yy = y - 8; yy <= y + 8 && dry; yy++) for (let xx = x - 8; xx <= x + 8 && dry; xx++) if (b.water[yy * 96 + xx] > 0 || b.channel[yy * 96 + xx]) dry = false;
+        if (dry && growing.filter((e) => Math.hypot(e.x - x, e.y - y) <= 5 && e.template !== "Succulent").length >= 3) [cx, cy] = [x, y];
       }
     expect(cx).toBeGreaterThanOrEqual(0);
     const level = Math.min(16, s.built.heights[cy * 96 + cx] + 3);
     const dabs = Array.from({ length: 40 }, () => [4 * cx + 2, 4 * cy + 2]).flat();
     const p: BrushParams = { tool: "flatten", size: 6, strength: 10, level, dabs };
-    const plants = (m: MapSession) => m.built.entities.filter((e) => /^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template));
+    const plants = (m: MapSession) => m.built.entities.filter((e) => /^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
     const near = (e: { x: number; y: number }) => Math.hypot(e.x - cx, e.y - cy) <= 7;
     expect(s.apply({ op: "brush", params: p }, "user", "Flatten").errors).toEqual([]);
     const slopesCliff = s.built.entities.filter((e) => e.template === "Slope" && near(e)).length;

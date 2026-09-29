@@ -29,7 +29,8 @@ describe("MapSpec schema", () => {
     ["size above 256", (s) => (s.size.x = 300)],
     ["size below 48", (s) => (s.size.y = 40)],
     ["relief above 100", (s) => (s.settings.terrain.relief = 101)],
-    ["terrain above 16", (s) => (s.settings.terrain.highestTerrain = 17)],
+    // (item 36: Highest terrain reaches 22 where Verticality allows tall land)
+    ["terrain above 22", (s) => (s.settings.terrain.highestTerrain = 23)],
     ["unknown theme", (s) => ((s as { theme: string }).theme = "volcano")],
     ["unknown property", (s) => ((s as unknown as Record<string, unknown>).extra = 1)],
     ["two colonies without the mod", (s) => (s.colonies = { count: 2, mod: "none" })],
@@ -103,7 +104,7 @@ describe("URL codec (PLAN §14.5)", () => {
         ruins: int(25, 300),
         relics: pick(["off", "some"] as const),
         geothermal: pick(["off", "some"] as const),
-        mineSites: int(1, 4), // every map has at least one (Kyler, 2026-09-25; D148)
+        mineSites: int(2, 4), // every map has at least two (item 47; one before, Kyler, 2026-09-25; D148)
       };
       st.start = {
         area: pick(["small", "normal", "large"] as const),

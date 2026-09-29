@@ -146,7 +146,11 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
     for (const [k, e] of SAMPLE.entries()) {
       const rep = reports.get(paths[k].split(sep).join("/"));
       expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
-      const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WATER_A_PUDDLE.has(e.id) ? ["start.water"] : [])];
+      const b0 = built(e.id);
+      const v0 = validateMap(readTimber(b0.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b0.validation.model!, settled: b0.validation.water! } });
+      // (item 47's start land is a preference for real places, D331: known where it falls short)
+      const startLand = v0.report.checks.filter((c) => (c.id === "start.farmland" || c.id === "start.level_land") && !c.ok && c.applicable !== false).map((c) => c.id);
+      const known = [...startLand, ...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WATER_A_PUDDLE.has(e.id) ? ["start.water"] : [])];
       expect(rep!.passed, e.id).toBe(known.length === 0);
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);

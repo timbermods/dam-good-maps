@@ -263,8 +263,8 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
   });
 
   it("a river made badwater gets BadwaterSources on its mouth and carries badwater", () => {
-    // a map whose start is beside its main river (generator 0.7.0)
-    const s = session("s=2&t=riverValley&z=128&d=n");
+    // a map whose start is beside its main river (seed 3 since batch 5 raised the land, D148)
+    const s = session("s=3&t=riverValley&z=128&d=n");
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
     const p = planRiverBadwater(s, river.id, true);
     expect(p.ok, JSON.stringify(p)).toBe(true);
@@ -323,8 +323,8 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
-    // maps, D148)
-    for (const [theme, seed] of [["islands", 2], ["islands", 10], ["highlands", 3], ["highlands", 6]] as [ThemeId, number][]) {
+    // maps, and for batch 5's, D148)
+    for (const [theme, seed] of [["islands", 2], ["islands", 8], ["lakeBasin", 2], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -356,9 +356,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
 
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
-    // have one (generator 0.8.0; re-seeded for M9b's maps, D148)
+    // have one (generator 0.8.0; re-seeded for M9b's maps, and for batch 5's, D148)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 7], ["islands", 6], ["islands", 8], ["islands", 7]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 10], ["islands", 6], ["highlands", 13], ["riverValley", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -391,8 +391,8 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
-    // re-seeded for M9b's maps, D148)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["islands", 10], ["highlands", 3], ["highlands", 4]] as [ThemeId, number][]) {
+    // re-seeded for M9b's maps, and for batch 5's, D148)
+    for (const [theme, seed] of [["canyon", 4], ["canyon", 6], ["canyon", 7], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

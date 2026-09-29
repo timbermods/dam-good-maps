@@ -18,8 +18,10 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as M9b
- *  makes it (generator 0.8.0: composition and variety, the game's water and soil rules, D308, D311);
- *  `776a9a44…` as M9a made it, since the terrain and water from processes (generator 0.7.0, with
+ *  makes it (generator 0.8.0: composition and variety, the game's water and soil rules, D308, D311;
+ *  batch 5, D325, D329: the land on the beds' floor, living trees only, two reachable mine sites,
+ *  the start's land, badwater contained, the edge lip, the first map that passes); `8d2941ad…`
+ *  before batch 5; `776a9a44…` as M9a made it, since the terrain and water from processes (generator 0.7.0, with
  *  natural ramps that only climb cliffs, winding badwater ditches, the starting-logs floor with
  *  D227's Minimum starting wood, D252's start planting spread over the walk and the settled outflows
  *  written into the file (FORMAT.md §4.3); `ec1ff6d3…` before the outflows, `fb0e9f70…` before a walk short of
@@ -29,7 +31,7 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "8d2941adec8e8825a5a9cbfb90ebb2fad82c47e8020a806ddb824e10503f5a39";
+const LIVE_SHA = "050fe985fc88799a29aa43fc066db81d815c93931553d47980d5fc6372c39262";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
