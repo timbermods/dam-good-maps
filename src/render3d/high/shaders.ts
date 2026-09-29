@@ -454,7 +454,21 @@ const BUBBLES_GLSL = /* glsl */ `
 
 export function fallHooks(): ShaderHooks {
   return {
-    ...lit(["hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL),
+    ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
+    // D324 (feedback item 4, "too white"): falling water keeps its teal, with white streaks; foam
+    // where it lands; a one-level spill is gentle; and a cascade never stacks into a white wall
+    // (each step's whitewater is held down, the tall ones less than the short)
+    fallAmount: /* glsl */ `        if (hlWater > 0.5) {
+          float gentle = 1.0 - smoothstep(1.0, 2.2, h);
+          amount *= mix(0.86, 0.5, gentle);
+        }
+`,
+    fallSheet: /* glsl */ `          if (hlWater > 0.5) {
+            float gentleSpill = 1.0 - smoothstep(1.0, 2.2, h);
+            foam = min(foam, mix(0.62, 0.3, gentleSpill)) * mix(1.0, 0.6, gentleSpill);
+          }
+`,
+    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, badwaterBody(0.25), cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
     // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
     fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
     fallVertex: /* glsl */ `        if (kind > 4.5 && hlCrown > 0.5) {

@@ -25,8 +25,8 @@
 // - The start: a district center of our own, a lodge with pale walls, a dark roof and a yellow
 //   banner on a pale deck, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
-//   pointing uphill (it reads from any camera angle). Water sources: a stone ring round a spring;
-//   badwater sources: a brown swirl in a dark pit. Mine sites (D178): a rusty frame round the edge
+//   pointing uphill (it reads from any camera angle). Water sources: a stone basin with water welling up;
+//   badwater sources: a dark stone basin, 3 × 3, with badwater boiling up (D324). Mine sites (D178): a rusty frame round the edge
 //   of the 5 Ã— 5 footprint and a square pit filling the rest (the terrain leaves the footprint's
 //   tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
 //   roots, rubble, cracks, a ladder and a shaft; scaffold towers on the frame's corners, joined
@@ -286,19 +286,40 @@ const MODELS: Record<string, () => Model> = {
     arrow(0.44, 0.33, 0.04, 0.11, -0.42, 0, SLOPE.arrow);
     return m;
   },
-  WaterSource: () => new Model().add(cyl(0.38, 0.36, 0.14, 8), [0.47, 0.46, 0.44], { y: 0.07 }).add(new CylinderGeometry(0.3, 0.3, 0.16, 8), [0.32, 0.62, 0.95], { y: 0.08 }),
-  BadwaterSource: () => {
-    // a brown swirl in a dark pit, over its 3 Ã— 3 footprint (centred on it)
-    const m = new Model().add(cyl(1.3, 1.25, 0.12, 12), [0.2, 0.15, 0.13], { y: 0.06 }).add(new CylinderGeometry(1.15, 1.15, 0.05, 12), [0.26, 0.13, 0.1], { y: 0.03 });
-    for (let k = 0; k < 4; k++) {
-      // curved arms: short tilted slabs turning toward the middle
-      for (let j = 0; j < 3; j++) {
-        const a = (k * Math.PI) / 2 + j * 0.5;
-        const r = 0.95 - j * 0.3;
-        m.add(box(0.42 - j * 0.08, 0.04, 0.12), j % 2 ? [0.5, 0.3, 0.18] : [0.44, 0.24, 0.15], { x: Math.cos(a) * r, y: 0.08 + j * 0.01, z: -Math.sin(a) * r, ry: a + Math.PI / 2 + 0.5 });
-      }
+  WaterSource: () => {
+    // a stone basin with water welling up (D324, feedback item 28; a model of our own, in the game's
+    // style): four blocks round a pool, corner stones, the water domed in the middle over a small
+    // spout, and rings spreading from it
+    const stone: Rgb = [0.5, 0.52, 0.52];
+    const dark: Rgb = [0.34, 0.36, 0.37];
+    const m = new Model().add(box(0.98, 0.1, 0.98), dark, { y: 0.05 });
+    for (const s of [-1, 1]) {
+      m.add(box(0.98, 0.18, 0.2), stone, { y: 0.19, z: s * 0.39 });
+      m.add(box(0.2, 0.18, 0.58), stone, { y: 0.19, x: s * 0.39 });
+      for (const c of [-1, 1]) m.add(box(0.27, 0.27, 0.27), [0.56, 0.58, 0.57], { x: c * 0.36, y: 0.235, z: s * 0.36, ry: 0.15 * c * s });
     }
-    return m.add(cone(0.18, 0.12, 6), [0.16, 0.08, 0.06], { y: 0.12, rx: Math.PI });
+    m.add(box(0.58, 0.04, 0.58), [0.2, 0.5, 0.58], { y: 0.16 });
+    m.add(new CylinderGeometry(0.25, 0.25, 0.012, 12), [0.78, 0.9, 0.92], { y: 0.182 });
+    m.add(new CylinderGeometry(0.2, 0.2, 0.012, 12), [0.24, 0.56, 0.64], { y: 0.19 });
+    m.add(ico(0.17), [0.34, 0.68, 0.75], { y: 0.2, sy: 0.6 });
+    return m.add(new CylinderGeometry(0.04, 0.05, 0.14, 6), [0.8, 0.92, 0.94], { y: 0.27 });
+  },
+  BadwaterSource: () => {
+    // a stone basin of badwater over its 3 × 3 footprint (centred on it; D324, feedback item 28): a
+    // dark, stained rim of blocks and boulders round a crimson pool, the badwater boiling up in a
+    // low dome with slow orange-brown bubbles, darker and heavier than the clean source beside it
+    const rim: Rgb = [0.25, 0.22, 0.2];
+    const m = new Model().add(box(2.96, 0.1, 2.96), [0.13, 0.11, 0.1], { y: 0.05 });
+    for (const s of [-1, 1]) {
+      m.add(box(2.96, 0.26, 0.42), rim, { y: 0.23, z: s * 1.27 });
+      m.add(box(0.42, 0.26, 2.12), rim, { y: 0.23, x: s * 1.27 });
+      for (const c of [-1, 1]) m.add(ico(0.38), [0.3, 0.26, 0.23], { x: c * 1.28, y: 0.3, z: s * 1.28, sy: 0.75, ry: 0.4 * c * s });
+    }
+    m.add(box(2.14, 0.05, 2.14), [0.22, 0.085, 0.07], { y: 0.155 });
+    m.add(ico(0.8), [0.31, 0.11, 0.09], { y: 0.17, sy: 0.3 });
+    const bubbles: [number, number, number][] = [[0.25, 0.2, 0.17], [-0.45, -0.1, 0.13], [0.1, -0.5, 0.11], [-0.2, 0.55, 0.15], [0.62, -0.42, 0.1], [-0.7, 0.4, 0.09], [0.55, 0.62, 0.12]];
+    for (const [x, z, r] of bubbles) m.add(ico(r), [0.56, 0.29, 0.13], { x, y: 0.24, z, sy: 0.7 });
+    return m;
   },
   UndergroundRuins: () => mineSite(),
   GeothermalField: () => {

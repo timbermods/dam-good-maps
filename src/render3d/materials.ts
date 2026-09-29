@@ -370,6 +370,12 @@ export interface ShaderHooks {
   crownNoise?: string;
   /** Before the crown's colour (foam, swirl, up, bil). */
   crownFoam?: string;
+  /** After the whitewater's amount is set (amount, h: the drop in levels, strength, bad). */
+  fallAmount?: string;
+  /** After the sheet's foam is set, before its colour (foam, h, arc, streak, bad). */
+  fallSheet?: string;
+  /** The sheet's translucent body colour (an expression; Standard: clean water's `WATER_SHALLOW`). */
+  fallBody?: string;
   /** After the splash's froth (broken, tail, froth, g, t). */
   splashFroth?: string;
   /** Before the splash's colour (foam, g, t). */
@@ -1222,7 +1228,7 @@ ${hook(h, "fallVertex")}        vNormal = n;
         vec3 foamColour = mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.92 + 0.08 * lit);
         // whitewater where it lands: more for stronger and taller falls
         float amount = clamp(0.78 + 0.2 * strength + 0.04 * min(h, 6.0), 0.75, 1.0) * (1.0 - 0.3 * bad);
-        vec3 c;
+${hook(h, "fallAmount")}        vec3 c;
         float alpha;
         if (kind > 4.5) {
           // the crown: whitewater thrown up and out along the impact line, billowing, with spray
@@ -1296,9 +1302,9 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           float foot = 1.0 - smoothstep(0.05, 0.55 + 0.35 * strength, above);
           float foam = clamp(streak * (0.35 + 0.5 * aerate) + lip * 0.85 + foot * (0.7 + 0.3 * streak), 0.0, 1.0);
           foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak);
-          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
+${hook(h, "fallSheet")}          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
           // thicker where seen edge-on (where it curves over the brink, and at its ends)
-          vec3 body = waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont);
+          vec3 body = ${hook(h, "fallBody", "waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)")};
           vec3 streaks = mix(WATER_FOAM, badwaterShade(BADWATER_STREAK, 0.25), bad);
           c = mix(body, streaks, streak * 0.35) * light;
           c = mix(c, foamColour, foam);
