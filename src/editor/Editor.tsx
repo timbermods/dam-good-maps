@@ -64,6 +64,7 @@ import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
+import { PointerWords } from "./pointerWords";
 import { BRUSHES, BRUSH_NAMES, BrushPainter, DEFAULT_BRUSH, hasTarget, nextSize, paste, sizeMax, targetWords, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
@@ -1166,27 +1167,21 @@ export default function Editor(props: EditorProps) {
     );
   }
 
+  /** The words beside the pointer (D322, pointerWords.ts): F's size first, then a word for a moment
+   *  (a strength, a size), then the brush's own (its target). */
+  const pointerWords = useRef<PointerWords | null>(null);
+  pointerWords.current ??= new PointerWords(
+    (text) => setShapeNote(text ? { text, ok: true, warn: false, ...pointerAt.current } : null),
+    () => brushToolRef.current !== null,
+  );
   /** A word beside the pointer for a moment (a strength, a size). */
-  const flashTimer = useRef(0);
   function flashNote(text: string, ev?: MouseEvent) {
     if (ev) {
       const box = renderer.current?.canvas.getBoundingClientRect();
       if (box) pointerAt.current = { x: ev.clientX - box.left, y: ev.clientY - box.top };
     }
-    setShapeNote({ text, ok: true, warn: false, ...pointerAt.current });
-    clearTimeout(flashTimer.current);
-    flashing.current = true;
-    // (then the brush's own words again: its target, D322)
-    flashTimer.current = window.setTimeout(() => {
-      flashing.current = false;
-      const t = brushNote.current;
-      setShapeNote(t && brushToolRef.current ? { text: t, ok: true, warn: false, ...pointerAt.current } : null);
-    }, 1200);
+    pointerWords.current!.flash(text);
   }
-  /** A word flashed beside the pointer is showing (the brush's own words wait for it), and the
-   *  brush's latest. */
-  const flashing = useRef(false);
-  const brushNote = useRef<string | null>(null);
 
   // the footprint under the pointer: one check in flight, then the latest tile
   const fitWant = useRef<string | null>(null);
@@ -2605,9 +2600,8 @@ export default function Editor(props: EditorProps) {
       // D322)
       resize: (size, ev, done) => {
         setBrush({ ...brushRef.current, size }, done);
-        if (done) return setShapeNote(null);
         if (ev) notePointer(ev);
-        setShapeNote({ text: `size ${size}`, ok: true, warn: false, ...pointerAt.current });
+        pointerWords.current!.sizing(done ? null : `size ${size}`);
       },
       // a new stroke puts away the last one's start hint (its water flows while it is painted, D197)
       painting: (on) => {
@@ -2619,11 +2613,8 @@ export default function Editor(props: EditorProps) {
         setStartHint(null);
       },
       note: (text, ev) => {
-        brushNote.current = text;
         if (ev) notePointer(ev);
-        if (flashing.current) return;
-        if (!text) return setShapeNote(null);
-        setShapeNote({ text, ok: true, warn: false, ...pointerAt.current });
+        pointerWords.current!.brush(text);
       },
       wet: (x, y) => (mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0) > 0.05,
       depth: (x, y) => mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0,
