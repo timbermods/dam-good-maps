@@ -50,13 +50,13 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    changes things only when it reaches them), 37 (the height brushes with a target level, like the game's editor; it
    replaces item 8), 40 (a Floor setting for every force that digs, one implementation on the forces core) and 41
    (freehand paths for Carve and Glaciate, replacing the aim arrow and D312's waypoints) on `feature/forces` (29, 30,
-   40 and 41 also on Glaciate's branch), and last 19 (Spring, a new force) (`build`, Opus 5.5,
-   high); 20 (Generate always makes a new map), 25 (Carve's Canyon depth and River depth named apart), 31 (Sources: Ride
-   · Keep · Clear), 42 (bigger brushes, up to the whole map), 43 (Whole map in Select), 44 (Clear everything; the
-   start can be deleted, amending item 1) and 46 (placed sources at the game's default strength) on `feature/forces`
-   (`build-light`, Sonnet 5, high); the look items 4, 5, 10 and 28 (sources drawn like the game's) with the water
-   shades work on `feature/high-look` (`build-light`, Sonnet 5, high). Item 3 waits for Kyler's verdict. Future,
-   after the current list: 45 (flow arrows on the water, a view toggle, off by default). Add each to Kyler's
+   40 and 41 also on Glaciate's branch) (`build`, Opus 5.5, high); 20 (Generate always makes a new map), 25 (Carve's
+   Canyon depth and River depth named apart), 31 (Sources: Ride · Keep · Clear), 42 (bigger brushes, up to the whole
+   map), 43 (Whole map in Select), 44 (Clear everything; the start can be deleted, amending item 1) and 46 (placed
+   sources at the game's default strength) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5,
+   10 and 28 (sources drawn like the game's) with the water shades work on `feature/high-look` (`build-light`,
+   Sonnet 5, high). Item 3 waits for Kyler's verdict. Future, after the current list: 19 (Spring, a new force;
+   postponed by Kyler) and 45 (flow arrows on the water, a view toggle, off by default). Add each to Kyler's
    checklist.
 5. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
    `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
