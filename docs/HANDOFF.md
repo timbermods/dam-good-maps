@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D340) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D341) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
@@ -115,7 +115,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D341**.
+number on `dev` is **#94**. The next decision is **D342**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -213,12 +213,13 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
 - **What every session does** (D332): pings Kyler the moment his attention or input is needed (Â§7, "Pings"), and never waits on him silently.
+- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **What every milestone and handoff does** (D326): at each month's end, copy the Progress log (#57) to
   `docs/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D341), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D342), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
@@ -235,7 +236,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   | (idle: M9a is released) | `m9a-build` (kept) | Opus 5.5, xhigh |
   | The forces and the fixes from Kyler's sitting, the Glaciate adoption, the 3D foundations and water engine (wiring after the forces and M9b merge), the High look's fixes, Erode's adoption; anything touching the water simulation, the generator's processes or the forces | `build` | Opus 5.5, high |
   | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5.5, high |
-  | Batch 3's well-specified items (D318 (2)'s trial of medium; removed once judged) | `build-light-medium` | Sonnet 5.5, medium |
+  | Self-contained items with a clear spec (D341) | `build-light-medium` | Sonnet 5.5, medium |
   | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
   | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
   | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
