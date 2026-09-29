@@ -66,6 +66,13 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   farmland and level land within 20) and `analysis.levers` (farmland, the nearest metal, the
   nearest badwater, the shortest dam within 40 tiles that stores the drought's need, buildable
   land), all from the start's one walk (`tests/contract/levers.test.ts`).
+- **State at the hand-back:** CI green on `99adfc2f` (test, oracle, generation, the four browser
+  shards); the contact sheet `docs/sheets/m9b.png` remade. Not yet: the heavy settings experiment
+  (nightly) fails 10 of 34 on this branch, each a setting that moves its target less since batch 5:
+  Relief (the land squeezed under the ceiling on the beds' floor), Forest density (living trees
+  only), Badwater distance, the start's badwater rule and Designed for (far badwater kept, #145),
+  Berries near start, Lakes and basins, Waterfalls, Mine sites, and one Verticality map failing a
+  check; their targets want deciding (D148) with the release candidate's batches.
 
 ## Handoff (2026-09-27, evening)
 
