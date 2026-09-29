@@ -133,7 +133,7 @@ declare global {
       sound(): { ready: boolean; playing: number } | null;
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
-       *  fault that moves (1 its left, -1 its right: X flips it, D289). */
+       *  fault that moves (1 its left, -1 its right: V flips it, D289). */
       gesture(): { stroke: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
       /** The sources glowing red for Sources: Clear (D249, D322), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
@@ -173,7 +173,7 @@ export default function Editor(props: EditorProps) {
   /** The force picked in the top bar (the brushes have their own state; the sources are on the
    *  shelf). */
   const [tool, setTool] = useState<Verb | null>(null);
-  /** Where the last painted stroke ended (Shift+press paints a straight line on from it), X's flip of
+  /** Where the last painted stroke ended (Shift+press paints a straight line on from it), V's flip of
    *  a quake's side while it is picked, and Esc for a stroke still being drawn. */
   const anchorRef = useRef<QuakePoint | null>(null);
   const flipRef = useRef<(() => void) | null>(null);

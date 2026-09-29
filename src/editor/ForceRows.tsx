@@ -3,7 +3,7 @@
 // for its other settings. Craterize: Power, Size (following Power, or set by hand), Try another; a
 // click strikes, a drag aims a glancing blow. Erupt: Power, Size (its breadth), Try another; a click
 // vents, a drag opens a fissure. Quake: its one choice, Lift or Slide, and Power (its drawn line sets
-// its length); X flips the side that moves. More opens the rest of each force's character (Craterize's
+// its length); V flips the side that moves. More opens the rest of each force's character (Craterize's
 // walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
 // Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
 // it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
@@ -45,7 +45,7 @@ export const DEFAULT_ERUPT: EruptUi = { power: ERUPT_DEFAULTS.power, size: null,
 export interface QuakeUi {
   mode: "lift" | "slide";
   power: number;
-  /** The side of the stroke that moves: 1 its left, -1 its right (X flips it). */
+  /** The side of the stroke that moves: 1 its left, -1 its right (V flips it). */
   side: 1 | -1;
   /** Sheer or stepped, or null: drawn from the land and the seed (D309). */
   scarp: "sheer" | "stepped" | null;
@@ -85,7 +85,7 @@ export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: 
 /** A force at work: what it is doing, and Revert (Esc). */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (X flips the side that moves)" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (V flips the side that moves)" : "The ground is moving…";
   return (
     <div class="map-bar options-row" role="group" aria-label={`${p.force.name} at work`}>
       <div class="bar-group">
