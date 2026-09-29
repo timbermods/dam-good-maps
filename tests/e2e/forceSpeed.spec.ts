@@ -109,6 +109,7 @@ test("Fast (the default): each force's land is final within about two seconds of
   const watch = page.getByRole("button", { name: "Watch", exact: true });
   await expect(watch).toHaveAttribute("aria-pressed", "false");
   const s = await spots(page);
+  const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
   for (const c of CASES.filter((k) => k.name !== "Quake")) {
     await page.keyboard.press(c.key);
     await largest(page, c.name);
@@ -116,10 +117,11 @@ test("Fast (the default): each force's land is final within about two seconds of
     await kept(page);
     const t = (await timing(page))!;
     expect(t.final, c.name).toBeGreaterThan(0);
-    // its showing fits Fast's two seconds from the gesture (working it out is the machine's own time:
-    // a slower machine takes longer to work it out, never to show it; tools/bench-forces.ts times that)
-    expect(t.final - t.worked, c.name).toBeLessThan(2400);
-    expect(t.final, c.name).toBeLessThan(Math.max(2600, t.worked + 600));
+    // about two seconds from the gesture on a GPU (a busy machine's frames add a little); where the
+    // browser draws in software (CI), each frame costs the page far more: there the pacing is checked
+    // by forceDriver.test and the wall clock only bounded, as Erupt's (c90e071b)
+    console.log(`${c.name}: worked out ${t.worked} ms, land final ${t.final} ms${software ? " (software rendering)" : ""}`);
+    expect(t.final, c.name).toBeLessThan(software ? 8000 : 2600);
     await page.keyboard.press("Control+z");
     await idle(page);
   }
