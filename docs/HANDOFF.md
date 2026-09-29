@@ -248,7 +248,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   wrapper, so write scripts to files; foreground `sleep` chains are blocked (use background commands or until-loops).
   (The old machine's Store Python couldn't read `%LOCALAPPDATA%\Temp`; this machine's Python can.)
 - Off-limits: Kyler's `Documents` folder (it holds secrets; never read it); his saves, settings and mods except through the
-  probe runner; `C:\dgm-reference\` (his in-game screenshots: look, never copy, crop or commit); `C:\dgm-workshop\` (other
+  probe runner; `C:\dgm-reference\` (his in-game screenshots: look, never copy, crop or commit; **amended by Kyler, 2026-09-29:** thirteen of his Timberborn screenshots, from Steam's screenshot folder for app 1062090, are committed downscaled in `docs/look/reference/timberborn/` as a visual reference for the look only, never as textures or assets, with one read-only copy of his map `pair-map.timber`; nothing else is copied, and nothing else of `Documents` is read); `C:\dgm-workshop\` (other
   creators' maps and local review pages: never commit); the decompiled game code in `investigation/decompiled/` and the
   official maps in `investigation/raw/` (gitignored; for answers only, never copied).
 - **Shared machine:** agents stop only processes whose command line names their own worktree (one cleanup once killed another
