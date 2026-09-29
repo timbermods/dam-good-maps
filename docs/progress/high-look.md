@@ -1,6 +1,15 @@
 # The High look (Map look 2)
 
-> **Top note (2026-09-28, stop 2): ready for Kyler's eye; held on `feature/high-look`** (D286 (4): nothing merges into
+> **Top note (2026-09-29, batch 4, D324): built on this branch, still a draft and held for Kyler's High look sitting.**
+> D310's option (a) (the mine pit's earth, then badwater, then the clean shallows, every readability rule at its old
+> strictness), item 5 (no hatching on badwater), item 10 (the land toward the game's, both looks), item 4 (High's falls
+> keep their teal and stay calm; D231's three foam issues were already in High), item 28 (sources as stone basins, both
+> looks) and badwater's calibration re-measured once; item 3 waits for the sitting. Captures: `docs/look/high/d324-*.jpg`,
+> and every capture and the greyscale and colour-blindness sheets recaptured. See "D324 (batch 4)" below. **Standard now
+> differs from dev in more than water and ruins** (D324 amends D242/D284's "Standard stays exactly as it is" for items 5,
+> 10 and 28), so the "byte for byte dev's" statements below are history, not current.
+>
+> **Earlier top note (2026-09-28, stop 2): ready for Kyler's eye; held on `feature/high-look`** (D286 (4): nothing merges into
 > `dev` without Kyler's yes; for the preview right after the forces' release). Built: #38, #65, #66 and #67's stages 1–3
 > with its poisoned soil, as a High look beside Standard; High is the default where the computer draws it smoothly, with an
 > automatic fallback to a lower-cost High and then to Standard. Standard is unchanged apart from D304 and D310's water and
@@ -220,6 +229,54 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
     those numbers for real) is separate work, on the machine where they're normally run.
   - The water palette was not touched in this task (Kyler is deciding between D310's three constraints); nothing here
     changes a colour, only where each tool points its `dgm.look`.
+- **D324 (batch 4): the look.** Kyler's option (a) for D310, then items 5, 10, 4 and 28, then badwater's calibration
+  re-measured once. Before/after sets in `docs/look/high/d324-*.jpg` (Standard and High, before and after, four columns;
+  `tools/capture-d324.ts`).
+  - **D310 option (a).** The mine pit's earth darkened first (x0.85: `MINE.pit` `#373A34` to `#2F312C`, L\* 23.9 to 20.0,
+    with its walls and floor), then badwater (`WATER.bad`, its troughs and streaks x0.88; High's `bad` the same: L\* 29.3
+    to 25.6, about where the game's own murky `#4B3C37` reads), then `WATER.shallow` down to the lowest the rules allow
+    (L\* 65.9 to 58.8; `teal` and `navy` already sit at the game's reading and did not move). Every rule at its old
+    strictness, none loosened: pit under badwater 5.39 to 5.59 L\* (needs 5); the badwater blend's worst corner-to-corner
+    step 5.67 to 5.90 L\* (needs under 6); shallow over badwater 0.350 to 0.309 raw (needs over 0.3), and in the
+    worst colour-blind simulation 32.7 to 29.6 L\* (needs over 20); badwater against its deep colour 22.1 to 18.4 L\*
+    (needs 15). Shallow to deep still spans about 29 L\* against the game's 7: the raw-lightness rule (0.3 over
+    badwater) is what holds the shallows up; badwater would have to go nearly black to bring them further, so this is
+    as far as (a) goes without loosening a test. Two tests pinned the old numbers and were updated to the new decision
+    (D148): `look-mine-ruins.test.ts`'s `#373a34` (now `#2f312c`) and `look-badwater.test.ts`'s badwater targets
+    (below).
+  - **Item 5, no hatching on badwater.** The only hatching was clear water's (T, or under the brush): badwater's dark
+    diagonal stripes, in the water and the fall shaders (`CLEAR_STRIPE`, gone from the palette and both shaders).
+    Clear badwater now reads by lightness (its crimson at `CLEAR_WATER.badOpacity` 0.72, up from 0.62, keeps it 12 to 26
+    L\* under clean clear water over any bed, in greyscale and each colour-blindness simulation), its colour, its dull
+    troughs and its slow bubbles. The existing checks hold (a badwater fall against a clean one in greyscale and
+    colour-blindness, `look-waterfalls.test.ts`); a new one in `look-readable.test.ts` measures clear badwater against
+    clean clear water over three beds in every simulation, and that no water shader carries a stripe. The greyscale and
+    colour-blindness sheets in this folder are recaptured.
+  - **Item 10, the land toward the game's** (both looks; the palette is shared). Sampled Kyler's screenshots in
+    `C:\dgm-reference` (numbers only; looked at, not copied): the game's dry ground reads about `#6C6862` (L\* 44, hue
+    30, saturation 0.05 to 0.15) against ours `#6B5F56` (L\* 41); its lit grass L\* 50 to 55 (hue 70) against ours L\* 63;
+    its cliff faces dark blue-grey-green (L\* 22 to 24; ours neutral grey). Moved by relationships: dry earth a little
+    lighter and greyer (`GROUND.dry` L\* 43.4 to about 46), cliff stone lighter and bluer (`WALL.stone`), and grass a touch
+    lighter as Kyler asked (+ about 2.5 L\*, which the rule that grass stays 0.2 lighter than dry earth needs anyway).
+    **Worth Kyler's eye:** measured, our lit grass was already lighter than the game's in the screenshots here; I lifted
+    it only the touch he asked for. The faint contamination veins' glow on dry earth went up (`glowDry` 0.45 to 0.55) so a
+    faint vein stays a light line on the lighter earth (`look-readable.test.ts`).
+  - **Item 4, waterfalls too white (High).** D231's three foam issues were already built in High (the crown continuous
+    along joined falls, an irregular landing, bubbly froth); this adds the rest: the sheet takes High's water teal, its
+    foam is capped so the teal shows between white streaks, a one-level spill is gentle (the foam and the landing's
+    whitewater halved), and each step of a cascade holds its whitewater down so steps don't stack into a wall
+    (`fallAmount`, `fallSheet` and `fallBody` hooks under High's Water switch). Standard's falls are as they were (item 4
+    is not in D324's list of both-look items).
+  - **Item 28, sources drawn like the game's (both looks).** A stone basin (four blocks, corner stones) with water
+    welling up in a dome over a spout, rings spreading from it; a badwater source a dark stone basin over its true 3 x 3
+    footprint (a stained rim of blocks and boulders, a crimson pool, a boiling dome, orange-brown bubbles). Models of
+    our own, in `entities3d.ts` (Standard) and `high/landmarks.ts` (High); Markers keeps its labels. On these maps a
+    source sits under water, so the captures show it with clear water (T).
+  - **Badwater's calibration targets, re-measured once** after everything above (`tools/capture-badwater.ts --measure`,
+    Standard held): badwater's typical `#612E2B` (was `#6E3431`), trough `#532926` (was `#5E2E2B`), streak `#6E3D32` (was
+    `#7C4538`); clean water's quarter-level body `#3D6B76` (was `#3E707C`; the 1.25 and 4.25 deep ones did not move).
+    The targets and the tests that pin them are updated, and the tool lands on all six within 0. High's badwater colour
+    was darkened by the same factor but is not measured separately (the tool measures Standard).
 - **The look** (`fallback.ts`, the renderer's `setLookChoice`): **Automatic** starts in High (or where it settled last
   time on this GPU at about this window size), reads each frame's GPU time and steps down when frames stay too slow:
   to the lower-cost tier (no soft shadows, mist, rings, wind or fine detail, far tree models, 85% of the pixels), then to
@@ -325,6 +382,12 @@ forces' `besideHeight`), and EDITOR_PLAN's architecture list (the forces' juice 
   `look-mine-ruins.test.ts`'s line ~257) still holds, now against `RUIN.far`. A new assertion checks the object
   shader's fragment code carries the lattice's discard test and `RUIN_LATTICE_SCALE`, since the lattice itself lives
   in the shader, not in the CPU-side triangle data the rest of that test reads.
+- **D148 (batch 4, D324):** three tests pinned numbers a decision changed, each updated to the new decision, none
+  weakened: `look-mine-ruins.test.ts`'s pit colour (`#373a34` to `#2f312c`; its 5 L\* margin under badwater and the rest
+  unchanged), `look-badwater.test.ts`'s badwater calibration targets (re-measured once; the same crimson-and-order
+  checks around them unchanged), and `look-waterfalls.test.ts`'s list of clear-water shader names (`CLEAR_STRIPE` is gone,
+  and a check that no water shader carries it is added). New: `look-readable.test.ts` measures clear badwater against
+  clean clear water over three beds in greyscale and every colour-blindness simulation (over 10 L\*; it is 12 to 26).
 - **Frame touch-up:** dropped from this branch (D296): the frame is styled once, in the design pass. An earlier commit
   here had a CSS touch-up; it was reverted, and the branch changes no interface styling.
 - **Left for later:** #67's visible seasons (dry ground and straw, withering plants, heat shimmer, the badtide's sky) and

@@ -229,7 +229,7 @@ async function main() {
     ];
 
     const mainImages = [shots["before-standard"], shots["after-standard"], shots["before-high"], shots["after-high"]];
-    const mainLabels = ["Standard: before (dev)", "Standard: after (D304, D310)", "High: before (dev)", "High: after (D304, D310)"];
+    const mainLabels = ["Standard: before (dev)", "Standard: after (D304, D310, D324)", "High: before (dev)", "High: after (D304, D310, D324)"];
     const b64main = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: mainImages.map((b) => b.toString("base64")), labels: mainLabels, cols: 2, swatches })})`)) as string;
     writeFileSync(join(OUT, "d304-water.jpg"), Buffer.from(b64main, "base64"));
     console.log(`${join(OUT, "d304-water.jpg")}: ${Math.round(Buffer.from(b64main, "base64").length / 1024)} KB`);

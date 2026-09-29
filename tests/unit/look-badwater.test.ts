@@ -179,11 +179,13 @@ describe("badwater meeting clean water", () => {
 });
 
 describe("badwater's colour", () => {
-  it("is #38's approved crimson: its body, troughs and streaks, matte and nearly opaque, and darker deeper (option A)", () => {
-    // #38's check:colour targets at e63a3ff, on screen (tools/capture-badwater.ts --measure lands on
-    // them); the view draws the body about as it is at 70°
+  it("is #38's approved crimson, darkened a little by D324: its body, troughs and streaks, matte and nearly opaque, and darker deeper (option A)", () => {
+    // #38's check:colour targets at e63a3ff were [110, 52, 49], [94, 46, 43] and [124, 69, 56]; D324
+    // (option (a) of D310) darkened badwater about a tenth and the targets were re-measured once
+    // on screen (tools/capture-badwater.ts --measure lands on them); the view draws the body about
+    // as it is at 70°
     const target = WATER_CALIBRATION.targets.find((t) => t.share === 1)!;
-    expect(target.bands).toEqual({ typical: [110, 52, 49], trough: [94, 46, 43], streak: [124, 69, 56] });
+    expect(target.bands).toEqual({ typical: [97, 46, 43], trough: [83, 41, 38], streak: [110, 61, 50] });
     for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] - target.bands.typical[k] / 255)).toBeLessThan(0.03);
     // crimson: red well over green and blue; darker troughs, lighter streaks
     expect(WATER.bad[0]).toBeGreaterThan(2 * WATER.bad[1]);

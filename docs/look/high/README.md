@@ -27,51 +27,19 @@ and compared with this branch's pixel for pixel: see [The Standard look is uncha
 | [d304-water.jpg](d304-water.jpg) | D304: clean water's shades before and after, Standard and High, on Lake Basin 3 256², beside the sampled game colours as swatches. |
 | [d304-water-checks.jpg](d304-water-checks.jpg) | D304: clean water beside badwater at several depths and blends, in colour, greyscale and every colour-blindness simulation — the shared palette's own numbers, not a screenshot. |
 | [d305-ruins.jpg](d305-ruins.jpg) | D305: a ruin close up beside one pulled back past the switch distance, before and after, Standard and High, at the same low, tilted angle. |
+| [d324-water.jpg](d324-water.jpg) | D324, D310 option (a): badwater beside clean water and a mine pit, before and after (columns: Standard before, after, High before, after). |
+| [d324-clear-water.jpg](d324-clear-water.jpg) | D324, item 5: clear water (T) over badwater, before and after: no hatching; it reads by lightness, colour, dull troughs and bubbles. |
+| [d324-land.jpg](d324-land.jpg) | D324, item 10: the land's colours toward the game's (top-down and a cliff), before and after, both looks. |
+| [d324-falls.jpg](d324-falls.jpg) | D324, item 4: the tallest fall and a cascade of small falls, before and after; High's falls keep their teal. |
+| [d324-sources.jpg](d324-sources.jpg) | D324, item 28: a water source and a badwater source (3×3) as stone basins, with clear water on (they sit under water here), before and after. |
 
-## The Standard look is unchanged, apart from its water and ruins (D304, D305, D310)
+## What Standard has changed since dev (D304, D305, D310, D324)
 
-Before D304 and D305, the Standard look's shaders were byte for byte dev's. D304 fitted clean water's shades closer to
-the game's own, D310 darkened `teal` and `navy` further toward the game while restoring the readability tests D304 had
-loosened, and D305 gave the far ruin block the near skeleton's own muted colour and a lattice pattern (see the Map look
-progress log's "D304: clean water's shades", "D310: clean water and badwater's floor darken together" and "D305: a
-ruin seen from afar looks like the same ruin"). Since the shaders embed the shared water palette's numbers as GLSL
-`#define`s, and the ruin fix lives in the shared object shader's own code (a `vLod` varying and a discard test, not a
-High-only hook), that changes exactly the shaders that carry them: `npx tsx tools/shader-sources.ts` gives the same
-hashes as `origin/dev` for `terrain`, `sky` and `terrain.lite`, and different hashes for `water`, `water.lite`, `fall`,
-`fall.lite`, `object` and `object.lite`. Nothing else in `materials.ts` changed.
-
-Drawn on the GPU, every view above in Standard, by dev's site (`origin/dev`) and by this branch, compared value for
-value (`tools/capture-high.ts --identity`). Two loads of dev's own site differ a little on their own, since the GPU and
-the water's last settling vary a hair between page loads; against this branch, views with neither water nor a ruin in
-frame stay in that same noise, and views with either differ by up to about 160 codes out of 255 (the size of the
-palette changes, not a wider regression) — for most views this run, well under that, since D310 brought `teal` and
-`navy` back close to dev's own original depth colours, leaving mostly the ruins and the shallow edge to differ:
-
-| View | dev against dev, loaded again | dev against this branch |
-|---|---|---|
-| River Valley 4242, whole | 0.0032% of values differ, by at most 1 | 2.0752%, by at most 152 |
-| River Valley 4242, the start | identical | 6.0098%, by at most 27 |
-| River Valley 4242, the forest | identical | 6.5300%, by at most 20 |
-| River Valley 4242, the west edge | 0.0002%, by at most 1 | 0.9918%, by at most 143 |
-| River Valley 4242, top-down | 0.0050%, by at most 47 | 2.6939%, by at most 132 |
-| Highlands 2, whole | 0.0028%, by at most 14 | 2.4940%, by at most 126 |
-| Highlands 2, the fall | 0.0006%, by at most 1 | 5.4594%, by at most 26 |
-| Highlands 2, the cliff | 0.0021%, by at most 1 | 2.9677%, by at most 19 |
-| Lake Basin 3, badwater | 0.0056%, by at most 3 | 20.3900%, by at most 28 |
-| Lake Basin 3, ruins | identical | 1.1788%, by at most 26 |
-| Delta 5, whole | 0.0006%, by at most 2 | 2.9307%, by at most 161 |
-| Delta 5, forest | 0.0002%, by at most 1 | 1.1888%, by at most 28 |
-
-The share of values differing tracks how much water or ruins are in each view (most, for "badwater", framed on where
-badwater meets clean water; least for "the west edge" and "ruins", framed mostly on rock and structures); "the start"
-and "the forest" show more water than their names suggest (a riverbank, and a river partly bad behind the trees). Most
-"by at most" values dropped a lot from D304 alone (74→26, 72→27, and so on) now that D310 brought `teal`/`navy` back
-near dev's own darker reading; the views still showing up to 143–161 ("whole", "the west edge", "top-down", "delta
-whole") are the ones with a distant ruin's far block in frame — its new muted colour is the largest single-channel
-swing left, since it replaces the old bright top with something both darker and more muted at once. Every image in
-this folder was recaptured for D310 (`tools/capture-high.ts`, `tools/capture-water-d304.ts`,
-`tools/capture-ruins-d305.ts`), so the whole-look composites above, [d304-water.jpg](d304-water.jpg) and
-[d305-ruins.jpg](d305-ruins.jpg) all show the current water and ruins together.
-
-In the page too, the Standard look drawn after High is the same as before it (`tests/e2e/look-high.spec.ts`), a
-self-comparison unaffected by the absolute palette.
+Standard began as dev's, byte for byte. Kyler's decisions since then change some of it in both looks: clean water's
+shades (D304, D310), the far ruins (D305), and, in batch 4 (D324), the mine pit's earth and badwater a little darker,
+clear water without hatching on badwater, the land's colours toward the game's, and the sources drawn as stone
+basins. So of the shaders, `npx tsx tools/shader-sources.ts` now gives the same hash as `origin/dev` only for `sky`;
+`terrain`, `water`, `fall` and `object` (and their `.lite` forms) differ. The identity table that stood here (dev's
+site against this branch's, view by view) was written when only water and ruins differed; it is superseded, and
+`tools/capture-high.ts --identity` regenerates one. High-only changes (the falls' tone, item 4) stay behind High's
+switches. In the page, the Standard look drawn after High is the same as before it (`tests/e2e/look-high.spec.ts`).

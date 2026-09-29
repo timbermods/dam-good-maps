@@ -262,19 +262,21 @@ export const WATER_CALIBRATION = {
     /** Codes a measured band may be off its target, per channel. */
     tolerance: 2,
   },
-  /** On-screen targets (0–255): badwater's are #38's, as Kyler approved them (its check:colour
+  /** On-screen targets (0–255): badwater's were #38's, as Kyler approved them (its check:colour
    *  at e63a3ff: the typical texture, the troughs and the streaks of pure badwater a quarter level
-   *  deep over a poisoned bed); clean water's are the Standard look as approved, re-measured after
-   *  D304 fitted clean water's shades closer to the game's own and again after D310 darkened `teal`
-   *  and `navy` further (they hold it still, until the next approved change). Measured with the
+   *  deep over a poisoned bed: [110, 52, 49], [94, 46, 43], [124, 69, 56]) and were re-measured
+   *  once after D324's option (a) darkened badwater a little (with the land's colours moved too);
+   *  clean water's are the Standard look as approved, re-measured after D304 fitted clean water's
+   *  shades closer to the game's own, after D310 darkened `teal` and `navy` further and after D324
+   *  brought `shallow` down (they hold it still, until the next approved change). Measured with the
    *  Standard look held (`dgm.look` forced to `standard` before opening the page): a capable GPU
    *  picks High by itself once it exists, and `tools/capture-badwater.ts --measure` was found
    *  silently measuring High's water instead, drifting from these targets by the two looks' own
    *  difference, not a real change to Standard (found investigating the drift, D304's addition; the
    *  fix is in the tool, not here). */
   targets: [
-    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [110, 52, 49], trough: [94, 46, 43], streak: [124, 69, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [62, 112, 124] } },
+    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [97, 46, 43], trough: [83, 41, 38], streak: [110, 61, 50] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [61, 107, 118] } },
     { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [41, 89, 102] } },
     { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [39, 84, 97] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
