@@ -266,15 +266,14 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
-/** The objects as the view draws them; `down`: the trees a force knocked down, and which way each
- *  lies (D202). */
-function entityInputs(list: readonly EntitySpec[], down?: ReadonlyMap<string, { dx: number; dy: number }>) {
+/** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
+ *  (D321, item 7: no force leaves a tree leaning). */
+function entityInputs(list: readonly EntitySpec[]) {
   const out = [];
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components };
-    const fall = down?.get(e.id);
-    out.push({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...(fall ? { fallen: fall } : {}) });
+    out.push({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
   }
   return out;
 }
@@ -354,7 +353,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), ...(v.fall ? { fall: v.fall.slice() } : {}) };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice() };
 }
 
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
@@ -363,7 +362,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && !a.fall === !b.fall && (!a.fall || eq(a.fall, b.fall!));
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner);
 }
 
 function markSent(s: MapSession): void {
@@ -383,7 +382,7 @@ export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
   const b = s.built;
-  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))), soil: soilOf(s) };
+  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
   sentEntities = copyEntityView(view.entities);
   markSent(s);
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
@@ -394,7 +393,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
   const out: ViewUpdate = {};
   const prev = sent;
   if (!prev || prev.heights.length !== b.heights.length) {
-    const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))), soil: soilOf(s), terrain: s.terrainState() };
+    const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s), terrain: s.terrainState() };
     sentEntities = copyEntityView(all.entities!);
     markSent(s);
     return all;
@@ -412,7 +411,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
   // (a rebuild that placed the same objects again sends none: the page keeps its own)
   if (b.entities !== prev.entities) {
-    const v = entityView(entityInputs(b.entities, fallenOf(s)));
+    const v = entityView(entityInputs(b.entities));
     if (!sameEntityView(v, sentEntities)) out.entities = v;
     sentEntities = copyEntityView(v);
   }
@@ -2167,8 +2166,7 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
   if (view) f.viewAt = now;
   if (view && map.entities !== f.lastEntities) {
     f.lastEntities = map.entities;
-    const down = new Map((map.fallen ?? []).map((g) => [g.id, { dx: g.dx, dy: g.dy }]));
-    const v = entityView(entityInputs(map.entities, down));
+    const v = entityView(entityInputs(map.entities));
     if (!sameEntityView(v, f.shownEntities)) {
       out.entities = v;
       f.shownEntities = copyEntityView(v);
@@ -2223,7 +2221,7 @@ export function carveAdvance(steps: number): ForceFrame | null {
 /** The page's view back to the map as it stands (a force dropped, or refused). */
 function restoreView(s: MapSession): ViewUpdate {
   const b = s.built;
-  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities, fallenOf(s))) };
+  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)) };
   sentEntities = copyEntityView(view.entities!);
   markSent(s);
   return view;

@@ -193,8 +193,8 @@ editor is desktop-first (D185).
   from the land and the seed (D289). A small
   cursor under the pointer, and Aim's thin arrow while dragging (D258). The impact moment: a streak falls, a flash, a shock
   ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
-  by ring; trees inside the bowl are gone, those round it are knocked down (dead, lying away from the
-  blow). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
+  by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing upright where their
+  ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
   aimed, the start's ground too (D257), and never adds water; one undo step, and Esc reverts. Built from
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
   (D219; ready: D216, D226).
@@ -206,7 +206,8 @@ editor is desktop-first (D185).
   the pointer) and is kept when let go; Slide shows the fault while it is painted, then its block
   slides along it tile by tile, 3 to 20 tiles, and a river that crossed the fault is joined again
   along it. A crack runs along the fault and dust rises at its head (the view stays still, D265).
-  Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall; a fault
+  Objects ride with the land (a rigid one on flat ground of its own), trees on the fault go (their ground broke;
+  no tree is ever left leaning, D321 item 7); a fault
   runs wherever it is painted, through the start too (D257: the start is carried to level ground when
   its own breaks); it never adds water; one undo step, and Esc reverts. Built from
   `investigation/quake` (#52, with both Lift and Slide) on the forces core (#59), on the preview until
@@ -222,7 +223,8 @@ editor is desktop-first (D185).
   than rising taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
   always completes, as in the demo Kyler approved (D226). Fresh volcanic rock is hard for Carve; flows
   can dam rivers; objects ride the rising ground (a rigid one on a terrace of its own), trees near a
-  vent fall and what stands in it goes; it erupts wherever it is asked, the start's ground too (D257),
+  vent die, standing, or go where the cone rises under them (D321, item 7), and what stands in it goes, each as the
+  heat reaches it (item 30); it erupts wherever it is asked, the start's ground too (D257),
   and never adds water; nothing of its fit shows before it (D258): a small cursor, and "No room to rise
   here" only where it can't rise at all; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the forces core
   (#59), on the preview until Kyler has tried it (D219).
@@ -616,7 +618,8 @@ result is stored literally, so a replay assigns it and never runs the force agai
 shared by the four forces (D220): the force, its settings and where it acted (a record), then the
 changed tiles and their levels, the fresh volcanic rock where it changed (a bit per level), the
 objects that lost their ground, the ones it carried (a Slide), the trees it knocked down (dead,
-with the way each lies: the editor's view of them, never the game's), a carve's source and a
+with the way the blow threw each, a record only: every tree is drawn upright on its tile, as in the game, D321
+item 7), a carve's source and a
 sealed oxbow lake's water. Try another replaces the force before it, and undoing it brings that
 one back. Projects saved with the `carve` operation of before still open and replay exactly.
 Operations validate their inputs against the
@@ -875,7 +878,8 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     (`forces.ts`: an impact's streak, flash, ring, dust and blocks; a fault's crack and dust; an
     eruption's plume and its heat on the terrain shader; no camera shake, D265) plays on its own clock
     from fixed pools, at the force's showing's pace (Fast or Watch, D321), never the water's speed. None of them play with reduced motion or
-    in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
+    in software rendering. Every tree stands upright on its tile, a knocked-down one as its dead model (D321, item 7: a force's
+    knocked-down tree whose ground it broke is gone, `settleKnocked` in `core/forces/objects.ts`). The sounds
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
     `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 1,090,848 bytes at 256 kbps, D313's
     re-encode from the round's original 192 kbps, in `public/sounds/juice-2/` with their manifest and

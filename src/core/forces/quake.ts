@@ -460,9 +460,13 @@ export function revealQuake(plan: QuakePlan, previous: FullForceMap, step: numbe
   const progress = step / steps;
   const { W, H } = out;
   for (let i = 0; i < out.heights.length; i++) if (plan.arrival[i] <= progress) out.heights[i] = plan.map.heights[i];
-  out.entities = plan.before.entities.map((e, k) => {
+  // (by id: a tree the quake knocked down where it broke the ground is gone from the plan, D321 item 7)
+  const final = new Map(plan.map.entities.map((e) => [e.id, e]));
+  out.entities = plan.before.entities.flatMap((e) => {
     const t = e.y * W + e.x;
-    return structuredClone(plan.arrival[t] <= progress ? plan.map.entities[k] : e);
+    if (plan.arrival[t] > progress) return [structuredClone(e)];
+    const f = final.get(e.id);
+    return f ? [structuredClone(f)] : [];
   });
   out.fallen = plan.map.fallen.filter((f) =>
     out.entities.some((e) => {

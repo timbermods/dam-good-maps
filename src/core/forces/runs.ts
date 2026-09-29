@@ -22,6 +22,7 @@ import type { Verb } from "./op";
 import { QuakePlan, revealQuake, type QuakeIntent, type QuakeSettings } from "./quake";
 import { clamp, smooth } from "./random";
 import { forceFloor, holdAtFloor } from "./floor";
+import { settleKnocked } from "./objects";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -227,6 +228,7 @@ export class CraterRun extends Staged implements StagedRun {
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
     this.finalize?.(this.plan0.map);
+    settleKnocked(this.before, this.plan0.map);
     return true;
   }
 
@@ -313,6 +315,7 @@ export class EruptRun extends Staged implements StagedRun {
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
     this.finalize?.(this.plan0.map);
+    settleKnocked(this.before, this.plan0.map);
     return true;
   }
 
@@ -436,6 +439,7 @@ export class QuakeRun extends Staged implements StagedRun {
     trimRock(p.map);
     respectKeep(this.before, p.map, this.keep);
     this.finalize?.(p.map);
+    settleKnocked(this.before, p.map);
     return true;
   }
 
