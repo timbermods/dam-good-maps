@@ -55,7 +55,7 @@ import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
-import { terrainData } from "../terrain/runs";
+import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
 import { WALK_BLOCKERS, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
@@ -259,6 +259,16 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
       a.result.name = words.name;
       a.result.description = words.description;
+      // Sources: None (D330): the map as generated, then its sources and their water removed
+      if (specIn.settings.water.sources === "none") {
+        const dry = withoutSources(a.result);
+        a.result.built = dry.built;
+        a.result.file = dry.file;
+        a.result.bytes = dry.bytes;
+        a.result.report = dry.report;
+        a.result.analysis = dry.analysis;
+        a.result.field = dry.field;
+      }
       opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
       return a.result;
     }
@@ -1144,11 +1154,42 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
 }
 
+/** Sources: None (D330, the UI brief §8): a generated map without its sources and their water. The
+ *  build places none of the features' sources (the field's `dry`), keeping the valleys, basins and
+ *  pits they carved, and plants the trees and bushes where the soil was moist as generated, so they
+ *  stay as generated. Its water checks say "No water source" as information. */
+export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" | "file" | "bytes" | "report" | "analysis" | "field"> {
+  const { W, H } = r.built;
+  const N = W * H;
+  const moist = new Uint8Array(N);
+  const poisoned = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    moist[i] = r.built.moisture[i] > 0 ? 1 : 0;
+    poisoned[i] = r.built.soilContamination[i] > 0 ? 1 : 0;
+  }
+  const fd = r.field!;
+  const ramps: [number, number][] = [];
+  for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
+  const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned } };
+  const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
+  const file = toTimberFile(r.spec, built);
+  const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle } });
+  return { built, file, bytes: v.report.passed ? writeTimber(file) : new Uint8Array(), report: v.report, analysis: v.analysis, field: fieldData(field, W) };
+}
+
 /** A generation's field as the document stores it (format 3). */
-export function fieldData(f: GeneratedField): FieldData {
+export function fieldData(f: GeneratedField, W = Math.round(Math.sqrt(f.heights.length))): FieldData {
   const out: FieldData = { ...terrainData(f.heights), contains: [...f.contains].sort() };
   if (f.ramps?.length) out.ramps = f.ramps.flatMap(([a, b]) => [a, b]);
   if (f.top !== undefined) out.top = f.top;
+  if (f.dry) {
+    const tiles = (m: Uint8Array) => {
+      const t: number[] = [];
+      for (let i = 0; i < m.length; i++) if (m[i]) t.push(i);
+      return t;
+    };
+    out.dry = { moist: tilesToRuns(tiles(f.dry.moist), W), poisoned: tilesToRuns(tiles(f.dry.poisoned), W) };
+  }
   return out;
 }
 

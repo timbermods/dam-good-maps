@@ -6,7 +6,8 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
 - Deterministic (PLAN §2.1): the same seed and settings give the same file everywhere. Random numbers come from named streams (`math/`).
 - A change that alters a default map needs one deliberate re-pin of the tests and golden fixtures (D308) and a new `GENERATOR_VERSION` (`spec/mapspec.ts`).
 - Themes lean the generator; they are not templates (D208).
-- A candidate that fails a check is retried, up to `MAX_ATTEMPTS`.
+- A candidate that fails a check is retried, up to `MAX_ATTEMPTS`; the first that passes is the map, never swapped (D329). `versions.ts` looks for a sibling that meets all three outcomes, in the background.
+- Sources: None (D330): `withoutSources` makes the map as usual, then removes its sources and their water (the field's `dry`).
 - Real places are never generator input (D108): nothing here reads `places/`.
 
 **Start from**

@@ -684,9 +684,11 @@ OBJECT_TEMPLATE = {"mineSite": "UndergroundRuins", "relicSmall": "SmallRelic", "
                    "weir": "NaturalDam", "plug": "Blockage", "bridge": "NaturalOverhang3x1",
                    "unstableCore": "UnstableCore"}
 INF = float("inf")
+# (mine sites: from 30 where the colony reaches them, item 47, D325; the generator places them 60+
+# out where it can)
 EXTRA_BANDS = {  # (lo, hi, scaled): tiles from the start on maps of 128² and up
     "relicSmall": (13, 70, True), "relicMedium": (40, 140, True), "relicLarge": (140, INF, True),
-    "geothermal": (30, 120, True), "mineSite": (60, INF, True), "thornBelt": (20, INF, False),
+    "geothermal": (30, 120, True), "mineSite": (30, INF, True), "thornBelt": (20, INF, False),
     "unstableCore": (40, INF, False),
 }
 FLAT_EXTRAS = ("mineSite", "relicSmall", "relicMedium", "relicLarge", "geothermal")

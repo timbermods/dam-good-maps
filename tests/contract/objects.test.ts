@@ -392,7 +392,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
     // re-seeded for M9b's maps, and for batch 5's, D148)
-    for (const [theme, seed] of [["canyon", 4], ["canyon", 6], ["canyon", 7], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 9], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

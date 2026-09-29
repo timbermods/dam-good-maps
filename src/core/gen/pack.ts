@@ -24,6 +24,9 @@ export function fileName(spec: MapSpec): string {
   return `${mapName(spec)} (${spec.seed}).timber`;
 }
 
+/** A map made with Sources: None (D330): its description says where its water went. */
+export const NO_SOURCES_NOTE = "No water sources: its valleys and basins are dry, for you to place the sources.";
+
 /** The map's description in the game (map_metadata.json): what it is, its badwater choice (D200),
  *  and, on a map whose land rises above 16, that the game's map editor edits only up to 16 (D172).
  *  Without the built map it says what the settings say. */
@@ -31,8 +34,10 @@ export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" |
   const size = `${spec.size.x}×${spec.size.y}`;
   const kind = spec.theme === "any" ? "A map" : `${THEME_NAMES[spec.theme]}`;
   const out = [`${kind}, ${size}, designed for ${spec.designedFor}. Its land and rivers were shaped by uplift, erosion and flowing water.`];
-  // the player's No badwater is recorded, so the map says so wherever it goes (D200)
-  if (spec.settings.hazards.badwater === "off") out.push(NO_BADWATER_NOTE);
+  // the player's No badwater is recorded, so the map says so wherever it goes (D200); a map made
+  // with Sources: None says its water is the player's to place (D330)
+  if (spec.settings.water.sources === "none") out.push(NO_SOURCES_NOTE);
+  else if (spec.settings.hazards.badwater === "off") out.push(NO_BADWATER_NOTE);
   else {
     const n = built ? built.entities.filter((e) => e.template === "BadwaterSource").length : 1;
     if (n) out.push(n > 1 ? "Badwater springs up in hollows away from the start." : "Badwater springs up in a hollow away from the start.");

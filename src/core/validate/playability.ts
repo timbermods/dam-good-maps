@@ -62,6 +62,8 @@ export interface Rules {
    *  level, dry 2×2) and the moist farmland within 20 tiles' walk the start needs. */
   levelLand: number;
   farmland: number;
+  /** Sources: None (D330): the map was generated without its sources, for the player to place. */
+  sourcesNone: boolean;
   droughtDays: number;
   /** Stored water needed near the start: the colony's drought need × the drought reserve. */
   reservoirNeed: number;
@@ -100,6 +102,7 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     reachMin: REACH_MIN[s?.terrain.buildableLand ?? "normal"] * START_AREA[s?.start.area ?? "normal"],
     levelLand: LEVEL_LAND[s?.start.area ?? "normal"],
     farmland: FARMLAND_NEAR,
+    sourcesNone: s?.water.sources === "none",
     droughtDays: DROUGHT[difficulty].days,
     reservoirNeed: reservoirNeeded(difficulty) * RESERVE[s?.water.droughtReserve ?? "normal"],
     reservoirDepth: difficulty === "hard" ? 3 : 0,
@@ -164,8 +167,25 @@ export interface PlayabilityAnalysis {
 
 const N4: readonly [number, number][] = [[0, -1], [-1, 0], [0, 1], [1, 0]];
 
-export function checkPlayability(inp: PlayabilityInput, c: Collector): PlayabilityAnalysis {
+/** The checks that need the map's water, which a map made with Sources: None (D330) has none of
+ *  until the player places some: they say "No water source" as information (the UI brief §8:
+ *  item 47's water must-haves don't apply, and Save to Timberborn still works). */
+const WATER_CHECKS = new Set([
+  "water.settles", "water.clean_exists", "water.clean_reach", "water.outflow", "water.badwater_contained", "water.source_in_flow", "water.storage_possible",
+  "resources.badwater_source", "start.water", "start.badwater", "start.food", "start.farmland", "plants.survive", "plants.drought",
+]);
+export const NO_WATER_SOURCE = "No water source: this map was made without its sources (Sources: None), for you to place them";
+
+export function checkPlayability(inp: PlayabilityInput, c0: Collector): PlayabilityAnalysis {
   const { W, H, surface: h, objects, water, rules, model } = inp;
+  // (Sources: None, D330: while the map has no running source, its water checks are information)
+  const running = objects.some((o) => (o.template === "WaterSource" || o.template === "BadwaterSource" || o.template === "BadwaterSeep") && specifiedStrength(o.components) > 0);
+  const c: Collector =
+    rules.sourcesNone && !running
+      ? Object.assign(Object.create(Object.getPrototypeOf(c0)) as Collector, c0, {
+          add: (r: Parameters<Collector["add"]>[0]) => c0.add(WATER_CHECKS.has(r.id) ? { id: r.id, class: r.class, ok: true, applicable: false, message: NO_WATER_SOURCE, ...(r.advisory ? { advisory: true } : {}) } : r),
+        })
+      : c0;
   const N = W * H;
   const D = water.depth;
   const C = water.contamination;

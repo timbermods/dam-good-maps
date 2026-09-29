@@ -51,6 +51,10 @@ export interface Settings {
     droughtReserve: "scarce" | "normal" | "plenty";
     lakes: "none" | "few" | "some" | "many";
     waterfalls: "off" | "few" | "many";
+    /** Sources (D330, the UI brief §8): Placed, the map as generated; None, the map generated as
+     *  usual, then every water and badwater source and its water removed, the dry valleys, basins
+     *  and pits kept, the trees as generated. A spec without it reads as Placed. */
+    sources?: "placed" | "none";
   };
   hazards: {
     badwater: "off" | "low" | "normal" | "high";
@@ -260,6 +264,7 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
       droughtReserve: p.droughtReserve,
       lakes: p.lakes,
       waterfalls: p.waterfalls,
+      sources: "placed",
     },
     hazards: { badwater: p.badwater, badwaterDistance: d.badwaterWithin, thornBelts: p.thornBelts, unstableCores: "off" },
     resources: {

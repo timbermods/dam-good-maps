@@ -841,7 +841,8 @@ export class MapSession {
   badwaterRemoved(built: BuildResult = this.cur): boolean {
     if (built.entities.some((e) => e.template === "BadwaterSource")) return false;
     const spec = this.gen.spec;
-    if (spec) return spec.settings.hazards.badwater !== "off";
+    // (a map made with Sources: None has no badwater of its own to remove, D330)
+    if (spec) return spec.settings.hazards.badwater !== "off" && spec.settings.water.sources !== "none";
     return this.baseStuff().file.world.entities.some((e) => e.Template === "BadwaterSource");
   }
 
@@ -1030,7 +1031,12 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
   const ramps: [number, number][] = [];
   const r = f.ramps ?? [];
   for (let k = 0; k + 1 < r.length; k += 2) ramps.push([r[k], r[k + 1]]);
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}) };
+  const mask = (runs: Runs) => {
+    const m = new Uint8Array(W * H);
+    for (const i of runsToTiles(runs, W)) m[i] = 1;
+    return m;
+  };
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {

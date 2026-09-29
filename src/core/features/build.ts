@@ -100,6 +100,11 @@ export interface GeneratedField {
   ramps?: readonly (readonly [number, number])[];
   /** The highest terrain an edit may raise it to: 16, or a tall map's top (Verticality 70+). */
   top?: number;
+  /** Sources: None (D330, the UI brief §8): the map was generated with its water, then every
+   *  source its features place (and so its water) removed; `moist` and `poisoned` are where the
+   *  soil was moist and contaminated as generated, which its trees and bushes keep (they stay as
+   *  generated). A source the player places afterwards stays and runs. */
+  dry?: { moist: Uint8Array; poisoned: Uint8Array };
 }
 
 /** What a regeneration kept of the previous generation inside locked regions (EDITOR_PLAN §3). */
@@ -449,6 +454,7 @@ function dirtyTerrain(prev: BuildCache, input: BuildInput, target: BuildTarget):
 function sameField(a: GeneratedField | null, b: GeneratedField | null): boolean {
   if (a === b) return true;
   if (!a || !b || a.top !== b.top || a.contains.size !== b.contains.size || !sameBytes(a.heights, b.heights)) return false;
+  if (!!a.dry !== !!b.dry || (a.dry && b.dry && (!sameBytes(a.dry.moist, b.dry.moist) || !sameBytes(a.dry.poisoned, b.dry.poisoned)))) return false;
   for (const id of a.contains) if (!b.contains.has(id)) return false;
   return JSON.stringify(a.ramps ?? []) === JSON.stringify(b.ramps ?? []);
 }
@@ -796,6 +802,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
   const passA = applyEntityEdits(entities, input.entityEdits ?? [], ground, true);
   entities = passA.entities;
+  //    Sources: None (D330): the sources the map's features place go, and their water with them
+  const dry = input.field?.dry ?? null;
+  if (dry) {
+    const placedBy = new Set(features.map((f) => f.id));
+    const generatedSource = (template: string, owner: string) => (template === "WaterSource" || template === "BadwaterSource") && placedBy.has(owner);
+    entities = entities.filter((e) => !generatedSource(e.template, e.owner));
+    for (let k = sources.length - 1; k >= 0; k--) if (generatedSource(sources[k].template, sources[k].owner)) sources.splice(k, 1);
+  }
 
   //    everything placed so far takes its tiles, and set pieces keep their bodies clear of resources
   const occupied = reserved.slice();
@@ -928,10 +942,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const occBefore = occupied.slice();
   const resources = new Map<string, ResourceEntry>();
   const order = resourceFeatures.map((f) => f.id);
-  const g = { W, seed, heights, water, moisture: moist, soilContamination: soil, occupied, channel: terrain.channel, locked: input.locked?.mask ?? null };
+  // (Sources: None: the trees and bushes stand where the soil was moist as generated, D330)
+  const plantMoist = dry ? Float64Array.from(dry.moist) : moist;
+  const plantSoil = dry ? Float64Array.from(dry.poisoned) : soil;
+  const g = { W, seed, heights, water, moisture: plantMoist, soilContamination: plantSoil, occupied, channel: terrain.channel, locked: input.locked?.mask ?? null };
   let changedTiles: Uint8Array | null = null;
   const orderSet = new Set(order);
   const reusable =
+    !dry &&
     !!prev &&
     !!prev.occupiedBeforeResources &&
     prev.locked === (input.locked ?? null) &&

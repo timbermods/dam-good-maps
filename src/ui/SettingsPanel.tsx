@@ -34,6 +34,7 @@ import {
   reserveGuard,
   RESERVES,
   setVerticality,
+  SOURCES,
   STYLES,
   type Choice,
 } from "./settingsModel";
@@ -317,6 +318,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
         />
         <Pick id="lakes" label="Lakes and basins" value={s.water.lakes} choices={LAKE_CHOICES} band={band("lakes", spec)} onChange={(v) => set((c) => (c.water.lakes = v))} />
         <Pick id="falls" label="Waterfalls" value={s.water.waterfalls} choices={FALLS} band={band("waterfalls", spec)} note={fallsNote} onChange={(v) => set((c) => (c.water.waterfalls = v))} />
+        <Pick id="sources" label="Sources" value={s.water.sources ?? "placed"} choices={SOURCES} band={band("sources", spec)} onChange={(v) => set((c) => (c.water.sources = v))} />
       </Section>
 
       <Section title="Hazards">

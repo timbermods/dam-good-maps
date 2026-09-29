@@ -86,6 +86,9 @@ export interface FieldData extends TerrainData {
   ramps?: number[];
   /** A tall map's top (Verticality 70+): edits may raise the ground to it. */
   top?: number;
+  /** Sources: None (D330): where the soil was moist and contaminated as generated, as tile runs;
+   *  the build then places none of the features' sources (features/build.ts `GeneratedField`). */
+  dry?: { moist: Runs; poisoned: Runs };
 }
 
 export interface MapDocument {

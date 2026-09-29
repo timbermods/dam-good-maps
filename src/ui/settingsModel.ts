@@ -57,6 +57,10 @@ export const FALLS: Choice<Settings["water"]["waterfalls"]>[] = [
   { value: "few", label: "Few" },
   { value: "many", label: "Many" },
 ];
+export const SOURCES: Choice<"placed" | "none">[] = [
+  { value: "placed", label: "Placed" },
+  { value: "none", label: "None" },
+];
 export const BADWATER: Choice<Settings["hazards"]["badwater"]>[] = [
   { value: "off", label: "No badwater" },
   { value: "low", label: "Low" },
@@ -155,6 +159,8 @@ export function band(key: string, spec: MapSpec): string {
       return `About ${Math.round(LAKES[s.water.lakes] * density("basins_ge20", area))} natural basins on this map. Official maps: 0–25.`;
     case "waterfalls":
       return "Falls of 2+ levels on the rivers. Official maps: 0–41, most 4.";
+    case "sources":
+      return (s.water.sources ?? "placed") === "none" ? "The rivers and lakes are left dry, their valleys and basins kept, for you to place the sources." : "Water and badwater sources as the map makes them.";
     case "badwater": {
       if (s.hazards.badwater === "off") return "A peaceful map: no badwater sources. Badtides still turn every source bad.";
       const b = badwaterBudget(spec.size.x, spec.size.y, s.hazards.badwater, spec.seed);

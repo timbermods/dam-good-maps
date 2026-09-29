@@ -77,6 +77,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "dr", path: ["water", "droughtReserve"], kind: "enum", codes: { scarce: "s", normal: "n", plenty: "p" } },
   { key: "lk", path: ["water", "lakes"], kind: "enum", codes: { none: "0", few: "f", some: "s", many: "m" } },
   { key: "wf", path: ["water", "waterfalls"], kind: "enum", codes: { off: "0", few: "f", many: "m" } },
+  { key: "so", path: ["water", "sources"], kind: "enum", codes: { placed: "p", none: "n" } },
   { key: "bw", path: ["hazards", "badwater"], kind: "enum", codes: { off: "0", low: "l", normal: "n", high: "h" } },
   { key: "bd", path: ["hazards", "badwaterDistance"], kind: "int" },
   { key: "tb", path: ["hazards", "thornBelts"], kind: "enum", codes: { off: "0", some: "s" } },
@@ -181,7 +182,8 @@ export function encodeSpecFragment(spec: MapSpec): string {
   for (const sk of SETTING_KEYS) {
     const v = getAt(spec.settings, sk.path);
     const b = getAt(base, sk.path);
-    if (jsonEqual(v, b)) continue;
+    // (a setting a spec from before it carries none of reads as its default: Sources, D330)
+    if (v === undefined || jsonEqual(v, b)) continue;
     if (sk.kind === "int") put(sk.key, String(v));
     else if (sk.kind === "enum") put(sk.key, sk.codes[v as string] ?? String(v));
     else {

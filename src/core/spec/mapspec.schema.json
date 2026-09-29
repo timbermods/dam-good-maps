@@ -53,7 +53,8 @@
             "riverFlow": { "enum": ["trickle", "normal", "strong", "lush"] },
             "droughtReserve": { "enum": ["scarce", "normal", "plenty"] },
             "lakes": { "enum": ["none", "few", "some", "many"] },
-            "waterfalls": { "enum": ["off", "few", "many"] }
+            "waterfalls": { "enum": ["off", "few", "many"] },
+            "sources": { "enum": ["placed", "none"] }
           }
         },
         "hazards": {

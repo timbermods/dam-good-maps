@@ -2,8 +2,9 @@
 
 > **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
 > (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
-> step by step below ("Batch 5"). Steps 1–5 in: the one re-pin done, the quick suite green. Next:
-> D330's two generator pieces (Sources: None, the automatic water fix), then steps 6–7.
+> step by step below ("Batch 5"). Steps 1–5 in (the one re-pin done, the quick suite green), and
+> D330's two generator pieces (Sources: None, the automatic water fix). Next: steps 6–7 (item 24's
+> and 47's numbers as data, the release candidate up to the pooled probe, which needs Kyler's yes).
 > Defaults this session chose: decisions-pending #135–#146.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
@@ -50,7 +51,15 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   change under "Tests updated" below. The Python validator (`prototype/playability.py`) takes the
   new checks (two reachable mine sites, the start's farmland and level land, living trees in the
   amounts) and Hard's berries, so the real places' parity holds; item 47's start land is a known
-  shortfall for real places (D331: a preference there).
+  shortfall for real places (D331: a preference there). CI's browser specs moved to batch 5's maps
+  too (seeds and names), and the attempt cap is 16 (Lake Basin 128² seed 19 passed only after 12).
+- **D330's two generator pieces.** Sources: Placed · None (`so=n`; the water section's Sources):
+  None is the map as generated, then its features' sources and their water removed (the field's
+  `dry`, which also plants the trees and bushes where the soil was moist as generated); its water
+  checks say "No water source" as information until a source runs (`tests/contract/sourcesNone.test.ts`).
+  The automatic water fix (`src/core/doc/waterFix.ts`, callable as `waterFixOps` in the worker's
+  session): a spring by the start, tried on a copy and settled, when the start's water, berries or
+  farmland fail after edits (`tests/contract/waterFix.test.ts`).
 
 ## Handoff (2026-09-27, evening)
 

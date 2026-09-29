@@ -93,6 +93,7 @@ describe("URL codec (PLAN §14.5)", () => {
         droughtReserve: pick(["scarce", "normal", "plenty"] as const),
         lakes: pick(["none", "few", "some", "many"] as const),
         waterfalls: pick(["off", "few", "many"] as const),
+        sources: pick(["placed", "none"] as const), // (D330: Sources: Placed · None)
       };
       st.hazards = { badwater: pick(["off", "low", "normal", "high"] as const), badwaterDistance: int(12, 60), thornBelts: pick(["off", "some"] as const), unstableCores: pick(["off", "on"] as const) };
       st.resources = {
