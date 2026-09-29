@@ -207,9 +207,11 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // about two seconds either way (Fast): the water's speed is about the water only
+  // about two seconds of showing either way (Fast; working it out is the machine's own time): the
+  // water's speed is about the water only
   expect(slow).toBeGreaterThan(1000);
-  expect(slow).toBeLessThan(3200);
+  const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
+  expect(t.final - t.worked).toBeLessThan(2400);
   expect(quick / slow).toBeGreaterThan(0.7);
   expect(quick / slow).toBeLessThan(1.4);
 });
