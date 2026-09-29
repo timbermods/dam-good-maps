@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D318), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D320), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -11,6 +11,12 @@ Paused at about 21:00 PDT on 2026-09-27, when your allowance ran out; a fresh se
 PDT** from [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work). Every agent stopped at a clean point with everything
 pushed; nothing is running. **M9a is released** (`m9a-done`, [#80](https://github.com/timbermods/dam-good-maps/pull/80)). Your
 decisions since the restart (D252–D315) are recorded below and in the living docs.
+
+**Today (2026-09-29), resumed on Kyler's main PC:** items 35, 38 and 39 applied (D316–D318). A hold until Kyler's
+build-order prompt: no feedback items recorded or built, M9b's re-pin stopped where it is, no sitting checklist yet.
+**Real places is parked (D319)**; #35 stays open, red CI expected. **One forces branch (D320):** `feature/forces-sounds` is
+merged into `feature/forces` (a1aced41); `build` is fixing the "No badwater" notice over the force rows, folding
+`feature/glaciate` into `feature/forces` (#76 closed into #77) and refreshing the preview from `feature/forces`.
 
 ### 1. Needs your decision or your eyes
 
@@ -600,7 +606,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D318.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D320.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

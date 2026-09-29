@@ -8,8 +8,10 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D318) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D320) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
+
+**Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9). Paused again on
 2026-09-27 at about 21:00 PDT, when Kyler's allowance ran out; **resume on Tuesday 2026-09-29 at 8:01 PDT**. Kyler is back
@@ -17,6 +19,8 @@ at the terminal: ping him (§7) when something waits for his eye. Nothing merges
 housekeeping (D286 (5)) and investigation PRs at a boundary.
 
 ## 1. Resume here: the order of work (paused 2026-09-27, evening)
+
+**Hold (Kyler, 2026-09-29), until his build-order prompt:** no feedback item is recorded in PLAN §20 (they'll be recorded per batch) or built on any branch; M9b's re-pin stops where it is (re-pinned once, after more map-changing items); no sitting checklist for Kyler yet. **Real places is parked (D319).** **One forces branch (D320):** Glaciate is folded into `feature/forces` (#77; #76 closed), and the preview deploys from `feature/forces`.
 
 **Start:** open the milestone session in `C:\Users\krams\code\DamGoodMaps` at Opus 5.5, high (D251), so `.claude/agents/`
 load. Start `tools\keep-awake.ps1 96` in the background (§9). Run `git fetch --all` and `git worktree list`; every worktree
@@ -115,7 +119,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    theme; no stairs for the early game; enough level buildable land at the start); a new intention (a second district
    site behind a small early obstacle) and high ground beside low; the five difficulty levers measured and shown on the
    map card as information.
-9. **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
+9. **Parked by Kyler (D319) until he says it resumes; #35 stays open, its red CI expected.** **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
    `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
    conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
    a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached. CI
@@ -152,7 +156,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D319**.
+number on `dev` is **#94**. The next decision is **D321**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -164,9 +168,9 @@ clean and matched origin at the pause.
 | Plans and docs | `dev` | — | `DamGoodMaps` | see `git log` | M9a released; docs current at the pause |
 | The forces | `feature/forces` | #77 | `DamGoodMaps-forces` | c90e071b | D309, D312 and Carve's grouped source (D314) built; next in §1 item 7 |
 | Sounds and Delete sources | `feature/forces-sounds` | #81 (draft) | `DamGoodMaps-sounds` | 05ab3afb | D313, D315 built; merge into the forces |
-| Glaciate's adoption | `feature/glaciate` | #76 (draft) | `DamGoodMaps-glaciate` | e091e77a | preview branch for the forces sitting; held for Kyler |
+| Glaciate's adoption | `feature/glaciate` | #76 (draft) | `DamGoodMaps-glaciate` | e091e77a | retired by D320: folded into `feature/forces`, #76 closed |
 | M9b | `feature/m9b` | #70 (draft) | `DamGoodMaps-m9b` | 66146f34 | re-pin half done; held for Kyler |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | cbaf6cf6 | D314 wired (VERSION 11); 37 of 136 converted; resume the conversion (§3) |
+| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | cbaf6cf6 | parked (D319); 37 of 136 converted under VERSION 11, cached in the draft release `cache-real-places-2-v11` |
 | Grouped sources, the rule | `feature/source-groups` | #79 (draft) | `DamGoodMaps-groups` | a6346fe4 | merges with the first branch that carries it |
 | Grouped sources, the investigation | `investigation/source-groups` | #78 | `DamGoodMaps-sources` | 1e760899 | merged into `dev` (685d9b18); removable |
 | The High look (with D310's shades) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | b62188ba | held for Kyler (the shades choice, his look) |
@@ -185,7 +189,7 @@ is on origin).
 At the pause no batch, probe run or render was running; the watchers (CI, the #78 merge) ended with the session, and the
 keep-awake script is started again (§9). Two jobs to restart:
 
-- **Real places' conversion** (stopped by the pause, 37 of 136 done): from `C:\Users\krams\code\DamGoodMaps-places`,
+- **Real places' conversion: parked (D319).** When it resumes on this PC, first fetch the land data this PC lacks (`npx tsx tools/places/worldcover.ts`, then `tools/places/osm.ts`), and unpack the draft release `cache-real-places-2-v11` into `investigation/landscapes/local/real-places-2/`. Then, as recorded at the pause (37 of 136 done): from `C:\Users\krams\code\DamGoodMaps-places`,
   `npx tsx tools/places-convert.ts --threads 3`. It skips the 37 already cached in
   `investigation/landscapes/local/real-places-2/v11/`; the land is cached in `investigation/landscapes/.cache/`
   (patches, worldcover, osm). Heavy: run it when no batch runs.
@@ -223,7 +227,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
   `npm run places -- --check`. The Claude suite (`npx tsx investigation/claude/bin/reference.ts`, D134) is kept but
   unmaintained and left out of the regular checks while M12 is deferred (D277).
-- **The preview:** `gh workflow run deploy.yml --ref main -f preview_ref=feature/glaciate`, then check
+- **The preview:** `gh workflow run deploy.yml --ref main -f preview_ref=feature/forces` (D320), then check
   <https://timbermods.github.io/dam-good-maps/preview/> (noindex). A normal deploy of `main` drops `/preview/`, so republish
   it after every release.
 - **Releases** (CLAUDE.md, "Deploying"): tag a green `dev` commit (annotated tags; names in CLAUDE.md), push the tag and a
@@ -247,7 +251,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D319), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D321), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
