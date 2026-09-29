@@ -53,11 +53,13 @@ declare global {
      *  on screen, its sha256 and its share link. */
     dgm?: {
       generate(fragment: string): Promise<{ sha256: string; bytes: number; passed: boolean; ms: number; ticks: number }>;
-      current?(): { sha256: string; link: string; passed: boolean; checks: { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } }[] } | null;
+      current?(): { made: number; sha256: string; link: string; passed: boolean; checks: { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } }[] } | null;
     };
   }
 }
 let shown: GenerateResponse | null = null;
+/** How many maps the page has shown (a test hook: waits for the next one). */
+let made = 0;
 window.dgm = {
   async generate(fragment: string) {
     const d = decodeSpecFragment(fragment);
@@ -66,7 +68,7 @@ window.dgm = {
     return { sha256: r.sha256, bytes: r.timber.length, passed: r.passed, ms: r.ms, ticks: r.facts.settle.ticks };
   },
   current() {
-    return shown ? { sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
+    return shown ? { made, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
 };
 
@@ -122,6 +124,9 @@ interface Confirm {
 export function App() {
   const init = useMemo(initialSpec, []);
   const [seedText, setSeedText] = useState(String(init.spec.seed));
+  /** A typed seed, or one from a share link, is kept: Generate makes that map again until the player
+   *  unlocks it or clears the box (D323, item 20). Otherwise every Generate rolls a fresh seed. */
+  const [seedPinned, setSeedPinned] = useState(init.fromLink);
   const [size, setSize] = useState<{ x: number; y: number }>(init.spec.size);
   const [difficulty, setDifficulty] = useState<Difficulty>(init.spec.designedFor);
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
@@ -215,7 +220,10 @@ export function App() {
 
   // ------------------------------------------------------------------------------ generating
 
+  /** The latest run: a result from an older one is never shown over it. */
+  const runId = useRef(0);
   async function run(s: MapSpec) {
+    const id = ++runId.current;
     setBusy(true);
     setError(null);
     setDownloaded(false);
@@ -247,6 +255,7 @@ export function App() {
         s,
         proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
       );
+      if (id !== runId.current) return;
       setResult(r);
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
@@ -257,6 +266,15 @@ export function App() {
       setBusy(false);
       setProgress(null);
     }
+  }
+
+  /** Generate (D323, item 20): a kept seed makes its map again; otherwise a fresh seed each press, shown
+   *  in the box. With edits kept, the seed stays (the edits belong to that map's features). */
+  function generateClick() {
+    if (seedPinned || edited) return void run(spec);
+    const seed = randomSeed();
+    setSeedText(String(seed));
+    void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme }), settings });
   }
 
   useEffect(() => {
@@ -427,6 +445,7 @@ export function App() {
 
   // ---------------------------------------------------------------------------------- render
 
+  if (result !== shown) made++;
   shown = result;
 
   const confirmDialog = confirm ? (
@@ -553,8 +572,12 @@ export function App() {
           <SettingsPanel
             spec={spec}
             seedText={seedText}
-            onSeed={setSeedText}
-            onDice={() => setSeedText(String(randomSeed()))}
+            onSeed={(t) => {
+              setSeedText(t);
+              setSeedPinned(t.trim() !== "");
+            }}
+            seedPinned={seedPinned}
+            onUnpinSeed={() => setSeedPinned(false)}
             onSize={chooseSize}
             onTheme={chooseTheme}
             onDifficulty={chooseDifficulty}
@@ -562,7 +585,7 @@ export function App() {
             onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
           />
           <div class="generate-bar">
-            <button type="button" class="primary" disabled={busy || !!opening} onClick={() => run(spec)}>
+            <button type="button" class="primary" disabled={busy || !!opening} onClick={generateClick}>
               {busy ? "Generating…" : edited ? "Generate, keeping my edits" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
             {edited ? (
@@ -651,7 +674,7 @@ export function App() {
           {result && (
             <>
               <div class="downloads">
-                <button type="button" class="primary" disabled={!result.passed && !fromSession} onClick={() => void refine()}>
+                <button type="button" class="primary" disabled={busy || (!result.passed && !fromSession)} onClick={() => void refine()}>
                   Refine this map
                 </button>
                 {fromSession ? (
@@ -668,7 +691,7 @@ export function App() {
                     <button
                       type="button"
                       class="ghost"
-                      disabled={!result.passed}
+                      disabled={busy || !result.passed}
                       onClick={() => {
                         saveFile(result.timber, result.timberName);
                         setDownloaded(true);
@@ -676,7 +699,7 @@ export function App() {
                     >
                       Download {result.timberName}
                     </button>
-                    <button type="button" class="ghost" disabled={!result.passed || savingToTimberborn} onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
+                    <button type="button" class="ghost" disabled={busy || !result.passed || savingToTimberborn} onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
                       {savingToTimberborn ? "Saving…" : "Save to Timberborn"}
                     </button>
                     <button type="button" class="ghost" onClick={() => saveFile(result.project, result.projectName, "application/gzip")}>
@@ -685,7 +708,7 @@ export function App() {
                     <button
                       type="button"
                       class="ghost"
-                      disabled={!result.passed}
+                      disabled={busy || !result.passed}
                       title="The same map with no water in the file: the game fills the rivers during the first day (for comparing in game)"
                       onClick={async () => {
                         const f = await generator.emptyWater();
