@@ -8,13 +8,23 @@ import { support } from "./support";
 import { LAYERS } from "./terrain";
 
 type Point = Gesture["points"][number];
-type Patch = { kind: "gallery" | "wash" | "roof"; floor: number; points: Point[] };
+type Patch = { kind: "face" | "gallery" | "wash" | "roof"; floor: number; points: Point[] };
 
 export function planSweep(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan | null {
   const start = performance.now(), before = input.terrain, { W, H, N } = before;
   if (gesture.points.length < 2) return null;
   const radius = params(set, false).radius;
   const points = gesture.points.map(p => ({ ...p, x: clamp(p.x, 0, W - .01), y: clamp(p.y, 0, H - .01) }));
+  const directFace = (p: Point) => {
+    if (p.nz !== undefined) return p.nz === 0;
+    if (p.z === undefined || touchedRoof(before, p)) return false;
+    const x = Math.floor(p.x), y = Math.floor(p.y), top = before.surface(y * W + x);
+    // Legacy fixtures have no normal and sometimes sit just outside a stepped wall.
+    return p.z < top - 1 || (p.z >= top && [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([xx, yy]) =>
+      xx >= 0 && yy >= 0 && xx < W && yy < H && before.surface(yy * W + xx) > p.z! + 1));
+  };
+  // A face-only gesture retains its original touched points and Round 7 calibration.
+  if (points.every(directFace)) return null;
   // A gesture contained in one opening keeps the established click/local-sweep behaviour.
   const extent = Math.hypot(Math.max(...points.map(p => p.x)) - Math.min(...points.map(p => p.x)),
     Math.max(...points.map(p => p.y)) - Math.min(...points.map(p => p.y)));
@@ -39,7 +49,7 @@ export function planSweep(input: ErodeInput, gesture: Gesture, set: ErodeSetting
       const u = j / count, x = a.x + (b.x - a.x) * u, y = a.y + (b.y - a.y) * u;
       const surface = top(a) && top(b), i = Math.floor(y) * W + Math.floor(x);
       samples.push({ x, y, z: surface ? before.surface(i) - .5 : a.z === undefined ? b.z : a.z + ((b.z ?? a.z) - a.z) * u,
-        nz: surface ? 1 : a.nz });
+        nz: surface ? 1 : (a.nz === 0 || b.nz === 0) && u >= .5 ? b.nz : a.nz });
     }
   }
   const patches: Patch[] = [];
@@ -47,13 +57,14 @@ export function planSweep(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   const classifications = new Set<string>();
   for (const p of samples) {
     const roof = touchedRoof(before, p);
+    const direct = directFace(p);
     let face: Point | undefined, floor = -1, distance = radius + 1.5;
-    if (!roof) for (let y = Math.max(2, Math.floor(p.y - distance)); y <= Math.min(H - 3, Math.ceil(p.y + radius + 1.5)); y++)
+    if (!roof && !direct) for (let y = Math.max(2, Math.floor(p.y - distance)); y <= Math.min(H - 3, Math.ceil(p.y + radius + 1.5)); y++)
       for (let x = Math.max(2, Math.floor(p.x - radius - 1.5)); x <= Math.min(W - 3, Math.ceil(p.x + radius + 1.5)); x++) {
         const fs = faces.get(y * W + x), d = Math.hypot(x + .5 - p.x, y + .5 - p.y);
         if (fs && d < distance) { distance = d; floor = Math.min(...fs); face = { x: x + .5, y: y + .5, z: floor + .5, nz: 0 }; }
       }
-    const kind = roof ? "roof" : face ? "gallery" : "wash";
+    const kind = roof ? "roof" : direct ? "face" : face ? "gallery" : "wash";
     if (face && p.nz === 1 && p.z! >= floor + 1) surfaceAboveFace = true;
     classifications.add(`${kind}:${floor}`);
     if (kind === "wash") active = undefined;
@@ -72,7 +83,7 @@ export function planSweep(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   const washKeep = input.keep?.slice() ?? new Uint8Array(N);
   for (let i = 0; i < N; i++) if (!before.plain(i)) washKeep[i] = 1;
   const children = patches.map(p => p.kind === "roof" ? planRoof(input, { points: p.points }, set, false)! :
-    p.kind === "gallery" ? planLocal(input, { points: p.points }, set, false) :
+    p.kind === "gallery" || p.kind === "face" ? planLocal(input, { points: p.points }, set, false) :
       planWash({ ...input, keep: washKeep }, { points: p.points }, set, false, true));
   const final = before.clone(), cutFloor = erosionFloor(set), falling = new Set<number>();
   for (const child of children) for (const v of child.removed) {
@@ -148,7 +159,7 @@ export function planSweep(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   const tiles = [...removed, ...added].map(v => v % N);
   return { final, removed: Int32Array.from(removed), bucket: Uint8Array.from(removed, v => buckets.get(v)!),
     falling: Uint8Array.from(removed, v => +falling.has(v)), added: Int32Array.from(added), addBucket: Uint8Array.from(added, () => BUCKETS - 1),
-    sweep: { parts: patches.length, galleries: patches.filter(p => p.kind === "gallery").length,
+    sweep: { parts: patches.length, galleries: patches.filter(p => p.kind === "gallery" || p.kind === "face").length,
       washes: patches.filter(p => p.kind === "wash").length, roofs: patches.filter(p => p.kind === "roof").length },
     buckets: BUCKETS, duration: .65, worn: removed.length, held: children.reduce((s, p) => s + p.held, 0), fell: falling.size,
     focus: children.find(p => p.worn)?.focus ?? null,

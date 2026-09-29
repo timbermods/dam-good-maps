@@ -18,13 +18,14 @@ import { Sounds } from "./audio";
 import { CASES as LAND_CASES, type Case } from "./cases";
 import { roofMap, ROOF_CASES } from "./roofs";
 import { kylerCase } from "./sweeps";
+import { WALL_CALIBRATION } from "./calibration";
 import { settleThings } from "../core/objects";
 import { Effects } from "./effects";
 import { View, type CameraPose, type Hit } from "./view";
 import type { PlanReply, PlanRequest } from "./worker";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const CASES = [...LAND_CASES, ...ROOF_CASES, kylerCase()];
+const CASES = [...LAND_CASES, ...ROOF_CASES, kylerCase(), WALL_CALIBRATION];
 const canvas = $<HTMLCanvasElement>("view");
 const view = new View(canvas);
 const sounds = new Sounds();

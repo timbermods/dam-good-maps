@@ -1,6 +1,93 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round9": {
+  "result": "PASS",
+  "gestures": 23,
+  "animationBuckets": 336,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "belowFloorVoxelsRemoved": 0,
+  "sourceGround": "PASS",
+  "round7FaceFixtures": [
+   {
+    "case": "crater-lip",
+    "power": 72,
+    "size": 68,
+    "round7Worn": 868,
+    "round8Worn": 868,
+    "round9Worn": 868,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "canyon-cave",
+    "power": 70,
+    "size": 67,
+    "round7Worn": 363,
+    "round8Worn": 363,
+    "round9Worn": 363,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "tall-arch",
+    "power": 70,
+    "size": 45,
+    "round7Worn": 38,
+    "round8Worn": 38,
+    "round9Worn": 38,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "tall-shore",
+    "power": 75,
+    "size": 55,
+    "round7Worn": 104,
+    "round8Worn": 104,
+    "round9Worn": 104,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 30,
+    "size": 43,
+    "round7Worn": 210,
+    "round8Worn": 641,
+    "round9Worn": 210,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 60,
+    "size": 61,
+    "round7Worn": 443,
+    "round8Worn": 443,
+    "round9Worn": 443,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 90,
+    "size": 79,
+    "round7Worn": 747,
+    "round8Worn": 747,
+    "round9Worn": 747,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   }
+  ],
+  "longSweep": {
+   "worn": 6597,
+   "changedSamples": 152,
+   "strokeSamples": 152,
+   "byteIdenticalToRound8": true
+  }
+ },
  "round8": {
   "result": "PASS",
   "gestures": 43,
@@ -17,7 +104,7 @@
    "wash-step: whole-face gallery plus the shallow wash"
   ],
   "longestStrokeTiles": 399,
-  "slowestPlannerMs": 374,
+  "slowestPlannerMs": 323,
   "maxWorn": 11985,
   "kyler": {
    "power": 72,
@@ -555,7 +642,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 17.9,
+   "msToFinal": 10.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -590,7 +677,7 @@
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 5.5,
+   "msToFinal": 2.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -625,7 +712,7 @@
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 4,
+   "msToFinal": 2.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -660,7 +747,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 2.1,
+   "msToFinal": 1.1,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -695,7 +782,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4.8,
+   "msToFinal": 3.9,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -730,7 +817,7 @@
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 32.2,
+   "msToFinal": 17,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -765,7 +852,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 13.1,
+   "msToFinal": 7.2,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -800,7 +887,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 11.6,
+   "msToFinal": 8.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -835,7 +922,7 @@
    "blocksOverAir": 101,
    "deepest": 17,
    "roofedTiles": 101,
-   "msToFinal": 67.7,
+   "msToFinal": 24.4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -870,7 +957,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 24.9,
+   "msToFinal": 12.5,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -905,7 +992,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 41,
+   "slowestMs": 26,
    "result": "PASS"
   },
   {
@@ -918,7 +1005,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 51,
+   "slowestMs": 12,
    "result": "PASS"
   },
   {
@@ -931,7 +1018,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 57,
+   "slowestMs": 14,
    "result": "PASS"
   },
   {
@@ -944,7 +1031,7 @@
    "chosenFloorDroppedOnLoad": 0,
    "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 40,
+   "slowestMs": 8,
    "result": "PASS"
   }
  ]

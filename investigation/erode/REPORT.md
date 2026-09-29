@@ -1,5 +1,23 @@
 # Erode: the report
 
+## Round 9: calibration
+
+Confirmed: Round 8 split a direct wall stroke into outside-floor patches. The representative low-Power sweep wore **641 blocks versus Round 7's 210**; its larger-Size variants already took the original local path. Direct face hits now retain their touched coordinates/height and Round 7 calibration, including direct-face parts of mixed strokes. Only indirect crossings project down the cliff.
+
+| Power / Auto Size | Round 7 worn | Round 9 worn |
+|---|---:|---:|
+| 30 / 43 | 210 | 210 |
+| 60 / 61 | 443 | 443 |
+| 90 / 79 | 747 | 747 |
+
+![Wall calibration: before and after at Power 30](captures/round9-wall.jpg)
+
+**PASS:** four original face fixtures and all three calibration settings are byte-identical to Round 7. The Round 8 long sweep remains byte-identical too: **6,597 blocks, 152/152 sampled tiles changed**. Existing checks plus **23 calibration gestures / 336 displayed buckets** pass: **0 dropped voxels, 0 leftover single blocks, 0 cuts below Floor**. TypeScript, source ground, objects/start, Undo/Redo/Esc/Try another and fixed camera pass. All five demo replays, including the **399-tile Power 100 / Size 100** sweep, finished within **0.67 s**. [Checks](checks/results.json) · [Demo checks](checks/round9-browser.json).
+
+Choice: pin three exposed wall hits at level 13.5 across ten tiles; Kyler's exact pointer trace was unavailable. This restores the previous calibration without changing the wash or roof planners.
+
+Regenerate checks from the repo root with `npm --prefix investigation/erode run check`. From `investigation/erode/`, run `node --import tsx scripts/round9-baseline.ts` to reproduce historical references and `node --import tsx scripts/captures-round9.ts` for the single 1200×434 JPEG (72 KB, installed Chrome). Historical source copies/logs/cache stay in ignored `local/`; intermediate captures stay in memory.
+
 ## Round 8: large sweeps
 
 The replay selected **one gallery floor at level 10 for the entire stroke**: only 34/152 sampled stroke tiles changed, wearing 861 blocks. Length did not dilute Power.

@@ -30,8 +30,8 @@ export const erosionFloor = (set: ErodeSettings) =>
 /** The size Auto gives at a power. */
 export const autoSize = (power: number) => Math.round(clamp(25 + 0.6 * power, 0, 100));
 
-/** A click or painted sweep in tile coordinates. Height/normal identify roofs and ceilings;
- *  a mixed sweep reaches the nearby cliff's whole face, independently of its hit height. */
+/** A click or painted sweep in tile coordinates. Direct face hits retain their touched height;
+ *  crossing above a face reaches its outside floor. Height/normal also identify roofs/ceilings. */
 export interface Gesture {
   points: { x: number; y: number; z?: number; nz?: number }[];
 }
