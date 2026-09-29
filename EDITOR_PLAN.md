@@ -463,6 +463,8 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
 
 ## 8. The generator, Claude and the first run
 
+**The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, Kyler's UI round, 2026-09-29).** Where the list below disagrees with the brief, the brief wins: one workspace with no expand button, full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map card, Your maps) and the rows over the map hold the land; Generate runs only on its button. D233 (1), (2) and (4), and its regenerating on a setting change, are superseded.
+
 **Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
 - **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
   fallback for computers that can't run 3D well.

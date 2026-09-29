@@ -1,7 +1,7 @@
 ---
 name: m9a-build
 description: Builds M9a, the first M9 stage of Dam Good Maps (the generator from the approved design version 2). Kyler's choice (PLAN §20 D210): Opus 5.5 at xhigh effort.
-model: opus
+model: claude-opus-5-5
 effort: xhigh
 ---
 
