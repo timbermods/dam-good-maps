@@ -61,3 +61,9 @@ The Block tool has its own sounds in the product, through the editor's sound sys
 switch, D313), from CC0 recordings: a stone set-down when adding, a chip when removing, and a rhythmic chip per
 block while a Shift-hold digs, never harsh when repeated a hundred times. Refused actions make no sound. The
 recordings and their licences are listed with the editor's other sounds.
+
+## Where it sits (Kyler, 2026-09-29, D335)
+
+On the tools row, with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it
+is built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool,
+like the brushes. Erode stays on the forces row.

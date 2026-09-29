@@ -1556,6 +1556,8 @@ After the High look is adopted (Map look 2, above), so there is only one mesher 
 
 After the view (D280 (3)).
 
+**Where the tools sit (D335, Kyler, 2026-09-29):** the Block tool (`investigation/block-tool`, D335) sits on the tools row with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it's built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool. Erode stays on the forces row.
+
 **Delivers**
 1. **Erode**, a new force, adopted from its investigation (`investigation/erode`, D281) onto the
    forces core, under the forces' principles (D257: bound only by nature; D258: no predicted route

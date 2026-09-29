@@ -19,7 +19,7 @@ Collapsible to a thin strip. Open on the first visit, then remembers how it was 
 - **Your maps** (D234): recent and starred edited maps.
 
 ## 4. The rows and Save
-- The rows over the map, top to bottom: the view bar (Watch beside Sound); the tools; the forces; the active tool's settings with More. Where they sit and how they look is the design pass's.
+- The rows over the map, top to bottom: the view bar (Watch beside Sound); the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select, and the Block tool at 3D step 3: the rows follow how a tool feels to use, D335); the forces (Erode joins them at 3D step 3); the active tool's settings with More. Where they sit and how they look is the design pass's.
 - **Save to Timberborn** is a primary button at the workspace's top-right, always visible whether the panel is open or collapsed, with the checks dot right beside it (its one-click fixes there). Download .timber and the project file are in the ⋯ menu.
 
 ## 5. Speed first
