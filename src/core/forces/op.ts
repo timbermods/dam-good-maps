@@ -35,7 +35,7 @@ export interface ForceWhere {
 
 /** A force's settings, as each force's options row sets them (the seed is its personality). */
 export type ForceSettingsRecord =
-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number }
+  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
@@ -93,7 +93,7 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
   return {
     version: 1,
     verb: "carve",
-    settings: { mode: p.mode, power: p.power, wander: p.wander, width: p.width, seed: p.seed, walls: p.walls, defyGravity: p.defyGravity, dry: p.dry, ...(p.depth != null ? { depth: p.depth } : {}), ...(p.floor != null ? { floor: p.floor } : {}) },
+    settings: { mode: p.mode, power: p.power, wander: p.wander, width: p.width, seed: p.seed, walls: p.walls, defyGravity: p.defyGravity, dry: p.dry, ...(p.depth != null ? { depth: p.depth } : {}), ...(p.floor != null ? { floor: p.floor } : {}), ...(p.riverDepth !== undefined ? { riverDepth: p.riverDepth } : {}), ...(p.banks != null ? { banks: p.banks } : {}) },
     where: { origin: p.origin, ...(p.end ? { end: p.end } : {}) },
     ...(p.cut !== undefined ? { cut: p.cut } : {}),
     steps: p.steps,
@@ -152,6 +152,10 @@ export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): s
     if (w !== null && !(Number.isFinite(w) && w >= 2 && w <= 24)) return ["a carve's width is 2 to 24 tiles, or null (it follows Power)"];
     const d = s.depth as number | null | undefined;
     if (d != null && !(Number.isInteger(d) && d >= 1 && d <= 12)) return ["a carve's depth is 1 to 12 levels, or null (it follows Power)"];
+    const rd = s.riverDepth as number | null | undefined;
+    if (rd != null && !(Number.isInteger(rd) && rd >= 1 && rd <= 22)) return ["a carve's river depth is 1 to 22 levels, or null (Off)"];
+    const b = s.banks as number | undefined;
+    if (b != null && !(Number.isFinite(b) && b >= 0 && b <= 10)) return ["a carve's banks are 0 to 10 tiles"];
   }
   if (verb === "erupt") {
     const size = s.size as number | null | undefined;

@@ -207,9 +207,12 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // about two seconds either way (Fast): the water's speed is about the water only
+  // about two seconds either way (Fast) on a GPU: the water's speed is about the water only; where the
+  // browser draws in software (CI) each frame costs far more, so the wall clock is only bounded there,
+  // as Erupt's (c90e071b)
+  const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
   expect(slow).toBeGreaterThan(1000);
-  expect(slow).toBeLessThan(3200);
+  expect(slow).toBeLessThan(software ? 8000 : 3200);
   expect(quick / slow).toBeGreaterThan(0.7);
   expect(quick / slow).toBeLessThan(1.4);
 });

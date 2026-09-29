@@ -1,13 +1,14 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
-> **Batch 1 (D321, D327), 2026-09-29, in progress.** Done: items 29+30 (Fast/Watch, a force worked out
-> then shown; nothing changes before it's reached; no water in frames), 40 (the Floor, `core/forces/floor.ts`),
-> 7 (no tree leaning), 41+13 (the freehand path, `editor/freehand.ts`; one ring at the cursor) and D327
-> (curved Slide). Fast timings (land final, 128²/256²): Carve 2.0/2.0 s, Craterize 0.6/0.6, Quake Slide
-> 1.2/1.5, Erupt 1.7/1.7, Glaciate 2.0/2.5 s (256² largest: its planning's flood check, 1.3 s). Next:
-> Carve's 17, 25, 18; Erupt's 14; item 27's edge check (pending M9b's `edgeLip.ts` on dev). Keys: none
-> added; Enter and Backspace no longer drop or launch Carve's and Glaciate's points (retired); Watch is a
-> view-bar toggle with no key. Tests updated: the carve parity case holds #59's land at the Floor.
+> **Batch 1 (D321, D327), 2026-09-29: built.** Items 29+30 (Fast/Watch; nothing changes before it's
+> reached; no water in frames), 40 (the Floor, `core/forces/floor.ts`), 7 (no tree leaning), 41+13 (the
+> freehand path, `editor/freehand.ts`; one ring at the cursor), D327 (curved Slide), 17+25+18 (River depth,
+> Canyon depth, Banks: `carve/river.ts`) and 14 (Erupt's volcano). Pending: item 27's fix, the check and
+> its `EDGE_LIP` hook built (`core/water/edgeSources.ts`), until M9b's `edgeLip.ts` reaches dev. Fast
+> (land final, 128²/256², largest case): Carve 2.0/2.0 s, Craterize 0.6/0.6, Quake Slide 1.2/1.2, Erupt
+> 1.7/1.7, Glaciate 2.0/2.0. Keys: none added; Enter and Backspace no longer drop or launch points (the
+> points are retired); Watch is a view-bar toggle, no key. Tests updated: carve, Glaciate and Erupt parity
+> cases (the Floor; item 14's volcano), the Fast specs time the showing, not the machine's planning.
 
 > **2026-09-29: the notices sit under the map.** D213's No badwater line (shown when a force or Delete
 > sources takes the map's last badwater spring) sat over the top of the map and covered the force rows.

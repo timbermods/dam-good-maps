@@ -58,6 +58,8 @@ export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): 
     dry: set.dry,
     ...(set.depth != null ? { depth: set.depth } : {}),
     ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
+    ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
+    ...(set.banks != null ? { banks: set.banks } : {}),
     ...(rec.cut !== null ? { cut: rec.cut } : {}),
     steps: run.steps,
     reason: run.done ? run.reason : "stopped",

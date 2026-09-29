@@ -36,7 +36,7 @@ import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type S
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
-import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
+import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, RIVER_DEPTH_DEFAULT, type CarveUi } from "./CarveRow";
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
@@ -1498,13 +1498,13 @@ export default function Editor(props: EditorProps) {
       watch,
       floor,
       more: moreOpen,
-      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth },
+      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks },
       craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
       erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
       quake: { scarp: quakeUi.scarp },
       glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
     });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -3575,7 +3575,7 @@ interface ForcesPrefs {
   /** The forces' Floor (D321, item 40): 1 unless set. */
   floor: number;
   more: Partial<Record<Verb, boolean>>;
-  carve: Pick<CarveUi, "wander" | "walls" | "depth">;
+  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks">;
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
   erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges">;
   quake: Pick<QuakeUi, "scarp">;
@@ -3586,7 +3586,7 @@ const AUTO_FORCES_PREFS: ForcesPrefs = {
   watch: false,
   floor: FLOOR_DEFAULT,
   more: {},
-  carve: { wander: null, walls: null, depth: null },
+  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null },
   craterize: { walls: null, centre: null, debris: null, rays: null },
   erupt: { shape: null, summit: null, flows: null, ridges: null },
   quake: { scarp: null },
@@ -3609,7 +3609,13 @@ function loadForcesPrefs(): ForcesPrefs {
       watch: s.watch === true,
       floor: floorProblem(s.floor) === null && typeof s.floor === "number" ? s.floor : FLOOR_DEFAULT,
       more,
-      carve: { wander: typeof s.carve?.wander === "number" ? s.carve.wander : null, walls: among(s.carve?.walls, ["steep", "wide"]), depth: typeof s.carve?.depth === "number" ? s.carve.depth : null },
+      carve: {
+        wander: typeof s.carve?.wander === "number" ? s.carve.wander : null,
+        walls: among(s.carve?.walls, ["steep", "wide"]),
+        depth: typeof s.carve?.depth === "number" ? s.carve.depth : null,
+        riverDepth: s.carve?.riverDepth === null ? null : typeof s.carve?.riverDepth === "number" && Number.isInteger(s.carve.riverDepth) && s.carve.riverDepth >= 1 && s.carve.riverDepth <= 22 ? s.carve.riverDepth : RIVER_DEPTH_DEFAULT,
+        banks: typeof s.carve?.banks === "number" && s.carve.banks >= 0 && s.carve.banks <= 10 ? s.carve.banks : null,
+      },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
       erupt: { shape: among(s.erupt?.shape, ["steep", "broad"]), summit: among(s.erupt?.summit, ["auto", "peak", "crater", "caldera"]), flows: among(s.erupt?.flows, ["light", "heavy"]), ridges: typeof s.erupt?.ridges === "boolean" ? s.erupt.ridges : null },
       quake: { scarp: among(s.quake?.scarp, ["sheer", "stepped"]) },

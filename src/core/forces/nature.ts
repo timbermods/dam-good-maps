@@ -55,19 +55,22 @@ function draws(verb: string, seed: number, g: ForceGround) {
 type Draft<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null };
 
 /** Carve's details, before nature draws the ones still on Auto (D309). */
-export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth">;
+export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth" | "banks">;
 /** Every one of Carve's details, reset to Auto: the default for Try another when the caller sends no
  *  pins (Unleash, and callers outside the row), and what a pinned subset is applied over. */
-export const AUTO_CARVE_DETAILS = { wander: null, walls: null, depth: null } as const;
+export const AUTO_CARVE_DETAILS = { wander: null, walls: null, depth: null, banks: null } as const;
 
-/** Carve: its wander (open ground meanders, rugged ground runs straighter) and its walls (rugged
- *  ground a gorge, open ground broad terraces); its depth (D226: absent, it follows Power and width,
- *  the run's own default) passes through untouched either way. */
+/** Carve: its wander (open ground meanders, rugged ground runs straighter), its walls (rugged
+ *  ground a gorge, open ground broad terraces) and its banks (D321 item 18: open ground leaves wide
+ *  farmable banks, a gorge few or none); its depth (D226: absent, it follows Power and width, the
+ *  run's own default) passes through untouched either way. A carve asked for without banks (a plain
+ *  caller: `banks` absent) keeps none, as before. */
 export function carveNature(s: CarveDraft, g: ForceGround): CarveSettings {
   const { rough, rng } = draws("carve", s.seed ?? 0, g);
   const wander = s.wander ?? Math.round(clamp(55 - 30 * rough + rng.range(-15, 15), 5, 90) / 5) * 5;
   const walls = s.walls ?? (chance(rng, 0.3 + 0.55 * rough) ? "steep" : "wide");
-  return { ...s, wander, walls } as CarveSettings;
+  const banks = s.banks === null ? Math.round(clamp(6 - 4 * rough + rng.range(-1.5, 1.5), 1, 8)) : s.banks;
+  return { ...s, wander, walls, ...(banks !== undefined ? { banks } : {}) } as CarveSettings;
 }
 
 /** Craterize's details, before nature draws the ones still on Auto (D309). */

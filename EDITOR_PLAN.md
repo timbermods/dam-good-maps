@@ -43,7 +43,7 @@ editor is desktop-first (D185).
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
   unleashes a carve, strikes, or vents; a drag aims a carve or an impact, or opens a fissure. Everything else (Carve's
-  wander, walls and depth; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
+  wander, walls, Canyon depth and Banks; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
   scarp; Glaciate's benches, steps, tarn and scree) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
   ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
   shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
@@ -240,7 +240,12 @@ editor is desktop-first (D185).
   heavy) and ridges come from the land and the seed (D289). The ground stirs, then the volcano
   swells level by level, its **terrain final in about two seconds** (D312: its 28 stages at 55 ms); its effects (the lava's
   glow cooling, the smoke) play on, but the player never waits for them and can act again at once; its plume billows bigger and darker the more powerful the eruption (D216),
-  the lava glows along its flows, then cools to a dark crust and fades into the ground. A volcano
+  the lava glows along its flows, then cools to a dark crust and fades into the ground. **A volcano always
+  looks like a volcano** (D321, item 14): its cone is the dominant shape at every setting, rising to a clear summit
+  (with Summit: Crater, a bowl a fifth of its height deep under the rim), the flows running down its sides; heavy
+  flows spread a wider, thicker skirt of lava along them, never a round plateau that turns it into a mound; its
+  surface reads as rock (no lone raised tile above or below its neighbours, the summit aside); High Power grows it
+  toward the height ceiling (22, D244). A volcano
   always keeps a peak within the headroom it has: near the height ceiling it spreads wider rather
   than rising taller, never flat-topped; overlapping eruptions build new cones on the flanks; an eruption
   always completes, as in the demo Kyler approved (D226). Fresh volcanic rock is hard for Carve; flows
@@ -436,13 +441,29 @@ Make a valley, drop a source, and there's a river.
     (D289), with natural variation within each carve (bends wider and deeper on the outside, narrower on the
     straights, never a uniform tube), and **Try another path**, which re-rolls them; a bend cut off becomes an oxbow
     lake, sealed by sediment at both ends;
+  - behind More, beside **Canyon depth** (how deep the cut goes, so how tall the walls are; item 25's name for its
+    Depth), **River depth** (D321, item 17): how deep its water may be, a number from 1 up to the height ceiling, or
+    **Off**; 2 unless set, remembered. Once the canyon is cut, wherever the game's water would pool deeper than that
+    over the ground the carve cut (a bend's scour, the canyon's end behind its own fan) the bed is raised under the
+    pool's spill level (one level under it less the setting, the water flowing over the sill standing a little
+    above it), the walls as tall as Power made them; Off leaves it as deep as it cuts, and a dry canyon has no river
+    to limit. **Banks** (item 18, on Auto: open ground leaves wider ones, a gorge few): about how many tiles of flat
+    land lie on each side of the river before the walls, 0 to 10, wider inside a bend and narrower outside it, with
+    a slow swell along the course, never a constant strip. The banks stand at the river's waterline: the bed below
+    them by the river's depth (at least two levels, so its normal surface stays just below their top and never
+    spreads over them as a standing sheet), running only downhill; the carve's own source row stands in the river;
+    the walls step back by the banks' width; the banks are moist for crops and, like any low floor, may flood when
+    the river refills (D307). Built after the carve in `core/forces/carve/river.ts`; its operation keeps both;
   - its one choice, **Keep river** (the default) or **Dry canyon**. Keep river leaves a
     source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the carve's heading, fewer where
     cramped, as the official maps' rows are) whose total strength follows the river's Width, not its Power, so a slot
     canyon keeps a modest stream and a wide river a big one, shared among its sources; Dry canyon leaves none. Its
     operation keeps the row literally (the anchor at the origin and the rest), so projects replay exactly, and a carve
     from before keeps its single source. Each source is editable afterwards like any other. Unleash places none: the
-    player's source stays the river's origin (Kyler, D314);
+    player's source stays the river's origin (Kyler, D314). A row at the map's edge must flow into the map, never
+    straight off it (D321, item 27): `core/water/edgeSources.ts` checks every force's placed sources (Carve's row,
+    Glaciate's springs) and keeps what leaks with the run (`edgeLeaks`); the fix, M9b's edge lip, plugs into its
+    `EDGE_LIP` hook once batch 5 brings it to dev (pending);
   - the visible carving effects (a surging head, crumbling blocks, dust, its muddy surge, murky for badwater), the
     camera staying where the player left it (D265: no Follow); the whole run is worked out first (its surge gathering at
     the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
@@ -931,10 +952,11 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   slice at a time, each step's changed tiles and the objects its cut took recorded, then played back (`carve/play.ts`,
   D321); its water no longer runs while it cuts (the head's surge is the effects'), and its fan's height reads the water
   as it was, so the land is the same at any pace (164 carves checked against the earlier code: the same land). Erupt is the prototype's
-  volcano exactly where it has the room under the map's ceiling (16, or the map's own top up to 22);
+  volcano, reshaped by D321's item 14 (its crater deeper, its apron's reach 1.75 radii and thickest along its lava
+  lobes, its lava ridges fading out by it, lone tiles settled), where it has the room under the map's ceiling;
   where it hasn't, `eruptAnatomy` fits it (D226): every level it raises (cone, apron, ridges) scaled
   together so its summit reaches the ceiling at most, broader rather than taller while Size follows
-  Power (at most 1.6 times, never so broad that a low peak's top spreads past a few tiles), Auto's
+  Power (at most 1.25 times since item 14, never so broad that a low peak's top spreads past a few tiles), Auto's
   summit a peak when it keeps less than three quarters of its rise; with too little room at the vent
   (under four levels) it erupts from its flank, the nearest place with room (the seed choosing
   among the nearest); a fissure rises less where its line is high; at the ceiling with no flank near,

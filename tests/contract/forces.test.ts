@@ -85,7 +85,7 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's, without the start: D257)", () => {
+  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's height and reach, reshaped by D321 item 14; without the start: D257)", () => {
     for (const seed of [0, 1, 42])
       for (const mode of ["vent", "fissure"] as const)
         for (const shape of ["steep", "broad"] as const) {
@@ -93,7 +93,13 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
           const intent = { origin: 40 * 64 + 35, path: [{ x: 30, y: 40 }, { x: 50, y: 42 }] };
           const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, mode, shape, power: 45 }, intent);
           const q = protoErupt.erupt(protoSnapshot(proto), { ...protoErupt.DEFAULTS, seed, mode, shape, power: 45 }, intent);
-          expect(digest(p.map), `${mode} ${shape} ${seed}`).toBe(digest(q.map as unknown as ForceMap));
+          // (item 14 reshapes its crater, its skirt of lava and its rock: the same height, a like reach)
+          const what = `${mode} ${shape} ${seed}`;
+          expect(Math.abs(Math.max(...p.map.heights) - Math.max(...q.map.heights)), what).toBeLessThanOrEqual(3);
+          const raised = (h: ArrayLike<number>) => Array.from(h).filter((v, i) => v !== m.heights[i]).length;
+          // (its skirt reaches less far than the prototype's: under a third less of the land, never more)
+          expect(raised(p.map.heights), what).toBeGreaterThan(raised(q.map.heights) * 0.3);
+          expect(raised(p.map.heights), what).toBeLessThan(raised(q.map.heights) * 1.6);
         }
   });
 
