@@ -256,13 +256,19 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
     (`#6C6862`, L\* 44, saturation 0.05, with tan patches); its lit grass a muted green, L\* 50 to 55, hue 70 to 110; its
     cliff faces dark blue-grey-green. **Follow-up after Kyler's look beside the game:** the first pass still read brown on
     screen (`#6B5F56` Standard, `#816F5D` High, saturation 0.15), so dry earth (`GROUND.dry` and its patches) is now a
-    neutral grey-beige: on screen `#6A655F` Standard (game `#6C6862`), saturation 0.05. Grass is less yellow: hue 75
-    to 88 degrees and saturation 0.43 to 0.33 on screen, palette `moistLow`/`moistHigh` `[0.55,0.68,0.36]`/`[0.51,0.675,0.335]`.
-    **Its lightness is capped, not matched:** the tested rule that grass stays 0.2 lighter than dry earth in greyscale
-    (`look-readable.test.ts`) against dry earth at the game's own lightness holds grass at about the lightness it had
-    (L\* about 58 Standard, 63 High on screen, against the game's 50 to 55); the game's grass is only about 8 L\* over its dry
-    earth. Matching it needs that rule loosened (to about 0.1), which is Kyler's call. Cliff stone is lighter and bluer
-    (`WALL.stone`). The faint contamination veins' glow on dry earth went up (`glowDry` 0.45 to 0.55) so a faint vein stays a
+    neutral grey-beige: on screen `#6A655F` Standard (game `#6C6862`), saturation 0.05. Grass first went less yellow
+    (hue 75 to about 88 degrees).
+    **Kyler then loosened the grass-over-dry-earth greyscale rule from 0.2 to 0.1** (the game's own contrast; the game's
+    grass is about 8 L\* over its dry earth) and asked for the grass toward the game's L\* 50 to 55 in both looks. Grass is now
+    palette `moistLow`/`moistHigh` `[0.5,0.655,0.32]`/`[0.48,0.635,0.3]` (hue about 88 degrees); on screen L\* 58.0 to 55.3
+    Standard and 63.3 to 54.1 High (High's tone curve lifted it about 5 L\* above Standard's, so its terrain shader holds
+    grass back by the same amount), hue 75 to 88 and 70 to 81, saturation 0.43 to 0.36. The rule at 0.1 passes every
+    colour-blindness simulation with room, by a new check (`look-readable.test.ts`: grass against each dry patch, 10 L\* and
+    18 in Lab at least, in greyscale and each simulation; at exactly 0.1 the lowest are 11 and 19, tritanopia limiting on
+    Lab, deuteranopia on L\*). The lightness stops at L\* about 55 (Standard) because a second, untouched rule then binds:
+    moist contaminated ground stays 0.15 lighter than dry contaminated ground. **Standard's cliffs** were near-black
+    (`#3D3F3C`, L\* 26) because only High's own rock colours had moved: `WALL.stone` and `WALL.mortar` are now a lighter
+    blue-grey (on screen `#51545A`, L\* 36, hue 220; High's strata rock colours are its own and unchanged). The faint contamination veins' glow on dry earth went up (`glowDry` 0.45 to 0.55) so a faint vein stays a
     light line.
   - **Item 4, waterfalls too white (both looks, after Kyler's follow-up).** D231's three foam issues were already
     built in High (the crown continuous along joined falls, an irregular landing, bubbly froth). The falling sheet now

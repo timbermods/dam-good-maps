@@ -38,12 +38,13 @@ export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 export const GROUND = {
   /** Dry ground: cracked earth, the pale grey-beige of Kyler's reference (never reddish), with dark
    *  cracks; plants die there. Broad patches drift between it, a cooler grey and a warmer brown.
-   *  D324 (item 10 and Kyler's follow-up) moved the ground, the grass and the stone toward the game's,
+   *  D324 (item 10 and Kyler's follow-ups) moved the ground, the grass and the stone toward the game's,
    *  matching relationships (Near Tara Gorge, noon): dry earth a neutral grey-beige (the sun's warmth on
-   *  screen, not a brown), about as light as it was; grass less yellow (hue 75 to 89 degrees, saturation
-   *  0.43 to 0.36: the game's muted green) but no darker than the tested rule allows, that it stays 0.2
-   *  lighter than dry earth in greyscale (the game's lit grass is L* 50-55, only about 8 L* over its dry
-   *  earth); the cliffs' stone lighter and bluer-grey. */
+   *  screen, not a brown); grass a muted green, hue about 88 degrees, darker (on screen L* about 52,
+   *  the game's 50-55), which Kyler allowed by loosening the grass-over-dry-earth greyscale rule from 0.2 to
+   *  0.1 (the game's own contrast; every colour-blindness simulation still tells them apart, with room,
+   *  `look-readable.test.ts`); the lightness stops where the other, untouched rule binds, that moist
+   *  contaminated ground stays 0.15 lighter than dry contaminated ground; the cliffs' stone lighter and bluer-grey. */
   dry: [0.41, 0.415, 0.39] as Rgb,
   /** Dry ground's cooler, greyer patches. */
   dryCool: [0.4, 0.4, 0.415] as Rgb,
@@ -53,9 +54,9 @@ export const GROUND = {
   crack: [0.19, 0.17, 0.17] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted, yellowish grass
    *  green, lighter than dry ground. */
-  moistLow: [0.55, 0.68, 0.36] as Rgb,
+  moistLow: [0.5, 0.655, 0.32] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.51, 0.675, 0.335] as Rgb,
+  moistHigh: [0.48, 0.635, 0.3] as Rgb,
   /** Contamination (badwater spoils the soil and plants die), a layer over the ground as in the
    *  game: the rust of the veins' rims on dry earth and of the stain round them... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -87,8 +88,8 @@ export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.
  *  shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
  *  groove between levels, so levels can be counted. */
 export const WALL = {
-  stone: [0.385, 0.415, 0.42] as Rgb,
-  mortar: [0.15, 0.16, 0.15] as Rgb,
+  stone: [0.49, 0.535, 0.56] as Rgb,
+  mortar: [0.2, 0.215, 0.23] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   alternate: 0.86,

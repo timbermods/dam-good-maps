@@ -175,6 +175,9 @@ export function terrainHooks(): ShaderHooks {
           c *= 1.0 + broad * 0.15 + mottling * 0.065;
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
+        // D324 (Kyler's follow-up): the tone curve's exposure lifts grass about 5 L* above Standard's; hold it to
+        // the game's (L* 50-55) like Standard's, by the grass's own share of the ground
+        c *= 1.0 - 0.11 * moist * hlTone;
         vec3 hlCleanGround = c;`,
     // poisoned soil (#67's High proposal, D250): the same contamination, a dark olive-brown stain and
     // dark sickly veins instead of the glow
@@ -527,7 +530,7 @@ export function slopeHooks(): ShaderHooks {
       float packed = floor(texture2D(tileTex, (floor(g) + 0.5) / mapSize).g * 255.0 + 0.5);
       float moist = step(1.0, floor(packed / 16.0));
       float grass = smoothstep(0.66, 0.96, hlLocal.z + 0.5 + (grain - 0.5) * 0.15) * moist;
-      color = mix(color, mix(vec3(0.55, 0.68, 0.36), vec3(0.51, 0.675, 0.335), earthPatch) * (0.87 + 0.14 * grain), grass);
+      color = mix(color, mix(vec3(0.5, 0.655, 0.32), vec3(0.48, 0.635, 0.3), earthPatch) * (0.87 + 0.14 * grain), grass);
     }
     return color;
   }`,

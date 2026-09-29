@@ -20,7 +20,9 @@ type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): 
 describe("the meanings in lightness", () => {
   it("keep their order: dead trees, moist, dry ground, badwater", () => {
     expect(lum(DEAD_TREE)).toBeGreaterThan(lum(GROUND.moistLow) + 0.1);
-    expect(lum(GROUND.moistHigh)).toBeGreaterThan(lum(GROUND.dry) + 0.2);
+    // grass over dry earth: 0.1, the game's own contrast (Kyler, batch 4's follow-up, loosened from 0.2 so
+    // grass could come down toward the game's L* 50-55); the colour-blindness check below tells them apart
+    expect(lum(GROUND.moistHigh)).toBeGreaterThan(lum(GROUND.dry) + 0.1);
     // badwater is #38's approved crimson (D177), lighter than the red-black it was, and still below
     // dry ground and clean shallows. Kyler accepted these margins while the order holds. FRAGILE:
     // dry ground clears its margin by only 0.0001 (0.1501 over 0.15)
@@ -76,6 +78,36 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
       // badwater's murk, dull troughs and bubbles are what carry it through clear water
       expect(waterMaterial(u, lite).fragmentShader).toContain("bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES");
     }
+  });
+});
+
+describe("grass and dry earth, in greyscale and every colour-blindness simulation (D324's follow-up: the rule is 0.1)", () => {
+  const sims: Record<string, number[]> = {
+    none: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    deuteranopia: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182, 0.04294, 0.968881],
+    protanopia: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
+    tritanopia: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039],
+  };
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const lab = (c: readonly number[], m: number[]) => {
+    const l = c.map(lin);
+    const s = [0, 1, 2].map((r) => Math.max(0, m[r * 3] * l[0] + m[r * 3 + 1] * l[1] + m[r * 3 + 2] * l[2]));
+    const X = 0.4124 * s[0] + 0.3576 * s[1] + 0.1805 * s[2];
+    const Y = 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
+    const Z = 0.0193 * s[0] + 0.1192 * s[1] + 0.9505 * s[2];
+    const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    return [116 * f(Y) - 16, 500 * (f(X / 0.9505) - f(Y)), 200 * (f(Y) - f(Z / 1.089))];
+  };
+
+  it("tell every grass from every patch of dry earth by 10 L* and 18 in Lab, in each simulation (the lowest of them, at 0.1, is 11 and 19)", () => {
+    for (const grass of [GROUND.moistLow, GROUND.moistHigh])
+      for (const dry of [GROUND.dry, GROUND.dryCool, GROUND.dryWarm])
+        for (const m of Object.values(sims)) {
+          const g = lab(grass, m);
+          const d = lab(dry, m);
+          expect(g[0] - d[0]).toBeGreaterThanOrEqual(10);
+          expect(Math.hypot(g[0] - d[0], g[1] - d[1], g[2] - d[2])).toBeGreaterThanOrEqual(18);
+        }
   });
 });
 
