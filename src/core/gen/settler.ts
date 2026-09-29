@@ -44,7 +44,8 @@ export interface StartPick {
 
 export type DroughtPolicy = "off" | "prefer" | "require";
 
-/** The least land (joined by one-level steps) the last-resort start by a bank must join. */
+/** The least land (joined by one-level steps) the last-resort start by a bank must join, at 128²
+ *  (in proportion to the map's area). */
 export const BANK_FOOT = 800;
 
 export interface SettlerOptions {
@@ -305,7 +306,7 @@ export function pickStart(
   // (the last resort joins land enough to grow on too, item 47: a pad on a strip cut off by water
   // and cliffs, a few hundred tiles, reaches neither its mine sites nor room for its first
   // buildings; the start's farmland, level land and mine sites are checked on the finished map)
-  const bankFoot = Math.min(opts.minFoot ?? 0, BANK_FOOT);
+  const bankFoot = Math.min(opts.minFoot ?? 0, (BANK_FOOT * W * H) / (128 * 128));
   const footed = (p: StartPick | null): StartPick | null => (p && opts.foot && bankFoot && opts.foot.size[opts.foot.lab[p.y * W + p.x]] < bankFoot ? null : p);
   const roomWant = opts.room ?? 900;
   const benchWant = opts.bench ?? 113;

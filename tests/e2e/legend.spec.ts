@@ -80,7 +80,9 @@ test("the legend sits beside the map, lists what is on it, points to it, and fol
 
 test("while another map is open in the editor, the generator's page says which map is which", async ({ page }) => {
   // a map of our own, opened in the editor as a file
-  const g = generate(makeSpec({ seed: 7, size: { x: 48, y: 48 } }));
+  // (96², D148: at 48² item 47's must-haves, two mine sites the colony reaches among them, seldom
+  // fit, and a map that fails its checks has no file)
+  const g = generate(makeSpec({ seed: 7, size: { x: 96, y: 96 } }));
   await page.goto("./#s=4242&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   // (a generated map's name is its own since M9b, from its standout, D278: the caption repeats the

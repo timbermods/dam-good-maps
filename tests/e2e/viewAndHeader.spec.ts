@@ -119,11 +119,26 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   await page.mouse.move(p.x + 200, p.y + 200, { steps: 3 });
   await expect(reach).toHaveCount(0, { timeout: 5000 });
 
-  // under a cut, Raise leaves the ground above it alone and lifts the rest up to it at most
-  const cut = await page.evaluate(() => {
-    const m = window.dgm3d!.renderer.mapState()!;
-    return Math.max(...m.heights) - 3;
-  });
+  // under a cut, Raise leaves the ground above it alone and lifts the rest up to it at most (the
+  // cut three levels under the top, or lower where no cliff crosses it there: batch 5's land stands
+  // on the beds' floor, its relief squeezed, D148)
+  const cut = await page.evaluate(
+    ([s0, s1]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      const W = m.W;
+      const top = Math.max(...m.heights);
+      for (let k = 3; k <= 8; k++) {
+        const c = top - k;
+        for (let y = 10; y < m.H - 10; y++)
+          for (let x = 10; x < W - 10; x++) {
+            const i = y * W + x;
+            if (Math.hypot(x - s0, y - s1) >= 20 && m.heights[i] > c && m.heights[i + 1] < c && m.surface.depth[i + 1] === 0) return c;
+          }
+      }
+      return top - 3;
+    },
+    [start[0], start[1]] as const,
+  );
   await page.evaluate((c) => window.dgm3d!.renderer.setSlice(c), cut);
   const pair = await page.evaluate(
     ([c, s0, s1]) => {

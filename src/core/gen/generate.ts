@@ -81,7 +81,9 @@ import { pickStart, type DroughtPolicy, type StartPick } from "./settler";
 
 export type { IntentionResult };
 
-export const MAX_ATTEMPTS = 12;
+/** Attempts before the last one is kept whatever it is (16 since batch 5, D325: with item 47's
+ *  must-haves a few seeds pass only after 12; the first map that passes is returned at once). */
+export const MAX_ATTEMPTS = 16;
 /** Plans on one field before a new genome is drawn. */
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import type { Feature } from "../../src/core/features/schema";
 import { polygonMask } from "../../src/core/features/geometry";
-import { generate } from "../../src/core/gen/generate";
+import { generate, MAX_ATTEMPTS } from "../../src/core/gen/generate";
 import { runsToTiles, tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
@@ -132,7 +132,7 @@ describe("regeneration keeps the player's work (ROADMAP M3 acceptance)", () => {
     const g = s.regenerate({ settings: { resources: { ruins: 150 } } });
     expect(g.ok).toBe(false);
     expect(g.errors[0]).toMatch(/could not keep the river off your features/);
-    expect(g.failures.length).toBe(12);
+    expect(g.failures.length).toBe(MAX_ATTEMPTS);
     expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(before))).toBe(true);
     expect(s.spec!.settings.resources.ruins).toBe(100);
   });

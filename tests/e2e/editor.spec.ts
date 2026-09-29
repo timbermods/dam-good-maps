@@ -20,10 +20,10 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("generate → refine → back to settings → regenerate → refine keeps the player's edits", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
-  // river's outlet, and the spring below floods it, halving the land it walks to: the checks then
-  // warn of its berries and wood, rightly)
-  await page.goto("./#s=4244&z=96&d=n&t=riverValley");
+  // (seed 4254 since batch 5, D148: 4244's berries by the start now dry out in a drought, which the
+  // quiet dot rightly counts; seed 4244 since M9a: on 0.7.0's 4242 the start stood on a floodplain
+  // a level above the river's outlet, and the spring below flooded it)
+  await page.goto("./#s=4254&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
   // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
   const name = (await page.locator(".card header h2").textContent())?.trim() ?? "";
@@ -110,7 +110,7 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("River Valley (4244).timber");
+  expect((await download).suggestedFilename()).toBe("River Valley (4254).timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // back to settings: the card shows the edited map; change a setting and generate again
@@ -125,7 +125,7 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   await page.getByRole("button", { name: "Generate, keeping my edits" }).click();
   await expect(page.getByRole("button", { name: "Generating…" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Generate, keeping my edits" })).toBeEnabled({ timeout: 120_000 });
-  await expect(page.getByText(/seed 4244 · designed for normal/)).toBeVisible();
+  await expect(page.getByText(/seed 4254 · designed for normal/)).toBeVisible();
   // export from the settings page too
   await page.getByRole("button", { name: /^Export River Valley/ }).click();
   await expect(page.getByRole("dialog").getByText(/checks pass|Warnings/)).toBeVisible({ timeout: 60_000 });
