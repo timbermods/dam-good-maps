@@ -30,6 +30,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [forces.md](forces.md) | The forces: Carve, Craterize, Quake and Erupt on one forces core, and the editor's synthesised sounds (branch `feature/forces`, preview only) | 2026-09-26 |
 | [badwater-source.md](badwater-source.md) | Badwater on every map: a badwater source on every map unless No badwater (D200; generator 0.6.3) | 2026-09-26 |
 | [m9a.md](m9a.md) | M9a: terrain and water from processes (generator 0.7.0, project format 3) | 2026-09-26 |
+| [glaciate.md](glaciate.md) | Glaciate adopted onto the forces core, with the floor's water finished as one river (branch `feature/glaciate`, preview only) | 2026-09-27 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
 | [select-shelf.md](select-shelf.md) | Select, Delete, the shelf and shortcuts (batch 3, D323 and D328; branch `feature/select-shelf`) | 2026-09-29 |
 

@@ -31,10 +31,35 @@ The game's difficulty setting governs the game's difficulty. On the map, challen
 4. It never feels sluggish: small actions respond instantly, and big ones show something happening right away.
 
 ## Real places
+"The primary goal is to preserve the natural features and uniqueness of a real area: converting memorable landscapes into Timberborn worlds you recognise." (Kyler, D331)
+
+From "Playing it", real places take only what never changes the real land, gates a place or drops one (D331): the starting-logs floor and D300's water floor; two reachable mine sites, a badwater spring kept away from the start's water and first farmland, and berries for an Iron Teeth start, wherever the land offers a natural spot; a start with walkable, level surroundings where one qualifies; and the five difficulty levers as information.
+
 1. Someone who knows the place recognises it, and its signature feature is there.
 2. It's a great Timberborn map within a few edits (a water source, a moved start, some trees), not just a pretty copy.
 3. It's a canvas to reimagine: every tool and force works on it like any map, so a player can put a crater in Yosemite Valley and build a mega dam.
 4. The beauty of real places is the unique composition of terrain features. It's wonderful if it's playable, but not meeting the cutoff should not disqualify the place; the editor can fix shortcomings if a place is interesting enough to want to play.
+
+## Playing it
+What makes a generated map good to play (Kyler, feedback item 47; PLAN §20 D325, D331). Real places follow their own section; what they take from this one is listed there.
+
+Every generated map has:
+* Enough wood in the starting zone (the starting-logs floor).
+* Berries near the start, enough for an Iron Teeth start.
+* At least two mine sites, reachable.
+* At least one badwater source, and fresh water the start can pump.
+
+Players hate, so these are rules:
+* Land built at the bottom: the deepest riverbed stands at least 3 levels above the map's floor, so there is room to dig and terraform early.
+* Badwater running far across the map: it stays contained, never crosses the start's water or first farmland, and how much land it reaches is reported per theme.
+* Stairs in the early game: the start's wood, berries, water and first farmland are reachable on foot, counting natural slopes.
+* Heavy terraforming to get going: the start has enough level buildable land for its first buildings.
+
+Players enjoy, so these are added or kept:
+* A good second district site close to the start, behind a small obstacle cleared early (debris, a ditch, trees).
+* High ground next to low, for gravity batteries.
+
+A map's difficulty comes from five levers: farmable land at the start, distance to the nearest metal, distance to the nearest badwater, how easily the start can be sheltered from a badtide, and how much easily buildable land there is. They are measured and shown only in "The page is the editor" (D325).
 
 ## The look
 1. It reads instantly as Timberborn, only cleaner.

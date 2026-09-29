@@ -15,9 +15,10 @@
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
 import type { CarveParams } from "./carve/op";
+import { glaciateDetailsProblem } from "./glaciate/model";
 
-export type Verb = "carve" | "craterize" | "erupt" | "quake";
-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake"];
+export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
+export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
 
 /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
@@ -36,7 +37,8 @@ export type ForceSettingsRecord =
   | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null }
-  | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number };
+  | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number }
+  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean };
 
 export interface ForceResultParams {
   version: 1;
@@ -63,9 +65,10 @@ export interface ForceResultParams {
   /** Carve's Keep river: the water source it leaves at the origin (the group's anchor since D314). */
   source?: { id: string; x: number; y: number; strength: number };
   /** Carve's Keep river since D314: the rest of its source group, a row across the flow beside the
-   *  anchor (core/water/sourceGroups.ts), the strength shared. Absent on carves from before. */
+   *  anchor (core/water/sourceGroups.ts), the strength shared (absent on carves from before); Glaciate's
+   *  springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
   sources?: { id: string; x: number; y: number; strength: number }[];
-  /** Carve's sealed oxbow lake: the water it keeps (carve/water.ts). */
+  /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/water.ts). */
   lake?: RetainedWater;
   /** Try another: the force (its operation's seq) this one replaces. */
   replaces?: number;
@@ -127,12 +130,13 @@ const ENUMS: Record<Verb, Record<string, readonly string[]>> = {
   craterize: { mode: ["strike", "aim"], walls: ["steep", "terraced"], centre: ["auto", "bowl", "peak", "ring", "flat"], debris: ["light", "heavy"] },
   erupt: { mode: ["vent", "fissure"], shape: ["steep", "broad"], summit: ["auto", "peak", "crater", "caldera"], flows: ["light", "heavy"] },
   quake: { mode: ["lift", "slide"], scarp: ["sheer", "stepped"] },
+  glaciate: { mode: ["flow", "aim"] },
 };
-const FLAGS: Record<Verb, readonly string[]> = { carve: ["defyGravity", "dry"], craterize: ["rays"], erupt: ["ridges"], quake: [] };
+const FLAGS: Record<Verb, readonly string[]> = { carve: ["defyGravity", "dry"], craterize: ["rays"], erupt: ["ridges"], quake: [], glaciate: ["meltwater"] };
 
 /** Why a force's settings are not ones its row could set (empty when they are). */
 export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): string[] {
-  const name = verb === "craterize" ? "an impact" : verb === "erupt" ? "an eruption" : `a ${verb}`;
+  const name = verb === "craterize" ? "an impact" : verb === "erupt" ? "an eruption" : verb === "glaciate" ? "a glacier" : `a ${verb}`;
   for (const [k, list] of Object.entries(ENUMS[verb])) if (!list.includes(s[k] as string)) return [`${name}'s ${k} is one of ${list.join(", ")}`];
   for (const k of FLAGS[verb]) if (typeof s[k] !== "boolean") return [`${name}'s ${k} is true or false`];
   const power = s.power as number;
@@ -149,6 +153,12 @@ export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): s
   if (verb === "erupt") {
     const size = s.size as number | null | undefined;
     if (size != null && !(Number.isFinite(size) && size >= 6 && size <= 140)) return ["an eruption's size is 6 to 140 tiles, or null (it follows Power)"];
+  }
+  if (verb === "glaciate") {
+    const size = s.size as number | null;
+    if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 64)) return ["a glacier's size is 4 to 64 tiles, or null (it follows Power)"];
+    const why = glaciateDetailsProblem(s);
+    if (why) return [why];
   }
   if (verb === "craterize") {
     const size = s.size as number | null;
@@ -174,7 +184,7 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
   } else if (!w.origin) return ["a force needs the point it started from"];
   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
-  if ((p.verb === "carve" || p.verb === "craterize") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
+  if ((p.verb === "carve" || p.verb === "craterize" || p.verb === "glaciate") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
   if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
   if (p.tiles.length !== p.heights.length) return ["a force needs a level for each of its tiles"];
   let last = -1;
@@ -198,8 +208,9 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
   for (const f of p.felled ?? []) if (!(Number.isFinite(f.dx) && Number.isFinite(f.dy) && Math.abs(f.dx) <= 1.5 && Math.abs(f.dy) <= 1.5)) return ["a felled tree lies along a direction of length 1 at most"];
-  if (p.sources !== undefined) {
-    if (p.verb !== "carve" || !p.source) return ["only a carve that keeps its river leaves a row of sources"];
+  // a carve that keeps its river leaves the rest of its row (D314); a glacier leaves its springs (D246)
+  if (p.sources !== undefined && p.verb !== "glaciate") {
+    if (p.verb !== "carve" || !p.source) return ["only a carve that keeps its river, or a glacier, leaves a row of sources"];
     if (!Array.isArray(p.sources) || p.sources.length > 15) return ["a carve's row has at most 16 sources"];
     for (const s of p.sources) {
       if (!inMap(s.x, s.y)) return ["the carve's source is off the map"];
@@ -211,8 +222,16 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
     if (!inMap(p.source.x, p.source.y)) return ["the carve's source is off the map"];
     if (!(p.source.strength > 0 && p.source.strength <= 8)) return ["a carve's source gives 0 to 8 water a second"];
   }
+  if (p.sources && p.verb === "glaciate") {
+    if (!Array.isArray(p.sources) || p.sources.length > 256) return ["a glacier leaves 256 springs at most"];
+    for (const q of p.sources) {
+      if (!inMap(q.x, q.y)) return ["a glacier's spring is off the map"];
+      if (!(q.strength > 0 && q.strength <= 8)) return ["a glacier's spring gives 0 to 8 water a second"];
+    }
+    if (new Set(p.sources.map((q) => q.id)).size !== p.sources.length) return ["a glacier's springs each have their own id"];
+  }
   if (p.lake) {
-    if (p.verb !== "carve") return ["only a carve keeps an oxbow lake"];
+    if (p.verb !== "carve" && p.verb !== "glaciate") return ["only a carve or a glacier keeps a lake"];
     const { tiles, floor, depth, contamination } = p.lake;
     if (floor.length !== tiles.length || depth.length !== tiles.length || contamination.length !== tiles.length) return ["a carve's lake needs a floor, a depth and a contamination for each of its tiles"];
     let prev = -1;
@@ -240,5 +259,7 @@ export function forceLabel(p: ForceResultParams): string {
       return p.settings.mode === "fissure" ? "Erupt a fissure" : "Erupt";
     case "quake":
       return p.settings.mode === "slide" ? "Quake: slide" : "Quake: lift";
+    case "glaciate":
+      return "Glaciate";
   }
 }

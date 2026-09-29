@@ -5,9 +5,9 @@
 // slider (D226). The brush kit's toggles are off by default: square, precise (with "stop at" for a
 // hold, D193), straight lines, Clear sources (D249: the sources a stroke passes over go with it);
 // Flatten has "in steps" and its edges; Smooth has none (D247: the
-// shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206: Carve, Craterize,
-// Quake, Erupt; keys 7, 8, 9 and 0) are a group of their own on one shared core, each row Power,
-// Size, at most one choice and Try another, the gesture deciding the rest (D289); all four are ready (D216, D219), and the public site shows none
+// shelf's Slope puts a slope where wanted). Level lines are a view switch (D248). The forces (D194, D202, D203, D206, D246: Carve, Craterize,
+// Quake, Erupt, Glaciate; keys 7, 8, 9, 0 and -) are a group of their own on one shared core, each row Power,
+// Size, at most one choice and Try another, the gesture deciding the rest (D289); all five are ready (D216, D219), and the public site shows none
 // until their release (release.ts, D219). While a force is at work the other tools wait. A small
 // More button at each row's end opens its other settings, each on Auto until pinned (`AutoDetail`,
 // `MoreButton`, `MoreRow`, D309). Built from the shared bar and button styles (D176).
@@ -21,8 +21,8 @@ import type { Verb } from "../core/forces/op";
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
- *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano; a
- *  dashed frame. */
+ *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano, a
+ *  U-shaped valley under its ice; a dashed frame. */
 function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
   switch (tool) {
     case "raise":
@@ -79,6 +79,12 @@ function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
           <path d="M2 17l5-8h6l5 8M8 9l1-2h2l1 2M9 5c0-2 2-2 2-4M12 5c1-1 3-1 3-3" />
         </svg>
       );
+    case "glaciate":
+      return (
+        <svg {...ICON}>
+          <path d="M2 4c2 0 3 2 3 6s2 6 5 6 5-2 5-6 1-6 3-6M7 4c1 2 2 3 3 3s2-1 3-3" />
+        </svg>
+      );
     case "select":
       return (
         <svg {...ICON}>
@@ -110,6 +116,7 @@ export const FORCES: readonly Force[] = [
   { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or drag the way it travels for a glancing blow. Esc takes it back" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "paint a fault: one side lifts, or slides along it (X flips the side). Esc takes it back" },
   { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or drag to open a fissure. Esc takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or drag the way it grinds through the ridges. Esc takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release

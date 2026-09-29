@@ -1,7 +1,7 @@
 // A force's character from the land and its seed (PLAN §20 D289, D309). Every force's row is Power,
 // Size, at most one signature choice and Try another, with everything else behind its More button:
 // Carve's wander, walls and depth; Craterize's walls, centre, debris and rays; Erupt's shape, summit,
-// flows and ridges; Quake's scarp. Every detail starts on Auto (absent from its settings): drawn here
+// flows and ridges; Quake's scarp; Glaciate's benches, steps, tarn and scree. Every detail starts on Auto (absent from its settings): drawn here
 // from the ground round where the force acts and the series' seed. A detail the player pinned (its
 // settings already carry a value) keeps that value; nature draws only what is still absent, so Try
 // another (the next seed) re-rolls only the ones still on Auto. The land leans each Auto choice:
@@ -14,6 +14,7 @@ import type { CarveSettings } from "./carve/run";
 import type { CraterSettings } from "./craterize";
 import type { EruptSettings } from "./erupt";
 import type { QuakeSettings } from "./quake";
+import type { GlaciateSettings } from "./glaciate/model";
 import type { Verb } from "./op";
 
 /** The ground a force acts on: the map's heights and the tile it acts round. */
@@ -110,6 +111,26 @@ export function quakeNature(s: QuakeDraft, g: ForceGround): QuakeSettings {
   return { ...s, scarp } as QuakeSettings;
 }
 
+/** Glaciate's details, before nature draws the ones still on Auto (D309). */
+export type GlaciateDraft = Draft<GlaciateSettings, "benches" | "steps" | "tarn" | "scree">;
+export const AUTO_GLACIATE_DETAILS = { benches: null, steps: null, tarn: null, scree: null } as const;
+
+/** Glaciate: its benches (rugged ground leaves more soft rock to bench), its steps (steep ground
+ *  drops by more of them), a tarn in its cirque (most glaciers keep one), scree at its walls' feet
+ *  (more on rugged ground). Round 4's (some, some, a tarn, scree) the likeliest. */
+export function glaciateNature(s: GlaciateDraft, g: ForceGround): GlaciateSettings {
+  const { rough, rng } = draws("glaciate", s.seed, g);
+  const pick3 = <T>(lo: T, mid: T, hi: T, lean: number): T => {
+    const u = rng.float();
+    return u < 0.2 - 0.1 * lean ? lo : u > 0.8 - 0.1 * lean ? hi : mid;
+  };
+  const benches = s.benches ?? pick3("none", "some", "many", rough);
+  const steps = s.steps ?? pick3("few", "some", "many", rough);
+  const tarn = s.tarn ?? chance(rng, 0.85);
+  const scree = s.scree ?? chance(rng, 0.6 + 0.3 * rough);
+  return { ...s, benches, steps, tarn, scree } as GlaciateSettings;
+}
+
 /** Every detail behind `verb`'s More, reset to Auto (D309): `forceAgain`'s default when the caller
  *  sends no pins, and the base a pinned subset is applied over. */
 export function autoDetailsOf(verb: Verb): Record<string, null> {
@@ -122,5 +143,7 @@ export function autoDetailsOf(verb: Verb): Record<string, null> {
       return AUTO_ERUPT_DETAILS;
     case "quake":
       return AUTO_QUAKE_DETAILS;
+    case "glaciate":
+      return AUTO_GLACIATE_DETAILS;
   }
 }

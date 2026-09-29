@@ -40,6 +40,8 @@ import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } 
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
+import { DEFAULT_GLACIATE, glaciateDetails, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
+import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forceReach } from "../core/forces/reach";
 import { MAX_WAYPOINTS } from "../core/forces/carve/run";
 import { waypointTiles, Waypoints, type Waypoint } from "./waypoints";
@@ -178,14 +180,17 @@ export default function Editor(props: EditorProps) {
   const [forceCursor, setForceCursor] = useState<[number, number] | null>(null);
   /** The force's reach round the cursor (D312): a faint ring, its radius from Power and Size. */
   const [forceRing, setForceRing] = useState<{ x: number; y: number; r: number } | null>(null);
-  /** Carve's waypoints (D312): the shared gesture (waypoints.ts), drawn on the land as they are
-   *  dropped; launched, the carve runs from the first through the rest to the last. */
+  /** Carve's and Glaciate's waypoints (D312): the shared gesture (waypoints.ts), drawn on the land as
+   *  they are dropped; launched, the force picked runs from the first through the rest to the last. */
   const [waypointsShown, setWaypointsShown] = useState<readonly Waypoint[]>([]);
   const waypoints = useRef<Waypoints | null>(null);
   waypoints.current ??= new Waypoints(
     {
       changed: (points) => setWaypointsShown(points.slice()),
-      launch: (points) => forceCalls.current!.carve(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][]),
+      launch: (points) =>
+        toolRef.current === "glaciate"
+          ? forceCalls.current!.glaciate(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][])
+          : forceCalls.current!.carve(points[0], points[points.length - 1], points.slice(1, -1) as [number, number][]),
     },
     MAX_WAYPOINTS,
   );
@@ -1530,6 +1535,9 @@ export default function Editor(props: EditorProps) {
     quakeUiRef.current = u;
     setQuakeUiState(u);
   };
+  const [glaciateUi, setGlaciateUi] = useState<GlaciateUi>({ ...DEFAULT_GLACIATE, ...forcesPrefs.glaciate });
+  const glaciateUiRef = useRef(glaciateUi);
+  glaciateUiRef.current = glaciateUi;
   /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
   const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
   // the pins and the open More panels are remembered with the player's other editor preferences
@@ -1541,8 +1549,9 @@ export default function Editor(props: EditorProps) {
       craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
       erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
       quake: { scarp: quakeUi.scarp },
+      glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
     });
-  }, [moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp]);
+  }, [moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -1611,7 +1620,7 @@ export default function Editor(props: EditorProps) {
   }
 
   // (the driver lives as long as the editor; it calls the latest of these)
-  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void } | null>(null);
+  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void; glaciate(origin: [number, number], end: [number, number], via: [number, number][]): void } | null>(null);
   forceCalls.current = {
     keep: () =>
       enqueue(async () => {
@@ -1642,6 +1651,7 @@ export default function Editor(props: EditorProps) {
       }),
     show: showForceFrame,
     carve: startCarve,
+    glaciate: (origin, end, via) => startForce({ verb: "glaciate", settings: glaciateSettingsOf(glaciateUiRef.current), origin, end, ...(via.length ? { via } : {}), cut: renderer.current?.slice ?? null }),
   };
   const forcer = useRef<ForceDriver | null>(null);
   forcer.current ??= new ForceDriver({
@@ -1662,7 +1672,9 @@ export default function Editor(props: EditorProps) {
                   ? eruptDetails(eruptUiRef.current)
                   : verb === "quake"
                     ? quakeDetails(quakeUiRef.current)
-                    : undefined;
+                    : verb === "glaciate"
+                      ? glaciateDetails(glaciateUiRef.current)
+                      : undefined;
           return api.forceAgain(pins);
         }
         return api.forceStart(q);
@@ -1806,7 +1818,10 @@ export default function Editor(props: EditorProps) {
     setAimArrow(null);
     setForceCursor(null);
     if (!painting) setForceStroke(null);
-    void forcer.current?.start(false, painting);
+    // (refused: the ice gathered under the pointer goes too)
+    void forcer.current?.start(false, painting).then((ok) => {
+      if (!ok) renderer.current?.clearForce();
+    });
   }
 
   function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][]) {
@@ -1832,6 +1847,9 @@ export default function Editor(props: EditorProps) {
         return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
       case "quake":
         return forceReach({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current) });
+      case "glaciate":
+        // (its width: where it goes depends on the land)
+        return glacierSize(glaciateUiRef.current) / 2;
       default:
         return null;
     }
@@ -1860,7 +1878,7 @@ export default function Editor(props: EditorProps) {
     const r = reachNow();
     if (r === null) setForceRing(null);
     else if (r !== ring.r) setForceRing({ ...ring, r });
-  }, [carveUi, craterUi, eruptUi, quakeUi, tool]);
+  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, tool]);
 
   // Carve takes the map's clicks and drags while it is picked (D258, D289: the gesture is the mode): a
   // click unleashes it where the cursor is; a drag aims it, with only a thin arrow from where it
@@ -2004,7 +2022,7 @@ export default function Editor(props: EditorProps) {
   // only word is Erupt's when a vent can't rise at all.
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !tool || tool === "carve") return;
+    if (!r || !tool || tool === "carve" || tool === "glaciate") return;
     const verb = tool;
     let down: TileHit | null = null;
     let brush: FaultBrush | null = null;
@@ -2175,6 +2193,105 @@ export default function Editor(props: EditorProps) {
       setForceCursor(null);
       setAimArrow(null);
       setShapeNote(null);
+    };
+  }, [tool, ready]);
+
+  // Glaciate takes the map's clicks and drags while picked (D258, D291): the ice gathers under the
+  // pointer the moment it is pressed; a click Flows (the glacier follows the valleys down from there);
+  // a drag of six pixels or more Aims, with only a thin arrow from where it began to the pointer, and
+  // on release it grinds that way through the ridges. Nothing predicts its valley on the land; the
+  // camera never moves (D265).
+  useEffect(() => {
+    const r = renderer.current;
+    if (!r || tool !== "glaciate") return;
+    let down: { hit: TileHit; x: number; y: number } | null = null;
+    let aiming = false;
+    /** A Shift+click drops a waypoint (D312), never a drag or a gather of its own. */
+    let dropping = false;
+    const wp = waypoints.current!;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const point = (hit: TileHit): [number, number] => [Math.max(0, Math.min(W - 1, hit.x)), Math.max(0, Math.min(H - 1, hit.y))];
+    const gather = (at: [number, number] | null) => {
+      if (!at) return renderer.current?.clearForce();
+      const u = glaciateUiRef.current;
+      const z = mirror.current.heights[at[1] * W + at[0]] ?? 0;
+      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u), power: u.power, glaciate: { seconds: 0 } });
+    };
+    const t: PointerTool = {
+      down: (hit, ev) => {
+        if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        down = { hit, x: ev.clientX, y: ev.clientY };
+        aiming = false;
+        dropping = ev.shiftKey;
+        notePointer(ev);
+        showForceCursor(null);
+        if (!dropping) gather(point(hit));
+        return true;
+      },
+      move: (_hit, ev) => {
+        notePointer(ev);
+        if (!down || dropping) return;
+        if (!aiming && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) >= 6) {
+          aiming = true;
+          gather(null);
+        }
+        if (aiming) setAimArrow({ from: point(down.hit), to: { x: ev.clientX, y: ev.clientY } });
+      },
+      up: (hit) => {
+        const d = down;
+        const aimed = aiming;
+        const drop = dropping;
+        down = null;
+        aiming = false;
+        dropping = false;
+        setAimArrow(null);
+        if (!d) return;
+        const from = point(d.hit);
+        const to = hit ? point(hit) : null;
+        // Shift+click: a waypoint; a click with waypoints down: launch, this tile the end (D312)
+        if (drop) return wp.add(from);
+        if (!aimed && wp.click(from)) return void gather(null);
+        // (a drag aims, as before; waypoints dropped before it go)
+        if (aimed) wp.clear();
+        // (an Aim needs somewhere to go: let go off the map, or where it began, and nothing happens)
+        if (aimed && (!to || (to[0] === from[0] && to[1] === from[1]))) return void gather(null);
+        startForce({ verb: "glaciate", settings: glaciateSettingsOf(glaciateUiRef.current), origin: from, ...(aimed ? { end: to! } : {}), cut: renderer.current?.slice ?? null });
+      },
+      hover: (hit, ev) => {
+        notePointer(ev);
+        if (down) return;
+        showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
+      },
+      cancel: () => {
+        if (down && !dropping && !forcer.current?.running) gather(null);
+        down = null;
+        aiming = false;
+        dropping = false;
+        setAimArrow(null);
+      },
+    };
+    r.tool = t;
+    forceEscRef.current = () => {
+      // (Esc drops the waypoints too)
+      if (!down) return wp.key("Escape");
+      down = null;
+      aiming = false;
+      dropping = false;
+      setAimArrow(null);
+      if (!forcer.current?.running) gather(null);
+      return true;
+    };
+    forceKeyRef.current = (key) => wp.key(key);
+    return () => {
+      if (r.tool === t) r.tool = null;
+      forceEscRef.current = null;
+      forceKeyRef.current = null;
+      wp.clear();
+      cancelAnimationFrame(cursorFrame.current);
+      if (down && !forcer.current?.running) renderer.current?.clearForce();
+      setAimArrow(null);
+      setForceCursor(null);
     };
   }, [tool, ready]);
 
@@ -2357,6 +2474,7 @@ export default function Editor(props: EditorProps) {
     const again = () => void forceAgain();
     if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
     if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
     return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 
@@ -3056,7 +3174,7 @@ export default function Editor(props: EditorProps) {
         pickShelf(shelfRef.current?.id === "water-source" ? null : SHELF.find((it) => it.id === "water-source")!);
         return;
       }
-      // 7, 8, 9, 0: Carve, Craterize, Quake, Erupt (again: put it away)
+      // 7, 8, 9, 0, -: Carve, Craterize, Quake, Erupt, Glaciate (again: put it away)
       const forceKey = FORCES.find((f) => f.key === ev.key);
       if (!mod && !ev.altKey && forceKey && painter.current && forceShown(forceKey.id)) {
         pickTop(toolRef.current === forceKey.id ? null : forceKey.id);
@@ -3487,6 +3605,7 @@ interface ForcesPrefs {
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
   erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges">;
   quake: Pick<QuakeUi, "scarp">;
+  glaciate: Pick<GlaciateUi, "benches" | "steps" | "tarn" | "scree">;
 }
 
 const AUTO_FORCES_PREFS: ForcesPrefs = {
@@ -3495,6 +3614,7 @@ const AUTO_FORCES_PREFS: ForcesPrefs = {
   craterize: { walls: null, centre: null, debris: null, rays: null },
   erupt: { shape: null, summit: null, flows: null, ridges: null },
   quake: { scarp: null },
+  glaciate: { benches: null, steps: null, tarn: null, scree: null },
 };
 
 /** `v` if it is one of `options`, else `null` (a detail left on Auto: a stray or outdated value
@@ -3505,16 +3625,17 @@ function among<T>(v: unknown, options: readonly T[]): T | null {
 
 function loadForcesPrefs(): ForcesPrefs {
   try {
-    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown> }> | null;
+    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
     if (!s) return AUTO_FORCES_PREFS;
     const more: Partial<Record<Verb, boolean>> = {};
-    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
+    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
     return {
       more,
       carve: { wander: typeof s.carve?.wander === "number" ? s.carve.wander : null, walls: among(s.carve?.walls, ["steep", "wide"]), depth: typeof s.carve?.depth === "number" ? s.carve.depth : null },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
       erupt: { shape: among(s.erupt?.shape, ["steep", "broad"]), summit: among(s.erupt?.summit, ["auto", "peak", "crater", "caldera"]), flows: among(s.erupt?.flows, ["light", "heavy"]), ridges: typeof s.erupt?.ridges === "boolean" ? s.erupt.ridges : null },
       quake: { scarp: among(s.quake?.scarp, ["sheer", "stepped"]) },
+      glaciate: { benches: among(s.glaciate?.benches, ["none", "some", "many"]), steps: among(s.glaciate?.steps, ["few", "some", "many"]), tarn: typeof s.glaciate?.tarn === "boolean" ? s.glaciate.tarn : null, scree: typeof s.glaciate?.scree === "boolean" ? s.glaciate.scree : null },
     };
   } catch {
     return AUTO_FORCES_PREFS;
