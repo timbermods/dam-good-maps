@@ -80,8 +80,19 @@ editor is desktop-first (D185).
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
-  cursor, green where it fits and red where it doesn't, with the reason in a quiet word. Click to
-  place, R to rotate, Esc to put it back; drag trees and bushes to paint them in natural clusters.
+  cursor, green where it fits and red where it doesn't, with **one label** beside the pointer (D323, item 32): the
+  reason where it doesn't fit, "Move the start here" for the start where it does, "Place here" for the rest; nothing
+  picked, no label. Click to place, R to rotate; **Esc or a right-click puts a picked object away** (a right-drag is
+  still the camera). **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go
+  over the map places it there (the start moves the map's one start), and a drag that doesn't place, released off the
+  map or where it can't stand (the reason shows for a moment), always ends placement. The drag is the page's own pointer
+  drag, never the browser's: only a real file dragged in from outside the page can open a file, so dragging an icon
+  never offers to close the map. Drag trees and bushes on the map to paint them in natural clusters.
+  **Placed objects fit the land** (D328, extending D290): an object that needs level ground (a mine site, a relic, a
+  geothermal field, an opened map's start) placed on uneven ground cuts its own footprint down to the lowest tile under
+  it (the start's door too), in the placement's one undo step, never filling, so no water is dammed; it refuses only at
+  the map's edge, in a cave and on another object's tiles, with one plain reason. A generated map's start already levels
+  its own bench.
   **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
   bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
   size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
@@ -295,7 +306,8 @@ Make a valley, drop a source, and there's a river.
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
   pointer over water or bare ground within about two tiles of a source targets it, above or under water (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes the targeted source, one undo step, its water
-  receding live. **A badwater source cuts its own spring pool** (D290): it is 3 × 3 in the game and needs level ground,
+  receding live. **A badwater source cuts its own spring pool** (D290, generalised to every object by D328: one
+  `levelFootprint` in `core/doc/placing.ts`): it is 3 × 3 in the game and needs level ground,
   so where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest of
   them (never filled, so its water isn't dammed) and what stood on them goes, a small level pool in the same undo step;
   it refuses only at the map's edge, in a cave and on the start. Every placement refusal is one plain reason ("the
@@ -610,6 +622,11 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each highlighted on the map; clicking one flies the camera to it.
   - **Error** (load class): the file would crash the game, lose objects on load, or start without beavers. Export is blocked until fixed.
   - **Warning** (playability or design class): a playability problem (flooded start, no water nearby, a map above height 16). It shows on the quiet dot and never blocks export; the warning is noted in the map description.
+- **Edge walls warn on an edited map** (D323, item 12; D151 still holds for the generator and Real places): a wall
+  raised along a map edge (`terrain.edge_wall`) is a warning on the quiet dot, never a block on a save, with the
+  one-click fix **Lower the wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in
+  `core/validate/checks.ts`). The session's checks run with `editing: true`; generated maps (`generate` profile) and the
+  Real places conversions do not, so they still guarantee no walls.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal edit operation, applied live and undoable.
 - **Water preview:** the settled water of the prototype's port of the game's rules (`PLAN.md` §10).
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
@@ -875,7 +892,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   (`forceDriver.ts`, paced by the water speed; a frame that fails to show never stops a force, and a
   worker that fails takes all of it back, as Esc would). Which builds show the forces:
   `src/editor/release.ts` (D219).
-- "The start fits here" (D204): after a Flatten stroke the page looks, once it is idle, for a spot on
+- "Move the start here" (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a
   small worker of its own, so the page never waits for it.

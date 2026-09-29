@@ -10,6 +10,7 @@ import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import type { CheckItem } from "../../src/worker/session";
 
 const W = 64;
 
@@ -21,7 +22,7 @@ function raiseWall(): void {
   expect(r.ok).toBe(true);
 }
 
-const wallItem = (items: { id: string }[]) => items.find((i) => i.id === "terrain.edge_wall");
+const wallItem = (items: CheckItem[]) => items.find((i) => i.id === "terrain.edge_wall");
 
 describe("an edge wall on an edited map (D323)", () => {
   it("warns and never blocks the save; Lower the wall is one undo step and leaves no wall", async () => {
