@@ -12,7 +12,10 @@ for f in sys.argv[1:]:
         a = [m for m in ms if t == 'ALL' or m['theme'] == t]
         o = [m for m in a if m.get('outcomes')]
         tt = [m['ms']['final'] / 1000 for m in a]
-        print(f'  {t:12s} all three {sum(m["outcomes"]["met"] for m in o)}/{len(o)} (promise {sum(m["outcomes"]["promise"] for m in o)}, water {sum(m["outcomes"]["water"] for m in o)}, standout {sum(m["outcomes"]["standout"] for m in o)}) | to the map s: median {med(tt):.1f}, p90 {p90(tt):.1f}, max {max(tt):.1f} | first attempt {sum(1 for m in a if m["attempts"] == 1)}/{len(a)}')
+        land = [m['ms']['land'] / 1000 for m in a if m['ms'].get('land', -1) >= 0]
+        water = [m['ms']['water'] / 1000 for m in a if m['ms'].get('water', -1) >= 0]
+        lw = f' | land s {med(land):.1f}/{p90(land):.1f}, settled water s {med(water):.1f}/{p90(water):.1f}' if land else ''
+        print(f'  {t:12s} all three {sum(m["outcomes"]["met"] for m in o)}/{len(o)} (promise {sum(m["outcomes"]["promise"] for m in o)}, water {sum(m["outcomes"]["water"] for m in o)}, standout {sum(m["outcomes"]["standout"] for m in o)}){lw} | to the map s: median {med(tt):.1f}, p90 {p90(tt):.1f}, max {max(tt):.1f} | first attempt {sum(1 for m in a if m["attempts"] == 1)}/{len(a)}')
     spent = collections.defaultdict(lambda: [0, 0.0])
     for m in ms:
         for s in m.get('spent', []):

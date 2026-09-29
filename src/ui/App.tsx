@@ -156,6 +156,8 @@ export function App() {
   /** D329: a version of the map that meets every outcome, found in the background, for the player to
    *  take or ignore (until "The page is the editor" draws the candidates strip). */
   const [version, setVersion] = useState<{ response: GenerateResponse; note: string } | null>(null);
+  /** A version found for its water alone, kept quietly (D333 (5)): Another like this shows it. */
+  const quiet = useRef<GenerateResponse | null>(null);
   const background = useRef<ReturnType<typeof createBackground> | null>(null);
   /** The map shown came from the background: its project opens in the editor. */
   const shownVersion = useRef<Uint8Array | null>(null);
@@ -237,13 +239,16 @@ export function App() {
   function stopBackground() {
     background.current?.stop();
     background.current = null;
+    quiet.current = null;
     setVersion(null);
   }
 
   /** D329: the map missed an outcome that matters (its theme's promise, or readable water): look for
-   *  a version that meets all three in a worker of its own, while the player keeps going. */
+   *  a version that meets all three in a worker of its own, while the player keeps going. Only a
+   *  missed promise gets a note (D333 (5)); a version found for its water is kept quietly. */
   function searchVersion(r: GenerateResponse) {
     stopBackground();
+    quiet.current = null;
     if (!r.passed || !r.version) return;
     const note = r.version.note;
     const bg = createBackground();
@@ -253,7 +258,9 @@ export function App() {
         if (background.current !== bg) return;
         bg.stop();
         background.current = null;
-        if (found?.passed) setVersion({ response: found, note });
+        if (!found?.passed) return;
+        if (note) setVersion({ response: found, note });
+        else quiet.current = found;
       },
       () => undefined,
     );
@@ -334,6 +341,16 @@ export function App() {
   async function anotherLikeThis(): Promise<GenerateResponse | null> {
     if (!result) return null;
     const from = result;
+    // (a version the background search kept quietly, D333 (5): shown at once)
+    const kept = quiet.current;
+    if (kept && !edited) {
+      stopBackground();
+      shownVersion.current = kept.project;
+      setResult(kept);
+      setSibling(kept.spec.variation ? { variation: kept.spec.variation, intentions: kept.spec.intentions ?? kept.intentions } : null);
+      history.replaceState(null, "", "#" + encodeSpecFragment(kept.spec));
+      return kept;
+    }
     let variation = (from.spec.variation ?? 0) + 1;
     for (let tries = 0; tries < 3; tries++) {
       const next = { variation, intentions: from.spec.intentions ?? from.intentions };

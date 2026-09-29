@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { findVersion, missesOf, siblingSpec, versionNote, worthSearching } from "../../src/core/gen/versions";
+import { findVersion, missesOf, notifies, siblingSpec, versionNote, worthSearching } from "../../src/core/gen/versions";
 import { encodeSpecFragment, decodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
 describe("the first map that passes is the map (D329)", () => {
@@ -17,10 +17,14 @@ describe("the first map that passes is the map (D329)", () => {
     expect(r.outcomes).toBeDefined();
   });
 
-  it("which misses start a search, and what the note says", () => {
+  it("which misses start a search, which get a note (D333 (5): only a missed promise), and what it says", () => {
     expect(worthSearching({ promise: true, water: false, standout: false })).toBe(true);
     expect(worthSearching({ promise: false, water: true, standout: false })).toBe(true);
     expect(worthSearching({ promise: false, water: false, standout: true })).toBe(false);
+    expect(notifies({ promise: true, water: false, standout: false })).toBe(true);
+    expect(notifies({ promise: true, water: true, standout: false })).toBe(true);
+    expect(notifies({ promise: false, water: true, standout: false })).toBe(false);
+    expect(notifies({ promise: false, water: false, standout: true })).toBe(false);
     expect(versionNote("islands", { promise: true, water: false, standout: false })).toBe("A version with its sea is ready");
     expect(versionNote("riverValley", { promise: true, water: true, standout: false })).toBe("A version with its broad valley and clearer water is ready");
     expect(versionNote("any", { promise: false, water: true, standout: false })).toBe("A version with water you can follow is ready");

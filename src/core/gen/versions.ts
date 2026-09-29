@@ -31,11 +31,17 @@ export function missesOf(o: Outcomes): Misses {
   return { promise: !o.promise, water: !o.story.readable, standout: !o.standout };
 }
 
-/** Whether a miss is worth a background search and a note (the session's default, from Kyler's
- *  suggestion, decisions-pending): the theme's promise and readable water yes, a missing standout
- *  no (every map shows a character of its own, found or steered). */
+/** Whether a miss is worth a background search: the theme's promise or readable water, not a
+ *  missing standout (every map shows a character of its own, found or steered). */
 export function worthSearching(m: Misses): boolean {
   return m.promise || m.water;
+}
+
+/** Whether the version found gets a note (D333 (5), settling #144): for now only a missed theme
+ *  promise; a version found for its water alone is kept quietly for the strip (today's page: Another
+ *  like this shows it), while readable water is missed on so many first maps. */
+export function notifies(m: Misses): boolean {
+  return m.promise;
 }
 
 /** What a version that meets all three has that the map missed, in a few words, for its note:

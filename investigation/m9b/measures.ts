@@ -51,9 +51,11 @@ export interface MapMeasure {
   ok: boolean;
   attempts: number;
   failures: string[];
-  ms: { firstLook: number; firstCandidate: number; final: number };
+  ms: { firstLook: number; firstCandidate: number; final: number; land: number; water: number };
+  /** The map's outcomes' misses named (for the per-theme shares). */
+  misses?: string[];
   /** The map's outcomes (D329: the first map that passes is the map). */
-  outcomes: { met: boolean; promise: boolean; water: boolean; standout: boolean } | null;
+  outcomes: { met: boolean; promise: boolean; water: boolean; standout: boolean; summary?: string; story?: unknown; signature?: unknown } | null;
   /** Each failed attempt's reason and the milliseconds it took. */
   spent: { why: string; ms: number }[];
   heights: { bedMin: number; landMin: number; max: number; above16: number; small: number };
@@ -175,8 +177,8 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     ok: r.report.passed,
     attempts: r.attempts,
     failures: r.failures.map((f) => f.failed.join(' + ')),
-    ms: { firstLook: Math.round(firstLook), firstCandidate: Math.round(firstCandidate), final: Math.round(final) },
-    outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout } : null,
+    ms: { firstLook: Math.round(firstLook), firstCandidate: Math.round(firstCandidate), final: Math.round(final), land: r.timings.firstLook, water: r.timings.firstWater },
+    outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout, summary: r.outcomes.summary, story: r.outcomes.story, signature: r.outcomes.signature } : null,
     spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: (f as { ms?: number }).ms !== undefined ? (f as { ms: number }).ms - (k ? ((r.failures[k - 1] as { ms?: number }).ms ?? 0) : 0) : -1 })),
     heights: { bedMin, landMin, max, above16, small },
     trees: { living, dead, succulent },

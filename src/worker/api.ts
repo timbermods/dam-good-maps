@@ -9,7 +9,7 @@ import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
 import { writeTimber } from "../core/format/timber";
 import { generate, type GenerateResult } from "../core/gen/generate";
-import { findVersion, missesOf, versionNote, worthSearching, type Misses } from "../core/gen/versions";
+import { findVersion, missesOf, notifies, versionNote, worthSearching, type Misses } from "../core/gen/versions";
 import { fileName, mapName, description, toTimberFile } from "../core/gen/pack";
 import type { MapSpec } from "../core/spec/mapspec";
 import { rulesFor, type PlayabilityAnalysis } from "../core/validate/playability";
@@ -86,9 +86,10 @@ export interface GenerateResponse {
   edits: number;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
-  /** D329: the outcomes a generated map missed, and the note a version meeting them all would get
-   *  ("A version with its sea is ready"), when a background search for one is worth starting. */
-  version?: { misses: Misses; note: string } | null;
+  /** D329: the outcomes a generated map missed, when a background search for a version meeting
+   *  them all is worth starting, and the note that version gets ("A version with its sea is ready"),
+   *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
+  version?: { misses: Misses; note: string | null } | null;
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -278,7 +279,7 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     // (a miss worth a background search, D329)
     if (r.report.passed && r.outcomes) {
       const m = missesOf(r.outcomes);
-      resp.version = worthSearching(m) ? { misses: m, note: versionNote(r.spec.theme, m) } : null;
+      resp.version = worthSearching(m) ? { misses: m, note: notifies(m) ? versionNote(r.spec.theme, m) : null } : null;
     }
     return resp;
   });
