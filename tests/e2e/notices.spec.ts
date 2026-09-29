@@ -40,8 +40,12 @@ for (const size of [
     // every source away (the map's badwater springs with them): the map is a No badwater map now
     await page.keyboard.press("m");
     await page.keyboard.press("Control+a");
-    await page.getByRole("group", { name: "Selection" }).getByRole("button", { name: "Delete sources" }).click();
-    await idle(page);
+    const row = page.getByRole("group", { name: "Selection" });
+    for (const name of [/^Water sources/, /^Badwater sources/]) {
+      await row.getByRole("button", { name: "Delete", exact: true }).click();
+      await page.getByRole("menu", { name: "Delete" }).getByRole("menuitem", { name }).click();
+      await idle(page);
+    }
     await page.keyboard.press("Escape");
     const notices = page.locator(".editor-notices");
     await expect(notices).toContainText("No badwater");

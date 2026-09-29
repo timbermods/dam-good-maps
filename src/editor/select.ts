@@ -10,18 +10,51 @@
 // is open it is the working area (D254): the brushes and the forces work only inside it.
 
 import { polygonMask } from "../core/features/geometry";
+import { removeKindOf, type RemoveKind } from "../core/features/objects";
 import type { Point } from "../core/features/schema";
 import type { PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
 
 export type SelectMode = "rect" | "circle" | "free" | "brush" | "wand";
-export const SELECT_MODES: [SelectMode, string][] = [
-  ["rect", "Rectangle"],
-  ["circle", "Circle"],
-  ["free", "Freehand"],
-  ["brush", "Brush"],
-  ["wand", "Wand"],
+/** The marking modes: shown as icons, each with a plain one-line tooltip (D323 item 6). */
+export const SELECT_MODES: [SelectMode, string, string][] = [
+  ["rect", "Rectangle", "drag a box"],
+  ["circle", "Circle", "drag out from the middle"],
+  ["free", "Freehand", "draw an outline"],
+  ["brush", "Brush", "paint it in with the brush ring"],
+  ["wand", "Wand", "click a level, or a whole lake or river"],
 ];
+
+/** What Delete can take in the selection (D323 item 1), as the menu groups it. */
+export type DeleteGroup = "everything" | "water" | "badwater" | "start" | "ruins" | "trees" | "bushes" | "rest";
+export const DELETE_GROUPS: [Exclude<DeleteGroup, "everything">, string][] = [
+  ["water", "Water sources"],
+  ["badwater", "Badwater sources"],
+  ["start", "Start"],
+  ["ruins", "Ruins"],
+  ["trees", "Trees"],
+  ["bushes", "Bushes"],
+  ["rest", "Slopes and the rest"],
+];
+/** The removal kinds each group takes. */
+export const DELETE_KINDS: Record<Exclude<DeleteGroup, "everything">, RemoveKind[]> = {
+  water: ["water"],
+  badwater: ["badwater"],
+  start: ["start"],
+  ruins: ["ruins"],
+  trees: ["trees"],
+  bushes: ["bushes"],
+  rest: ["slopes", "objects"],
+};
+
+/** The Delete group an object of this template is in. */
+export function deleteGroupOf(template: string): Exclude<DeleteGroup, "everything"> | null {
+  const kind = removeKindOf(template);
+  if (!kind) return null;
+  if (kind === "sources") return template === "BadwaterSource" ? "badwater" : "water";
+  if (kind === "slopes" || kind === "objects") return "rest";
+  return kind === "water" || kind === "badwater" || kind === "start" || kind === "ruins" || kind === "trees" || kind === "bushes" ? kind : null;
+}
 
 /** The selected tiles, and their extent. */
 export class Selection {

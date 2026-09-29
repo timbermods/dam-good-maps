@@ -113,6 +113,8 @@ export interface HeaderProps {
   onSave(kind: "timberborn" | "download"): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
+  onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
   onBack(): void;
@@ -191,6 +193,11 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
+              <li role="none">
+                <button type="button" role="menuitem" title="Take away every source, tree, bush, ruin, object and the start; the land stays" onClick={pick(p.onClearEverything)}>
+                  Clear everything
+                </button>
+              </li>
               <li role="none">
                 <button type="button" role="menuitem" aria-pressed={p.historyOpen} onClick={pick(p.onHistory)}>
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}

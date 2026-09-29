@@ -318,6 +318,11 @@
   box-shadow: none;
 }
 
+.select-menu {
+  left: 0;
+  right: auto;
+}
+
 .menu button:hover,
 .menu button:focus-visible {
   background: var(--code);

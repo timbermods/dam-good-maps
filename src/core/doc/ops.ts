@@ -41,7 +41,7 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
   /** A carve, a force of nature (D194, D199), its result stored literally (forces/carve/op.ts): the

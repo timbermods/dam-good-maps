@@ -119,7 +119,8 @@
         "cells": { "$ref": "#/$defs/runs" },
         "amount": { "type": "integer", "minimum": 1, "maximum": 22 },
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
-        "step": { "type": "integer", "minimum": 2, "maximum": 8 }
+        "step": { "type": "integer", "minimum": 2, "maximum": 8 },
+        "exact": { "type": "boolean" }
       }
     },
     "carve": {

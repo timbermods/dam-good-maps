@@ -4,11 +4,11 @@
 // as the target. While a selection is open it is the working area: a brush stroke changes nothing
 // outside it (and eases to its edge), with the Select row a chip beside the brush. The Wand takes a
 // river's visible water and no bank tile; a Raise across it and its banks changes no bank tile, and
-// Set level sets its bed in one step. Ctrl+A selects the map; Cut down leaves no ground above the
+// Flatten sets its bed in one step. Ctrl+A selects the map; Cut down leaves no ground above the
 // level and Fill up raises only the ground below it; Max water depth raises the ground under deeper
 // water.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -55,16 +55,31 @@ async function drag(page: Page, from: [number, number], to: [number, number], st
   await page.mouse.up();
 }
 
+/** Open the Select row's Delete menu and take the choice named (its counts beside it); `optional`: the
+ *  choice may not be there (nothing of that kind stands in the selection). */
+async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = false) {
+  await row.getByRole("button", { name: "Delete", exact: true }).click();
+  const item = page.getByRole("menu", { name: "Delete" }).getByRole("menuitem", { name });
+  if (optional && (await item.count()) === 0) {
+    await page.keyboard.press("Escape");
+    return;
+  }
+  await item.click();
+}
+
 test("Select: its button and shapes; a circle set to a level changes exactly its tiles, one step; Ctrl+click takes a level; the working area keeps a stroke inside, with the row a chip", async ({ page }) => {
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   await bar.getByRole("button", { name: "Select (M)" }).click();
   const row = page.getByRole("group", { name: "Selection" });
   await expect(row).toBeVisible();
-  await expect(row.getByRole("combobox", { name: "How to select" }).locator("option")).toHaveText(["Rectangle", "Circle", "Freehand", "Brush", "Wand"]);
+  // the marking modes are icons, each named; Whole map sits beside them (D323 items 6 and 43)
+  const modes = await row.getByRole("group", { name: "How to select" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  expect(modes).toEqual(["Rectangle", "Circle", "Freehand", "Brush", "Wand"]);
+  await expect(row.getByRole("button", { name: "Whole map" })).toBeVisible();
 
   // a circle, dragged from its middle out: its radius beside the pointer
-  await row.getByRole("combobox", { name: "How to select" }).selectOption("circle");
+  await row.getByRole("button", { name: "Circle" }).click();
   const c = await dryAt(page);
   const a = await client(page, c[0], c[1]);
   const b = await client(page, c[0] + 4, c[1]);
@@ -85,17 +100,17 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   await page.keyboard.down("Control");
   await page.mouse.click(tp.x, tp.y);
   await page.keyboard.up("Control");
-  await expect(row.getByRole("combobox", { name: "Level", exact: true })).toHaveValue(String(h0[t[1] * W + t[0]]));
-  // Set level's list reaches the editor's one ceiling, 22 on every map (D244, D259)
-  await expect(row.getByRole("combobox", { name: "Level", exact: true }).locator("option").last()).toHaveText("22");
-  // Set level (one level above it): exactly the circle's tiles, one undo step
+  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(h0[t[1] * W + t[0]]));
+  // the level reaches the editor's one ceiling, 22 on every map (D244, D259)
+  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveAttribute("max", "22");
+  // Flatten (one level above it): exactly the circle's tiles, one undo step
   const L = Math.min(22, h0[t[1] * W + t[0]] + 1);
-  await row.getByRole("combobox", { name: "Level", exact: true }).selectOption(String(L));
+  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
   const n0 = (await labels(page)).length;
-  await row.getByRole("button", { name: "Set level" }).click();
+  await row.getByRole("button", { name: "Flatten" }).click();
   await idle(page);
   expect(await labels(page)).toHaveLength(n0 + 1);
-  expect((await labels(page)).at(-1)).toBe(`Set ${circle.length} tiles to level ${L}`);
+  expect((await labels(page)).at(-1)).toBe(`Flatten ${circle.length} tiles to level ${L}`);
   const h1 = await heights(page);
   const inCircle = new Set(circle);
   for (let i = 0; i < h1.length; i++) expect(h1[i], `tile ${i}`).toBe(inCircle.has(i) ? L : h0[i]);
@@ -138,11 +153,11 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   expect(await selection(page)).toEqual([]);
 });
 
-test("the Wand (D261): a river's visible water and no bank tile; land at its level; a Raise across it changes no bank; Set level sets its bed", async ({ page }) => {
+test("the Wand (D261): a river's visible water and no bank tile; land at its level; a Raise across it changes no bank; Flatten sets its bed", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
-  await row.getByRole("combobox", { name: "How to select" }).selectOption("wand");
+  await row.getByRole("button", { name: "Wand" }).click();
   // a river tile where the map takes the pointer
   const r = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
@@ -207,12 +222,12 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   await page.keyboard.press("Control+z");
   await idle(page);
 
-  // Set level on the water's selection: its bed at that level, one step
+  // Flatten on the water's selection: its bed at that level, one step
   await page.getByRole("button", { name: "Select (M)" }).click();
   const L = Math.min(...sel.map((i) => h0[i])) + 1;
-  await row.getByRole("combobox", { name: "Level", exact: true }).selectOption(String(L));
+  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
   const n0 = (await labels(page)).length;
-  await row.getByRole("button", { name: "Set level" }).click();
+  await row.getByRole("button", { name: "Flatten" }).click();
   await idle(page);
   expect(await labels(page)).toHaveLength(n0 + 1);
   const h2 = await heights(page);
@@ -227,9 +242,8 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");
   const h0 = await heights(page);
   const L = 8;
-  await row.getByRole("combobox", { name: "Level", exact: true }).selectOption(String(L));
+  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
   await row.getByRole("button", { name: "Cut down" }).click();
-  await row.getByRole("button", { name: "Set level" }).click();
   await idle(page);
   expect((await labels(page)).at(-1)).toMatch(new RegExp(`^Cut [\\d,]+ tiles down to level ${L}$`));
   const cut = await heights(page);
@@ -243,7 +257,6 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(h0);
   await row.getByRole("button", { name: "Fill up" }).click();
-  await row.getByRole("button", { name: "Set level" }).click();
   await idle(page);
   expect((await labels(page)).at(-1)).toMatch(new RegExp(`^Fill [\\d,]+ tiles up to level ${L}$`));
   const fill = await heights(page);
@@ -298,7 +311,7 @@ test("Delete sources (D315): removes only the water or badwater source in the se
   await page.mouse.move(b.x, b.y, { steps: 5 });
   await page.mouse.up();
   const n1 = (await page.evaluate(() => window.dgmEditor!.info())).history.filter((h) => h.applied).length;
-  await row.getByRole("button", { name: "Delete sources" }).click();
+  await deleteFrom(page, row, /^(Water|Badwater) sources \(1\)$/);
   await idle(page);
   const info1 = await page.evaluate(() => window.dgmEditor!.info());
   expect(info1.history.filter((h) => h.applied)).toHaveLength(n1 + 1);
@@ -314,7 +327,7 @@ test("Delete sources (D315): removes only the water or badwater source in the se
   await expect.poll(() => waterNear(one.x, one.y), { timeout: 10_000 }).toBeGreaterThan(0.01);
 });
 
-test("Delete sources (D315), the whole map (Ctrl+A): clears every source in one step; undo restores them all", async ({ page }) => {
+test("Delete sources (D315, folded into the Delete menu by D323), the whole map (Ctrl+A): clears every source; undo restores them all", async ({ page }) => {
   await refine(page);
   const sourceCount = () =>
     page.evaluate(() => {
@@ -330,10 +343,14 @@ test("Delete sources (D315), the whole map (Ctrl+A): clears every source in one 
   await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
-  await row.getByRole("button", { name: "Delete sources" }).click();
+  await deleteFrom(page, row, /^Water sources/);
+  await idle(page);
+  await deleteFrom(page, row, /^Badwater sources/, true);
   await idle(page);
   expect(await sourceCount()).toBe(0);
 
+  await page.keyboard.press("Control+z");
+  await idle(page);
   await page.keyboard.press("Control+z");
   await idle(page);
   expect(await sourceCount()).toBe(n0);
