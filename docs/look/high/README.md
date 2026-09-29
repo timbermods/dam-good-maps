@@ -33,6 +33,9 @@ and compared with this branch's pixel for pixel: see [The Standard look is uncha
 | [d324-falls.jpg](d324-falls.jpg) | D324, item 4: the tallest fall and a cascade of small falls, before and after, both looks: the sheet reads as teal water with white only in streaks and at the landing. |
 | [d324-sources.jpg](d324-sources.jpg) | D324, item 28: a water source and a badwater source (3×3) as stone basins, with clear water on (they sit under water here), before and after. |
 | [crisp-standard-overview.jpg](crisp-standard-overview.jpg), [crisp-standard-close.jpg](crisp-standard-close.jpg), [crisp-high-overview.jpg](crisp-high-overview.jpg), [crisp-high-close.jpg](crisp-high-close.jpg) | A crisper map: before (left) and after (right), at the canvas's own size, a map overview and a close view at a slant where grass meets dry earth. Tile edges now change over a narrow band and the ground's textures keep their detail at a slant (16× anisotropic filtering). |
+| [d334-pair.jpg](d334-pair.jpg) | D334, Timberborn's soul: Kyler's pair map (`docs/look/reference/timberborn/pair-map.timber`) at the game screenshots' own two angles and size, the game's shot first, then Standard before and after, High before and after. Its bottom-left quarter is flat in every column (the editor bug the reference README names). |
+| [d334-water.jpg](d334-water.jpg), [d334-clear-water.jpg](d334-clear-water.jpg), [d334-land.jpg](d334-land.jpg), [d334-falls.jpg](d334-falls.jpg), [d334-sources.jpg](d334-sources.jpg) | D334: the D324 views redrawn for the soul's adoption (columns: Standard before, after, High before, after): navy pools and pink-lit badwater, warm earth, olive stone, teal falls with little white. |
+| [d334-ruins.jpg](d334-ruins.jpg) | D334: ruins near and far, before and after: bright orange with cream sacks near, the same orange from afar. |
 
 ## What Standard has changed since dev (D304, D305, D310, D324)
 

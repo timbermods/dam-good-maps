@@ -16,7 +16,7 @@ import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallbac
 import { roughWater, surfaceContamination, surfaceFlow } from "../../src/render3d/high/flow";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
-import { fallHooks, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
+import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { buildEntities } from "../../src/render3d/entities3d";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
@@ -66,6 +66,22 @@ describe("the High look's shaders", () => {
     expect(s).toMatch(/float bakedSunLit\(vec2 g, float z\)/);
     expect(s).toMatch(/float sunLit\(vec2 g, float z\)/);
     expect(s).toMatch(/if \(hlShadows < 0\.5\) lit = bakedSunLit\(g, z\)/);
+  });
+
+  it("follow Timberborn's references (D334): exposure 1.00, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
+    // exposure 1.00 (from 1.22), with no grass-only hold-down beside it
+    expect(GRADE_GLSL).toContain("if (hlTone > 0.5) c = hlShoulder(c);");
+    expect(GRADE_GLSL).not.toMatch(/c \* 1\.2/);
+    expect(Object.values(terrainHooks()).join("\n")).not.toMatch(/moist \* hlTone/);
+    // the water's highlights are advected in two phases along the current, pink where it is bad;
+    // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
+    // pattern of our own: no density or contrast is asked of them)
+    const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
+    expect(s).toContain("vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);");
+    expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), contamination);");
+    expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
+    expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
+    expect(s).toContain("colour += vec3(0.26, 0.035, 0.008) * contamination * (1.0 - smoothstep(0.0, 0.32, shore));");
   });
 
   it("have a switch for each effect that needs one in a shader", () => {

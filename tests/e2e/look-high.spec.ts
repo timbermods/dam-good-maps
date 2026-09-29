@@ -1,7 +1,8 @@
 // The High look (Map look 2, PLAN §20 D284): on a computer with a GPU it is the default, the look's
 // menu switches between it and Standard (remembered), each of its effects switches, the Standard
 // look is the same after High as before it, and the automatic choice falls back to Standard when
-// frames stay too slow (simulated here), remembering it. CI draws in software, where the page would
+// frames stay too slow (simulated here), remembering it; contamination's veins and High's water depth
+// are checked as drawn (D334). CI draws in software, where the page would
 // take the light look: the tests there treat it as a GPU (window.dgmLookTest), so the High shaders
 // compile and run on CI too, and they shorten the fallback's waits and report every frame as quick
 // (software frames are slow) until a test reports them slow.
@@ -174,5 +175,119 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Standard/ }).check();
   await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Automatic/ }).check();
   expect(await look(page)).toBe("high");
+  expect(errors).toEqual([]);
+});
+
+test("contamination draws the game's orange-red veins over dry earth and over grass, more with more, and clears exactly, in Standard and High (D334)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  for (const choice of ["standard", "high"] as const) {
+    const result = await page.evaluate((c) => {
+      const r = window.dgm3d!.renderer;
+      r.setLookChoice(c, false);
+      const s = r.mapState()!;
+      const kept = s.soil!;
+      const N = s.W * s.H;
+      /** The frame at a held moment with every tile's soil set, read back. */
+      const frame = (moisture: number, level: number) => {
+        r.updateSoil({ moisture: new Uint8Array(N).fill(moisture), contamination: new Uint8Array(N).fill(level) });
+        r.setClock(12.5);
+        r.resetView();
+        r.renderNow();
+        const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+        const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+        g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+        return px;
+      };
+      /** Against the clean frame: the share of pixels that changed by more than 8 in a channel,
+       *  how much redder than green they turned on average, and the largest change. */
+      const compare = (base: Uint8Array, px: Uint8Array) => {
+        let changed = 0;
+        let redder = 0;
+        let max = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          const d = Math.max(Math.abs(px[i] - base[i]), Math.abs(px[i + 1] - base[i + 1]), Math.abs(px[i + 2] - base[i + 2]));
+          max = Math.max(max, d);
+          if (d > 8) {
+            changed++;
+            redder += px[i] - px[i + 1] - (base[i] - base[i + 1]);
+          }
+        }
+        return { share: changed / (px.length / 4), redder: changed ? redder / changed : 0, max };
+      };
+      const out: Record<string, ReturnType<typeof compare>[]> = {};
+      for (const [soil, moisture] of [["dry", 0], ["grass", 150]] as const) {
+        const clean = frame(moisture, 0);
+        out[soil] = [compare(clean, frame(moisture, 128)), compare(clean, frame(moisture, 255)), compare(clean, frame(moisture, 0))];
+      }
+      r.updateSoil(kept);
+      return out;
+    }, choice);
+    for (const [soil, [some, most, cleared]] of Object.entries(result)) {
+      const at = `${choice}, ${soil}`;
+      // sparse veins, never a tint over the whole soil, more of them the more contaminated
+      expect(some.share, at).toBeGreaterThan(0.002);
+      expect(most.share, at).toBeGreaterThanOrEqual(some.share);
+      expect(most.share, at).toBeLessThan(0.35);
+      // orange-red: where the ground changed, it turned redder
+      expect(some.redder, at).toBeGreaterThan(10);
+      expect(most.redder, at).toBeGreaterThan(10);
+      // cleared, the clean ground comes back (a GPU may draw a value one level apart)
+      expect(cleared.max, at).toBeLessThanOrEqual(1);
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test("High's water is darker deep than shallow, at one camera and light (D334: the order, not a gap)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("./#s=3&z=128&d=n&t=lakeBasin");
+  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
+  await page.getByRole("button", { name: "3D", exact: true }).click();
+  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  const depths = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setLookChoice("high", false);
+    r.setClock(12.5);
+    r.resetView();
+    r.renderNow();
+    const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+    const W = g.drawingBufferWidth;
+    const H = g.drawingBufferHeight;
+    const px = new Uint8Array(W * H * 4);
+    g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+    const k = W / r.canvas.clientWidth;
+    const s = r.mapState()!;
+    const shallow: number[] = [];
+    const deep: number[] = [];
+    for (let y = 1; y < s.H - 1; y++)
+      for (let x = 1; x < s.W - 1; x++) {
+        const i = y * s.W + x;
+        const d = s.surface.depth[i];
+        if (!(d > 0) || s.surface.contamination[i] > 0.02 || !Number.isFinite(s.surface.surface[i])) continue;
+        const group = d >= 0.15 && d <= 0.6 ? shallow : d >= 2 ? deep : null;
+        if (!group) continue;
+        const p = r.project(x + 0.5, s.surface.surface[i], -(y + 0.5));
+        if (!p.visible) continue;
+        const cx = Math.round(p.x * k);
+        const cy = H - 1 - Math.round(p.y * k);
+        if (cx < 2 || cy < 2 || cx >= W - 2 || cy >= H - 2) continue;
+        const l: number[] = [];
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const o = ((cy + dy) * W + cx + dx) * 4;
+            l.push(0.2126 * px[o] + 0.7152 * px[o + 1] + 0.0722 * px[o + 2]);
+          }
+        group.push(l.sort((a, b) => a - b)[4]);
+      }
+    const median = (v: number[]) => v.slice().sort((a, b) => a - b)[Math.floor(v.length / 2)];
+    return { shallow: shallow.length, deep: deep.length, shallowLuma: median(shallow), deepLuma: median(deep) };
+  });
+  expect(depths.shallow).toBeGreaterThan(10);
+  expect(depths.deep).toBeGreaterThan(10);
+  expect(depths.deepLuma).toBeLessThan(depths.shallowLuma);
   expect(errors).toEqual([]);
 });

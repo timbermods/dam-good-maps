@@ -40,8 +40,7 @@ const MAPS = [
 const STAGE1 = ["geology", "soilCap", "section"];
 const STAGE2 = ["crown", "landing", "bubbles", "mist", "rings", "roughWater"];
 const STAGE3 = ["landmarks", "objectDetail"];
-const POISON = ["poison"];
-const ALL_FINISH = [...STAGE1, ...STAGE2, ...STAGE3, ...POISON];
+const ALL_FINISH = [...STAGE1, ...STAGE2, ...STAGE3];
 
 interface Config {
   id: string;
@@ -58,7 +57,6 @@ const CONFIGS: Config[] = [
   { id: "foundation + stage 1 (edge)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE1.includes(k)) },
   { id: "foundation + stage 2 (water finish)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE2.includes(k)) },
   { id: "foundation + stage 3 (landmarks)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE3.includes(k)) },
-  { id: "foundation + poisoned soil", tier: "high", off: ALL_FINISH.filter((k) => !POISON.includes(k)) },
 ];
 
 const pct = (a: number[], p: number) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(p * a.length))] : 0);

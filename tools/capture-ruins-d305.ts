@@ -22,6 +22,9 @@ const arg = (name: string) => {
 };
 const BEFORE = resolve(arg("before") ?? ".scratch/before-ruins");
 const OUT = arg("out") ?? "docs/look/high";
+/** The step the pair is for, in its labels, and the file it writes (D334's sacks: --step D334 --file d334-ruins.jpg). */
+const STEP = arg("step") ?? "D305";
+const FILE = arg("file") ?? "d305-ruins.jpg";
 const PORT = Number(arg("port") ?? 4971);
 const VIEWPORT = { width: 1280, height: 800 };
 const CLOCK = 12.5;
@@ -137,12 +140,12 @@ async function main() {
       shots["before-high-near"], shots["before-high-far"], shots["after-high-near"], shots["after-high-far"],
     ];
     const labels = [
-      "Standard, near: before D305", "Standard, far: before D305", "Standard, near: after D305", "Standard, far: after D305",
-      "High, near: before D305", "High, far: before D305", "High, near: after D305", "High, far: after D305",
+      `Standard, near: before ${STEP}`, `Standard, far: before ${STEP}`, `Standard, near: after ${STEP}`, `Standard, far: after ${STEP}`,
+      `High, near: before ${STEP}`, `High, far: before ${STEP}`, `High, near: after ${STEP}`, `High, far: after ${STEP}`,
     ];
     const b64 = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: images.map((b) => b.toString("base64")), labels, cols: 4 })})`)) as string;
-    writeFileSync(join(OUT, "d305-ruins.jpg"), Buffer.from(b64, "base64"));
-    console.log(`${join(OUT, "d305-ruins.jpg")}: ${Math.round(Buffer.from(b64, "base64").length / 1024)} KB`);
+    writeFileSync(join(OUT, FILE), Buffer.from(b64, "base64"));
+    console.log(`${join(OUT, FILE)}: ${Math.round(Buffer.from(b64, "base64").length / 1024)} KB`);
   } finally {
     if (browser) await browser.close();
     await Promise.all([before.close?.(), after.close?.()].map((p) => p?.catch(() => {})));

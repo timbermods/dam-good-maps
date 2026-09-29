@@ -1,15 +1,15 @@
 // Kyler's clean look: the 3D view opens clean, as close to the game as we can draw it with our own
 // models: dead trees are bare trunks at their true size, ruins open scaffold towers, geothermal
-// fields, relics, thorns and blockages world objects, dry ground a cool grey-brown. The
+// fields, relics, thorns and blockages world objects, dry ground a warm brown drifting to mauve (D334). The
 // information layer (**Markers**: dam sites, slope arrows, level lines, far-off objects drawn
 // larger) is off until the viewer or a tool turns it on, and the legend keeps its lines apart.
 
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { sceneUniforms, skyMaterial } from "../../src/render3d/materials";
+import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { GROUND, legendEntries, objectLegend, SKY } from "../../src/render3d/palette";
+import { GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -69,11 +69,24 @@ describe("the clean view", () => {
     expect(storeys).toBe(4);
   });
 
-  it("colours dry ground a cool grey-brown, never reddish", () => {
-    for (const c of [GROUND.dry, GROUND.dryCool, GROUND.dryWarm]) {
-      expect(c[0] - c[2]).toBeLessThan(0.17);
-      expect(c[0] - c[1]).toBeLessThan(0.09);
-    }
+  it("colours dry ground a warm brown drifting to mauve and tan, cracked dark, as Timberborn's references (D334)", () => {
+    // Kyler's approved inputs (investigation/high-soul, D334: the earth may be warm brown and mauve)
+    expect(GROUND.dry).toEqual([0.48, 0.405, 0.35]);
+    expect(GROUND.dryCool).toEqual([0.46, 0.415, 0.445]);
+    expect(GROUND.dryWarm).toEqual([0.54, 0.44, 0.345]);
+    expect(GROUND.crack).toEqual([0.19, 0.14, 0.125]);
+    // three patches that differ, each darker at its cracks
+    const patches = [GROUND.dry, GROUND.dryCool, GROUND.dryWarm];
+    expect(new Set(patches.map((c) => c.join())).size).toBe(3);
+    const lum = (c: Rgb) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    for (const c of patches) expect(lum(GROUND.crack)).toBeLessThan(lum(c));
+    // the clean terrain shader drifts between all three and draws its crack network over them
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
+    const gl = (c: Rgb) => `vec3(${c.map((v) => (Number.isInteger(v) ? `${v}.0` : String(Math.round(v * 1000) / 1000))).join(", ")})`;
+    for (const c of [...patches, GROUND.crack]) expect(src).toContain(gl(c));
+    expect(src).toContain("vec2 dry = cracks(g * 3.1);");
+    expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));`);
   });
 
   it("draws a sky round the map: blue overhead, paler at the horizon", () => {

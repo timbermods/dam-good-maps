@@ -1,6 +1,11 @@
 # The High look (Map look 2)
 
-> **Top note (2026-09-29, batch 4, D324): built on this branch, still a draft and held for Kyler's High look sitting.**
+> **Top note (2026-09-29, D334): Timberborn's soul adopted on this branch; still held, it releases with the High look after
+> the forces (D284).** Codex's `adoption.patch` applied, the sacks built, the six tests and the High-water margins
+> re-based; left for Kyler's tuning on real maps: the channel water's marbled streaks, the vein junctions and the sacks.
+> See "Timberborn's soul, adopted (D334)" below.
+>
+> **Earlier top note (2026-09-29, batch 4, D324): built on this branch, still a draft and held for Kyler's High look sitting.**
 > D310's option (a) (the mine pit's earth, then badwater, then the clean shallows, every readability rule at its old
 > strictness), item 5 (no hatching on badwater), item 10 (the land toward the game's, both looks), item 4 (falls keep their teal and stay calm, both looks; D231's three foam issues were already in High), item 28 (sources as stone basins, both
 > looks) and badwater's calibration re-measured once; item 3 waits for the sitting. Captures: `docs/look/high/d324-*.jpg`,
@@ -327,6 +332,86 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
   Standard the same after High, the fallback to the lower tier then Standard with simulated slow frames, remembered,
   and Automatic chosen again retries High), on the GPU here and in software as CI draws (a test hook, pending #116).
   The other browser tests hold Standard (`playwright.config.ts`).
+
+## Timberborn's soul, adopted (D334)
+
+Kyler, 2026-09-29: "The High look adoption, on feature/high-look. Merge dev in; apply Codex's proposal
+(investigation/high-soul's adoption.patch and INTEGRATION.md, merged via #90) by hand where the branch has moved;
+re-base the six tests as D334 says (none simply deleted); update the d324 captures." It releases with the High look
+after the forces (D284).
+
+- **Merged `origin/dev`** (d6274567). Conflicts in docs only: PLAN keeps this branch's build notes on D304, D305 and
+  D310 with dev's amendments added; STATUS takes dev's table; pending decisions and the progress index keep both sides.
+- **The patch applied unchanged** (d8d33d03): its base was this branch's 8c975822, so it applied cleanly and keeps the
+  crispness fix; the grass-to-earth edge takes its final shape from it (D324's note): the narrow band, a wobble along
+  the tile's edge that both tiles agree on, and a thin darker rim.
+- **What differs from the patch** (b4b49087), the intent kept: its colours are named palette entries
+  (`CONTAMINATION.vein`, `cover`, `width`, `glow`, `onset`; `WATER.fallTeal`, `fallBad`, `fallBadStreak`;
+  `WATER_FALL.clear`/`streak` 0.76/0.94, `whitewater`, `whitewaterTint`); the CPU mirror
+  (`contaminationVeins`, `contaminationVein`) now describes the new veins instead of the retired stain, far cover and
+  dark-red grass veins, and the legend draws them; the High dark stain on contaminated soil had become a no-op, so its
+  switch (`poison`), uniform and hook are retired (and "poisoned soil" joins the retired terms); dead code the patch
+  left is removed (unused cracks and edge stone, the no-op grass hold-down, the wall-lines hook, an unused grade term);
+  the fall's fine threads skip the light look.
+- **The ruins' sacks** (INTEGRATION's "remaining adoption work"): cream pouches replace the flat panels in
+  `entities3d.ts` (`sack`): a big one resting on the storey's floor, a smaller one low or hanging high, one askew;
+  eight broad facets in front round a horizontal seam, the upper edge pinched where it is tied, a nearly flat back seen
+  from inside; twelve triangles each, as the slabs were, so the ruin budget holds. Broken panels stay flat boards. The
+  far block keeps a flat cream panel, now where the sack is.
+
+**Tests updated** (D148; none simply deleted, each checks what the references and D334 ask):
+
+1. `look-clean.test.ts`: "colours dry ground a cool grey-brown, never reddish" is now "colours dry ground a warm brown
+   drifting to mauve and tan, cracked dark": it pins the accepted earth and crack inputs, checks the three patches
+   differ and are darker at their cracks, and that the clean terrain shader uses all three with its crack network.
+2. `look-mine-ruins.test.ts`: the ruin colours are "an orange skeleton with cream sacks … (D334)": rust `#d4781f`,
+   panel `#e3cf96`, far `#b86e30`, ivy `#405634`; the `/^#[a-c]/` panel detector became the panel's three shades; every
+   variant, LOD, far-geometry, rust-share and budget check kept. "From afar stand apart from contaminated ground" now
+   checks the veins too. New: "hang cream sacks" (a pouch that bulges out, rests on the floor, dips where tied, twelve
+   triangles; broken boards stay flat).
+3. `look-readable.test.ts`, contamination: "is a layer" keeps the ground's own colour under and between the veins,
+   none at zero, wider and glowing more with contamination, orange-red over either soil; the wet/dry, vein/soil,
+   far-cover and ground/badwater lightness block is gone. New: the terrain shader draws them from the same numbers over
+   both soils; the rendered 0 / 128 / 255 / 0 sequence on dry earth and grass, in Standard and High, is in
+   `look-high.spec.ts` (sparse, more with more, redder, cleared exactly).
+4. `look.test.ts`: "keeps the meanings apart in brightness too" is now "keeps each meaning its own look": cracked earth,
+   the two grass inputs, veins only where there is contamination (orange-red over either soil), Standard's water darker
+   with depth. New: "draws High's water darker with depth too" (the High-water lightness margins the audit found,
+   re-based: High's ramp and the shader's rising depth weights, no clean-versus-bad gap), and the rendered deep-under-
+   shallow check in `look-high.spec.ts`. New: the grass-to-earth edge's wobble and rim.
+5. `look-readable.test.ts`: "keep their order: dead trees, moist, dry ground, badwater" is now "keep the game's own
+   cues": grass green, earth warm, water teal, badwater crimson by hue; dead and living trees and dam sites kept.
+6. `look-readable.test.ts`: "tell every grass from every patch … 10 L* and 18 in Lab" is now an information-only
+   matrix (finite, in range, the accepted inputs pinned). The smallest values, L* gap and Lab distance: normal vision
+   5.2 / 36.3, deuteranopia 3.9 / 15.0, protanopia 7.1 / 24.5, tritanopia 5.0 / 19.4.
+
+Reclassified as D334 (2) asks: clear badwater against clean clear water (murkier in plain sight; the colour-blind
+margins are information) and "tell a badwater fall from a clean one" (the cues by hue; the lightness in each simulation
+is information). New High check in `highLook.test.ts`: exposure 1.00, and badwater's pink highlights moving with the
+current, its bubbles and its red contact at rock. `look-waterfalls.test.ts`'s palette check reads the streaks'
+new names.
+
+**Left for Kyler's tuning on real maps** (in his `dgm-look` copy), not new rounds:
+
+- the channel water's marbled streaks: `src/render3d/high/shaders.ts`, `measuredSurfaceWater`, the rolling packets'
+  scale (0.70 and 1.3 in `rollA`/`rollB`), threshold (0.41 to 0.72) and the speed over which they take over (0.10 to 0.65);
+- the vein junctions that widen abruptly: `src/render3d/materials.ts`, `veinsOf`, the two smoothsteps on `importance`
+  (which edges are kept, 0.42 to 0.47, and how wide, 0.54 to 0.84) with `CONTAMINATION.width` in the palette;
+- the ruins' sacks: `src/render3d/entities3d.ts`, `sack` and the sizes in `storey`; they read a little grey beside the
+  game's warmer cream.
+
+**Frame time** (`tools/measure-high.ts --only generated --configs 1,2 --headless`, River Valley 4242 256² with dense
+forest and ruins, RTX 4080 SUPER on Kyler's PC, before on d6274567): both looks hold the refresh (127 to 130 fps before
+and after). GPU p50: Standard 0.59 to 1.26 ms whole, 2.54 to 2.64 close; High 1.40 to 1.49 ms whole, 2.74 to 4.51
+close (the larger stone atlas and the water's detail; about 1.8 ms more close up, well inside a frame).
+
+**Captures** (`tools/capture-d324.ts --prefix d334`, before on d6274567): `docs/look/high/d334-pair.jpg` (the pair map
+at the game's two angles, the game's shot first), `d334-water.jpg`, `d334-clear-water.jpg`, `d334-land.jpg`,
+`d334-falls.jpg`, `d334-sources.jpg`, and `d334-ruins.jpg` (`tools/capture-ruins-d305.ts --step D334`).
+
+**Checks:** typecheck; quick suite (732 passed, 13 skipped, after one of the new tests' own numbers was corrected); the look,
+water and 3D browser specs on port 4207 (18 passed, the two new ones included); badwater's calibration (Standard; every
+target within 0).
 
 ## The measurements (information, D115; D250 (2))
 

@@ -4,9 +4,14 @@
 // the commit before batch 4's; "after" is this checkout. Our own generated maps only; the page's
 // buttons hidden, the water held at one moment.
 //
+// The same sets redraw a later step's before and after (D334's adoption: --prefix d334, the before
+// site built from the commit before it). The pair set (--only pair) draws Kyler's pair map
+// (docs/look/reference/timberborn/pair-map.timber) at the game screenshots' own two angles and size,
+// the game's shot first in each row (investigation/high-soul's fitted cameras).
+//
 //   git archive --output=.scratch/before-d324.tar b62188ba index.html real-places src public vite.config.ts tsconfig.json package.json
 //   mkdir -p .scratch/before-d324 && tar -xf .scratch/before-d324.tar -C .scratch/before-d324
-//   npx tsx tools/capture-d324.ts [--before .scratch/before-d324] [--out docs/look/high] [--only water,clear,land,falls,sources]
+//   npx tsx tools/capture-d324.ts [--before .scratch/before-d324] [--out docs/look/high] [--prefix d324] [--only water,clear,land,falls,sources,pair]
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -19,6 +24,8 @@ const arg = (name: string) => {
 };
 const BEFORE = resolve(arg("before") ?? ".scratch/before-d324");
 const OUT = arg("out") ?? "docs/look/high";
+/** The captures' file names: `<prefix>-water.jpg` and so on. */
+const PREFIX = arg("prefix") ?? "d324";
 const ONLY = arg("only")?.split(",");
 const PORT = Number(arg("port") ?? 4971);
 /** Keep the before shots in .scratch/d324-before, and with --reuse-before use them instead of drawing the before site again. */
@@ -53,16 +60,16 @@ const HIGHLANDS = "#s=2&z=256&d=n&t=highlands";
 const SETS: SetCase[] = [
   {
     id: "water",
-    file: "d324-water.jpg",
+    file: "water.jpg",
     rows: [
       { fragment: LAKE, kind: "badwater", label: "Lake Basin 3: badwater beside clean water" },
       { fragment: LAKE, kind: "mine", label: "Lake Basin 3: a mine pit" },
     ],
   },
-  { id: "clear", file: "d324-clear-water.jpg", rows: [{ fragment: LAKE, kind: "clearBad", label: "Lake Basin 3: clear water (T), no hatching", clear: true }] },
+  { id: "clear", file: "clear-water.jpg", rows: [{ fragment: LAKE, kind: "clearBad", label: "Lake Basin 3: clear water (T), no hatching", clear: true }] },
   {
     id: "land",
-    file: "d324-land.jpg",
+    file: "land.jpg",
     rows: [
       { fragment: RIVER, kind: "top", label: "River Valley 4242: top-down" },
       { fragment: HIGHLANDS, kind: "cliff", label: "Highlands 2: the tallest cliff" },
@@ -70,7 +77,7 @@ const SETS: SetCase[] = [
   },
   {
     id: "falls",
-    file: "d324-falls.jpg",
+    file: "falls.jpg",
     rows: [
       { fragment: HIGHLANDS, kind: "fall", label: "Highlands 2: the tallest fall" },
       { fragment: HIGHLANDS, kind: "cliff", label: "Highlands 2: a cascade of small falls" },
@@ -78,12 +85,21 @@ const SETS: SetCase[] = [
   },
   {
     id: "sources",
-    file: "d324-sources.jpg",
+    file: "sources.jpg",
     rows: [
       { fragment: LAKE, kind: "sourceClean", label: "Lake Basin 3: a water source (clear water, T)", clear: true },
       { fragment: LAKE, kind: "sourceBad", label: "Lake Basin 3: a badwater source, 3×3 (clear water, T)", clear: true },
     ],
   },
+];
+
+/** The pair map at the game screenshots' angles (investigation/high-soul/views.json: the overview
+ *  fitted to the map's corners, about 1.5 px RMS; the close view to landmarks, about 21 px at 1600). */
+const PAIR_MAP = "docs/look/reference/timberborn/pair-map.timber";
+const PAIR_SIZE = { width: 1600, height: 670 };
+const PAIR_VIEWS = [
+  { label: "the overview", game: "docs/look/reference/timberborn/pair-1-game.jpg", view: { mode: "orbit", yaw: 0.028423473825829253, pitch: 0.6642904096531315, distance: 257.2198450970699, target: [120.93628871065602, 6, -72.22798223020351] }, fov: 34.24863836321571 },
+  { label: "the close view", game: "docs/look/reference/timberborn/pair-2-game.jpg", view: { mode: "orbit", yaw: 1.0099141109131913, pitch: 0.17993070254467614, distance: 97.49040301140819, target: [209.51888598950254, 6.930884255035113, -56.00133315809111] }, fov: 26.62821983817028 },
 ];
 
 /** Page side: one view of the map. */
@@ -159,9 +175,9 @@ async function shot(page: Page, v: unknown, clear: boolean): Promise<Buffer> {
   return page.locator(".view3d > canvas").screenshot({ type: "png" });
 }
 
-/** Page side: the grid, a labelled band over each cell. */
+/** Page side: the grid, a labelled band over each cell (images as base64 PNGs, or data URLs). */
 const COMPOSE_JS = `async ({ images, labels, cols, scale, quality }) => {
-  const imgs = await Promise.all(images.map(async (b64) => { const i = new Image(); i.src = "data:image/png;base64," + b64; await i.decode(); return i; }));
+  const imgs = await Promise.all(images.map(async (b64) => { const i = new Image(); i.src = b64.startsWith("data:") ? b64 : "data:image/png;base64," + b64; await i.decode(); return i; }));
   const w = Math.round(imgs[0].width * scale), h = Math.round(imgs[0].height * scale);
   const gap = 5, band = 24;
   const rows = Math.ceil(imgs.length / cols);
@@ -181,6 +197,56 @@ const COMPOSE_JS = `async ({ images, labels, cols, scale, quality }) => {
   return c.toDataURL("image/jpeg", quality / 100).split(",")[1];
 }`;
 
+/** The pair map opened in the editor at the screenshots' size, the canvas filling the page. */
+async function openPair(page: Page, port: number): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto(`http://localhost:${port}/`);
+  await page.locator("input[type=file]").first().setInputFiles(PAIR_MAP);
+  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await page.mouse.move(2, 2);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(2500);
+  await page.evaluate("window.dgmEditor.idle()");
+  await page.evaluate(`window.dgm3d.renderer.setClock(${CLOCK})`);
+  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .view3d > canvas { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 100vw !important; height: 100vh !important; }" });
+  await page.evaluate("window.dispatchEvent(new Event('resize'))");
+  await page.waitForTimeout(500);
+}
+
+async function pairShot(page: Page, v: (typeof PAIR_VIEWS)[number]): Promise<Buffer> {
+  await page.evaluate(`(() => { const r = window.dgm3d.renderer; r.setView(${JSON.stringify(v.view)}); r.persp.fov = ${v.fov}; r.renderNow(); })()`);
+  await page.evaluate("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))");
+  await page.waitForTimeout(300);
+  await page.evaluate(`(() => { const r = window.dgm3d.renderer; r.persp.fov = ${v.fov}; r.renderNow(); })()`);
+  return page.locator(".view3d > canvas").screenshot({ type: "png" });
+}
+
+/** The pair: a row per angle, the game's screenshot, then Standard before and after, High before and after. */
+async function pair(browser: Browser, tool: Page): Promise<void> {
+  const context = await browser.newContext({ viewport: PAIR_SIZE, deviceScaleFactor: 1, colorScheme: "light" });
+  await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+  const page = await context.newPage();
+  const cells: string[][] = PAIR_VIEWS.map((v) => [`data:image/jpeg;base64,${readFileSync(v.game).toString("base64")}`]);
+  const labels: string[][] = PAIR_VIEWS.map((v) => [`Timberborn: ${v.label}`]);
+  for (const [side, port] of [["before", PORT], ["after", PORT + 1]] as const) {
+    await openPair(page, port);
+    for (const [look, name] of [["standard", "Standard"], ["high", "High"]] as const) {
+      await setLook(page, look);
+      for (const [k, v] of PAIR_VIEWS.entries()) {
+        const idx = 1 + (look === "high" ? 2 : 0) + (side === "after" ? 1 : 0);
+        cells[k][idx] = (await pairShot(page, v)).toString("base64");
+        labels[k][idx] = `${name}, ${side}: ${v.label}`;
+      }
+    }
+  }
+  const b64 = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: cells.flat(), labels: labels.flat(), cols: 5, scale: 0.3, quality: 80 })})`)) as string;
+  const buf = Buffer.from(b64, "base64");
+  const file = join(OUT, `${PREFIX}-pair.jpg`);
+  writeFileSync(file, buf);
+  console.log(`  ${file}: ${Math.round(buf.length / 1024)} KB`);
+  await context.close();
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   mkdirSync(CACHE, { recursive: true });
@@ -196,6 +262,10 @@ async function main() {
     page.on("pageerror", (e) => errors.push(String(e)));
     const tool = await browser.newPage();
     await tool.goto(`http://localhost:${PORT + 1}/`);
+    if (!RAW && !REUSE && (!ONLY || ONLY.includes("pair"))) {
+      console.log("pair");
+      await pair(browser, tool);
+    }
     for (const set of SETS) {
       if (ONLY && !ONLY.includes(set.id)) continue;
       console.log(set.id);
@@ -231,8 +301,8 @@ async function main() {
       const images = cells.flat();
       const b64 = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: images.map((b) => b.toString("base64")), labels: labels.flat(), cols: 4, scale: 0.36, quality: 78 })})`)) as string;
       const buf = Buffer.from(b64, "base64");
-      writeFileSync(join(OUT, set.file), buf);
-      console.log(`  ${join(OUT, set.file)}: ${Math.round(buf.length / 1024)} KB`);
+      writeFileSync(join(OUT, `${PREFIX}-${set.file}`), buf);
+      console.log(`  ${join(OUT, `${PREFIX}-${set.file}`)}: ${Math.round(buf.length / 1024)} KB`);
     }
     if (errors.length) console.log(`page errors: ${errors.join("; ")}`);
   } finally {

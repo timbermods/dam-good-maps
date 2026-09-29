@@ -59,10 +59,10 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    a drought (the game's rule; it bears on PERFECT's "the start survives its first cycles" and may belong in M9b). Its defaults
    #120–#125.
 13. **The High look** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284): Standard beside High, with greyscale and
-   colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 25 effects, each switchable; High by default with a fallback.
-   My read: warmer and richer, the dead trees far better; the grass quite saturated and yellow; the water calmer, losing Standard's
-   glints; from far away the poisoned soil is a dark olive stain, harder to spot than Standard's red glow (its own switch,
-   `poison`). Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
+   colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 24 effects, each switchable; High by default with a fallback.
+   Timberborn's soul (D334) is adopted on it (Codex's `adoption.patch`, the six tests re-based): warm brown and mauve earth,
+   orange ruins with cream sacks, the game's orange-red contamination veins in both looks, exposure 1.00, navy pools. Left for
+   your tuning on real maps: the channel water's marbled streaks and the vein junctions that widen abruptly. Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
    longer run against today's interface and are on the housekeeping list. It goes on the preview after the forces' release.
 14. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
    (M9b, above). Everything else is answered.
@@ -482,7 +482,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D253: M10 and M11 removed: no symmetry, stamps, regrowing an area, or locks; Naturalize's checks kept as tests; the steps after them follow the Weather view.
 - D252: M9 is judged by your eye against PERFECT before each stage's release: starts stop looking alike (M9a); a review set on #56 before M9a's release; M9b's and M9c's acceptance adds your eye as blocking.
 - D251: every task on its own agent definition's model and effort.
-- D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
+- D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on contaminated soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
 - D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.

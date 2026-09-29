@@ -485,20 +485,30 @@ describe("a fall's colours", () => {
       const own = m.fragmentShader.replace(WATER_GLSL, "");
       const body = own.slice(own.indexOf("void main()", own.indexOf("vec3 finish(")));
       expect(body).not.toMatch(/vec3\(\s*-?\d/);
-      for (const use of ["waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)", "mix(WATER_FOAM, BADWATER_FOAM, bad)", "badwaterShade(BADWATER_STREAK, 0.25)", "waterMurk(cont)"]) expect(m.fragmentShader).toContain(use);
+      for (const use of ["waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)", "mix(WATER_FOAM, BADWATER_FOAM, bad)", "mix(FALL_TEAL, FALL_BAD_STREAK, bad)", "waterBlend(WATER_TEAL, BADWATER_BODY, cont)", "waterMurk(cont)"]) expect(m.fragmentShader).toContain(use);
       expect(m.transparent).toBe(true);
       expect(m.depthWrite).toBe(false);
     }
   });
 
-  it("read as teal water first: white only in streaks, at the brink and at the foot, gentle on a one-level spill, in both looks (D324, feedback items 4 and 2)", () => {
+  it("read as teal water first: its streaks a lighter teal (orange-red on badwater), little white, at the brink and at the foot, gentle on a one-level spill, in both looks (D324, feedback items 4 and 2; D334)", () => {
     for (const lite of [false, true]) {
       const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
       for (const use of ["whiteStreak", "float gentle = 1.0 - smoothstep(1.0, 2.2, h);", "amount *= mix(0.86, 0.5, gentle);", "mix(1.0, 0.55, gentle)"]) expect(m.fragmentShader).toContain(use);
+      // the streaks are the water's own colour, and the foam over them faint
+      expect(m.fragmentShader).toContain("c = mix(body, mix(FALL_TEAL, FALL_BAD_STREAK, bad), whiteStreak * 0.78) * light;");
+      expect(m.fragmentShader).toContain("c = mix(c, foamColour, foam * 0.18);");
       // the sheet's body stays well opaque, so the cliff behind it does not turn it dark
+      expect(m.fragmentShader).toContain("alpha = mix(FALL_CLEAR, FALL_STREAK, streak);");
       expect(WATER_GLSL).toContain(`#define FALL_CLEAR ${WATER_FALL.clear}`);
+      // the whitewater where it lands: mostly the water's own colour, a little white
+      expect(m.fragmentShader).toContain("c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, FALL_WHITEWATER_TINT);");
     }
     expect(WATER_FALL.clear).toBeGreaterThanOrEqual(0.4);
+    expect(WATER_FALL.whitewaterTint).toBeLessThan(0.5);
+    // the streaks: a teal (blue and green over red), and an orange-red
+    expect(Math.min(WATER.fallTeal[1], WATER.fallTeal[2])).toBeGreaterThan(WATER.fallTeal[0] + 0.3);
+    expect(WATER.fallBadStreak[0]).toBeGreaterThan(WATER.fallBadStreak[1] + 0.3);
   });
 
   it("turn see-through with clear water (T, or round the brush), and a fall is cut at the slice, as the water is", () => {
@@ -515,7 +525,7 @@ describe("a fall's colours", () => {
     expect(CLEAR_WATER.fall).toBeLessThan(0.5);
   });
 
-  it("keep a badwater fall apart from a clean one in greyscale and with colour blindness", () => {
+  it("tell a badwater fall from a clean one by the game's cues, crimson and orange-red against teal; their lightness in each colour-blindness simulation is information (D334 (2))", () => {
     // (the Machado, Oliveira and Fernandes 2009 simulations, severity 1, in linear light, as the
     // captures use; lightness as CIE L*)
     const sims: Record<string, number[]> = {
@@ -531,11 +541,17 @@ describe("a fall's colours", () => {
       const y = 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
       return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
     };
-    for (const m of Object.values(sims)) {
-      // the body (clean water's light shallows against badwater's crimson) and the foam
-      expect(lstar(WATER.shallow, m) - lstar(WATER.bad, m)).toBeGreaterThan(20);
-      expect(lstar(WATER.foam, m) - lstar(WATER.badFoam, m)).toBeGreaterThan(15);
-    }
+    // the cues: clean water's sheet teal (blue and green over red), badwater's crimson and its
+    // streaks orange-red (red over green over blue)
+    for (const c of [WATER.shallow, WATER.fallTeal]) expect(Math.min(c[1], c[2])).toBeGreaterThan(c[0]);
+    for (const c of [WATER.bad, WATER.fallBad, WATER.fallBadStreak]) expect(c[0] > c[1] && c[1] > c[2]).toBe(true);
+    // the lightness of body and foam in each simulation: reported, not held to a gap (the game's own
+    // readability, D334 (2)); only that each is a number in range
+    for (const m of Object.values(sims))
+      for (const [a, b] of [[WATER.shallow, WATER.bad], [WATER.foam, WATER.badFoam]] as [Rgb, Rgb][]) {
+        const d = lstar(a, m) - lstar(b, m);
+        expect(Number.isFinite(d) && Math.abs(d) <= 100).toBe(true);
+      }
   });
 });
 

@@ -297,9 +297,17 @@ Two looks (Map look 2, D147, D242, D250, D284):
   (pine, birch, oak, blue-berried bushes, bare dead forms) swaying in the wind, also on the shelf's
   icons and the placement ghost (D241); and #67's finish: the map's edge cut through rock with a
   soil cap and the water's section, continuous waterfall crowns, irregular landings with bubbly
-  froth, mist and splash rings, rough water below falls and in rapids, refreshed landmarks, and
-  poisoned soil stained dark instead of glowing. #67's visible seasons wait for the Drought and
-  Badtide day-by-day view (D286 (4)).
+  froth, mist and splash rings, rough water below falls and in rapids, and refreshed landmarks. #67's
+  visible seasons wait for the Drought and Badtide day-by-day view (D286 (4)).
+
+Both looks follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a
+muted green meeting it along the tile's edge with a slight painted wobble and a thin darker rim,
+olive-grey stone, bright orange ruins with cream sacks, near and far, contamination as the game's
+sparse orange-red veins through earth and grass alike, and falls teal with lighter streaks and little
+white. High adds exposure 1.00 with a restrained grade, navy pools, current-aligned caustics and
+rolling light on moving water, badwater's pink highlights and red contact at rock, and a bluer sky
+with fewer, larger clouds. Readability is the game's own: its look and its cues, with no lightness gap
+or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled
 last time on that GPU at about that window size), watches what each frame costs the GPU, and steps
@@ -308,10 +316,8 @@ models, 85% of the pixels) and then to Standard when frames stay too slow; never
 session. The **Look** menu (on the 3D view; in the editor's header) chooses **Automatic**, **High**
 or **Standard**, and switches High's four parts; every single effect is switchable too (the
 renderer's `setHighEffect`). A browser drawing in software keeps the light look, with no choice.
-Standard is drawn exactly as before High existed, apart from clean water's shades (D304, D310: fitted
-closer to the game's own, in both looks) and a ruin's far block (D305: the near skeleton's own muted
-colour and a lattice, in both looks). The camera never moves by itself in either look
-(D265).
+Standard keeps its own water, light and finish; what the decisions changed in both looks is listed
+above and in D304, D305, D310, D324 and D334. The camera never moves by itself in either look (D265).
 
 ## 6a. Alive, not mechanical (D240; after the forces round 2)
 

@@ -1101,17 +1101,22 @@ the page never freezes; the editor never slows for the history).
 
 **Right after the forces' release, alongside "The page is the editor"** (Kyler, 2026-09-27; PLAN §20 D284; amends D147
 and Map look 2's earlier place after the Map quality checkpoint, both cut, D283). High becomes the default on computers
-that run it smoothly, with an automatic fallback to Standard (like the 3D view's fallback, D232); Standard stays exactly
-as it is apart from clean water's shades (D304, D310, fitted closer to the game's own in both looks) and a ruin's far
-block (D305, the near skeleton's own muted colour and a lattice, in both looks), and every High effect
+that run it smoothly, with an automatic fallback to Standard (like the 3D view's fallback, D232); Standard keeps its own
+water, light and finish, apart from what Kyler's decisions changed in both looks (D304, D305, D310, D324, and D334's
+references), and every High effect
 stays switchable. Measured on this machine's RTX 2070 SUPER to set where the fallback
 starts. The frame's touch-up to the High look is done in the design pass, so the frame is styled once; this adoption
 changes no interface styling (D296, amending D283 (2)). The 3D view (3D terrain step 2, "The view") follows it.
 
 **Built on `feature/high-look`** (held until Kyler's yes, D286 (4); the progress log is
 [docs/progress/high-look.md](docs/progress/high-look.md), the captures [docs/look/high/](docs/look/high/)): #38, #65, #66
-and #67's stages 1–3 with stage 4's poisoned soil, in `src/render3d/high/`; the **Look** menu (Automatic, High,
-Standard, and High's four parts); the automatic choice and its fallback, measured on this machine's RTX 2070 SUPER.
+and #67's stages 1–3, in `src/render3d/high/`; the **Look** menu (Automatic, High, Standard, and High's four parts);
+the automatic choice and its fallback, measured on this machine's RTX 2070 SUPER. **Timberborn's soul (D334):** Codex's
+proposal (`investigation/high-soul`, merged through #90) adopted by its `adoption.patch` and INTEGRATION.md, in both
+looks where it says so: warm brown and mauve earth, grass with a painted edge, olive stone, orange ruins with cream sacks,
+the game's orange-red contamination veins (they replace #67's dark stain, whose switch is retired), exposure 1.00, navy
+pools, current-aligned water light, badwater's pink highlights and red contact at rock; the six tests it lists re-based
+(D148). Left for Kyler's tuning on real maps: the channel water's marbled streaks and the vein junctions that widen abruptly.
 Left: #67's visible seasons with D250's badtide withering (after the Drought and Badtide branch), and pending #83 (the
 new trees in Standard).
 
@@ -1119,7 +1124,8 @@ new trees in Standard).
 `investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
 into High here, with #38's water and soft shadows. Phase 3, "finish the world" (#67, `investigation/maplook-finish`: the
 diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
-visible seasons for drought and badtide, the High poisoned soil), is approved too (D250) and adopted here, following its
+visible seasons for drought and badtide, a dark stain on contaminated soil that D334 later replaced), is approved too
+(D250) and adopted here, following its
 INTEGRATION.md, with two additions: in a badtide, plants on contaminated ground wither as plants on dry ground do in a
 drought (by the ground's own contamination); and every stage's cost measured on this machine's RTX 2070 SUPER on dense
 256² maps, orbiting and painting, with which effects the lower-cost mode drops.
