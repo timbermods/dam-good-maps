@@ -11,7 +11,7 @@ import { placementOf } from "../format/entities";
 import { EDITOR_MAX_HEIGHT, floorsOf, GAME_MAX_HEIGHT, GAME_VERSION, MAX_OBJECT_Z, storedWater, surfaceOf } from "../format/world";
 import type { TimberFile } from "../format/timber";
 import type { Feature } from "../features/schema";
-import { EDGE_BAND, EDGE_INSIDE, EDGE_RISE, EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
+import { EDGE_BAND, EDGE_INSIDE, EDGE_NAMES, EDGE_RISE, EDGE_SHARE, edgeRuleApplies, edgeWalls, type EdgeName } from "../analysis/edges";
 import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
@@ -19,7 +19,8 @@ import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
 import { checkPlayability, rulesFor, type PlayabilityAnalysis } from "./playability";
-import { blocks, Collector, type CheckResult, type Profile, type ValidationReport } from "./report";
+import { tilesToRuns } from "../math/grid";
+import { blocks, Collector, type CheckResult, type FixOp, type Profile, type ValidationReport } from "./report";
 
 export type { CheckClass, CheckResult, Profile, Severity, ValidationReport } from "./report";
 export { blocks } from "./report";
@@ -125,7 +126,7 @@ export function jpegSize(b: Uint8Array): [number, number] | null {
 
 // ------------------------------------------------------------------------------------------- terrain
 
-function checkTerrain(file: TimberFile, c: Collector, surface: Uint8Array, stackTops: Set<number>): void {
+function checkTerrain(file: TimberFile, c: Collector, surface: Uint8Array, stackTops: Set<number>, editing: boolean): void {
   const w = file.world;
   let maxH = 0;
   for (const v of surface) if (v > maxH) maxH = v;
@@ -154,13 +155,15 @@ function checkTerrain(file: TimberFile, c: Collector, surface: Uint8Array, stack
   c.add({ id: "terrain.single_floor", class: "design", ok: multi === 0, value: multi, limit: 0, message: multi ? `${multi} columns with caves or overhangs (outside the water model's scope)` : "one floor per tile" });
   const unsupported = multi === 0 ? 0 : unsupportedVoxels(file, stackTops);
   c.add({ id: "terrain.supported", class: "load", ok: unsupported === 0, value: unsupported, limit: 0, message: unsupported ? `${unsupported} voxels float more than 3 tiles from support` : "all terrain is supported" });
-  checkEdgeWall(w.sizeX, w.sizeY, surface, c);
+  checkEdgeWall(w.sizeX, w.sizeY, surface, c, editing);
 }
 
 /** `terrain.edge_wall` (Kyler, 2026-09-25, D151, extending D111): no wall raised along a map edge
  *  to hold water. A principle, beside the dam-wall rule: it must pass in `generate` and `export`,
- *  and is information on an import (analysis/edges.ts). */
-function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector): void {
+ *  and is information on an import (analysis/edges.ts). On a map being edited (`editing`, D323:
+ *  the player's own hand made it) it is a warning instead, class `design`, that never blocks a save,
+ *  with the one-click fix "Lower the wall". */
+function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector, editing = false): void {
   if (!edgeRuleApplies(W, H)) {
     c.notApplicable("terrain.edge_wall", "principle", `the map is too small for an edge wall (under ${2 * (EDGE_BAND + EDGE_INSIDE)} tiles a side)`);
     return;
@@ -170,9 +173,10 @@ function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector):
   let most = edges[0];
   for (const e of edges) if (e.share > most.share) most = e;
   const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const fix = editing && walled.length ? lowerTheWall(surface, W, H, walled.map((e) => e.edge)) : null;
   c.add({
     id: "terrain.edge_wall",
-    class: "principle",
+    class: editing ? "design" : "principle",
     ok: walled.length === 0,
     value: Math.round(most.share * 100) / 100,
     limit: EDGE_SHARE,
@@ -180,7 +184,47 @@ function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector):
       ? `a wall runs along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")}: its outer two tiles stand ${EDGE_RISE}+ levels above the land inside, holding water in`
       : `no wall along the map's edges (at most ${pct(most.share)} of an edge stands ${EDGE_RISE}+ levels above the land inside; a wall is ${pct(EDGE_SHARE)})`,
     ...(walled.length ? { where: { tiles: walled.map((e) => e.at) } } : {}),
+    ...(fix ? { fix } : {}),
   });
+}
+
+/** "Lower the wall" (D323): on each walled edge, every outer tile that stands `EDGE_RISE`+ levels
+ *  above the land inside is cut down to that land's highest tile, a level at a time (the flatten
+ *  the bake and the spring pool use), all in one step. */
+function lowerTheWall(h: ArrayLike<number>, W: number, H: number, edges: readonly EdgeName[]): FixOp[] | null {
+  const to = new Map<number, number>();
+  for (const name of edges) {
+    const e = EDGE_NAMES.indexOf(name);
+    const L = e < 2 ? W : H;
+    const at = (p: number, d: number): [number, number] => (e === 0 ? [p, d] : e === 1 ? [p, H - 1 - d] : e === 2 ? [d, p] : [W - 1 - d, p]);
+    for (let p = 0; p < L; p++) {
+      let band = 0;
+      for (let d = 0; d < EDGE_BAND; d++) {
+        const [x, y] = at(p, d);
+        band = Math.max(band, h[y * W + x]);
+      }
+      let inside = 0;
+      for (let d = EDGE_BAND; d < EDGE_BAND + EDGE_INSIDE; d++) {
+        const [x, y] = at(p, d);
+        inside = Math.max(inside, h[y * W + x]);
+      }
+      if (band - inside < EDGE_RISE) continue;
+      for (let d = 0; d < EDGE_BAND; d++) {
+        const [x, y] = at(p, d);
+        const i = y * W + x;
+        if (h[i] > inside) to.set(i, Math.min(to.get(i) ?? inside, inside));
+      }
+    }
+  }
+  const byLevel = new Map<number, number[]>();
+  for (const [i, level] of to) {
+    const list = byLevel.get(level) ?? [];
+    list.push(i);
+    byLevel.set(level, list);
+  }
+  const ops: FixOp[] = [];
+  for (const [level, tiles] of [...byLevel].sort((a, b) => a[0] - b[0])) ops.push({ op: "sculpt", label: ops.length ? "" : "Lower the wall", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level } });
+  return ops.length ? ops : null;
 }
 
 /** `terrain.dam_wall` (D111: no built dam walls, a principle that always blocks, D115): no straight
@@ -438,6 +482,8 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
+  /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
+  editing?: boolean;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
   /** The map's own water, as its wet tiles: by default the file's; an edited import passes the
@@ -461,7 +507,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
   checkFile(file, c, opts.external ?? opts.profile === "import");
   const surface = surfaceOf(file.world);
   const scan = checkEntities(file, c, surface);
-  checkTerrain(file, c, surface, scan.stackTops);
+  checkTerrain(file, c, surface, scan.stackTops, opts.editing === true);
   checkSlopes(file, c, surface, scan);
   checkStart(file, c, surface, scan);
   let analysis: PlayabilityAnalysis | null = null;

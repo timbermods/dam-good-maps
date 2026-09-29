@@ -349,10 +349,12 @@ export function planArea(s: MapSession, req: AreaRequest, id: string, origin: Fe
 
 /** Why the game would not keep an object placed at (x, y) on the current map (its loader's rules,
  *  validate/checks.ts `entities.placement`), or null when it would; one plain reason (D290).
- *  `ignore` is the entity being moved. Resources make room (they are placed after it). `pool`: a
- *  badwater source cuts its own spring pool (D290: `springPool`), so uneven ground and what stands
- *  on its nine tiles don't stop it; only the map's edge, a cave and the start do. */
-export function entityProblem(s: MapSession, p: { template: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: string | null = null, opts: { pool?: boolean } = {}): string | null {
+ *  `ignore` is the entity being moved. Resources make room (they are placed after it). `level`:
+ *  a placement by the shelf, which levels its own footprint (D290 for the badwater source, D328 for
+ *  every object): uneven ground doesn't stop it, so only the map's edge, a cave, another object's
+ *  tiles and the start do (a badwater source also takes the hand-placed objects on its nine tiles,
+ *  `levelFootprint`). */
+export function entityProblem(s: MapSession, p: { template: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: string | null = null, opts: { level?: boolean } = {}): string | null {
   const fp = FOOTPRINTS[p.template];
   if (!fp) return `${p.template} can't be placed`;
   const { x: W, y: H } = s.size;
@@ -368,7 +370,8 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     if (e.id === ignore || skip.has(e.owner)) continue;
     for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) taken.set(ty * W + tx, e.template);
   }
-  const pool = !!opts.pool && p.template === "BadwaterSource";
+  const level = !!opts.level;
+  const pool = level && p.template === "BadwaterSource";
   for (const blk of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z, orientation: p.orientation, flipped: !!p.flipped })) {
     if (blk.x < 0 || blk.y < 0 || blk.x >= W || blk.y >= H || blk.z >= 33) return "it does not fit on the map";
     const i = blk.y * W + blk.x;
@@ -379,8 +382,10 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
       if (other === "StartingLocation") return "the district center stands there";
       continue;
     }
-    if (blk.z < top) return "the ground under it is not level";
-    if ((blk.below === "ground" || blk.below === "groundOrStackable") && blk.z > top) return "the ground under it is not level";
+    if (!level) {
+      if (blk.z < top) return "the ground under it is not level";
+      if ((blk.below === "ground" || blk.below === "groundOrStackable") && blk.z > top) return "the ground under it is not level";
+    }
     if (other) {
       if (other === "StartingLocation") return "the district center stands there";
       const name = other === "UndergroundRuins" ? "mine site" : other.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -403,44 +408,53 @@ export interface EntityRequest {
   components?: Record<string, unknown>;
 }
 
-/** Plan an entity placed by hand (advanced mode): the loader's rules first; a badwater source cuts
- *  its own spring pool where its ground isn't level (D290), in the same step. */
+/** Plan an entity placed from the shelf: the loader's rules first; where its ground isn't level it
+ *  cuts its own footprint down to the lowest tile under it (D290, D328), in the same step. */
 export function planEntity(s: MapSession, req: EntityRequest, id: string): PlannedOps {
   if (!FOOTPRINTS[req.template]) return fail(`${req.template} can't be placed`);
-  const why = entityProblem(s, req, null, { pool: true });
+  const why = entityProblem(s, req, null, { level: true });
   if (why) return fail(why);
   const { x: W } = s.size;
   const tiles = worldBlocks(FOOTPRINTS[req.template], { ...req, z: 0, flipped: !!req.flipped }).map((b) => b.y * W + b.x);
   const op: EditOp = { op: "placeEntity", params: { id, template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.flipped ? { flipped: true } : {}), ...(req.components ? { components: req.components } : {}) } };
-  const pool = req.template === "BadwaterSource" ? springPool(s, req) : [];
+  const pool = levelFootprint(s, req);
   const name = req.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
   return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: `Place ${name}`, tiles: [...new Set(tiles)] };
 }
 
-/** A badwater source's own spring pool (D290): a badwater source is 3 × 3 and the game keeps it only
- *  on level ground, so where its nine tiles aren't level they are cut down to the lowest of them
- *  (never filled, so its water isn't dammed), and what stands there goes (hand-placed objects; a
- *  generated tree makes room by itself; never the start, which `entityProblem` refuses). The
- *  operations that make it, to go before the source's own, in its step; none on level, clear
- *  ground. `ignore`: entities the same step removes already (a clean source switched to bad). */
-export function springPool(s: MapSession, p: { x: number; y: number; orientation: Orientation }, ignore: ReadonlySet<string> = new Set()): EditOp[] {
+/** An object's own levelling (D290 for the badwater source, D328 for every object the shelf places):
+ *  where the ground under its footprint isn't level, the tiles are cut down to the lowest of them
+ *  (never filled, so no water is dammed), in the placement's own step, before it. A badwater source
+ *  is 3 × 3 and the game keeps it only on level ground: it also takes what stands on its nine tiles
+ *  (hand-placed objects; a generated tree makes room by itself; never the start, which
+ *  `entityProblem` refuses). Other objects keep the objects on their tiles: `entityProblem` refuses
+ *  those. `extra`: further tiles to level with it (the start's door). The operations that make it,
+ *  none on level ground. `ignore`: entities the same step removes already (a clean source switched
+ *  to bad). */
+export function levelFootprint(s: MapSession, p: { template?: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: ReadonlySet<string> = new Set(), extra: readonly number[] = []): EditOp[] {
+  const template = p.template ?? "BadwaterSource";
+  const fp = FOOTPRINTS[template];
+  if (!fp) return [];
   const { x: W, y: H } = s.size;
   const b = s.built;
   const tiles = new Set<number>();
-  for (const blk of worldBlocks(FOOTPRINTS.BadwaterSource, { template: "BadwaterSource", x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: false }))
+  for (const blk of worldBlocks(fp, { template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped }))
     if (blk.x >= 0 && blk.y >= 0 && blk.x < W && blk.y < H) tiles.add(blk.y * W + blk.x);
+  for (const i of extra) if (i >= 0 && i < W * H) tiles.add(i);
   const list = [...tiles];
   if (!list.length) return [];
   let low = Infinity;
   for (const i of list) low = Math.min(low, b.heights[i]);
   const ops: EditOp[] = [];
-  const skip = resourceOwners(s);
-  const gone = new Set<string>();
-  for (const e of b.entities) {
-    if (ignore.has(e.id) || skip.has(e.owner) || e.template === "StartingLocation") continue;
-    if (entityTiles(e).some(([tx, ty]) => tiles.has(ty * W + tx))) gone.add(e.id);
+  if (template === "BadwaterSource") {
+    const skip = resourceOwners(s);
+    const gone = new Set<string>();
+    for (const e of b.entities) {
+      if (ignore.has(e.id) || skip.has(e.owner) || e.template === "StartingLocation") continue;
+      if (entityTiles(e).some(([tx, ty]) => tiles.has(ty * W + tx))) gone.add(e.id);
+    }
+    if (gone.size) ops.push({ op: "deleteEntities", params: { entities: [...gone] } });
   }
-  if (gone.size) ops.push({ op: "deleteEntities", params: { entities: [...gone] } });
   if (list.some((i) => b.heights[i] !== low)) ops.push({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(list, W), level: low } });
   return ops;
 }
@@ -513,7 +527,7 @@ export function footprintCheck(s: MapSession, req: ({ tool: "object" } & ObjectR
     const fp = FOOTPRINTS[req.template];
     if (!fp) return { tiles: [], problem: `${req.template} can't be placed` };
     const tiles = inMap(worldBlocks(fp, { ...req, z: 0, flipped: !!req.flipped }).map((b) => [b.x, b.y] as const));
-    return { tiles: [...new Set(tiles)], problem: entityProblem(s, req, null, { pool: true }) };
+    return { tiles: [...new Set(tiles)], problem: entityProblem(s, req, null, { level: true }) };
   }
   if (isLine(req.kind) || !req.at) return { tiles: [], problem: null };
   const { tool: _t, ...r } = req;

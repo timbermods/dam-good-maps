@@ -33,6 +33,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [glaciate.md](glaciate.md) | Glaciate adopted onto the forces core, with the floor's water finished as one river (branch `feature/glaciate`, preview only) | 2026-09-27 |
 | [brushes.md](brushes.md) | Batch 2, the brushes (D322): the target level as the game's editor, Ground, Water and Both, Sources Ride, Keep or Clear, bigger brushes, Clear's ghost sources (branch `feature/brushes`) | 2026-09-29 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
+| [select-shelf.md](select-shelf.md) | Select, Delete, the shelf and shortcuts (batch 3, D323 and D328; branch `feature/select-shelf`) | 2026-09-29 |
 
 A milestone's date is the day of its `m<N>-done` tag.
 

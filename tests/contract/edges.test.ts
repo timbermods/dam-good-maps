@@ -191,3 +191,25 @@ describe("the height limit (terrain.max_height)", () => {
     expect(verdicts).toEqual([true, false]);
   });
 });
+
+describe("the edge-wall rule on an edited map (D323)", () => {
+  it("is a warning with a Lower the wall fix, never a block; the same land on generate and export still blocks", () => {
+    const { W, H } = fixture;
+    const h = decodeHeights(fixture.heights);
+    const edited = validateMap(fileOf(h, W, H), { profile: "export", loadOnly: true, editing: true });
+    const c = edited.report.checks.find((x) => x.id === "terrain.edge_wall")!;
+    expect(c.ok).toBe(false);
+    expect(c.severity).toBe("warning");
+    expect(blocks("export", c)).toBe(false);
+    expect(c.fix?.[0]?.label).toBe("Lower the wall");
+    // the fix (a flatten a level at a time) leaves no wall
+    const fixed = h.slice();
+    for (const op of c.fix!) {
+      if (op.op !== "sculpt") throw new Error("a sculpt");
+      for (const [y, a, b] of op.params.cells) for (let x = a; x <= b; x++) fixed[y * W + x] = op.params.level!;
+    }
+    expect(edgeCheck(fixed, W, H).ok).toBe(true);
+    // without `editing`, the export still blocks
+    expect(blocks("export", edgeCheck(h, W, H, "export"))).toBe(true);
+  });
+});

@@ -33,7 +33,7 @@ import {
 import type { PlanRecord } from "../core/features/setpieces";
 import { removeKindOf, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, planRiverBadwater, springPool, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
+import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
 import type { SetPieceKind } from "../core/features/schema";
 import { distanceFrom } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
@@ -41,7 +41,7 @@ import { toTimberFile } from "../core/gen/pack";
 import { thumbnailJpeg } from "../core/render/shade";
 import type { EntitySpec } from "../core/format/entities";
 import { JsonFloat } from "../core/format/json";
-import type { Orientation } from "../core/format/footprints";
+import { startEntranceTile, type Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
 import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
@@ -843,7 +843,7 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
   const parts = d ? [d.region, d.terrain, d.objects].filter((r): r is NonNullable<typeof r> => !!r) : [];
   const region = parts.length ? { x0: Math.min(...parts.map((r) => r.x0)), y0: Math.min(...parts.map((r) => r.y0)), x1: Math.max(...parts.map((r) => r.x1)), y1: Math.max(...parts.map((r) => r.y1)) } : null;
   const file = s.mode === "live" ? toTimberFile(s.spec!, s.built, { thumbnail: blankThumbnail() }) : s.exportFile(s.built, { thumbnail: false });
-  const v = validateMap(file, { profile: "export", external: s.mode !== "live", spec: s.spec, designedFor: s.meta.designedFor, features: s.features, loadOnly: true });
+  const v = validateMap(file, { profile: "export", external: s.mode !== "live", editing: true, spec: s.spec, designedFor: s.meta.designedFor, features: s.features, loadOnly: true });
   const items: CheckItem[] = [];
   const at = entityPositions(s);
   for (const c of v.report.checks) {
@@ -1007,10 +1007,10 @@ function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
   const removed = new Set<string>();
   for (const op of ops) {
     if (op.op === "deleteEntities") for (const id of op.params.entities) removed.add(id);
-    if (op.op === "placeEntity" && bad(op)) out.push(...springPool(s, op.params, removed));
+    if (op.op === "placeEntity" && bad(op)) out.push(...levelFootprint(s, { ...op.params, template: "BadwaterSource" }, removed));
     if (op.op === "moveEntity" && bad(op)) {
       const e = s.built.entities.find((g) => g.id === op.params.id)!;
-      out.push(...springPool(s, { x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
+      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
     }
     out.push(op);
   }
@@ -1586,7 +1586,12 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   if (!e) return changed(s, false, ["this map has no start to move"], t0);
   const o = orientation ?? e.orientation;
   const [cx, cy] = cornerFor(x, y, o);
-  const r = s.apply({ op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } }, "user", o !== e.orientation ? "Move and turn the start" : "Move start");
+  // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
+  // its door are cut down to the lowest tile, in the same step (D328)
+  const door = startEntranceTile(cx, cy, o);
+  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
+  const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
+  const r = s.applyAll([...level, move], "user", o !== e.orientation ? "Move and turn the start" : "Move start");
   return changed(s, r.ok, r.errors, t0);
 }
 

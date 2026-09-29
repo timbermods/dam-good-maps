@@ -110,6 +110,8 @@ declare global {
       fit(): { tiles: number[]; problem: string | null } | null;
       /** The start's check while it moves (its footprint and the three start requirements). */
       startCheck(): StartCheck | null;
+      /** An edit through the editor, as a stroke or a click would make it (tests). */
+      edit(op: EditOp, label: string): Promise<void>;
       /** The worker, for timing its answers (tests/e2e/preview.spec.ts). */
       worker: Remote<GeneratorApi>;
       /** Strokes whose painted terrain differed from the worker's build (0 when all is well). */
@@ -615,7 +617,9 @@ export default function Editor(props: EditorProps) {
     setPainted(null);
     setShapeNote(null);
     renderer.current?.setGhost(null);
+    ghostAt.current = null;
     if (!item) return;
+    setStartHint(null);
     painter.current?.end();
     setBrushTool(null);
     setTool(null);
@@ -1126,13 +1130,12 @@ export default function Editor(props: EditorProps) {
         type="button"
         class={`map-note map-tag start-hint${h.strong ? " strong" : ""}`}
         style={{ left: `${at.x}px`, top: `${at.y}px` }}
-        title="Move the start here"
         onClick={() => {
           setStartHint(null);
           void run(() => api.moveStartTo(h.x, h.y));
         }}
       >
-        {h.strong ? "The start fits here, with water, wood and berries in reach" : "The start fits here"}
+        {h.strong ? "Move the start here: water, wood and berries in reach" : "Move the start here"}
       </button>
     );
   }
@@ -1233,32 +1236,43 @@ export default function Editor(props: EditorProps) {
       const problem = startProblemAt(ctx(), x, y, door, bench, s.owner);
       const tiles: number[] = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H) tiles.push((y + dy) * W + x + dx);
-      setFit({ tiles: [...tiles, door[1] * W + door[0]], problem });
+      const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
+      setFit({ tiles: own, problem });
       shelfWord(problem);
-      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : h[y * W + x], orientation: ORIENTATION_NAMES.indexOf(o) };
+      // (an opened map's start is cut level with the lowest tile under it: D328)
+      ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : Math.min(...own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
       r.setGhost({ ...ghostAt.current, ok: !problem });
       return;
     }
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
-    // a source stands on the ground in its middle (a badwater source is 3 × 3)
-    const z = item.source ? h[y * W + x] : cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
+    // a source stands on the ground in its middle (a badwater source is 3 × 3); an object is cut
+    // level with the lowest tile under it (D290, D328)
+    let z = item.source ? h[y * W + x] : cx >= 0 && cy >= 0 && cx < W && cy < info.H ? h[cy * W + cx] : h[y * W + x];
+    if (!item.source) {
+      for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) z = Math.min(z, h[ty * W + tx]);
+    }
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
     ghostAt.current = g;
     if (!same) r.setGhost({ ...g, ok: null });
     checkFit(item.source ? sourceAtTile(item.source === "bad", x, y) : { tool: "entity", template, x: cx, y: cy, orientation: o }, (f) => {
+      // (put away while the worker was checking: nothing shows)
+      if (!shelfRef.current) return;
       setFit(f);
       shelfWord(f.problem);
       const now = ghostAt.current;
       if (now && now.template === template && now.x === cx && now.y === cy) renderer.current?.setGhost({ ...now, ok: !f.problem });
     });
   }
-  /** Why the shelf's object can't stand under the pointer, in a quiet word beside it (none: it fits). */
+  /** The one label beside the pointer for the shelf's object (D323, item 32): the reason it can't
+   *  stand there, or where it fits what the click does ("Move the start here", else "Place here").
+   *  Nothing picked, no label. */
   function shelfWord(problem: string | null) {
-    if (!problem) return setShapeNote((n) => (n?.warn ? null : n));
-    setShapeNote({ text: quietWord(problem), ok: true, warn: true, ...pointerAt.current });
+    const item = shelfRef.current;
+    if (!item) return setShapeNote(null);
+    setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
   const startTurned = (s: StartHere): Orientation => ORIENTATION_NAMES[(ORIENTATION_NAMES.indexOf(s.orientation) + turnRef.current) % 4] as Orientation;
@@ -1267,8 +1281,9 @@ export default function Editor(props: EditorProps) {
   function placeShelf(x: number, y: number) {
     const item = shelfRef.current;
     if (!item) return;
+    // (refused: the reason is beside the pointer already, once)
     const f = fitRef.current;
-    if (f?.problem) return flashNote(`Can't go here: ${quietWord(f.problem)}`);
+    if (f?.problem) return shelfWord(f.problem);
     if (item.id === "start") {
       const s = startHere;
       if (!s) return;
@@ -1297,6 +1312,24 @@ export default function Editor(props: EditorProps) {
         firstDone("place");
       },
     );
+  }
+  /** An object dragged out of the shelf let go (D323, item 11): over the map it is placed where the
+   *  pointer is, one step (its ghost showed where); anywhere else, or where it can't stand, nothing
+   *  is placed, and either way placement is over: the reason for a moment where it was refused. */
+  function dropShelf(_item: ShelfItem, cancelled: boolean) {
+    // (Esc put it away during the drag: nothing to place)
+    if (!shelfRef.current) return;
+    const hit = cancelled ? null : (renderer.current?.hoverHit ?? null);
+    if (!hit) return pickShelf(null);
+    const at = shelfTile.current;
+    const problem = at && at[0] === hit.x && at[1] === hit.y ? (fitRef.current?.problem ?? null) : null;
+    if (problem) {
+      pickShelf(null);
+      flashNote(quietWord(problem));
+      return;
+    }
+    placeShelf(hit.x, hit.y);
+    pickShelf(null);
   }
   /** Trees and bushes painted by a drag: planted where they can grow, one step, each with its pop. */
   function plantShelf(tiles: number[]) {
@@ -1359,6 +1392,27 @@ export default function Editor(props: EditorProps) {
       ghostAt.current = null;
     };
   }, [shelf, ready, info.W, info.H]);
+  // a right-click on the map (not a right-drag: that is the camera) puts the picked object away (D323)
+  useEffect(() => {
+    const c = renderer.current?.canvas;
+    if (!c) return;
+    let down: { x: number; y: number } | null = null;
+    const onDown = (e: PointerEvent) => {
+      down = e.button === 2 ? { x: e.clientX, y: e.clientY } : null;
+    };
+    const onUp = (e: PointerEvent) => {
+      const d = down;
+      down = null;
+      if (e.button !== 2 || !d || Math.hypot(e.clientX - d.x, e.clientY - d.y) >= 4) return;
+      if (shelfRef.current) pickShelf(null);
+    };
+    c.addEventListener("pointerdown", onDown);
+    c.addEventListener("pointerup", onUp);
+    return () => {
+      c.removeEventListener("pointerdown", onDown);
+      c.removeEventListener("pointerup", onUp);
+    };
+  }, [ready]);
   // the shelf's icons: each object drawn once by the view, when the page is idle
   useEffect(() => {
     const r = renderer.current;
@@ -3267,6 +3321,7 @@ export default function Editor(props: EditorProps) {
       idle: () => queue.current.then(() => undefined),
       instant: () => instantRef.current,
       fit: () => fitRef.current,
+      edit: (op, label) => run(() => api.apply(op, "user", label)),
       startCheck: () => startDragRef.current?.check ?? null,
       worker: api,
       strokeMismatches: () => strokeMismatches.current,
@@ -3358,7 +3413,7 @@ export default function Editor(props: EditorProps) {
         onBack={() => props.onBack(info)}
       />
       <div class="editor-main">
-        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -3680,25 +3735,45 @@ function mirrorOf(v: MapView): Mirror {
   return { heights: v.heights, water: surfaceWater(v.W, v.H, v.water), waterView: v.water, mapWater: v.water, entities: v.entities, entitiesAt: null, soil: v.soil };
 }
 
-/** Dropping a .timber or project file on the editor opens it. */
+/** Dropping a .timber or project file on the editor opens it: only a file dragged in from outside
+ *  the page (D323, item 11). A drag that began on the page (an icon, an image, a link) carries a
+ *  file of its own in Chrome, and never opens anything. */
 function DropTarget({ onFile }: { onFile(file: File): void }) {
   const latest = useRef(onFile);
   latest.current = onFile;
   useEffect(() => {
+    /** A drag that began on this page is under way. */
+    let inside = false;
+    // (after the page's own handlers, so a drag they cancel is no drag at all)
+    const began = (e: DragEvent) => {
+      inside = !e.defaultPrevented;
+    };
+    const ended = () => {
+      inside = false;
+    };
     const over = (e: DragEvent) => {
-      if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+      if (!inside && e.dataTransfer?.types.includes("Files")) e.preventDefault();
     };
     const drop = (e: DragEvent) => {
       const file = e.dataTransfer?.files?.[0];
-      if (!file) return;
+      const own = inside;
+      inside = false;
+      if (!file || own) return;
       e.preventDefault();
       latest.current(file);
     };
+    window.addEventListener("dragstart", began);
+    window.addEventListener("dragend", ended);
     window.addEventListener("dragover", over);
     window.addEventListener("drop", drop);
+    // (a page's own drag that ends with no dragend: the next press starts clean)
+    window.addEventListener("pointerdown", ended);
     return () => {
+      window.removeEventListener("dragstart", began);
+      window.removeEventListener("dragend", ended);
       window.removeEventListener("dragover", over);
       window.removeEventListener("drop", drop);
+      window.removeEventListener("pointerdown", ended);
     };
   }, []);
   return null;

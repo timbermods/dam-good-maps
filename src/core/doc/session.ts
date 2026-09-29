@@ -942,6 +942,8 @@ export class MapSession {
     return validateMap(this.exportFile(), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
+      // (the map is being edited: an edge wall warns, D323)
+      editing: true,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,

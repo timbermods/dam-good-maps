@@ -610,19 +610,19 @@ function startLinks(c: TileContext, h: Uint8Array, x: number, y: number, door: [
 }
 
 /** Why the district center cannot stand at (x, y) with its door at `door` (null: it can): the quick
- *  part of `checkStartAt`, without the walks. */
+ *  part of `checkStartAt`, without the walks. The ground never stops it (D328): a generated start's
+ *  bench, or an opened map's cut footprint, levels it. */
 export function startProblemAt(c: TileContext, x: number, y: number, door: [number, number], bench: { level: number } | null, self: string | null): string | null {
   const { W, H } = c;
   const tiles: number[] = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
-  const z = bench ? bench.level : c.heights[y * W + x];
+  // (uneven ground doesn't stop it: an opened map's start levels its own footprint and door, D328)
   for (const i of [...tiles, door[1] * W + door[0]]) {
     const tx = i % W;
     const ty = Math.floor(i / W);
     if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2 || i < 0) return "too close to the map edge";
     if (c.index && c.index.river[i] >= 0) return "in a river";
     if (c.water.depth[i] > 0.05) return "under water";
-    if (!bench && c.heights[i] !== z) return "not on level ground";
     const here = c.entitiesAt.get(i);
     if (here?.some((k) => c.entities.owners[c.entities.owner[k]] !== self && !PLACED_AFTER_SLOPES.test(c.entities.templates[c.entities.template[k]]))) return "on an object";
   }
@@ -668,6 +668,12 @@ export function checkStartAt(
         const i = yy * W + xx;
         if (inBench(f, xx, yy) && !(c.index && c.index.river[i] >= 0)) h[i] = bench.level;
       }
+  } else if (!problem) {
+    // an opened map's start cuts its footprint and door down to the lowest of them (D328)
+    const own = [...tiles, doorI];
+    let low = Infinity;
+    for (const i of own) low = Math.min(low, h[i]);
+    for (const i of own) h[i] = low;
   }
   // what blocks walking, and the slopes the colony walks on
   const blocked = new Uint8Array(N);

@@ -1,13 +1,27 @@
 // The left shelf (PLAN §20 D184, D212): a clean grid of the game's placeable objects (the start, the
 // water and badwater sources, the trees and the rest), each a small render of itself in the map's
 // look, and nothing else. Built from the shared bar and button styles (D176).
+//
+// A click picks an object (its ghost follows the pointer over the map); a press that moves on
+// drags it out (D323, item 11): the ghost follows the pointer, and letting go over the map places it
+// there. The drag is the page's own pointer drag, never the browser's (which carries a file with an
+// image and offered to open it).
 
+import { useRef } from "preact/hooks";
 import { SHELF, type ShelfItem } from "./shelfItems";
+
+/** How far a press must move before it is a drag and not a click, in pixels. */
+const DRAG_PX = 6;
 
 export interface ShelfProps {
   /** The item picked, or null. */
   picked: string | null;
   onPick(item: ShelfItem | null): void;
+  /** An item is dragged out of the shelf: it is picked and its ghost follows the pointer. */
+  onDragStart(item: ShelfItem): void;
+  /** The drag let go (`cancelled`: the browser lost the pointer): place it where the pointer is over
+   *  the map, or end placement. */
+  onDrop(item: ShelfItem, cancelled: boolean): void;
   /** Each object's picture, once the view can draw it. */
   icon(template: string): string | null;
   /** The map is still loading. */
@@ -15,6 +29,41 @@ export interface ShelfProps {
 }
 
 export function Shelf(p: ShelfProps) {
+  /** The press in progress. */
+  const press = useRef<{ x: number; y: number; id: number; dragging: boolean } | null>(null);
+  /** A click that follows a drag's release on the same button is not a pick. */
+  const swallow = useRef(false);
+  const latest = useRef(p);
+  latest.current = p;
+
+  function down(e: PointerEvent, it: ShelfItem) {
+    swallow.current = false;
+    if (e.button !== 0 || latest.current.loading) return;
+    const s = { x: e.clientX, y: e.clientY, id: e.pointerId, dragging: false };
+    press.current = s;
+    const move = (m: PointerEvent) => {
+      if (press.current !== s || m.pointerId !== s.id) return;
+      if (!s.dragging && Math.hypot(m.clientX - s.x, m.clientY - s.y) >= DRAG_PX) {
+        s.dragging = true;
+        latest.current.onDragStart(it);
+      }
+    };
+    const end = (u: PointerEvent) => {
+      if (u.pointerId !== s.id) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      if (press.current === s) press.current = null;
+      if (s.dragging) {
+        swallow.current = true;
+        latest.current.onDrop(it, u.type === "pointercancel");
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
   return (
     <nav class="shelf" aria-label="Place">
       <div class="shelf-grid" role="toolbar" aria-label="Objects">
@@ -27,11 +76,19 @@ export function Shelf(p: ShelfProps) {
               class="shelf-item"
               aria-pressed={p.picked === it.id}
               aria-label={it.key ? `${it.name} (${it.key})` : it.name}
-              title={p.loading ? "The map is still loading" : `${it.name}${it.key ? ` (${it.key})` : ""}: ${it.hint}${it.turns ? " (R turns it)" : ""}. Esc puts it back.`}
+              title={p.loading ? "The map is still loading" : `${it.name}${it.key ? ` (${it.key})` : ""}: ${it.hint}${it.turns ? " (R turns it)" : ""}. Click to pick it up, or drag it onto the map. Esc puts it back.`}
               disabled={p.loading}
-              onClick={() => p.onPick(p.picked === it.id ? null : it)}
+              onPointerDown={(e) => down(e, it)}
+              onDragStart={(e) => e.preventDefault()}
+              onClick={() => {
+                if (swallow.current) {
+                  swallow.current = false;
+                  return;
+                }
+                p.onPick(p.picked === it.id ? null : it);
+              }}
             >
-              {src ? <img src={src} alt="" width={48} height={48} /> : <span class="shelf-blank" aria-hidden="true" />}
+              {src ? <img src={src} alt="" width={48} height={48} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
               <span class="shelf-word">{it.name}</span>
             </button>
           );
