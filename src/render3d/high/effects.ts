@@ -34,8 +34,7 @@ export type HighEffectKey =
   | "rings"
   | "roughWater"
   | "landmarks"
-  | "objectDetail"
-  | "poison";
+  | "objectDetail";
 
 export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "water", label: "Water", from: "#38" },
@@ -62,7 +61,6 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "roughWater", label: "Rough water", from: "#67" },
   { key: "landmarks", label: "Landmarks", from: "#67" },
   { key: "objectDetail", label: "Fine detail", from: "#67" },
-  { key: "poison", label: "Poisoned soil", from: "#67" },
 ];
 
 export type HighEffects = Record<HighEffectKey, boolean>;

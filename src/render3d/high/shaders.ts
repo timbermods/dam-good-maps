@@ -7,10 +7,15 @@
 //   curve and grade, the distance haze, the sky, rock strata, soil edges and colour variation;
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
-// - #67 (investigation/maplook-finish), stages 1–3 and stage 4's poisoned soil: the diorama edge
-//   (rock beds, soil cap, water section), the water's finish (a continuous crown, an irregular
-//   landing, bubbly froth, rough water), the landmarks' fine detail and slopes' natural material,
-//   and poisoned soil stained dark instead of glowing. Stage 4's seasons wait (D286 (4)).
+// - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
+//   section), the water's finish (a continuous crown, an irregular landing, bubbly froth, rough
+//   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons wait (D286
+//   (4)); its dark stain on contaminated soil is superseded by D334 (contamination's orange-red veins,
+//   the game's own, in every look: materials.ts `veinsOf`).
+// - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
+//   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
+//   caustics and rolling light on moving water, pink highlights and red contact at rock on
+//   badwater, a bluer sky with fewer, larger clouds.
 // Every effect has a switch (a uniform, 1 on, 0 off), so switching never recompiles a shader. The
 // investigations' colours are display RGB, like the Standard shaders'. Where #65 graded the whole
 // frame in a pass of its own, each High material grades its own colour at the end of `finish()`:
@@ -44,17 +49,16 @@ export const SWITCHES = [
   "hlBubbles",
   "hlRiver",
   "hlObjectDetail",
-  "hlPoison",
 ] as const;
 export type Switch = (typeof SWITCHES)[number];
 
 const switches = (names: readonly Switch[]) => `\n  uniform float ${names.join(", ")};`;
 
 /** The tone curve and grade (#65), in linear light, from the display RGB the shaders make: decode,
- *  a little more saturation and a warm highlight balance, chroma restrained round its luminance
- *  (warm neutrals more than foliage), bright yellow-greens nudged toward green, then exposure 1.22
- *  and a shoulder that compresses only peaks above 0.82, scaling the channels together (no grey
- *  lift, no whitening); encoded once. From three.js r186's NeutralToneMapping (MIT) without its toe
+ *  a little more saturation and a warm highlight balance, chroma restrained a little round its
+ *  luminance (the duller colours more), bright yellow-greens nudged toward green, then exposure 1.00
+ *  (D334, from 1.22: the game's references) and a shoulder that compresses only peaks above 0.82,
+ *  scaling the channels together (no grey lift, no whitening); encoded once. From three.js r186's NeutralToneMapping (MIT) without its toe
  *  or highlight desaturation. */
 export const GRADE_GLSL = /* glsl */ `
   vec3 hlDecode(vec3 c) { return mix(c / 12.92, pow(max((c + 0.055) / 1.055, vec3(0.0)), vec3(2.4)), step(vec3(0.04045), c)); }
@@ -76,14 +80,13 @@ export const GRADE_GLSL = /* glsl */ `
       float peak = max(c.r, max(c.g, c.b));
       float chroma = peak - min(c.r, min(c.g, c.b));
       float vividness = chroma / max(peak, 0.0001);
-      float warmNeutral = smoothstep(0.0, 0.25, (c.r - c.g) / max(chroma, 0.0001)) * (1.0 - smoothstep(0.70, 0.95, vividness));
       float restraint = mix(0.90, 1.0, smoothstep(0.35, 0.75, vividness));
       c = mix(vec3(litLuma), c, restraint);
       float yellowGreen = smoothstep(-0.12, 0.10, (c.g - c.r) / max(chroma, 0.0001)) * smoothstep(0.25, 0.70, (c.r - c.b) / max(chroma, 0.0001));
       float shift = 0.06 * chroma * yellowGreen * smoothstep(0.14, 0.40, litLuma);
       c += vec3(-shift, shift * (0.2126 / 0.7152), 0.0);
     }
-    if (hlTone > 0.5) c = hlShoulder(c * 1.0);
+    if (hlTone > 0.5) c = hlShoulder(c);
     return clamp(hlEncode(max(c, vec3(0.0))), 0.0, 1.0);
   }
 `;
@@ -159,7 +162,7 @@ function lit(names: readonly Switch[], more = ""): ShaderHooks {
 
 export function terrainHooks(): ShaderHooks {
   return {
-    ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlPoison", "hlWater"], AMBIENT_GLSL + /* glsl */ `
+    ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 `),
@@ -176,17 +179,7 @@ export function terrainHooks(): ShaderHooks {
           c *= 1.0 + broad * 0.15 + mottling * 0.065;
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
-        // D324 (Kyler's follow-up): the tone curve's exposure lifts grass about 5 L* above Standard's; hold it to
-        // the game's (L* 50-55) like Standard's, by the grass's own share of the ground
-        c *= 1.0;
-        vec3 hlCleanGround = c;`,
-    // poisoned soil (#67's High proposal, D250): the same contamination, a dark olive-brown stain and
-    // dark sickly veins instead of the glow
-    groundEnd: /* glsl */ `        if (hlPoison > 0.5) {
-          c = mix(hlCleanGround, vec3(0.52, 0.13, 0.035), fracture.x * 0.92);
-          glow = fracture.y * mix(0.16, 0.30, lvl);
-        }
-`,
+        // (exposure 1.00, D334: grass needs no hold-down of its own to sit at the game's L* 50-55)`,
     // the poisoned bed (#38): under polluted water, the ground's own contamination shows through
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
@@ -198,32 +191,20 @@ export function terrainHooks(): ShaderHooks {
               glow = mix(glow, poisonGlow, polluted);
             }
           }`,
-    // rock strata (#65): warped bedding, grain, faint fractures, a quiet line at each level
+    // rock (#65's strata, D334's stone): olive stones of unequal size and slope, soft mortar between them
     wall: /* glsl */ `          if (hlStrata > 0.5) {
             vec3 stone = mix(vec3(0.35, 0.355, 0.26), vec3(0.51, 0.47, 0.34), vnoise(vec2(along * 0.32, y * 0.4)));
             wc = mix(vec3(0.235, 0.23, 0.18) * shade, stone * shade * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
           }
 `,
-    wallLines: "markers",
-    // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, with a soil
-    // cap and the water's section; inland cliffs keep the strata
+    // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, the same
+    // soft flagstones as the cliffs inland a shade darker (D334), with a soil cap and the water's section
     lit: /* glsl */ `
         bool hlCut = abs(n.y) < 0.5 && (vWorld.x < 0.003 || vWorld.x > mapSize.x - 0.003 || -vWorld.z < 0.003 || -vWorld.z > mapSize.y - 0.003);
         if (hlCut && (hlGeology > 0.5 || hlSoilCap > 0.5)) {
           float a = abs(n.x) > 0.5 ? -vWorld.z : vWorld.x;
           float y = vWorld.y;
-          float warp = (vnoise(vec2(a * 0.075, 19.7)) - 0.5) * 0.75;
-          float bed = y + warp + (vnoise(vec2(a * 0.13, y * 0.19) + 13.7) - 0.5) * 1.3;
-          float broad = vnoise(vec2(a * 0.24, y * 1.6));
-          float band = vnoise(vec2(a * 0.06, bed * 0.83));
-          vec3 stone = mix(vec3(0.36, 0.38, 0.35), vec3(0.43, 0.445, 0.405), band);
-          float seam = smoothstep(0.60, 0.74, vnoise(vec2(a * 0.10, bed * 2.31) + 34.7));
-          stone *= 1.0 - seam * 0.13;
           float grain = vnoise(vec2(a * 8.3, y * 16.7));
-          float joint = cracks(vec2(a * 0.67 + warp, y * 0.93) + 41.8).x;
-          stone *= 0.87 + broad * 0.18 + grain * 0.10;
-          stone *= 1.0 - joint * 0.18 * (1.0 - smoothstep(0.06, 0.22, fwidth(a)));
-          stone *= 0.86 + 0.14 * smoothstep(-3.0, 1.0, y);
           if (hlGeology > 0.5) c *= 0.94;
           if (hlSoilCap > 0.5) {
             float depth = h0 - y;
@@ -313,6 +294,11 @@ ${HIGH_WATER_GLSL}
     float waterTexture = 0.5 + (mix(chop(p), chop(p2), blend) - 0.5) / sqrt(blend * blend + (1.0 - blend) * (1.0 - blend));
     float streak = smoothstep(0.51, 0.79, waterTexture) * near;
     vec3 colour = mix(body, streakColour, streak * 0.45);
+    // the light on the water (D334, Timberborn's references): in still water broken caustics (network)
+    // and ribbons along the current; in moving water broad packets of light rolling with the current
+    // (rolling), faded in above still-water speed. Kyler tunes the channel water's marbled streaks on
+    // real maps here: the rolling packets' scale (the 0.70 and 1.3 in rollA and rollB), their
+    // threshold (0.41 to 0.72) and the speed over which they take over (0.10 to 0.65).
     vec2 direction = normalize(mix(vec2(0.8, 0.6), normalize(velocity + vec2(0.0001, 0.0002)), speed));
     vec2 across = vec2(-direction.y, direction.x);
     vec2 flowA = vec2(dot(p, across) * 2.8, dot(p, direction) * mix(2.1, 0.42, speed));
@@ -469,7 +455,7 @@ export function fallHooks(): ShaderHooks {
     ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
     // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
     // gives the sheet its own water teal
-    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, vec3(0.55, 0.15, 0.065), cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
+    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, FALL_BAD, cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
     // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
     fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
     fallVertex: /* glsl */ `        if (kind > 4.5 && hlCrown > 0.5) {

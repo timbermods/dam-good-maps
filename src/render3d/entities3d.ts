@@ -10,17 +10,17 @@
 //   than the dark living crowns.
 // - Berry bushes: dark green, dotted with blue flowers.
 // - Ruins (Kyler's rounds, D178): ruined scaffold towers, one column per tile and one storey per
-//   level of its height: a skeleton of thin rusty corner posts, a beam round every storey and
-//   diagonal braces on some faces; beige slab panels on some storeys and faces, some missing, a few
-//   tilted or broken; the top storey often only partly there. The five variants (A to E, the
+//   level of its height: a skeleton of thin orange corner posts, a beam round every storey and
+//   diagonal braces on some faces (D334's bright orange); cream sacks hanging in some storeys and
+//   faces, some askew, a few flat boards broken; the top storey often only partly there. The five variants (A to E, the
 //   file's own) differ in bracing and panels, each in two layouts that alternate up the column.
 //   Where the column stands on moist ground, ivy drapes about the lower half of its storeys, the
 //   most at its foot, thinning upward: flat leaf clusters clinging beside the posts and spreading
 //   over the faces' lower parts, bright leaves on their edges, strands with leaves hanging from
-//   the beams, the panels' middles showing through. A column is turned a quarter more than its
+//   the beams, the sacks' middles showing through. A column is turned a quarter more than its
 //   east neighbour and a half more than its north one, and no layout looks the same turned, so
 //   neighbouring columns never look alike. From afar each storey is a solid block in the
-//   scaffolding's rust, a pale panel set in where it has one, and a band of ivy low on the lower
+//   scaffolding's orange, a cream panel set in where it has one, and a band of ivy low on the lower
 //   storeys of a column on moist ground.
 // - The start: a district center of our own, a lodge with pale walls, a dark roof and a yellow
 //   banner on a pale deck, its door facing the entrance, and a lit post on the entrance tile.
@@ -138,6 +138,39 @@ function strut(m: Model, x0: number, y0: number, x1: number, y1: number, z: numb
   const dx = x1 - x0;
   const dy = y1 - y0;
   m.add(bar(r, Math.hypot(dx, dy)), color, { rz: Math.atan2(-dx, dy), x: (x0 + x1) / 2, y: (y0 + y1) / 2, z });
+}
+
+/** A sack hanging in a ruin's face (D334, the game's cream sacks; replaces a flat panel), `w` wide
+ *  and `h` tall, centred on the origin with its rim in the plane z = 0 and its front a shallow
+ *  pouch bulging `bulge` toward −Z (the outside): a few broad facets round a soft horizontal seam
+ *  (the ridge between its two lumps), its upper edge pinched in the middle where it is tied, its
+ *  corners gathered, its bottom sagging a little. `lump` (0 or 1) shifts which lump is fuller, so
+ *  neighbouring sacks differ. Twelve triangles, as the slab it replaces: 8 facets in front, a nearly
+ *  flat back of 4 seen from inside the scaffold. (Its far form stays a flat cream panel, `farBlock`.) */
+function sack(w: number, h: number, bulge: number, lump: number): BufferGeometry {
+  const s = lump ? -1 : 1;
+  const tl = [-0.46 * w, 0.5 * h, 0];
+  const t = [0.04 * s * w, 0.34 * h, -0.3 * bulge];
+  const tr = [0.46 * w, 0.5 * h, 0];
+  const br = [0.5 * w, -0.44 * h, 0];
+  const b = [-0.03 * s * w, -0.5 * h, -0.25 * bulge];
+  const bl = [-0.5 * w, -0.44 * h, 0];
+  const cl = [-0.24 * w, 0.03 * s * h, -bulge * (s > 0 ? 1 : 0.86)];
+  const cr = [0.25 * w, -0.03 * s * h, -bulge * (s > 0 ? 0.86 : 1)];
+  const front = [[tl, bl, cl], [tl, cl, t], [t, cl, cr], [t, cr, tr], [tr, cr, br], [br, cr, b], [b, cr, cl], [b, cl, bl]];
+  // (a fan from the tied middle of its upper edge, the outline's one inward corner)
+  const back = [[t, tr, br], [t, br, b], [t, b, bl], [t, bl, tl]];
+  const out: number[] = [];
+  /** A triangle wound so its face points toward −Z (front) or +Z (back). */
+  const put = ([p, q, r]: number[][], toward: number) => {
+    const n = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    out.push(...p, ...(n * toward > 0 ? q : r), ...(n * toward > 0 ? r : q));
+  };
+  for (const tri of front) put(tri, -1);
+  for (const tri of back) put(tri, 1);
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(out, 3));
+  return g;
 }
 
 /** Build parts on the north face (−Z) and turn them to face `f` (0 north, 1 east, 2 south,
@@ -727,8 +760,8 @@ export const IVY_DENSE = 3;
 
 /** A storey of a ruin column (variant 0–4, A–E; kind 0 or 1 its layouts, 2 or 3 a top storey only
  *  partly there, in the first or second layout's form), one level high, within its tile, with
- *  `ivy` (IVY_NONE to IVY_DENSE). Close up: the rusty skeleton, its braces and beige panels, and
- *  ivy draped over it (`drape`); from afar: a solid block in rust with its panels set in, and a
+ *  `ivy` (IVY_NONE to IVY_DENSE). Close up: the orange skeleton, its braces and cream sacks, and
+ *  ivy draped over it (`drape`); from afar: a solid block in orange with its cream panels set in, and a
  *  band of ivy low on a column's lower storeys (`farBlock`). */
 function storey(variant: number, kind: number, ivy: number): Model {
   const m = new Model();
@@ -761,10 +794,15 @@ function storey(variant: number, kind: number, ivy: number): Model {
       for (const [k, p] of panels.entries()) {
         const col = shade(RUIN.panel, 0.95 + 0.07 * ((f + k + variant) % 3) * 0.5);
         const hi = Math.min(0.9, top - 0.06);
-        if (p === "full" && hi > 0.35) m.add(box(0.74, hi - 0.06, 0.03), col, { y: (hi + 0.06) / 2, z });
-        else if (p === "low") m.add(box(0.74, 0.4, 0.03), col, { y: 0.25, z });
-        else if (p === "high" && top >= 0.95) m.add(box(0.74, 0.42, 0.03), col, { y: 0.69, z });
-        else if (p === "tilt" && top >= 0.7) m.add(box(0.7, 0.62, 0.03), col, { rz: 0.17, rx: -0.08, x: 0.03, y: 0.44, z: z - 0.01 });
+        // cream sacks (D334, as the game's ruins have them): a big one resting on the storey's floor,
+        // a smaller one low or hanging high, one hanging askew; broken panels stay flat boards
+        const lump = (f + k + variant) % 2;
+        if (p === "full" && hi > 0.35) {
+          const h = Math.min(0.5, hi - 0.08);
+          m.add(sack(0.72, h, 0.075, lump), col, { y: 0.06 + h / 2, z });
+        } else if (p === "low") m.add(sack(0.7, 0.36, 0.065, lump), col, { y: 0.25, z });
+        else if (p === "high" && top >= 0.95) m.add(sack(0.66, 0.38, 0.06, lump), col, { y: 0.7, z });
+        else if (p === "tilt" && top >= 0.7) m.add(sack(0.66, 0.46, 0.07, lump), col, { rz: 0.17, rx: -0.08, x: 0.03, y: 0.44, z: z - 0.01 });
         else if (p === "broken") {
           m.add(box(0.36, Math.min(0.84, hi - 0.06), 0.03), col, { x: -0.19, y: (Math.min(0.9, hi) + 0.06) / 2, z });
           m.add(box(0.34, 0.36, 0.03), shade(col, 0.93), { rz: -0.14, x: 0.2, y: 0.25, z });
@@ -843,9 +881,9 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number): 
   }
 }
 
-/** A storey from afar (D305): a block over its tile in the near skeleton's own muted rust
- *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a pale panel
- *  set into each face that has one, a band of ivy low on the faces (all four at a column's foot,
+/** A storey from afar (D305, D334): a block over its tile in the near skeleton's own orange
+ *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a cream panel
+ *  where each face's sack or boards are, a band of ivy low on the faces (all four at a column's foot,
  *  two above it, none on the highest ivy; `variant` picks the two), and the same colour on top. */
 function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0): void {
   const w = 0.86;
@@ -854,12 +892,12 @@ function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, vari
     onFace(m, f, () => {
       m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 });
       if (panels.length) {
-        // (a half or broken panel is smaller)
+        // (where the near sack or boards are: a big sack low, a small one low or high, one askew
+        // across the middle, broken boards over most of the face)
         const p = panels[0];
-        const ph = (p === "low" || p === "high" ? 0.4 : 0.66) * height;
+        const [ph, py] = p === "full" ? [0.5, 0.31] : p === "low" ? [0.4, 0.3] : p === "high" ? [0.4, 0.7] : p === "tilt" ? [0.46, 0.44] : [0.66, 0.5];
         const pw = p === "broken" ? 0.36 : 0.6;
-        const py = p === "high" ? height * 0.7 : p === "low" ? height * 0.3 : height * 0.5;
-        m.add(plane(pw, ph), RUIN.panel, { ry: Math.PI, x: p === "broken" ? 0.12 : 0, y: py, z: -w / 2 - 0.004 });
+        m.add(plane(pw, ph * height), RUIN.panel, { ry: Math.PI, x: p === "broken" ? 0.12 : 0, y: py * height, z: -w / 2 - 0.004 });
       }
       if (ivy === IVY_DENSE) m.add(plane(0.74, 0.42 * height), RUIN.leaf, { ry: Math.PI, y: 0.21 * height, z: -w / 2 - 0.008 });
       else if (ivy === IVY_MEDIUM && (f + variant) % 4 >= 2) m.add(plane(0.6, 0.3 * height), RUIN.leaf, { ry: Math.PI, y: 0.15 * height, z: -w / 2 - 0.008 });

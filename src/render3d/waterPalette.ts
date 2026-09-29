@@ -26,6 +26,8 @@ export type Rgb = readonly [number, number, number];
 const BAD_BODY: Rgb = [0.379, 0.18, 0.158];
 
 export const WATER = {
+  /** A fall's streaks: a lighter teal on clean water, orange-red on badwater, little white (D334,
+   *  as Timberborn's references); and badwater's sheet in High. */
   fallTeal: [0.27, 0.64, 0.71] as Rgb,
   fallBad: [0.55, 0.15, 0.065] as Rgb,
   fallBadStreak: [0.87, 0.32, 0.12] as Rgb,
@@ -119,20 +121,18 @@ export const WATER_SURFACE = {
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
- *  e63a3ff, D177): #38's own inputs, display values before the light, which its colour check
- *  calibrated through High's light to the targets in `WATER_CALIBRATION` (the same targets as the
- *  Standard look's badwater). The High look's tone curve and grade then brighten them a little,
- *  as #65 intends (its final colours are judged from captures). Clean water by depth (shallow, a
+ *  e63a3ff, D177; its body colours and badwater's highlights from Timberborn's references, D334):
+ *  display values before the light. `WATER_CALIBRATION` measures the Standard look only; High's
+ *  colours are judged from captures beside the references, and its tone curve and grade finish them. Clean water by depth (shallow, a
  *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; badwater's
  *  body (water partly bad blends to it as the Standard look's does: `WATER_BLEND`, `waterBlend` in
  *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
  *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
 export const HIGH_WATER = {
-  /** Clean water by depth, fitted the same way as Standard's (D304): shallow only a little lighter
-   *  than body, deep only a little darker, kept clearly above badwater's own floor. D310 checked
-   *  these against the game's own reading and found them already close (within half an L\* of the
-   *  sampled shallow/middle/deep), so they are unchanged; `bad` is unchanged too, for the same reason
-   *  Standard's `WATER.bad` is (the mine pit's margin under it, and #38's approved measurement). */
+  /** Clean water by depth, from Timberborn's references (D334): a teal shallow, a darker body and a
+   *  navy deep, which keeps its depth at a grazing angle too; badwater a deep crimson. Readability
+   *  follows the game's (D334 (2)): deep clean water may be as dark as badwater, which reads by its
+   *  colour, dullness, pink highlights, bubbles and red contact at rock, not by a lightness gap. */
   shallow: [0.13, 0.29, 0.36] as Rgb,
   body: [0.08, 0.20, 0.28] as Rgb,
   deep: [0.045, 0.12, 0.19] as Rgb,
@@ -222,14 +222,18 @@ export const BADWATER = {
 /** Waterfalls (D201): how see-through a fall is between its streaks and on them (clean water),
  *  badwater's (murky, nearly opaque), and its foam; the inner face shows `inner` of its opacity,
  *  behind the outer one. A fall's colours are the water's: clean water's light teal shallows with
- *  white foam, badwater's crimson body with its streaks and foam, and water partly bad between
- *  them by the blend (`WATER_BLEND`). */
+ *  lighter teal streaks, badwater's crimson body with orange-red ones, little white (D334: the
+ *  sheet well opaque, as the game's), and water partly bad between them by the blend (`WATER_BLEND`). */
 export const WATER_FALL = {
-  clear: 0.4,
-  streak: 0.7,
+  clear: 0.76,
+  streak: 0.94,
   bad: 0.9,
   foam: 0.95,
   inner: 0.6,
+  /** The whitewater where a fall lands (its crown and splash): how opaque, a share of `foam`, and
+   *  how much of it is white over the water's own teal or crimson (D334: little white). */
+  whitewater: 0.46,
+  whitewaterTint: 0.2,
 } as const;
 
 /** How water turns from clean to bad with its badwater share `s` (0–1, blended between tiles by
@@ -400,8 +404,9 @@ export const HIGH_WATER_GLSL = Object.entries(HIGH_WATER)
 export const WATER_GLSL = /* glsl */ `
   #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_CREST ${glColor(WATER.crest)}
-  #define SOUL_FALL_TEAL ${glColor(WATER.fallTeal)}
-  #define SOUL_FALL_BAD_STREAK ${glColor(WATER.fallBadStreak)}
+  #define FALL_TEAL ${glColor(WATER.fallTeal)}
+  #define FALL_BAD ${glColor(WATER.fallBad)}
+  #define FALL_BAD_STREAK ${glColor(WATER.fallBadStreak)}
   #define WATER_TEAL ${glColor(WATER.teal)}
   #define WATER_NAVY ${glColor(WATER.navy)}
   #define WATER_FOAM ${glColor(WATER.foam)}
@@ -441,6 +446,8 @@ export const WATER_GLSL = /* glsl */ `
   #define FALL_CLEAR ${f(WATER_FALL.clear)}
   #define FALL_STREAK ${f(WATER_FALL.streak)}
   #define FALL_FOAM ${f(WATER_FALL.foam)}
+  #define FALL_WHITEWATER ${f(WATER_FALL.whitewater)}
+  #define FALL_WHITEWATER_TINT ${f(WATER_FALL.whitewaterTint)}
   #define FALL_INNER ${f(WATER_FALL.inner)}
   #define BADWATER_FALL ${f(WATER_FALL.bad)}
   /** Clean water's depth as its colour and opacity see it, by how far the point is from a shore. */

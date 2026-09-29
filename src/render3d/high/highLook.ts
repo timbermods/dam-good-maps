@@ -161,7 +161,6 @@ export class HighLook {
     set("hlBubbles", e.bubbles);
     set("hlRiver", e.roughWater);
     set("hlObjectDetail", e.objectDetail);
-    set("hlPoison", e.poison);
     const u = this.host.uniforms;
     const balance = e.sunlight ? SUNLIGHT : e.shadows ? SHADOW_BALANCE : { sun: [1, 1, 1], sky: 1 };
     this.sun.value.copy(u.sunColor.value).multiply(new Color(balance.sun[0], balance.sun[1], balance.sun[2]));
