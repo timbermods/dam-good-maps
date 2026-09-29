@@ -31,6 +31,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [m9a.md](m9a.md) | M9a: terrain and water from processes (generator 0.7.0, project format 3) | 2026-09-26 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
 | [size-edits.md](size-edits.md) | Edits never replay onto new land: the size-change bug (#86) and D336 | 2026-09-29 |
+| [page-editor.md](page-editor.md) | The page is the editor, part 1 (D330): the side panel, the map card, Your maps, the candidates strip, the first-visit maps (branch `feature/page-editor-1`) | 2026-09-29 |
 
 A milestone's date is the day of its `m<N>-done` tag.
 

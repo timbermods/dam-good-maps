@@ -1,0 +1,256 @@
+/* The side panel's parts ("The page is the editor", docs/UI-BRIEF.md): only what they need to be
+   usable. Placement and styling are the design pass's (brief §9). Colours are the page's tokens
+   (src/styles/app.css). */
+
+.pg-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pg-muted {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+/* the panel: a column, or a thin strip when collapsed */
+.pg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 340px;
+  max-width: 100%;
+  background: var(--panel);
+  border-right: 1px solid var(--rule);
+  padding: 10px;
+  overflow-y: auto;
+}
+.pg-panel-collapsed {
+  width: auto;
+  padding: 6px 4px;
+}
+.pg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pg-switch {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+}
+.pg-switch [role="tab"] {
+  flex: 1;
+  padding: 4px 6px;
+}
+.pg-switch [aria-selected="true"] {
+  font-weight: 600;
+  border-bottom: 2px solid var(--accent);
+}
+.pg-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Generate and its dot */
+.pg-generate-button {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.pg-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: middle;
+}
+
+/* the map card */
+.pg-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pg-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pg-card-name {
+  margin: 0;
+  font-size: 1.1em;
+}
+.pg-card-plays,
+.pg-card-signature,
+.pg-credits,
+.pg-numbers {
+  margin: 0;
+}
+.pg-legend-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.pg-legend {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+.pg-legend-item:hover,
+.pg-legend-item:focus-visible {
+  border-color: var(--rule);
+}
+.pg-legend-item[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.pg-legend-name {
+  color: var(--muted);
+  font-size: 0.8em;
+}
+.pg-numbers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85em;
+}
+.pg-levers {
+  display: inline-flex;
+  gap: 4px;
+}
+.pg-lever {
+  display: inline-flex;
+}
+.pg-bar-on {
+  fill: currentColor;
+}
+.pg-bar-off {
+  fill: var(--rule);
+}
+.pg-lever-easier {
+  color: var(--ok);
+}
+.pg-lever-middling {
+  color: var(--muted);
+}
+.pg-lever-harder {
+  color: var(--warn);
+}
+
+/* the candidates strip */
+.pg-strip-row,
+.pg-map-list {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pg-strip-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pg-candidate {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 2px solid transparent;
+  background: var(--map-bg);
+  cursor: pointer;
+}
+.pg-candidate[aria-current="true"] {
+  border-color: var(--accent);
+}
+.pg-candidate-pending {
+  opacity: 0.5;
+}
+.pg-thumb-blank {
+  display: inline-block;
+  width: 48px;
+  height: 48px;
+  background: var(--map-bg);
+}
+
+/* Your maps */
+.pg-section-title {
+  margin: 0 0 4px;
+  font-size: 1em;
+}
+.pg-map-list {
+  flex-direction: column;
+}
+.pg-map {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pg-map[aria-current="true"] .pg-map-name {
+  font-weight: 600;
+}
+.pg-map-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.pg-map-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.pg-map-name {
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+.pg-map-actions {
+  display: flex;
+  gap: 2px;
+}
+.pg-problem {
+  margin: 0 0 6px;
+  color: var(--bad);
+}
+.pg-lives-here {
+  margin: 6px 0 0;
+}
+
+/* a quiet note */
+.pg-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+}

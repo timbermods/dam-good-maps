@@ -196,6 +196,10 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   (build, deploy, `live-check / live`), republish the preview, record it in `docs/STATUS.md` and the progress log.
   `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` does all of it (without `--go` it only
   checks and prints the steps). If the live check fails, revert the release merge on `main`.
+  **At each generator release** (a new generator version), remake the first-visit maps before tagging:
+  `npx tsx tools/first-visit-maps.ts` (one 128² map per theme, checked like a release: the validator, the absolutes and
+  the Python load checks), commit `public/first-visit/`; `--check` says whether the committed ones are current
+  (`tests/unit/page-firstVisit.test.ts` fails when they are another generator's).
 - **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch (Kyler, 2026-09-26): the
   drowned-relic fix for issue #55 sat on the Real places branch for a day while dev's nightly failed.
 - **Investigation PRs** (Codex's and others): merge at the next boundary as a merge commit once green, adopt their

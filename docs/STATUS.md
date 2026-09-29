@@ -67,11 +67,10 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 14. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
    (M9b, above). Everything else is answered.
 15. **"The page is the editor" (feedback item 23):** it follows the forces' release without delay, as one window for the
-    generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision in
-    the planning chat and approved the written UI brief that comes from it; first, prepare a short document in `docs/` of
-    the open design questions and the known constraints (what the page must hold, the decisions recorded about it, what
-    the forces sitting and the feedback items changed) and tell Kyler when it's ready. It also draws item 22's strip and
-    item 24's number.
+    generator and the editor. Its brief, [docs/UI-BRIEF.md](UI-BRIEF.md), is approved (D330). Part 1, the side panel's
+    parts on their own (the panel and Generate, the map card, Your maps, the candidates strip, the first-visit maps), is
+    on `feature/page-editor-1` ([progress](progress/page-editor.md)); the one workspace, item 34's split and the rows
+    follow the forces' release.
 
 ### For Kyler: plan conflicts
 
