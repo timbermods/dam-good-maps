@@ -151,7 +151,7 @@ function relic(type: string): BufferGeometry {
 
 function badSource(): BufferGeometry {
   const m = new Parts();
-  // a dark stone basin over the whole 3 × 3 footprint (D324, feedback item 28): a stained rim of
+  // a dark stone basin over the whole 3 Ã— 3 footprint (D324, feedback item 28): a stained rim of
   // chipped blocks and boulders round a crimson pool, the badwater boiling up in a low dome with
   // slow orange-brown bubbles
   m.box(2.96, 0.1, 2.96, [0.13, 0.11, 0.1], 0, 0.05);

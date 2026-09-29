@@ -31,7 +31,7 @@ export const WATER = {
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
    *  teal-blue body, a calmer surface with subtle ripples and glints, still see-through so the bed
    *  shows through. `teal` and `navy` sit close to the game's own reading (D310: within about 3 L*
-   *  of the sampled #305965/#264A58 — `navy` almost exactly `#264A58`'s own lightness). `shallow`
+   *  of the sampled #305965/#264A58 â€” `navy` almost exactly `#264A58`'s own lightness). `shallow`
    *  stays above that literal reading, by exactly what the readability rules need: it clears
    *  badwater's body by `look-readable.test.ts`'s raw margin (0.3, restored by D310) and
    *  `look-waterfalls.test.ts`'s colour-blind margin (D201, at least 20 L*). D324 (option (a)) darkened

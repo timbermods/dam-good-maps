@@ -202,6 +202,8 @@ Make a valley, drop a source, and there's a river.
   Shift+scroll over any source sets its strength (strong waterfalls allowed, with a friendly note
   past the official range); drag to move. A click on a placed source selects it and shows its
   strength, its water (clean or bad) and Remove; Delete (or Remove) makes its water recede live. A
+  source is drawn as the game draws one (D324, both looks): a stone basin with water welling up, and a
+  badwater source a darker stone basin with badwater boiling up, at its true 3×3 size (models of our own; Markers keeps the labels). A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
@@ -224,8 +226,8 @@ Make a valley, drop a source, and there's a river.
   submerged bed), the water under and right round it turns clear, so the bed, ledges and sources
   show; working on dry land leaves the water as it is, so it can be seen. T (the game's key) or
   **Clear water** makes all of it clear. Clear water still reads as water: a faint blue tint, its
-  ripples and a soft bright shoreline. Badwater stays clearly distinct when clear (its own colour and
-  dark stripes), for colour-blind players too. Sources can go anywhere in the editor; the "only
+  ripples and a soft bright shoreline. Badwater stays clearly distinct when clear (its own darker crimson, dull
+  troughs and slow bubbles; never a hatching, D324), for colour-blind players too, by lightness. Sources can go anywhere in the editor; the "only
   where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit
@@ -704,7 +706,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - clear water (D196, D212): one uniform clears all the water (T), another the water round the brush
     or the shelf's ghost while it is over water (the view decides from its own water, `clearNear`);
     clean water keeps a faint blue tint, its ripples and a bright shoreline, badwater its own colour,
-    half see-through, with dark diagonal stripes (the shared water palette's `CLEAR_WATER`);
+    murky and half see-through, with its dull troughs and bubbles, never a hatching (D324; the shared water palette's `CLEAR_WATER`);
   - each source's upwelling (D196): a texture of the sources' middle tiles, read by the water shader
     for its rings and bubbles, and brighter for the sources the water under the pointer comes from;
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for

@@ -26,7 +26,7 @@
 //   banner on a pale deck, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
 //   pointing uphill (it reads from any camera angle). Water sources: a stone basin with water welling up;
-//   badwater sources: a dark stone basin, 3 × 3, with badwater boiling up (D324). Mine sites (D178): a rusty frame round the edge
+//   badwater sources: a dark stone basin, 3 Ã— 3, with badwater boiling up (D324). Mine sites (D178): a rusty frame round the edge
 //   of the 5 Ã— 5 footprint and a square pit filling the rest (the terrain leaves the footprint's
 //   tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
 //   roots, rubble, cracks, a ladder and a shaft; scaffold towers on the frame's corners, joined
@@ -305,7 +305,7 @@ const MODELS: Record<string, () => Model> = {
     return m.add(new CylinderGeometry(0.04, 0.05, 0.14, 6), [0.8, 0.92, 0.94], { y: 0.27 });
   },
   BadwaterSource: () => {
-    // a stone basin of badwater over its 3 × 3 footprint (centred on it; D324, feedback item 28): a
+    // a stone basin of badwater over its 3 Ã— 3 footprint (centred on it; D324, feedback item 28): a
     // dark, stained rim of blocks and boulders round a crimson pool, the badwater boiling up in a
     // low dome with slow orange-brown bubbles, darker and heavier than the clean source beside it
     const rim: Rgb = [0.25, 0.22, 0.2];
