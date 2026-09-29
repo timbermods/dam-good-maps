@@ -105,6 +105,82 @@ edit(H,'vec3 colour = mix(body, streakColour, streak);',`vec3 colour = mix(body,
     colour += vec3(0.26, 0.035, 0.008) * contamination * (1.0 - smoothstep(0.0, 0.32, shore));`);
 edit(H,'hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0);','hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.20;');
 edit(H,'waterBlend(HW_SHALLOW * 1.06, badwaterBody(0.25), cont)','waterBlend(HW_SHALLOW * 1.06, vec3(0.55, 0.15, 0.065), cont)');
+// Round 2: accepted palette, richer original procedural materials.
+edit(P,'moistLow: [0.57, 0.68, 0.25]','moistLow: [0.47, 0.605, 0.24]');
+edit(P,'moistHigh: [0.535, 0.655, 0.225]','moistHigh: [0.435, 0.575, 0.225]');
+// Pattern coordinates alone are warped; terrain and soil data remain unchanged.
+edit(M,'float n1 = vnoise(g * 1.3);', `vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
+        vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
+        g += patternWarp * 3.2;
+        float n1 = vnoise(g * 1.3);`);
+edit(M,'vec2 bladeUV = g * 9.0;',`vec2 bladeUV = mat2(0.91, -0.415, 0.415, 0.91) * g * 7.0;
+        bladeUV += vec2(vnoise(g * 2.7), vnoise(g * 2.1 + 41.0)) * 2.0;`);
+edit(M,'float tex = 0.94 + 0.25 * tuft + painted * 0.30 * detail + 0.10 * blade * detail;',`float tex = 0.91 + 0.31 * tuft + painted * (0.18 + bladeHash * 0.24) * detail + 0.09 * blade * detail;`);
+edit(M,'grass * vec3(1.1, 1.04, 0.78)','grass * vec3(1.035, 1.045, 0.97)');
+edit(M,'(1.0 - 0.12 * blot)','(1.0 - 0.27 * blot)');
+edit(M,'0.84 + 0.18 * b1 + 0.08 * (n1 - 0.5)','0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)');
+// Narrow wavy soil boundaries cross equal-height neighbours only.
+edit(M,'vec2 ws = smoothstep(0.5 - bandW, 0.5, w) * 0.5;',`vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
+          vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);`);
+edit(M,'} else c = ground;',`} else {
+            float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));
+            c = ground * (1.0 - rim * 0.22);
+          }`);
+// Rounded relief is stored in the atlas, with soft mortar and directional bevel lighting.
+edit(M,'float mortar = smoothstep(0.05, 0.16, k.y - k.x);','float mortar = smoothstep(0.018, 0.29, k.y - k.x);');
+edit(M,'float stone = mortar * (0.5 + 0.5 * k.z) * (0.9 + 0.2 * valueNoise(vUv * kp * 3.0, kp * 3.0));',`float stone = mortar * (0.74 + 0.26 * k.z) * (0.94 + 0.06 * valueNoise(vUv * kp * 3.0, kp * 3.0));`);
+edit(H,'vec3(0.105, 0.103, 0.076), stone * shade * (0.72 + k * 0.44 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.28), smoothstep(0.12, 0.38, k)', 'vec3(0.18, 0.175, 0.132) * shade, stone * shade * (0.66 + k * 0.50 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.0, 0.72, k)');
+edit(M,'clamp(bevel * 1.25, -0.25, 0.28)','clamp(bevel * 1.7, -0.32, 0.36)');
+edit(M,'(1.0 - 0.48 * seam) * (1.0 - 0.30 * vertical)','(1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical)');
+// Keep the horizon blue and permit cloud coverage in grazing views.
+edit(H,'vec3(0.78, 0.84, 0.91), horizon','vec3(0.29, 0.52, 0.79), horizon');
+edit(H,'smoothstep(0.03, 0.22, abs(d.y))','(0.65 + 0.35 * smoothstep(0.0, 0.22, abs(d.y)))');
+edit(H,'smoothstep(0.55, 0.79, hn)','smoothstep(0.49, 0.73, hn)');
+edit(H,'max(abs(d.y), 0.12) * 3.8','(0.28 + abs(d.y)) * 3.8');
+// Two-phase advection avoids a twelve-second reset; ribbons follow the baked current.
+edit(H,/    \/\/ Advected two-scale network[\s\S]*?    colour \+= vec3\(0\.26, 0\.035, 0\.008\)/,`    vec2 direction = normalize(mix(vec2(0.8, 0.6), normalize(velocity + vec2(0.0001, 0.0002)), speed));
+    vec2 across = vec2(-direction.y, direction.x);
+    vec2 flowA = vec2(dot(p, across) * 2.8, dot(p, direction) * mix(2.1, 0.42, speed));
+    vec2 flowB = vec2(dot(p2, across) * 2.8, dot(p2, direction) * mix(2.1, 0.42, speed));
+    flowA += vec2(vnoise(p * 0.71), vnoise(p * 0.83 + 8.1)) * 2.2;
+    flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
+    float network = mix(cracks(flowA).x, cracks(flowB).x, blend);
+    float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
+    float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
+    float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
+    float highlights = (network * 0.67 + ribbons * (0.20 + rough * 0.35)) * (0.62 + broad * 0.65);
+    highlights *= mix(1.0, 0.68, deep);
+    vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), contamination);
+    colour *= 0.80 + broad * 0.40;
+    colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
+    colour += vec3(0.26, 0.035, 0.008)`);
+edit(H,'0.0, 1.0) * 0.20;','0.0, 1.0) * 0.30;');
+edit(H,'mix(HW_FOAM, HW_BAD_FOAM, hlBad)','mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad)');
+edit(M,'float whiteStreak = smoothstep(0.55, 0.9, streak);',`float whiteStreak = smoothstep(0.43, 0.82, streak);
+            float thread = vnoise(vec2(along * 37.0 + sin(phi * 1.2) * 0.5, phi * 0.46 - t * 2.3));
+            whiteStreak = clamp(whiteStreak * 0.68 + smoothstep(0.48, 0.76, thread) * 0.55, 0.0, 1.0);`);
+edit(M,'whiteStreak * 0.50','whiteStreak * 0.78');
+
+edit(H,'float texture =','float waterTexture =');
+edit(H,', texture)',', waterTexture)');
+
+// Final visual tuning from the paired and dedicated renders.
+edit(W,'grazing: [51 / 255, 79 / 255, 91 / 255]','grazing: [0.07, 0.14, 0.23]');
+edit(H,'body = mix(body, HW_GRAZING, grazing);','body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);');
+edit(H,'network * 0.67 + ribbons * (0.20 + rough * 0.35)','network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)');
+edit(H,'(0.62 + broad * 0.65)','(0.35 + broad * 0.80)');
+edit(H,'hcloud * 0.72','hcloud * 0.46');
+edit(H,'(0.28 + abs(d.y)) * 3.8','(0.28 + abs(d.y)) * 8.0');
+edit(P,'moistLow: [0.47, 0.605, 0.24]','moistLow: [0.445, 0.575, 0.28]');
+edit(P,'moistHigh: [0.435, 0.575, 0.225]','moistHigh: [0.415, 0.55, 0.265]');
+edit(M,'painted * (0.18 + bladeHash * 0.24)','painted * (0.08 + bladeHash * 0.16)');
+edit(M,'(1.0 - 0.27 * blot)','(1.0 - 0.19 * blot)');
+edit(H,'vec3(0.28, 0.13, 0.08), max(veinD, veinW) * 0.90','vec3(0.30, 0.075, 0.028), max(veinD, veinW) * 0.90');
+edit(H,'mix(0.50, 0.90, lvl)','mix(0.24, 0.48, lvl)');
+edit(H,'vec3(0.18, 0.175, 0.132) * shade','vec3(0.235, 0.23, 0.18) * shade');
+edit(M,'clamp(bevel * 1.7, -0.32, 0.36)','clamp(bevel * 1.35, -0.20, 0.27)');
+
+edit(H,'float network = mix(cracks(flowA).x, cracks(flowB).x, blend);',`float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);`);
 export function transform(file, source) {
   let s=source.replaceAll('\r\n','\n');
   for(const {before,after} of changes.get(file)||[]) {
