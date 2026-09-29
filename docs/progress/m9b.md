@@ -1,17 +1,37 @@
 # M9b: composition and variety
 
-> **Paused for Tuesday's handoff (2026-09-27, evening; resume 2026-09-29 8:01 PDT).** Branch
-> `feature/m9b` (draft PR #70), generator **0.8.0**, from `feature/m9a` (merged to 39863f6) and
-> `dev` (to d02ac283). The one switch to the game's rules (D308) is in: water and edge spill (D293,
-> D303, D311), soil (D298), sources in groups (D314). The one re-pin is **half done**: 10 map-bound
-> quick tests fail since the grouped sources changed every map (see "Handoff" below for the list,
-> the seeds and the commands). Next: finish that re-pin, then contact sheets and small samples; the
-> full batches, the measures and one pooled probe at the release candidate (D308). Defaults this
-> session chose: decisions-pending #100–#109 and #130–#134.
+> **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
+> (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
+> step by step below ("Batch 5"). Steps 1–2 in (`cdc2134c`); next: step 3 (item 27), step 4 (D329),
+> then the one re-pin (step 5). The re-pin is still paused (D308): the quick suite is red on
+> map-bound tests until step 5. Defaults this session chose: decisions-pending #135–#142.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
 "Challenge" (Challenge's terrain difficulty is deferred, D276).
+
+## Batch 5 (D325): the forces-preview feedback's items 47, 36, 26, 27, 22, 21, 24
+
+Measured with `investigation/m9b/measures.ts` (seeds 1–10 of every theme at 128², the cycle model
+for badwater; results in `investigation/m9b/local/measures/`, ignored).
+
+- **Step 1, the height budget (items 47, 36).** The land stands on a floor: every level moves up
+  by `BED_FLOOR` (3) and the relief is squeezed only where it would pass the ceiling
+  (`genome.ts` `leanGenome`); no cut goes below it (the river profiles, pools, oxbows, outlets,
+  badwater pits, and a clamp before the course check). Deepest bed per theme 0 → 3. Highest
+  terrain is a cap on every map, 10–22, its default following Verticality (16 / 22; #139); at
+  Verticality 70+ spikes, walls and trenches one or two tiles wide standing two levels out go
+  (`levels.ts` `readable`; #140). Verticality 100 maps reach 17–22.
+- **Step 2, the trees and the start (items 26, 47).** Living trees only count toward the tree
+  budget (#141): dead trees per theme (sum of 10 maps) Any 12,620 → 18, River Valley 12,336 → 25,
+  Canyon 10,014 → 29, Highlands 11,161 → 120, Lake Basin 12,696 → 133, Delta 15,571 → 63,
+  Islands 13,032 → 34 (the start's fallback, the floor's dry wood, one drought-killed grove on a
+  third of maps); `resources.trees` counts living trees against the official living share. Two
+  mine sites the colony reaches (#136), Hard's berries 30 (#137), the start's farmland and level
+  land on its walk (`start.farmland`, `start.level_land`; #138; the walk's numbers are
+  `analysis.walkReach`, item 24's with them), the settler's land on the settled water. Badwater
+  contained (#142): land it reaches before the badtide, median per theme 96–361 → 71–144 tiles;
+  none reaches the start's water or farmland. The new intention `district-behind` (#135).
 
 ## Handoff (2026-09-27, evening)
 
