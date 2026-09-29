@@ -13,7 +13,7 @@ differently, this file wins.
   that serves both halves.
 - **Editor-ready from the first milestone.** M1 already generates maps *from* parametric features
   and offers them as a project file, so the editor opens every generated map with its plan kept,
-  for "Generate, keeping my edits" and Claude's steering. No generator code is
+  for the analysis and Claude's steering. No generator code is
   retrofitted later. (The editor showed those features as objects with handles until Live
   editing; the brushes shape the land now, D182, D184.)
 - **Every milestone ends with its blocking criteria met and its tests green.**
@@ -291,7 +291,7 @@ The deviations are PLAN §20 D24–D34. In-game checks B1–B4 are pending.
 - Every voxel-format investigation map imports and re-exports its normalized world byte for byte.
 - The two 0.6 maps import.
 - Generate, add a user feature, change a setting, regenerate: the user feature survives and
-  nothing is silently dropped.
+  nothing is silently dropped. (Superseded by D336: edits never replay onto new land.)
 - The spike report answers each open question with evidence.
 
 **In-game check:** no. Import normalization is checked in game at M8 (F3).
@@ -307,7 +307,7 @@ criterion passes:
 - all 30 voxel-format investigation maps re-export their normalized world byte for byte, and the
   two 0.6 maps import;
 - regeneration keeps the player's features and flags every edit that no longer applies, with
-  its reason;
+  its reason (superseded by D336);
 - the spike report answers the open questions with evidence.
 
 Two spike questions need Kyler's own run of the published page: `sample`'s latency with tools,
@@ -339,7 +339,8 @@ and who can open the artifact. The deviations are PLAN §20 D35–D41, and D8 an
 **Acceptance**
 - Every investigation map imports, renders and exports unchanged.
 - The 3D view builds in < 1.5 s at 256² and orbits at 60 fps on a mid-range laptop.
-- Generate → refine → back to settings → regenerate → refine keeps user edits.
+- Generate → refine → back to settings → regenerate → refine keeps user edits. (Superseded by
+  D336: Generate makes a new map, and the edited one stays one step away.)
 
 **In-game check:** no.
 
@@ -354,7 +355,8 @@ criterion passes:
   the budget was judged on its integrated GPU with the CPU slowed 4× on a laptop-sized screen
   (D46);
 - generate → refine → back to settings → regenerate → refine keeps the player's edits, tested
-  through the page.
+  through the page (superseded by D336: Generate makes a new map, and Back to editing returns to
+  the edited one).
 
 The deviations are PLAN §20 D42–D46.
 
@@ -1045,8 +1047,8 @@ text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
 out, clear trees and objects); Ctrl-click samples a level (on water, its bed); heavy operations
-("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
-an operation that replays exactly and survives regeneration and format 3; only changed chunks
+shown growing, never a frozen wait; every stroke
+an operation that replays exactly onto its own land (edits never replay onto new land, D336) and survives format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
 landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
 shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks

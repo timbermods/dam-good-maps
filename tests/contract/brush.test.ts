@@ -564,24 +564,19 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
   });
 });
 
-describe("strokes survive regenerating and the project file", () => {
-  it("Generate, keeping my edits: the stroke is applied to the new map", () => {
+describe("a stroke replays exactly onto its own land (D158, D336)", () => {
+  it("reopening the project file gives the same map", () => {
     const r = generate(makeSpec({ seed: 21, size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const dabs: number[] = [];
     for (let k = 0; k < 30; k++) dabs.push(4 * 70 + 2, 4 * 20 + 2 + Math.round((4 * k) / 3));
     const stroke: BrushParams = { tool: "raise", size: 4, strength: 6, dabs };
     expect(s.apply({ op: "brush", params: stroke }, "user", "Raise, 40 tiles").ok).toBe(true);
-    const g = s.regenerate({ designedFor: "hard", settings: makeSpec({ seed: 21, size: { x: 96, y: 96 }, designedFor: "hard" }).settings });
-    expect(g.ok).toBe(true);
-    expect(s.orphans()).toEqual([]);
-    expect(s.history().map((h) => h.label)).toEqual(["Raise, 40 tiles", "Change settings and regenerate"]);
-    const op = s.document.edits.find((e) => e.op === "brush");
-    expect(op?.params).toEqual(stroke);
-    // the new map with the stroke is a full build of the new generation and the stroke
+    // the map with the stroke is a full build of its generation and the stroke
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     // and the project file keeps it
     const again = MapSession.open(decodeProject(s.project()));
+    expect(again.document.edits.find((e) => e.op === "brush")?.params).toEqual(stroke);
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
   });
 });

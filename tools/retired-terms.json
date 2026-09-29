@@ -26,7 +26,11 @@
     { "term": "symmetric layout", "retired": "D253", "instead": "not planned; the forces make dramatic land far better" },
     { "term": "More like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
     { "term": "Less like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
-    { "term": "A-or-B", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" }
+    { "term": "A-or-B", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
+    { "term": "Generate, keeping my edits", "retired": "D336", "instead": "Generate: every Generate makes a new map; an edited map stays saved and one step away (Back to editing)" },
+    { "term": "Discard edits", "retired": "D336", "instead": "Generate: the edited map stays saved beside the new one" },
+    { "term": "lets you edit what the generator made", "retired": "D336", "instead": "an older map opens exactly as it was saved; no rebuild keeps its edits" },
+    { "term": "rebuildWithCurrentGenerator", "retired": "D336", "instead": "edits never replay onto new land: an older map opens exactly as it was saved" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

@@ -14,8 +14,8 @@ foundations the two halves share (map spec, parametric features, set-piece build
 validation, format I/O, determinism and the build order) are defined once, in
 [§19](#19-shared-foundations-with-the-editor). Every generated map is built from parametric
 features, from the first milestone on, and the editor keeps them with the map as its plan (for
-"Generate, keeping my edits" and Claude's steering); the player shapes the land with the brushes
-(D182). [AUDIT.md](AUDIT.md) records why each part
+the analysis and Claude's steering); the player shapes the land with the brushes (D182). Edits
+never replay onto new land: every Generate makes a new map (D336). [AUDIT.md](AUDIT.md) records why each part
 changed during the plan audit.
 
 ## Contents
@@ -193,7 +193,7 @@ dam-good-maps/
 │  │  │               raster/*.ts (one rasterizer per kind)  setpieces/*.ts (shared builders, §19.3)
 │  │  │               build.ts (the one build pipeline, §19.8, with dirty-region rebuilds)  target.ts  edits.ts (entity and slope edits)
 │  │  ├─ doc/         document.ts (MapDocument, project files)  base.ts (the stored map)  ops.ts (edit operations)
-│  │  │               session.ts (apply, undo and redo, regenerate, export: what the editor runs)
+│  │  │               session.ts (apply, undo and redo, export: what the editor runs)
 │  │  ├─ land/        genome.ts (the genome, the themes as priors, Any)  field.ts  levels.ts  drainage.ts  hydro.ts  hazards.ts
 │  │  │               narrows.ts (the natural-narrows builder)  intentions.ts: the processes the land grows from (M9a)
 │  │  ├─ gen/         generate.ts (the field, its water, then build, retries)  settler.ts (the start)  readback.ts (features
@@ -516,7 +516,7 @@ highlands, plateaus, islands), set pieces with resolved parameters, forests, ber
 fields, map objects and the start. Stages 4–7 *build* the map from that list with the shared build
 pipeline (§19.8), the same code the editor runs after every edit. The terrain, water and entities
 of a generated map are therefore exactly what its features rasterize to. "Refine this map" hands
-the editor that feature list as the map's plan, for "Generate, keeping my edits"
+the editor that feature list as the map's plan, for the analysis
 and Claude's steering; the editor does not show the features as objects to grab (D182, D184): the
 player shapes the land with the brushes. The detected features in §7.10 (`derived`) are
 measurements for labels, names and scoring.
@@ -538,9 +538,10 @@ spec ──▶ 0 normalise ──▶ 1 concept ──▶ 2 macro layout ──�
 - Validate the `MapSpec` (§19.1) against its schema. Clamp every setting and resolve size-aware
   targets: `target = multiplier × density(key, W·H)`.
 - Derive the difficulty rules.
-- Take the spec's constraints: locked regions, keep-out regions and the ids of features to keep
-  (user and Claude features on regeneration). The planner treats them as occupied and protected,
-  so regeneration never routes a river through ground the player has shaped.
+- Take the spec's constraints: locked regions, keep-out regions and the ids of features to keep.
+  The planner treats them as occupied and protected. (They served regeneration around the player's
+  edits, which D336 removed: edits never replay onto new land. The spec and share links still
+  carry them.)
 - Derive seed streams: `layout`, `terrain`, `setpieces`, `water`, `veg`, `ruins`, `extras` and
   `names`, each `hash(seed, stream, candidate, attempt)`.
 
@@ -1543,7 +1544,8 @@ A two-pane page. On mobile it stacks, with settings in a drawer.
   - The map card beneath: name, premise, score and the validation report.
   - Download, and **Refine this map**, which opens the same map in the editor (EDITOR_PLAN.md).
     "Download project file" (`.damgoodmaps.json`, §19.6) stays beside it. After the editor, the page shows the edited map; downloading it goes through the
-    editor's export check, and generating again keeps the edits (D44).
+    editor's export check. Generating again makes a new map; the edited one stays saved and one step
+    away (D336).
   - **Open a map**: any `.timber` or project file opens in the editor.
 - **Generate** is always visible. Seed has a dice button. Changing a setting marks the preview stale
   and offers "Generate"; auto-regenerate is optional (default off at 256²).
@@ -1620,7 +1622,8 @@ A two-pane page. On mobile it stacks, with settings in a drawer.
   differ from the theme preset, in short keys (`rl=70`, `fl=2`). Base64url for custom species
   weights.
 - **Old versions:** a link whose `v` is older than the current generator shows
-  "Made with v1.2 — open in v1.2 (exact) or regenerate with v1.3". The first option goes to
+  "Made with v1.2 — open in v1.2 (exact) or generate with v1.3" (a new map; edits never replay
+  onto new land, D336). The first option goes to
   `/v/1.2/#…`.
 - **Buttons:** Copy link, and "Copy seed + settings" as text for Discord.
 - **Edited maps:** a link encodes the `MapSpec` only, so it reproduces the generated map without
@@ -1692,7 +1695,7 @@ milestone and says where it went. Effort: S under a day, M 1–3 days, L 3–7 d
 | Map name is the file name. | Players rename files and lose the name. | Also stored in `MapDescription`. |
 | Iron Teeth's district center on the StartingLocation. | Iron Teeth starts fail on some maps. | Same 3×3×5 footprint and entrance per the blueprints; in-game check A covers one Iron Teeth start. |
 | The water sim is slower in JS than §10 first assumed (audit: 6.5–11 s cold at 256² unoptimized). | Slow generation at 256²; a sluggish editor preview. | Exact active list and the deterministic pre-fill; warm starts for editor previews; M2 benchmark gate; K = 1 at 256²; the editor re-settles only what changed (§10). |
-| Features first is a bigger port than "port the prototype". | M1 takes longer. | It is the price of a generator whose plan the editor and Claude build on ("Generate, keeping my edits", steering; D139, D182). The prototype's layout already has the structure (river path, bed profile, gorge, basin, falls); M1 only makes it explicit. |
+| Features first is a bigger port than "port the prototype". | M1 takes longer. | It is the price of a generator whose plan the editor and Claude build on (the analysis, steering; D139, D182). The prototype's layout already has the structure (river path, bed profile, gorge, basin, falls); M1 only makes it explicit. |
 | Thin waterfall lips may not read as falls in game. | Claude's "giant waterfall" looks like a wet cliff. | In-game check F1; the waterfall builder reports lip depth; flow policy (§9.2). |
 | Imported pre-1.0 maps lack `WaterSimulationMigrator`. | Re-exported maps would run at double strength. | Halve strengths and outflows at import, as the game does on load (§19.6). |
 
@@ -1781,7 +1784,7 @@ to it is recorded in §20.
 ### 19.1 Map spec
 
 `MapSpec` is a TypeScript type and a versioned JSON Schema (`core/spec/mapspec.schema.json`). The
-settings panel, the URL codec, the editor's `SpecPatch` and Claude all produce it.
+settings panel, the URL codec and Claude all produce it.
 
 ```ts
 interface MapSpec {
@@ -1811,7 +1814,8 @@ interface MapSpec {
   bounds are the ranges in §5.
 - A `SpecPatch` is a JSON Merge Patch (RFC 7396) on a `MapSpec`: objects merge and arrays are
   replaced whole. The patched spec is checked against the schema again. A patch that fails is
-  rejected, never clamped.
+  rejected, never clamped. A patched spec makes a new map; it never regenerates a document under
+  its edits (D336).
 - `accepted` lets a document reproduce its map without running the retry loop again.
 - `colonies` reserves room for fair multi-colony maps for Timber Together (D5). With
   `mod: "timberTogether"` and `count` N, a later milestone will plan N `start` features
@@ -1847,7 +1851,7 @@ heights in levels. The ranges each map allows are in §9.10.
 
 - **Derived layers** are rebuilt every time and never edited as features: slopes (pinned or
   removed slopes are stored as edits), water, soil moisture and soil contamination.
-- **What a generated map's plan holds** (for "Generate, keeping my edits" and
+- **What a generated map's plan holds** (for the analysis and
   Claude's steering; the editor does not show them as objects, D182): every river, lake and
   planned basin; the landforms of its
   layout (valley floor, terrace bands, highlands, plateaus, islands); every set piece; every
@@ -1915,8 +1919,8 @@ river and lake planners, and the editor's set-piece tools go with Live editing, 
     original Ids.
 - `entities.ids` still checks that every Id is unique. A collision is resolved by rehashing with a
   counter.
-- Edits refer to ids. An edit whose target no longer exists after regeneration becomes orphaned and
-  is shown to the player, never dropped.
+- Edits refer to ids. An edit whose target no longer exists after another edit becomes orphaned and
+  is shown to the player, never dropped. Edits never replay onto new land (D336).
 
 ### 19.5 Validation
 
@@ -2022,8 +2026,8 @@ Generation and editing use one pipeline (`core/features/build.ts`):
 13. the remaining entity edits, on resources and the start (place, move, delete, set properties);
 14. validation.
 
-Generation plans the features (§7.1–7.3), then runs this pipeline. On regeneration, steps 1–13
-leave locked regions untouched.
+Generation plans the features (§7.1–7.3), then runs this pipeline. An old project's land kept
+under a lock (before D253) stays untouched by steps 1–13.
 
 ### 19.9 Platform adapters
 
