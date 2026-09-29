@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D330), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D331), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -24,7 +24,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 3. Done with item 1: model and task suitability (item 39, D318).
 4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary.
 5. **Item 33's documents are written** (D326): `docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`. The per-decision statuses come with item 34.
-6. **The UI brief, for your final approval:** `docs/UI-BRIEF.md` (D330), from your round on `docs/UI-QUESTIONS.md` (item 23). Nothing of the page is built before your approval.
+6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
 7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.
 8. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
    branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's
@@ -46,9 +46,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    badwater grouped. 37 of 136 places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check
    (the blocking list, "No water a pump can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release,
    `real-places-2-done`. CI on #35 is red until then: the tests are for the new rules, the committed gallery still
-   D271's. From Kyler's feedback item 47: the Real places conversion also raises its base so the deepest riverbed
-   stands at least 3 levels above the map's floor (keeping relief within the ceiling), and real places meet 47's
-   must-haves and rules.
+   D271's. From item 47, real places take only what never changes the real land (D331; PERFECT.md's Real places section); item 27 still waits with D319.
 11. **Erode (Codex; #74): rounds 2 and 3 approved, round 4 with Codex.** You approved round 2 ("magical, almost
    perfect") and round 3 (89305ca6) landed and you approved its flat-ground wash. Round 4 is with Codex now,
    narrow: washes across uneven ground, and telling a wash sweep from a cliff sweep. Next: wait for round 4; the
@@ -547,7 +545,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D330.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D331.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
