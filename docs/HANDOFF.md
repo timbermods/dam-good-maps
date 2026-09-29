@@ -135,7 +135,7 @@ clean and matched origin at the pause.
 | Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | cbaf6cf6 | parked (D319); 37 of 136 converted under VERSION 11, cached in the draft release `cache-real-places-2-v11` |
 | Grouped sources, the rule | `feature/source-groups` | #79 (draft) | `DamGoodMaps-groups` | a6346fe4 | merges with the first branch that carries it |
 | Grouped sources, the investigation | `investigation/source-groups` | #78 | `DamGoodMaps-sources` | 1e760899 | merged into `dev` (685d9b18); removable |
-| The look (batch 4, D324) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | b62188ba | `build-light`; started 2026-09-29; the High look held for Kyler's sitting |
+| The look (batch 4, D324) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | 86eddaea | `build-light`; built 2026-09-29, CI green; held for Kyler's High look sitting |
 | Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
 | Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | 89305ca6 | rounds 2 and 3 approved by Kyler; round 4 (washes on uneven ground, wash vs cliff sweep) with Codex; then Kyler's look |
