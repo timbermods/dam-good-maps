@@ -32,6 +32,7 @@ and compared with this branch's pixel for pixel: see [The Standard look is uncha
 | [d324-land.jpg](d324-land.jpg) | D324, item 10: the land's colours toward the game's (top-down and a cliff), before and after, both looks. |
 | [d324-falls.jpg](d324-falls.jpg) | D324, item 4: the tallest fall and a cascade of small falls, before and after, both looks: the sheet reads as teal water with white only in streaks and at the landing. |
 | [d324-sources.jpg](d324-sources.jpg) | D324, item 28: a water source and a badwater source (3×3) as stone basins, with clear water on (they sit under water here), before and after. |
+| [crisp-standard-overview.jpg](crisp-standard-overview.jpg), [crisp-standard-close.jpg](crisp-standard-close.jpg), [crisp-high-overview.jpg](crisp-high-overview.jpg), [crisp-high-close.jpg](crisp-high-close.jpg) | A crisper map: before (left) and after (right), at the canvas's own size, a map overview and a close view at a slant where grass meets dry earth. Tile edges now change over a narrow band and the ground's textures keep their detail at a slant (16× anisotropic filtering). |
 
 ## What Standard has changed since dev (D304, D305, D310, D324)
 

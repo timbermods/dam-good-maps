@@ -288,6 +288,28 @@ D286, D296; the investigations' INTEGRATION.md files (#38 `investigation/maplook
     `#7C4538`); clean water's quarter-level body `#3D6B76` (was `#3E707C`; the 1.25 and 4.25 deep ones did not move).
     The targets and the tests that pin them are updated, and the tool lands on all six within 0. High's badwater colour
     was darkened by the same factor but is not measured separately (the tool measures Standard).
+- **A crisper map (Kyler, after batch 4: "slightly blurry in both looks").** Diagnosed first, on the GPU here. **Not the
+  cause:** the pixel ratio (1:1 with the display, 2 at most, only 0.85 in High's lower-cost tier, which Automatic picks only on
+  slow frames), the canvas size, MSAA (4 samples in both looks; no render pass draws the scene to another target, and tone
+  and grade are in the shaders, so there is no composite or post-process pass), the tile, overlay and marks textures
+  (already nearest, one texel per tile), fog (the distance haze is a colour mix, at most 5.5% in High). **Deliberate, left:**
+  High's soft shadows (a 25-tap PCF of a 2048² map, Kyler approved) and the baked shadow texture (linear, two texels a tile).
+  **The causes:** (1) the terrain shader blended the soil across the whole tile: it weighted a tile's soil with its three
+  neighbours' by bilinear weights, so grass and dry earth ramped over a full tile, and then drew the edge as ragged
+  patches (noise up to plus or minus 0.67) through a wide smoothstep (High's own even wider, 0.08 to 0.92); (2) the pattern
+  texture (the noise, cracks and cobbles every ground and rock surface reads) had mipmaps but anisotropy 1, so ground and
+  walls at a slant settled on a blurrier mip level. **Fixed:** the soil's weights now go through a band about a pixel
+  wide and at least a twenty-fifth of a tile at the tile's edge (`bandW`), the edge's noise is 0.22 of what it was, and
+  High's blend is narrowed to a similar width; the sky's light and the contamination's level (shading) keep the smooth
+  weights, and water is untouched (its depth and badwater blend are smooth on purpose). The pattern texture takes the
+  renderer's maximum anisotropy (16 here, never less than the maximum where that is under 16). No sharpening, no filter.
+  The grass's own texture is smooth value noise by design and was not changed. **Frame time**
+  (`tools/measure-high.ts`, River Valley 4242 256² with dense forest and ruins, headed, vsync 165 Hz): Standard 164.9 fps
+  before and 160.3 after (GPU p50 0.36 to 0.27 ms whole, 0.53 to 0.30 close); High 165.0 and 164.5 fps (GPU p50 3.15 to 2.68 ms
+  whole, 1.08 to 2.12 ms close): the display's refresh caps both; the close High view costs about a millisecond more of GPU.
+  **Tests:** the badwater blend-step test measures colours between water corners, not tile soil, and is untouched;
+  a new `look.test.ts` case pins the narrow band and the smooth light. Captures: `docs/look/high/crisp-{standard,high}-{overview,close}.jpg`
+  (before on the left, after on the right, at the canvas's own size; `tools/capture-crisp.ts`).
 - **The look** (`fallback.ts`, the renderer's `setLookChoice`): **Automatic** starts in High (or where it settled last
   time on this GPU at about this window size), reads each frame's GPU time and steps down when frames stay too slow:
   to the lower-cost tier (no soft shadows, mist, rings, wind or fine detail, far tree models, 85% of the pixels), then to

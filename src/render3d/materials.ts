@@ -162,7 +162,9 @@ const COBBLE_CELLS: [number, number] = [16, 24];
  *    them: 0 on the mortar, 0.5–1 on a stone by its shade;
  *  - A: each crack plate's own shade. */
 export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
-  const rt = new WebGLRenderTarget(PATTERN_SIZE, PATTERN_SIZE, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false });
+  // anisotropic filtering at the renderer's maximum (at most 16×, at least 8× where it has that): ground and
+  // rock seen at a slant stay detailed instead of settling on a blurrier mip level
+  const rt = new WebGLRenderTarget(PATTERN_SIZE, PATTERN_SIZE, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false, anisotropy: Math.min(16, gl.capabilities.getMaxAnisotropy()) });
   const mat = new ShaderMaterial({
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -571,8 +573,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float b3 = vnoise(g * 0.55 + 83.0);
         vec2 dry = cracks(g * 1.9);
         vec2 rust = cracks(g * 1.2 + 11.3);
-        // grass bleeds onto the earth in ragged patches
-        float edge = (n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4;
+        // grass meets the earth along the tile's edge
+        // (a slight wobble along the tile's edge only: the soil itself changes there, not in ragged patches)
+        float edge = ((n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4) * 0.22;
         float moist = ${hook(h, "moist", "smoothstep(0.42, 0.58, s.x + edge)")};
         float bad = ${hook(h, "bad", "smoothstep(0.4, 0.6, s.z + edge * 0.6)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
@@ -656,6 +659,15 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           float w01 = (1.0 - w.x) * w.y * sy;
           float w11 = w.x * w.y * sg;
           float w00 = 1.0 - w10 - w01 - w11;
+          // the soil changes at the tile's edge, as in the game: a narrow, deliberate transition (about a
+          // pixel, at least a twenty-fifth of a tile) instead of a blend across the whole tile; the light
+          // and the contamination's level (shading) keep the smooth weights above
+          float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
+          vec2 ws = smoothstep(0.5 - bandW, 0.5, w) * 0.5;
+          float v10 = ws.x * (1.0 - ws.y) * sx;
+          float v01 = (1.0 - ws.x) * ws.y * sy;
+          float v11 = ws.x * ws.y * sg;
+          float v00 = 1.0 - v10 - v01 - v11;
           vec4 s0 = soilOf(d0);
           vec4 s1 = soilOf(dx);
           vec4 s2 = soilOf(dy);
@@ -664,7 +676,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
           vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
           vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
-          vec4 soil = flags0 * w00 + flags1 * w10 + flags2 * w01 + flags3 * w11;
+          vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
           float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
           float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}

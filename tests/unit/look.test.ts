@@ -12,9 +12,25 @@ import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from 
 import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, wallColor, WATER, waterBody } from "../../src/render3d/palette";
 import { FALL_STRIDE } from "../../src/render3d/falls";
 import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
-import { ShaderMaterial } from "three";
+import { DataTexture, ShaderMaterial } from "three";
+import { sceneUniforms, terrainMaterial } from "../../src/render3d/materials";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+
+describe("a crisp map (D324's follow-up: tile edges, no blend across a whole tile)", () => {
+  it("changes the soil at the tile's edge over a narrow band, and keeps the light and the contamination's level smooth", () => {
+    const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const src = terrainMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), 0, 1).fragmentShader;
+    // the soil's weights go through a band about a pixel wide (never under a twenty-fifth of a tile) at the edge
+    expect(src).toContain("float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));");
+    expect(src).toContain("vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;");
+    // the sky's light and the contamination's level (shading) keep the smooth, tile-wide weights
+    expect(src).toContain("float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;");
+    expect(src).toContain("float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;");
+    // and the soil edge's own wobble is small, not ragged patches
+    expect(src).toContain("* 0.22;");
+  });
+});
 
 describe("the ground's colours", () => {
   it("keeps any moisture or contamination above zero, and none at zero", () => {

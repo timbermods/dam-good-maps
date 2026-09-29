@@ -164,9 +164,10 @@ export function terrainHooks(): ShaderHooks {
   uniform vec2 hlFlowSize;
 `),
     skyLight: "ambientVisibility(vWorld, n) * ",
-    // soil edges (#65): a wider, softer blend where grass meets earth and where contamination ends
-    moist: "hlBlend > 0.5 ? smoothstep(0.08, 0.92, s.x + edge * 0.24) : smoothstep(0.42, 0.58, s.x + edge)",
-    bad: "hlBlend > 0.5 ? smoothstep(0.08, 0.92, s.z + edge * 0.16) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
+    // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
+    // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
+    moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
+    bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
     // colour variation (#65): two broad world scales on the ground's colour, not its soil
     groundVariation: /* glsl */ `
         if (hlVariation > 0.5) {
