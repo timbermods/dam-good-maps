@@ -91,6 +91,9 @@
 }
 
 .shelf-item {
+  /* dragged out by the page's own pointer handling, never the browser's (D323) */
+  touch-action: none;
+  user-select: none;
   display: flex;
   flex-direction: column;
   align-items: center;
