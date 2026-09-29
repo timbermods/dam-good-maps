@@ -62,7 +62,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    - **Batch 6, documents** (D326; items 33, 23, then 34): `dev`, the main clone, `routine` (Sonnet 5.5, medium);
      started 2026-09-29.
    Batches 2 and 3 merge into `feature/forces` in the order 3, 2, 1. When all three are in, the session deploys the
-   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** #74 (Erode round 7, roofs, is
+   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** (#74, Erode, is merged since; it was: round 7, roofs, is
    with Codex; don't merge), Real places (D319), items 19 (Spring) and 45 (flow arrows).
 5. **Item 34, at the forces release boundary** (batch 6, D326; converts existing files, adds no parallel ones):
    STATUS §7's workstream table becomes `docs/WORK.md` (claim before starting); the progress docs' top notes become
@@ -98,7 +98,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.
 11. **Held for Kyler, nothing to do until he answers** (STATUS §1): the High look's sitting (item 3's verdict; D310's option (a) is settled, batch 4); the High look (#75, `build`); Drought and Badtide day by day
    (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting).
-12. **Erode (Codex; #74, `investigation/erode`):** Kyler approved round 2 ("magical, almost perfect") and round 3
+12. **Erode: merged into `dev` as an investigation (be2342a2, #74 at 47c02e67, rounds 2–9, Kyler's approval); adoption at 3D step 3.** Earlier notes: Kyler approved round 2 ("magical, almost perfect") and round 3
    (89305ca6) landed and was approved: its flat-ground wash. Round 4 is with Codex now, narrow: washes across
    uneven ground, and telling a wash sweep from a cliff sweep. **Next:** wait for Codex's round 4; when it lands,
    check the automatic support check passes (0 dropped voxels); then hold #74 for Kyler's look; merge it as an
@@ -138,7 +138,7 @@ clean and matched origin at the pause.
 | The look (batch 4, D324) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | 86eddaea | `build-light`; built 2026-09-29, CI green; held for Kyler's High look sitting |
 | Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
-| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | 89305ca6 | rounds 2 and 3 approved by Kyler; round 4 (washes on uneven ground, wash vs cliff sweep) with Codex; then Kyler's look |
+| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` (Kyler's demo runs here) | 47c02e67 | merged into `dev` (be2342a2), rounds 2–9 approved by Kyler; adoption at 3D step 3 |
 | The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aaa | done; already in `feature/forces` |
 | Kyler's review worktree | `review/m9a-set` | — | `DamGoodMaps-review` | 6575ebc9 | the M9a review set; not written to by agents |
 
@@ -167,7 +167,7 @@ Both are released: M9a as `m9a-done` (2026-09-27, #80), Live editing as `live-ed
 
 - **Live on `main`** (a4af2bb0): everything to `m9a-done`, generator 0.7.0.
 - **Held for Kyler:** the forces and Glaciate (his sitting), M9b (his eye), the High look and the water shades (D310),
-  Drought and Badtide day by day, Erode.
+  Drought and Badtide day by day.
 - **Waiting on Kyler:** STATUS §1.
 
 ## 6. Open questions
