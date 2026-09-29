@@ -1,0 +1,193 @@
+{
+  "base": "8c975822c2691edef94ff4f96217167697a91177",
+  "reference": "dd7bcbece5ea6e54cf47c0da3fdf86a3a3111849",
+  "tests": {
+    "baseline": {
+      "passed": 120,
+      "failed": 0,
+      "suites": [
+        {
+          "file": "contract/look-mine-ruins.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "contract/look-waterfalls.test.ts",
+          "passed": 3,
+          "failures": []
+        },
+        {
+          "file": "contract/look.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/brush-ring.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/highLook.test.ts",
+          "passed": 21,
+          "failures": []
+        },
+        {
+          "file": "unit/look-badwater.test.ts",
+          "passed": 9,
+          "failures": []
+        },
+        {
+          "file": "unit/look-clean.test.ts",
+          "passed": 7,
+          "failures": []
+        },
+        {
+          "file": "unit/look-mine-ruins.test.ts",
+          "passed": 14,
+          "failures": []
+        },
+        {
+          "file": "unit/look-outline.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-readable.test.ts",
+          "passed": 10,
+          "failures": []
+        },
+        {
+          "file": "unit/look-water-slopes.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-waterfalls.test.ts",
+          "passed": 22,
+          "failures": []
+        },
+        {
+          "file": "unit/look.test.ts",
+          "passed": 18,
+          "failures": []
+        }
+      ]
+    },
+    "proposal": {
+      "passed": 116,
+      "failed": 4,
+      "suites": [
+        {
+          "file": "contract/look-mine-ruins.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "contract/look-waterfalls.test.ts",
+          "passed": 3,
+          "failures": []
+        },
+        {
+          "file": "contract/look.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/brush-ring.test.ts",
+          "passed": 2,
+          "failures": []
+        },
+        {
+          "file": "unit/highLook.test.ts",
+          "passed": 21,
+          "failures": []
+        },
+        {
+          "file": "unit/look-badwater.test.ts",
+          "passed": 9,
+          "failures": []
+        },
+        {
+          "file": "unit/look-clean.test.ts",
+          "passed": 6,
+          "failures": [
+            {
+              "name": "the clean view colours dry ground a cool grey-brown, never reddish",
+              "message": "AssertionError: expected 0.19500000000000006 to be less than 0.17"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-mine-ruins.test.ts",
+          "passed": 13,
+          "failures": [
+            {
+              "name": "ruins are a rusty skeleton with beige panels close up (Kyler's colours), and from afar a lattice block in the skeleton's own muted rust (D305)",
+              "message": "AssertionError: expected '#d4781f' to be '#8d5631' // Object.is equality"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-outline.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-readable.test.ts",
+          "passed": 9,
+          "failures": [
+            {
+              "name": "contamination is a layer: the ground's own look stays under it, its veins grow denser and brighter with contamination, wet and dry contaminated ground differ, and it reads in greyscale",
+              "message": "AssertionError: expected 0.15710301200000004 to be greater than 0.2"
+            }
+          ]
+        },
+        {
+          "file": "unit/look-water-slopes.test.ts",
+          "passed": 5,
+          "failures": []
+        },
+        {
+          "file": "unit/look-waterfalls.test.ts",
+          "passed": 22,
+          "failures": []
+        },
+        {
+          "file": "unit/look.test.ts",
+          "passed": 17,
+          "failures": [
+            {
+              "name": "the ground's colours keeps the meanings apart in brightness too (greyscale): grass, earth and its cracks, contamination's veins, water",
+              "message": "AssertionError: expected 0.2858170919999999 to be greater than 0.3"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "browser": {
+    "stats": {
+      "startTime": "2026-09-29T21:30:00.669Z",
+      "duration": 35906.863,
+      "expected": 11,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "capture": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "builds": {
+      "baseline": {
+        "signature": "a8c94af41863000bcc7c0d57d79a76c0dc1de6e9c0bfd0171ba2ada449c6a466",
+        "base": "8c975822c2691edef94ff4f96217167697a91177"
+      },
+      "proposal": {
+        "signature": "1a74e6db7a050392819cf2e579e9fbf0b186b135e4a037cf9ea150de6d5c1fe4",
+        "base": "8c975822c2691edef94ff4f96217167697a91177"
+      }
+    },
+    "errors": []
+  },
+  "typecheck": "All product src files, transformed in memory, passed; unrelated tools excluded."
+}
