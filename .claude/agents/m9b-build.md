@@ -1,7 +1,7 @@
 ---
 name: m9b-build
 description: Builds M9b, the second M9 stage of Dam Good Maps (composition and variety). Kyler's choice (PLAN §20 D262, amending D210): Opus 5.5 at xhigh effort.
-model: opus
+model: claude-opus-5-5
 effort: xhigh
 ---
 

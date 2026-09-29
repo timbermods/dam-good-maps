@@ -23,6 +23,10 @@ export const TRIM: Readonly<Record<string, number>> = Object.freeze({
   quake: 1.0363,
   slide: 0.7006,
   erupt: 0.6383,
+  // (Glaciate's recipe is investigation/glaciate's, whose strongest 100 ms measured -17.1 dBFS against
+  // the forces' -16.5: its own level, not re-measured by the round's calibration; Kyler's listening
+  // check covers it with the others)
+  glaciate: 1,
   undo: 2.5032,
   waterfall: 0.5741,
   stream: 0.9343,

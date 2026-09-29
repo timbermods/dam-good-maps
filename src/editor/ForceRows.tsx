@@ -8,11 +8,13 @@
 // Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
 // it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
 // another re-rolls only the details still on Auto. While a force is at work its row is its status and
-// Revert (Esc). Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
+// Revert (Esc). Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
+// and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
 import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
+import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
 import { AutoDetail, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
 
@@ -56,6 +58,20 @@ export const craterDetails = (u: CraterUi): Record<string, unknown> => ({ walls:
 export const eruptDetails = (u: EruptUi): Record<string, unknown> => ({ shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges });
 export const quakeDetails = (u: QuakeUi): Record<string, unknown> => ({ scarp: u.scarp });
 
+export interface GlaciateUi {
+  power: number;
+  /** The trough's width in tiles, or null: it follows Power (D226). */
+  size: number | null;
+  meltwater: boolean;
+  /** Its details (D309), each null while drawn from the land and the seed. */
+  benches: "none" | "some" | "many" | null;
+  steps: "few" | "some" | "many" | null;
+  tarn: boolean | null;
+  scree: boolean | null;
+}
+export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater, benches: null, steps: null, tarn: null, scree: null };
+export const glaciateDetails = (u: GlaciateUi): Record<string, unknown> => ({ benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree });
+
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
  *  force starts; the gesture sets the mode: `aimed` a dragged, glancing impact; `fissure` a painted
@@ -63,11 +79,13 @@ export const quakeDetails = (u: QuakeUi): Record<string, unknown> => ({ scarp: u
 export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ mode: aimed ? "aim" : "strike", power: u.power, size: u.size, walls: u.walls, centre: u.centre, debris: u.debris, rays: u.rays, seed: CRATER_DEFAULTS.seed }) as CraterSettings;
 export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges, seed: ERUPT_DEFAULTS.seed }) as EruptSettings;
 export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed }) as QuakeSettings;
+/** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
+export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
 
 /** A force at work: what it is doing, and Revert (Esc). */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : st.painting ? "Paint the fault; let go to keep it (X flips the side that moves)" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (X flips the side that moves)" : "The ground is moving…";
   return (
     <div class="map-bar options-row" role="group" aria-label={`${p.force.name} at work`}>
       <div class="bar-group">
@@ -82,7 +100,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   );
 }
 
-function Power(p: { verb: "craterize" | "erupt" | "quake"; value: number; onChange(v: number): void; title: string }) {
+function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
     <label class="slider-field" title={p.title}>
@@ -280,6 +298,73 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
                 ["stepped", "Stepped", "Benches stepping down from the fault"],
               ]}
             />
+          </AutoDetail>
+        </MoreRow>
+      ) : null}
+    </>
+  );
+}
+
+/** Glaciate's row (D289, D309): Power, Size, Meltwater and Try another, and behind More its benches,
+ *  its steps, its tarn and its scree, each on Auto until pinned. */
+export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
+  const u = p.ui;
+  const set = (patch: Partial<GlaciateUi>) => p.onUi({ ...u, ...patch });
+  const size = u.size ?? glacierSize(u);
+  const drawn = p.drawn;
+  const benches = u.benches ?? drawn?.benches ?? "some";
+  const steps = u.steps ?? drawn?.steps ?? "some";
+  const tarn = u.tarn ?? drawn?.tarn ?? true;
+  const scree = u.scree ?? drawn?.scree ?? true;
+  return (
+    <>
+      <ForceOptions force={p.force}>
+        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice: a deeper, longer valley" />
+        <SizeControl
+          label="Size"
+          title="The valley's width, in tiles (Auto: the width Power gives)"
+          value={Math.round(size / 2) * 2}
+          min={GLACIATE_SIZE_MIN}
+          max={GLACIATE_SIZE_MAX}
+          step={2}
+          onChange={(v) => set({ size: v })}
+          auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
+        />
+        <Toggle label="Meltwater" title="Springs feed its river, its falls and its lakes; off, the valley is left dry" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} />
+        <Again show={p.canAgain} onAgain={p.onAgain} what="glacier" />
+        <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
+      </ForceOptions>
+      {p.more ? (
+        <MoreRow force={p.force}>
+          <AutoDetail label="Benches" on={u.benches === null} onAuto={(on) => set({ benches: on ? null : benches })}>
+            <Segmented
+              label="Benches"
+              value={benches}
+              onChange={(benches) => set({ benches })}
+              options={[
+                ["none", "Sheer walls", "Sheer walls all along the valley"],
+                ["some", "Some benches", "Benches cut into the soft rock along some stretches of the walls"],
+                ["many", "Many benches", "Benches cut into the soft rock along most of the walls"],
+              ]}
+            />
+          </AutoDetail>
+          <AutoDetail label="Steps" on={u.steps === null} onAuto={(on) => set({ steps: on ? null : steps })}>
+            <Segmented
+              label="Steps"
+              value={steps}
+              onChange={(steps) => set({ steps })}
+              options={[
+                ["few", "Few steps", "Long level reaches: the floor drops by few steps"],
+                ["some", "Some steps", "The floor drops a level every so often"],
+                ["many", "Many steps", "Short reaches: the floor drops by many steps"],
+              ]}
+            />
+          </AutoDetail>
+          <AutoDetail label="Tarn" on={u.tarn === null} onAuto={(on) => set({ tarn: on ? null : tarn })}>
+            <Toggle label="Tarn" title="A small lake in the cirque at its head" on={tarn} onChange={(tarn) => set({ tarn })} />
+          </AutoDetail>
+          <AutoDetail label="Scree" on={u.scree === null} onAuto={(on) => set({ scree: on ? null : scree })}>
+            <Toggle label="Scree" title="Cones of fallen rock at the walls' feet" on={scree} onChange={(scree) => set({ scree })} />
           </AutoDetail>
         </MoreRow>
       ) : null}

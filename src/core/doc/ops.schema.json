@@ -177,18 +177,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt or Quake: D194, D202, D203, D206, D220): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake). Replay assigns the result and never runs the force; the engine checks it fits the map. `carve` is the same for projects saved before the forces shared this operation.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn). Replay assigns the result and never runs the force; the engine checks it fits the map. `carve` is the same for projects saved before the forces shared this operation.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -205,7 +205,12 @@
             "summit": { "enum": ["auto", "peak", "crater", "caldera"] },
             "flows": { "enum": ["light", "heavy"] },
             "ridges": { "type": "boolean" },
-            "scarp": { "enum": ["sheer", "stepped"] }
+            "scarp": { "enum": ["sheer", "stepped"] },
+            "meltwater": { "type": "boolean" },
+            "benches": { "enum": ["none", "some", "many"] },
+            "steps": { "enum": ["few", "some", "many"] },
+            "tarn": { "type": "boolean" },
+            "scree": { "type": "boolean" }
           }
         },
         "where": {
@@ -244,21 +249,21 @@
           "maxItems": 65536,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
         },
-        "source": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["id", "x", "y", "strength"],
-          "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
-        },
         "sources": {
           "type": "array",
-          "maxItems": 15,
+          "maxItems": 256,
           "items": {
             "type": "object",
             "additionalProperties": false,
             "required": ["id", "x", "y", "strength"],
             "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
           }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "x", "y", "strength"],
+          "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
         },
         "lake": {
           "type": "object",

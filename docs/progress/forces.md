@@ -4,7 +4,9 @@
 > sources takes the map's last badwater spring) sat over the top of the map and covered the force rows.
 > The notices are now a strip under the map, never over it (EDITOR_PLAN.md, the overlays list);
 > `tests/e2e/notices.spec.ts` picks each force with the line showing, wide and narrow, and fails if the
-> line overlaps any control.
+> line overlaps any control. **Glaciate now lives on `feature/forces` (D320):** `feature/glaciate` was
+> merged in (567c2feb, the forces merged into it first; 2c363f00 gives CI's test job 45 minutes) and
+> retired; PR #76 is closed, folded into #77.
 
 > **State (2026-09-27; where a fresh session resumes).** Branch `feature/forces`, `dev` merged in
 > last at ea7cf14 (housekeeping's lock removal, #72; merge 5e1a3e2). Round 2 (D226) and round 2b (D239, D247, D248) are done, below.

@@ -8,7 +8,8 @@
 // placed by its material (hollow wood for a tree, damped metal for a ruin, a splash for a source),
 // an earth puff for a delete, a reversed wooden catch for undo, and each force's own, phase by phase
 // (a torrent for Carve; a breath, a crack, a boom and falling stone for Craterize; a fault's crack and
-// grind for Quake; pressure, a roaring plume and a cooling hiss for Erupt). Repeats climb a small
+// grind for Quake; pressure, a roaring plume and a cooling hiss for Erupt; grinding ice, slow cracks
+// and falling meltwater for Glaciate). Repeats climb a small
 // musical ladder and reset after a pause. On by default at the mix's own clearly audible level
 // (D226), limited and never harsh, with a volume and an off switch the player keeps; water ambience
 // is off unless turned on. Nothing waits on any of it: the bank loads on the first click or key.
@@ -231,6 +232,21 @@ export class Juice {
         if (cue.phase === "slide") {
           once("slide", () => this.engine.play("slide", p, { id: `${id}-slide` }));
           hold("slide", "grind", { ...p, activity: 1 });
+        }
+        break;
+      case "glaciate":
+        // the ice's grind held while it advances, its cracks once; the meltwater as it retreats
+        if (cue.phase === "advance") {
+          once("advance", () => this.engine.play("glaciate", p, { id, phase: "advance" }));
+          hold("glaciate", "grind", { ...p, activity: 1 });
+        }
+        if (cue.phase === "retreat" || cue.phase === "done") {
+          const k = `${id}-grind`;
+          if (f.ids.includes(k)) {
+            this.engine.stop(k);
+            f.ids.splice(f.ids.indexOf(k), 1);
+          }
+          once("retreat", () => this.engine.play("glaciate", p, { id, phase: "retreat" }));
         }
         break;
       case "erupt":

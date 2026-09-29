@@ -5,13 +5,15 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Three jobs run side by side: the tests, the Python oracle, and generation. They fail only on
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in four shards, the
+# Python oracle, and generation. They fail only on
 # breakage. Timings are information, not gates: each job's summary lists them against their
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
 # (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
 jobs:
   test:
     runs-on: ubuntu-latest
+    # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -32,26 +34,46 @@ jobs:
         run: npm run test:quick
       - name: Build
         run: npm run build
+
+  # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
+  # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
+  # split is by file, so the same workflow suits any branch. Raising the shard count is the fix if a
+  # branch's specs outgrow the 30 minutes a job gets, never a longer limit.
+  browser:
+    name: browser (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
-      - name: Browser tests (Node and Chromium produce the same bytes)
-        run: npm run test:e2e
+      - name: Browser tests, shard ${{ matrix.shard }} of 4 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/4
         env:
           DGM_TIMINGS: .scratch/timings/e2e.jsonl
       - name: Timings (information, not gates)
         if: always()
-        run: npx tsx tools/ci-timings.ts .scratch/timings/e2e.jsonl --title "Browser timings"
+        run: npx tsx tools/ci-timings.ts .scratch/timings/e2e.jsonl --title "Browser timings, shard ${{ matrix.shard }} of 4"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: timings-browser
+          name: timings-browser-${{ matrix.shard }}
           path: .scratch/timings/
           if-no-files-found: ignore
           retention-days: 30
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
 

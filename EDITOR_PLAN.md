@@ -44,7 +44,7 @@ editor is desktop-first (D185).
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
   unleashes a carve, strikes, or vents; a drag aims a carve or an impact, or opens a fissure. Everything else (Carve's
   wander, walls and depth; Craterize's walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's
-  scarp) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
+  scarp; Glaciate's benches, steps, tarn and scree) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
   ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
   shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
   **A small More button, at the row's end, opens those details** (D309, amending D289): closed by default, remembering
@@ -221,15 +221,39 @@ editor is desktop-first (D185).
   and never adds water; nothing of its fit shows before it (D258): a small cursor, and "No room to rise
   here" only where it can't rise at all; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the forces core
   (#59), on the preview until Kyler has tried it (D219).
-- **Glaciate, a force of nature** (D246; after the forces round 2, once Kyler has tried Codex's demo): it turns a valley
-  that's already there into a glacial valley: a broad, level floor between steep walls; basins that dip below their own
-  outlet, a chain of lakes; hanging side valleys with waterfalls; moraines and an outwash plain from the material it cut.
-  "Carve gives you water; Glaciate gives you land." **Flow** (click high ground, and it follows the valleys) or **Aim**
-  (drag, and it grinds through ridges into a pass); **Power**; **Size** (Auto, D226); **Meltwater** (on by default); **Try
-  another**; nothing more without Kyler's say. Two acts, about five seconds: the ice advances, then melts back and reveals
-  the valley as its lakes fill. Bound only by nature like the others (D257: through the start's ground, the start
-  carried), with their clean gestures (D258), it respects the height ceiling (D244), and keeps and feeds
-  its lakes. No ice-sheet mode for now. Prototyped on `investigation/glaciate` (held until Kyler says it's ready).
+- **Glaciate, a force of nature** (D246, D291, D292; built on `feature/glaciate` from `investigation/glaciate`'s round 4,
+  for Kyler's forces sitting): it turns a valley that's already there into a glacial valley: a broad, level floor between
+  steep walls stepping down by bars; a tarn in its cirque; hanging side valleys with springs and falls (Meltwater);
+  scree, a moraine and an outwash plain from the material it cut; the river leaving by the old outlet. "Carve gives you
+  water; Glaciate gives you land." Its own button in the forces group (key -). A **click Flows** (it follows the valleys
+  down from there; on flat ground a seeded way to lower ground or an edge) and a **drag Aims** (it grinds through ridges
+  the way it was dragged): the ice gathers under the pointer as it's pressed, a drag of six pixels or more shows only a
+  thin arrow, and nothing predicts the valley on the land (D258). A faint ring at the cursor shows its width at the
+  current Power and Size (D312; how big, never what shape). **Waypoints** (D312, the gesture Carve shares,
+  `editor/waypoints.ts`): Shift+click drops them, small markers joined by a thin line; a plain click, or Enter, launches;
+  Backspace removes the last; Esc drops them all; the glacier aims through them along one smooth curve (one aimed pass a
+  leg, smoothed), finding its own way near the line; its operation keeps the line (`where.path`). Its row is **Power**, **Size** (Auto: 30 at Power 60)
+  and **Meltwater** (on by default), with **Try another** once one is kept (D289), and **More** (D309): its **Benches**
+  (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
+  or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,
+  round 4's the likeliest) until pinned, as for the other forces; a glacier saved without them is round 4's.
+  Two acts, five seconds at its own pace whatever the water's speed (D266): the ice advances for three seconds, the land
+  under it taking its final levels as the front passes, then melts back for two and reveals the valley's water; the
+  camera never moves (D265). **The floor reads as one river** (D292): the river winds across the level floor to the falls'
+  pools and the rivers coming in, so their water drops straight into it; a fall it can't reach, nor pass within six
+  tiles of, stays a dry hanging valley; every join runs straight to the river, never along a wall's foot; a lip's other
+  face runs into its own pool. The game's water is run a while on the finished floor as it's planned: if it would wet the
+  dry floor, the river bends toward the falls instead, or keeps round 4's meander, whichever keeps the floor dry. Literal
+  land, the game's own water: nothing is masked. Bound only by nature (D257): no refusal for playability (only the map's
+  floor: "At the map floor: no ground left to carve"); through the start's ground it goes on and the start is carried to
+  level ground in the same step. Trees and objects in its path are swept; swept clean sources feed its cirque head,
+  badwater is discarded. Its springs come in groups as the game's own maps have them (D314, `core/water/sourceGroups.ts`):
+  the cirque head's a row across the glacier's way down, each hanging valley's a group at its lip (small springs stay
+  one), the strength shared. One `forceResult` operation, one undo step, stored literally: its changed levels and every level
+  of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; Esc
+  reverts it at once, Try another replaces it, and it replays to the same bytes. It builds up to the editor's one
+  ceiling (D172's tall maximum on every map, D244). Sounds from the editor's CC0 bank (grinding stone, a
+  low wooden groan, slow cracks, meltwater: the investigation's recipe). No ice-sheet mode for now.
 - **Erode, a force of nature** (PLAN §20 D279–D281; terrain above terrain, step 3, after the view): wind and water wear
   rock into caves, alcoves, overhangs and arches; the land decides which; every shape obeys the support rule; a click or
   a drawn sweep; **Power**, **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on
@@ -454,6 +478,8 @@ alone stay the brush shortcuts; bookmarks are saved with the project. Every tool
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
 
 ## 8. The generator, Claude and the first run
+
+**The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, Kyler's UI round, 2026-09-29).** Where the list below disagrees with the brief, the brief wins: one workspace with no expand button, full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map card, Your maps) and the rows over the map hold the land; Generate runs only on its button. D233 (1), (2) and (4), and its regenerating on a setting change, are superseded.
 
 **Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
 - **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic

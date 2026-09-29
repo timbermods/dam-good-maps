@@ -4,7 +4,7 @@
 // (only its chunks), the water moving with it, the objects. Each frame's moment goes to the effects
 // and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the camera
 // never moves by itself (D265). Pause holds a carve; Stop keeps what is carved; a staged
-// force (Craterize, Erupt, Quake) is kept when it ends; Esc or undo drops all of it at once. A
+// force (Craterize, Erupt, Quake, Glaciate) is kept when it ends; Esc or undo drops all of it at once. A
 // painted Lift is shown whole as it is painted (the page sends the latest stroke whenever the worker
 // is free) and kept when the pointer lets go. Nothing on the page waits on it: the worker runs a step
 // in a few milliseconds, between the frames.
@@ -25,9 +25,13 @@ export const CARVE_PACE = FORCE_PACE;
  *  lava cooling play on on their own clocks, and the player can act again at once. */
 export const ERUPT_PACE = { steps: 1, ms: 55 };
 
+/** A glacier's pace (D246): ten stages a second, three seconds of advancing ice and two of its retreat,
+ *  as in the demo Kyler tried (investigation/glaciate); its planning steps take their time too. */
+export const GLACIATE_PACE = { steps: 1, ms: 100 };
+
 /** A force's own pace (D266: the water's speed doesn't change it). */
 export function paceOf(verb: Verb): { steps: number; ms: number } {
-  return verb === "erupt" ? ERUPT_PACE : FORCE_PACE;
+  return verb === "erupt" ? ERUPT_PACE : verb === "glaciate" ? GLACIATE_PACE : FORCE_PACE;
 }
 
 export interface ForceStatus {
@@ -242,5 +246,6 @@ export function forcePowerWord(verb: Verb, power: number): string {
   if (verb === "craterize") return power < 25 ? "Pebble" : power < 55 ? "Meteor" : power < 85 ? "Asteroid" : "Cataclysm";
   if (verb === "quake") return power < 25 ? "Tremor" : power < 55 ? "Rift" : power < 85 ? "Upheaval" : "Cataclysm";
   if (verb === "erupt") return power < 25 ? "Cinder" : power < 55 ? "Cone" : power < 85 ? "Volcano" : "Cataclysm";
+  if (verb === "glaciate") return power < 25 ? "Cirque" : power < 55 ? "Glacier" : power < 85 ? "Great glacier" : "Ice age";
   return powerWord(power);
 }

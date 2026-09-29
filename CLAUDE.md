@@ -1,5 +1,33 @@
 # CLAUDE.md
 
+> **Kyler's standing rule, read before any task (PLAN §20, D316): compute is a resource, effort matches the stakes,
+> and quality is never compromised.** It applies to every session, agent and investigation, and to prompts from the
+> planning chat and Codex.
+>
+> - **Invest in what compounds:** shared modules (the forces core, the drainage and source logic, the grouped-sources
+>   rule), findings later work builds on (the official maps' measurements, the game's rules, why a round failed),
+>   kept concise and easy to find, and the project's history. Build shared modules, not one-offs.
+> - **Spend little on what doesn't:** one-off reports, captures and tables made for ceremony, re-verifying by hand
+>   what's already verified, speculative edge cases, measures no decision uses.
+> - **Cheap automated checks stay broad** (CI, random-gesture sweeps, batch checks, probe comparisons). What's cut is
+>   agent time, not safety nets.
+> - **Deep verification only where failure is expensive and hard to see:** the water matching the game, files the
+>   game loads, saved projects opening, determinism behind share links, release gates. Elsewhere prove the idea and
+>   the feel, and get it in front of Kyler's eye quickly.
+> - **Reports are short:** what changed, what falls short, the numbers a decision needs, the findings worth keeping.
+>   A measure that drives no decision is information at most, never a target.
+> - Before any report, measurement or manual check, ask: will it be used again, or does it change a decision or what
+>   the player gets? If neither, skip it. If a prompt asks for more, do it, and say in one line if it seems out of
+>   proportion.
+> - **Models (D317, D318):** the cheapest model and effort that does the job, per HANDOFF §7's table; xhigh only for
+>   genuinely hard work. Sonnet 5.5 for well-scoped work with a clear spec and a way to check it (bug fixes, feature
+>   iterations with clear acceptance, documents, reviews, repeated agent tasks, design polish). Opus 5.5 for complex
+>   judgment and long-horizon work (the generator's character, the water and 3D engines, the forces' feel and new
+>   forces, redesigns, orchestration). Nothing on Opus moves.
+> - **Real checks:** when you change code that can be run, built or type-checked, run a real check that exercises
+>   the change before reporting it done. If none can run, say which and why.
+> - Downscale screenshots and captures before a model reads them, unless the detail is what's being judged.
+
 > **New milestone session? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says what's in flight, the order of
 > work, how things are run here, and the machine the session runs on (resumed 2026-09-26 on a dedicated computer).
 

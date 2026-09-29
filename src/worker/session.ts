@@ -64,7 +64,7 @@ import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
-import { autoDetailsOf, carveNature, craterNature, eruptNature, quakeNature, type ForceGround } from "../core/forces/nature";
+import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
@@ -77,6 +77,8 @@ import { geology, nextSeed } from "../core/forces/random";
 import { forceParamsOf, pathRecord } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
+import { GlaciateRun } from "../core/forces/glaciate/run";
+import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth, markBrushTiles } from "../core/features/raster/brush";
@@ -1718,6 +1720,7 @@ export type ForceRequest = (
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
+  | { verb: "glaciate"; settings: GlaciateSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null }
 ) & {
   /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the land
    *  outside it is unbreakable rock to the force, and inside it the force's change eases to the
@@ -1731,7 +1734,7 @@ export type ForceRequest = (
 /** A carve to start: the carve's own request (kept for the carve's calls). */
 export type CarveRequest = Omit<Extract<ForceRequest, { verb: "carve" }>, "verb">;
 
-export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings;
+export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
 
 /** The last stretch of a force's course (the effects' muddy ribbon, the camera). */
@@ -1872,18 +1875,21 @@ function stagedForceMap(m: FullForceMap): FullForceMap {
 /** The build's integrity pass (its step 7) on a force's final map, round what the force changed:
  *  the map then shows exactly what the build keeps (a one-tile pit or spike the force left beside
  *  its tiles is worn away, levels past the editor's limit are clipped). `state` is the terrain the
- *  build starts its last steps from, before the force; `ground` the heights the force started on. */
-function buildTouches(state: TerrainState, ground: Uint8Array): Finalize {
+ *  build starts its last steps from, before the force; `ground` the heights the force started on;
+ *  `owned` the ground a force sets even where it left its level as it was (a glacier's banks: its
+ *  operation lists them, so the build keeps them too). */
+function buildTouches(state: TerrainState, ground: Uint8Array, owned?: () => Uint8Array | null): Finalize {
   return (m) => {
     const { W, H } = m;
     const pre = state.pre.slice();
     const protect = state.protect.slice();
+    const own = owned?.() ?? null;
     let x0 = W;
     let y0 = H;
     let x1 = -1;
     let y1 = -1;
     for (let i = 0; i < m.heights.length; i++)
-      if (m.heights[i] !== ground[i]) {
+      if (m.heights[i] !== ground[i] || own?.[i]) {
         pre[i] = m.heights[i];
         protect[i] = 1;
         const x = i % W;
@@ -1947,7 +1953,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
-  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...(req.verb === "carve" && req.end ? (req.via ?? []) : [])];
+  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
@@ -1998,6 +2004,22 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
         const fissure = req.settings.mode === "fissure" && req.path && req.path.length >= 2;
         staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent" }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
         staged.finalize = buildTouches(state, base.heights);
+        break;
+      }
+      case "glaciate": {
+        // a click Flows down the valleys, a drag Aims through the ridges (D258): the gesture is its mode
+        map = stagedForceMap(base);
+        const aimed = req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
+        // waypoints (D312): the ones that move on from the last, between the origin and the end
+        const stops: [number, number][] = [];
+        for (const p of aimed ? (req.via ?? []) : []) {
+          const last = stops.at(-1) ?? req.origin;
+          if (p[0] !== last[0] || p[1] !== last[1]) stops.push(p);
+        }
+        while (stops.length && aimed && stops.at(-1)![0] === aimed[0] && stops.at(-1)![1] === aimed[1]) stops.pop();
+        const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(stops.length ? { via: stops.map(at) } : {}) }, keep);
+        run.finalize = buildTouches(state, base.heights, () => run.footprint());
+        staged = run;
         break;
       }
       case "quake": {
@@ -2053,6 +2075,8 @@ function naturalRequest(req: ForceRequest, base: FullForceMap): ForceRequest {
       const m = mid(req.path);
       return { ...req, settings: quakeNature(req.settings, ground(clampTile(m.x, m.y))) };
     }
+    case "glaciate":
+      return { ...req, settings: glaciateNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
   }
 }
 
@@ -2074,7 +2098,7 @@ export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
   const s = need();
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
-  sr.nextSeed = nextSeed(sr.nextSeed);
+  sr.nextSeed = sr.request.verb === "glaciate" ? glaciateNextSeed(sr.nextSeed) : nextSeed(sr.nextSeed);
   const settings = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
   const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as ForceRequest;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
@@ -2215,6 +2239,13 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
       const r = f.staged as QuakeRun;
       return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path), side: r.intent.side } };
     }
+    case "glaciate": {
+      const r = f.staged as GlaciateRun;
+      const W = f.before.W;
+      const via = r.intent.via ?? [];
+      // (its waypoints, D312: the whole line it was given, origin to end, as the path)
+      return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "aim" && req.end ? { end: req.end } : {}), ...(via.length ? { path: pathRecord([req.origin, ...via.map((i) => [i % W, Math.floor(i / W)] as [number, number]), req.end!].map(([x, y]) => ({ x, y }))) } : {}) } };
+    }
     default:
       throw new Error("a carve keeps its own record");
   }
@@ -2255,6 +2286,9 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (!after) return refused(["Nothing changed"]);
     params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
+    // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
+    // its whole ground, the levels it left as they were included (the build keeps its banks whole)
+    if (r instanceof GlaciateRun && r.plan) params = { ...withOwned(params, after.heights, r.footprint()), ...glacierSprings(f.before, after, r.plan.retained) };
     water = r.liveWater();
   }
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
@@ -2289,6 +2323,30 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
 }
 
 export const carveStop = forceStop;
+
+/** A force's result with the ground it owns listed too, at its level (unchanged ones included). */
+function withOwned(p: ForceResultParams, heights: Uint8Array, owned: Uint8Array | null): ForceResultParams {
+  if (!owned) return p;
+  const at = new Map(p.tiles.map((i, k) => [i, p.heights[k]]));
+  for (let i = 0; i < owned.length; i++) if (owned[i] && !at.has(i)) at.set(i, heights[i]);
+  const tiles = [...at.keys()].sort((a, b) => a - b);
+  return { ...p, tiles, heights: tiles.map((i) => at.get(i)!) };
+}
+
+/** The springs a glacier added and the tarn it keeps, as its operation keeps them. */
+function glacierSprings(before: FullForceMap, after: FullForceMap, lake: { tiles: readonly number[]; floor: readonly number[]; depth: readonly number[]; contamination: readonly number[] }): Pick<ForceResultParams, "sources" | "lake"> {
+  const had = new Set(before.entities.map((e) => e.id));
+  const sources = after.entities
+    .filter((e) => !had.has(e.id) && e.template === "WaterSource")
+    .map((e) => {
+      const ws = ({ ...(e.before ?? {}), ...e.components } as { WaterSource?: { SpecifiedStrength?: unknown } }).WaterSource;
+      const raw = ws?.SpecifiedStrength;
+      const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 0);
+      return { id: e.id, x: e.x, y: e.y, strength };
+    })
+    .filter((q) => q.strength > 0);
+  return { ...(sources.length ? { sources } : {}), ...(lake.tiles.length ? { lake: { tiles: [...lake.tiles], floor: [...lake.floor], depth: [...lake.depth], contamination: [...lake.contamination] } } : {}) };
+}
 
 /** A force's result eased to the working area's edge (D254): a tile changes at most as many levels as
  *  it is steps inside the area (`inside`, 0 outside it), so the edit meets the locked land a level a
