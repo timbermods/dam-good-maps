@@ -115,6 +115,8 @@ const api = {
   deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
+  /** The labels Markers shows on the water objects, cores and reserves. */
+  objectNotes: () => ed.objectNotes(),
   /** What an unstable core would clear on this map (its row's information). */
   explosionInfo: (id: string) => ed.explosionInfo(id),
   /** The map as it will be after the core goes off (a view only, D339). */

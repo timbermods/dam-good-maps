@@ -9,10 +9,10 @@
 // - An unstable core: its radius (0 to 5) and its cycle and countdown.
 // - A reserve: the good it holds (one of its kind's) and how much (up to its capacity).
 
-import { CORE, defaultStock, defaultStrength, FLUIDS, goodsFor, isReserve, MAX_STRENGTH_PER_TILE, maxStrength, NO_DELAY, RESERVES, TIMED, type Timed } from "../data/parity";
+import { CORE, defaultStock, defaultStrength, FLUIDS, goodName, goodsFor, isReserve, MAX_STRENGTH_PER_TILE, maxStrength, NO_DELAY, RESERVES, TIMED, type Timed } from "../data/parity";
 import { fluidObject, reserve, unstableCore, waterSource } from "../format/entities";
 import { plainOf, type JsonObject, type JsonValue } from "../format/json";
-import type { Orientation } from "../format/footprints";
+import { footprintTiles, type Orientation } from "../format/footprints";
 import type { EditOp } from "./ops";
 
 /** The options an object carries; what an object has none of is left out. */
@@ -66,6 +66,26 @@ export function placeComponents(template: string, o: ObjectOptions = {}): Record
   if (template === "UnstableCore") return plainOf(unstableCore({ ...stub, orientation: "Cw0" as Orientation, radius: d.radius ?? CORE.defaultRadius, cycles: d.cycles ?? CORE.cycles, days: d.days }).components) as Record<string, unknown>;
   if (isReserve(template)) return plainOf(reserve({ ...stub, template, good: d.good!, amount: d.amount! }).components) as Record<string, unknown>;
   return undefined;
+}
+
+/** The options a placed object has now, read from its components (plain JSON, or the game's with its floats). */
+export function optionsOf(template: string, componentsIn: Record<string, unknown>): ObjectOptions {
+  const c = plainOf(componentsIn as JsonValue) as Record<string, unknown>;
+  const spec = FLUIDS[template];
+  if (spec?.tiles) {
+    const ws = c.WaterSource as { SpecifiedStrength?: number } | undefined;
+    return { strength: Number(ws?.SpecifiedStrength ?? defaultStrength(template)), ...(spec.timed ? { timed: timedFrom(c) } : {}) };
+  }
+  if (template === "UnstableCore") {
+    const t = timedFrom(c);
+    const r = (c.UnstableCore as { ExplosionRadius?: number } | undefined)?.ExplosionRadius;
+    return { radius: typeof r === "number" ? r : CORE.defaultRadius, cycles: t.cycles, days: t.days };
+  }
+  if (isReserve(template)) {
+    const inv = c["Inventory:Stockpile"] as { Storage?: { Goods?: { Amount?: number }[] } } | undefined;
+    return { good: String((c.FixedStockpile as { FixedGoodId?: string } | undefined)?.FixedGoodId ?? defaultStock(template).good), amount: (inv?.Storage?.Goods ?? []).reduce((a, g) => a + Number(g.Amount ?? 0), 0) };
+  }
+  return {};
 }
 
 /** The patch that sets an object's options (a `setEntityProps`), from the object as it stands now. */
@@ -191,3 +211,69 @@ function timedProblems(v: unknown, alwaysOn: boolean): string[] {
   return out;
 }
 
+
+// ---------------------------------------------------------------------------------- words on the map
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** A start delay in words: "starts in cycle 3, then 4.5 days". */
+export function delayWords(t: Timed): string {
+  return `starts in cycle ${t.cycles}${t.days > 0 ? `, then ${plural(t.days, "day", "days")}` : ""}`;
+}
+
+/** A sentence for a change of options (the history's label): what the player set. */
+export function describeChange(template: string, before: ObjectOptions, after: ObjectOptions): string {
+  const name = template.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+  if (after.strength !== undefined && after.strength !== before.strength) return `${name}: ${after.strength < 0 ? `sink ${-after.strength}` : after.strength} water/s`;
+  if (after.timed && (after.timed.enabled !== before.timed?.enabled || after.timed.cycles !== before.timed?.cycles || after.timed.days !== before.timed?.days)) return `${name}: ${after.timed.enabled ? delayWords(after.timed) : "starts at once"}`;
+  if (after.radius !== undefined && after.radius !== before.radius) return `${name}: radius ${after.radius}`;
+  if ((after.cycles !== undefined && after.cycles !== before.cycles) || (after.days !== undefined && after.days !== before.days)) return `${name}: goes off in cycle ${after.cycles}`;
+  if (after.good !== undefined && after.good !== before.good) return `${name}: holds ${goodName(after.good)}`;
+  if (after.amount !== undefined && after.amount !== before.amount) return `${name}: ${after.amount} held`;
+  return `${name}: options`;
+}
+
+export interface MarkerNote {
+  id: string;
+  template: string;
+  /** The object's Coordinates tile, and the ground's level there. */
+  x: number;
+  y: number;
+  z: number;
+  /** Where the label stands: the middle of its footprint, in tiles. */
+  at: [number, number];
+  text: string;
+}
+
+/** The labels Markers shows on the water objects, cores and reserves: a plain question the page draws
+ *  (D337, D338, D342). A plain source has none but for a delay or a sink. */
+export function markerNotes(entities: readonly { id: string; template: string; x: number; y: number; z: number; orientation: Orientation; flipped: boolean; raw?: JsonObject; before?: JsonObject; components: JsonObject }[]): MarkerNote[] {
+  const out: MarkerNote[] = [];
+  for (const e of entities) {
+    if (!hasOptions(e.template) && e.template !== "AncientAquiferDrill") continue;
+    const comps = (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+    const o = optionsOf(e.template, comps);
+    const spec = FLUIDS[e.template];
+    const words: string[] = [];
+    if (spec?.tiles) {
+      const bad = spec.contamination ? "badwater" : "water";
+      const strength = o.strength ?? 1;
+      const plain = e.template === "WaterSource" || e.template === "BadwaterSource";
+      if (plain && strength >= 0 && !o.timed?.enabled) continue;
+      const kind = e.template.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+      words.push(plain ? "" : kind);
+      words.push(strength < 0 ? `sink ${-strength} ${bad}/s` : `${strength} ${bad}/s`);
+      if (spec.needsDrill) words.push("no water until a powered drill stands on it");
+      if (spec.activeIn) words.push("only in a badtide");
+      if (o.timed?.enabled) words.push(delayWords(o.timed));
+    } else if (e.template === "AncientAquiferDrill") words.push("Aquifer drill", "unpowered at the start");
+    else if (e.template === "UnstableCore") words.push("Unstable core", `radius ${o.radius}`, `goes off in cycle ${o.cycles}`);
+    else if (isReserve(e.template)) words.push(e.template.replace(/^Reserve/, "Reserve "), `${o.amount} ${goodName(o.good ?? "")}`);
+    // (the middle of its footprint, turned as it is)
+    const tiles = footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped });
+    const cx = tiles.length ? tiles.reduce((a, t) => a + t[0], 0) / tiles.length + 0.5 : e.x + 0.5;
+    const cy = tiles.length ? tiles.reduce((a, t) => a + t[1], 0) / tiles.length + 0.5 : e.y + 0.5;
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, at: [cx, cy], text: words.filter(Boolean).join(" · ") });
+  }
+  return out;
+}

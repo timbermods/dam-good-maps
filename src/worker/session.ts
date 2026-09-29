@@ -61,6 +61,7 @@ import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { blastInfo, explosionAfter, type BlastInfo, type ExplosionAfter } from "../core/doc/blast";
+import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
@@ -1686,6 +1687,11 @@ export function entitiesAt(x: number, y: number): EntityInfo[] {
     out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, from, components: plainJson(rest) as Record<string, unknown> });
   }
   return out;
+}
+
+/** The labels Markers shows on the water objects, cores and reserves (`core/doc/objectOps.ts` `markerNotes`). */
+export function objectNotes(): MarkerNote[] {
+  return markerNotes(need().built.entities);
 }
 
 // ------------------------------------------------------------------------------ an unstable core's blast

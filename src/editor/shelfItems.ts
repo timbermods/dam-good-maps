@@ -5,6 +5,9 @@
 // and patches are. The two sources come first, then the start (D212, D226's order: Water source,
 // Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
+import { defaultOptions, type ObjectOptions } from "../core/doc/objectOps";
+import type { PaintAge, PaintKind } from "../core/doc/paintParams";
+import { DEFAULT_DENSITY } from "../core/gen/paint";
 import { hash32 } from "../core/math/hash";
 
 export interface ShelfItem {
@@ -12,43 +15,75 @@ export interface ShelfItem {
   name: string;
   /** The object it places (its icon and ghost); a ruin's and a relic's follow their option. */
   template: string;
-  /** A drag paints many (trees and bushes), this share of the tiles under the brush. */
-  fill?: number;
+  /** A drag paints this kind of object (D235, D338): a stroke of trees, bushes, succulents, mixed woods, ruin
+   *  fields or thorn patches, sized like the terrain brushes; a click places one. */
+  brush?: PaintKind;
   /** R turns it (a quarter turn each time). */
   turns: boolean;
   /** Words for its button's tooltip. */
   hint: string;
   /** A water source: clean or bad (its strength in the options). */
   source?: "clean" | "bad";
+  /** The game's other objects with options of their own: a water object (strength, start delay), an unstable core
+   *  (radius, cycle) or a reserve (its good and how much): PLAN §20 D337, D338. */
+  options?: "fluid" | "core" | "reserve";
   /** Its key, when it has one. */
   key?: string;
 }
+
+const GROVE = "click one, or drag to plant a grove";
+const PATCH = "click one, or drag to plant a patch";
 
 export const SHELF: readonly ShelfItem[] = [
   { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "click where the water starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
   { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "click where badwater starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "the district center: click where the colony starts; R turns its door" },
-  { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "Oak", name: "Oak", template: "Oak", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", fill: 0.55, turns: true, hint: "click one, or drag to plant a patch" },
-  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower; its height in the options" },
+  { id: "Pine", name: "Pine", template: "Pine", brush: "trees", turns: true, hint: GROVE },
+  { id: "Birch", name: "Birch", template: "Birch", brush: "trees", turns: true, hint: GROVE },
+  { id: "Oak", name: "Oak", template: "Oak", brush: "trees", turns: true, hint: GROVE },
+  { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", brush: "bushes", turns: true, hint: PATCH },
+  { id: "Succulent", name: "Succulent", template: "Succulent", brush: "succulents", turns: true, hint: "it lives on dry ground only: click one, or drag to plant a stand" },
+  { id: "woods", name: "Mixed woods", template: "Oak", brush: "woods", turns: true, hint: "the generator's own mix of pine, birch and oak: click one, or drag to plant woods" },
+  { id: "ruin", name: "Ruin", template: "RuinColumnH3", brush: "ruins", turns: true, hint: "a ruined tower: click one (its height in the options), or drag to paint a ruin field as the generator grows one" },
   { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "the scrap mine is built on it late in the game" },
   { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "demolished for science; its size in the options" },
   { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a natural slope up a 1-level step: R turns it to face the step" },
-  { id: "Thorns", name: "Thorns", template: "Thorns", turns: true, hint: "blocks walking until builders clear it" },
+  { id: "Thorns", name: "Thorns", template: "Thorns", brush: "thorns", turns: true, hint: "blocks walking until builders clear it: click one, or drag to paint patches shaped like the official maps'" },
   { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back until it is demolished" },
   { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel until it is demolished" },
   { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a geothermal engine on it makes free power" },
+  { id: "WaterSeep", name: "Water seep", template: "WaterSeep", options: "fluid", turns: true, hint: "2 x 2: water seeps up, and stops while more than 0.8 deep stands over it, so it never fills a crater" },
+  { id: "BadwaterSeep", name: "Badwater seep", template: "BadwaterSeep", options: "fluid", turns: true, hint: "2 x 2: badwater seeps up, and stops while more than 0.8 deep stands over it" },
+  { id: "Aquifer", name: "Aquifer", template: "Aquifer", options: "fluid", turns: true, hint: "an underground source: it gives no water until a powered drill stands on it, so none at the map's start" },
+  { id: "AncientAquiferDrill", name: "Aquifer drill", template: "AncientAquiferDrill", turns: true, hint: "stands on an aquifer; it starts without power, so the aquifer stays dry until the colony powers it" },
+  { id: "BadtideDrain", name: "Badtide drain", template: "BadtideDrain", options: "fluid", turns: true, hint: "1 x 3, facing the way it flows (R turns it): it spews badwater only during a badtide; the day-by-day Badtide button will run it once it lands" },
+  { id: "UnstableCore", name: "Unstable core", template: "UnstableCore", options: "core", turns: true, hint: "it explodes in its cycle: a sphere of its radius plus one clears the ground and what stands there. Select one to see what it will clear" },
+  { id: "ReservePile", name: "Reserve pile", template: "ReservePile", options: "reserve", turns: true, hint: "a stock of one pileable good the colony can take (up to 160)" },
+  { id: "ReserveWarehouse", name: "Reserve warehouse", template: "ReserveWarehouse", options: "reserve", turns: true, hint: "a stock of one boxed good the colony can take (up to 200)" },
+  { id: "ReserveTank", name: "Reserve tank", template: "ReserveTank", options: "reserve", turns: true, hint: "a stock of one liquid the colony can take (up to 300)" },
 ];
 
 export interface ShelfOptions {
   /** A ruin's height, 1–8 levels. */
   ruinHeight: number;
   relicSize: "small" | "medium" | "large";
+  /** A brush item's radius in tiles: the terrain brushes' Size (the slider, F, [ and ]), shared by every brush
+   *  item; 1 places exactly one. */
+  size: number;
+  /** How densely each kind of brush lands, remembered (a sparse scatter to a dense grove). */
+  density: Record<PaintKind, number>;
+  /** Trees, succulents and mixed woods: grown, or mixed with saplings. */
+  age: PaintAge;
+  /** The options of the objects with options, by template, over the game's defaults. */
+  objects: Record<string, ObjectOptions>;
 }
 
-export const DEFAULT_SHELF_OPTIONS: ShelfOptions = { ruinHeight: 3, relicSize: "small" };
+export const DEFAULT_SHELF_OPTIONS: ShelfOptions = { ruinHeight: 3, relicSize: "small", size: 3, density: { ...DEFAULT_DENSITY }, age: "grown", objects: {} };
+
+/** The options an object will be placed with: the game's defaults, then what the player set. */
+export function objectOptions(o: ShelfOptions, template: string): ObjectOptions {
+  return { ...defaultOptions(template), ...(o.objects[template] ?? {}) };
+}
 
 /** The object an item places with its options. */
 export function templateOf(item: ShelfItem, o: ShelfOptions): string {
@@ -82,6 +117,7 @@ export function paintTiles(x: number, y: number, r: number, fill: number, seed: 
 export function quietWord(problem: string): string {
   const p = problem.toLowerCase();
   if (/inside the ground|not level|would float|level ground/.test(p)) return "needs level ground";
+  if (/aquifer under/.test(p)) return "needs an aquifer";
   if (/district center/.test(p)) return "the start stands there";
   if (/off the map|does not fit on the map|map edge/.test(p)) return "too near the edge";
   if (/cave|overhang/.test(p)) return "a cave is there";

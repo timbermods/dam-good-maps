@@ -33,7 +33,7 @@ import { modalLevel } from "../core/features/footprintLevel";
 /** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
 const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources", "start"];
 import { Shelf } from "./Shelf";
-import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
+import { DEFAULT_SHELF_OPTIONS, objectOptions, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
 import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
@@ -69,7 +69,15 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRY, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { NO_DELAY } from "../core/data/parity";
+import { describeChange, hasOptions, optionsOf, placeComponents, setOptionsOp, type MarkerNote, type ObjectOptions } from "../core/doc/objectOps";
+import type { PaintParams } from "../core/doc/paintParams";
+import { growthAt, speciesAt, treeComponents, type PaintGround } from "../core/gen/paint";
+import type { TreeSpecies } from "../core/format/entities";
+import { discTiles, dyingWord, ghostFor, pageGround, type Ghost } from "./paintGhost";
+import { BrushFields, CoreFields, FluidFields, FluidMore, ReserveFields } from "./parityRows";
+import { MoreButton } from "./TopBar";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -194,8 +202,20 @@ export default function Editor(props: EditorProps) {
   const [shelf, setShelf] = useState<ShelfItem | null>(null);
   const [shelfOptions, setShelfOptions] = useState<ShelfOptions>(DEFAULT_SHELF_OPTIONS);
   const [turn, setTurn] = useState(0);
-  /** Trees and bushes being painted by a drag: their tiles. */
-  const [painted, setPainted] = useState<number[] | null>(null);
+  /** What a brush stroke from the shelf will place (the ghost before release, D235, D338): its tiles, and those
+   *  on ground that will kill what is planted there (tinted amber). */
+  const [painted, setPainted] = useState<Ghost | null>(null);
+  const paintedRef = useRef(painted);
+  paintedRef.current = painted;
+  /** More is open on a water object's row (its Sink and start delay, D337). */
+  const [moreObjects, setMoreObjects] = useState(false);
+  /** What the labels Markers shows on the water objects, cores and reserves say (fetched after each change). */
+  const [notes, setNotes] = useState<MarkerNote[]>([]);
+  /** The core selected: what it will clear, and the map after it goes off while that view shows (D339). */
+  const [coreInfo, setCoreInfo] = useState<{ id: string; radius: number; tiles: number; objects: number; cores: number; heightLost: number } | null>(null);
+  const [blast, setBlast] = useState<{ id: string; roofed: number } | null>(null);
+  const blastRef = useRef(blast);
+  blastRef.current = blast;
   /** The shelf's icons, drawn by the view once it is ready. */
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
@@ -343,6 +363,8 @@ export default function Editor(props: EditorProps) {
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
       try {
+        // (any edit ends the map after a core goes off: it was a view only, D339)
+        if (blastRef.current) await restoreMap();
         const u = await fn();
         // an edit other than a stroke: the strokes the page could undo on its own are no longer
         // the latest steps of the history
@@ -588,6 +610,7 @@ export default function Editor(props: EditorProps) {
   /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (forcer.current?.running) return;
+    if (blastRef.current && t) return void leaveBlast().then(() => pickTop(t));
     // a force this build doesn't show can't be picked (release.ts, D219)
     const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
     if (force && !forceShown(force)) return;
@@ -617,6 +640,7 @@ export default function Editor(props: EditorProps) {
 
   /** The shelf (D184): an object to place, its ghost under the pointer, or none. */
   function pickShelf(item: ShelfItem | null) {
+    if (blastRef.current && item) return void leaveBlast().then(() => pickShelf(item));
     setShelf(item);
     setTurn(0);
     setFit(null);
@@ -645,7 +669,7 @@ export default function Editor(props: EditorProps) {
       void api
         .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
         .then((r) => {
-          if (!r || !mounted.current) return;
+          if (!r || !mounted.current || blastRef.current) return;
           // (a force at work shows its own water: the map's comes after it)
           if (forcer.current?.running) {
             deferred.current.push(r.view);
@@ -689,6 +713,8 @@ export default function Editor(props: EditorProps) {
     void api.listen(
       proxy((e: EditorEvent) => {
         if (e.version !== infoRef.current.version) return;
+        // (the map after a core goes off is showing: the map's own water comes when it returns)
+        if (blastRef.current) return;
         // a force at work shows its own water; the map's settled view comes after it
         if (forcer.current?.running) {
           if (e.kind === "settled") deferred.current.push(e.view);
@@ -813,8 +839,11 @@ export default function Editor(props: EditorProps) {
     if (!r || !data) return;
     const layers: OverlayLayer[] = [];
     if (waterLayers && layer !== "none") layers.push(...layerOverlay(waterLayers, layer));
-    if (painted) layers.push({ tiles: painted, color: GOOD });
-    else if (fit) layers.push({ tiles: fit.tiles, color: fit.problem ? BAD : GOOD });
+    if (painted) {
+      const amber = new Set(painted.amber);
+      layers.push({ tiles: amber.size ? painted.tiles.filter((t) => !amber.has(t)) : painted.tiles, color: GOOD });
+      if (amber.size) layers.push({ tiles: painted.amber, color: DRY });
+    } else if (fit) layers.push({ tiles: fit.tiles, color: fit.problem ? BAD : GOOD });
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
@@ -833,7 +862,7 @@ export default function Editor(props: EditorProps) {
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
+  }, [fit, picked, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke, blast]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor
   useEffect(() => {
@@ -1033,14 +1062,27 @@ export default function Editor(props: EditorProps) {
   const targetGroup = targeted === null ? -1 : groups.findIndex((g) => g.members.includes(targeted));
   const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding, ...(targetGroup >= 0 ? [targetGroup] : [])])];
   const markerRef = useRef(false);
-  markerRef.current = shownGroups.length > 0;
+  // (the labels on the water objects, cores and reserves show with Markers on, or while one is picked on the shelf)
+  const showNotes = (markersOn || !!shelf?.options) && notes.length > 0;
+  markerRef.current = shownGroups.length > 0 || showNotes;
 
   function sourceMarkers() {
     const r = renderer.current;
-    if (!r || !shownGroups.length) return null;
+    if (!r || (!shownGroups.length && !showNotes)) return null;
     void viewTick;
     return (
       <div class="source-markers" aria-hidden="true">
+        {showNotes
+          ? notes.map((n) => {
+              const p = r.project(n.at[0], n.z + 1.6, -n.at[1]);
+              if (!p.visible) return null;
+              return (
+                <span key={n.id} class="map-note source-marker object-marker" style={{ left: `${p.x}px`, top: `${p.y}px` }}>
+                  {n.text}
+                </span>
+              );
+            })
+          : null}
         {shownGroups.map((k) => {
           const g = groups[k];
           if (!g) return null;
@@ -1154,6 +1196,37 @@ export default function Editor(props: EditorProps) {
   }
 
   /** Remove sources: their water recedes live; one undo step. */
+  /** "Show after it goes off" (D339): the map as it will be once the core goes off, drawn in place of the map's
+   *  own: the land and objects the game's rule clears, the water settled again. A view only: the document is not
+   *  touched, and Esc, the button, or any edit puts the map back. */
+  async function showBlast(id: string) {
+    if (blastRef.current || forcer.current?.running) return;
+    pickShelf(null);
+    pickBrush(null);
+    const r = await enqueue(() => api.explosionPreview(id));
+    if (!mounted.current || !renderer.current) return;
+    blastRef.current = { id, roofed: r.roofed };
+    renderer.current.setMap(r.view, true);
+    setBlast({ id, roofed: r.roofed });
+  }
+  /** The map's own view again, from the worker (the camera stays where the player left it, D265). */
+  async function restoreMap() {
+    const was = blastRef.current;
+    if (!was) return;
+    blastRef.current = null;
+    const o = await api.sessionView();
+    if (!mounted.current || !renderer.current) return;
+    mirror.current = mirrorOf(o.view);
+    terrain.current = o.terrain;
+    renderer.current.setMap(o.view, true);
+    infoRef.current = o.info;
+    setInfo(o.info);
+    setBlast(null);
+  }
+  async function leaveBlast() {
+    if (!blastRef.current) return;
+    await enqueue(restoreMap);
+  }
   function removeSources(list: EntityInfo[]) {
     const bad = list.every((e) => e.template === "BadwaterSource");
     void run(
@@ -1165,6 +1238,33 @@ export default function Editor(props: EditorProps) {
       },
     );
   }
+
+  // what a picked core will clear (its row says it, D338 (1)): asked again after each change
+  useEffect(() => {
+    const e = picked?.list[0];
+    if (!e || e.template !== "UnstableCore") {
+      setCoreInfo(null);
+      return;
+    }
+    let live = true;
+    void enqueue(() => api.explosionInfo(e.id))
+      .then((i) => live && setCoreInfo({ id: e.id, ...i }))
+      .catch(() => live && setCoreInfo(null));
+    return () => {
+      live = false;
+    };
+  }, [picked, info.version]);
+  // the labels Markers shows on the water objects, cores and reserves: asked again after each change
+  useEffect(() => {
+    if (!markersOn && !shelf?.options) return setNotes([]);
+    let live = true;
+    void enqueue(() => api.objectNotes())
+      .then((n) => live && setNotes(n))
+      .catch(() => live && setNotes([]));
+    return () => {
+      live = false;
+    };
+  }, [markersOn, shelf?.options, info.version]);
 
   /** A word beside the pointer for a moment (a strength, a size). */
   const flashTimer = useRef(0);
@@ -1233,6 +1333,8 @@ export default function Editor(props: EditorProps) {
     shelfTile.current = [x, y];
     const W = info.W;
     const h = mirror.current.heights;
+    // a brush from the shelf: its ring at the size (one tile places exactly one), and what a drag from here would place (D235, D338)
+    if (item.brush && !shelfSizing.current) showBrushRing(item, x, y);
     if (item.id === "start") {
       // (a map without a start, D323 item 44: the Start places one)
       const s = startHere ?? NO_START_HERE;
@@ -1311,11 +1413,21 @@ export default function Editor(props: EditorProps) {
       return;
     }
     if (item.source) return placeSource(item.source === "bad", x, y);
-    const template = templateOf(item, shelfOptionsRef.current);
+    const opts = shelfOptionsRef.current;
+    const seed = paintSeed.current;
+    // (Mixed woods: the tile's own species from the generator's mix)
+    const template = item.brush === "woods" ? speciesAt("woods", "", seed, x, y) : templateOf(item, opts);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
+    // the game's components: an object's options, or a sapling when Age is Mixed
+    let components: Record<string, unknown> | undefined;
+    if (item.options) components = placeComponents(item.template, objectOptions(opts, item.template));
+    else if ((item.brush === "trees" || item.brush === "succulents" || item.brush === "woods") && opts.age === "mixed") {
+      const g = growthAt("mixed", seed, x, y);
+      if (g < 1) components = treeComponents(template as TreeSpecies, g);
+    }
     void run(
-      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o }, newId()),
+      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o, ...(components ? { components } : {}) }, newId()),
       (u) => {
         if (!u.ok) return;
         feel("place", cx, cy, 1, false, template);
@@ -1341,22 +1453,110 @@ export default function Editor(props: EditorProps) {
     placeShelf(hit.x, hit.y);
     pickShelf(null);
   }
-  /** Trees and bushes painted by a drag: planted where they can grow, one step, each with its pop. */
+  /** A brush stroke let go: its objects placed as one `paintObjects` operation (D235, D338, D342), the same plan
+   *  the ghost showed; the reasons it cannot are the core's own words. */
   function plantShelf(tiles: number[]) {
     const item = shelfRef.current;
-    if (!item || !tiles.length) return;
-    const template = templateOf(item, shelfOptionsRef.current);
+    if (!item?.brush || !tiles.length) return;
+    const opts = shelfOptionsRef.current;
+    const W = infoRef.current.W;
+    const kind = item.brush;
+    const template = kind === "trees" ? item.template : kind === "bushes" ? "BlueberryBush" : kind === "succulents" ? "Succulent" : undefined;
+    const aged = kind === "trees" || kind === "succulents" || kind === "woods";
+    const params: PaintParams = { kind, ...(template ? { template } : {}), area: tilesToRuns([...new Set(tiles)].sort((a, b) => a - b), W), density: opts.density[kind], ...(aged && opts.age === "mixed" ? { age: "mixed" as const } : {}), seed: paintSeed.current };
+    const ghost = paintedRef.current;
     void run(
-      () => api.plantAt(template, tiles),
+      () => api.apply({ op: "paintObjects", params }),
       (u) => {
-        const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
-        if (!u.ok || !planted.length) return;
-        const W = infoRef.current.W;
-        feel("place", planted[0] % W, Math.floor(planted[0] / W), 1, false, template);
-        renderer.current?.wiggle(planted);
+        if (!u.ok) return;
+        const placed = ghost?.tiles ?? [];
+        if (placed.length) {
+          feel("place", placed[0] % W, Math.floor(placed[0] / W), 1, false, item.template);
+          renderer.current?.wiggle(placed);
+        }
         firstDone("place");
       },
     );
+  }
+  /** The ground a brush plans on, from the page's copy of the map (made again when the map changes). */
+  const groundCache = useRef<{ version: number; entities: EntityView; water: SurfaceWater | undefined; g: PaintGround } | null>(null);
+  function brushGround(): PaintGround {
+    const m = mirror.current;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    let c = groundCache.current;
+    if (!c || c.version !== infoRef.current.version || c.entities !== m.entities || c.water !== m.water) {
+      c = groundCache.current = { version: infoRef.current.version, entities: m.entities, water: m.water, g: pageGround(W, H, m.heights, m.water?.depth ?? null, m.entities, terrain.current.columns) };
+    }
+    return c.g;
+  }
+  /** Show what a stroke over `region` will place: green where it lands, amber where the ground will kill it, with
+   *  the quiet word (D235 (4)); once a frame at most. */
+  const ghostFrame = useRef(0);
+  const ghostRegion = useRef<number[] | null>(null);
+  const dragging = useRef(false);
+  function paintGhost(region: number[]) {
+    ghostRegion.current = region;
+    if (ghostFrame.current) return;
+    ghostFrame.current = requestAnimationFrame(() => {
+      ghostFrame.current = 0;
+      const item = shelfRef.current;
+      const rg = ghostRegion.current;
+      if (!item?.brush || !rg) return;
+      const gh = ghostFor(item, shelfOptionsRef.current, brushGround(), rg, mirror.current.entities, mirror.current.soil?.moisture ?? null, paintSeed.current);
+      setPainted(gh);
+      const word = dyingWord(item.brush, gh.amber.length);
+      if (word) setShapeNote({ text: word, ok: true, warn: true, ...pointerAt.current });
+      else if (dragging.current) setShapeNote(null);
+    });
+  }
+  /** A brush from the shelf, over tile (x, y): its ring, and the plan of a stroke from here. */
+  function showBrushRing(item: ShelfItem, x: number, y: number) {
+    const r = renderer.current;
+    if (!r) return;
+    const size = shelfOptionsRef.current.size;
+    if (size > 1) r.setBrushCursor({ x: x + 0.5, y: y + 0.5, radius: size, tool: "flatten", level: null });
+    else r.setBrushCursor(null);
+    if (!dragging.current && size > 1) paintGhost(discTiles(x, y, size, infoRef.current.W, infoRef.current.H));
+    else if (!dragging.current) setPainted(null);
+  }
+  /** F held (D205): the ring stays where it is and its size follows the pointer's distance from it. */
+  const shelfSizing = useRef<{ at: [number, number]; level: number; from: number } | null>(null);
+  function startShelfResize() {
+    const item = shelfRef.current;
+    const r = renderer.current;
+    const t = shelfTile.current;
+    if (!item?.brush || !r || !t || shelfSizing.current) return;
+    shelfSizing.current = { at: [t[0] + 0.5, t[1] + 0.5], level: r.heightAt(t[0], t[1]), from: shelfOptionsRef.current.size };
+    setShapeNote({ text: `size ${shelfOptionsRef.current.size}`, ok: true, warn: false, ...pointerAt.current });
+  }
+  function shelfResizeTo(ev: PointerEvent) {
+    const s = shelfSizing.current;
+    const r = renderer.current;
+    if (!s || !r) return;
+    const p = r.pickAtLevel(ev.clientX, ev.clientY, s.level);
+    if (!p) return;
+    const d = Math.hypot(p.point[0] - s.at[0], -p.point[2] - s.at[1]);
+    const size = Math.max(1, Math.min(sizeMax(infoRef.current.W, infoRef.current.H), Math.round(d * 2) / 2));
+    notePointer(ev);
+    setShapeNote({ text: `size ${size}`, ok: true, warn: false, ...pointerAt.current });
+    if (size === shelfOptionsRef.current.size) return;
+    shelfOptionsRef.current = { ...shelfOptionsRef.current, size };
+    setShelfOptions(shelfOptionsRef.current);
+    if (size > 1) r.setBrushCursor({ x: s.at[0], y: s.at[1], radius: size, tool: "flatten", level: null });
+    else r.setBrushCursor(null);
+  }
+  function endShelfResize(keep: boolean) {
+    const s = shelfSizing.current;
+    if (!s) return;
+    shelfSizing.current = null;
+    if (!keep) {
+      shelfOptionsRef.current = { ...shelfOptionsRef.current, size: s.from };
+      setShelfOptions(shelfOptionsRef.current);
+    }
+    setShapeNote(null);
+    const t = shelfTile.current;
+    if (t && shelfRef.current) showBrushRing(shelfRef.current, t[0], t[1]);
   }
   const paintSeed = useRef((Math.random() * 0x7fffffff) | 0);
   const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });
@@ -1372,24 +1572,39 @@ export default function Editor(props: EditorProps) {
       H,
       hover: (hit, ev) => {
         notePointer(ev);
+        // F held: the size follows the pointer, and nothing else moves
+        if (shelfSizing.current) return shelfResizeTo(ev);
         if (!hit) {
           r.setGhost(null);
+          r.setBrushCursor(null);
           ghostAt.current = null;
           fitWant.current = null;
           setFit(null);
+          if (!dragging.current) setPainted(null);
           setShapeNote(null);
           return;
         }
         shelfCalls.current.shelfHover(hit.x, hit.y);
       },
+      sizing: () => shelfSizing.current !== null,
+      endSizing: (keep) => endShelfResize(keep),
       place: (x, y) => shelfCalls.current.placeShelf(x, y),
       paintAround: (x, y) => {
         const it = shelfRef.current;
-        return it?.fill ? paintTiles(x, y, 2, it.fill, paintSeed.current, W, H) : null;
+        return it?.brush ? discTiles(Math.floor(x), Math.floor(y), shelfOptionsRef.current.size, W, H) : null;
       },
       painting: (tiles) => {
-        setPainted(tiles);
-        if (!tiles) paintSeed.current = (Math.random() * 0x7fffffff) | 0;
+        dragging.current = tiles !== null;
+        if (!tiles) {
+          // (the stroke is over: its ghost goes with it, and the next one has its own seed)
+          if (ghostFrame.current) cancelAnimationFrame(ghostFrame.current);
+          ghostFrame.current = 0;
+          setPainted(null);
+          setShapeNote(null);
+          paintSeed.current = (Math.random() * 0x7fffffff) | 0;
+          return;
+        }
+        paintGhost(tiles);
       },
       plant: (tiles) => shelfCalls.current.plantShelf(tiles),
     });
@@ -1399,7 +1614,10 @@ export default function Editor(props: EditorProps) {
     return () => {
       if (r.tool === t) r.tool = null;
       r.setGhost(null);
+      r.setBrushCursor(null);
       ghostAt.current = null;
+      shelfSizing.current = null;
+      dragging.current = false;
     };
   }, [shelf, ready, info.W, info.H]);
   // a right-click on the map (not a right-drag: that is the camera) puts the picked object away (D323)
@@ -2292,9 +2510,36 @@ export default function Editor(props: EditorProps) {
    *  top bar. */
   function pickTile(x: number, y: number) {
     void enqueue(() => api.entitiesAt(x, y)).then((list) => {
-      const sources = list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
-      setPicked(sources.length ? { x, y, list: sources } : null);
+      // (a source, or any object the game's editor gives options of its own: a seep, a core, a reserve, D337, D338)
+      const picks = list.filter((e) => hasOptions(e.template));
+      setPicked(picks.length ? { x, y, list: picks } : null);
     });
+  }
+  /** What a click picked has changed its options (D337, D338): one operation, one step; steps a moment apart with
+   *  the same key are one (a slider), and the words the core refuses with show as they are. */
+  function changeObject(e: EntityInfo, n: ObjectOptions) {
+    if (!picked) return;
+    const at: [number, number] = [picked.x, picked.y];
+    const before = optionsOf(e.template, e.components);
+    const op = setOptionsOp(e.id, e.template, e.components, n);
+    void run(
+      () => api.applyStep(op, describeChange(e.template, before, n), `options:${e.id}`),
+      (u) => {
+        if (u.ok) pickTile(at[0], at[1]);
+      },
+    );
+  }
+  /** Remove a picked object: one step. */
+  function removeObject(e: EntityInfo) {
+    const name = e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+    void run(
+      () => api.apply({ op: "deleteEntities", params: { entities: [e.id] } }, "user", `Remove ${name}`),
+      (u) => {
+        if (!u.ok) return;
+        setPicked(null);
+        feel("remove", e.x, e.y);
+      },
+    );
   }
   /** A picked source's water (clean or bad) or strength changed. */
   function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
@@ -2334,6 +2579,7 @@ export default function Editor(props: EditorProps) {
   function pickedRow(): { label: string; content: ComponentChildren } | null {
     const e = picked?.list[0];
     if (!e) return null;
+    if (e.template !== "WaterSource" && e.template !== "BadwaterSource") return objectRow(e);
     const bad = e.template === "BadwaterSource";
     const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
     const strength = Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? steps[0]);
@@ -2360,6 +2606,8 @@ export default function Editor(props: EditorProps) {
               <option value="bad">Badwater</option>
             </select>
           </label>
+          <MoreButton open={moreObjects} onToggle={() => setMoreObjects(!moreObjects)} />
+          {moreObjects ? <FluidMore template={e.template} o={optionsOf(e.template, e.components)} onO={(n) => changeObject(e, n)} /> : null}
           <button type="button" onClick={() => removeSources(picked!.list)}>
             Remove
           </button>
@@ -2390,33 +2638,92 @@ export default function Editor(props: EditorProps) {
       ),
     };
   }
+  /** The row for a picked seep, aquifer, drain, core or reserve: its options (D337, D338, D339), what a core will
+   *  clear and the button that shows the map after it goes off, Remove. */
+  function objectRow(e: EntityInfo): { label: string; content: ComponentChildren } | null {
+    const o = optionsOf(e.template, e.components);
+    const name = e.template.replace(/([a-z])([A-Z])/g, "$1 $2");
+    const spec = SHELF.find((it) => it.template === e.template);
+    const kind = spec?.options;
+    return {
+      label: `${name}, selected`,
+      content: (
+        <>
+          {kind === "fluid" ? <FluidFields template={e.template} o={o} onO={(n) => changeObject(e, n)} more={moreObjects} onMore={setMoreObjects} /> : null}
+          {kind === "core" ? <CoreFields o={o} onO={(n) => changeObject(e, n)} /> : null}
+          {kind === "reserve" ? <ReserveFields template={e.template} o={o} onO={(n) => changeObject(e, n)} /> : null}
+          {kind === "core" ? (
+            <>
+              <button type="button" aria-pressed={blast?.id === e.id} title="Draw the map as it will be once this core goes off: the land and objects the game's rule clears, and the water settled again. A view only: nothing changes until the game plays it" onClick={() => (blast?.id === e.id ? void leaveBlast() : void showBlast(e.id))}>
+                Show after it goes off
+              </button>
+              {coreInfo && coreInfo.id === e.id ? (
+                <span class="note" role="status">
+                  Clears a sphere of radius {coreInfo.radius}: {coreInfo.tiles} tiles of ground, up to {coreInfo.heightLost} levels deep, and {coreInfo.objects} {coreInfo.objects === 1 ? "object" : "objects"}
+                  {coreInfo.cores > 1 ? `, and it sets off ${coreInfo.cores - 1} more ${coreInfo.cores === 2 ? "core" : "cores"}` : ""}
+                </span>
+              ) : null}
+            </>
+          ) : null}
+          <button type="button" onClick={() => removeObject(e)}>
+            Remove
+          </button>
+          <button type="button" class="linkish" aria-label="Put it down" onClick={() => setPicked(null)}>
+            ×
+          </button>
+        </>
+      ),
+    };
+  }
+
   /** The row beneath the top bar for the shelf's object: its own options, if it has any. */
   function shelfRow(): { label: string; content: ComponentChildren } | null {
     if (!shelf) return null;
     if (shelf.source) {
       const bad = shelf.source === "bad";
-      const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
-      const value = bad ? options.badwaterStrength : options.sourceStrength;
-      // the strength of the next one (over a placed source, Ctrl+scroll sets its own, D322)
+      const template = bad ? "BadwaterSource" : "WaterSource";
+      const o: ObjectOptions = { strength: bad ? options.badwaterStrength : options.sourceStrength, timed: (bad ? options.badwaterTimed : options.sourceTimed) ?? NO_DELAY };
+      // the strength and start delay of the next one (over a placed source, Ctrl+scroll sets its own, D322)
+      const set = (n: ObjectOptions) => {
+        const next = { ...optionsRef.current } as ToolOptions;
+        if (bad) {
+          next.badwaterStrength = n.strength ?? o.strength ?? 3;
+          next.badwaterTimed = n.timed ?? o.timed;
+        } else {
+          next.sourceStrength = n.strength ?? o.strength ?? 1;
+          next.sourceTimed = n.timed ?? o.timed;
+        }
+        setOptions(next);
+      };
+      return { label: `${shelf.name} options`, content: <FluidFields template={template} o={o} onO={set} more={moreObjects} onMore={setMoreObjects} /> };
+    }
+    if (shelf.options) {
+      const template = shelf.template;
+      const o = objectOptions(shelfOptions, template);
+      const set = (n: ObjectOptions) => setShelfOptions({ ...shelfOptionsRef.current, objects: { ...shelfOptionsRef.current.objects, [template]: { ...shelfOptionsRef.current.objects[template], ...n } } });
       return {
         label: `${shelf.name} options`,
-        content: <StrengthSlider value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
+        content: shelf.options === "fluid" ? <FluidFields template={template} o={o} onO={set} more={moreObjects} onMore={setMoreObjects} /> : shelf.options === "core" ? <CoreFields o={o} onO={set} /> : <ReserveFields template={template} o={o} onO={set} />,
       };
     }
-    if (shelf.id === "ruin")
+    if (shelf.brush)
       return {
-        label: "Ruin options",
+        label: `${shelf.name} options`,
         content: (
-          <label>
-            Height
-            <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
-                <option key={k} value={String(k)}>
-                  {k} {k === 1 ? "level" : "levels"}
-                </option>
-              ))}
-            </select>
-          </label>
+          <BrushFields item={shelf} o={shelfOptions} sizeMax={sizeMax(info.W, info.H)} onO={setShelfOptions}>
+            {shelf.id === "ruin" ? (
+              <label title="A click places one column at this height">
+                Height
+                <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
+                    <option key={k} value={String(k)}>
+                      {k} {k === 1 ? "level" : "levels"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </BrushFields>
         ),
       };
     if (shelf.id === "relic")
@@ -2641,6 +2948,8 @@ export default function Editor(props: EditorProps) {
     r.onClick = (hit) => {
       const t = hit ? targetAt(hit.x, hit.y) : null;
       if (t) return pickTile(t.x, t.y);
+      // an object with options of its own is picked by a click on it (D337, D338)
+      if (hit && (coverAt().get(hit.y * infoRef.current.W + hit.x) ?? []).some((k) => hasOptions(mirror.current.entities.templates[mirror.current.entities.template[k]]))) return pickTile(hit.x, hit.y);
       setPicked(null);
     };
     const onView = r.onView;
@@ -3334,14 +3643,36 @@ export default function Editor(props: EditorProps) {
         flashNote(`size ${size}`);
         return;
       }
+      // [ and ] size a brush from the shelf too (D235, D338)
+      if (!mod && (ev.key === "[" || ev.key === "]") && shelfRef.current?.brush) {
+        ev.preventDefault();
+        const size = nextSize(shelfOptionsRef.current.size, ev.key === "]" ? 1 : -1, sizeMax(infoRef.current.W, infoRef.current.H));
+        shelfOptionsRef.current = { ...shelfOptionsRef.current, size };
+        setShelfOptions(shelfOptionsRef.current);
+        flashNote(`size ${size}`);
+        const t = shelfTile.current;
+        if (t) showBrushRing(shelfRef.current, t[0], t[1]);
+        return;
+      }
       // F: hold and move the mouse to size the brush, a click sets it (D205; F does nothing else)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") {
         ev.preventDefault();
         if (!ev.repeat && brushToolRef.current) painter.current?.startResize();
+        else if (!ev.repeat && shelfRef.current?.brush) startShelfResize();
         return;
       }
       if (ev.key === "Escape" && painter.current?.sizing) {
         painter.current.endResize(false);
+        return;
+      }
+      if (ev.key === "Escape" && shelfSizing.current) {
+        endShelfResize(false);
+        return;
+      }
+      // the map after a core goes off is a view only: Esc returns to the map (D339)
+      if (ev.key === "Escape" && blastRef.current) {
+        ev.preventDefault();
+        void leaveBlast();
         return;
       }
       if (ev.key === "Escape" && painter.current?.painting) {
@@ -3425,6 +3756,9 @@ export default function Editor(props: EditorProps) {
         // Select and Delete (D288): everything inside the selection, the start aside, one step
         ev.preventDefault();
         deleteCalls.current.deleteSelection();
+      } else if ((ev.key === "Delete" || ev.key === "Backspace") && picked?.list[0] && picked.list[0].template !== "WaterSource" && picked.list[0].template !== "BadwaterSource") {
+        ev.preventDefault();
+        removeObject(picked.list[0]);
       } else if ((ev.key === "Delete" || ev.key === "Backspace") && pickedSources().length) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();
@@ -3452,7 +3786,10 @@ export default function Editor(props: EditorProps) {
     };
     // F let go: the size is set
     const onKeyUp = (ev: KeyboardEvent) => {
-      if (ev.key.toLowerCase() === "f") painter.current?.endResize(true);
+      if (ev.key.toLowerCase() === "f") {
+        painter.current?.endResize(true);
+        endShelfResize(true);
+      }
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
@@ -3653,6 +3990,14 @@ export default function Editor(props: EditorProps) {
               />
               {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
               {sourceMarkers()}
+              {blast ? (
+                <div class="map-note blast-note" role="status">
+                  The map after the core goes off: a view only.{blast.roofed ? " Water under roofs is approximate." : ""}{" "}
+                  <button type="button" class="linkish" onClick={() => void leaveBlast()}>
+                    Back to the map (Esc)
+                  </button>
+                </div>
+              ) : null}
               {startHintTag()}
               {minimap ? (
                 <Minimap

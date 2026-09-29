@@ -22,6 +22,9 @@ export interface ShelfHost {
   painting(tiles: number[] | null): void;
   /** The drag let go: plant on these tiles. */
   plant(tiles: number[]): void;
+  /** F is held to size the brush (D205): a click sets the size, and never places. */
+  sizing?(): boolean;
+  endSizing?(keep: boolean): void;
 }
 
 /** The shelf's pointer tool: hover shows the ghost, a click places, a drag paints (trees, bushes). */
@@ -29,6 +32,8 @@ export function shelfTool(host: ShelfHost): PointerTool {
   let down: [number, number] | null = null;
   let painted: Set<number> | null = null;
   let last: [number, number] | null = null;
+  /** The click that set the size: its release places nothing. */
+  let swallow = false;
   const paint = (x: number, y: number) => {
     const around = host.paintAround(x + 0.5, y + 0.5);
     if (!around || !painted) return;
@@ -37,6 +42,12 @@ export function shelfTool(host: ShelfHost): PointerTool {
   };
   return {
     down(hit, ev) {
+      if (host.sizing?.()) {
+        // a click sets the size (a right click puts it back); it never places
+        host.endSizing?.(ev.button === 0);
+        swallow = true;
+        return true;
+      }
       if (ev.button !== 0) return false;
       if (!hit) return true;
       down = [hit.x, hit.y];
@@ -56,6 +67,10 @@ export function shelfTool(host: ShelfHost): PointerTool {
       if (n) last = [hit.x, hit.y];
     },
     up(hit) {
+      if (swallow) {
+        swallow = false;
+        return;
+      }
       const d = down;
       const p = painted;
       down = null;
