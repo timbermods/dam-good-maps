@@ -36,20 +36,23 @@ export type GroundMode = "moisture" | "height";
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 
 export const GROUND = {
-  /** Dry ground: cracked earth, the grey-brown of Kyler's reference (never reddish), with dark
-   *  cracks; plants die there. Broad patches drift between it, a cooler grey and a warmer brown. */
-  dry: [0.44, 0.395, 0.34] as Rgb,
+  /** Dry ground: cracked earth, the pale grey-beige of Kyler's reference (never reddish), with dark
+   *  cracks; plants die there. Broad patches drift between it, a cooler grey and a warmer brown.
+   *  D324 (item 10) moved the ground, the grass and the stone toward the game's, matching
+   *  relationships (Near Tara Gorge, noon): dry earth a little lighter and greyer, grass a touch
+   *  lighter (keeping its order above dry earth), the cliffs' stone lighter and bluer-grey. */
+  dry: [0.455, 0.43, 0.39] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.39, 0.38, 0.37] as Rgb,
+  dryCool: [0.41, 0.4, 0.395] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.47, 0.39, 0.31] as Rgb,
+  dryWarm: [0.485, 0.42, 0.345] as Rgb,
   /** The cracks in dry ground. */
   crack: [0.19, 0.17, 0.17] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted, yellowish grass
    *  green, lighter than dry ground. */
-  moistLow: [0.6, 0.66, 0.31] as Rgb,
+  moistLow: [0.636, 0.7, 0.329] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.56, 0.66, 0.26] as Rgb,
+  moistHigh: [0.594, 0.7, 0.276] as Rgb,
   /** Contamination (badwater spoils the soil and plants die), a layer over the ground as in the
    *  game: the rust of the veins' rims on dry earth and of the stain round them... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -77,11 +80,11 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: dark grey-green cobbled stone, as in Kyler's reference, every other level a
+/** The block walls: dark blue-grey cobbled stone (D324: lighter and bluer than the grey-green it was), every other level a
  *  shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
  *  groove between levels, so levels can be counted. */
 export const WALL = {
-  stone: [0.36, 0.38, 0.35] as Rgb,
+  stone: [0.385, 0.415, 0.42] as Rgb,
   mortar: [0.15, 0.16, 0.15] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
@@ -98,9 +101,9 @@ export const CONTAMINATION = {
   reach: [0.15, 0.95] as const,
   /** From which contamination a second, finer network of veins joins (all of it at the most). */
   fineFrom: 0.45,
-  /** The veins' glow on dry earth and on grass, at the least and the most contamination, and how
+  /** The veins' glow on dry earth (D324: 0.45 to 0.55 at the least, so a faint vein stays a light line on the lighter dry earth) and on grass, at the least and the most contamination, and how
    *  strongly the glow shines (added after the light, so it shows in shade too). */
-  glowDry: [0.45, 1] as const,
+  glowDry: [0.55, 1] as const,
   glowWet: [0.05, 0.25] as const,
   glowAdd: 0.85,
   /** How dark a vein's rust rim is on dry earth (a share of the rust). */
