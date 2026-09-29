@@ -11,7 +11,7 @@
 import type { CarveSettings } from "../core/forces/carve/run";
 import { naturalDepth, naturalWidth } from "../core/forces/carve/character";
 import { DEPTH_MAX, DEPTH_MIN } from "../core/forces/carve/run";
-import { STEPS_PER_SECOND } from "../core/forces/force";
+
 import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
 import { AutoDetail, ForceOptions, MoreButton, MoreRow, SizeControl, type Force } from "./TopBar";
 
@@ -81,12 +81,11 @@ export function CarveRow(p: CarveRowProps) {
   const set = (patch: Partial<CarveUi>) => p.onUi({ ...u, ...patch });
   const st = p.status;
   if (st) {
-    const secs = (st.steps / STEPS_PER_SECOND).toFixed(1);
     return (
       <div class="map-bar options-row" role="group" aria-label="Carve at work">
         <div class="bar-group">
           <span class="bar-status" role="status">
-            {st.stopping ? "Keeping the carve…" : st.paused ? `Paused at ${secs} s` : `Carving… ${secs} s`}
+            {st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}
           </span>
           <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}

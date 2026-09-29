@@ -23,6 +23,8 @@ export interface GlaciateSettings {
   steps?: GlaciateDetails["steps"];
   tarn?: boolean;
   scree?: boolean;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 /** Glaciate's details (D309): the benches on its walls' soft rock (none, some stretches as round 4

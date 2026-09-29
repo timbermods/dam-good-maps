@@ -45,7 +45,7 @@ import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/gla
 import { forceReach } from "../core/forces/reach";
 import { MAX_WAYPOINTS } from "../core/forces/carve/run";
 import { waypointTiles, Waypoints, type Waypoint } from "./waypoints";
-import { forceCeiling, STEPS_PER_SECOND } from "../core/forces/force";
+import { forceCeiling } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
 import type { ForceCue } from "../core/forces/runs";
@@ -54,7 +54,8 @@ import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
-import { FORCES, forceShown, TopBar, type TopTool } from "./TopBar";
+import { FORCES, ForceFloor, forceShown, TopBar, type TopTool } from "./TopBar";
+import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
 import { depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type SelectMode } from "./select";
 import { WaterBar } from "./WaterBar";
 import { WaterPlayer } from "./waterPlayer";
@@ -118,6 +119,8 @@ declare global {
       carve(): ForceStatus | null;
       /** Any force at work (D202, D203, D206), or null. */
       force(): ForceStatus | null;
+      /** The last force's times from its gesture (D321, item 29): worked out, and its land final. */
+      forceTiming(): { worked: number; final: number; kept: number } | null;
       /** The last stroke painted (its operation's params), or null. */
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
@@ -1486,10 +1489,21 @@ export default function Editor(props: EditorProps) {
   glaciateUiRef.current = glaciateUi;
   /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
   const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
+  /** Watch (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
+  const [watch, setWatch] = useState(forcesPrefs.watch);
+  const watchRef = useRef(watch);
+  watchRef.current = watch;
+  /** The forces' Floor (D321, item 40): the lowest level any of them cuts to, shared, remembered. */
+  const [floor, setFloor] = useState(forcesPrefs.floor);
+  const floorRef = useRef(floor);
+  floorRef.current = floor;
+  const floorContext = useMemo(() => ({ value: floor, set: setFloor }), [floor]);
   // the pins and the open More panels are remembered with the player's other editor preferences
   // (D309); Power, Size, dry and mode last only the visit, as before
   useEffect(() => {
     saveForcesPrefs({
+      watch,
+      floor,
       more: moreOpen,
       carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth },
       craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
@@ -1497,7 +1511,7 @@ export default function Editor(props: EditorProps) {
       quake: { scarp: quakeUi.scarp },
       glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
     });
-  }, [moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
   const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
@@ -1508,43 +1522,28 @@ export default function Editor(props: EditorProps) {
   /** The last moment shown (an eruption's cooling hiss starts from it). */
   const lastCue = useRef<ForceCue | null>(null);
 
-  /** A frame of a force at work: the ground it changed, its water, its objects. */
-  /** A force's water and objects waiting for the next animation frames (the latest of each), so
-   *  the land's change, its water and its objects never all land in one frame (each is a whole
-   *  map's update). */
-  const forceView = useRef<{ water: WaterView | null; entities: EntityView | null; frame: number }>({ water: null, entities: null, frame: 0 });
+  /** A force's objects waiting for the next animation frame (the latest), so the land's change and
+   *  its objects never land in one frame (each is a whole map's update). Its water stays as it was
+   *  until the land is final (D321, item 30): the kept map's view brings it. */
+  const forceView = useRef<{ entities: EntityView | null; frame: number }>({ entities: null, frame: 0 });
 
   function flushForceView(drop = false) {
     const v = forceView.current;
     if (v.frame) cancelAnimationFrame(v.frame);
     v.frame = 0;
-    if (drop) {
-      v.water = null;
-      v.entities = null;
-      return;
-    }
-    const r = renderer.current;
+    const e = v.entities;
+    v.entities = null;
+    if (drop || !e) return;
     const m = mirror.current;
-    // the water first, the objects a frame later
-    if (v.water) {
-      const w = v.water;
-      v.water = null;
-      r?.updateWater(w);
-      m.water = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, w);
-      m.waterView = w;
-    } else if (v.entities) {
-      const e = v.entities;
-      v.entities = null;
-      m.entities = e;
-      m.entitiesAt = null;
-      m.coverAt = null;
-      r?.updateEntities(e);
-      reglow();
-      sourcesChanged();
-    }
-    if (v.water || v.entities) v.frame = requestAnimationFrame(() => flushForceView());
+    m.entities = e;
+    m.entitiesAt = null;
+    m.coverAt = null;
+    renderer.current?.updateEntities(e);
+    reglow();
+    sourcesChanged();
   }
 
+  /** A frame of a force at work: the ground it changed, its objects. */
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
@@ -1553,9 +1552,8 @@ export default function Editor(props: EditorProps) {
       r?.updateTerrainRect(f.heights, f.rect);
     }
     const v = forceView.current;
-    if (f.water) v.water = f.water;
     if (f.entities) v.entities = f.entities;
-    if ((f.water || f.entities) && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
+    if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
     if (f.heat) r?.setHeat(f.heat);
   }
 
@@ -1621,7 +1619,7 @@ export default function Editor(props: EditorProps) {
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
                       : undefined;
-          return api.forceAgain(pins);
+          return api.forceAgain(pins && { ...pins, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined });
         }
         return api.forceStart(q);
       }),
@@ -1638,6 +1636,7 @@ export default function Editor(props: EditorProps) {
       renderer.current?.setForceMoment(f.cue);
       juice.current?.forceMoment(f.cue, f.head);
     },
+    speed: () => (watchRef.current ? "watch" : "fast"),
     ended: (kept) => {
       if (kept) renderer.current?.forceDone();
       else renderer.current?.clearForce();
@@ -1655,6 +1654,18 @@ export default function Editor(props: EditorProps) {
   });
   // (a force at work when the editor closes goes with it)
   useEffect(() => () => forcer.current?.cancel(), []);
+  // Watch (D321, item 29): a click anywhere jumps the playing force straight to its final land, so
+  // Watch never traps the player (the force's own row keeps its Pause and Revert)
+  useEffect(() => {
+    const down = (ev: PointerEvent) => {
+      const st = forcer.current?.status;
+      if (!st || st.speed !== "watch" || st.painting || st.stopping) return;
+      if ((ev.target as HTMLElement | null)?.closest?.('[aria-label$=" at work"]')) return;
+      void forcer.current!.jump();
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, []);
 
   // ------------------------------------------------------------------------ Unleash, on a source
 
@@ -1723,13 +1734,12 @@ export default function Editor(props: EditorProps) {
   function unleashRow(): { label: string; content: ComponentChildren } | null {
     const st = forcer.current?.status ?? null;
     if (!unleashing || !st) return null;
-    const secs = (st.steps / STEPS_PER_SECOND).toFixed(1);
     return {
       label: "Unleash at work",
       content: (
         <>
           <span class="bar-status" role="status">
-            {st.stopping ? "Keeping the river…" : st.paused ? `Paused at ${secs} s` : `The source carves its way… ${secs} s`}
+            {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
           </span>
           <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
@@ -1756,8 +1766,9 @@ export default function Editor(props: EditorProps) {
     // the working area (D254, D259): outside it the land is unbreakable rock to the force
     const area = workingArea();
     if (area) req = { ...req, area };
-    // the choices the row doesn't show come from the land and the seed (D289)
-    req = { ...req, natural: true };
+    // the choices the row doesn't show come from the land and the seed (D289); the Floor is the
+    // player's (D321, item 40)
+    req = { ...req, natural: true, ...(floorRef.current !== FLOOR_DEFAULT ? { settings: { ...req.settings, floor: floorRef.current } } : {}) } as ForceRequest;
     forceReq.current = req;
     clearForForce();
     // (the arrow goes as the force starts; a painted Lift keeps its stroke while it is painted)
@@ -3058,12 +3069,20 @@ export default function Editor(props: EditorProps) {
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
       // a force at work (D199, D202, D203, D206): Esc or Ctrl+Z takes it back, Space holds a carve,
-      // X flips a painted Lift's side as it goes; the other tools wait
+      // X flips a painted Lift's side as it goes; the other tools wait. In Watch (D321, item 29) Esc,
+      // or any other key of a new gesture, jumps it straight to its final land instead
       const c = forcer.current;
       if (c?.running) {
-        if (ev.key === "Escape" || (mod && ev.key.toLowerCase() === "z")) {
+        const watching = c.status!.speed === "watch" && !c.status!.painting;
+        if (mod && ev.key.toLowerCase() === "z") {
           ev.preventDefault();
           c.cancel();
+          return;
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          if (watching) void c.jump();
+          else c.cancel();
           return;
         }
         if (ev.key === " ") {
@@ -3073,6 +3092,11 @@ export default function Editor(props: EditorProps) {
         }
         if (!mod && ev.key.toLowerCase() === "x" && toolRef.current === "quake") {
           flipRef.current?.();
+          return;
+        }
+        // (a new gesture's key in Watch: the force jumps to its final land first)
+        if (watching && !mod && (/^[0-9-]$/.test(ev.key) || ev.key.toLowerCase() === "m")) {
+          void c.jump();
           return;
         }
         if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "r", "f", "delete", "backspace"].includes(ev.key.toLowerCase())) return;
@@ -3267,6 +3291,7 @@ export default function Editor(props: EditorProps) {
       pendingTerrain: () => pendingTerrain.current,
       carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
+      forceTiming: () => (forcer.current?.timing ? { ...forcer.current.timing } : null),
       startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
@@ -3330,6 +3355,7 @@ export default function Editor(props: EditorProps) {
   const importChanges = info.importReport?.changes.length ?? 0;
 
   return (
+    <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
       <Header
         info={info}
@@ -3379,6 +3405,9 @@ export default function Editor(props: EditorProps) {
                   <LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />
                   <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
                     Minimap
+                  </button>
+                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change. Off: each force's land is final in about two seconds">
+                    Watch
                   </button>
                   <span class="reveal-group">
                     <button type="button" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title="The editor's little sounds: on or off (the volume beside it)">
@@ -3508,6 +3537,7 @@ export default function Editor(props: EditorProps) {
       </div>
       <DropTarget onFile={props.onOpenFile} />
     </div>
+    </ForceFloor.Provider>
   );
 }
 
@@ -3545,6 +3575,10 @@ const FORCES_KEY = "dgm.forces";
 /** Each force's More (open or closed), and the details the player has pinned (D309); a detail still
  *  on Auto is null. Power, Size, dry and mode last only the visit, as before. */
 interface ForcesPrefs {
+  /** Watch (D321, item 29): off, Fast. */
+  watch: boolean;
+  /** The forces' Floor (D321, item 40): 1 unless set. */
+  floor: number;
   more: Partial<Record<Verb, boolean>>;
   carve: Pick<CarveUi, "wander" | "walls" | "depth">;
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
@@ -3554,6 +3588,8 @@ interface ForcesPrefs {
 }
 
 const AUTO_FORCES_PREFS: ForcesPrefs = {
+  watch: false,
+  floor: FLOOR_DEFAULT,
   more: {},
   carve: { wander: null, walls: null, depth: null },
   craterize: { walls: null, centre: null, debris: null, rays: null },
@@ -3570,11 +3606,13 @@ function among<T>(v: unknown, options: readonly T[]): T | null {
 
 function loadForcesPrefs(): ForcesPrefs {
   try {
-    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
+    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ watch: unknown; floor: unknown; more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
     if (!s) return AUTO_FORCES_PREFS;
     const more: Partial<Record<Verb, boolean>> = {};
     if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
     return {
+      watch: s.watch === true,
+      floor: floorProblem(s.floor) === null && typeof s.floor === "number" ? s.floor : FLOOR_DEFAULT,
       more,
       carve: { wander: typeof s.carve?.wander === "number" ? s.carve.wander : null, walls: among(s.carve?.walls, ["steep", "wide"]), depth: typeof s.carve?.depth === "number" ? s.carve.depth : null },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },

@@ -37,6 +37,8 @@ export interface QuakeSettings {
   power: number;
   scarp: "sheer" | "stepped";
   seed: number;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "sheer", seed: 1 };

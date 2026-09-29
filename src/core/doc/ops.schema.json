@@ -205,7 +205,8 @@
             "benches": { "enum": ["none", "some", "many"] },
             "steps": { "enum": ["few", "some", "many"] },
             "tarn": { "type": "boolean" },
-            "scree": { "type": "boolean" }
+            "scree": { "type": "boolean" },
+            "floor": { "type": "integer", "minimum": 1, "maximum": 22 }
           }
         },
         "where": {

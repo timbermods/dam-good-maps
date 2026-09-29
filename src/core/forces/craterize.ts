@@ -29,6 +29,8 @@ export interface CraterSettings {
   rays: boolean;
   /** The personality (Try another takes the next). */
   seed: number;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 export interface CraterIntent {

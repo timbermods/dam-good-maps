@@ -16,8 +16,10 @@
 // sealed bend becomes an oxbow lake (oxbow.ts; its water, water.ts).
 //
 // Keep river leaves a real water source at the origin, its strength following the river's Width
-// (D199); Dry canyon leaves none. The preview water flows on as the floor changes; the water the
-// map keeps is always the game's settled result, worked out after the carve.
+// (D199); Dry canyon leaves none. The water stays as it was while the river cuts (D321, item 30:
+// nothing changes before the force reaches it; the head's muddy surge is the effects'): the map's
+// water flows on from it once the land is final, and what the map keeps is always the game's
+// settled result, worked out after the carve.
 //
 // Ported from investigation/carve/engine.ts (PR #47), kept to its structure so a later round of the
 // prototype ports across as a diff. The result is stored literally (force.ts), so replay never
@@ -36,6 +38,7 @@ import { RiverCharacter } from "./character";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
+import { floorProblem, forceFloor } from "../floor";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -56,6 +59,8 @@ export interface CarveSettings {
   dry: boolean;
   /** Rock layers (hard bands every few levels). */
   layers: boolean;
+  /** The Floor (D321, item 40, floor.ts): it never cuts below this level; absent, 1. */
+  floor?: number;
 }
 
 export interface CarveIntent {
@@ -161,12 +166,27 @@ export class CarveRun implements ForceRun {
   readonly sourceId: string;
   /** The placed source it unleashes (D239), or null. */
   private readonly unleashed: string | null;
+  get unleashedId(): string | null {
+    return this.unleashed;
+  }
+  /** Its water is badwater (an unleashed badwater source). */
+  get badwater(): boolean {
+    return this.bad;
+  }
   private readonly bad: boolean;
   readonly settings: CarveSettings;
   readonly metrics: Metrics = { cut: 0, deposited: 0, exported: 0, suspended: 0, bankCuts: 0, bendCuts: 0, steps: 0, stable: false, distance: 0, reason: "", splits: 0, waterfalls: 0, rapids: 0, oxbows: 0 };
   head: ForceHead;
-  private sim: WaterSim;
-  private model: WaterModel;
+  private readonly model: WaterModel;
+  private readonly initialContamination: Float64Array;
+  /** The step each object the cut took went at (the editor's playback shows it go then, D321). */
+  readonly removedAt = new Map<string, number>();
+  /** The objects on each tile (their ids), for the ones a cut takes. */
+  private occupants: Map<number, string[]> | null = null;
+  /** The course's segments by 8-tile cell, for the crossing test (segments whose end is at least
+   *  two stations back). */
+  private cells = new Map<number, number[]>();
+  private cellsUpTo = 0;
   private active = new Set<number>();
   private channel = new Uint8Array();
   private visited = new Uint16Array();
@@ -175,16 +195,18 @@ export class CarveRun implements ForceRun {
   private bed = 0;
   private energy = 0;
   private splitSeen = new Set<string>();
-  private previewBed: Uint8Array;
-  private previewCells = new Set<number>();
   private ended = false;
   private tail = 0;
   private quiet = 0;
   private depositQueue: number[] = [];
   private depositDone = false;
+  /** A step's changes (cleared after each). */
+  private delta: Int8Array | null = null;
 
   /** Depth set by hand (levels below the land), or null: it follows Power. */
   private readonly depth: number | null;
+  /** The Floor: it never cuts below it, running shallower there instead (floor.ts). */
+  private readonly floor: number;
 
   /** `planning`: a route-only look-ahead (it moves the head and finds the cut-off, never the land). */
   constructor(input: ForceMap, settings: CarveSettings, intent: CarveIntent, options: CarveOptions = {}, private readonly planning = false) {
@@ -215,17 +237,19 @@ export class CarveRun implements ForceRun {
       settings.seed < 0 ||
       settings.seed > 0xffffffff ||
       (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24)) ||
-      (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX))
+      (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX)) ||
+      floorProblem(settings.floor)
     )
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_WAYPOINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("Waypoints need an aimed carve, on the map");
     this.depth = settings.depth ?? null;
+    this.floor = forceFloor(settings);
     this.initialWater = input.water.depth.slice();
+    this.initialContamination = input.water.contamination.slice();
     this.intent = { ...intent };
     this.seed = mapSeed(input);
     this.character = new RiverCharacter(input, settings, this.seed, intent.origin, intent.end);
-    this.previewBed = new Uint8Array(N).fill(255);
     let sourceId = options.sourceId ?? "carve-source-" + intent.origin + "-" + this.seed.toString(16);
     while (input.entities.some((e) => e.id === sourceId)) sourceId += "-next";
     this.sourceId = sourceId;
@@ -236,7 +260,7 @@ export class CarveRun implements ForceRun {
     this.course = new Course(input, settings, intent, this.character);
     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
     this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
-    this.sim = new WaterSim((this.model = modelFor(input)), input.water);
+    this.model = modelFor(input);
     this.target = input.heights.slice();
     this.sign = new Int8Array(N);
     this.wear = new Float64Array(N);
@@ -299,11 +323,12 @@ export class CarveRun implements ForceRun {
 
   /** Keep river's source group (D314): the anchor at the origin first, its tile, its share. */
   group: { id: string; tile: number; strength: number }[] = [];
-  /** The game's water on the ground as it stands, without the preview's muddy ribbon: the editor's
-   *  water carries on from it when the carve is kept (not part of the prototype's run). */
+  /** The water as it was, on the ground as it stands: the editor's water carries on from it when the
+   *  carve is kept (D321, item 30: it updates once the land is final, as for any edit). */
   liveWater(): WarmState {
-    const sim = this.sim;
-    return { model: { ...this.model, floor: Float64Array.from(sim.F) }, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+    const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
+    const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
+    return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
   }
 
   /** The source it keeps, as it stands now (null for a dry canyon). */
@@ -384,16 +409,14 @@ export class CarveRun implements ForceRun {
           if (work < 0.45) t = Math.max(t, this.original[i] - Math.max(1, Math.round(1 + 6 * work)));
           // Depth set by hand: never deeper than that below the land it runs through (D226)
           if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
+          // the Floor (D321, item 40): shallower there, never lower
+          t = Math.max(t, this.floor);
           if (t < this.target[i]) {
             this.target[i] = t;
             this.active.add(i);
             if (!this.born[i]) this.born[i] = this.metrics.steps + 1;
           }
           if (d <= lane.width * 0.72) this.channel[i] = 1;
-          if (d <= lane.width * 0.65) {
-            this.previewCells.add(i);
-            this.previewBed[i] = Math.min(this.previewBed[i], this.depth !== null ? Math.max(this.bed, this.original[i] - this.depth) : this.bed);
-          }
         }
     }
     const i = this.at(x, y);
@@ -409,15 +432,12 @@ export class CarveRun implements ForceRun {
         const d = Math.hypot(xx - x, yy - y);
         let t = floor + Math.ceil(Math.max(0, d - radius) * 4);
         if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
+        t = Math.max(t, this.floor);
         if (this.keep[i] || this.character.rock[i] || this.sign[i] > 0 || t >= this.target[i]) continue;
         this.target[i] = Math.max(0, t);
         this.active.add(i);
         if (!this.born[i]) this.born[i] = this.metrics.steps + 1;
         if (d < radius * 0.8) this.channel[i] = 1;
-        if (d < radius * 0.65) {
-          this.previewCells.add(i);
-          this.previewBed[i] = Math.min(this.previewBed[i], this.depth !== null ? Math.max(floor, this.original[i] - this.depth) : floor);
-        }
       }
   }
 
@@ -449,7 +469,28 @@ export class CarveRun implements ForceRun {
   }
 
   private crossesCourse(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
-    if (this.path.slice(0, -1).some((c, k, list) => k + 1 < list.length && segmentsCross(a, b, c, list[k + 1]))) return true;
+    // (the course's segments but its last, found by the cells round a → b: the same answer as trying
+    // every one, without the cost growing with the course)
+    const path = this.path;
+    for (; this.cellsUpTo + 2 < path.length; this.cellsUpTo++) {
+      const c = path[this.cellsUpTo];
+      const d = path[this.cellsUpTo + 1];
+      for (let cy = Math.floor(Math.min(c.y, d.y) / 8); cy <= Math.floor(Math.max(c.y, d.y) / 8); cy++)
+        for (let cx = Math.floor(Math.min(c.x, d.x) / 8); cx <= Math.floor(Math.max(c.x, d.x) / 8); cx++) {
+          const key = cy * 4096 + cx;
+          const list = this.cells.get(key);
+          if (list) list.push(this.cellsUpTo);
+          else this.cells.set(key, [this.cellsUpTo]);
+        }
+    }
+    const seen = new Set<number>();
+    for (let cy = Math.floor(Math.min(a.y, b.y) / 8); cy <= Math.floor(Math.max(a.y, b.y) / 8); cy++)
+      for (let cx = Math.floor(Math.min(a.x, b.x) / 8); cx <= Math.floor(Math.max(a.x, b.x) / 8); cx++)
+        for (const k of this.cells.get(cy * 4096 + cx) ?? []) {
+          if (seen.has(k)) continue;
+          seen.add(k);
+          if (segmentsCross(a, b, path[k], path[k + 1])) return true;
+        }
     return this.oxbows.some((o) =>
       o.neck.some((c, k, list) => k + 1 < list.length && Math.hypot(a.x - c.x, a.y - c.y) > 1e-6 && Math.hypot(a.x - list[k + 1].x, a.y - list[k + 1].y) > 1e-6 && segmentsCross(a, b, c, list[k + 1])),
     );
@@ -559,7 +600,7 @@ export class CarveRun implements ForceRun {
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const i = yy * W + xx;
         if (this.keep[i] || this.character.rock[i] || this.sign[i] < 0 || this.channel[i] || this.target[i] < this.original[i] || this.map.heights[i] >= this.map.maxHeight) continue;
-        const surface = this.original[this.at(x, y)] + Math.max(1, this.map.water.depth[this.at(x, y)]);
+        const surface = this.original[this.at(x, y)] + Math.max(1, this.initialWater[this.at(x, y)]);
         if (this.map.heights[i] < surface && Math.abs(s) > width * 0.65) this.depositQueue.push(i);
       }
     this.depositQueue = [...new Set(this.depositQueue)];
@@ -571,7 +612,9 @@ export class CarveRun implements ForceRun {
     const p = this.settings.power / 100;
     // Reveal a forceful, paced head while unfinished cuts deepen behind it.
     if (!this.ended && this.metrics.steps % 2 === 0) this.advanceHead();
-    const delta = new Int8Array(this.original.length);
+    const delta = (this.delta ??= new Int8Array(this.original.length));
+    // (the tiles given a change this step: only they are visited, in the order of the map)
+    const touched: number[] = [];
     const infill: number[] = [];
     for (const i of this.active) {
       const h = this.map.heights[i] - this.sediment[i];
@@ -588,7 +631,10 @@ export class CarveRun implements ForceRun {
       this.wear[i] += (0.75 + 2.4 * p) * Math.min(2, this.character.intensity) * coefficient * (bank ? 0.65 : 1);
       if (this.wear[i] >= 1) {
         if (this.barFloor[i] && this.map.heights[i] <= this.barFloor[i]) infill.push(i);
-        else delta[i] = -1;
+        else {
+          delta[i] = -1;
+          touched.push(i);
+        }
       }
     }
     if (this.ended) {
@@ -598,14 +644,16 @@ export class CarveRun implements ForceRun {
       let n = 0;
       for (const i of this.depositQueue)
         if (this.sign[i] === 0 && this.metrics.suspended > n && n < 32) {
+          if (!delta[i]) touched.push(i);
           delta[i] = 1;
           n++;
         }
     }
-    this.rejectIsolated(delta);
+    touched.sort((a, b) => a - b);
+    this.rejectIsolated(delta, touched);
     const changed: number[] = [];
     let frontCut = 0;
-    for (let i = 0; i < delta.length; i++)
+    for (const i of touched)
       if (delta[i]) {
         const d = delta[i];
         this.map.heights[i] += d;
@@ -635,22 +683,36 @@ export class CarveRun implements ForceRun {
     this.head.z = Math.min(...(this.head.lanes ?? [this.head]).map((l) => this.map.heights[this.at(l.x, l.y)])) + 0.7;
     if (frontCut > 60 && this.head.event === "surge") this.head.event = "breakthrough";
     else if (!frontCut && this.active.size) this.head.event = "rock";
+    for (const i of touched) delta[i] = 0;
     if (changed.length) {
-      const hit = new Set(changed);
       const W = this.map.W;
       const H = this.map.H;
-      this.map.entities = this.map.entities
-        .filter((e) => e.template === "StartingLocation" || this.group.some((s) => s.id === e.id) || e.id === this.unleashed || !entityTiles(W, H, e).some((i) => hit.has(i)))
-        .map((e) => {
-          // (its sources follow the ground cut under them, D314)
-          const own = this.group.find((s) => s.id === e.id);
-          return own ? { ...e, z: this.map.heights[own.tile] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e;
-        });
+      if (!this.occupants) {
+        this.occupants = new Map();
+        for (const e of this.map.entities)
+          for (const i of entityTiles(W, H, e)) {
+            const list = this.occupants.get(i);
+            if (list) list.push(e.id);
+            else this.occupants.set(i, [e.id]);
+          }
+      }
+      const hit = new Set<string>();
+      for (const i of changed) for (const id of this.occupants.get(i) ?? []) hit.add(id);
+      const moved = (e: EntitySpec) => this.group.some((s) => s.id === e.id) || e.id === this.unleashed;
+      // (the start, its sources and an unleashed one are among them: they stay, riding the ground)
+      if ([...hit].some((id) => !this.removedAt.has(id)))
+        this.map.entities = this.map.entities
+          .filter((e) => {
+            if (e.template === "StartingLocation" || moved(e) || !hit.has(e.id)) return true;
+            this.removedAt.set(e.id, this.metrics.steps);
+            return false;
+          })
+          .map((e) => {
+            // (its sources follow the ground cut under them, D314)
+            const own = this.group.find((s) => s.id === e.id);
+            return own ? { ...e, z: this.map.heights[own.tile] } : e.id === this.unleashed ? { ...e, z: this.map.heights[e.y * W + e.x] } : e;
+          });
     }
-    for (const i of changed) this.sim.F[i] = this.map.heights[i];
-    this.sim.run(2);
-    this.map.water = { depth: this.sim.D.slice(), contamination: this.sim.C.slice() };
-    this.previewWater();
     this.quiet = changed.length || infill.length ? 0 : this.quiet + 1;
     if (this.ended && (!this.active.size || this.quiet >= 24 || this.tail >= 220)) {
       this.metrics.stable = true;
@@ -662,22 +724,11 @@ export class CarveRun implements ForceRun {
     return changed;
   }
 
-  private previewWater() {
-    // The force's muddy ribbon is a preview, not counterfeit game water. Keep it inside the
-    // excavated channel; the map's water always comes from the canonical settle.
-    for (const i of this.active) if (this.sign[i] < 0) this.map.water.depth[i] = 0;
-    for (const i of this.previewCells)
-      if (this.sign[i] < 0 && !this.sediment[i] && this.map.heights[i] <= this.previewBed[i] + 2) {
-        this.map.water.depth[i] = 0.45 + (0.5 * this.settings.power) / 100;
-        if (this.bad) this.map.water.contamination[i] = 1;
-      }
-  }
-
-  private rejectIsolated(d: Int8Array) {
+  private rejectIsolated(d: Int8Array, touched: readonly number[]) {
     const h = this.map.heights;
     const { W, H } = this.map;
     const marked = new Set<number>();
-    for (let i = 0; i < h.length; i++)
+    for (const i of touched)
       if (d[i]) {
         marked.add(i);
         for (const j of [i - W, i - 1, i + 1, i + W]) if (j >= 0 && j < h.length) marked.add(j);

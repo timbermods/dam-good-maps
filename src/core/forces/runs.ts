@@ -3,22 +3,25 @@
 // in stages: an impact's bowl at once and its debris flying out, a volcano swelling, a fault's front
 // racing along it, a slide carrying its block along tile by tile. What is kept is always the plan's
 // final map (the stages are only its presentation), so the result never depends on the pace, the
-// machine or the effects. The water shown moves with the land (the game's own rules, a few ticks a
-// stage, from the water there was: a force never adds any); the map's settled water follows once it
-// is kept. Carve (carve/run.ts) runs through the same worker calls.
+// machine or the effects. Nothing changes before the force reaches it (D321, item 30): objects and
+// sources go as the front, the lava or the ice arrives (an impact's all at once, at its moment; under
+// a quake they ride the ground), and the water stays as it was until the land is final, then flows
+// on from there as after any edit (a force never adds any). The editor paces the stages (Fast or
+// Watch, item 29); Carve (carve/play.ts) is played back through the same worker calls.
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
 import { toMapObject } from "../features/build";
 import type { WarmState } from "../sim/preview";
 import { waterModel } from "../sim/model";
-import { WaterSim, type WaterModel, type WaterState } from "../sim/water";
+import { WaterSim, type WaterModel } from "../sim/water";
 import { ImpactPlan, naturalSize as craterSize, type CraterIntent, type CraterSettings } from "./craterize";
 import { EruptPlan, lobeField, stageMap, type EruptIntent, type EruptSettings, type Point } from "./erupt";
 import { snapshotMap, type FullForceMap } from "./force";
 import type { Verb } from "./op";
 import { QuakePlan, revealQuake, type QuakeIntent, type QuakeSettings } from "./quake";
 import { clamp, smooth } from "./random";
+import { forceFloor, holdAtFloor } from "./floor";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -58,6 +61,11 @@ export interface StagedRun {
   readonly reason: string;
   /** One step: plan more rows, or show the next stage. */
   step(): void;
+  /** It is planned: what is left is showing it. */
+  readonly planned: boolean;
+  /** Steps of its showing in all (once planned), and shown so far. */
+  readonly total: number;
+  readonly shown: number;
   cue(): ForceCue;
   /** The planned result (null until planned). */
   final(): FullForceMap | null;
@@ -106,14 +114,6 @@ export function respectKeep(before: FullForceMap, after: FullForceMap, keep: Uin
   }
 }
 
-/** Run the game's water on a map for a few ticks, from `water`. */
-function flow(m: FullForceMap, water: WaterState, ticks: number): WaterSim {
-  const sim = new WaterSim(modelOf(m), water);
-  sim.run(ticks);
-  m.water = { depth: sim.D.slice(), contamination: sim.C.slice() };
-  return sim;
-}
-
 function warm(sim: WaterSim, m: FullForceMap): WarmState {
   return { model: modelOf(m), water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
@@ -125,7 +125,8 @@ export type Finalize = (m: FullForceMap) => void;
 abstract class Staged {
   map: FullForceMap;
   protected stage = 0;
-  protected planSteps = 0;
+  /** Steps of its approach shown (the impactor falling, the ground stirring), once planned. */
+  protected approached = 0;
   protected sim: WaterSim | null = null;
   protected ended = false;
   steps = 0;
@@ -141,8 +142,8 @@ abstract class Staged {
 
   /** Plan within the budget; true once planned. */
   protected abstract plan(budgetMs: number): boolean;
-  protected abstract get planned(): boolean;
-  /** Stages it shows once planned, and the fewest planning steps (its approach). */
+  abstract get planned(): boolean;
+  /** Stages it shows once planned, and the steps of its approach before them. */
   protected abstract readonly stages: number;
   protected abstract readonly approach: number;
   protected abstract show(stage: number): void;
@@ -154,12 +155,22 @@ abstract class Staged {
     return this.ended ? "done" : "";
   }
 
+  get total(): number {
+    return this.approach + this.stages;
+  }
+  get shown(): number {
+    return this.approached + this.stage;
+  }
+
   step(): void {
     if (this.ended) return;
     this.steps++;
-    if (!this.planned || this.planSteps < this.approach) {
-      this.planSteps++;
-      if (!this.planned) this.plan(PLAN_MS);
+    if (!this.planned) {
+      this.plan(PLAN_MS);
+      return;
+    }
+    if (this.approached < this.approach) {
+      this.approached++;
       return;
     }
     this.stage++;
@@ -178,7 +189,7 @@ abstract class Staged {
   /** Run to the end at once. */
   finishAll(): this {
     this.planAll();
-    this.planSteps = Math.max(this.planSteps, this.approach);
+    this.approached = this.approach;
     while (!this.ended) this.step();
     return this;
   }
@@ -205,13 +216,14 @@ export class CraterRun extends Staged implements StagedRun {
     this.plan0 = new ImpactPlan(before, settings, intent, keep);
   }
 
-  protected get planned(): boolean {
+  get planned(): boolean {
     return this.plan0.planned;
   }
 
   protected plan(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(8)) if (performance.now() - t0 > budgetMs) return false;
+    holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
     this.finalize?.(this.plan0.map);
@@ -246,6 +258,7 @@ export class CraterRun extends Staged implements StagedRun {
     const arrival = this.arrivals();
     const t = stage / this.stages;
     const prev = this.map;
+    // (the impact changes every object at once, at its moment; the water waits for the final land)
     const m = stage >= this.stages ? snapshotMap(after) : snapshotMap(stage === 1 ? after : prev);
     if (stage < this.stages) for (let i = 0; i < m.heights.length; i++) m.heights[i] = arrival[i] <= t ? after.heights[i] : this.before.heights[i];
     if (stage === 1) {
@@ -253,12 +266,12 @@ export class CraterRun extends Staged implements StagedRun {
       trimRock(m);
     }
     this.map = m;
-    this.sim = flow(m, prev.water, 8);
+    this.sim = null;
   }
 
   cue(): ForceCue {
     const a = this.plan0.anatomy;
-    const p = this.planned && this.planSteps >= this.approach ? this.stage / this.stages : 0;
+    const p = this.planned ? this.stage / this.stages : 0;
     const phase = this.ended ? "done" : !this.stage ? "incoming" : "impact";
     return {
       verb: "craterize",
@@ -289,13 +302,14 @@ export class EruptRun extends Staged implements StagedRun {
     this.plan0 = new EruptPlan(before, settings, intent, keep);
   }
 
-  protected get planned(): boolean {
+  get planned(): boolean {
     return this.plan0.planned;
   }
 
   protected plan(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
+    holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
     trimRock(this.plan0.map);
     respectKeep(this.before, this.plan0.map, this.keep);
     this.finalize?.(this.plan0.map);
@@ -307,10 +321,30 @@ export class EruptRun extends Staged implements StagedRun {
   }
 
   protected show(stage: number): void {
-    const prev = this.map;
-    const m = stage >= this.stages ? snapshotMap(this.plan0.map) : stageMap(this.before, this.plan0.map, stage / this.stages);
+    const t = stage / this.stages;
+    if (stage >= this.stages) {
+      this.map = snapshotMap(this.plan0.map);
+      this.sim = null;
+      return;
+    }
+    const m = stageMap(this.before, this.plan0.map, t);
+    // an object changes (falls, goes, rides the rock) only once the eruption reaches it: the heat's
+    // arrival, from the vent outward (or along a fissure); the water waits for the final land
+    const heat = this.heat()!;
+    const W = m.W;
+    const reached = (x: number, y: number) => smooth(t) >= 0.12 + 0.76 * (heat[(clamp(Math.floor(y), 0, m.H - 1) * W + clamp(Math.floor(x), 0, W - 1)) * 4 + 3] / 255);
+    const now = new Map(m.entities.map((e) => [e.id, e]));
+    m.entities = this.before.entities.flatMap((e) => {
+      const after = now.get(e.id);
+      if (!reached(e.x + 0.5, e.y + 0.5)) return [{ ...structuredClone(e), z: m.heights[e.y * W + e.x] }];
+      return after ? [after] : [];
+    });
+    const had = new Set(this.before.fallen.map((f) => f.id));
+    const ids = new Set(m.entities.map((e) => e.id));
+    m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
+    m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
-    this.sim = flow(m, prev.water, 8);
+    this.sim = null;
   }
 
   /** The eruption's heat on the land (from the prototype's view): red, vents; green, flows' cracks;
@@ -378,7 +412,6 @@ export class QuakeRun extends Staged implements StagedRun {
   readonly verb = "quake" as const;
   plan0: QuakePlan;
   protected readonly approach = 1;
-  private shownSource: Uint32Array | null = null;
   private painted = false;
 
   constructor(before: FullForceMap, readonly settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
@@ -390,7 +423,7 @@ export class QuakeRun extends Staged implements StagedRun {
     return this.settings.mode === "slide" ? Math.max(8, this.plan0.fault.slide + 2) : 8;
   }
 
-  protected get planned(): boolean {
+  get planned(): boolean {
     return this.plan0.planned;
   }
 
@@ -398,6 +431,7 @@ export class QuakeRun extends Staged implements StagedRun {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     const p = this.plan0;
+    holdAtFloor(this.before.heights, p.map.heights, forceFloor(this.settings));
     transportRock(this.before, p.map, p.source, this.settings.mode === "lift");
     trimRock(p.map);
     respectKeep(this.before, p.map, this.keep);
@@ -420,7 +454,7 @@ export class QuakeRun extends Staged implements StagedRun {
     const m = snapshotMap(this.plan0.map);
     m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
     this.map = m;
-    this.sim = flow(m, m.water, 12);
+    this.sim = null;
     this.stage = this.stages;
   }
 
@@ -443,9 +477,10 @@ export class QuakeRun extends Staged implements StagedRun {
         m.lava = p.map.lava.slice();
         for (let i = 0; i < m.lava.length; i++) if (p.arrival[i] > stage / this.stages) m.lava[i] = prev.lava[i];
       }
-      m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
+      // (the water as it was, until the land is final)
+      m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
       this.map = m;
-      this.sim = flow(m, m.water, 12);
+      this.sim = null;
       return;
     }
     // Slide: every moving tile a share of its travel along (whole tiles), the block together
@@ -492,24 +527,25 @@ export class QuakeRun extends Staged implements StagedRun {
         return { ...structuredClone(e), x, y, z: m.heights[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)] };
       });
     }
-    // the water moves with the ground it stood on (its volume and badwater kept), then flows
-    const D = new Float64Array(N);
-    const C = new Float64Array(N);
-    const from = this.shownSource ?? Uint32Array.from({ length: N }, (_, i) => i);
-    const where = new Int32Array(N).fill(-1);
-    for (let j = 0; j < N; j++) where[src[j]] = j;
-    for (let q = 0; q < N; q++) {
-      const d = prev.water.depth[q];
-      if (!d) continue;
-      const i = from[q];
-      const j = where[i] >= 0 ? where[i] : q;
-      D[j] += d;
-      C[j] += d * prev.water.contamination[q];
-    }
-    m.water = { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
-    this.shownSource = src;
+    // the water stays as it was while the block moves; with the final land it rides the ground it
+    // stood on (its volume and badwater kept) and flows on from there
+    if (stage >= this.stages) {
+      const D = new Float64Array(N);
+      const C = new Float64Array(N);
+      const where = new Int32Array(N).fill(-1);
+      for (let j = 0; j < N; j++) where[src[j]] = j;
+      const w = this.before.water;
+      for (let q = 0; q < N; q++) {
+        const d = w.depth[q];
+        if (!d) continue;
+        const j = where[q] >= 0 ? where[q] : q;
+        D[j] += d;
+        C[j] += d * w.contamination[q];
+      }
+      m.water = { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
+    } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
-    this.sim = flow(m, m.water, 12);
+    this.sim = null;
   }
 
   cue(): ForceCue {

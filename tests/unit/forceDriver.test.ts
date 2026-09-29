@@ -1,31 +1,40 @@
-// A force at work on the page (D199, D202, D203, D206): the driver runs the worker's force a few steps
-// at a time at the water's pace, shows every frame and its moment, holds a carve on Pause, keeps it
-// on Stop (or when it ends by itself), and drops all of it on Esc; a refused start says why and
-// leaves nothing running; a painted Lift sends only the latest stroke while the worker is busy, and
-// is kept when the pointer lets go.
+// A force at work on the page (D199, D202, D203, D206; paced by D321, item 29): the driver asks the
+// worker to work the force out (a slice a call), then shows it at the chosen pace: Fast, its land final
+// within about two seconds of the gesture; Watch, about four times as long, and a jump straight to its
+// final land keeps it at once. It shows every frame and its moment, holds a carve on Pause, keeps it
+// when it ends, and drops all of it on Esc; a refused start says why and leaves nothing running; a
+// painted Lift sends only the latest stroke while the worker is busy, and is kept when the pointer
+// lets go.
 
 import { describe, expect, it } from "vitest";
-import { CARVE_PACE, ForceDriver, forcePowerWord, paceOf, powerWord, type ForceHost } from "../../src/editor/forceDriver";
+import { CARVE_PACE, FAST_MS, ForceDriver, forcePowerWord, MIN_SHOW_MS, paceOf, powerWord, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
 import type { Verb } from "../../src/core/forces/op";
 import type { ForceFrame, ForceStarted } from "../../src/worker/session";
 
 const head = { x: 5, y: 5, z: 3, dx: 1, dy: 0, width: 4, event: "surge" as const, cut: 3 };
 
-function fakeHost(opts: { endAt?: number; refuse?: string; verb?: Verb; paintMs?: number } = {}) {
-  let steps = 0;
+/** A worker's force: worked out over `workCalls` calls (each taking `workMs`), then `total` steps. */
+function fakeHost(opts: { total?: number; workCalls?: number; workMs?: number; refuse?: string; verb?: Verb; paintMs?: number; speed?: ForceSpeed } = {}) {
+  const total = opts.total ?? 400;
+  let calls = 0;
+  let shownSteps = 0;
   const log: string[] = [];
   const shown: number[] = [];
   const moments: string[] = [];
   const painted: number[] = [];
   const verb = opts.verb ?? "carve";
+  const planned = () => calls >= (opts.workCalls ?? 3);
   const frame = (): ForceFrame => ({
     verb,
-    steps,
-    done: opts.endAt !== undefined && steps >= opts.endAt,
+    steps: shownSteps,
+    done: planned() && shownSteps >= total,
     reason: "lake",
+    planned: planned(),
+    total: planned() ? total : 0,
+    shown: shownSteps,
     head,
     trail: [],
-    cue: { verb, phase: verb === "craterize" ? (steps > 3 ? "impact" : "incoming") : "carve", progress: 0, x: 5, y: 5, z: 3, size: 4, power: 50 },
+    cue: { verb, phase: verb === "craterize" ? (shownSteps > 3 ? "impact" : "incoming") : "carve", progress: 0, x: 5, y: 5, z: 3, size: 4, power: 50 },
   });
   const host: ForceHost = {
     start: async (again) => {
@@ -34,7 +43,10 @@ function fakeHost(opts: { endAt?: number; refuse?: string; verb?: Verb; paintMs?
       return { ok: true, errors: [], frame: frame(), settings: { mode: "unleash", power: 50, walls: "steep", defyGravity: false, dry: false, layers: true, seed: again ? 1 : 0 }, verb };
     },
     advance: async (n) => {
-      steps += n;
+      if (!planned()) {
+        calls++;
+        await new Promise((r) => setTimeout(r, opts.workMs ?? 1));
+      } else shownSteps = Math.min(total, shownSteps + n);
       return frame();
     },
     paint: async (path) => {
@@ -42,19 +54,20 @@ function fakeHost(opts: { endAt?: number; refuse?: string; verb?: Verb; paintMs?
       await new Promise((r) => setTimeout(r, opts.paintMs ?? 1));
       return frame();
     },
-    keep: async () => void log.push(`keep@${steps}`),
-    drop: async () => void log.push(`drop@${steps}`),
+    keep: async () => void log.push(`keep@${shownSteps}`),
+    drop: async () => void log.push(`drop@${shownSteps}`),
     renderer: () => null,
-    show: (f) => void shown.push(f.steps),
+    show: (f) => void shown.push(f.shown),
     changed: () => undefined,
     error: (t) => void log.push(`error:${t}`),
     moment: (f) => void moments.push(f.cue.phase),
     ended: (kept) => void log.push(kept ? "ended:kept" : "ended:dropped"),
+    speed: () => opts.speed ?? "fast",
   };
   return { host, log, shown, moments, painted };
 }
 
-const until = async (f: () => boolean, ms = 3000) => {
+const until = async (f: () => boolean, ms = 12000) => {
   const t0 = Date.now();
   while (!f()) {
     if (Date.now() - t0 > ms) throw new Error("timed out");
@@ -63,30 +76,56 @@ const until = async (f: () => boolean, ms = 3000) => {
 };
 
 describe("the force driver", () => {
-  it("runs frame by frame; Stop keeps what is carved", async () => {
-    const h = fakeHost();
+  it("Fast: worked out first, then its land final within about two seconds of the gesture, however long the force; every frame shown in order with its moment", async () => {
+    const h = fakeHost({ total: 800, workCalls: 5, workMs: 20 });
     const d = new ForceDriver(h.host);
+    const t0 = performance.now();
     expect(await d.start()).toBe(true);
-    await until(() => (d.status?.steps ?? 0) >= 30);
-    await d.stop();
-    expect(d.running).toBe(false);
-    expect(h.log[0]).toBe("start");
+    await until(() => !d.running);
+    const took = performance.now() - t0;
+    expect(took).toBeLessThan(FAST_MS + 400);
+    expect(took).toBeGreaterThan(FAST_MS - 400);
+    expect(d.timing!.final).toBeLessThan(FAST_MS + 400);
+    expect(h.log).toContain("keep@800");
     expect(h.log).toContain("ended:kept");
-    expect(h.log.find((l) => l.startsWith("keep@"))).toBeTruthy();
-    // every frame shown, in order, each with its moment
     expect(h.shown).toEqual([...h.shown].sort((a, b) => a - b));
     expect(h.moments.length).toBe(h.shown.length);
   });
 
+  it("Fast keeps a quicker force's own pace; a slow working-out still leaves it a short showing", () => {
+    expect(showMs("craterize", 11, "fast", 20)).toBe(11 * CARVE_PACE.ms);
+    expect(showMs("carve", 800, "fast", 300)).toBe(FAST_MS - 300);
+    expect(showMs("glaciate", 50, "fast", 1900)).toBe(MIN_SHOW_MS);
+    // Watch: four times Fast's own, whatever the working-out took
+    expect(showMs("carve", 800, "watch", 300)).toBe(WATCH_FACTOR * FAST_MS);
+    expect(showMs("craterize", 11, "watch", 20)).toBe(WATCH_FACTOR * 11 * CARVE_PACE.ms);
+  });
+
+  it("Watch plays it out about four times as long; a jump keeps its whole result at once", async () => {
+    const h = fakeHost({ total: 800, workCalls: 2, speed: "watch" });
+    const d = new ForceDriver(h.host);
+    await d.start();
+    expect(d.status!.speed).toBe("watch");
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(d.running).toBe(true);
+    const part = h.shown.at(-1)!;
+    expect(part).toBeGreaterThan(0);
+    expect(part).toBeLessThan(400);
+    await d.jump();
+    expect(d.running).toBe(false);
+    expect(h.log).toContain("ended:kept");
+    expect(h.log.some((l) => l.startsWith("keep@"))).toBe(true);
+  });
+
   it("Pause holds it; Esc drops all of it", async () => {
-    const h = fakeHost();
+    const h = fakeHost({ total: 800 });
     const d = new ForceDriver(h.host);
     await d.start();
     await until(() => (d.status?.steps ?? 0) >= 10);
     d.pause(true);
-    await new Promise((r) => setTimeout(r, 40));
+    await new Promise((r) => setTimeout(r, 60));
     const held = d.status!.steps;
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 150));
     expect(d.status!.steps).toBe(held);
     d.cancel();
     expect(d.running).toBe(false);
@@ -96,11 +135,10 @@ describe("the force driver", () => {
   });
 
   it("ending by itself keeps it; Try another starts again", async () => {
-    const h = fakeHost({ endAt: 25 });
+    const h = fakeHost({ total: 25 });
     const d = new ForceDriver(h.host);
     await d.start();
     await until(() => !d.running);
-    // (a step a call at the force's own pace, D266: kept at the step it ended on)
     expect(h.log.filter((l) => l.startsWith("keep@")).at(-1)).toBe("keep@25");
     await d.start(true);
     expect(d.status!.seed).toBe(1);
@@ -108,7 +146,7 @@ describe("the force driver", () => {
   });
 
   it("a staged force (Craterize) runs to its end and is kept, its moments in order", async () => {
-    const h = fakeHost({ endAt: 11, verb: "craterize" });
+    const h = fakeHost({ total: 11, verb: "craterize" });
     const d = new ForceDriver(h.host);
     await d.start();
     expect(d.status!.verb).toBe("craterize");
@@ -143,15 +181,14 @@ describe("the force driver", () => {
     expect(h.log).toContain("error:Start here");
   });
 
-  it("keeps a force's own pace whatever the water's speed (D266): a carve at twice its ten steps a second, its terrain final in about two seconds (D312), a glacier over five", () => {
+  it("each force keeps its own pace, whatever the water's speed (D266): an eruption's 28 stages in about 1.5 seconds (D312), a glacier's 50 in five (D246); Fast compresses the longer ones to two (D321)", () => {
     expect((CARVE_PACE.steps * 1000) / CARVE_PACE.ms).toBe(20);
     expect(paceOf("craterize")).toEqual(CARVE_PACE);
     expect(paceOf("quake")).toEqual(CARVE_PACE);
-    // (an eruption's 28 stages in about two seconds, D312; it was about four, D226)
     expect((28 * paceOf("erupt").ms) / 1000).toBeLessThanOrEqual(2);
     expect((28 * paceOf("erupt").ms) / 1000).toBeGreaterThan(1.2);
-    // (a glacier's 30 stages of advance and 20 of retreat: three seconds and two, D246)
     expect((50 * paceOf("glaciate").ms) / 1000).toBeCloseTo(5, 1);
+    expect(showMs("glaciate", 50, "fast", 0)).toBe(FAST_MS);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("glaciate", p))).toEqual(["Cirque", "Glacier", "Great glacier", "Ice age"]);
     expect([0, 30, 60, 90].map(powerWord)).toEqual(["Creek", "Torrent", "River", "Catastrophe"]);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("craterize", p))).toEqual(["Pebble", "Meteor", "Asteroid", "Cataclysm"]);

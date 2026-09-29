@@ -40,6 +40,8 @@ export interface EruptSettings {
   /** Its breadth across, in tiles (D226): null (or absent: operations from before D226) follows
    *  Power. Power sets how high it throws; Size how broad it spreads. */
   size?: number | null;
+  /** The Floor (D321, item 40, floor.ts): nothing it does goes below this level; absent, 1. */
+  floor?: number;
 }
 
 export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1, size: null };

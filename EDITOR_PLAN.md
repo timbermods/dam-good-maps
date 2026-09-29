@@ -55,7 +55,27 @@ editor is desktop-first (D185).
   preferences, and the operation keeps the values it ran with (picked or pinned), so replay and undo stay exact and old
   projects replay unchanged. The controls themselves are the ones from before D289, brought back rather than rebuilt.
   The four forces are built on one shared forces core (D203, D206, D220). While a force works its row is its status
-  (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop, D289); the other tools wait. The forces go to the preview first
+  (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop, D289); the other tools wait.
+  **Every force is fast, with a choice to watch** (D321, item 29; amends D266): a force is worked out first (its
+  gathering shows meanwhile: a carve's surge at its origin, an impactor falling, the ground stirring, the ice gathering),
+  then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or large
+  the result, and the player can act again at once; a force whose own pace is quicker keeps it (an impact about half a
+  second). **Watch**, a toggle in the view bar beside Sound, remembered with the other editor preferences: about four
+  times as long, to be watched; a click anywhere, a new gesture's key or Esc jumps it straight to its final land, kept
+  as one step (undo still takes it back). The pace never follows the water's Speed. What is only a show (the water
+  filling a new channel, the falls starting, dust, lava's glow) plays on after the land is final, never blocking.
+  **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
+  the ice front or the lava reaches them; an impact changes everything at once at its moment; under a quake they ride
+  the ground. The water, the water of swept sources included, stays as it was until the land is final, then flows on
+  from there as after any edit (the glacier's meltwater river takes over at the end). The result and what is saved
+  never depend on the pace.
+  **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
+  default, up to the height ceiling; one setting shared by all the forces (set in any force's More, it holds for every
+  force), kept with the player's editor preferences, never Auto (it is a rule, not a flavour), with **Default** back to
+  1. Nothing a force does goes below it: where a carve, a crater, a fault or a glacier would go deeper, it runs
+  shallower there instead, never stopping; ground already below it stays as it is. One implementation on the forces
+  core (`core/forces/floor.ts`, lifted from Erode round 6's Floor), which Erode and Spring adopt when they are built;
+  the operation keeps it in its settings when it isn't 1. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
   no forces group at all.
   **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its floor,
@@ -98,6 +118,7 @@ editor is desktop-first (D185).
   overlay is on. No dam site is drawn on the map or named on the map card: Timberborn has no dam sites, and ours were a
   heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
   moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
+  **Watch** (D321, item 29), beside Sound: the forces played out slowly; off, Fast.
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
@@ -221,9 +242,10 @@ editor is desktop-first (D185).
   (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,
   round 4's the likeliest) until pinned, as for the other forces; a glacier saved without them is round 4's.
-  Two acts, five seconds at its own pace whatever the water's speed (D266): the ice advances for three seconds, the land
-  under it taking its final levels as the front passes, then melts back for two and reveals the valley's water; the
-  camera never moves (D265). **The floor reads as one river** (D292): the river winds across the level floor to the falls'
+  Two acts, the ice advancing for three fifths of its showing and melting back for two (in Fast about two seconds in
+  all, in Watch about eight, D321), the land under it taking its final levels as the front passes and the objects in
+  its path going with it; the water stays as it was until the land is final, then the valley's own water takes over;
+  the camera never moves (D265). **The floor reads as one river** (D292): the river winds across the level floor to the falls'
   pools and the rivers coming in, so their water drops straight into it; a fall it can't reach, nor pass within six
   tiles of, stays a dry hanging valley; every join runs straight to the river, never along a wall's foot; a lip's other
   face runs into its own pool. The game's water is run a while on the finished floor as it's planned: if it would wet the
@@ -399,10 +421,12 @@ Make a valley, drop a source, and there's a river.
     operation keeps the row literally (the anchor at the origin and the rest), so projects replay exactly, and a carve
     from before keeps its single source. Each source is editable afterwards like any other. Unleash places none: the
     player's source stays the river's origin (Kyler, D314);
-  - the visible carving effects (a surging head, crumbling blocks, dust, muddy water), the camera
-    staying where the player left it (D265: no Follow);
-  - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc or Ctrl+Z (or undo) reverts the whole carve
-    instantly.
+  - the visible carving effects (a surging head, crumbling blocks, dust, its muddy surge, murky for badwater), the
+    camera staying where the player left it (D265: no Follow); the whole run is worked out first (its surge gathering at
+    the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
+    reaches them and the water as it was until the land is final;
+  - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc (in Fast) or Ctrl+Z (or undo) reverts the whole
+    carve instantly.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
   water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
@@ -850,7 +874,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     under a second; a placed object's pop and wiggle scales its own instance; a force's moment
     (`forces.ts`: an impact's streak, flash, ring, dust and blocks; a fault's crack and dust; an
     eruption's plume and its heat on the terrain shader; no camera shake, D265) plays on its own clock
-    from fixed pools, at the force's own pace whatever the water's speed (D266). None of them play with reduced motion or
+    from fixed pools, at the force's showing's pace (Fast or Watch, D321), never the water's speed. None of them play with reduced motion or
     in software rendering. A knocked-down tree is its dead model laid along its heading. The sounds
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
     `calibration.ts`, `bank.ts`): recorded CC0 foley (24 files, 1,090,848 bytes at 256 kbps, D313's
@@ -876,7 +900,10 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   `tools/carve-equiv.ts`; `craterize.ts`, `erupt.ts`, `quake.ts`, ported from #59 and pinned to its
   45 parity cases), the staged runs that show Craterize, Erupt and Quake a stage at a time
   (`runs.ts`: planned a few rows a step, then the bowl and its debris, the swell, the fault's front or
-  the slide), the operation (`op.ts`) and its literal result (`result.ts`). Erupt is the prototype's
+  the slide), the operation (`op.ts`) and its literal result (`result.ts`). Carve's run is worked out whole, a
+  slice at a time, each step's changed tiles and the objects its cut took recorded, then played back (`carve/play.ts`,
+  D321); its water no longer runs while it cuts (the head's surge is the effects'), and its fan's height reads the water
+  as it was, so the land is the same at any pace (164 carves checked against the earlier code: the same land). Erupt is the prototype's
   volcano exactly where it has the room under the map's ceiling (16, or the map's own top up to 22);
   where it hasn't, `eruptAnatomy` fits it (D226): every level it raises (cone, apron, ridges) scaled
   together so its summit reaches the ceiling at most, broader rather than taller while Size follows
@@ -885,8 +912,8 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   (under four levels) it erupts from its flank, the nearest place with room (the seed choosing
   among the nearest); a fissure rises less where its line is high; at the ceiling with no flank near,
   "No room to rise here", the one word the page shows from the same fit (D258: no preview on the land). Its swell is 28 stages
-  over about four seconds at the normal speed, as the demo's, so the land rises with its plume and
-  glow. Each size control (Carve's Width and Depth, Craterize's and Erupt's Size) follows Power (Auto)
+  (about 1.5 seconds at its own pace, D312), so the land rises with its plume and glow; an object on its flanks changes
+  as the heat reaches it. Each size control (Carve's Width and Depth, Craterize's and Erupt's Size) follows Power (Auto)
   until its slider sets it; a set size is kept in the operation's settings (`depth`, `size`; absent
   in operations from before D226, which replay as they were). Unleash (D239, `carve/unleash.ts`) is a
   Carve run from a placed source: `breakout` finds where the water it stands in would spill over (or
@@ -895,11 +922,15 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   source); its operation names the source (`where.source`). The map's hidden rock is
   derived once from the map as opened (never rerolled); fresh volcanic rock comes from the forces'
   operations. What is kept is always the plan's final map, touched by the build's own integrity pass
-  in the worker, so the last stage is exactly what the build keeps. The editor's worker runs a force
-  a few steps a frame (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`,
-  `forceAgain`; no second history or water owner); the page shows its frames and moments
-  (`forceDriver.ts`, paced by the water speed; a frame that fails to show never stops a force, and a
-  worker that fails takes all of it back, as Esc would). Which builds show the forces:
+  in the worker, so the last stage is exactly what the build keeps. The editor's worker works a force out a
+  slice a call, then shows as many steps a frame as the page asks (`forceStart`, `forceAdvance`, `forcePaint`,
+  `forceStop`, `forceCancel`, `forceAgain`; no second history or water owner); its frames carry the ground and the
+  objects, never water (D321, item 30), and say once it is worked out (`planned`) how many steps show it (`total`) and
+  how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
+  `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Watch, `WATCH_FACTOR` (four) times
+  Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as Esc
+  would. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks Fast through the
+  page (with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
   `src/editor/release.ts` (D219).
 - "The start fits here" (D204): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,

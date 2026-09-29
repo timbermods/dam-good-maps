@@ -67,6 +67,7 @@ import { changedRect } from "../render3d/mesh";
 import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
+import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import type { CraterSettings } from "../core/forces/craterize";
 import type { EruptSettings, Point } from "../core/forces/erupt";
@@ -1749,19 +1750,23 @@ export interface TrailPoint {
 
 /** A frame of a force at work: how far it has come, its head (where it is: the camera follows it),
  *  what the effects and sounds need (its cue), and what changed on the map since the last frame
- *  (the heights and the rectangle they changed in; the water it shows; the objects, when they
- *  changed; an eruption's heat on the land, once). */
+ *  (the heights and the rectangle they changed in; the objects, when they changed; an eruption's heat
+ *  on the land, once). No water: it stays as it was until the land is final (D321, item 30). Once
+ *  the force is worked out (`planned`), `total` steps show it and `shown` of them have: the page
+ *  paces them (Fast or Watch, item 29). */
 export interface ForceFrame {
   verb: Verb;
   steps: number;
   done: boolean;
   reason: string;
+  planned: boolean;
+  total: number;
+  shown: number;
   head: ForceHead;
   trail: TrailPoint[];
   cue: ForceCue;
   heights?: Uint8Array;
   rect?: { x0: number; y0: number; x1: number; y1: number };
-  water?: WaterView;
   entities?: EntityView;
   heat?: Uint8Array;
 }
@@ -1782,6 +1787,8 @@ let force: {
   session: MapSession;
   verb: Verb;
   carve: CarveRun | null;
+  /** A carve as the page is shown it: worked out first, then played back (carve/play.ts). */
+  play: CarvePlay | null;
   staged: StagedRun | null;
   before: FullForceMap;
   /** The terrain the build's last steps start from, before the force (buildTouches). */
@@ -1796,10 +1803,12 @@ let force: {
   viewAt: number;
 } | null = null;
 
-/** A force's water and objects go to the page at most this often (and always with its last frame):
- *  each is a whole map's update on the page (about 25 ms at 256²), so the land's own changes keep the
- *  page's frames free. */
+/** A force's objects go to the page at most this often (and always with its last frame): each is a
+ *  whole map's update on the page, so the land's own changes keep the page's frames free. */
 const FORCE_VIEW_MS = 120;
+
+/** A carve's working-out slice (ms): the worker answers the page's other calls between them. */
+const CARVE_PLAN_MS = 24;
 
 /** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
  *  again from its original land, with the next seed, while one of them is the latest step of the
@@ -2043,6 +2052,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     session: s,
     verb: req.verb,
     carve,
+    play: carve ? new CarvePlay(carve) : null,
     staged,
     before: map,
     state,
@@ -2120,28 +2130,32 @@ function trailOf(run: CarveRun): TrailPoint[] {
   return run.path.slice(-28).map((p) => ({ x: p.x, y: p.y, dx: p.dx, dy: p.dy, width: p.width, lanes: p.lanes.map((l) => ({ ...l })) }));
 }
 
-/** A carve's cue (its head, cutting). */
-function carveCue(r: CarveRun): ForceCue {
-  return { verb: "carve", phase: r.done ? "done" : "carve", progress: 0, x: r.head.x, y: r.head.y, z: r.head.z, size: r.head.width, power: r.settings.power };
+/** A carve's cue (its head where the land shown has it, cutting). */
+function carveCue(p: CarvePlay): ForceCue {
+  const h = p.head;
+  return { verb: "carve", phase: p.done ? "done" : "carve", progress: p.total ? p.shown / p.total : 0, x: h.x, y: h.y, z: h.z, size: h.width, power: p.run.settings.power };
 }
 
 function forceFrame(f: NonNullable<typeof force>): ForceFrame {
-  const map = f.carve ? f.carve.map : f.staged!.map;
+  const map = f.play ? f.play.map : f.staged!.map;
   const { W, H } = map;
   let head: ForceHead;
   let trail: TrailPoint[] = [];
   let cue: ForceCue;
-  if (f.carve) {
-    const r = f.carve;
-    head = { ...r.head, ...(r.head.lanes ? { lanes: r.head.lanes.map((l) => ({ ...l })) } : {}) };
-    trail = trailOf(r);
-    cue = carveCue(r);
+  let out: ForceFrame;
+  if (f.play) {
+    const p = f.play;
+    const h = p.head;
+    head = { ...h, ...(h.lanes ? { lanes: h.lanes.map((l) => ({ ...l })) } : {}), ...(p.run.badwater ? { bad: true } : {}) };
+    trail = p.trail().map((q) => ({ x: q.x, y: q.y, dx: q.dx, dy: q.dy, width: q.width, lanes: q.lanes.map((l) => ({ ...l })) }));
+    cue = carveCue(p);
+    out = { verb: f.verb, steps: p.shown, done: p.done, reason: p.done ? p.run.reason : "", planned: p.planned, total: p.planned ? p.total : 0, shown: p.shown, head, trail, cue };
   } else {
-    cue = f.staged!.cue();
+    const r = f.staged!;
+    cue = r.cue();
     head = { x: cue.x, y: cue.y, z: cue.z, dx: 1, dy: 0, width: Math.min(24, cue.size), event: "surge", cut: 0 };
+    out = { verb: f.verb, steps: r.steps, done: r.done, reason: r.reason, planned: r.planned, total: r.planned ? r.total : 0, shown: r.shown, head, trail, cue };
   }
-  const run = f.carve ?? f.staged!;
-  const out: ForceFrame = { verb: f.verb, steps: run.steps, done: run.done, reason: run.reason, head, trail, cue };
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     f.shown = map.heights.slice();
@@ -2149,11 +2163,8 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     out.rect = rect;
   }
   const now = performance.now();
-  const view = run.done || now - f.viewAt >= FORCE_VIEW_MS;
-  if (view) {
-    f.viewAt = now;
-    out.water = waterFromDepth(map.heights, map.water.depth, map.water.contamination);
-  }
+  const view = out.done || now - f.viewAt >= FORCE_VIEW_MS;
+  if (view) f.viewAt = now;
   if (view && map.entities !== f.lastEntities) {
     f.lastEntities = map.entities;
     const down = new Map((map.fallen ?? []).map((g) => [g.id, { dx: g.dx, dy: g.dy }]));
@@ -2163,7 +2174,7 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
       f.shownEntities = copyEntityView(v);
     }
   }
-  if (!f.heatSent && f.staged?.heat) {
+  if (!f.heatSent && f.staged?.heat && f.staged.planned) {
     const heat = f.staged.heat();
     if (heat) {
       out.heat = heat.slice();
@@ -2177,8 +2188,16 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
 export function forceAdvance(steps: number): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session) return null;
-  if (f.carve) for (let k = 0; k < steps && !f.carve.done; k++) f.carve.step();
-  else for (let k = 0; k < steps && !f.staged!.done; k++) f.staged!.step();
+  if (f.play) {
+    // (worked out a slice at a time first, then shown `steps` at a time)
+    if (!f.play.planned) f.play.plan(CARVE_PLAN_MS);
+    else f.play.advance(steps);
+  } else {
+    const r = f.staged!;
+    // (a planning slice a call until it is planned; then `steps` of its showing)
+    if (!r.planned) r.step();
+    else for (let k = 0; k < steps && !r.done; k++) r.step();
+  }
   return forceFrame(f);
 }
 
@@ -2268,6 +2287,9 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
   let water: WarmState;
   if (f.carve) {
     const r = f.carve;
+    // a carve kept part way (Watch's jump to the end, D321) keeps its whole result: the playback only
+    // shows it
+    f.play?.plan(Infinity);
     const req = f.request as Extract<ForceRequest, { verb: "carve" }>;
     const aimed = req.settings.mode === "aim" && req.end ? req.end : undefined;
     // (an unleashed source's carve starts where it broke out, with its width and dry: the run's own)

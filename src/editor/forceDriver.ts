@@ -1,32 +1,42 @@
-// A force at work on the page (PLAN §20 D194, D199, D202, D203, D206): the page drives the worker's
-// run a step at a time, at the force's own pace whatever the water's speed (D266: ten steps are one
-// second of a carve on every machine), and shows each frame as it comes: the ground that changed
-// (only its chunks), the water moving with it, the objects. Each frame's moment goes to the effects
-// and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the camera
-// never moves by itself (D265). Pause holds a carve; Stop keeps what is carved; a staged
-// force (Craterize, Erupt, Quake, Glaciate) is kept when it ends; Esc or undo drops all of it at once. A
-// painted Lift is shown whole as it is painted (the page sends the latest stroke whenever the worker
-// is free) and kept when the pointer lets go. Nothing on the page waits on it: the worker runs a step
-// in a few milliseconds, between the frames.
+// A force at work on the page (PLAN §20 D194, D199, D202, D203, D206; paced by D321, item 29): the
+// worker works the force out first, a slice a call (the page shows its gathering meanwhile: a carve's
+// surge at its origin, an impactor falling, the ground stirring, the ice gathering), then shows it at
+// the pace the player chose. **Fast** (the default): the land is final within about two seconds of
+// the gesture, however long or large the result; a force whose own pace is quicker keeps it. **Watch**:
+// about four times as long, to be watched; a click, a new gesture or Esc jumps it to its final land.
+// Each frame shows the ground that changed (only its chunks) and the objects, and its moment goes to
+// the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
+// water stays as it was until the land is final (item 30), then flows on as after any edit; the camera
+// never moves by itself (D265). Pause holds a carve; a force is kept when it ends; Esc (in Fast) or undo
+// drops all of it at once. A painted Lift is shown whole as it is painted (the page sends the latest
+// stroke whenever the worker is free) and kept when the pointer lets go. Nothing on the page waits on
+// it: the effects that are only a show (the water filling a channel, dust, lava's glow) play on after
+// the land is final, and the player can act again at once.
 
 import type { Verb } from "../core/forces/op";
 import type { Point } from "../core/forces/quake";
 import type { AnyForceSettings, ForceFrame, ForceStarted } from "../worker/session";
 import type { MapRenderer } from "../render3d";
 
-/** Steps a worker call runs, and the time a call's frame stays on screen (ms): a force's own pace,
- *  the same whatever the water's speed (D266). */
+/** How a force is shown (D321, item 29): Fast, or Watch. */
+export type ForceSpeed = "fast" | "watch";
+
+/** Fast: the land final within about this long of the gesture (ms). */
+export const FAST_MS = 2000;
+/** Watch plays a force out about this many times as long as Fast. */
+export const WATCH_FACTOR = 4;
+/** The shortest a Fast showing takes, however long the force took to work out (ms). */
+export const MIN_SHOW_MS = 450;
+/** A frame of the showing (ms). */
+export const FRAME_MS = 30;
+
+/** Each force's own pace, a shown step at a time (D266; a force shown quicker than FAST_MS keeps it):
+ *  a carve's run, an impact, a quake as tuned; an eruption's 28 stages in about 1.5 seconds (D312); a
+ *  glacier's 50 in five (D246). */
 export const FORCE_PACE = { steps: 1, ms: 50 };
 /** (Carve's name for it.) */
 export const CARVE_PACE = FORCE_PACE;
-
-/** An eruption's pace (D312, amending D226's four seconds): its terrain is final in about two
- *  seconds (its 28 stages at 55 ms, after a step or two of planning); its plume, its glow and the
- *  lava cooling play on on their own clocks, and the player can act again at once. */
 export const ERUPT_PACE = { steps: 1, ms: 55 };
-
-/** A glacier's pace (D246): ten stages a second, three seconds of advancing ice and two of its retreat,
- *  as in the demo Kyler tried (investigation/glaciate); its planning steps take their time too. */
 export const GLACIATE_PACE = { steps: 1, ms: 100 };
 
 /** A force's own pace (D266: the water's speed doesn't change it). */
@@ -34,9 +44,17 @@ export function paceOf(verb: Verb): { steps: number; ms: number } {
   return verb === "erupt" ? ERUPT_PACE : verb === "glaciate" ? GLACIATE_PACE : FORCE_PACE;
 }
 
+/** How long a force's showing takes (ms), once it is worked out: its `total` steps at its own pace,
+ *  compressed to Fast's two seconds from the gesture (`workedMs` already gone working it out, never
+ *  below MIN_SHOW_MS); Watch four times Fast's own. */
+export function showMs(verb: Verb, total: number, speed: ForceSpeed, workedMs: number): number {
+  const fast = Math.min(total * paceOf(verb).ms, FAST_MS);
+  return speed === "watch" ? WATCH_FACTOR * fast : Math.min(fast, Math.max(MIN_SHOW_MS, FAST_MS - workedMs));
+}
+
 export interface ForceStatus {
   verb: Verb;
-  /** Steps run (ten a second). */
+  /** Steps shown. */
   steps: number;
   paused: boolean;
   /** It is being kept. */
@@ -45,6 +63,8 @@ export interface ForceStatus {
   seed: number;
   /** A painted Lift: it follows the stroke until the pointer lets go. */
   painting: boolean;
+  /** How it is shown. */
+  speed: ForceSpeed;
 }
 
 export interface ForceHost {
@@ -57,7 +77,7 @@ export interface ForceHost {
   keep(): Promise<void>;
   drop(): Promise<void>;
   renderer(): MapRenderer | null;
-  /** Show a frame: the ground, the water, the objects. */
+  /** Show a frame: the ground and the objects. */
   show(f: ForceFrame): void;
   /** The status changed (the options row shows it). */
   changed(): void;
@@ -66,6 +86,8 @@ export interface ForceHost {
   moment(f: ForceFrame): void;
   /** It is over: kept or dropped (its sounds stop, its effects' tails play or go). */
   ended(kept: boolean): void;
+  /** Fast or Watch (the view bar's Watch), read as each force starts. */
+  speed?(): ForceSpeed;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -76,6 +98,9 @@ export class ForceDriver {
    *  shows, with one click to pin it. Kept past the run's end (unlike `status`), so the row can show
    *  it once the force is kept or dropped. */
   lastSettings: Partial<Record<Verb, AnyForceSettings>> = {};
+  /** The last force's times (ms from the gesture): worked out, its land final, and kept (0 until then). */
+  timing: { worked: number; final: number; kept: number } | null = null;
+  private t0 = 0;
   private token = 0;
   /** A painted stroke waiting for the worker (the latest wins), and one in flight. */
   private stroke: { path: Point[]; side: 1 | -1 } | null = null;
@@ -92,7 +117,9 @@ export class ForceDriver {
   async start(again = false, painting = false): Promise<boolean> {
     if (this.status) return false;
     const token = ++this.token;
-    this.status = { verb: "carve", steps: 0, paused: false, stopping: false, seed: 0, painting };
+    const t0 = (this.t0 = performance.now());
+    this.timing = null;
+    this.status = { verb: "carve", steps: 0, paused: false, stopping: false, seed: 0, painting, speed: this.host.speed?.() ?? "fast" };
     this.host.changed();
     let r: ForceStarted;
     try {
@@ -115,7 +142,7 @@ export class ForceDriver {
       void this.pump(token);
       return true;
     }
-    void this.loop(token);
+    void this.loop(token, t0, r.frame);
     return true;
   }
 
@@ -148,7 +175,8 @@ export class ForceDriver {
     this.host.changed();
   }
 
-  /** Keep what it has done (it ended by itself: the same; a painted Lift let go). */
+  /** Keep it: it ended by itself, a painted Lift was let go, or Watch jumped to its final land (a
+   *  click, a new gesture, Esc): the whole result, at once. */
   async stop(): Promise<void> {
     const st = this.status;
     if (!st || st.stopping) return;
@@ -163,11 +191,17 @@ export class ForceDriver {
     try {
       await this.host.keep();
     } finally {
+      if (this.timing) this.timing.kept = Math.round(performance.now() - this.t0);
       this.finish(true);
     }
   }
 
-  /** Esc or undo: all of it goes at once. */
+  /** Watch's way out (D321, item 29): straight to its final land, kept. */
+  jump(): Promise<void> {
+    return this.stop();
+  }
+
+  /** Esc (in Fast) or undo: all of it goes at once. */
   cancel(): void {
     if (!this.status || this.status.stopping) return;
     this.token++;
@@ -184,49 +218,68 @@ export class ForceDriver {
   }
 
   private show(f: ForceFrame): void {
-    if (this.status) this.status.steps = f.steps;
+    if (this.status) this.status.steps = f.shown;
     this.host.show(f);
     if (f.verb === "carve") this.host.renderer()?.setSurge(f.done ? null : f.head, f.trail);
     this.host.moment(f);
     this.host.changed();
   }
 
-  private async loop(token: number): Promise<void> {
+  private async loop(token: number, t0: number, first: ForceFrame): Promise<void> {
+    let f: ForceFrame = first;
+    /** When its showing began, how long it takes, and the time spent paused since. */
+    let from = -1;
+    let length = 0;
+    let held = 0;
     for (;;) {
       const st = this.status;
       if (token !== this.token || !st) return;
       if (st.paused) {
+        const p0 = performance.now();
         await sleep(80);
+        held += performance.now() - p0;
         continue;
       }
-      const pace = paceOf(st.verb);
-      const ms = pace.ms;
-      const t0 = performance.now();
-      let f: ForceFrame | null;
-      try {
-        f = await this.host.advance(pace.steps);
-      } catch (e) {
-        f = null;
-        this.host.error(String(e instanceof Error ? e.message : e));
+      const t = performance.now();
+      let n = 1;
+      if (f.planned) {
+        if (from < 0) {
+          from = t;
+          length = showMs(st.verb, f.total, st.speed, t - t0);
+          this.timing = { worked: Math.round(t - t0), final: 0, kept: 0 };
+        }
+        const target = f.total * Math.min(1, (t - from - held) / Math.max(1, length));
+        n = Math.max(0, Math.ceil(target - f.shown));
       }
-      if (token !== this.token || !this.status) return;
-      // (the worker failed: all of it goes back, as Esc would, never a half-risen land left behind)
-      if (!f) {
-        this.cancel();
-        return;
+      if (n > 0 || f.done) {
+        let next: ForceFrame | null;
+        try {
+          next = await this.host.advance(n);
+        } catch (e) {
+          next = null;
+          this.host.error(String(e instanceof Error ? e.message : e));
+        }
+        if (token !== this.token || !this.status) return;
+        // (the worker failed: all of it goes back, as Esc would, never a half-risen land left behind)
+        if (!next) {
+          this.cancel();
+          return;
+        }
+        f = next;
+        // (a frame the page could not show never stops the force: its next frame shows the land)
+        try {
+          this.show(f);
+        } catch (e) {
+          this.host.error(String(e instanceof Error ? e.message : e));
+        }
+        if (f.done) {
+          if (this.timing) this.timing.final = Math.round(performance.now() - t0);
+          await this.stop();
+          return;
+        }
       }
-      // (a frame the page could not show never stops the force: its next frame shows the land)
-      try {
-        this.show(f);
-      } catch (e) {
-        this.host.error(String(e instanceof Error ? e.message : e));
-      }
-      if (f.done) {
-        await this.stop();
-        return;
-      }
-      // (at least a frame between calls, so the page draws each)
-      await sleep(Math.max(ms - (performance.now() - t0), ms ? 0 : 16));
+      // (still being worked out: straight on, so the page draws between; then a frame at a time)
+      await sleep(f.planned ? Math.max(0, FRAME_MS - (performance.now() - t)) : 0);
     }
   }
 }

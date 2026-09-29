@@ -1,7 +1,7 @@
 // Glaciate (PLAN §20 D246, D258, D265, D266, D289, D291, D292), through the page: its button in the
 // forces group (key -), its row only Power, Size (Auto), Meltwater and Try another; a click Flows and a
 // drag Aims, with only a thin arrow while it drags (no route, outline or footprint on the land); the
-// camera never moves on its own; its own pace whatever the water's speed; kept as one undo step
+// camera never moves on its own; Fast's pace or Watch's, never the water's speed (D321); kept as one undo step
 // exactly as shown, Esc takes it back at once, Try another varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -187,7 +187,7 @@ test("a drag Aims: only a thin arrow while it drags, no route or footprint on th
   expect((await labels(page)).at(-1)).toBe("Glaciate");
 });
 
-test("a glacier keeps its own pace whatever the water's speed (D266)", async ({ page }) => {
+test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D321's item 29)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("-");
   const at = await high(page);
@@ -205,8 +205,9 @@ test("a glacier keeps its own pace whatever the water's speed (D266)", async ({ 
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // about five seconds either way: the water's speed is about the water only
-  expect(slow).toBeGreaterThan(4000);
+  // about two seconds either way (Fast): the water's speed is about the water only
+  expect(slow).toBeGreaterThan(1000);
+  expect(slow).toBeLessThan(3200);
   expect(quick / slow).toBeGreaterThan(0.7);
   expect(quick / slow).toBeLessThan(1.4);
 });
