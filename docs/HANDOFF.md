@@ -62,8 +62,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    - **Batch 6, documents** (D326; items 33, 23, then 34): `dev`, the main clone, `routine` (Sonnet 5.5, medium);
      started 2026-09-29.
    Batches 2 and 3 merge into `feature/forces` in the order 3, 2, 1. When all three are in, the session deploys the
-   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** (#74, Erode, is merged since; it was: round 7, roofs, is
-   with Codex; don't merge), Real places (D319), items 19 (Spring) and 45 (flow arrows).
+   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** Real places (D319), items 19 (Spring) and 45 (flow arrows).
 5. **Item 34, at the forces release boundary** (batch 6, D326; converts existing files, adds no parallel ones):
    STATUS §7's workstream table becomes `docs/WORK.md` (claim before starting); the progress docs' top notes become
    fixed-format hand-back notes; STATUS shrinks to its short summary and drops "Decisions since M8"; PLAN §20 splits one
