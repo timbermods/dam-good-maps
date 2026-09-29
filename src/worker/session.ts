@@ -54,7 +54,6 @@ import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
 import { patchFeature } from "../core/doc/ops";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
-import { applyMergePatch } from "../core/spec/mergepatch";
 import { validateMap, type Validation } from "../core/validate/checks";
 import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
@@ -116,9 +115,6 @@ export interface ViewUpdate {
   entities?: EntityView;
   /** The soil the ground's colours show; it follows the water (Map look, D86). */
   soil?: SoilView;
-  /** The map changed size (an undo or redo across a regeneration at another size): the whole map,
-   *  as when it is opened, and nothing else; the page builds its view again for it. */
-  reopen?: SessionOpen;
 }
 
 export interface SessionUpdate {
@@ -182,7 +178,7 @@ export interface ExportCheck {
 let session: MapSession | null = null;
 let version = 0;
 /** What the page last received, to send only what changed. */
-let sent: { W: number; H: number; heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
+let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
 let originalFull: Validation | null = null;
 let lastCheck: ExportCheck | null = null;
@@ -349,7 +345,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
 
 function markSent(s: MapSession): void {
   const b = s.built;
-  sent = { W: b.W, H: b.H, heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
+  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
 }
 
 /** The map's heights and the terrain the page paints on, as they stand (the page takes them
@@ -359,7 +355,7 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
-/** The whole map view (opening a map, or after a regeneration). */
+/** The whole map view (opening a map, or returning to it). */
 export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
@@ -374,8 +370,6 @@ function viewUpdate(s: MapSession): ViewUpdate {
   const b = s.built;
   const out: ViewUpdate = {};
   const prev = sent;
-  // a map of another size: the page's view was built for the old one
-  if (prev && (prev.W !== b.W || prev.H !== b.H)) return { reopen: sessionView() };
   if (!prev || prev.heights.length !== b.heights.length) {
     const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s), terrain: s.terrainState() };
     sentEntities = copyEntityView(all.entities!);
@@ -971,7 +965,7 @@ export function jump(index: number): SessionUpdate {
   return changed(s, moved, [], t0);
 }
 
-// ------------------------------------------------------------------------------ regeneration
+// ------------------------------------------------------------------------------ settings page
 
 /** The settings page's view of the open document: its current map, validated. */
 export async function settingsResponse(): Promise<GenerateResponse> {
@@ -994,53 +988,6 @@ export async function settingsResponse(): Promise<GenerateResponse> {
     project: new Uint8Array(),
     edits: s.editCount,
   });
-}
-
-/** Change the settings and regenerate, keeping the player's edits (a `specPatch`, PLAN §19.1). */
-export async function regenerate(target: MapSpec): Promise<{ ok: boolean; errors: string[]; response: GenerateResponse | null; info: SessionInfo; orphans: DocOrphan[]; unfit: { id: string; reason: string }[]; editProblems: { id: string; message: string }[] }> {
-  const t0 = performance.now();
-  const s = need();
-  const old = s.spec;
-  if (!old) throw new Error("an imported map has no settings to change");
-  const patch = specPatch(old, target);
-  const r = s.regenerate(patch);
-  if (r.ok) {
-    version++;
-    lastCheck = null;
-    stopWater();
-    syncChecks();
-  }
-  const response = r.ok
-    ? await responseOf({
-        spec: s.spec!,
-        features: s.features as Feature[],
-        built: s.built,
-        checks: r.report!.checks,
-        passed: r.report!.passed,
-        analysis: r.analysis,
-        attempts: r.attempts,
-        ms: Math.round(performance.now() - t0),
-        timber: new Uint8Array(),
-        project: new Uint8Array(),
-        edits: s.editCount,
-      })
-    : null;
-  return { ok: r.ok, errors: r.errors, response, info: sessionInfo(s), orphans: r.orphans, unfit: r.unfit, editProblems: r.editProblems };
-}
-
-/** The merge patch that turns the document's settings into the settings page's (seed, size,
- *  theme, difficulty and the settings they imply). */
-export function specPatch(from: MapSpec, to: MapSpec): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  for (const k of ["seed", "size", "theme", "archetype", "designedFor", "settings"] as const) {
-    if (JSON.stringify(from[k]) !== JSON.stringify(to[k])) patch[k] = to[k];
-  }
-  // a check that the patch gives the target (it is what the session applies)
-  const merged = applyMergePatch(from, patch) as MapSpec;
-  for (const k of ["seed", "size", "theme", "designedFor", "settings"] as const) {
-    if (JSON.stringify(merged[k]) !== JSON.stringify(to[k])) throw new Error(`the settings patch does not reach ${k}`);
-  }
-  return patch;
 }
 
 // ------------------------------------------------------------------------------------ export

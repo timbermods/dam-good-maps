@@ -1,6 +1,6 @@
 // The editor's worker side (EDITOR_PLAN §8) in Node: the page's journey through it. Generate,
-// refine, edit, go back to the settings, regenerate and refine again keeps the player's edits
-// (ROADMAP M4); updates carry only what changed; the export check follows the export profile, and
+// refine, edit, go back to the settings, generate a new map: the edited map is untouched and one
+// step away, and its edits are never applied to the new one (PLAN §20, D336); updates carry only what changed; the export check follows the export profile, and
 // an unedited map exports exactly as it came.
 
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ const box = (x0: number, y0: number, x1: number, y1: number) => {
 };
 
 describe("the editor's document in the worker", () => {
-  it("generate → refine → edit → back to settings → regenerate → refine keeps the edits", async () => {
+  it("generate → refine → edit → back to settings → Generate: a new map, and the edited one untouched (D336)", async () => {
     const spec = makeSpec({ seed: 77, size: { x: W, y: W } });
     const gen = await runGenerate(spec);
     expect(gen.passed).toBe(true);
@@ -46,26 +46,29 @@ describe("the editor's document in the worker", () => {
     expect(card.edits).toBe(2);
     expect(card.features.some((f) => f.id === forest.id)).toBe(true);
 
-    // change a setting and regenerate: the player's features are kept
+    const edited = await ed.exportTimber(true);
+    expect(edited.ok).toBe(true);
+
+    // Generate with another setting: a new map, made as if nothing was edited (the page's Generate
+    // runs the generator alone; the edited map stays the open document)
     const hard = makeSpec({ seed: 77, size: { x: W, y: W }, designedFor: "hard" });
-    const r = await ed.regenerate(hard);
-    expect(r.errors).toEqual([]);
-    expect(r.ok).toBe(true);
-    expect(r.response!.spec.designedFor).toBe("hard");
-    for (const f of [forest, plateau]) expect(r.info.features.find((x) => x.id === f.id)).toEqual(f);
-    expect(r.response!.entities.filter((e) => e.owner === forest.id).length).toBeGreaterThan(0);
+    const fresh = generate(hard);
+    const made = await runGenerate(hard);
+    expect(made.spec.designedFor).toBe("hard");
+    expect(Buffer.from(made.heights).equals(Buffer.from(fresh.built.heights))).toBe(true);
+    expect(made.features.some((f) => f.id === forest.id || f.id === plateau.id)).toBe(false);
+    expect(made.edits).toBe(0);
 
-    // refine again: the edits are in the history and on the map
+    // the edited map is one step away (Back to editing), exactly as it was
     const again = ed.sessionView();
+    expect(again.info.spec!.designedFor).toBe("normal");
     expect(again.info.edits).toBe(2);
-    expect(again.info.history.map((h) => h.label)).toEqual(["Add forest", "Add landform", "Change settings and regenerate"]);
+    expect(again.info.history.map((h) => h.label)).toEqual(["Add forest", "Add landform"]);
     for (let y = 80; y <= 88; y++) for (let x = 80; x <= 88; x++) expect(again.view.heights[y * W + x]).toBe(14);
-
-    // undo the regeneration, then redo it
-    const back = ed.undo();
-    expect(back.info.spec!.designedFor).toBe("normal");
-    const fwd = ed.redo();
-    expect(fwd.info.spec!.designedFor).toBe("hard");
+    expect(ed.undo().info.edits).toBe(1);
+    expect(ed.redo().info.edits).toBe(2);
+    const still = await ed.exportTimber(true);
+    expect(Buffer.from(still.bytes).equals(Buffer.from(edited.bytes))).toBe(true);
 
     // the export check (export profile) and the export
     const c = ed.exportCheck();
@@ -95,31 +98,6 @@ describe("the editor's document in the worker", () => {
     const one = ed.jump(0);
     expect(one.info.history.map((h) => h.applied)).toEqual([true, false]);
     expect(one.view.entities!.count).toBe(r.built.entities.length - 1);
-  });
-
-  it("undo and redo across a change of size send the whole map at its own size (fix/size-edits)", async () => {
-    // an unedited map generated again at another size (the settings step of Claude, later a replaced
-    // map brought back): the view the page built is for the other size, so it is sent whole
-    const spec = makeSpec({ seed: 5, size: { x: W, y: W } });
-    const r = generate(spec);
-    await runGenerate(spec);
-    ed.refine();
-    const g = await ed.regenerate(makeSpec({ seed: 5, size: { x: 128, y: 128 } }));
-    expect(g.ok).toBe(true);
-    const big = ed.sessionView();
-    expect(big.view.W).toBe(128);
-    const back = ed.undo();
-    expect(back.info.W).toBe(W);
-    expect(back.view.reopen?.view.W).toBe(W);
-    expect(back.view.reopen?.view.H).toBe(W);
-    expect(Buffer.from(back.view.reopen!.view.heights).equals(Buffer.from(r.built.heights))).toBe(true);
-    expect(back.view.reopen!.view.entities.count).toBe(r.built.entities.length);
-    expect(back.view.heights).toBeUndefined();
-    const fwd = ed.redo();
-    expect(fwd.view.reopen?.view.W).toBe(128);
-    expect(Buffer.from(fwd.view.reopen!.view.heights).equals(Buffer.from(big.view.heights))).toBe(true);
-    // the history's jump too
-    expect(ed.jump(-1).view.reopen?.view.W).toBe(W);
   });
 
   it("an imported map opens with its own water, and exports unchanged even with its own problems", async () => {

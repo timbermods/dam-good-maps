@@ -1,7 +1,8 @@
 // The app (PLAN §14.1, EDITOR_PLAN §4): generate → refine → play as one page. The settings page
 // shows the map (2D, or 3D on request) with its card and downloads; "Refine this map" opens it in
-// the editor, and "Back to settings" returns with the edits kept. Generating again while the map
-// has edits regenerates around them (a settings change, PLAN §19.1). Any .timber or project file
+// the editor, and "Back to settings" returns with the edits kept. Generate always makes a new map:
+// edits never replay onto new land (PLAN §20, D336), so an edited map stays open and saved beside
+// it, one step away (Back to editing). Any .timber or project file
 // opens in the editor. The open map is autosaved in the browser. A Real places link
 // (`#place=<id>`, from the gallery's Refine) opens that place in the editor.
 
@@ -71,11 +72,6 @@ window.dgm = {
   },
 };
 
-/** What the page says when the new map is fine but the player's edits fail a check on it. */
-export function editProblemsNote(n: number): string {
-  return `The new map is ready. Your edits leave ${n === 1 ? "a problem" : `${n} problems`} on it, listed in the map's checks below. Refine the map to fix ${n === 1 ? "it" : "them"}.`;
-}
-
 function randomSeed(): number {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
@@ -135,7 +131,7 @@ export function App() {
   /** While a new map is made: its stage and first look. */
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | undefined>(init.note);
+  const [note] = useState<string | undefined>(init.note);
   const [layers, setLayers] = useState<Layers>({ water: true, moisture: false, contamination: false, reach: false, dam: true, entities: true, features: false });
   const [downloaded, setDownloaded] = useState(false);
   const [timberborn, setTimberborn] = useState<SaveToTimberbornResult | null>(null);
@@ -163,11 +159,8 @@ export function App() {
     [seedText, size, difficulty, theme, settings],
   );
   const stale = !!result && encodeSpecFragment(result.spec) !== encodeSpecFragment(spec);
+  // the shown map has edits: Generate makes a new map beside it, and it stays open and saved (D336)
   const edited = fromSession && !!session && session.kind === "generated" && session.edits > 0;
-  // edits are recorded in the map's tiles, so they are kept only at the same size: a new size makes
-  // a new map, and the edited one stays open and saved (decisions-pending #94)
-  const resized = edited && (size.x !== session!.W || size.y !== session!.H);
-  const keeping = edited && !resized;
   // an edited map the settings page isn't showing (a new map was made beside it)
   const aside = !!session && (session.kind === "import" || (!fromSession && session.edits > 0));
 
@@ -228,23 +221,8 @@ export function App() {
     setDownloaded(false);
     setTimberborn(null);
     try {
-      if (keeping) {
-        // keep the player's edits: regenerate the open document with the new settings
-        const r = await generator.regenerate(s);
-        setSession(r.info);
-        if (!r.ok || !r.response) {
-          setError(`The map was not changed: ${r.errors.join("; ")}`);
-          return;
-        }
-        setResult(r.response);
-        scheduleSave();
-        history.replaceState(null, "", "#" + encodeSpecFragment(r.response.spec));
-        if (r.editProblems.length) setNote(editProblemsNote(r.editProblems.length));
-        else if (!r.response.passed) setError(`No layout passed every check after ${r.response.attempts} attempts; this is the last one. Try another seed.`);
-        return;
-      }
       if (session && session.kind === "generated" && session.edits === 0) {
-        // nothing to keep: the open document was the unedited map
+        // nothing to keep: the open document was the unedited map (an edited one stays open, D336)
         await generator.closeSession();
         setSession(null);
         void storage.clear();
@@ -388,21 +366,6 @@ export function App() {
     }
   }
 
-  function discardEdits() {
-    setConfirm({
-      text: `Discard your ${session?.edits ?? 0} edits and show the generated map? This cannot be undone.`,
-      yes: "Discard edits",
-      onYes: () =>
-        void (async () => {
-          await generator.closeSession();
-          setSession(null);
-          setFromSession(false);
-          await storage.clear();
-          await run(spec);
-        })(),
-    });
-  }
-
   // ------------------------------------------------------------------------------- autosave
 
   function scheduleSave() {
@@ -482,7 +445,7 @@ export function App() {
     return (
       <>
         {EditorMod ? (
-          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} onReopen={enterEditor} saveState={saveState} />
+          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} saveState={saveState} />
         ) : (
           <div class="placeholder">Opening the editor…</div>
         )}
@@ -570,20 +533,9 @@ export function App() {
           />
           <div class="generate-bar">
             <button type="button" class="primary" disabled={busy || !!opening} onClick={() => run(spec)}>
-              {busy ? "Generating…" : keeping ? "Generate, keeping my edits" : resized ? "Generate a new map" : stale ? "Generate (settings changed)" : "Generate"}
+              {busy ? "Generating…" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
-            {resized ? (
-              <p class="note">
-                Your edits stay on your {session!.W}×{session!.H} map. A new size makes a new map.
-              </p>
-            ) : keeping ? (
-              <p class="note">
-                Your {session!.edits} edit{session!.edits > 1 ? "s stay" : " stays"} when you generate again.{" "}
-                <button type="button" class="linkish" onClick={discardEdits}>
-                  Discard edits
-                </button>
-              </p>
-            ) : null}
+            {edited ? <p class="note">Generate makes a new map. Yours stays saved, with its edits.</p> : null}
           </div>
           {note && <p class="note">{note}</p>}
           {openInput}

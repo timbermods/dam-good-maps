@@ -61,9 +61,6 @@ export interface EditorProps {
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
-  /** The map changed size (an undo or redo across a regeneration at another size): the page opens
-   *  it again, with a view built for its size. */
-  onReopen(data: SessionOpen): void;
   saveState: string;
 }
 
@@ -408,8 +405,6 @@ export default function Editor(props: EditorProps) {
   }
 
   function applyUpdate(u: SessionUpdate): void {
-    // a map of another size: the view is built again for it (the page opens it afresh)
-    if (u.view.reopen) return props.onReopen(u.view.reopen);
     applyView(u.view);
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
@@ -431,7 +426,6 @@ export default function Editor(props: EditorProps) {
    *  are on their way to the worker, the page's own terrain is ahead of the worker's: its
    *  terrain waits for the last of them (it is the same, byte for byte). */
   function applyView(v: ViewUpdate): void {
-    if (v.reopen) return props.onReopen(v.reopen);
     const r = renderer.current;
     const m = mirror.current;
     if (v.heights && pendingTerrain.current === 0) {

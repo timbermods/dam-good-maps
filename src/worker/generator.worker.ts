@@ -18,8 +18,7 @@ function responseBuffers(r: GenerateResponse): Transferable[] {
 }
 
 function sendUpdate<T extends ed.SessionUpdate>(u: T): T {
-  const o = u.view.reopen;
-  return transfer(u, viewBuffers(o ? { ...o.view, terrain: o.terrain } : u.view) as Transferable[]);
+  return transfer(u, viewBuffers(u.view) as Transferable[]);
 }
 
 function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
@@ -130,10 +129,6 @@ const api = {
   async settingsResponse(): Promise<GenerateResponse> {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
-  },
-  async regenerate(spec: MapSpec) {
-    const r = await ed.regenerate(spec);
-    return r.response ? transfer(r, responseBuffers(r.response)) : r;
   },
   exportCheck: () => ed.exportCheck(),
   waterLayers() {

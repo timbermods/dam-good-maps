@@ -326,7 +326,7 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 ## 8. The generator, Claude and the first run
 
-**The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, Kyler's UI round, 2026-09-29).** Where the list below disagrees with the brief, the brief wins: one workspace with no expand button, full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map card, Your maps) and the rows over the map hold the land; Generate runs only on its button. D233 (1), (2) and (4), and its regenerating on a setting change, are superseded.
+**The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, Kyler's UI round, 2026-09-29).** Where the list below disagrees with the brief, the brief wins: one workspace with no expand button, full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map card, Your maps) and the rows over the map hold the land; Generate runs only on its button. D233 (1), (2) and (4), and its regenerating on a setting change, are superseded. **Edits never replay onto new land** (D336): every Generate makes a new map, at any size or setting; an edited map stays saved and one step away.
 
 **Decided, to be built after the forces round 2 and M9a's release (D232–D234):**
 - **3D everywhere** (D232): 3D is the default view; the 2D toggle goes (Top-down and the minimap cover it), with an automatic
@@ -348,10 +348,11 @@ keyboard, with labels for screen readers. (D180, D184, D196, D205, D212.)
 
 **As built today:**
 
-- **"Refine this map"** opens the editor; **"Generate, keeping my edits"** rebuilds the land around
-  what the player has painted, showing it grow, never a frozen wait. Edits are kept only at the same
-  size: with another size the button reads **Generate a new map**, the new map is made beside the
-  edited one, which stays open and saved, and **Back to editing** returns to it (decisions-pending #94).
+- **"Refine this map"** opens the editor. **Generate** always makes a new map (D336): when the
+  shown map has edits, the note under the button says "Generate makes a new map. Yours stays saved,
+  with its edits."; the new map is made beside it, the edited map stays open and autosaved, and the
+  banner's **Back to editing** returns to it. Refining the new map asks first, as opening any other
+  map does.
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players
   won't use it, so it never takes permanent space. Claude steers the generator for character and
   uses the tools only for precise edits (D139, D187).
@@ -418,8 +419,8 @@ MapDocument {
 ```
 
 **The generator's features are its plan, not editing objects.** The generator builds every map from
-parametric features (`PLAN.md` §19.2) and keeps them in the document, so "Generate, keeping my edits"
-and the analysis can use them. The editor does not show them as objects with handles (D182, D184):
+parametric features (`PLAN.md` §19.2) and keeps them in the document, so the analysis and Claude's
+steering can use them. The editor does not show them as objects with handles (D182, D184):
 the player shapes the land with the brushes and places things from the shelf. Set-piece builders
 stay shared with the generator (`PLAN.md` §19.3). Saved projects that hold landform features from
 before D182 open with their land exactly as it was, as plain terrain.
@@ -429,8 +430,8 @@ before D182 open with their land exactly as it was, as plain terrain.
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
 brush strokes, placements and moves, source changes, removals, the Select tool's actions, and
-`specPatch` (a JSON Merge Patch on the `MapSpec`). Every stroke replays exactly and survives
-regeneration and format 3. A Lower stroke that starts in or beside
+Every stroke replays exactly onto its own land and survives format 3. There is no settings change
+among them: edits never replay onto new land (D336). A Lower stroke that starts in or beside
 water records `channel` (smart Lower): its bed starts one level below the surface of the water round its first dab (D263;
 strokes saved before D263 keep their old start, the lowest ground there, and replay exactly) and never rises along the stroke, so the replay carves the same bed. A stroke also records the brush
 kit's options it used: square, precise (each dab's depth in levels, a stop level), the tiles it
@@ -448,20 +449,21 @@ back). Operations validate their inputs against the
 schemas and reject invalid ones instead of clamping silently.
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the
-planned features and the stored base, D37). A `specPatch` replaces the generation and replays the
-log on it; everything else joins the log.
+planned features and the stored base, D37). The log replays only onto that generation: undo and
+redo, reopening a project and share links. **Edits never replay onto new land** (D336): an edit
+only means something on the land it was made for, so nothing replaces a document's generation
+under its log. Generate makes a new map, and an older map opens exactly as it was saved, with no
+rebuild that keeps its edits.
 
 **Stable identity** is defined in `PLAN.md` §19.4:
 - generated features are hashed from the seed, their kind and their role in the plan, not their position in a list;
 - the player's and Claude's placements get a stored UUID;
 - entities are hashed from their owning feature.
 
-Edits referencing them therefore survive regeneration wherever the referenced object still exists. When a referenced object disappears, the edit is flagged as orphaned and shown to the user, never silently dropped.
+Edits referencing them therefore survive other edits wherever the referenced object still exists. When a referenced object disappears, the edit is flagged as orphaned and shown to the user, never silently dropped.
 
 **Conflict rules**
-- Regeneration never touches locked regions or the player's own strokes and placements. The generator receives them as constraints (`MapSpec.constraints`, `PLAN.md` §7.0) and plans around them.
-- "Generate, keeping my edits" rebuilds the generated land but keeps the player's strokes, placements and Claude's accepted changes, re-snapping them to the new terrain and flagging any that no longer fit. Only at the same size: edits are recorded in the map's tiles, so on a map of another size they would land on other tiles. A regeneration at another size is refused while the map has edits, and the page makes a new map beside the edited one instead (decisions-pending #94).
-- `RegenerateRegion` replaces generated content in its area but keeps the player's strokes and placements, unless the player chooses to replace them.
+- Edits never replay onto new land (D336): there is no regeneration under the player's edits, at any size or setting, and no rebuild with a newer generator that keeps them. Generate makes a new map beside the edited one, which stays saved and one step away.
 - When terrain changes under an entity, the entity snaps to the new ground if placement stays valid; otherwise it's flagged with a fix option.
 
 **Working representation.**
@@ -475,7 +477,7 @@ Edits referencing them therefore survive regeneration wherever the referenced ob
 - Autosave in the browser through the storage adapter (`PLAN.md` §19.9; IndexedDB on the website), guarded against storage failures; recover the last session on reload (`PLAN.md` §20, D44).
 - `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into a new imported map.
 
-**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The history is visible as a list the user can step back through. An undo or redo across a regeneration at another size (an unedited map regenerated, or a replaced map brought back) restores that map exactly, and the page builds its view again for it: the worker sends the whole map, as when it is opened.
+**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The history is visible as a list the user can step back through. Undo never crosses from one map to another: each document keeps its own land (D336). When UI-BRIEF §6's undo brings back a replaced map, the page opens that map afresh, with a view built for its size.
 
 ## Checks and water
 
@@ -512,7 +514,7 @@ editable objects are superseded (D182, D184).
 
 Claude lets users fine-tune a map in plain language, for example: "add a giant waterfall in the north part of the map that is roughly 20 blocks wide," "make it a bit wider," "move the start closer to the lake," or "put more ruins on the eastern plateau." Requests like these must work reliably, with results that match what was asked.
 
-**Claude steers the generator; it never hand-builds the map** (`PLAN.md`, Product principles; §20 D139, D256). When a request asks for character or new features ("make this valley harsher", "give me a huge dam opportunity halfway down", "put the start under a cliff"), Claude turns it into intentions (outcomes, not recipes; D138) and settings, steering whole-map generation toward them ("describe the map you want" and its candidates); Claude checks the result with the analysis and reports honestly what emerged and what didn't. A request for local change ("make the north mountainous", "add a big waterfall") uses the forces instead. Requests that change the map's character ("harsher", "more vertical", "more varied") steer too, through settings and regenerating (D145). Editor operations, below, are for precise edits the player asks for ("move the start here", "widen this river by two", "delete that forest") and for precise follow-ups ("make it wider"). Where this section's tables name a builder as a character word's lever (a huge dam opportunity), M12 steers the generator instead; no dam wall is ever built (D111).
+**Claude steers the generator; it never hand-builds the map** (`PLAN.md`, Product principles; §20 D139, D256). When a request asks for character or new features ("make this valley harsher", "give me a huge dam opportunity halfway down", "put the start under a cliff"), Claude turns it into intentions (outcomes, not recipes; D138) and settings, steering whole-map generation toward them ("describe the map you want" and its candidates); Claude checks the result with the analysis and reports honestly what emerged and what didn't. A request for local change ("make the north mountainous", "add a big waterfall") uses the forces instead. Requests that change the map's character ("harsher", "more vertical", "more varied") steer too, through settings and a new map (D145; an edited map stays saved beside it, D336). Editor operations, below, are for precise edits the player asks for ("move the start here", "widen this river by two", "delete that forest") and for precise follow-ups ("make it wider"). Where this section's tables name a builder as a character word's lever (a huge dam opportunity), M12 steers the generator instead; no dam wall is ever built (D111).
 
 **Describe the map you want** (D139). A player types a sentence. Claude turns it into intentions; the generator makes several candidates steered toward them; the analysis checks which really have them; Claude shows the ones that do and says honestly what didn't emerge. Editor operations only for small touches the player asks for. The first good candidate appears quickly, and more stream in behind it while the player looks; progress is shown, and the player can act on the first result.
 
@@ -537,7 +539,7 @@ Claude lets users fine-tune a map in plain language, for example: "add a giant w
 - **levers:** the settings (`PLAN.md` §5) or builders that move the targets;
 - **aliases** ("tougher," "greener," "deadly," …), and "a bit" or "much" of each.
 
-Playability checks are guards, never traded away to meet a word: every check that passes now must still pass, the advisory start targets included (D91). When a full step would break a guard, the word backs its levers off, riskiest first, and the report says what was held back. It also says when a word's settings are already at their limits, or when its theme is marked weak for it (roomier on Canyon: the walls fix the floor, so a landform or a moved start is offered instead). Judgement words change the map's settings, which regenerate the whole map; the player's own features stay. A word used about part of the map ("make this valley harsher") is applied map-wide and reported as map-wide (D94; decisions-pending #43).
+Playability checks are guards, never traded away to meet a word: every check that passes now must still pass, the advisory start targets included (D91). When a full step would break a guard, the word backs its levers off, riskiest first, and the report says what was held back. It also says when a word's settings are already at their limits, or when its theme is marked weak for it (roomier on Canyon: the walls fix the floor, so a landform or a moved start is offered instead). Judgement words change the map's settings, which make a new map; the edited one stays saved and one step away (edits never replay onto new land, D336). A word used about part of the map ("make this valley harsher") is applied map-wide and reported as map-wide (D94; decisions-pending #43).
 
 | Word (opposite) | Targets and direction | Levers | Official range (p10 / median / p90) | Guards and limits |
 |---|---|---|---|---|
@@ -577,7 +579,7 @@ A mismatch goes back to Claude to revise, just like a validation failure.
 
 **Compound requests.** Requests are often compound and vague, for example: "Make this valley harsher. Put the start upstream, give me a huge dam opportunity halfway down, and create a dangerous badwater route on the opposite side." Claude breaks such a request into bounded operations, and the engine tells it whether each idea is feasible (`PLAN.md` §20, D84). The builders, limits, `dry_run` and intent checks already cover a single request; a compound one adds:
 - **Goals.** Claude splits the request into goals, each with its own measurable expectations (the judgement-word targets, places from the resolver, sizes from the builders' ranges).
-- **Order.** Settings changes and the regeneration they cause come first, then placements. Regeneration keeps Claude's features, as it keeps the player's (the map document, conflict rules). The app applies the steps in its own order, each on the map the previous ones left, and says so when that differs from Claude's: settings, deletions, the start, moves and changes, sources, dam sites and gorges, falls and cliffs, badwater, sculpts and brushes, a hollow's spring, resources (D90).
+- **Order.** Settings changes come first, then placements. A settings change makes a new map (edits never replay onto new land, D336), so Claude's placements are made on it after the change, never carried across. The app applies the steps in its own order, each on the map the previous ones left, and says so when that differs from Claude's: settings, deletions, the start, moves and changes, sources, dam sites and gorges, falls and cliffs, badwater, sculpts and brushes, a hollow's spring, resources (D90).
 - **Combined check.** Every goal's expectations are checked against the combined preview, not one at a time. The app measures them; it never takes Claude's own expectations as the result.
 - **Interference.** The engine detects goals that interfere and names them. For example: badwater joining a river above a dam site poisons the reservoir (through its outlet, its channel, or the reservoir rising over it); less flow shrinks a reservoir, and fills it more slowly; badwater near the start breaks the start rules. It also names a new piece shrinking an existing reservoir, a regenerated map moving the start (D95), a builder's reduction, what a step cleared, and settings being map-wide.
 - **Guards** hold for the whole proposal (D91): a step that breaks one is named.
