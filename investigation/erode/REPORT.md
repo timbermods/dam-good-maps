@@ -1,5 +1,10 @@
 # Erode: the report
 
+## Round 6
+
+**Floor** in More sets the minimum cut level for every Erode form: default **1**, range **1–22**, pinnable with a fixed-default reset (never Auto). Washes run shallower where it limits depth.
+**PASS:** support, bottom layer and chosen Floor across 240 case/repeated gestures, 160 additional random gestures and 240 animation buckets; prior default results unchanged. Pin/reload/reset and TypeScript pass; giant wash final in **0.662 s**. [Checks](checks/results.json) · [Control and timing checks](checks/round6-browser.json).
+
 ## Round 5
 
 Every Erode gesture now preserves the bottom voxel. Uneven washes cut **one to three levels at most**, measured from the local ground; a crest feeds separate downhill runs instead of being notched through. These two 128² captures use Power 100 / Size 100, Auto details, seed 1.

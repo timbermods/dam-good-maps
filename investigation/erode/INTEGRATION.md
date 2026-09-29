@@ -6,6 +6,7 @@ mesher is one candidate for 3D-c's view.
 
 Round 2 adds optional `ErodeSettings.details` (null = Auto, number = pinned), `ErodeInput.water`, and resolved `ErodePlan.details`/`wash`; retain resolved details with the operation and persist pins/More with editor preferences.
 Round 5 adds optional `wash.runs` (each downhill path and its outlet); the existing `path`/`outlet` fields alias the first run. Drainage validation must seed every run's outlet.
+Round 6 adds optional `ErodeSettings.floor`: minimum cut level, clamped to 1–22, default 1. Persist its pin separately from Auto details; resetting the pin returns to 1.
 Round 2 supersedes the surface-preservation and 2–4-second assumptions below: washes and low lips lower surfaces (reconcile objects/start and re-settle water on adoption); the same 24 buckets finish in 0.65 seconds from gesture end, with lingering effects interrupted by the next gesture.
 
 ## What it needs first (3D-a)

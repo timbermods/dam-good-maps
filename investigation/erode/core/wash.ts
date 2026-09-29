@@ -1,6 +1,6 @@
 // Original dry-wash planner. A gesture makes the trunk; a least-excavation outlet continues it.
 // A drainage tree levels the bed crosswise and can only lower it toward the outlet.
-import type { ErodeInput, ErodePlan, ErodeSettings, Gesture } from "./erode";
+import { erosionFloor, type ErodeInput, type ErodePlan, type ErodeSettings, type Gesture } from "./erode";
 import { clamp, hash, noise3 } from "./random";
 import { support } from "./support";
 import { LAYERS } from "./terrain";
@@ -19,6 +19,7 @@ export function pickDetails(set: ErodeSettings, height: number): WashDetails {
 
 export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
   const started = performance.now(), before = input.terrain, t = before.clone(), { W, H, N } = t;
+  const cutFloor = erosionFloor(set);
   const P = clamp(set.power / 100, 0, 1), S = clamp((set.size ?? 25 + 0.6 * set.power) / 100, 0, 1);
   const width = 1 + 8 * S * S, incision = 1 + Math.round(7 * P * P);
   // Small washes retain round 2's simple section. Broad, deep arroyos expose different beds.
@@ -209,7 +210,11 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
         if (j >= 0 && floor[j] > floor[i]) { floor[j] = floor[i]; lowering.push(j); }
     }
   }
-  for (const i of order) for (let z = floor[i]; z < LAYERS; z++) t.set(i, z, false);
+  // Clip the bed to the rule without truncating its route: restricted reaches simply run shallow.
+  for (const i of order) {
+    floor[i] = Math.max(cutFloor, floor[i]);
+    for (let z = floor[i]; z < LAYERS; z++) t.set(i, z, false);
+  }
   // Short cantilevers along pockets of the banks, with the same flat bed and up to five levels
   // of clearance. Their footprint is limited to three tiles; the support pass trims corners.
   if (details.undercutBanks > 0) {
@@ -224,7 +229,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
           if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) break;
           const j = yy * W + xx;
           if (input.keep?.[j] || mask[j] || heights[j] < z0 + 4) break;
-          for (let z = Math.max(1, z0, uneven ? heights[j] - cap : 1); z < Math.min(heights[j] - 2, z0 + 5); z++) t.set(j, z, false);
+          for (let z = Math.max(cutFloor, z0, uneven ? heights[j] - cap : 1); z < Math.min(heights[j] - 2, z0 + 5); z++) t.set(j, z, false);
         }
       }
     }

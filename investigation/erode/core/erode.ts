@@ -14,11 +14,16 @@ export interface ErodeSettings {
   size: number | null;
   /** The personality (Try another). */
   seed: number;
+  /** Lowest permitted cut level, 1–22; missing means the fixed default of 1. */
+  floor?: number;
   /** null/missing details are nature's pick; numeric values are pinned (D309). */
   details?: Partial<{ [K in keyof WashDetails]: number | null }>;
 }
 
 export const DEFAULTS: ErodeSettings = { power: 55, size: null, seed: 1 };
+
+export const erosionFloor = (set: ErodeSettings) =>
+  clamp(Math.round(Number.isFinite(set.floor) ? set.floor! : 1), 1, LAYERS - 1);
 
 /** The size Auto gives at a power. */
 export const autoSize = (power: number) => Math.round(clamp(25 + 0.6 * power, 0, 100));
@@ -103,6 +108,7 @@ function nearest(pts: Pt[], x: number, y: number): { d: number; z: number | unde
 export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSettings): ErodePlan {
   const t0 = performance.now();
   const { terrain: before, keep, rock } = input;
+  const cutFloor = erosionFloor(set);
   const t = before.clone();
   const { W, H, N } = t;
   const pts = gesture.points.map(q => ({ x: clamp(q.x, 0, W - 0.01), y: clamp(q.y, 0, H - 0.01), z: q.z }));
@@ -205,7 +211,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   const ceiling = new Uint8Array(N);
   const step = new Map<number, number>();
   const remove = (i: number, z: number, d: number) => {
-    if (!t.at(i, z)) return;
+    if (z < cutFloor || !t.at(i, z)) return;
     t.set(i, z, false);
     step.set(z * N + i, clamp(Math.floor(d / (p.depth + 1) * (STEPS - 1)), 0, STEPS - 1));
   };
@@ -325,11 +331,11 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   // Remove redundant columns as whole clusters, never individual blocks from their feet.
   for (let k = columns.length - 1; k >= 0; k--) {
     const saved = columns[k].map(i => [i, t.cols[i]]);
-    for (const [i] of saved) for (let z = floor; z < ceiling[i]; z++) t.set(i, z, false);
+    for (const [i] of saved) for (let z = Math.max(floor, cutFloor); z < ceiling[i]; z++) t.set(i, z, false);
     if (support(t, nonPlain()).unsupported.length) {
       for (const [i, mask] of saved) t.cols[i] = mask;
     } else {
-      for (const [i, mask] of saved) for (let z = floor; z < ceiling[i]; z++)
+      for (const [i, mask] of saved) for (let z = Math.max(floor, cutFloor); z < ceiling[i]; z++)
         if ((mask >>> z) & 1) step.set(z * N + i, STEPS - 1);
     }
   }
@@ -357,7 +363,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
   // larger components. Check support before removing a remnant from an existing cave.
   const touched = new Set(queue.flatMap(i => [i, i - 1, i + 1, i - W, i + W]));
   const seen = new Set<number>();
-  for (const i of touched) for (let z = floor; z < Math.min(LAYERS, floor + HEADROOM); z++) {
+  for (const i of touched) for (let z = Math.max(floor, cutFloor); z < Math.min(LAYERS, floor + HEADROOM); z++) {
     const start = z * N + i;
     if (i < 0 || i >= N || !allowed(i) || !t.at(i, z) || seen.has(start)) continue;
     const q = [start];
@@ -368,7 +374,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
       const v = q[k], vz = Math.floor(v / N), j = v % N, x = j % W, y = Math.floor(j / W);
       if (vz >= floor + HEADROOM || !allowed(j)) { attached = true; break; }
       const ns = [x > 0 ? v - 1 : -1, x < W - 1 ? v + 1 : -1,
-        y > 0 ? v - W : -1, y < H - 1 ? v + W : -1, vz > floor ? v - N : -1, v + N];
+        y > 0 ? v - W : -1, y < H - 1 ? v + W : -1, vz > Math.max(floor, cutFloor) ? v - N : -1, v + N];
       for (const n of ns) {
         if (n < 0 || n >= N * LAYERS || !t.at(n % N, Math.floor(n / N))) continue;
         if (seen.has(n)) { if (!component.has(n)) attached = true; continue; }

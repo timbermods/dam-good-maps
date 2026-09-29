@@ -1,6 +1,18 @@
 {
- "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)",
+ "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round6": {
+  "result": "PASS",
+  "floorRange": "1–22 on all ten cases",
+  "gestures": 240,
+  "animationBuckets": 240,
+  "support": "PASS",
+  "bottomLayer": "PASS",
+  "chosenFloor": "PASS",
+  "belowFloorVoxelsRemoved": 0,
+  "defaultResultsUnchanged": "PASS",
+  "shallowerWashesWithDrainage": 58
+ },
  "round5": {
   "result": "PASS",
   "cases": [
@@ -454,7 +466,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 9.5,
+   "msToFinal": 12.3,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -489,7 +501,7 @@
    "blocksOverAir": 64,
    "deepest": 10,
    "roofedTiles": 64,
-   "msToFinal": 3.1,
+   "msToFinal": 4.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -524,7 +536,7 @@
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 3.1,
+   "msToFinal": 2.8,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -559,7 +571,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.5,
+   "msToFinal": 1.3,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -594,7 +606,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4.5,
+   "msToFinal": 4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -629,7 +641,7 @@
    "blocksOverAir": 78,
    "deepest": 2,
    "roofedTiles": 78,
-   "msToFinal": 18.4,
+   "msToFinal": 19,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -664,7 +676,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 7,
+   "msToFinal": 6.4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -699,7 +711,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 6.4,
+   "msToFinal": 6.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -734,7 +746,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 4.3,
+   "msToFinal": 4,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -769,7 +781,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 9.9,
+   "msToFinal": 10.7,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -800,8 +812,11 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 16,
+   "slowestMs": 12,
    "result": "PASS"
   },
   {
@@ -810,6 +825,9 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
    "slowestMs": 6,
    "result": "PASS"
@@ -820,8 +838,11 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
-   "slowestMs": 6,
+   "slowestMs": 8,
    "result": "PASS"
   },
   {
@@ -830,6 +851,9 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
    "maxReach": 3,
    "slowestMs": 8,
    "result": "PASS"

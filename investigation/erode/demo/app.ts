@@ -8,11 +8,11 @@
 //   rock wears away over 2 to 4 seconds in the order it wore, dust and rubble falling, the opening
 //   revealed as it clears. Round 2 finishes the land within about a second. The camera never moves by itself (D265).
 import * as THREE from "three";
-import { autoSize, DEFAULTS, type ErodeSettings, type Gesture } from "../core/erode";
+import { autoSize, DEFAULTS, erosionFloor, type ErodeSettings, type Gesture } from "../core/erode";
 import { fromJson, washMap, type ErodeMap, type MapJson, type Thing } from "../core/map";
 import { unevenMap } from "./uneven";
 import { DETAIL_LABELS, type WashDetails } from "../core/wash";
-import { Terrain } from "../core/terrain";
+import { LAYERS, Terrain } from "../core/terrain";
 import { waterPools } from "../core/water";
 import { Sounds } from "./audio";
 import { CASES, type Case } from "./cases";
@@ -61,6 +61,10 @@ const state = {
   lastFinalMs: 0,
 };
 try { state.settings.details = JSON.parse(localStorage.getItem("erode-details") ?? "{}"); } catch { /* use Auto */ }
+try {
+  const saved = localStorage.getItem("erode-floor");
+  if (saved !== null) state.settings.floor = erosionFloor({ ...DEFAULTS, floor: Number(saved) });
+} catch { /* fixed default: 1 */ }
 let clock = 0;
 const now = () => (state.manual ? clock : performance.now());
 
@@ -166,7 +170,29 @@ for (const key of Object.keys(DETAIL_LABELS) as (keyof WashDetails)[]) {
   pin.addEventListener("click", e => { e.preventDefault(); setPin(state.settings.details?.[key] == null ? Number(slider.value) : null); });
   row.append(text, slider, value, pin); detailPanel.append(row); detailRows.set(key, { slider, value, pin });
 }
+const floorRow = document.createElement("label"), floorText = document.createElement("span");
+floorText.textContent = "Floor";
+const floorSlider = document.createElement("input");
+floorSlider.type = "range"; floorSlider.min = "1"; floorSlider.max = String(LAYERS - 1); floorSlider.step = "1";
+floorSlider.setAttribute("aria-label", "Floor"); floorSlider.title = "Lowest level Erode may cut down to";
+const floorValue = document.createElement("output"), floorPin = document.createElement("button"); floorPin.type = "button";
+function setFloor(value?: number): void {
+  state.settings.floor = value;
+  try {
+    if (value === undefined) localStorage.removeItem("erode-floor");
+    else localStorage.setItem("erode-floor", String(value));
+  } catch { /* optional storage */ }
+  syncDetails();
+}
+floorSlider.addEventListener("input", () => setFloor(Number(floorSlider.value)));
+floorPin.addEventListener("click", e => { e.preventDefault(); setFloor(state.settings.floor === undefined ? Number(floorSlider.value) : undefined); });
+floorRow.append(floorText, floorSlider, floorValue, floorPin); detailPanel.append(floorRow);
 function syncDetails(): void {
+  const pinned = state.settings.floor !== undefined, floor = erosionFloor(state.settings);
+  floorSlider.value = String(floor);
+  floorValue.textContent = `${floor} · ${pinned ? "pinned" : "default"}`;
+  floorPin.textContent = pinned ? "Default" : "Pin";
+  floorPin.setAttribute("aria-label", pinned ? "Reset to default Floor" : "Pin Floor");
   for (const [key, row] of detailRows) {
     const pin = state.settings.details?.[key], used = state.usedDetails?.[key];
     row.slider.value = String(pin ?? used ?? 50);
