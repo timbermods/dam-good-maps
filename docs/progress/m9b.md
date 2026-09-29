@@ -2,9 +2,9 @@
 
 > **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
 > (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
-> step by step below ("Batch 5"). Steps 1–2 in (`cdc2134c`); next: step 3 (item 27), step 4 (D329),
-> then the one re-pin (step 5). The re-pin is still paused (D308): the quick suite is red on
-> map-bound tests until step 5. Defaults this session chose: decisions-pending #135–#142.
+> step by step below ("Batch 5"). Steps 1–4 in (`068b4fac`); next: the one re-pin (step 5), then
+> D330's two generator pieces (Sources: None, the automatic water fix). The quick suite is red on
+> map-bound tests until the re-pin. Defaults this session chose: decisions-pending #135–#146.
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -32,6 +32,20 @@ for badwater; results in `investigation/m9b/local/measures/`, ignored).
   `analysis.walkReach`, item 24's with them), the settler's land on the settled water. Badwater
   contained (#142): land it reaches before the badtide, median per theme 96–361 → 71–144 tiles;
   none reaches the start's water or farmland. The new intention `district-behind` (#135).
+- **Step 3, item 27.** `src/core/water/edgeLip.ts` (callable, with its README section and
+  `tests/unit/edgeLip.test.ts`): the edge tiles an edge row's water would reach stand a level above
+  it. The course check seals only a mouth's own tiles (a wider seal hid the leak), the lip holds a
+  lake's shore at the edge too, and badwater ditches keep out of its reach (one carried a whole
+  river off the map). Maps losing over 5% of a head's water off the map beside its row, seeds 1–10
+  of every theme at 128²: 18 of 70 → 0.
+- **Step 4 (D329, replacing the step as written).** The first map that passes is the map
+  (`generate`), never swapped; its outcomes decide a background search (`gen/versions.ts`: up to 6
+  siblings, a worker of its own) for a version meeting all three, offered under Generate with a
+  short note (#143; misses that notify #144); "Looking for a better one" retired. Speed: mouth
+  tiles and path fields no longer sweep the whole map (the path field is the same bit for bit),
+  drainage reused across pit candidates, far badwater kept (#145), the bank start's land 800
+  tiles. One map at a time on this PC: to the map 128² median 1.7 s (p90 4.9), 256² 11.1 s (p90
+  25); first maps meeting all three 39% and 34%; targets proposed in #146.
 
 ## Handoff (2026-09-27, evening)
 

@@ -254,7 +254,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   upgradeVerticality((raw as { spec?: unknown }).spec);
   // a spec saved before M9b has no Variety: it opens with the default
   upgradeVariety((raw as { spec?: unknown }).spec);
-  // a tall map's spec saved before 0.9.0 with Highest terrain at 16 meant no cap (item 36)
+  // a tall map's spec saved before 0.8.0 (M9b) with Highest terrain at 16 meant no cap (item 36)
   upgradeHighestTerrain((raw as { spec?: unknown }).spec);
   if (raw.formatVersion === 1) return fromV1(raw as unknown as DocumentV1);
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);

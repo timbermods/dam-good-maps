@@ -158,14 +158,14 @@ export function highestTerrainDefault(verticality: number): number {
   return verticality >= VT_TALL ? TALL_TOP : EDITOR_LEVEL;
 }
 
-/** A spec stored before generator 0.9.0 at Verticality 70+ with Highest terrain at 16: the tall map
+/** A spec stored before generator 0.8.0 (M9b) at Verticality 70+ with Highest terrain at 16: the tall map
  *  ignored it then, so it means no cap (22). Changes the spec in place. */
 export function upgradeHighestTerrain(spec: unknown): void {
   const s = spec as { generatorVersion?: unknown; settings?: { terrain?: Record<string, unknown> } } | null;
   const t = s?.settings?.terrain;
   if (!t || typeof t !== "object" || typeof t.verticality !== "number" || t.verticality < VT_TALL || t.highestTerrain !== EDITOR_LEVEL) return;
   const v = typeof s!.generatorVersion === "string" ? s!.generatorVersion.split(".").map(Number) : [0];
-  if ((v[0] ?? 0) === 0 && (v[1] ?? 0) < 9) t.highestTerrain = TALL_TOP;
+  if ((v[0] ?? 0) === 0 && (v[1] ?? 0) < 8) t.highestTerrain = TALL_TOP;
 }
 
 /** Verticality's defaults by theme (investigation/terrain3d; decisions-pending #60, D209): ordinary
