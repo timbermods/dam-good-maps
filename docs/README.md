@@ -19,6 +19,7 @@ pull request.
 | [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. |
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardsticks for every piece of work and every review (D225). |
 | [UI-QUESTIONS.md](UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
+| [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 
 ## History
 

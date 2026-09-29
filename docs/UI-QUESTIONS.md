@@ -45,18 +45,20 @@ are in [the forces-preview feedback](feedback/2026-09-28-forces-preview.md) and
 
 ## Questions for the round
 
-1. Which controls are "the essentials" on the page: does each force get a row there, or one Forces button that opens the shelf?
+Kyler answered these in his round on 2026-09-29: [UI-BRIEF.md](UI-BRIEF.md) (D330).
+
+1. Which controls are "the essentials" on the page: does each force get a row there, or one Forces button that opens the shelf? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1, §4.**
 2. Where do settings live once the page is the editor: a panel beside the map, a drawer, or the expanded editor? What
-   happens to today's settings panel next to a live map?
-3. Where does the candidates strip sit, and how many thumbnails show before More? Does opening one keep the shown map's edits?
+   happens to today's settings panel next to a live map? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3.**
+3. Where does the candidates strip sit, and how many thumbnails show before More? Does opening one keep the shown map's edits? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §5, §6.**
 4. What does the page show about the map beyond its card: the checks dot, the two numbers, the five levers? Which are
-   always visible, which on hover, which in the expanded editor?
+   always visible, which on hover, which in the expanded editor? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §4.**
 5. Watch beside Sound in the view bar: is the view bar on the page, or only in the expanded editor? What is the page's
-   equivalent of Fast and Watch?
-6. Which keys work on the page, and which only in full screen? Does Esc mean the same in both?
-7. How does "Your maps" sit next to the candidates strip and the settings, so a player can tell a saved edit from a sibling?
-8. What does Generate do to a map the player has edited, given the undo note: is the note enough, or does it need Your maps' safety net as well?
-9. Real places open in the same window: what changes for a place (its signature, its credits, no seed)?
-10. What does the first visit teach: one hint, the Legend hint, first-run hints, or none? Who owns the shortcuts reference?
-11. Phones are view-only: does the page show the strip, the numbers and Your maps there?
-12. Which pieces go to the design pass (D236) and which the brief must fix first?
+   equivalent of Fast and Watch? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1, §4.**
+6. Which keys work on the page, and which only in full screen? Does Esc mean the same in both? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1.**
+7. How does "Your maps" sit next to the candidates strip and the settings, so a player can tell a saved edit from a sibling? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §6.**
+8. What does Generate do to a map the player has edited, given the undo note: is the note enough, or does it need Your maps' safety net as well? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §6.**
+9. Real places open in the same window: what changes for a place (its signature, its credits, no seed)? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3.**
+10. What does the first visit teach: one hint, the Legend hint, first-run hints, or none? Who owns the shortcuts reference? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §7 (the shortcuts reference stays with batch 3, D323).**
+11. Phones are view-only: does the page show the strip, the numbers and Your maps there? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1.**
+12. Which pieces go to the design pass (D236) and which the brief must fix first? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §9.**

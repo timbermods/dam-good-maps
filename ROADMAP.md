@@ -1075,6 +1075,8 @@ terrain steps extend the same brushes to caves and tunnels.
 
 ## The page is the editor (D232–D234)
 
+**The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), once Kyler has given the brief his final approval on `dev`, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
+
 After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
 automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
 after Generate, the essentials around it (brushes, Water source and Badwater source, the forces), an expand button to the

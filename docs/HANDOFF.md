@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D329) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D330) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
@@ -111,14 +111,14 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    (terrain3d-20260927 probe). **Next:** the wiring, after the forces and M9b merge into `dev` (D280).
 14. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
    D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
-   generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision
-   in the planning chat and approved the written UI brief that comes from it; the short document of open design questions and known constraints is `docs/UI-QUESTIONS.md` (D326); tell Kyler when it's ready. It also draws
+   generator and the editor. Its brief is `docs/UI-BRIEF.md` (D330, from Kyler's UI round on `docs/UI-QUESTIONS.md`); nothing of it is built
+   until Kyler gives the brief his final approval on `dev`. Built on `build` with item 34's split of the editor's giant files into feature folders. It also draws
    item 22's strip and item 24's number.**, Kyler's editor UI audit and the design pass (D236), the four
    terrain-above-terrain steps (D279–D281), the Weather view (D285), housekeeping (D283 (3); includes the three stale
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D330**.
+number on `dev` is **#94**. The next decision is **D331**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -219,7 +219,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D330), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D331), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
