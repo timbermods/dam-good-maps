@@ -1282,7 +1282,7 @@ M9 waits for that approval.
   information the generator prefers, not a guard (#67); Kyler picks the candidate intentions later
   (#66).
 - **Models and priority** (D210, amended by D262 and D278): the M9a build on Opus 5.5 at xhigh; M9b
-  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5 at medium; M9a comes first when
+  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5.5 at medium; M9a comes first when
   work competes for the machine. M9c is removed (D278): `m9-build` stays defined but unused.
 
 **Staging: M9a and M9b, approved by Kyler** (2026-09-25; PLAN §20 D145; M9c folded into M9b, D278).
@@ -1749,7 +1749,7 @@ doesn't need a separate naturalness pass over stamped shapes, because nothing in
 decisions-pending #29 (containment should look natural) and #13 (moot since D184) go with them.
 
 Its remaining small items become housekeeping: no milestone, no release, no gate — each is fixed
-when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, medium, D286 (5)):
+when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5.5, medium, D286 (5)):
 - pending decision [#2](docs/decisions-pending.md): `plants.drought` warns on every River Valley
   map, because the berry bushes near the start grow on water that drains in a drought;
 - pending decision [#12](docs/decisions-pending.md): narrow a generated fall's channel to 1–3

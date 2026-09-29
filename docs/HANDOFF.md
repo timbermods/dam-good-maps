@@ -1,8 +1,14 @@
 # Handoff: the milestone session
 
+> **Kyler's standing rule, before any task (PLAN §20, D316–D318):** compute is a resource, effort matches the stakes,
+> and quality is never compromised. Invest in what compounds (shared modules, findings, history); spend little on what
+> doesn't (ceremonial reports and captures, re-checking by hand); keep cheap automated checks broad; verify deeply only
+> where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
+> (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
+
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D315) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D318) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9). Paused again on
@@ -25,25 +31,12 @@ sitting's changes (D312–D315) onto the preview and tell Kyler.**
 Each workstream below: branch and last commit, state, the exact next step, its definition and model, what it waits on,
 and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<name>.md`, top note) has the detail.
 
-1. **Kyler's standing rule: compute is a resource, effort matches the stakes, and quality is never compromised**
-   (feedback item 35 in `docs/feedback/2026-09-28-forces-preview.md`): read it first and apply it from Tuesday's first
-   task, including to the feedback items' tests and reports. Record it in PLAN §20 as the next free D-number and put
-   it at the top of `CLAUDE.md` and of this page, so every session reads it before any task; it applies to every
-   session, agent and investigation, and to prompts from the planning chat and Codex.
-2. **The models, mandatory, first thing on Tuesday** (feedback item 38): every Opus use is Opus 5.5 (every agent
-   definition, task and the session itself; effort levels unchanged; nothing on Opus moves to another model), and every
-   use of Sonnet 5 moves to Sonnet 5.5 at the same effort (`routine`: Sonnet 5.5, medium; `build-light`: Sonnet 5.5,
-   high; any other place Sonnet 5 is named). Update `.claude/agents/`, the model plan in PLAN §20 (D301) and §7's table
-   to match, and read every model named elsewhere on this page (and in STATUS) as the new one.
-3. **Model and task suitability** (feedback item 39, from Anthropic's Sonnet 5.5 guidance): add a few short lines to
-   item 35's standing rule in `CLAUDE.md`: Sonnet 5.5 for well-scoped work with a clear spec and a way to check it,
-   Opus 5.5 for complex judgment and long-horizon work (nothing on Opus moves); keep `build-light` at high for now and
-   try medium on the well-specified items of its first feedback batch, keeping whichever gives the same quality for
-   less (say which in one line); the real-check instruction for every agent (run a real check that exercises a code
-   change before reporting it done, or say which check couldn't run and why); downscale screenshots and captures
-   before a model reads them unless the detail is being judged. Update Claude Code on this machine to a version where
-   the "sonnet" alias resolves to Sonnet 5.5, and check that every definition in `.claude/agents/` names the model
-   it's meant to use.
+1. **Done 2026-09-29: items 35, 38 and 39 applied** (D316–D318). The standing rule is at the top of `CLAUDE.md` and
+   of this page; every definition in `.claude/agents/` names its full model id (`claude-opus-5-5` or `claude-sonnet-5-5`,
+   efforts unchanged); Claude Code resolves "sonnet" to Sonnet 5.5 here (checked 2026-09-29); §7's table is the model plan in force. `build-light`'s first feedback batch tries medium on
+   the well-specified items (D318 (2)).
+2. Done with item 1: the models (item 38, D317).
+3. Done with item 1: model and task suitability (item 39, D318).
 4. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover
    placement mode), then 12), then 1, 2, 6, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle), 30 (a force
@@ -53,13 +46,13 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    40 and 41 also on Glaciate's branch) (`build`, Opus 5.5, high); 20 (Generate always makes a new map), 25 (Carve's
    Canyon depth and River depth named apart), 31 (Sources: Ride · Keep · Clear), 42 (bigger brushes, up to the whole
    map), 43 (Whole map in Select), 44 (Clear everything; the start can be deleted, amending item 1) and 46 (placed
-   sources at the game's default strength) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5,
+   sources at the game's default strength) on `feature/forces` (`build-light`, Sonnet 5.5, high); the look items 4, 5,
    10 and 28 (sources drawn like the game's) with the water shades work on `feature/high-look` (`build-light`,
-   Sonnet 5, high). Item 3 waits for Kyler's verdict. Future, after the current list: 19 (Spring, a new force;
+   Sonnet 5.5, high). Item 3 waits for Kyler's verdict. Future, after the current list: 19 (Spring, a new force;
    postponed by Kyler) and 45 (flow arrows on the water, a view toggle, off by default). Add each to Kyler's
    checklist.
 5. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
-   `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
+   `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5.5, medium; documents only, once the feedback items
    are under way): record it in PLAN §20 as the next free D-number; write `docs/HISTORY.md` (a short chapter per major
    turn, each linking to its decisions); give every PLAN §20 decision a status (active; amended by Dn; superseded by
    Dn), decisions unchanged; copy the Progress log into `docs/progress-log/`, one file per month, at each month's end;
@@ -78,7 +71,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    - `feature/forces` (#77, `DamGoodMaps-forces`, c90e071b): D309 (details behind More), D312 (size ring, Carve's
      waypoints on the shared gesture piece `src/editor/waypoints.ts`, Erupt final in ~2 s) and Carve's own source as a
      group (D314; Unleash places none) are built and pushed. Its CI on c90e071b was running at the pause.
-   - `feature/forces-sounds` (#81, draft, `DamGoodMaps-sounds`, `build-light`, Sonnet 5 high): D313 (Smooth's sound,
+   - `feature/forces-sounds` (#81, draft, `DamGoodMaps-sounds`, `build-light`, Sonnet 5.5 high): D313 (Smooth's sound,
      re-encoding, quieter default) and D315 (Delete sources on the Select row) built; CI green on 05ab3afb
      (run 36375584566; the other run on it was a cancelled duplicate); next, merge it into `feature/forces`. Its finding: after Delete sources, CI's headless
      browser sometimes shows a few blueberry bushes gone once the water preview runs on (not in Chrome; the operation is
@@ -159,7 +152,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D316**.
+number on `dev` is **#94**. The next decision is **D319**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -254,7 +247,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D316), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D319), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
@@ -270,8 +263,8 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   | M9b | `m9b-build` | Opus 5.5, xhigh |
   | (idle: M9a is released) | `m9a-build` (kept) | Opus 5.5, xhigh |
   | The forces and the fixes from Kyler's sitting, the Glaciate adoption, the 3D foundations and water engine (wiring after the forces and M9b merge), the High look's fixes, Erode's adoption; anything touching the water simulation, the generator's processes or the forces | `build` | Opus 5.5, high |
-  | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5, high |
-  | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5, medium |
+  | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5.5, high |
+  | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
   | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
   | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
   | Waiting on CI, batches and probe runs | background scripts that report when they finish, never an agent polling | — |

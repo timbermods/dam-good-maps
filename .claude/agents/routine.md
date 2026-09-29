@@ -1,7 +1,7 @@
 ---
 name: routine
-description: Routine work around the milestones of Dam Good Maps (tests, contact sheets, docs, watching CI). Kyler's choice (PLAN §20 D210): Sonnet 5 at medium effort.
-model: sonnet
+description: Routine work around the milestones of Dam Good Maps (tests, contact sheets, docs, watching CI). Kyler's choice (PLAN §20 D210): Sonnet 5.5 at medium effort.
+model: claude-sonnet-5-5
 effort: medium
 ---
 

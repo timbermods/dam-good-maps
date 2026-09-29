@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D315), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D318), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -14,25 +14,12 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 
 ### 1. Needs your decision or your eyes
 
-1. **Kyler's standing rule: compute is a resource, effort matches the stakes, and quality is never compromised**
-   (feedback item 35 in `docs/feedback/2026-09-28-forces-preview.md`): read it first and apply it from Tuesday's first
-   task, including to the feedback items' tests and reports. Record it in PLAN §20 as the next free D-number and put
-   it at the top of `CLAUDE.md` and of `HANDOFF.md`, so every session reads it before any task; it applies to every
-   session, agent and investigation, and to prompts from the planning chat and Codex.
-2. **The models, mandatory, first thing on Tuesday** (feedback item 38): every Opus use is Opus 5.5 (every agent
-   definition, task and the session itself; effort levels unchanged; nothing on Opus moves to another model), and every
-   use of Sonnet 5 moves to Sonnet 5.5 at the same effort (`routine`: Sonnet 5.5, medium; `build-light`: Sonnet 5.5,
-   high; any other place Sonnet 5 is named). Update `.claude/agents/`, the model plan in PLAN §20 (D301) and §7's table
-   to match, and read every model named elsewhere on this page (and in HANDOFF) as the new one.
-3. **Model and task suitability** (feedback item 39, from Anthropic's Sonnet 5.5 guidance): add a few short lines to
-   item 35's standing rule in `CLAUDE.md`: Sonnet 5.5 for well-scoped work with a clear spec and a way to check it,
-   Opus 5.5 for complex judgment and long-horizon work (nothing on Opus moves); keep `build-light` at high for now and
-   try medium on the well-specified items of its first feedback batch, keeping whichever gives the same quality for
-   less (say which in one line); the real-check instruction for every agent (run a real check that exercises a code
-   change before reporting it done, or say which check couldn't run and why); downscale screenshots and captures
-   before a model reads them unless the detail is being judged. Update Claude Code on this machine to a version where
-   the "sonnet" alias resolves to Sonnet 5.5, and check that every definition in `.claude/agents/` names the model
-   it's meant to use.
+1. **Done 2026-09-29: items 35, 38 and 39 applied** (D316–D318). The standing rule is at the top of `CLAUDE.md` and
+   of HANDOFF; every definition in `.claude/agents/` names its full model id (`claude-opus-5-5` or `claude-sonnet-5-5`,
+   efforts unchanged); Claude Code resolves "sonnet" to Sonnet 5.5 here (checked 2026-09-29); §7's table is the model plan in force. `build-light`'s first feedback batch tries medium on
+   the well-specified items (D318 (2)).
+2. Done with item 1: the models (item 38, D317).
+3. Done with item 1: model and task suitability (item 39, D318).
 4. **Kyler's forces-preview feedback** (`docs/feedback/2026-09-28-forces-preview.md`): record the items in PLAN §20 as
    the next free D-numbers, then build them. Bugs first (15, 7, 13, the file-drop bug in 11 with 32 (the leftover
    placement mode), then 12), then 1, 2, 6, 9, 14, 16, 17, 18, 29 (every force fast, with a Watch toggle), 30 (a force
@@ -42,13 +29,13 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    40 and 41 also on Glaciate's branch) (`build`, Opus 5.5, high); 20 (Generate always makes a new map), 25 (Carve's
    Canyon depth and River depth named apart), 31 (Sources: Ride · Keep · Clear), 42 (bigger brushes, up to the whole
    map), 43 (Whole map in Select), 44 (Clear everything; the start can be deleted, amending item 1) and 46 (placed
-   sources at the game's default strength) on `feature/forces` (`build-light`, Sonnet 5, high); the look items 4, 5,
+   sources at the game's default strength) on `feature/forces` (`build-light`, Sonnet 5.5, high); the look items 4, 5,
    10 and 28 (sources drawn like the game's) with the water shades work on `feature/high-look` (`build-light`,
-   Sonnet 5, high). Item 3 waits for Kyler's verdict. Future, after the current list: 19 (Spring, a new force;
+   Sonnet 5.5, high). Item 3 waits for Kyler's verdict. Future, after the current list: 19 (Spring, a new force;
    postponed by Kyler) and 45 (flow arrows on the water, a view toggle, off by default). Add each to Kyler's
    checklist.
 5. **The repository documents its own identity and history** (Kyler's decision, feedback item 33 in
-   `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5, medium; documents only, once the feedback items
+   `docs/feedback/2026-09-28-forces-preview.md`; `routine`, Sonnet 5.5, medium; documents only, once the feedback items
    are under way): record it in PLAN §20 as the next free D-number; write `docs/HISTORY.md` (a short chapter per major
    turn, each linking to its decisions); give every PLAN §20 decision a status (active; amended by Dn; superseded by
    Dn), decisions unchanged; copy the Progress log into `docs/progress-log/`, one file per month, at each month's end;
@@ -303,7 +290,7 @@ Nothing is running. Every branch is committed, pushed and clean; the next steps 
 | Workstream | Branch (worktree), last commit | Agent, model | State and next step |
 |---|---|---|---|
 | The forces, for your sitting | `feature/forces` (`-forces`, #77), c90e071b | `build`, Opus 5.5 high | D309, D312 and Carve's grouped source (D314) built; next: merge the sounds branch, fix the "No badwater" notice that covers the force rows, merge into Glaciate, refresh the preview |
-| Sounds and Delete sources (D313, D315) | `feature/forces-sounds` (`-sounds`, #81), 05ab3afb | `build-light`, Sonnet 5 high | built; merge into `feature/forces` once CI is green |
+| Sounds and Delete sources (D313, D315) | `feature/forces-sounds` (`-sounds`, #81), 05ab3afb | `build-light`, Sonnet 5.5 high | built; merge into `feature/forces` once CI is green |
 | Glaciate's adoption (D291, D292, D312, D314) | `feature/glaciate` (`-glaciate`, #76), e091e77a | `build`, Opus 5.5 high | built, quick suite 820 passed; the preview branch; merge the forces in again, then refresh the preview |
 | M9b (D273–D278, D298, D308, D311, D314) | `feature/m9b` (`-m9b`, #70), 66146f34 | `m9b-build`, Opus 5.5 xhigh | re-pin half done (quick suite 765 passed, 10 failed: 9 map-bound, one resources measure at 0.5225 against < 0.52); next: merge `dev` (M9a), re-seed six tests, re-pin 4242, then the release candidate |
 | Real places, round 2 (D271, D300, D306, D314) | `feature/real-places-2` (`-places`, #35), cbaf6cf6 | `build`, Opus 5.5 high; release on `build-light` | grouped sources wired (VERSION 11); 37 of 136 converted; next: `npx tsx tools/places-convert.ts --threads 3` (1.5–3 h), check, release |
@@ -469,7 +456,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D207: visible layers identical to Timberborn: a compact layer widget, slicing, the layer pick, tools acting on the visible land; Esc never resets the slice.
 - D208 (for M9b): themes become optional leanings; the default is "Any" (Surprise me), combining landforms, water and intentions freely; measured for coherence, playability and no archetype clusters.
 - D209: design version 2 approved; M9a builds it with "Any" as the default and no ruler-straight rivers; M9b fixes Islands' sameness and raises Kyler's crater and waterfall-lake intentions; pending #59–#68 decided (#66 later).
-- D210: M9a on Opus 5.5 at xhigh, M9b and M9c at high, routine work on Sonnet 5 at medium; M9a first when work competes.
+- D210: M9a on Opus 5.5 at xhigh, M9b and M9c at high, routine work on Sonnet 5.5 at medium; M9a first when work competes.
 - D211: M9a's settings: Lake Basin's water share is information until M9b; Start area is a preference ("prefer a roomy / tight start"), and the map card shows the actual bench size.
 - D212: Live editing's two changes before release: sources on the left shelf (Water source, Badwater source, after Start); clear water only under and around the brush over water, still reading as water; defaults confirmed.
 - D213: #54 goes in with M9a; removing the last badwater spring switches the map to No badwater.
@@ -499,7 +486,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D304: clean water's shades fitted to the game's own (sampled from your screenshot): one teal-blue body, deep only a little darker, shallows never grey; badwater unchanged; on `feature/high-look` (`build-light`).
 - D303: the game's edge-spill rule adopted everywhere with D293's switch (#125).
 - D302: M9a released once the tall maps' reopen check is clean and no start meets `start.water` only through a sealed puddle (else the rule is fixed first); wet-tile counts judged as D297; the side pool and Delta's flats go to M9b.
-- D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
+- D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5.5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
 - D300: Real places finished without another sheet: the bed lowered under real water, most of the tilt taken out, a water floor (a small natural spring near the start where a place has no water), #94 accepted; checked by the session; then badwater after M9a, and the release.
 - D299: the generator page's Moist soil switch stays until "The page is the editor"; Quake's Left/Right control stays gone (X flips the side).
 - D298: the game's own soil rules adopted in M9b (with the Python moisture check); M9b reports plants moved or changed and generation times.
@@ -613,7 +600,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D315.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D318.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
