@@ -18,7 +18,8 @@ export interface ToolOptions {
 export const SOURCE_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 export const BADWATER_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 72];
 
-export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1.5, badwaterStrength: 1 };
+/** The strengths a placed source starts at: the game's own (its blueprints' `DefaultStrength`: WaterSource 1, BadwaterSource 3; D323 item 46). Both are among the official maps' (docs/FINDINGS.md "Sources"). */
+export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1, badwaterStrength: 3 };
 
 /** The Coordinates that centre a template's rotated footprint on the tile clicked. */
 export function coordinatesAt(template: string, x: number, y: number, o: Orientation): [number, number] {
