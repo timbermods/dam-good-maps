@@ -345,14 +345,20 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // it; its ditch reaches a river's last stretch or the map edge within a quarter of the side, and
   // only where none does, farther)
   const maxDitch = Math.max(16, Math.round(0.25 * Math.min(W, H)));
+  let cached: { hh: Uint8Array; dn: ReturnType<typeof drainage>; outs: { goal: Uint8Array; keepOff: Uint8Array } } | null = null;
   for (const limit of [maxDitch, Infinity])
   for (let c = 0; c < cands.length && c < 60 && out.count < ask.count; c++) {
     const i = cands[c][1];
     const cx = i % W;
     const cy = (i - cx) / W;
     if (placed.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 24)) continue;
-    // where water on each tile goes (side to side, as the game's water moves)
-    const dn = drainage(hh, W, H, { eight: false });
+    // where water on each tile goes (side to side, as the game's water moves), and where a ditch
+    // may end: the same until a pit is dug (reused across candidates)
+    if (!cached || cached.hh !== hh) {
+      const d0 = drainage(hh, W, H, { eight: false });
+      cached = { hh, dn: d0, outs: outlets(hh, d0) };
+    }
+    const dn = cached.dn;
     const passesStart = (from: number) => {
       for (let j = from, n = 0; j >= 0 && n < 4 * (W + H); j = dn.rcv[j], n++) if (sd[j] <= 26) return true;
       return false;
@@ -400,7 +406,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         if (pit[j]) continue;
         if (N4.some(([dx, dy]) => pit[(y + dy) * W + x + dx])) edge.push(j);
       }
-    const { goal, keepOff } = outlets(hh, dn);
+    const { goal, keepOff } = cached.outs;
     let clear = true;
     for (let j = 0; j < N && clear; j++) if (pit[j] && ask.keepOff?.[j]) clear = false;
     // (and the ground the basin keeps clear of resources, a square 5 tiles either way of its

@@ -749,13 +749,14 @@ stored as 16×16 signatures and feature vectors, about 4 KB per theme) is prefer
 loses for being more ordinary. Only true near-duplicates of other maps are rejected; resemblance is otherwise
 information (the largest look-alike cluster), never a reason to reject a good map.
 
-**As built in M9b** (D278 (1a); replaces K = 3 and the score above): the generator makes candidates
-(passing maps) until one meets D273's outcomes: readable water (`analysis/story.ts`), the theme's
-promise (`analysis/signature.ts`, `gen/outcomes.ts`) and at least one standout intention. A
-candidate that misses one grows new land; up to 4 candidates within the 12 attempts, after which the
-one meeting the most outcomes stands (then stored water near the start, where the player asked for
-more reserve). Each candidate is announced as it is found (`onCandidate`), and the page shows the
-first at once with "Looking for a better one (2 of 4)" while it looks on.
+**As built in M9b** (D278 (1a), amended by D325 and D329; replaces K = 3 and the score above): the
+first candidate that passes the absolutes (the blocking checks: plays exactly right, the
+starting-logs floor, item 47's must-haves) is the map, shown at once and never swapped. Its
+outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
+`analysis/signature.ts`, `gen/outcomes.ts`; a standout intention): when it misses the promise or
+readable water, a worker of its own looks for a sibling that meets all three (`gen/versions.ts`, up
+to 6), and the page offers it with a short note naming what it has ("A version with its sea is
+ready"). Nothing else is generated until the player asks (Another like this, More in the strip).
 
 ### 7.10 Output
 

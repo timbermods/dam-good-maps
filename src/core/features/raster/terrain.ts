@@ -5,7 +5,7 @@
 import { fbm } from "../../math/noise";
 import { hash32 } from "../../math/hash";
 import type { Runs } from "../../math/grid";
-import { bedAt, floorAt, pathField, polygonMask, segmentDistance2 } from "../geometry";
+import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
@@ -216,15 +216,20 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
 
 /** Channel tiles on the map border where the river enters (its sealed mouth, PLAN §7.6). */
 export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField" | "narrows">): number[] {
-  const entry = f.params.entry;
-  if (!("edge" in entry)) return [];
-  const { W, H } = t;
+  if (!("edge" in f.params.entry)) return [];
   const field = t.pathField(f.id);
   const narrows = t.narrows(f.id);
+  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2));
+}
+
+/** The mouth's border tiles, `inChannel` saying which border tiles the channel covers. */
+function mouthTilesBy(f: RiverFeature, W: number, H: number, inChannel: (i: number) => boolean): number[] {
+  const entry = f.params.entry;
+  if (!("edge" in entry)) return [];
   const out: number[] = [];
   const border = (x: number, y: number) => {
     const i = y * W + x;
-    if (field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2)) out.push(i);
+    if (inChannel(i)) out.push(i);
   };
   const edge: Edge = entry.edge;
   if (edge === "west") for (let y = 0; y < H; y++) border(0, y);
@@ -244,8 +249,30 @@ export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pa
 /** An edge river's mouth tiles as the build places its sources (`mouthTiles`), before any build:
  *  its own path, no narrows (item 27: the lip and the course check hold exactly these). */
 export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
-  let field: ReturnType<BuildTarget["pathField"]> | null = null;
-  return mouthTiles(f, { W, H, pathField: () => (field ??= pathField(f.params.path, W, H)), narrows: () => [] });
+  // (the path's distance on the border tiles alone, as `pathField` measures it: the whole field
+  // took a large share of a 256² map's time)
+  const path = f.params.path;
+  const half = f.params.width / 2;
+  return mouthTilesBy(f, W, H, (i) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    let best = Infinity;
+    for (let k = 0; k + 1 < path.length; k++) {
+      const ax = path[k][0];
+      const ay = path[k][1];
+      const vx = path[k + 1][0] - ax;
+      const vy = path[k + 1][1] - ay;
+      const l2 = vx * vx + vy * vy;
+      let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
+      if (t < 0) t = 0;
+      else if (t > 1) t = 1;
+      const px = ax + t * vx - x;
+      const py = ay + t * vy - y;
+      const dd = px * px + py * py;
+      if (dd < best) best = dd;
+    }
+    return Math.sqrt(best) < half;
+  });
 }
 
 /** An edge river's mouth as D314's rule has it: the edge tile its course crosses (`mid`, along the

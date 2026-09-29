@@ -52,6 +52,10 @@ export interface MapMeasure {
   attempts: number;
   failures: string[];
   ms: { firstLook: number; firstCandidate: number; final: number };
+  /** The map's outcomes (D329: the first map that passes is the map). */
+  outcomes: { met: boolean; promise: boolean; water: boolean; standout: boolean } | null;
+  /** Each failed attempt's reason and the milliseconds it took. */
+  spent: { why: string; ms: number }[];
   heights: { bedMin: number; landMin: number; max: number; above16: number; small: number };
   trees: { living: number; dead: number; succulent: number; diesEarly?: number };
   mines: { count: number; walked: number };
@@ -172,6 +176,8 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     attempts: r.attempts,
     failures: r.failures.map((f) => f.failed.join(' + ')),
     ms: { firstLook: Math.round(firstLook), firstCandidate: Math.round(firstCandidate), final: Math.round(final) },
+    outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout } : null,
+    spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: (f as { ms?: number }).ms !== undefined ? (f as { ms: number }).ms - (k ? ((r.failures[k - 1] as { ms?: number }).ms ?? 0) : 0) : -1 })),
     heights: { bedMin, landMin, max, above16, small },
     trees: { living, dead, succulent },
     mines: { count: mines, walked },

@@ -44,6 +44,9 @@ export interface StartPick {
 
 export type DroughtPolicy = "off" | "prefer" | "require";
 
+/** The least land (joined by one-level steps) the last-resort start by a bank must join. */
+export const BANK_FOOT = 800;
+
 export interface SettlerOptions {
   avoid?: Uint8Array | null;
   /** Depth left after the first drought (analytic), for `drought`. */
@@ -299,9 +302,11 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + 40) + 1;
     return storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
   };
-  // (the last resort too joins the land the start needs, item 47: a pad on a strip cut off by water
-  // and cliffs reaches neither its mine sites nor room to grow)
-  const footed = (p: StartPick | null): StartPick | null => (p && opts.foot && opts.minFoot && opts.foot.size[opts.foot.lab[p.y * W + p.x]] < opts.minFoot ? null : p);
+  // (the last resort joins land enough to grow on too, item 47: a pad on a strip cut off by water
+  // and cliffs, a few hundred tiles, reaches neither its mine sites nor room for its first
+  // buildings; the start's farmland, level land and mine sites are checked on the finished map)
+  const bankFoot = Math.min(opts.minFoot ?? 0, BANK_FOOT);
+  const footed = (p: StartPick | null): StartPick | null => (p && opts.foot && bankFoot && opts.foot.size[opts.foot.lab[p.y * W + p.x]] < bankFoot ? null : p);
   const roomWant = opts.room ?? 900;
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));

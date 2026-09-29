@@ -132,7 +132,8 @@ export interface GenerateResult {
   /** The file `bytes` was written from (for the project file's stored base). */
   file: TimberFile;
   attempts: number;
-  failures: { attempt: number; failed: string[] }[];
+  /** Each failed attempt: why, and when it ended (ms from the call; information only). */
+  failures: { attempt: number; failed: string[]; ms?: number }[];
   /** The land the processes made, as the document stores it (format 3); a map that failed its
    *  checks keeps its field too, for the record. */
   field: FieldData | null;
@@ -259,7 +260,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
       return a.result;
     }
-    failures.push({ attempt, failed: failedIds(a.result) });
+    failures.push({ attempt, failed: failedIds(a.result), ms: Math.round(performance.now() - t0) });
   }
   const out = last!.result;
   out.attempts = max;
@@ -915,26 +916,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   if (!pick) return fail("no start", b1, true);
   // the hollows' badwater (their water and the soil it soaks, down to where their ditches end) came
-  // within the badwater distance of the start, or lies much farther than it (the start stands far
-  // from the guess they were planned from: the settled water moved the good places, and D200 puts
-  // badwater at about the distance the settings ask, 30 / 15 / 8 tiles by difficulty): plan them
-  // again from the start as it is, once
+  // within the badwater distance of the start (the start stands away from the guess they were
+  // planned from: the settled water moved the good places): plan them again from the start as it
+  // is, once. (D329, item 47: badwater farther than the distance asks is kept; its pits lean toward
+  // short ditches, and planning again for it cost a settle on most 256² maps)
   if (bad.features.length && !lastAttempt) {
     const near = beyondBad(b1);
     let hit = false;
     for (let dy = -1; dy <= 1 && !hit; dy++) for (let dx = -1; dx <= 1 && !hit; dx++) if (near[(pick.y + dy) * W + pick.x + dx] && !avoidOf(bad)[(pick.y + dy) * W + pick.x + dx]) hit = true;
-    let far = false;
-    if (!hit) {
-      const m = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (b1.soilContamination[i] > 0 || (b1.water[i] > 0.05 && b1.contamination[i] >= 0.05)) m[i] = 1;
-      const d = distanceFrom(m, W, H);
-      let at = Infinity;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) at = Math.min(at, d[(pick.y + dy) * W + pick.x + dx]);
-      // (a hollow aims at the distance plus 11 tiles; its soil spreads a few tiles nearer)
-      far = at > badAsk.distance + 26;
-    }
-    if (hit || far) {
-      const keepOff = hit ? orMask(badAsk.keepOff ?? null, bad.avoid) : (badAsk.keepOff ?? null);
+    if (hit) {
+      const keepOff = orMask(badAsk.keepOff ?? null, bad.avoid);
       h.set(hLand);
       for (const f of bad.features) contains.delete(f.id);
       const again = planBadwater(h, W, H, b1.water, hy, { ...badAsk, keepOff }, seed, attempt * 4 + 2, pick);
