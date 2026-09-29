@@ -11,7 +11,9 @@
 // Speed: only an *exact* active list is updated each substep: the tiles with water at the start of
 // the substep, their 4-neighbours, and the source tiles. Every other tile is dry and cannot change,
 // so the result is identical to updating the whole grid (PLAN §10: a list rebuilt once per tick
-// changed the settled volume by 5%).
+// changed the settled volume by 5%). An interior tile counts its wet neighbours directly, and the
+// outflows' direction loop is written out (PLAN §20 D130): exact rewrites, proved bit for bit
+// against the loops they replace (tests/unit/water-speedups.test.ts).
 
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
@@ -178,13 +180,21 @@ export class WaterSim {
       const x = i % W;
       const y = (i - x) / W;
       let c = 1;
-      for (let dy = -1; dy <= 1; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= H) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const xx = x + dx;
-          if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
+      if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+        // an interior tile has all eight neighbours: count them directly (an integer count, so
+        // the order of the additions cannot change it; PLAN §20 D130)
+        c += +(D[i - W - 1] > 0) + +(D[i - W] > 0) + +(D[i - W + 1] > 0)
+          + +(D[i - 1] > 0) + +(D[i + 1] > 0)
+          + +(D[i + W - 1] > 0) + +(D[i + W] > 0) + +(D[i + W + 1] > 0);
+      } else {
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= H) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const xx = x + dx;
+            if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
+          }
         }
       }
       wn[i] = c;
@@ -242,6 +252,19 @@ export class WaterSim {
     this.activeCount = n;
   }
 
+  /** The outflow of wet tile `c` (floor `Fc`, surface `Hc`) into a neighbour holding a partial
+   *  obstacle (NaturalDam) of height `lim` on floor `Fn`: `e` is the head difference and `prev` the
+   *  momentum kept from the last substep. */
+  private damFlow(c: number, Fc: number, Hc: number, Fn: number, lim: number, e: number, prev: number): number {
+    const hd = Hc - Fn;
+    if (hd < lim) {
+      const a = clamp01(clamp01((lim - hd) / 0.1) * clamp(1 - 2.25 * (Hc - (Fc + this.Dold[c])), 0.5, 2));
+      return 0.995 * prev - 0.02 * a;
+    }
+    if (hd - lim < 0.1 && e > 0) e = e * ((hd - lim) / 0.1);
+    return 0.995 * prev + K * e;
+  }
+
   private substep(scale: number): void {
     const { W, H, F, D, C, out, f, wall, mod, dam } = this;
     // flows of the tiles that had water last substep are stale: clear them
@@ -254,7 +277,8 @@ export class WaterSim {
     }
     this.buildActive();
 
-    // 1. outflows of every wet tile, from the start-of-substep state
+    // 1. outflows of every wet tile, from the start-of-substep state: the four directions written
+    //    out in order (−y, −x, +y, +x), each the same steps (PLAN §20 D130)
     for (let w = 0; w < this.wetCount; w++) {
       const c = this.wet[w];
       const x = c % W;
@@ -263,39 +287,90 @@ export class WaterSim {
       const Dc = D[c];
       const Hc = Fc + Dc;
       const b = 4 * c;
-      for (let k = 0; k < 4; k++) {
-        let n = -1;
-        if (k === 0) n = y > 0 ? c - W : -1;
-        else if (k === 1) n = x > 0 ? c - 1 : -1;
-        else if (k === 2) n = y < H - 1 ? c + W : -1;
-        else n = x < W - 1 ? c + 1 : -1;
+      const wc = wall[c];
+      // −y
+      {
+        const n = y > 0 ? c - W : -1;
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
         const Hn = inside ? Fn + Dn : 0;
-        if (wall[c] & (1 << k) || Fn >= Hc) {
-          f[b + k] = 0;
-          continue;
-        }
-        let e = Hc - Hn;
-        const prev = KEEP * out[b + k];
-        let fk: number;
-        const lim = inside && dam ? dam[n] : -1;
-        if (lim >= 0 && Fn < Math.ceil(Hc)) {
-          // a partial obstacle (NaturalDam) in the target tile
-          const hd = Hc - Fn;
-          if (hd < lim) {
-            const a = clamp01(clamp01((lim - hd) / 0.1) * clamp(1 - 2.25 * (Hc - (Fc + this.Dold[c])), 0.5, 2));
-            fk = 0.995 * prev - 0.02 * a;
-          } else {
-            if (hd - lim < 0.1 && e > 0) e = e * ((hd - lim) / 0.1);
-            fk = 0.995 * prev + K * e;
+        if (wc & 1 || Fn >= Hc) f[b] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
           }
-        } else {
-          if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
-          fk = prev + K * e;
+          f[b] = fk > 0 ? fk : 0;
         }
-        f[b + k] = fk > 0 ? fk : 0;
+      }
+      // −x
+      {
+        const n = x > 0 ? c - 1 : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 2 || Fn >= Hc) f[b + 1] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 1];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 1] = fk > 0 ? fk : 0;
+        }
+      }
+      // +y
+      {
+        const n = y < H - 1 ? c + W : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 4 || Fn >= Hc) f[b + 2] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 2];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 2] = fk > 0 ? fk : 0;
+        }
+      }
+      // +x
+      {
+        const n = x < W - 1 ? c + 1 : -1;
+        const inside = n >= 0;
+        const Fn = inside ? F[n] : 0;
+        const Dn = inside ? D[n] : 0;
+        const Hn = inside ? Fn + Dn : 0;
+        if (wc & 8 || Fn >= Hc) f[b + 3] = 0;
+        else {
+          let e = Hc - Hn;
+          const prev = KEEP * out[b + 3];
+          let fk: number;
+          const lim = inside && dam ? dam[n] : -1;
+          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          else {
+            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            fk = prev + K * e;
+          }
+          f[b + 3] = fk > 0 ? fk : 0;
+        }
       }
       // a tile never gives more than it has
       const s = f[b] + f[b + 1] + f[b + 2] + f[b + 3];

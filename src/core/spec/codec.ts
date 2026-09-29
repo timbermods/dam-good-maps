@@ -68,6 +68,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "ht", path: ["terrain", "highestTerrain"], kind: "int" },
   { key: "tr", path: ["terrain", "terracing"], kind: "int" },
   { key: "bl", path: ["terrain", "buildableLand"], kind: "enum", codes: { tight: "t", normal: "n", generous: "g" } },
+  { key: "vt", path: ["terrain", "verticality"], kind: "int" },
   { key: "rv", path: ["water", "rivers"], kind: "int" },
   { key: "rs", path: ["water", "riverStyle"], kind: "enum", codes: { straight: "s", meandering: "m", braided: "b" } },
   { key: "fl", path: ["water", "riverFlow"], kind: "enum", codes: { trickle: "t", normal: "n", strong: "s", lush: "l" } },

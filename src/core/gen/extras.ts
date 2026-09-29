@@ -371,10 +371,13 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
   return out;
 }
 
-/** Where "ruins on a plateau" (PLAN §9.4) can rise: a disc of `radius` (and a ring of one) on
- *  level, dry, free ground the colony walks on from the start, 35–70% of the way from the start to
- *  the farthest ground, the nearest first to the middle of that band. */
-export function obstacleSpots(b: BuildResult, features: readonly Feature[], avoid: Uint8Array | null, radius: number, n: number, minDist = 0): [number, number][] {
+/** Where ruins stand on a natural rise (PLAN §9.4 as M9a builds it: found on the land, never
+ *  raised; stairs-only heights are rewards): a disc of `radius` on level, dry, free ground the
+ *  colony does not walk to from the start (no derived slope joins it), beside ground it does walk
+ *  on one or two levels below, so one flight of player stairs reaches it; 30–80% of the way from
+ *  the start to the farthest ground, the nearest first to the middle of that band. Each spot comes
+ *  with its level and its rise over the ground beside it (2 where it can, else 1). */
+export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: Uint8Array | null, radius: number, n: number, minDist = 0, top = 16): [number, number, number, number][] {
   const { W, H } = b;
   const N = W * H;
   if (!b.start) return [];
@@ -398,27 +401,78 @@ export function obstacleSpots(b: BuildResult, features: readonly Feature[], avoi
     const m = polygonMask(f.params.outline, W, H);
     for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
   }
-  const bad = (i: number) => labels[i] !== root || b.water[i] > 0 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i];
-  const R = radius + 1;
+  const h = b.heights;
+  const bad = (i: number) => labels[i] === root || b.water[i] > 0 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i];
+  const R = radius;
   const mid = 0.525 * far;
-  const scored: [number, number][] = [];
-  for (let y = R + 1; y < H - R - 1; y += 2)
-    for (let x = R + 1; x < W - R - 1; x += 2) {
+  const scored: [number, number, number][] = [];
+  for (let y = R + 1; y < H - R - 1; y++)
+    for (let x = R + 1; x < W - R - 1; x++) {
       const i = y * W + x;
-      // its ruins keep the ruins target's distance from the start (D85: the generator aims for it)
-      if (sd[i] < 0.35 * far || sd[i] > 0.7 * far || sd[i] < minDist + R || bad(i)) continue;
-      const lv = b.heights[i];
+      const lv = h[i];
+      if (lv < 2 || lv > top || sd[i] < 0.3 * far || sd[i] > 0.8 * far || sd[i] < minDist + R || bad(i)) continue;
       let ok = true;
-      for (let yy = y - R; yy <= y + R && ok; yy++)
-        for (let xx = x - R; xx <= x + R && ok; xx++) {
-          if ((xx - x) * (xx - x) + (yy - y) * (yy - y) > R * R + R) continue;
+      let stair = 0;
+      for (let yy = y - R - 1; yy <= y + R + 1 && ok; yy++)
+        for (let xx = x - R - 1; xx <= x + R + 1 && ok; xx++) {
+          const d2 = (xx - x) * (xx - x) + (yy - y) * (yy - y);
           const j = yy * W + xx;
-          if (bad(j) || b.heights[j] !== lv) ok = false;
+          if (d2 <= R * R + R) {
+            if (bad(j) || h[j] !== lv) ok = false;
+          } else if (stair < 2 && labels[j] === root && (h[j] === lv - 2 || h[j] === lv - 1) && !(b.water[j] > 0)) {
+            // a tile the colony walks on, beside the disc (4-neighbour of a disc tile), a level or
+            // two below
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const ax = xx + dx;
+              const ay = yy + dy;
+              if ((ax - x) * (ax - x) + (ay - y) * (ay - y) <= R * R + R) stair = Math.max(stair, lv - h[j]);
+            }
+          }
         }
-      if (ok) scored.push([Math.abs(sd[i] - mid), i]);
+      // a rise of two first (a rise of one reads as a step), then the middle of the band
+      if (ok && stair) scored.push([(stair === 2 ? 0 : 1000) + Math.abs(sd[i] - mid), i, stair]);
     }
   scored.sort((a, c) => a[0] - c[0] || a[1] - c[1]);
-  return scored.slice(0, n).map(([, i]) => [i % W, Math.floor(i / W)] as [number, number]);
+  const out: [number, number, number, number][] = [];
+  for (const [, i, rise] of scored) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (out.some(([ox, oy]) => (ox - x) * (ox - x) + (oy - y) * (oy - y) < 16 * 16)) continue;
+    out.push([x, y, h[i], rise]);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
+/** Whether a rise found by riseSpots still stands as found on this build (after the start moved):
+ *  out of the colony's walk, with its walk a flight of `rise` below it beside the disc. */
+export function riseStands(b: BuildResult, x: number, y: number, radius: number, top: number, rise: number): boolean {
+  const { W, H } = b;
+  if (!b.start) return false;
+  const links: [number, number][] = [];
+  for (const s of b.slopes) {
+    const [dx, dy] = slopeHighSideOf(s.orientation);
+    const hx = s.x + dx;
+    const hy = s.y + dy;
+    if (hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([s.y * W + s.x, hy * W + hx]);
+  }
+  const labels = walkRegions(b.heights, W, H, null, links);
+  const root = labels[b.start.y * W + b.start.x];
+  const R2 = radius * radius + radius;
+  let stair = false;
+  for (let yy = y - radius - 1; yy <= y + radius + 1; yy++)
+    for (let xx = x - radius - 1; xx <= x + radius + 1; xx++) {
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      const d2 = (xx - x) * (xx - x) + (yy - y) * (yy - y);
+      if (d2 <= R2) {
+        if (labels[j] === root || b.heights[j] !== top) return false;
+        continue;
+      }
+      if (labels[j] !== root || b.heights[j] !== top - rise) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if ((xx + dx - x) * (xx + dx - x) + (yy + dy - y) * (yy + dy - y) <= R2) stair = true;
+    }
+  return stair;
 }
 
 export { OBJECT_NAMES };

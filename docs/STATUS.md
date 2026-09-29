@@ -3,90 +3,81 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D311), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D339), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-27, after the restart)
+## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
-The milestone session restarted on the dedicated computer at Opus 5.5, high, with every agent definition loaded (D251).
-Your sixty decisions since the restart are recorded (D252–D311, below) and in the living docs.
+Paused at about 21:00 PDT on 2026-09-27, when your allowance ran out; a fresh session resumes on **Tuesday 2026-09-29 at 8:01
+PDT** from [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work). Every agent stopped at a clean point with everything
+pushed; nothing is running. **M9a is released** (`m9a-done`, [#80](https://github.com/timbermods/dam-good-maps/pull/80)). Your
+decisions since the restart (D252–D315) are recorded below and in the living docs.
+
+**Today (2026-09-29), resumed on Kyler's main PC:** items 35, 38 and 39 applied (D316–D318). Your build order lifted the hold and is recorded as D321–D326 (`docs/feedback/2026-09-29-build-order.md`): six batches, all started today and running in parallel: the forces (`feature/forces`, `build`), the brushes (`feature/brushes`, `build`), Select, the shelf and shortcuts (`feature/select-shelf`, `build-light-medium`), the look (`feature/high-look`, `build-light`), M9b (`feature/m9b`, `m9b-build`) and documents (`dev`, `routine`). Batches 2 and 3 merge into `feature/forces` in the order 3, 2, 1; then you get one checklist for one sitting. **Held:** #74 (Erode; round 7, roofs, is with Codex), Real places (D319), items 19 and 45. **One forces branch (D320).**
 
 ### 1. Needs your decision or your eyes
 
-1. **Real places (#35): answered (D300)** and being finished on `feature/real-places-2`: both land fixes, a water floor, #94
-   accepted; I check it (the blocking list, no "No water a pump can reach", no stripes); then badwater after M9a, and the release.
-2. **M9a: your answer is D302.** It goes out once the tall maps' 540-map reopen check is clean (the bed-step bound, fixed) and the
-   count of starts that rely only on a sealed puddle is known (none: release, M9b fixes the rule; any: the rule is fixed first).
-3. **M9b's floodplain question: answered (D307)**: a floodplain floods; the day strip's hover says so.
-4. **M9b: the game's water rules and D297's line, a question with a default.** M9b has switched open-ground water to the game's rules
-   (D308; 434dcd12), with the Python check agreeing bit for bit. On 18 sample maps at 128², 10 stay within D297's line; 8 don't:
-   River Valley 2 has 139 tiles flipping wet/dry outside 0.04–0.06 (volume −0.36%), Delta 3 has 30 (−0.85%), Lake Basin 3 has 156
-   thin-sheet tiles going from 0.057 to dry. One rule causes it: the game's evaporation on a dry tile that receives water (off, the
-   flips are 0). So thin spreading sheets now form less or take other routes, as the game's own water does; the old port was wrong
-   there. M9b's maps have more flat, film-prone ground than M9a's (29 of 30 passed). **Default, being built:** accept the game's
-   rules with this departure, and let the pooled probe batch at M9b's release candidate (D308) check the water against the game
-   itself instead of against the old port. Say if you want something else (e.g. keep the band and investigate further).
-   - **Also on `feature/high-look`** (your answer on the suggested task): once clean water's shades are done, badwater's on-screen
-     calibration targets (6–11 codes off on "typical", "trough", "streak") are re-measured once; the drift is fixed, or, if an
-     approved look change moved them, the targets are updated and noted in PLAN and the progress log (`build-light`).
-5. **Erode is ready to try** ([#74](https://github.com/timbermods/dam-good-maps/pull/74), held until you have; D281). From the repository
-   folder: `npm ci`, then `npm --prefix investigation/erode run demo`, and open the address it prints in Chrome or Edge; the Case
-   menu has the crater lip (Craterize, then Erode), the cliff-foot cave, the thin-ridge arch and a flooded cave, each with a low view.
-   Every result drops 0 voxels under the game's support rule (also 160 random gestures); reach from support at most 3; 15–130 ms to the
-   final land at 128². Its own honest shortfalls: blocky, regular forms (hard beds every fourth level give pillared galleries rather than
-   one sweeping curve); small arches (thin ridges are rare on today's maps); faces under about four levels can't be worn, so on the
-   terraced Highlands 24 of 40 random gestures say "No rock to wear here", which may feel like refusing; water under new roofs is an
-   approximation (said on screen); not yet checked in the game; the view follows the Standard look but isn't its shader.
-6. **Drought and Badtide, day by day, is built** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for
-   a sitting of its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). Two findings:
-   - **"The worst day at once" doesn't hold on water-rich maps.** Time to the last day on this machine: 256² River Valley, drought
-     1.8–3.8 s, badtide 14–22 s; 128² Lake Basin and Islands 16–48 s. The cost is the game's own water rules (9 days of plain
-     simulation on 128² Islands take 22.8 s). Default #124: the strip opens at once and each day shows as it's worked out,
-     landing on the last day. M9a's simulation speedups (D130) will help once they reach dev.
-   - **Most starts lose their water on day 1 of a drought.** On River Valley, Canyon, Highlands and Delta the start draws on a
-     river, which drains on day 1, so the marker usually reads "Day 1: your start's water is gone"; Lake Basin and Islands keep
-     their lake through 9 days. That is the game's rule (sources stop), but it bears on PERFECT's "the start survives its first
-     cycles" (Challenge) and may belong in M9b.
-   Its defaults #120–#124 (the step pace, the start's water rule, per-tile hover notes, the highlight, days as they're worked out).
-   - **Update (#73, 021dcfc): the day strip now follows the game** within the probe's 5% on Canyon, No badwater and Delta
-     (sources ease down before a drought as the game's DroughtWaterStrengthModifier does; the run starts from the loaded water with
-     its flows; and the game's 0.1 spill threshold where a river leaves the map at floor 0). **Default #125 for you:** that last
-     rule is used by the drought run only, so no map changes today; the agent recommends adding it to all water with D293's move to
-     the game's rules (the 3D engine's game mode should already carry it).
-7. **The High look is ready for your eye** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284). Captures, each
-   Standard beside High, plus greyscale and colour-blind sheets: `docs/look/high/` on `feature/high-look`. #38's water and soft
-   shadows, #65's lighting and materials, #66's trees and bushes with wind, #67's stages 1–3 and its poisoned soil; 25 effects, each
-   switchable, in four groups on a Look menu. Standard is unchanged (its shader sources hash as `dev`'s; 12 views differ no more than
-   two loads of `dev`). High is the default with an automatic fallback to a lighter High, then Standard (22 ms, then 30 ms, at the
-   slowest 5% of frames); on the RTX 2070 SUPER it costs about 1–2 ms a frame at 256² and holds the display's 165 Hz. No interface
-   styling changed (D296). My read: warmer and richer, the dead trees far better (branched, not poles); the grass is quite saturated
-   and yellow; the water is calmer and loses Standard's glints; from far away the poisoned soil is a dark olive stain rather than
-   Standard's red glow, so the ground round badwater is harder to spot (its own switch, `poison`). Its defaults #110–#117. The visible
-   seasons wait for the Drought and Badtide branch. It goes on the preview after the forces' release.
-   - **D304 and D305 are built on it** (65a56075, CI green): captures `docs/look/high/d304-water.jpg`, `d304-water-checks.jpg`,
-     `d305-ruins.jpg`. The far ruins now read as the same ruin (muted rust with a lattice; swap point and frame time unchanged).
-     **The water needs your eye:** it keeps the game's relationships (a small lightness span, near-constant hue) but sits about
-     15–18 L* lighter than your screenshot, because the game's own shades would fall too close to badwater's fixed darkness for the
-     colour-blind rule (D201). In greyscale, clean shallow water and 10% badwater now look almost alike (full badwater stays clearly
-     darker), and two readability tests were loosened to fit (badwater's blend step 6 → 12 L*, the shallow-over-badwater margin
-     0.3 → 0.15). Options: accept it; or darken clean water toward the game and darken badwater's floor too, so both keep their gap.
-     The badwater calibration drift was a measuring-tool bug (it measured High against Standard's targets), now fixed.
-8. **The forces sitting is ready: <https://timbermods.github.io/dam-good-maps/preview/> → Generate → Refine this map.** Everything
-   on the checklist below: the lean editor, Select with Wand and the working area, the ceiling at 22, the badwater spring pool,
-   Smart Lower's depth, Ramped slopes, the forces bound only by nature with clean gestures, and Glaciate (its floor as one river). The
-   painting stutter after tall edits is fixed. (The water bar still shows Speed: the day-by-day branch, with its own sitting, removes it.)
-9. **Glaciate (#69): merged** as it is (8ef9842, D292) and being adopted on `feature/glaciate` for your sitting, with the floor's
-   water led into one river.
-10. **Answered (D270):** #84 (Ramped lays its own slopes, being built on `feature/forces`), #81, #82, #85 (except its last
-   line, D271), #87, #88, #89 (only for the generator and Claude), #91, #92, #93.
-11. **Coming to you:** the forces sitting (your checklist below) once the forces queue and the ceiling are built; then
-   Drought and Badtide day by day, a sitting of its own; M9a's release after its probe batch. **Later:** #83 (the new trees
-   in Standard, at the Map look work).
+1. **Done 2026-09-29: items 35, 38 and 39 applied** (D316–D318). The standing rule is at the top of `CLAUDE.md` and
+   of HANDOFF; every definition in `.claude/agents/` names its full model id (`claude-opus-5-5` or `claude-sonnet-5-5`,
+   efforts unchanged); Claude Code resolves "sonnet" to Sonnet 5.5 here (checked 2026-09-29); §7's table is the model plan in force. `build-light`'s first feedback batch tries medium on
+   the well-specified items (D318 (2)).
+2. Done with item 1: the models (item 38, D317).
+3. Done with item 1: model and task suitability (item 39, D318).
+4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary.
+5. **Item 33's documents are written** (D326): `docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`. The per-decision statuses come with item 34.
+6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
+7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.
+8. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
+   branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's
+   softer sound, re-encoded sounds and a quieter default (D313), and **Delete sources** on the Select row (D315)
+   (`feature/forces-sounds`, #81); Glaciate's meltwater springs in groups (D314, `feature/glaciate`, #76). Carve's own source is a row too (D314; Unleash places none). Tuesday's
+   first job is to merge them and refresh the preview; you'll get a toast. Your checklist is below (items 21–23 are the new ones).
+   One finding for your eye: after Delete sources, the live view sometimes loses a few blueberry bushes once the water preview
+   runs on (seen in CI's headless browser, not in Chrome; the operation itself is exact and tested). A `build` agent looks at it on
+   Tuesday.
+9. **M9b** (#70, held for your eye, D252, D273): the grouped sources are in (springs in groups; an edge river's mouth is the rule's row); badwater ditches no longer run ruler-straight, and the sea's rim wanders, so no sea is square. Its tests are being re-pinned (half done: 765 pass; 9 are bound to maps the groups changed, and one resources measure reads 0.5225 against its line under 0.52, to look at first). Then its release candidate (D308): full batches, one pooled probe
+   batch, and the review set for you.
+   - **The game's water rules (D311, accepted):** M9b uses them for open-ground water; the pooled probe batch at the release
+     candidate checks the water against the game itself.
+   - **#134 follows D290:** on a narrow river mouth, the editor's badwater toggle moves the badwater group along the channel to
+     the nearest spot where its pool fits, rather than refusing.
+   - **Your feedback items 21, 22, 24, 26, 27, 36 and 47 are batch 5** (D325; its order is in `docs/feedback/2026-09-29-build-order.md`).
+10. **Real places (#35): the rebuild is running in stages, no sheet for you (D300).** The grouped-sources rule is wired
+   into the conversion (VERSION 11): river heads and lake springs in rows, the water floor's spring as a group,
+   badwater grouped. 37 of 136 places are converted; the other 99 take about 1.5–3 hours on Tuesday. Then my own check
+   (the blocking list, "No water a pump can reach" at 0, the stripes gone on 42, 48, 116 and 118) and the release,
+   `real-places-2-done`. CI on #35 is red until then: the tests are for the new rules, the committed gallery still
+   D271's. From item 47, real places take only what never changes the real land (D331; PERFECT.md's Real places section); item 27 still waits with D319.
+11. **Erode (#74): merged into `dev` as an investigation (be2342a2), rounds 2–9 at 47c02e67, approved by you; adoption at 3D step 3 (D281).** Earlier notes, kept as history: You approved round 2 ("magical, almost
+   perfect") and round 3 (89305ca6) landed and you approved its flat-ground wash. Round 4 is with Codex now,
+   narrow: washes across uneven ground, and telling a wash sweep from a cliff sweep. Next: wait for round 4; the
+   automatic support check at 0 dropped voxels; then hold #74 for your look; merge as an investigation on your
+   yes; adoption at 3D step 3 under the forces' rules.
+12. **Drought and Badtide, day by day** ([#73](https://github.com/timbermods/dam-good-maps/pull/73), CI green; held for a sitting of
+   its own after the forces sitting; its checklist is at the end of `docs/progress/weather-days.md`). The day strip follows the game
+   within 5%; D307's flooded floor says so on hover. Two findings: on water-rich maps the last day takes 16–48 s to work out at 128²
+   (default #124: the strip opens at once and shows each day as it's worked out); most starts on rivers lose their water on day 1 of
+   a drought (the game's rule; it bears on PERFECT's "the start survives its first cycles" and may belong in M9b). Its defaults
+   #120–#125.
+13. **The High look** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284): Standard beside High, with greyscale and
+   colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 25 effects, each switchable; High by default with a fallback.
+   My read: warmer and richer, the dead trees far better; the grass quite saturated and yellow; the water calmer, losing Standard's
+   glints; from far away the poisoned soil is a dark olive stain, harder to spot than Standard's red glow (its own switch,
+   `poison`). Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
+   longer run against today's interface and are on the housekeeping list. It goes on the preview after the forces' release.
+14. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
+   (M9b, above). Everything else is answered.
+15. **"The page is the editor" (feedback item 23):** it follows the forces' release without delay, as one window for the
+    generator and the editor. Nothing of it is built until Kyler has held a question-and-answer round on the UI vision in
+    the planning chat and approved the written UI brief that comes from it; first, prepare a short document in `docs/` of
+    the open design questions and the known constraints (what the page must hold, the decisions recorded about it, what
+    the forces sitting and the feedback items changed) and tell Kyler when it's ready. It also draws item 22's strip and
+    item 24's number.
 
 ### For Kyler: plan conflicts
 
 None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
 
-### Your checklist for the forces sitting: on the preview now (`feature/glaciate` at 86b4ca16: the forces and Glaciate)
+### Your checklist for the forces sitting (on the preview from `feature/glaciate`; refreshed on Tuesday with D312–D315)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
 1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
@@ -119,6 +110,8 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     without a cliff, water still flows across; Ctrl+drag with a brush out, then keep painting; one row (the chip), Esc to
     clear. **Wand** (D261): click a river, trim it to one stretch with Alt, then Raise, Smooth or Set level its bed: the
     banks don't change, and the bed shows through clear water.
+13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
+    water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
 14. **Smart Lower** (D263): hold a stroke out of a river across flat land, pausing on the way: the new channel's water is
     about one tile deep all along, with no pit where it leaves; draw along it again: two deep. Plain Lower away from water
     still digs deeper while held.
@@ -132,15 +125,25 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
     the ground and the clean source.
 18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
     Meltwater, Try another; one river on the floor; the camera stays put.
+    Its More holds Benches, Steps, Tarn and Scree, each on Auto. The floor's one-river measurements and captures were made with
+    round 4's values (some benches, some steps, a tarn, scree); a click draws its own, so a glacier with many steps or sheer walls
+    hasn't been measured: say if the floor ever reads as more than one river.
 19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
 20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
 21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
     the values it took; pin one and Try another: the pinned detail stays, the others vary; pin all the shown values and it repeats.
-13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
-    water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
+22. **From your sitting** (D312, D313; once built, the preview refreshed): the faint size ring on every force, growing with Power and
+    Size; Shift+click waypoints for Carve and Glaciate (Enter or a click launches, Backspace removes, Esc cancels); Erupt's land final
+    in about two seconds; Smooth's softer sound beside Flatten's; the quieter default volume.
+23. **Delete sources** (D315, once built): Ctrl+A, then Delete sources: every source goes, every tree and ruin stays, the water drains;
+    undo brings them all back.
 
 ### 2. Released or merged
 
+- **Released: `m9a-done`** ([#80](https://github.com/timbermods/dam-good-maps/pull/80), `main` a4af2bb0; tagged at c31a77e, the merge of
+  #56). Generator 0.7.0: maps grown from design version 2's processes, Any (Surprise me) as the default, starts that don't look alike,
+  the starting-logs floor, start water fed or lasting (D302), the settled water's flows stored in the file. Also carried: #63, #69
+  (Glaciate's investigation), #72 (housekeeping). The deploy and the live check passed.
 - **Merged into `dev`** (2026-09-26, the Live editing boundary):
   - [#60](https://github.com/timbermods/dam-good-maps/pull/60) Live editing: D212's two changes (Water source and Badwater
     source on the shelf; clear water only around a brush over water) and Carve re-ported to #47's final commit;
@@ -172,8 +175,8 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 
 ### 3. On the preview for you to try
 
-The preview still shows the forces' first round (a88d7d2). Round 2, Unleash (2b), D247 and D248 are done on
-`feature/forces` (c1438df); it goes back on the preview for your sitting once D249 and the ceiling (D244 step 2) are in.
+<https://timbermods.github.io/dam-good-maps/preview/> shows `feature/glaciate` (the forces and Glaciate, before D312–D315).
+Tuesday's session refreshes it with the forces sitting's changes and tells you.
 
 ### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
 
@@ -225,22 +228,25 @@ the other agents paused by hand.
   touched. HANDOFF now says to build with `--no-install`.
 - **Timberborn was open when I arrived;** you closed it (12:05).
 
-### 7. Running (2026-09-27, afternoon; models by D301, in force now)
+### 7. Workstreams at the pause (2026-09-27, evening; models by D301)
 
-| Workstream | Branch (worktree) | Agent, model | State |
+Nothing is running. Every branch is committed, pushed and clean; the next steps are in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
+
+| Workstream | Branch (worktree), last commit | Agent, model | State and next step |
 |---|---|---|---|
-| M9a: its release | `feature/m9a` (`-m9a`, #56) | `m9a-build`, Opus 5.5 xhigh | approved by you (D294); the probe batch's water fix (the settled flows written into the file, 0d9e473) is being re-checked in the game now; then the merge, `m9a-done` and the release |
-| M9b (D273–D278, D294, D298) | `feature/m9b` (`-m9b`) | `m9b-build`, Opus 5.5 xhigh | building; the game's soil rules in; its first review set comes to you when ready |
-| The forces, for your sitting | `feature/forces` (`-forces`) | `build`, Opus 5.5 high | the whole queue built, the ceiling at 22 (D244); fixing a painting stutter found after tall edits, then the preview |
-| Glaciate's adoption (D291, D292) | `feature/glaciate` (`-glaciate`, #76) | `build`, Opus 5.5 high | built; goes on the preview with the forces |
-| Real places (D271, D300) | `feature/real-places-2` (`-places`, #35) | `build`, Opus 5.5 high | the land fixes and the water floor; then badwater (after M9a) and the release on `build-light` |
-| Drought and Badtide, day by day | `feature/weather-days` (#73) | built (`build`) | held for its own sitting; fixes after it on `build-light` |
-| The High look (D284) | `feature/high-look` (#75) | built (`build`); D304's water, D305's ruins and D310's water darkening built (`build-light`) | held for your eye; other fixes on `build` |
-| The Erode investigation (D281) | `investigation/erode` (#74) | built (`build`) | held until you've tried it |
-| 3D foundations: new modules | `feature/terrain3d-a` (#71) | built and verified in the game (`build`) | the wiring waits for the forces and M9b to merge (`build`) |
-| Orchestrating, merging, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
+| The forces (batch 1, D321, D327) | `feature/forces` (`-forces`, #77) | `build`, Opus 5.5 high | started 2026-09-29 |
+| The brushes (batch 2, D322) | `feature/brushes` (`-brushes`) | `build`, Opus 5.5 high | started 2026-09-29; merges into the forces |
+| Select, shelf, shortcuts (batch 3, D323, D328) | `feature/select-shelf` (`-select`) | `build-light-medium`, Sonnet 5.5 medium | started 2026-09-29; merges first; the medium trial |
+| M9b (batch 5, D325, D329; D273–D278, D298, D308, D311, D314) | `feature/m9b` (`-m9b`, #70), 66146f34 | `m9b-build`, Opus 5.5 xhigh | re-pin half done (quick suite 765 passed, 10 failed: 9 map-bound, one resources measure at 0.5225 against < 0.52); next: merge `dev` (M9a), re-seed six tests, re-pin 4242, then the release candidate |
+| Real places, round 2 (D271, D300, D306, D314) | `feature/real-places-2` (`-places`, #35), cbaf6cf6 | `build`, Opus 5.5 high; release on `build-light` | grouped sources wired (VERSION 11); 37 of 136 converted; next: `npx tsx tools/places-convert.ts --threads 3` (1.5–3 h), check, release |
+| Grouped sources, the rule (D314) | `feature/source-groups` (`-groups`, #79), a6346fe4 | — | merges into `dev` with the first branch that carries it; the investigation #78 is merged (685d9b18) |
+| The look (batch 4, D324; D284, D304, D305, D310) | `feature/high-look` (`-high`, #75) | `build-light`, Sonnet 5.5 high | built 2026-09-29 (86eddaea, CI green); held for your High look sitting (captures in `docs/look/high/d324-*.jpg`) |
+| Drought and Badtide, day by day | `feature/weather-days` (`-weather`, #73), 5bb13406 | `build`, then `build-light` | held for its own sitting |
+| The Erode investigation (D281) | `investigation/erode` (#74), 47c02e67 | Codex | merged into `dev` as an investigation (be2342a2), rounds 2–9 approved by you; adoption at 3D step 3 |
+| 3D foundations: new modules | `feature/terrain3d-a` (`-3d`, #71), 24b88b9b | `build` | verified in the game; the wiring waits for the forces and M9b on `dev` |
+| Orchestrating, merging, releasing, probe batches | `dev` | the session, Opus 5.5 high | background scripts do the waiting |
 
-Nothing merges into `dev` or is released without your yes (D286 (9)); every new piece is held on its branch.
+Nothing merges into `dev` or is released without your yes, except housekeeping and investigations at a boundary.
 
 ## The takeover, 2026-09-26
 
@@ -395,7 +401,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D207: visible layers identical to Timberborn: a compact layer widget, slicing, the layer pick, tools acting on the visible land; Esc never resets the slice.
 - D208 (for M9b): themes become optional leanings; the default is "Any" (Surprise me), combining landforms, water and intentions freely; measured for coherence, playability and no archetype clusters.
 - D209: design version 2 approved; M9a builds it with "Any" as the default and no ruler-straight rivers; M9b fixes Islands' sameness and raises Kyler's crater and waterfall-lake intentions; pending #59–#68 decided (#66 later).
-- D210: M9a on Opus 5.5 at xhigh, M9b and M9c at high, routine work on Sonnet 5 at medium; M9a first when work competes.
+- D210: M9a on Opus 5.5 at xhigh, M9b and M9c at high, routine work on Sonnet 5.5 at medium; M9a first when work competes.
 - D211: M9a's settings: Lake Basin's water share is information until M9b; Start area is a preference ("prefer a roomy / tight start"), and the map card shows the actual bench size.
 - D212: Live editing's two changes before release: sources on the left shelf (Water source, Badwater source, after Start); clear water only under and around the brush over water, still reading as water; defaults confirmed.
 - D213: #54 goes in with M9a; removing the last badwater spring switches the map to No badwater.
@@ -411,6 +417,10 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D225: **[PERFECT.md](PERFECT.md)**, what perfect means: the yardstick for every review.
 - **D244 step 1, prepared** (branch `chore/ceiling-probe`, a0be2aa): three editor-made tall maps in `C:\dgm-probe\ceiling\` (a volcano from level 4 to a summit at 22 with a stream at its foot; a waterfall from 21 into the river; a 256² plateau raised to 22), each passing both validators, and a "Ceiling" probe group (about 24 minutes). The batch runs right after M9a's (M9a first). Found on the way: **the editor clips edited land above 16 back to 16 even on a tall map** (the build's integrity pass, `MAX_TERRAIN`, and five other places), on dev and the released editor too, so a force on a tall map ends in a flat mesa at 16; step 2 lifts all six. **Timberborn's own map editor keeps land above 16** when it opens and saves a map (the same loader as a game; its save packs every voxel); its brushes only can't raise above 16, and its absolute-height brush cuts tall land down where painted. So the tall note can say, plainly: "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16."
 - **Glaciate (#69):** open and green, held (D246): Kyler has it in another round of feedback and changes with Codex.
+- D315: the Select row gains Delete sources: every source in the selection (Ctrl+A: the map), nothing else, one undo step.
+- D314: sources in rows and clusters as in the official maps (the investigation #78; the rule `src/core/water/sourceGroups.ts`, #79): a row across the flow for clean water, single or a close pair for badwater; wired into the generator (M9b), Real places, Carve's source and Glaciate's meltwater. The shelf's source stays single, and Unleash carves from the source it was given (no row at its head).
+- D313: Smooth's sound a softer relative of Flatten's; over-compressed sounds re-encoded; the default volume a quarter lower (saved volumes kept).
+- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.
 - D311: the game's water rules in M9b accepted where thin sheets form less; the pooled probe checks against the game.
 - D310: clean water and badwater's floor darken together toward the game; the readability tests restored; bubbles and texture help the faintest badwater.
 - D309: the forces' details come back behind a More button, each on Auto (nature's pick), pinnable; after a run each Auto detail shows its value with one click to pin it; Try another re-rolls only Auto. On feature/forces (`build-light`).
@@ -421,7 +431,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D304: clean water's shades fitted to the game's own (sampled from your screenshot): one teal-blue body, deep only a little darker, shallows never grey; badwater unchanged; on `feature/high-look` (`build-light`).
 - D303: the game's edge-spill rule adopted everywhere with D293's switch (#125).
 - D302: M9a released once the tall maps' reopen check is clean and no start meets `start.water` only through a sealed puddle (else the rule is fixed first); wet-tile counts judged as D297; the side pool and Delta's flats go to M9b.
-- D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
+- D301 (in force now, by your correction): Opus where judgment is the product (M9b at xhigh; the forces, Glaciate, 3D, the High look's and Erode's adoption and the session at high), Sonnet 5.5 high (`build-light`) for written specs, `routine` as now, background scripts for waiting; `build-xhigh` removed; D286's temporary rules ended, its workstreams continue.
 - D300: Real places finished without another sheet: the bed lowered under real water, most of the tilt taken out, a water floor (a small natural spring near the start where a place has no water), #94 accepted; checked by the session; then badwater after M9a, and the release.
 - D299: the generator page's Moist soil switch stays until "The page is the editor"; Quake's Left/Right control stays gone (X flips the side).
 - D298: the game's own soil rules adopted in M9b (with the Python moisture check); M9b reports plants moved or changed and generation times.
@@ -526,7 +536,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 
 ## Running
 
-Nothing, at the pause for the restart. The order of work is in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
+Nothing, at the pause for Tuesday (2026-09-27, evening). The order of work is in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
 
 ## Waiting on Kyler
 
@@ -535,7 +545,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D311.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D339.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

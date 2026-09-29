@@ -121,6 +121,9 @@ interface StartHere {
   owner: string;
 }
 
+/** What the editor says once the map's last badwater spring is gone (D213). */
+const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
+
 export default function Editor(props: EditorProps) {
   const { api } = props;
   const [info, setInfo] = useState<SessionInfo>(props.opened.info);
@@ -244,6 +247,10 @@ export default function Editor(props: EditorProps) {
   const [dotOpen, setDotOpen] = useState(false);
   const [saving, setSaving] = useState<{ kind: "timberborn" | "download"; progress: CheckProgress | null } | null>(null);
   const [noticesOpen, setNoticesOpen] = useState(true);
+  // (the quiet line opens again when the last badwater spring goes, D213)
+  useEffect(() => {
+    if (info.badwaterRemoved) setNoticesOpen(true);
+  }, [info.badwaterRemoved]);
   const [viewTick, setViewTick] = useState(0);
   // the footprint under the pointer (an object from the shelf) and the source clicked (D196)
   const [fit, setFit] = useState<{ tiles: number[]; problem: string | null } | null>(null);
@@ -2373,7 +2380,8 @@ export default function Editor(props: EditorProps) {
     () => (damSites ? [{ swatch: damLegendSwatch(), label: "Dam sites", markers: true, tiles: damSites.flatMap((d) => d.tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x)) }] : []),
     [damSites, info.W, info.H],
   );
-  const notices = [...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
+  // D213: removing the map's last badwater spring makes it a No badwater map, said in a quiet line
+  const notices = [...(info.badwaterRemoved ? [NO_BADWATER_LINE] : []), ...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 

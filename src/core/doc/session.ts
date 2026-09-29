@@ -1,48 +1,43 @@
-// An open map document (EDITOR_PLAN §3): the operations engine, undo and redo, regeneration with
-// constraints, export, and the built map, rebuilt incrementally after every change. The editor (M4)
+// An open map document (EDITOR_PLAN §3): the operations engine, undo and redo, export, and the built map, rebuilt incrementally after every change. The editor (M4)
 // runs one session in its worker; everything here is headless and runs in Node too.
 //
 // - `apply` checks an operation, applies it to the state, appends it to the log and rebuilds the
 //   dirty region. Invalid operations are rejected with reasons, never clamped.
-// - `undo` and `redo` step through the history: operations invert with their undo data, and a
-//   regeneration restores the generation before it. Built maps are kept as snapshots every few
-//   steps and around regenerations, so stepping back is instant on 256² maps.
-// - `regenerate` (the `specPatch` operation) plans a new generation around the player's features
-//   and keep-out regions (PLAN §7.0), replays the log on it, and flags what no longer applies
-//   (PLAN §19.4).
-// - Documents opened by a newer generator open from their stored base, exactly, until
-//   `rebuildWithCurrentGenerator` (PLAN §19.7).
+// - `undo` and `redo` step through the history: operations invert with their undo data. Built maps
+//   are kept as snapshots every few steps, so stepping back is instant on 256² maps.
+// - Edits never replay onto new land (PLAN §20, D336): a document keeps the generation it was
+//   made on. Generate makes a new map; the log replays only onto the same land (undo and redo,
+//   reopening a project, share links).
+// - Documents made by another generator open from their stored base, exactly (PLAN §19.7).
 
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type LockedLayer } from "../features/build";
+import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
+import { MAX_TERRAIN } from "../features/raster/terrain";
+import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameRetained, type WaterModel } from "../sim/water";
-import { pathField, polygonMask } from "../features/geometry";
 import { entityJson, rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature } from "../features/schema";
-import { MAX_ATTEMPTS, planFeatures, type GenerateResult } from "../gen/generate";
-import { description, fileName as timberFileName, mapName, toTimberFile } from "../gen/pack";
-import { PlanConflict } from "../gen/riverValley";
-import { runsToTiles, type Runs } from "../math/grid";
+import type { GenerateResult } from "../gen/generate";
+import { fileName as timberFileName, toTimberFile } from "../gen/pack";
+import { NO_BADWATER_NOTE } from "../resources/badwater";
+import { runsToTiles } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
-import { GENERATOR_VERSION, type MapSpec, type Region } from "../spec/mapspec";
-import { applyMergePatch, clone } from "../spec/mergepatch";
-import { validateSpec } from "../spec/schema";
+import { GENERATOR_VERSION, type MapSpec } from "../spec/mapspec";
+import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
-import type { PlayabilityAnalysis } from "../validate/playability";
-import { blocks, type Profile, type ValidationReport } from "../validate/report";
+import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
-import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
   applyOp,
   invertOp,
-  opFitsMap,
   replay,
   validateOp,
   type AppliedOp,
@@ -59,23 +54,20 @@ interface Generation {
   spec: MapSpec | null;
   generatorVersion: string;
   base: BaseMap;
+  /** A generated map's field (M9a): the build starts from it. */
+  field: FieldData | null;
   baseFeatures: Feature[];
   kept: KeptContent | null;
   meta: DocMeta;
 }
 
-interface GenerationRecord {
-  gen: Generation;
-  log: AppliedOp[];
-}
-
-/** One undo step: one operation, a group applied together (a fix, a proposal), or a regeneration. */
-type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string } | { kind: "generation"; label: string; before: GenerationRecord; after: GenerationRecord };
+/** One undo step: one operation, or a group applied together (a fix, a proposal). */
+type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
 
 export interface HistoryItem {
   label: string;
   /** The (first) operation of the step. */
-  op: OpName | "regenerate";
+  op: OpName;
   seq?: number;
   /** Operations in the step (a fix or a proposal may hold several). */
   count?: number;
@@ -89,8 +81,6 @@ export interface ApplyResult {
   errors: string[];
   applied: AppliedOp[];
   dirty: DirtyInfo | null;
-  /** Set when the operation was a `specPatch`. */
-  regeneration?: RegenerateResult;
 }
 
 /** An operation with no effect, and why (PLAN §19.4): shown to the player, never dropped. */
@@ -100,29 +90,6 @@ export interface DocOrphan {
   label: string;
   reason: string;
 }
-
-export interface RegenerateResult {
-  ok: boolean;
-  errors: string[];
-  /** Attempts the generator made, and why the rejected ones failed. */
-  attempts: number;
-  failures: { attempt: number; reason: string }[];
-  /** The regenerated map's validation (generate profile), null when nothing was generated. */
-  report: ValidationReport | null;
-  /** What that validation measured (reach, dam sites, distances), for the map card. */
-  analysis: PlayabilityAnalysis | null;
-  /** The player's own features (user, Claude, stamps): every one is still in the document. */
-  kept: string[];
-  /** Kept features that no longer fit the new terrain (nothing of them could be placed). */
-  unfit: { id: string; reason: string }[];
-  orphans: DocOrphan[];
-  /** The checks the player's edits fail on the new map, when the generator's own map passes
-   *  them (retrying another layout cannot fix those: the edits are kept as they are). */
-  editProblems: { id: string; message: string }[];
-}
-
-/** More layouts tried after one whose own map passes but the player's edits fail on it. */
-const EDIT_RETRIES = 1;
 
 /** Built maps kept for undo and redo. */
 const SNAPSHOT_EVERY = 8;
@@ -138,6 +105,7 @@ export class MapSession {
   private redoStack: HistoryEntry[] = [];
   private snaps = new Map<number, BuildResult>();
   private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   /** Things the player should know about how the document was opened. */
@@ -150,33 +118,32 @@ export class MapSession {
   private waterMode: WaterMode = "canonical";
 
   private constructor(doc: MapDocument, built?: BuildResult) {
-    this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+    this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
     const r = replay(this.gen.baseFeatures, doc.edits);
     this.log = r.log;
     this.st = r.state;
     this.seqNext = doc.nextSeq;
     for (const n of (doc as MapDocument & RetiredNotes).__retiredNotes ?? []) this.notices.push(n);
     if (doc.spec && doc.base.world === null) {
-      // a format-1 project file: no stored map, so the base is built with this generator
+      // a format-1 project file: no stored map, so the base is built with this generator, on the
+      // heights the file stored as its field (the land it had; its features place the rest)
       if (doc.generatorVersion !== GENERATOR_VERSION) {
         this.notices.push(`This project was made with generator ${doc.generatorVersion} and stores no map, so it was rebuilt with generator ${GENERATOR_VERSION}.`);
       }
       const spec = { ...doc.spec, generatorVersion: GENERATOR_VERSION };
-      const baseBuilt = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features: this.gen.baseFeatures });
-      this.gen = { ...this.gen, spec, generatorVersion: GENERATOR_VERSION, base: baseFromFile(toTimberFile(spec, baseBuilt), "generated", baseBuilt.entities.map((e) => e.owner)) };
+      const carved = (f: Feature) => f.origin === "generated" && (f.kind === "river" || f.kind === "lake" || f.kind === "landform" || f.kind === "setPiece");
+      const field: FieldData = { heights: doc.base.heights, runs: [], contains: this.gen.baseFeatures.filter(carved).map((f) => f.id) };
+      const baseBuilt = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features: this.gen.baseFeatures, field: generatedField(field, spec.size.x, spec.size.y) });
+      this.gen = { ...this.gen, spec, generatorVersion: GENERATOR_VERSION, field, base: baseFromFile(toTimberFile(spec, baseBuilt), "generated", baseBuilt.entities.map((e) => e.owner)) };
     }
     if (this.mode === "frozen") {
-      this.notices.push(
-        `This map was made with generator ${this.gen.generatorVersion}. It opens exactly as it was saved; ` +
-          `rebuilding it with generator ${GENERATOR_VERSION} lets you edit what the generator made.`,
-      );
+      this.notices.push(`This map was made with generator ${this.gen.generatorVersion}. It opens exactly as it was saved.`);
     }
     this.cur = built ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. Show → Water under roofs marks them.");
     }
-    // the log is the history of an opened document: its operations undo one by one (a
-    // regeneration's earlier generation is not stored, so the history starts at this one)
+    // the log is the history of an opened document: its operations undo one by one
     this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
     this.snaps.set(this.undoStack.length, this.cur);
   }
@@ -249,8 +216,8 @@ export class MapSession {
     if (!views.length) delete (this.gen.meta as { views?: SavedView[] }).views;
   }
 
-  /** The generation the map is built on: the same object until a regeneration, an undo or redo
-   *  across one, or a rebuild with the current generator replaces it. */
+  /** The generation the map is built on: one per document (edits never replay onto new land,
+   *  D336). */
   get generationKey(): object {
     return this.gen;
   }
@@ -282,7 +249,7 @@ export class MapSession {
 
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file), r.built);
+    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field), r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
@@ -352,7 +319,11 @@ export class MapSession {
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().terrain;
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
+    // a generated map's field: the build's integrity pass compares with it (M9a)
+    const field = live ? (this.input().field ?? null) : null;
     return {
+      field: field ? field.heights.slice() : null,
+      top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
       pre: t.pre7.slice(),
       protect: t.protect.slice(),
       channel: t.channel.slice(),
@@ -388,11 +359,12 @@ export class MapSession {
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {
     return {
-      formatVersion: 2,
+      formatVersion: 3,
       app: "dam-good-maps",
       generatorVersion: this.gen.generatorVersion,
       spec: this.gen.spec,
       base: this.gen.base,
+      ...(this.gen.field ? { field: this.gen.field } : {}),
       baseFeatures: this.gen.baseFeatures,
       kept: this.gen.kept,
       features: clone(this.st.features),
@@ -421,7 +393,7 @@ export class MapSession {
       for (const o of this.log) {
         const target = o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature" ? o.params.id : null;
         if (target && frozen.has(target) && !o.orphaned) {
-          out.push({ seq: o.seq, op: o.op, label: labelOf(o), reason: `waits for a rebuild with generator ${GENERATOR_VERSION}: the map shows what generator ${this.gen.generatorVersion} made` });
+          out.push({ seq: o.seq, op: o.op, label: labelOf(o), reason: `the map keeps what generator ${this.gen.generatorVersion} made as it was saved` });
         }
       }
     }
@@ -430,7 +402,6 @@ export class MapSession {
 
   history(): HistoryItem[] {
     const item = (e: HistoryEntry, applied: boolean): HistoryItem => {
-      if (e.kind === "generation") return { label: e.label, op: "regenerate", applied };
       const first = e.ops[0];
       const orphaned = e.ops.find((o) => o.orphaned)?.orphaned;
       return { label: e.label ?? labelOf(first), op: first.op, seq: first.seq, count: e.ops.length, applied, ...(orphaned ? { orphaned } : {}) };
@@ -479,16 +450,12 @@ export class MapSession {
     if (errors.length || this.mode !== "frozen") return errors;
     const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
     const target = op.op === "updateFeature" || op.op === "deleteFeature" || op.op === "reorderFeature" ? op.params.id : null;
-    if (target && frozen.has(target)) return [`rebuild the map with generator ${GENERATOR_VERSION} first: it shows what generator ${this.gen.generatorVersion} made`];
+    if (target && frozen.has(target)) return [`this map keeps what generator ${this.gen.generatorVersion} made as it was saved`];
     return [];
   }
 
-  /** Apply one operation. `specPatch` regenerates the map (see `regenerate`). */
+  /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
-    if (op.op === "specPatch") {
-      const r = this.regenerate(op.params.patch, label);
-      return { ok: r.ok, errors: r.errors, applied: [], dirty: r.ok ? this.cur.dirty : null, regeneration: r };
-    }
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     const applied = this.applyChecked(op, origin, label);
@@ -503,7 +470,7 @@ export class MapSession {
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = op.op === "specPatch" ? ["a settings change cannot be part of a group of edits"] : this.check(op);
+      const errors = this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
@@ -533,13 +500,11 @@ export class MapSession {
   undo(): boolean {
     const e = this.undoStack.pop();
     if (!e) return false;
-    if (e.kind === "ops") {
-      for (let k = e.ops.length - 1; k >= 0; k--) {
-        const last = this.log.pop();
-        if (last?.seq !== e.ops[k].seq) throw new Error("the log and the history disagree");
-        invertOp(this.st, last);
-      }
-    } else this.setGeneration(e.before);
+    for (let k = e.ops.length - 1; k >= 0; k--) {
+      const last = this.log.pop();
+      if (last?.seq !== e.ops[k].seq) throw new Error("the log and the history disagree");
+      invertOp(this.st, last);
+    }
     this.redoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
     return true;
@@ -548,12 +513,10 @@ export class MapSession {
   redo(): boolean {
     const e = this.redoStack.pop();
     if (!e) return false;
-    if (e.kind === "ops") {
-      for (const op of e.ops) {
-        applyOp(this.st, op);
-        this.log.push(op);
-      }
-    } else this.setGeneration(e.after);
+    for (const op of e.ops) {
+      applyOp(this.st, op);
+      this.log.push(op);
+    }
     this.undoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
     this.snapshot();
@@ -580,169 +543,6 @@ export class MapSession {
       const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
       this.snaps.delete(oldest);
     }
-  }
-
-  // --------------------------------------------------------------------------- regeneration
-
-  /** Change the settings and regenerate (`specPatch`, PLAN §19.1): the generated features are
-   *  planned again around the player's features and keep-out regions (PLAN §7.0), the log is
-   *  replayed on them, and whatever no longer applies is flagged. The generator retries until the
-   *  generate profile passes, as for a new map; when no attempt passes, the last one is kept with
-   *  its report. */
-  regenerate(patch: Record<string, unknown>, label = "Change settings and regenerate"): RegenerateResult {
-    const fail = (errors: string[], failures: RegenerateResult["failures"] = []): RegenerateResult => ({
-      ok: false,
-      errors,
-      attempts: failures.length,
-      failures,
-      report: null,
-      analysis: null,
-      kept: [],
-      unfit: [],
-      orphans: this.orphans(),
-      editProblems: [],
-    });
-    const old = this.gen.spec;
-    if (!old) return fail(["an imported map has no settings to change"]);
-    let spec = applyMergePatch(old, patch) as MapSpec;
-    const kept = this.st.features.filter((f) => f.origin !== "generated");
-    spec = {
-      ...spec,
-      generatorVersion: GENERATOR_VERSION,
-      constraints: { ...spec.constraints, keep: kept.map((f) => f.id) },
-    };
-    delete spec.accepted;
-    const specErrors = validateSpec(spec);
-    if (specErrors.length) return fail(specErrors.map((e) => `settings${e.path}: ${e.message}`));
-    const W = spec.size.x;
-    const H = spec.size.y;
-    // locks and the retired regenerateRegion operation were removed (D253, D270): a regeneration
-    // never keeps anything of the previous generation any more (an old project's own kept content,
-    // from before, stays put until its next regeneration, same as always).
-    const keptContent: KeptContent | null = null;
-    const keptLayer: LockedLayer | null = null;
-    const protect = protectMask(W, H, kept, spec.constraints.keepOut);
-    const fits = (op: AppliedOp) => opFitsMap(op, W, H);
-    const failures: RegenerateResult["failures"] = [];
-    type Attempt = { spec: MapSpec; planned: Feature[]; state: DocState; log: AppliedOp[]; built: BuildResult; report: ValidationReport; analysis: PlayabilityAnalysis | null; cache: SettleCache; base?: BuildResult };
-    let best: Attempt | null = null;
-    let editProblems: RegenerateResult["editProblems"] = [];
-    let fallback: (Attempt & { base: BuildResult; attempt: number; problems: RegenerateResult["editProblems"] }) | null = null as (Attempt & { base: BuildResult; attempt: number; problems: RegenerateResult["editProblems"] }) | null;
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const specA: MapSpec = { ...spec, accepted: { attempt, candidate: 0 } };
-      const cache = new SettleCache();
-      let planned: Feature[];
-      try {
-        planned = planFeatures(specA, attempt, 0, cache, { protect, features: kept, locked: keptLayer });
-      } catch (e) {
-        if (e instanceof PlanConflict) {
-          failures.push({ attempt, reason: e.message });
-          continue;
-        }
-        if (e instanceof Error) return fail([e.message], failures);
-        throw e;
-      }
-      const r = replay(planned, this.log, fits);
-      const built = buildMap(this.inputFor(W, H, spec.seed, r.state, null, keptLayer), { settleCache: cache });
-      const v = validateMap(toTimberFile(specA, built), { profile: "generate", spec: specA, features: r.state.features, water: { model: built.waterModel, settled: built.settle } });
-      const report = v.report;
-      best = { spec: specA, planned, state: r.state, log: r.log, built, report, analysis: v.analysis, cache };
-      if (report.passed) {
-        editProblems = [];
-        break;
-      }
-      // when the generator's own map passes, the player's edits are what fails (a start moved
-      // off its water, say): a couple more layouts may suit the edits, then that map is kept with
-      // the edits' problems named (retrying every layout took a minute at 256² and never helped)
-      if (this.log.length && !fallback) {
-        const base = buildMap({ W, H, seed: spec.seed, features: planned, locked: keptLayer }, { settleCache: cache });
-        const bv = validateMap(toTimberFile(specA, base), { profile: "generate", spec: specA, features: planned, water: { model: base.waterModel, settled: base.settle } });
-        if (bv.report.passed) fallback = { ...best, base, attempt, problems: report.checks.filter((c) => blocks("generate", c)).map((c) => ({ id: c.id, message: c.message })) };
-      }
-      failures.push({ attempt, reason: report.checks.filter((c) => blocks("generate", c)).map((c) => c.id).join(", ") });
-      if (fallback && attempt >= fallback.attempt + EDIT_RETRIES) {
-        best = fallback;
-        editProblems = fallback.problems;
-        failures.length = fallback.attempt;
-        break;
-      }
-    }
-    if (best && !best.report.passed && fallback && best !== fallback) {
-      best = fallback;
-      editProblems = fallback.problems;
-    }
-    if (!best) return fail(failures.length ? [`no layout fits: ${failures[failures.length - 1].reason}`] : ["no layout fits"], failures);
-    // the new generation: the generated features alone, built and stored as the base
-    const baseBuilt = best.base ?? buildMap({ W, H, seed: spec.seed, features: best.planned, locked: keptLayer }, { settleCache: best.cache });
-    const gen: Generation = {
-      spec: best.spec,
-      generatorVersion: GENERATOR_VERSION,
-      base: baseFromFile(toTimberFile(best.spec, baseBuilt), "generated", baseBuilt.entities.map((e) => e.owner)),
-      baseFeatures: best.planned,
-      kept: keptContent,
-      meta: { ...this.gen.meta, name: mapName(best.spec), premise: description(best.spec), designedFor: best.spec.designedFor },
-    };
-    const before = this.record();
-    const beforeBuilt = this.cur;
-    this.gen = gen;
-    this.log = best.log;
-    this.st = best.state;
-    this.cur = best.built;
-    this.pushHistory({ kind: "generation", label, before, after: this.record() });
-    this.snaps.set(this.undoStack.length - 1, beforeBuilt);
-    this.snapshot(true);
-    const unfit: RegenerateResult["unfit"] = [];
-    for (const f of kept) {
-      if (f.kind !== "forest" && f.kind !== "berryPatch" && f.kind !== "ruinField") continue;
-      if (!this.cur.entities.some((e) => e.owner === f.id)) unfit.push({ id: f.id, reason: `nothing of this ${f.kind} fits the new terrain: its area is under water, taken or on unsuitable soil` });
-    }
-    return {
-      ok: true,
-      errors: [],
-      attempts: failures.length + 1,
-      failures,
-      report: best.report,
-      analysis: best.analysis,
-      kept: kept.map((f) => f.id).filter((id) => this.st.features.some((f) => f.id === id)),
-      unfit,
-      orphans: this.orphans(),
-      editProblems,
-    };
-  }
-
-  /** A document from another generator version: rebuild what the generator made with this one
-   *  (PLAN §19.7). The log is replayed and whatever no longer applies is flagged. */
-  rebuildWithCurrentGenerator(): boolean {
-    if (this.mode !== "frozen" || !this.gen.spec) return false;
-    const spec = { ...this.gen.spec, generatorVersion: GENERATOR_VERSION };
-    const { x: W, y: H } = spec.size;
-    const keptLayer = this.gen.kept ? keptLayerOf(this.gen.kept, W, H) : null;
-    const baseBuilt = buildMap({ W, H, seed: spec.seed, features: this.gen.baseFeatures, locked: keptLayer });
-    const before = this.record();
-    const beforeBuilt = this.cur;
-    this.gen = {
-      ...this.gen,
-      spec,
-      generatorVersion: GENERATOR_VERSION,
-      base: baseFromFile(toTimberFile(spec, baseBuilt), "generated", baseBuilt.entities.map((e) => e.owner)),
-    };
-    this.setGeneration({ gen: this.gen, log: this.log });
-    this.cur = this.rebuilt();
-    this.pushHistory({ kind: "generation", label: `Rebuild with generator ${GENERATOR_VERSION}`, before, after: this.record() });
-    this.snaps.set(this.undoStack.length - 1, beforeBuilt);
-    this.snapshot(true);
-    return true;
-  }
-
-  private record(): GenerationRecord {
-    return { gen: this.gen, log: clone(this.log) };
-  }
-
-  private setGeneration(r: GenerationRecord): void {
-    this.gen = r.gen;
-    const rep = replay(r.gen.baseFeatures, r.log);
-    this.log = rep.log;
-    this.st = rep.state;
   }
 
   // ------------------------------------------------------------------------------ building
@@ -780,12 +580,35 @@ export class MapSession {
   }
 
   private input(): BuildInput {
-    const base = this.mode === "live" ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer());
+    const live = this.mode === "live";
+    const base = live ? null : this.baseStuff().layer;
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null);
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null): BuildInput {
-    return { W, H, seed, features: st.features, base, sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
+   *  so incremental rebuilds see it unchanged). A feature read back from the field that the player
+   *  has since changed is the field's no longer: it is built as the feature says. */
+  private fieldOf(f: FieldData | null): GeneratedField | null {
+    if (!f) return null;
+    const base = new Map(this.gen.baseFeatures.map((x) => [x.id, x]));
+    const inField = new Set(f.contains);
+    const edited: string[] = [];
+    for (const x of this.st.features) {
+      if (!inField.has(x.id)) continue;
+      const b = base.get(x.id);
+      // (its shape: locking it, renaming it, or a river's water turning bad or its flow changing,
+      // leaves it the field's)
+      if (!b || b.kind !== x.kind || JSON.stringify(shapeOf(b)) !== JSON.stringify(shapeOf(x))) edited.push(x.id);
+    }
+    const key = edited.join(",");
+    if (this.fieldCache?.key === f && this.fieldCache.edited === key) return this.fieldCache.field;
+    const field = generatedField(f, this.gen.base.sizeX, this.gen.base.sizeY, edited);
+    this.fieldCache = { key: f, edited: key, field };
+    return field;
+  }
+
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -813,13 +636,33 @@ export class MapSession {
 
   // ------------------------------------------------------------------------------- exporting
 
+  /** Kyler's D213: a map whose player removed its last badwater spring is a No badwater map (a
+   *  peaceful one; badtides still come). Removing it is never refused: the map says so in its
+   *  description, its checks treat it as No badwater, and undoing the removal brings the spring and
+   *  the setting back. A generated map asks for badwater unless its player chose No badwater; an
+   *  imported one did when it was opened with a badwater source. */
+  badwaterRemoved(built: BuildResult = this.cur): boolean {
+    if (built.entities.some((e) => e.template === "BadwaterSource")) return false;
+    const spec = this.gen.spec;
+    if (spec) return spec.settings.hazards.badwater !== "off";
+    return this.baseStuff().file.world.entities.some((e) => e.Template === "BadwaterSource");
+  }
+
+  /** The spec the map is written and checked with: the generation's, set to No badwater once its
+   *  player removed the last badwater spring (D213, `badwaterRemoved`). */
+  effectiveSpec(built: BuildResult = this.cur): MapSpec | null {
+    const spec = this.gen.spec;
+    if (!spec || !this.badwaterRemoved(built)) return spec;
+    return { ...spec, settings: { ...spec.settings, hazards: { ...spec.settings.hazards, badwater: "off" } } };
+  }
+
   /** The map as a .timber file. A generated map is written the way the generator writes it; an
    *  imported one is its normalized file with the edits: unedited, it is the same file, byte for
    *  byte (PLAN §19.6). */
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
-    if (this.mode === "live") return toTimberFile(this.gen.spec!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
@@ -834,8 +677,14 @@ export class MapSession {
     const world: WorldModel = { ...w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), singletons, entities: built.entities.map(entityJson) };
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
+    let metadata = parse(this.gen.base.metadata) as JsonObject;
+    // its player removed its last badwater spring: it says it is a No badwater map (D213)
+    if (this.badwaterRemoved(built)) {
+      const text = typeof metadata.MapDescription === "string" ? metadata.MapDescription : "";
+      metadata = { ...metadata, MapDescription: text ? `${text}\n\n${NO_BADWATER_NOTE}` : NO_BADWATER_NOTE };
+    }
     return {
-      metadata: parse(this.gen.base.metadata) as JsonObject,
+      metadata,
       thumbnail: blank ?? (redraw ? thumbnailJpeg(built.heights, W, H, built.waterFromFile ? null : built.water) : b.file.thumbnail),
       versionTxt: this.gen.base.versionTxt,
       world,
@@ -892,7 +741,7 @@ export class MapSession {
     return validateMap(this.exportFile(), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
-      spec: this.gen.spec,
+      spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,
       water: opts.water ?? (live ? { model: this.cur.waterModel, settled: this.cur.settle } : undefined),
@@ -960,13 +809,31 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
  *  heightfield map (one slot per tile), every other singleton as it was. With `roofed`, the tiles
  *  under roofs keep the file's own water and soil (every slot; world.ts mixedSimulationSingletons). */
 function withSettledWater(singletons: JsonObject, W: number, H: number, b: BuildResult, roofed?: ReadonlySet<number>): JsonObject {
-  const st = { floor: b.heights, depth: b.water, contamination: b.contamination, moisture: b.moisture, soilContamination: b.soilContamination, sat: b.settle.sat };
+  const st = { floor: b.heights, depth: b.water, contamination: b.contamination, moisture: b.moisture, soilContamination: b.soilContamination, sat: b.settle.sat, out: b.settle.out };
   const s = roofed ? mixedSimulationSingletons(singletons, W, H, st, roofed) : settledSimulationSingletons(W, H, st);
   const keys = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
   const out: JsonObject = {};
   for (const k in singletons) out[k] = keys.includes(k) ? s[k] : singletons[k];
   for (const k of keys) if (!(k in out)) out[k] = s[k];
   return out;
+}
+
+/** A stored field as the build takes it. */
+/** What of a feature the field holds: its params, less a river's water (badwater or clean, its
+ *  flow), which never changes the ground. */
+function shapeOf(f: Feature): unknown {
+  if (f.kind !== "river") return f.params;
+  const { badwater: _b, flow: _f, ...rest } = f.params;
+  return rest;
+}
+
+export function generatedField(f: FieldData, W: number, H: number, except: readonly string[] = []): GeneratedField {
+  const { heights } = terrainColumns(f, W * H);
+  const out = new Set(except);
+  const ramps: [number, number][] = [];
+  const r = f.ramps ?? [];
+  for (let k = 0; k + 1 < r.length; k += 2) ramps.push([r[k], r[k + 1]]);
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
@@ -979,40 +846,6 @@ export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
   });
   const entities = (parse(k.entities) as JsonObject[]).map((e, n) => rawEntity(e, k.owners[n] ?? "kept"));
   return { mask, heights, entities };
-}
-
-/** Tiles the planner keeps off (PLAN §7.0): the player's features and keep-out regions. */
-export function protectMask(W: number, H: number, kept: readonly Feature[], keepOut: readonly Region[]): Uint8Array | null {
-  if (!kept.length && !keepOut.length) return null;
-  const m = new Uint8Array(W * H);
-  const runs = (r: Runs) => {
-    for (const [y, x0, x1] of r) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) m[y * W + x] = 1;
-  };
-  for (const f of kept) {
-    switch (f.kind) {
-      case "landform":
-        if (f.params.outline) polygonMask(f.params.outline, W, H).forEach((v, i) => v && (m[i] = 1));
-        break;
-      case "lake":
-        polygonMask(f.params.outline, W, H).forEach((v, i) => v && (m[i] = 1));
-        break;
-      case "river": {
-        const field = pathField(f.params.path, W, H);
-        const bank = f.params.width / 2 + 1;
-        for (let i = 0; i < W * H; i++) if (field.d[i] < bank) m[i] = 1;
-        break;
-      }
-      case "forest":
-      case "berryPatch":
-      case "ruinField":
-        runs(f.params.area);
-        break;
-      default:
-        break;
-    }
-  }
-  for (const r of keepOut) runs(r.runs);
-  return m;
 }
 
 /** A stroke's history label, when the page gave none ("Raise, 38 tiles" when it did). */
@@ -1061,7 +894,7 @@ export function labelOf(op: AppliedOp): string {
     case "removeSlope":
       return "Remove a slope";
     default:
-      return op.op;
+      return (op as { op: string }).op;
   }
 }
 

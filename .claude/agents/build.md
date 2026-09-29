@@ -1,7 +1,7 @@
 ---
 name: build
 description: Builds everything else Claude builds on Dam Good Maps (the forces and Unleash, the editor changes, the Real places rebuild, the Map look adoption, Glaciate's adoption and the like). Kyler's choice (PLAN §20 D251): Opus 5.5 at high effort.
-model: opus
+model: claude-opus-5-5
 effort: high
 ---
 

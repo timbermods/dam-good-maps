@@ -1,0 +1,136 @@
+{
+  "browser": "154.0.8037.58",
+  "viewport": [
+    1200,
+    750
+  ],
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "errors": [],
+  "checks": {
+    "holdRelease": true,
+    "holdUndoRedo": true,
+    "holdEsc": true,
+    "dragSingleLayer": true,
+    "resizeReadout": true,
+    "layerSlice": true,
+    "undersidePickEditUndo": true,
+    "cameraStable": true,
+    "refusalAtomic": true
+  },
+  "timings": {
+    "ghostMs": {
+      "samples": 219,
+      "p50Ms": 1.0999999940395355,
+      "p95Ms": 1.5999999940395355,
+      "worstMs": 1.800000011920929
+    },
+    "editMs": {
+      "samples": 24,
+      "p50Ms": 1.7000000178813934,
+      "p95Ms": 2.899999976158142,
+      "worstMs": 2.9000000059604645
+    },
+    "inputToRenderMs": {
+      "samples": 120,
+      "p50Ms": 1.600000023841858,
+      "p95Ms": 8.100000023841858,
+      "worstMs": 10.200000017881393
+    },
+    "nextFrameMs": {
+      "samples": 120,
+      "p50Ms": 7.9000000059604645,
+      "p95Ms": 12.5,
+      "worstMs": 14.300000011920929
+    },
+    "renderMs": {
+      "samples": 623,
+      "p50Ms": 0.09999999403953552,
+      "p95Ms": 0.30000001192092896,
+      "worstMs": 5.700000017881393
+    }
+  },
+  "tunnelResult": [
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 9
+    }
+  ],
+  "caveResult": [
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 7
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 8
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 5
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 3
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 3
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 3
+    },
+    {
+      "accepted": true,
+      "reason": "",
+      "count": 5
+    }
+  ]
+}

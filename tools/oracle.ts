@@ -12,6 +12,8 @@
 //    size sizes[k mod n] is validated in full by both validators, the TypeScript one re-reading the
 //    written file and its project file (as the Python one does), and their verdicts must agree
 //    check by check: pass, fail, not applicable or approximate (PLAN §11, D98).
+//    The first parity map is also written once more with WaterSimulationMigrator.IsMigrated false
+//    (the audit's A1): both validators must fail its file.singletons, and agree on the rest.
 // 3. The same parity on the official maps in investigation/raw/builtin (import profile, default
 //    Normal thresholds), when they are present (they are local only, never in CI).
 //
@@ -21,8 +23,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "fflate";
-import { encodeProject, projectFileName, toDocument } from "../src/core/doc/document";
-import { readTimber } from "../src/core/format/timber";
+import { encodeProject, projectFileName, generatedDocument } from "../src/core/doc/document";
+import { readTimber, writeTimber } from "../src/core/format/timber";
 import { generate } from "../src/core/gen/generate";
 import { fileName } from "../src/core/gen/pack";
 import { AVAILABLE_THEMES, makeSpec, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
@@ -94,7 +96,7 @@ for (const size of sizes) {
     }
     const p = join(dir, fileName(r.spec));
     writeFileSync(p, r.bytes);
-    writeFileSync(join(dir, projectFileName(r.spec)), encodeProject(toDocument(r.spec, r.features, r.built, r.file)));
+    writeFileSync(join(dir, projectFileName(r.spec)), encodeProject(generatedDocument(r)));
     paths.push(p);
     written.set(`${seed}/${size}`, p);
   }
@@ -174,6 +176,16 @@ let checksCompared = 0;
     const p = written.get(`${seed}/${size}`);
     if (p) paths.push(p);
   }
+  // A1: the first map once more, its migration marker false
+  let unmigrated = "";
+  if (paths.length) {
+    const f = readTimber(new Uint8Array(readFileSync(paths[0])));
+    f.world.singletons = { ...f.world.singletons, WaterSimulationMigrator: { IsMigrated: false } };
+    unmigrated = paths[0].replace(/\.timber$/, "-unmigrated.timber");
+    writeFileSync(unmigrated, writeTimber(f));
+    writeFileSync(unmigrated.replace(/\.timber$/, ".damgoodmaps.json"), readFileSync(paths[0].replace(/\.timber$/, ".damgoodmaps.json")));
+    paths.push(unmigrated);
+  }
   const pyr = pythonReports(paths);
   for (const p of paths) {
     const bytes = new Uint8Array(readFileSync(p));
@@ -188,6 +200,12 @@ let checksCompared = 0;
     parityMaps++;
     checksCompared += v.report.checks.length;
     const d = compare(p, v.report.checks, pyc);
+    if (p === unmigrated) {
+      const ts = v.report.checks.find((c) => c.id === "file.singletons");
+      const pc = pyc.find((c) => c.id === "file.singletons");
+      if (!ts || ts.ok || !pc || pc.ok) d.push(`${p}: file.singletons must fail in both validators when IsMigrated is false (TypeScript ${ts?.ok}, Python ${pc?.ok})`);
+      else log(`A1: IsMigrated false fails file.singletons in both validators`);
+    }
     for (const s of d) log(`PARITY ${s}`);
     disagreements += d.length;
   }

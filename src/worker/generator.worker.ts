@@ -10,7 +10,7 @@ import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
 import { viewBuffers } from "../render3d/model";
-import { emptyWaterFile, runGenerate, type GenerateResponse } from "./api";
+import { emptyWaterFile, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -42,8 +42,9 @@ function eventBuffers(e: ed.EditorEvent): Transferable[] {
 ed.setAutoWater(true);
 
 const api = {
-  async generate(spec: MapSpec): Promise<GenerateResponse> {
-    const r = await runGenerate(spec);
+  /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
+  async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
+    const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined);
     return transfer(r, responseBuffers(r));
   },
   /** The last generated map without pre-filled water, or null. */
@@ -128,10 +129,6 @@ const api = {
   async settingsResponse(): Promise<GenerateResponse> {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
-  },
-  async regenerate(spec: MapSpec) {
-    const r = await ed.regenerate(spec);
-    return r.response ? transfer(r, responseBuffers(r.response)) : r;
   },
   exportCheck: () => ed.exportCheck(),
   waterLayers() {

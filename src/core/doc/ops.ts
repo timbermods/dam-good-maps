@@ -6,13 +6,12 @@
 //
 // The document keeps an ordered log of applied operations. Feature operations change the document
 // state and store undo data; sculpt, slope and entity operations are overlays that the build
-// pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). Replaying the log on a new
-// generation (regeneration) re-applies every operation whose target still exists; the others are
-// kept and flagged as orphaned, never dropped (PLAN §19.4).
-//
-// `specPatch` (change settings and regenerate) is not a log operation: it replaces the generation
-// under the log (session.ts). Locks and the retired regenerateRegion operation were removed (D253,
-// D270): an old project that held one still opens, with its land as it was kept (document.ts).
+// pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). The log replays only onto the land
+// it was made on (undo and redo, reopening a project, share links): edits never replay onto new
+// land (PLAN §20, D336), so there is no settings change among the operations. An operation whose
+// target is gone is kept and flagged as orphaned, never dropped (PLAN §19.4). Locks and the retired
+// regenerateRegion operation were removed (D253, D270): an old project that held one still opens,
+// with its land as it was kept (document.ts).
 
 import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
@@ -53,8 +52,6 @@ export interface OpParams {
   setEntityProps: { id: string; components: Record<string, unknown> };
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
-  /** A JSON Merge Patch on the MapSpec, then regenerate (PLAN §19.1). */
-  specPatch: { patch: Record<string, unknown> };
 }
 
 export type OpName = keyof OpParams;
@@ -263,7 +260,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
       state.entityEdits.push(op);
       return;
     default:
-      throw new Error(`${op.op} is not a log operation`);
+      throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
 }
 
@@ -336,54 +333,22 @@ export function invertOp(state: DocState, op: AppliedOp): void {
       removeFromList(state.entityEdits, op.seq);
       return;
     default:
-      throw new Error(`${op.op} is not a log operation`);
+      throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
 }
 
-/** Replay a log on a generation's features. Each operation's undo data and orphan flag are
- *  recomputed for the new state (the operations are copied, the input is not changed). `fits`
- *  orphans the operations that no longer fit the map (a regeneration may change its size). */
-export function replay(
-  baseFeatures: readonly Feature[],
-  log: readonly AppliedOp[],
-  fits?: (op: AppliedOp) => string | null,
-): { state: DocState; log: AppliedOp[] } {
+/** Replay a log on the features of the generation it was made on (never onto new land, D336).
+ *  Each operation's undo data and orphan flag are recomputed for the state (the operations are
+ *  copied, the input is not changed). */
+export function replay(baseFeatures: readonly Feature[], log: readonly AppliedOp[]): { state: DocState; log: AppliedOp[] } {
   const state = emptyState(baseFeatures);
   const out: AppliedOp[] = [];
   for (const op of log) {
     const copy = clone(op) as AppliedOp;
-    const misfit = fits?.(copy) ?? null;
-    if (misfit) {
-      delete copy.undo;
-      copy.orphaned = misfit;
-    } else applyOp(state, copy);
+    applyOp(state, copy);
     out.push(copy);
   }
   return { state, log: out };
-}
-
-/** Why an operation's tiles no longer lie on a W × H map (null when they do). */
-export function opFitsMap(op: EditOp, W: number, H: number): string | null {
-  const inMap = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H;
-  switch (op.op) {
-    case "addFeature": {
-      const errors = featureGeometryProblems(op.params.feature, W, H);
-      return errors.length ? `it no longer fits the map: ${errors[0]}` : null;
-    }
-    case "sculpt":
-      return runsProblems(op.params.cells, W, H, "its cells").length ? "its cells are outside the map" : null;
-    case "brush":
-      return brushProblems(op.params, W, H).length ? "its dabs are outside the map" : null;
-    case "carve":
-      return carveProblems(op.params, W, H, 255).length ? "its tiles are outside the map" : null;
-    case "placeEntity":
-    case "moveEntity":
-    case "pinSlope":
-    case "removeSlope":
-      return inMap(op.params.x, op.params.y) ? null : `(${op.params.x}, ${op.params.y}) is outside the map`;
-    default:
-      return null;
-  }
 }
 
 // -------------------------------------------------------------------------------------- validation
@@ -613,7 +578,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
-    case "specPatch":
-      return ctx.generated ? [] : ["an imported map has no settings to change"];
   }
 }

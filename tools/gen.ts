@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generate } from "../src/core/gen/generate";
 import { fileName } from "../src/core/gen/pack";
-import { encodeProject, projectFileName, toDocument } from "../src/core/doc/document";
+import { encodeProject, projectFileName, generatedDocument } from "../src/core/doc/document";
 import { makeSpec, type Difficulty } from "../src/core/spec/mapspec";
 
 function arg(name: string, fallback: string): string {
@@ -52,7 +52,7 @@ for (const size of sizes) {
     }
     const name = fileName(r.spec);
     writeFileSync(join(dir, name), r.bytes);
-    if (withProject) writeFileSync(join(dir, projectFileName(r.spec)), encodeProject(toDocument(r.spec, r.features, r.built, r.file)));
+    if (withProject) writeFileSync(join(dir, projectFileName(r.spec)), encodeProject(generatedDocument(r)));
     const sha = createHash("sha256").update(r.bytes).digest("hex");
     const row = `${size}\t${seed}\t${ms} ms\tattempts ${r.attempts}\tentities ${r.built.entities.length}\t${sha}`;
     rows.push(row);

@@ -1,18 +1,23 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel, the
 // URL codec, the editor's SpecPatch and Claude all produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.6.2";
+export const GENERATOR_VERSION = "0.7.0";
 export const SPEC_VERSION = 1;
 
-export type ThemeId = "riverValley" | "canyon" | "highlands" | "lakeBasin" | "delta" | "islands";
+/** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
+ *  theme only leans the generator toward that kind of land. */
+export type ThemeId = "any" | "riverValley" | "canyon" | "highlands" | "lakeBasin" | "delta" | "islands";
 export type ArchetypeId = ThemeId;
 export type Difficulty = "easy" | "normal" | "hard";
 export type SizePreset = "small" | "medium" | "large" | "max";
 
-export const THEMES: readonly ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
-/** Themes the generator can build (all six since M7). */
-export const AVAILABLE_THEMES: readonly ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
+/** The themes the settings panel offers, in its order: Any first (the app's default, D209), then
+ *  the six leanings. */
+export const THEMES: readonly ThemeId[] = ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
+/** Themes the generator can build (all of them since M9a). */
+export const AVAILABLE_THEMES: readonly ThemeId[] = THEMES;
 export const THEME_NAMES: Record<ThemeId, string> = {
+  any: "Any",
   riverValley: "River Valley",
   canyon: "Canyon",
   highlands: "Highlands",
@@ -31,6 +36,8 @@ export interface Settings {
     highestTerrain: number; // 10–16
     terracing: number; // 0–100
     buildableLand: "tight" | "normal" | "generous";
+    /** Verticality (`vt`, D132): how vertical the land is, 0–100. Heights above 16 from 70 (D172). */
+    verticality: number; // 0–100
   };
   water: {
     rivers: number; // 0–3
@@ -118,6 +125,7 @@ interface ThemePreset {
 }
 
 export const THEME_PRESETS: Record<ThemeId, ThemePreset> = {
+  any: { relief: 55, terracing: 45, buildableLand: "normal", rivers: 1, riverStyle: "meandering", riverFlow: "normal", droughtReserve: "normal", lakes: "some", waterfalls: "few", badwater: "normal", thornBelts: "some", forestDensity: 100, ruins: 100 },
   riverValley: { relief: 50, terracing: 45, buildableLand: "normal", rivers: 1, riverStyle: "meandering", riverFlow: "normal", droughtReserve: "normal", lakes: "some", waterfalls: "few", badwater: "normal", thornBelts: "some", forestDensity: 100, ruins: 100 },
   canyon: { relief: 80, terracing: 75, buildableLand: "tight", rivers: 1, riverStyle: "straight", riverFlow: "normal", droughtReserve: "normal", lakes: "few", waterfalls: "many", badwater: "normal", thornBelts: "off", forestDensity: 80, ruins: 120 },
   highlands: { relief: 90, terracing: 60, buildableLand: "tight", rivers: 2, riverStyle: "meandering", riverFlow: "normal", droughtReserve: "normal", lakes: "some", waterfalls: "many", badwater: "low", thornBelts: "some", forestDensity: 90, ruins: 100 },
@@ -126,23 +134,28 @@ export const THEME_PRESETS: Record<ThemeId, ThemePreset> = {
   islands: { relief: 35, terracing: 30, buildableLand: "normal", rivers: 1, riverStyle: "meandering", riverFlow: "lush", droughtReserve: "plenty", lakes: "none", waterfalls: "off", badwater: "low", thornBelts: "off", forestDensity: 100, ruins: 100 },
 };
 
+/** Verticality's defaults by theme (investigation/terrain3d; decisions-pending #60, D209): ordinary
+ *  maps within 16; "any" at about the six themes' mean. */
+export const VT_DEFAULT: Record<ThemeId, number> = { any: 25, riverValley: 20, canyon: 40, highlands: 45, lakeBasin: 10, delta: 10, islands: 20 };
+
 /** Starting wood a tree of the old count stands for (D164): the living trees the start rule
  *  counted before, on seeds 1–30 of every theme at 128² with the default settings, gave 3.0 logs
  *  each (2.8–3.4 by theme, as the default species mix does: pine 2, birch 1, oak 8 logs), and 66%
  *  of those logs stood on grown trees (a third of the living trees are saplings): 2 logs of grown
- *  wood a tree. It turns the tree counts of old share links and project files into logs, and set
- *  the difficulties' defaults. */
+ *  wood a tree. It turns the tree counts of old share links and project files into logs (and set
+ *  the difficulties' defaults until D227). */
 export const LOGS_PER_TREE = 2;
 
 /** Start rules by difficulty (PLAN §5.6; D85, Kyler's start requirements): water without stairs
- *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 120 / 80 / 40 logs of grown trees (D164:
- *  the tree counts 60 / 40 / 20 at `LOGS_PER_TREE`), Minimum starting bushes 40 / 30 / 20, badwater
- *  distance 30 / 15 / 8 (a target). Berries near start never aims below Minimum starting bushes
- *  (Easy's 20 became 40). */
+ *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 250 / 200 / none of grown trees within 20
+ *  tiles' walk ("how comfortable is it"; D227, replacing D164's 120 / 80 / 40: Hard keeps no minimum
+ *  nearby beyond the starting-logs floor, which every map meets within 40 tiles' walk,
+ *  `start.wood_floor`), Minimum starting bushes 40 / 30 / 20, badwater distance 30 / 15 / 8 (a
+ *  target). Berries near start never aims below Minimum starting bushes (Easy's 20 became 40). */
 export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & { berriesTarget: number }> = {
-  easy: { waterWithin: 12, woodWithin20: 120, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
-  normal: { waterWithin: 20, woodWithin20: 80, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
-  hard: { waterWithin: 28, woodWithin20: 40, bushesWithin20: 20, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
+  easy: { waterWithin: 12, woodWithin20: 250, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
+  normal: { waterWithin: 20, woodWithin20: 200, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
+  hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 20, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
 };
 
 /** The wood a tree count of before D164 stands for: `LOGS_PER_TREE` logs a tree, within the
@@ -162,6 +175,16 @@ export function upgradeSpec(spec: unknown): void {
   if (!("woodWithin20" in rules) && typeof trees === "number" && Number.isFinite(trees)) rules.woodWithin20 = woodForTrees(trees);
 }
 
+/** A spec stored before M9a has no Verticality: it takes its theme's default. Changes the spec in
+ *  place; anything else is left for the schema to judge. */
+export function upgradeVerticality(spec: unknown): void {
+  const s = spec as { theme?: unknown; settings?: { terrain?: Record<string, unknown> } } | null;
+  const t = s?.settings?.terrain;
+  if (!t || typeof t !== "object" || "verticality" in t) return;
+  const theme = typeof s!.theme === "string" && s!.theme in VT_DEFAULT ? (s!.theme as ThemeId) : "riverValley";
+  t.verticality = VT_DEFAULT[theme];
+}
+
 /** A spec stored before every map had a mine site (Kyler, 2026-09-25) may ask for none: it asks for
  *  one. Changes the spec in place; anything else is left for the schema to judge. */
 export function upgradeMineSites(spec: unknown): void {
@@ -178,7 +201,7 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
   const p = THEME_PRESETS[theme];
   const d = DIFFICULTY_RULES[designedFor];
   return {
-    terrain: { relief: p.relief, highestTerrain: 16, terracing: p.terracing, buildableLand: p.buildableLand },
+    terrain: { relief: p.relief, highestTerrain: 16, terracing: p.terracing, buildableLand: p.buildableLand, verticality: VT_DEFAULT[theme] },
     water: {
       rivers: p.rivers,
       riverStyle: p.riverStyle,

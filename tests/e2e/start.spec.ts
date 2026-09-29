@@ -1,7 +1,8 @@
 // The start requirements in the page (PLAN §5.6, D85, D164; ROADMAP M8's start acceptance): the map
 // card lists the three requirements with the validator's numbers and the map's own settings, and
-// the editor's start indicators and its green or red footprint follow them while the start moves.
-// Water is the walk over the map's own ground and slopes (D153); wood is in logs (D164).
+// the starting-logs floor (D224, D227), and the editor's start indicators and its green or red
+// footprint follow them while the start moves. Water is the walk over the map's own ground and
+// slopes (D153); wood is in logs (D164).
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -22,13 +23,15 @@ test("the map card lists the start requirements, and the editor's start follows 
   await page.goto("./#s=77&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
 
-  // the card: each requirement, met, with the validator's number and Normal's defaults
+  // the card: each requirement, met, with the validator's number and Normal's defaults (D227:
+  // Minimum starting wood 200, 80 before), and the starting-logs floor (178 within 40 tiles' walk)
   let c = await checks(page);
   const req = page.getByRole("region", { name: "Start requirements" });
   await expect(req.locator('[data-check="start.water"]')).toHaveText(`Water without stairs: ${c["start.water"].value} tiles' walk (at most 20)`);
-  await expect(req.locator('[data-check="start.wood"]')).toHaveText(new RegExp(`^Starting wood: ${c["start.wood"].value} logs within 20 tiles' walk${WOOD_WORDS} \\(at least 80\\)$`));
+  await expect(req.locator('[data-check="start.wood"]')).toHaveText(new RegExp(`^Starting wood: ${c["start.wood"].value} logs within 20 tiles' walk${WOOD_WORDS} \\(at least 200\\)$`));
   await expect(req.locator('[data-check="start.food"]')).toHaveText(`Starting bushes: ${c["start.food"].value} living within 20 tiles' walk (at least 30)`);
-  for (const id of ["start.water", "start.wood", "start.food"]) await expect(req.locator(`[data-check="${id}"]`)).toHaveClass(/\bok\b/);
+  await expect(req.locator('[data-check="start.wood_floor"]')).toHaveText(`Logs for a Forester: ${c["start.wood_floor"].value} within 40 tiles' walk (at least 178)`);
+  for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) await expect(req.locator(`[data-check="${id}"]`)).toHaveClass(/\bok\b/);
 
   // the settings are the thresholds: Minimum starting wood 75 moves the card's number
   await page.locator("summary", { hasText: /^Advanced: start rules$/ }).click();
@@ -59,6 +62,7 @@ test("the map card lists the start requirements, and the editor's start follows 
   await expect(box).toContainText(/Water without stairs: [\d.]+ tiles' walk \(at most 20\)/);
   await expect(box).toContainText(new RegExp(`Starting wood: \\d+ logs${WOOD_WORDS} \\(at least 75\\)`));
   await expect(box).toContainText(/Starting bushes: \d+ \(at least 30\)/);
+  await expect(box).toContainText(/Logs for a Forester: \d+ within 40 tiles' walk \(at least 178\)/);
   const near = await page.evaluate(() => window.dgmEditor!.startCheck());
   expect(near!.problem).toBeNull();
   expect(near!.meets).toBe(true);
@@ -67,6 +71,7 @@ test("the map card lists the start requirements, and the editor's start follows 
   // ones (D105)
   expect(near!.water).toBe(c["start.water"].value);
   expect(near!.wood).toBe(c["start.wood"].value);
+  expect(near!.woodFloor).toBe(c["start.wood_floor"].value);
   expect(near!.bushes).toBeGreaterThanOrEqual(c["start.food"].value as number);
   await expect(box.getByRole("paragraph").first()).toHaveText("The district center fits here");
 

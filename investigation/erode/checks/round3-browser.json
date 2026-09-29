@@ -1,0 +1,68 @@
+{
+ "result": "PASS",
+ "note": "128², installed Chrome, real-time animation; finalMs includes worker planning and final view update from the gesture end",
+ "cases": [
+  {
+   "case": "wash-giant",
+   "worn": 10849,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 32.6000000089407,
+   "checkMs": 7.700000002980232,
+   "box": {
+    "x0": 24,
+    "y0": 35,
+    "x1": 127,
+    "y1": 88
+   },
+   "finalMs": 660.2999999970198,
+   "details": {
+    "winding": 86,
+    "sideGullies": 24,
+    "dryFalls": 78,
+    "undercutBanks": 24
+   }
+  },
+  {
+   "case": "tall-arch",
+   "worn": 38,
+   "held": 25,
+   "fell": 1,
+   "dropped": 0,
+   "ms": 3.7000000029802322,
+   "checkMs": 5.399999991059303,
+   "box": {
+    "x0": 6,
+    "y0": 62,
+    "x1": 55,
+    "y1": 113
+   },
+   "finalMs": 668.5
+  },
+  {
+   "case": "wash-giant-auto-seed-2",
+   "worn": 13647,
+   "held": 0,
+   "fell": 13,
+   "dropped": 0,
+   "ms": 26.900000005960464,
+   "checkMs": 7,
+   "box": {
+    "x0": 24,
+    "y0": 34,
+    "x1": 127,
+    "y1": 88
+   },
+   "finalMs": 659.5,
+   "details": {
+    "winding": 70,
+    "sideGullies": 56,
+    "dryFalls": 33,
+    "undercutBanks": 66
+   }
+  }
+ ],
+ "immediateNextGesture": "PASS",
+ "pageErrors": []
+}

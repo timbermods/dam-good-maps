@@ -48,7 +48,9 @@ const pines = (x: number, y: number, r: number) => {
 
 describe("the shelf and Remove in the worker (D184)", () => {
   it("a painted grove plants where trees grow, one step; Remove takes it by its filters; the ground and the start stay", async () => {
-    await runGenerate(makeSpec({ seed: 4242, theme: "riverValley", size: { x: W, y: W } }));
+    // (a map with open level ground for a grove, clear of other pines: at 0.7.0 seed 4242's 96² has
+    // none 9 wide, M9a)
+    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const [x, y] = openSpot(4);

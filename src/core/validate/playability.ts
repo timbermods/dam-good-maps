@@ -11,8 +11,10 @@
 
 import { damSites, type DamSite } from "../analysis/damsites";
 import { components, walkRegions } from "../analysis/regions";
-import { pumpShoreDistance, reachAt, walkDistance, WALK_LIMIT } from "../analysis/walk";
+import { reachAt, startWaterShore, walkDistance, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
+import { leveeStorage, runningFlow, SECONDS_PER_DAY } from "../analysis/storage";
+import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
 import { isSapling, noWood, treeLogs, woodDetail, type WoodBySpecies, type WoodSpecies } from "../analysis/wood";
 import { footprintTiles, slopeHighSide, worldBlocks, FOOTPRINTS } from "../format/footprints";
 import { polygonMask } from "../features/geometry";
@@ -23,10 +25,11 @@ import { DROUGHT, officialRange, REACH_MIN, RESERVE, reservoirNeeded } from "../
 import { distanceFrom } from "../math/grid";
 import { soilContamination } from "../sim/contamination";
 import { droughtStorage } from "../sim/drought";
-import { moistureBarrier, type MapObject } from "../sim/model";
+import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import type { CanonicalWater } from "../sim/prefill";
 import { TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
+import { asksForBadwater } from "../resources/badwater";
 import { DIFFICULTY_RULES, type Difficulty, type MapSpec } from "../spec/mapspec";
 import type { Collector, FixOp } from "./report";
 
@@ -64,9 +67,12 @@ export interface Rules {
   reservoirDepth: number;
   maxWaterShare: number;
   multipliers: { scrap: number; trees: number; bushes: number };
+  /** Whether the map should have a badwater source (D200): its Badwater setting is anything but No
+   *  badwater, or, for a map without its settings, its description does not say No badwater. */
+  badwaterSource: boolean;
 }
 
-export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal"): Rules {
+export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal", description = ""): Rules {
   const difficulty = spec?.designedFor ?? designedFor;
   const d = DIFFICULTY_RULES[difficulty];
   const s = spec?.settings;
@@ -83,10 +89,11 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     droughtDays: DROUGHT[difficulty].days,
     reservoirNeed: reservoirNeeded(difficulty) * RESERVE[s?.water.droughtReserve ?? "normal"],
     reservoirDepth: difficulty === "hard" ? 3 : 0,
-    maxWaterShare: spec && (spec.theme === "lakeBasin" || spec.theme === "islands") ? 0.55 : 0.35,
+    maxWaterShare: spec && (spec.theme === "lakeBasin" || spec.theme === "islands" || spec.theme === "any") ? 0.55 : 0.35,
     multipliers: s
       ? { scrap: s.resources.ruins / 100, trees: s.resources.forestDensity / 100, bushes: s.resources.berryBushes / 100 }
       : { scrap: 1, trees: 1, bushes: 1 },
+    badwaterSource: asksForBadwater(s?.hazards.badwater ?? null, description),
   };
 }
 
@@ -129,6 +136,9 @@ export interface PlayabilityAnalysis {
   /** The best dam site within 40 tiles of the start, and the natural water kept there. */
   bestDam: DamSite | null;
   naturalStorage: number;
+  /** Water storage near the start (water.storage_possible): the clean flow feeding the start's water
+   *  and what it needs, and what a dam, natural pools and levees hold, against the need. */
+  storage: { running: number; runningNeed: number; dam: number; natural: number; levee: number; need: number } | null;
 }
 
 const N4: readonly [number, number][] = [[0, -1], [-1, 0], [0, 1], [1, 0]];
@@ -233,6 +243,7 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
     damSites: [],
     bestDam: null,
     naturalStorage: 0,
+    storage: null,
   };
 
   // ---- a mine site on every map (Kyler, 2026-09-25): the late game's lasting source of scrap
@@ -245,6 +256,25 @@ export function checkPlayability(inp: PlayabilityInput, c: Collector): Playabili
     value: mines,
     limit: 1,
     message: mines ? `${mines} mine site${mines > 1 ? "s" : ""} (every map needs at least one)` : "no mine site: every map needs at least one, the late game's lasting source of scrap metal",
+  });
+
+  // ---- a badwater source on every map (Kyler, 2026-09-26, D200): the late game's lasting badwater
+  //      (Extract, then Catalyst, Grease and Explosives); a badwater seep counts, as on the official
+  //      Spillage; a map whose player chose No badwater needs none
+  let badSources = 0;
+  for (const o of objects) if ((o.template === "BadwaterSource" || o.template === "BadwaterSeep") && specifiedStrength(o.components) > 0) badSources++;
+  const wantsBad = inp.rules.badwaterSource;
+  c.add({
+    id: "resources.badwater_source",
+    class: "playability",
+    ok: badSources >= 1 || !wantsBad,
+    value: badSources,
+    limit: wantsBad ? 1 : 0,
+    message: !wantsBad
+      ? `No badwater: a peaceful map needs no badwater source${badSources ? ` (it has ${badSources})` : ""}`
+      : badSources
+        ? `${badSources} badwater source${badSources > 1 ? "s" : ""} (every map needs at least one, unless it is set to No badwater)`
+        : "no badwater source: every map needs at least one, the late game's lasting badwater, unless it is set to No badwater",
   });
 
   // ---- the start (vanilla: exactly one; `start.count` reports anything else)
@@ -363,13 +393,14 @@ function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
 
 /** The checks that need the start, in report order. */
 const START_CHECKS = [
-  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.ruins_clear",
-  "plants.survive", "plants.drought", "water.reservoir", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
+  "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_floor", "start.ruins_clear",
+  "plants.survive", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
   "ruins.access", "extras.placement",
 ];
 /** Advisory from M8 (D85): generation targets with a warning, never a reason to reject a map. The
- *  resource amounts are information (Kyler, 2026-09-25: resources like the official maps). */
-const ADVISORY_START = new Set(["start.badwater", "start.reach", "start.ruins_clear", "water.reservoir", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes"]);
+ *  resource amounts are information (Kyler, 2026-09-25: resources like the official maps); water
+ *  storage near the start is information the generator prefers (D209, decisions-pending #67). */
+const ADVISORY_START = new Set(["start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes"]);
 
 function checkOutflow(inp: PlayabilityInput, c: Collector): void {
   const { W, H, model, water, features } = inp;
@@ -481,11 +512,14 @@ function checkStart(
 
   // requirement 1, the water rule (D153, amending D85): clean pumpable water at a
   // shore the start reaches on foot, over the map's own ground and slopes, within the rule's walk;
-  // a pump on that shore reaches the water's surface (0–2 levels below it)
-  const shore = pumpShoreDistance(walk, h, W, H, D, C);
+  // a pump on that shore reaches the water's surface (0–2 levels below it); and (D302) the water is
+  // fed by a running source or a lake that lasts the rule's drought, never a sealed puddle
+  const shore = startWaterShore(walk, h, W, H, D, C, model.emitters, droughtStorage(model, D, rules.droughtDays), rules.waterWithin);
   const dw = shore.distance;
   analysis.waterDistance = dw;
-  const dwText = Number.isFinite(dw) ? `${(Math.round(dw * 10) / 10).toString()} tiles' walk` : "not";
+  const walkText = (d: number) => `${(Math.round(d * 10) / 10).toString()} tiles' walk`;
+  const dwText = Number.isFinite(dw) ? walkText(dw) : "not";
+  const puddleText = shore.puddle <= rules.waterWithin ? `the water ${walkText(shore.puddle)} away is a sealed puddle no source feeds, which a ${rules.droughtDays}-day drought empties; ` : "";
   c.add({
     id: "start.water",
     class: "playability",
@@ -497,8 +531,10 @@ function checkStart(
       dw <= rules.waterWithin
         ? `clean water a pump reaches is ${dwText} from the start, over the map's own ground and slopes (${cap(rules.difficulty)} allows ${rules.waterWithin})`
         : Number.isFinite(dw)
-          ? `the nearest clean water a pump reaches is ${dwText} from the start; ${cap(rules.difficulty)} allows ${rules.waterWithin} (beavers go thirsty on day 6)`
-          : `no clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start over the map's own ground and slopes: beavers would need stairs to drink`,
+          ? `${puddleText}the nearest clean water a pump reaches that a source feeds or that lasts a drought is ${dwText} from the start; ${cap(rules.difficulty)} allows ${rules.waterWithin} (beavers go thirsty on day 6)`
+          : puddleText
+            ? `${puddleText}no other clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start: beavers would go thirsty`
+            : `no clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start over the map's own ground and slopes: beavers would need stairs to drink`,
   });
   let db = Infinity;
   let badAt = -1;
@@ -543,8 +579,9 @@ function checkStart(
   // requirement 3 (D85): living berry bushes within 20 tiles' walk of the start, slopes allowed;
   // living means alive and on soil where it survives at steady state. Requirement 2, starting wood
   // (D164): the logs of every grown tree within that walk, alive or dead (a tree keeps its logs when
-  // it dies), by its species' yield; a sapling's logs are wood still growing, shown apart
-  // (analysis/wood.ts)
+  // it dies), by its species' yield from the game's blueprints (data/log-floor.json); a sapling's
+  // logs are wood still growing, shown apart (analysis/wood.ts). The starting-logs floor (D224,
+  // D227) counts the same grown logs within a longer walk, 40 tiles, at every difficulty
   const dead = (o: MapObject) => {
     const lnr = o.components.LivingNaturalResource as { IsDead?: boolean } | undefined;
     return !!lnr && lnr.IsDead === true;
@@ -554,21 +591,29 @@ function checkStart(
   let trees = 0;
   let wood = 0;
   let growing = 0;
+  let floorWood = 0;
   const bySpecies = noWood();
+  const farthest = Math.max(NEAR, LOG_FLOOR_WALK);
   for (const o of objects) {
     const tree = (TREES as readonly string[]).includes(o.template);
-    if (!tree && o.template !== "BlueberryBush") continue;
+    const woody = LOGS_PER_TREE_SPECIES[o.template] !== undefined;
+    if (!tree && !woody && o.template !== "BlueberryBush") continue;
     if (o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
     const i = o.y * W + o.x;
-    if (reachAt(walk, W, H, i) > NEAR) continue;
-    if (tree) {
-      const logs = treeLogs(o.template, o.components);
-      if (isSapling(o.components)) growing += logs;
+    const d = reachAt(walk, W, H, i);
+    if (d > farthest) continue;
+    const logs = woody ? treeLogs(o.template, o.components) : 0;
+    const grown = woody && !isSapling(o.components);
+    if (grown && d <= LOG_FLOOR_WALK) floorWood += logs;
+    if (d > NEAR) continue;
+    if (woody) {
+      if (!grown) growing += logs;
       else {
         wood += logs;
-        bySpecies[o.template as WoodSpecies] += logs;
+        if (o.template in bySpecies) bySpecies[o.template as WoodSpecies] += logs;
       }
     }
+    if (!tree && woody) continue;
     if (dead(o) || !survives(i)) continue;
     if (tree) trees++;
     else bushes++;
@@ -593,6 +638,21 @@ function checkStart(
     value: wood,
     limit: rules.woodWithin20,
     message: `${wood} logs within 20 tiles' walk of the start${woodDetail(bySpecies, growing)} (at least ${rules.woodWithin20})`,
+  });
+  // the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to reach a
+  // Forester by the worst still-viable route, plus the first pump, dwelling and breeding pod;
+  // without a Forester the game is over ("can I survive"). It blocks a generated map at every
+  // difficulty, and shows on the editor's quiet dot without blocking export
+  c.add({
+    id: "start.wood_floor",
+    class: "playability",
+    ok: floorWood >= LOG_FLOOR,
+    value: floorWood,
+    limit: LOG_FLOOR,
+    message:
+      floorWood >= LOG_FLOOR
+        ? `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start: enough to build a Forester (the floor is ${LOG_FLOOR})`
+        : `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the floor of ${LOG_FLOOR}: not enough to build a Forester, and without one the game is over`,
   });
   const ruinsNear: string[] = [];
   let ruinsNearCount = 0;
@@ -683,7 +743,10 @@ function checkStart(
     });
   }
 
-  // drought: a reservoir site near the start that holds the colony through the worst drought
+  // drought: water storage near the start (D111: `water.storage_possible` replaces
+  // `water.reservoir`; analysis/storage.ts): running clean water at the start's pump shore, and a
+  // dam, natural pools or levees within 40 tiles that could hold the colony through the worst
+  // drought. Information the generator prefers, never a guard (D209, #67).
   const kept = droughtStorage(model, D, rules.droughtDays);
   let natural = 0;
   for (let i = 0; i < N; i++) if (sd[i] <= RESERVOIR_RADIUS) natural += kept[i];
@@ -699,15 +762,28 @@ function checkStart(
   const held = Math.max(natural, best ? best.volume : 0);
   const need = rules.reservoirNeed;
   const colony = DROUGHT[rules.difficulty].colony;
+  const running = shore.tile >= 0 ? runningFlow(W, H, D, model.emitters, shore.tile) : 0;
+  const runningNeed = need / (2 * SECONDS_PER_DAY);
+  const levee = shore.tile >= 0 && held < need ? leveeStorage(h, W, H, D, C, { x: sx, y: sy, z: h[sy * W + sx] }, need) : 0;
+  const stored = Math.max(held, levee);
+  analysis.storage = { running, runningNeed, dam: best ? best.volume : 0, natural, levee, need };
+  const how = best && best.volume >= need ? "a dam" : natural >= need ? "natural pools" : levee >= need ? "levees" : "";
   c.add({
-    id: "water.reservoir",
+    id: "water.storage_possible",
     class: "playability",
     advisory: true,
-    ok: held >= need,
-    value: Math.round(held),
+    ok: shore.tile >= 0 && running >= runningNeed && stored >= need,
+    value: Math.round(stored),
     limit: Math.round(need),
     ...(best ? { where: { tiles: [[best.x, best.y]] as [number, number][] } } : {}),
-    message: `the best dam site within ${RESERVOIR_RADIUS} tiles${deep > 0 ? `, at least ${deep} deep on average,` : ""} holds ${Math.round(best ? best.volume : 0)} and natural pools keep ${Math.round(natural)}; ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`,
+    message:
+      shore.tile < 0
+        ? "no clean water within the start's reach to store"
+        : running < runningNeed
+          ? `the start's water is fed by ${Math.round(running * 100) / 100} water/s of clean flow, too little to refill ${Math.round(need)} in two days`
+          : how
+            ? `storage is possible near the start (${how}): ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`
+            : `no dam, natural pool or levee line within ${RESERVOIR_RADIUS} tiles${deep > 0 ? `, at least ${deep} deep on average,` : ""} holds ${Math.round(need)} (the best dam ${Math.round(best ? best.volume : 0)}, natural pools ${Math.round(natural)}, levees ${Math.round(levee)})`,
   });
 
   // resource totals, information (never a reason to reject): a warning below half the official

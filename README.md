@@ -7,8 +7,11 @@ The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on
 <https://timbermods.github.io/dam-good-maps/>.
 
 The generator:
-- Pick a theme: **River Valley**, **Canyon**, **Highlands**, **Lake Basin**, **Delta** or
-  **Islands**. Then pick the size and the difficulty.
+- Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
+  Basin**, **Delta** or **Islands**. Then pick the size and the difficulty.
+- The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
+  makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
+  can't edit.
 - Open **Terrain**, **Water**, **Hazards**, **Resources** or **Advanced: start rules** to change the
   map. Each setting shows what the official maps use.
 - **Generate** makes the map. Its water is settled by the game's own rules, and it is checked for a
@@ -20,7 +23,8 @@ The generator:
   as in the game: green where the soil is moist, cracked earth where it is dry, rusty red where
   badwater spoils it.
 - Trees, berry bushes and ruins come in about the amounts official maps of that size have. They
-  grow in groves, patches and fields. Every map has at least one mine site.
+  grow in groves, patches and fields. Every map has at least one mine site and one badwater
+  source. For a peaceful map, set **Badwater** to **No badwater**.
 - **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
@@ -66,8 +70,8 @@ The editor:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). The
   **⋯** menu has **Open…**, **Save project**, **History** and **Back to settings**.
-- **Back to settings** keeps your edits. **Generate, keeping my edits** builds a new map around
-  them.
+- **Back to settings** keeps your edits. **Generate** makes a new map; yours stays saved, and
+  **Back to editing** returns to it.
 - **Open a map** opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your map is saved in the browser as you work.
@@ -132,8 +136,10 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
   official maps (when `investigation/raw/builtin` is present).
 - `npm run gen` writes maps from the command line.
 - `npm run batch` reports first-attempt and final pass rates (default 100 seeds at 128²).
+- `npm run sheet` makes a contact sheet: seeds 1–30 of every theme at 128² on one page that opens in
+  the browser. `--compare <git ref>` puts another version's maps beside them.
 - `npm run test:e2e` builds the site and runs the browser tests: Chrome and Node produce the same
-  bytes, the editor's tools and its generate-refine-regenerate journey, the 3D view, the Real places
+  bytes, the editor's tools and its generate-refine journey, the 3D view, the Real places
   gallery on a desktop and a phone, and every local investigation map through import, 3D and export.
 - `npm run places` rebuilds the Real places data from the landscape survey's library, checking every
   map. `npm run places -- --check` says whether the committed data matches a fresh run.

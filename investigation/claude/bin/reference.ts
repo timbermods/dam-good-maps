@@ -15,7 +15,7 @@ import { runCheck, substitute, type Corpus, type RequestCase } from "../lib/corp
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-const corpus = JSON.parse(readFileSync(join(root, "requests.json"), "utf8")) as Corpus;
+export const corpus = JSON.parse(readFileSync(join(root, "requests.json"), "utf8")) as Corpus;
 
 const argv = process.argv.slice(2);
 const opt = (k: string) => {

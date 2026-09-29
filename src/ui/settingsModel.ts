@@ -2,7 +2,9 @@
 // band from the official maps (investigation/calibration.json, official aggregates), and the
 // feasibility guards (PLAN §5.3). The share text for "Copy seed + settings" is built here too.
 
-import { density, LAKES, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
+import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
+import { density, LAKES, OFFICIAL_BADWATER, officialPerMap, officialRange, RESERVE, reservoirNeeded, RIVER_FLOW_MULTIPLIER } from "../core/gen/calibrated";
+import { badwaterBudget } from "../core/resources/badwater";
 import { resourceBudget } from "../core/resources/budget";
 import { flowBudget } from "../core/features/setpieces/common";
 import { THEME_NAMES, type Difficulty, type MapSpec, type Settings } from "../core/spec/mapspec";
@@ -42,7 +44,7 @@ export const FALLS: Choice<Settings["water"]["waterfalls"]>[] = [
   { value: "many", label: "Many" },
 ];
 export const BADWATER: Choice<Settings["hazards"]["badwater"]>[] = [
-  { value: "off", label: "Off" },
+  { value: "off", label: "No badwater" },
   { value: "low", label: "Low" },
   { value: "normal", label: "Normal" },
   { value: "high", label: "High" },
@@ -60,10 +62,12 @@ export const GROVES: Choice<Settings["resources"]["groveSize"]>[] = [
   { value: "normal", label: "Normal" },
   { value: "bigWoods", label: "Big woods" },
 ];
+/** Start area is a preference, never a promise (D211): the land leans toward a tighter or roomier
+ *  bench round the district center, and the map card shows the bench a map has. */
 export const AREAS: Choice<Settings["start"]["area"]>[] = [
-  { value: "small", label: "Small" },
+  { value: "small", label: "Prefer tight" },
   { value: "normal", label: "Normal" },
-  { value: "large", label: "Large" },
+  { value: "large", label: "Prefer roomy" },
 ];
 
 /** Blocks of water a reservoir holds per tile: 2 deep, 3 on Hard (PLAN §5.3, §11.4). */
@@ -110,6 +114,10 @@ export function band(key: string, spec: MapSpec): string {
   switch (key) {
     case "relief":
       return `Height range about ${Math.round(7 + 0.08 * s.terrain.relief)} levels. Official maps: 9–15, most 13.`;
+    case "verticality":
+      return s.terrain.verticality >= 70
+        ? "Sheer cliffs, spires and deep gorges. From 70 the land may rise above level 16, where the game's map editor can't edit it."
+        : "How tall and sheer the land grows: higher brings cliffs, spires and deep gorges.";
     case "highestTerrain":
       return "Official maps all top out at 16, the map editor's limit.";
     case "terracing":
@@ -128,8 +136,12 @@ export function band(key: string, spec: MapSpec): string {
       return `About ${Math.round(LAKES[s.water.lakes] * density("basins_ge20", area))} natural basins on this map. Official maps: 0–25.`;
     case "waterfalls":
       return "Falls of 2+ levels on the rivers. Official maps: 0–41, most 4.";
-    case "badwater":
-      return "Badwater strength against the rivers'. Official maps: 0.18–2.2, most 0.65.";
+    case "badwater": {
+      if (s.hazards.badwater === "off") return "A peaceful map: no badwater sources. Badtides still turn every source bad.";
+      const b = badwaterBudget(spec.size.x, spec.size.y, s.hazards.badwater, spec.seed);
+      const typical = Math.round(officialPerMap(OFFICIAL_BADWATER.sources, area));
+      return `${b.sources} badwater source${b.sources > 1 ? "s" : ""}, for Extract late in the game. Official maps this size: about ${typical}.`;
+    }
     case "badwaterDistance":
       return "A target: the map card warns when badwater is nearer. Official maps: most 15 tiles.";
     case "thornBelts":
@@ -155,7 +167,7 @@ export function band(key: string, spec: MapSpec): string {
     case "waterWithin":
       return "The walk to clean water a pump reaches, using only the map's own slopes. Official maps: most 12 tiles.";
     case "woodWithin20":
-      return "Logs from grown trees within 20 tiles' walk: an oak gives 8, a pine 2, a birch 1. Saplings count once grown. Official maps: most 110.";
+      return `Logs from grown trees within 20 tiles' walk: an oak gives 8, a pine 2, a birch 1. Saplings count once grown. However it is set, every map has at least ${LOG_FLOOR} logs within ${LOG_FLOOR_WALK} tiles' walk, enough to build a Forester. Official maps: most 110.`;
     case "bushesWithin20":
       return "Living berry bushes within 20 tiles' walk. Official maps: most 57.";
     case "ruinsWithin":

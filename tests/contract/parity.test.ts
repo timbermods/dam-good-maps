@@ -94,8 +94,17 @@ describe("validation parity between the editor and the generator (ROADMAP M8)", 
     // an edit: the preview's water shows until the background check has run
     const b = ed.sessionView();
     const W = b.view.W;
+    // (ground clear of the map's objects: a sculpt under a mine site or a ruin would leave it
+    // floating, a load problem that blocks the export; D252's start planting moved seed 21's first
+    // candidate onto its mine site)
+    const e = b.view.entities;
+    const busy = new Uint8Array(W * W);
+    for (let k = 0; k < e.count; k++) {
+      if (/^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.templates[e.template[k]])) continue;
+      for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (e.x[k] + dx >= 0 && e.x[k] + dx < W && e.y[k] + dy >= 0 && e.y[k] + dy < W) busy[(e.y[k] + dy) * W + e.x[k] + dx] = 1;
+    }
     let at = -1;
-    for (let i = W * 20; i < W * (W - 20) && at < 0; i += 3) if (b.view.heights[i] > 3 && (i % W) > 20 && (i % W) < W - 20) at = i;
+    for (let i = W * 20; i < W * (W - 20) && at < 0; i += 3) if (b.view.heights[i] > 3 && (i % W) > 20 && (i % W) < W - 20 && !busy[i] && !busy[i + W]) at = i;
     const u = ed.apply({ op: "sculpt", params: { mode: "raise", cells: [[Math.floor(at / W), (at % W) - 2, (at % W) + 2]], amount: 1 } });
     expect(u.ok).toBe(true);
     const progress: number[] = [];

@@ -25,7 +25,8 @@ import { BUILT_KINDS, type PlanRecord } from "../../../src/core/features/setpiec
 import { local, type Facing } from "../../../src/core/features/setpieces/common";
 import { tilesToRuns } from "../../../src/core/math/grid";
 import { TREE_LOGS } from "../../../src/core/format/entities";
-import { LOGS_PER_TREE } from "../../../src/core/spec/mapspec";
+import { defaultSettings, LOGS_PER_TREE, THEMES, type ThemeId } from "../../../src/core/spec/mapspec";
+import { planNarrowsEdit } from "../../../src/core/doc/narrows";
 import { rulesFor } from "../../../src/core/validate/playability";
 import { newHandle, newId, refContext, type Conversation } from "./conversation";
 import { entityTiles } from "../../../src/core/features/edits";
@@ -42,6 +43,7 @@ import { guardsOf } from "./metrics";
 import { newConversation } from "./conversation";
 import { comparative, findWord, JUDGEMENT, leverPatch, sizeWordOf, type SizeWord } from "./words";
 import { viewOf } from "./view";
+import { network } from "./flow";
 import { carveParams, forceMapOf } from "../../../src/core/forces/carve/result";
 import { CarveRun, type CarveSettings } from "../../../src/core/forces/carve/run";
 import { protectedGround, STEPS_PER_SECOND } from "../../../src/core/forces/force";
@@ -99,9 +101,13 @@ export type Step =
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
   | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  // M9a (docs/m9-design.md §16): a new map from the processes (theme, seed, size, Verticality), and
+  // a natural narrows on a river (the builder #63 keeps as an internal operation)
+  | { op: "generate"; theme?: string; seed?: number; size?: number; verticality?: number; variety?: number; flowDirection?: string; intentions?: string[] }
+  | { op: "placeNarrows"; target?: string; where?: Where; at?: number; reach?: number; rise?: number; handle?: string }
   | { op: "undoLast" };
 
-export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "undoLast"] as const;
+export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "undoLast", "generate", "placeNarrows"] as const;
 
 /** The shelf's objects, as a step names them, and the object each places (D184). */
 export const SHELF_OBJECTS = { pine: "Pine", birch: "Birch", oak: "Oak", berryBush: "BlueberryBush", ruin: "RuinColumnH", mineSite: "UndergroundRuins", relic: "Relic", slope: "Slope", thorns: "Thorns", naturalDam: "NaturalDam", blockage: "Blockage", geothermal: "GeothermalField" } as const;
@@ -334,6 +340,22 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       return [...errs, ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : []), ...(s.to !== undefined && !Array.isArray(s.to) ? checkPlace(s.to, "to", W, H) : [])];
     case "undoLast":
       return [];
+    case "generate":
+      if (s.theme !== undefined && !(THEMES as readonly string[]).includes(String(s.theme))) return [`theme is one of ${THEMES.join(", ")}`];
+      if (s.seed !== undefined && !(Number.isInteger(s.seed) && num(s.seed, 0, 4294967295))) return ["seed is a whole number, 0–4294967295"];
+      if (s.size !== undefined && !(Number.isInteger(s.size) && num(s.size, 96, 256))) return ["size is 96–256 tiles a side"];
+      if (s.verticality !== undefined && !num(s.verticality, 0, 100)) return ["verticality is 0–100"];
+      if (s.variety !== undefined && !num(s.variety, 0, 100)) return ["variety is 0–100"];
+      if (s.intentions !== undefined && !(Array.isArray(s.intentions) && s.intentions.length <= 2 && s.intentions.every((x) => str(x, 40)))) return ["intentions are at most 2, from the set"];
+      return [];
+    case "placeNarrows":
+      if (s.target === undefined && s.where === undefined) return ["placeNarrows needs a target river or a where"];
+      if (s.target !== undefined && !str(s.target, 80)) return ["target names the river"];
+      if (s.where !== undefined) errs.push(...checkPlace(s.where, "where", W, H));
+      if (s.at !== undefined && !num(s.at, 0, 1)) errs.push("at is 0–1 along the river, from its head");
+      if (s.reach !== undefined && !num(s.reach, 0.5, 1)) errs.push("reach is 0.5–1");
+      if (s.rise !== undefined && !(Number.isInteger(s.rise) && num(s.rise, 1, 4))) errs.push("rise is 1–4 levels");
+      return errs;
   }
   return [];
 }
@@ -566,7 +588,7 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
       if (f.kind === "start") return fail(step, ["the start cannot be deleted: every map needs exactly one; move it instead"]);
       const r = deleteEdit(s, f.id);
       if (!r.ok) return fail(step, r.errors);
-      return { ok: true, step, ops: r.ops, made: [], report: [], resolved: { target: f.id, kind: f.kind === "setPiece" ? f.params.kind : f.kind }, errors: [], tiles: 0 };
+      return { ok: true, step, ops: r.ops, made: [], report: [...r.report], resolved: { target: f.id, kind: f.kind === "setPiece" ? f.params.kind : f.kind }, errors: [], tiles: 0 };
     }
     case "setRiverBadwater":
       return fail(step, [NO_WATER_OBJECTS]);
@@ -587,6 +609,75 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
     }
     case "undoLast":
       return { ok: true, step, ops: [], made: [], report: [], resolved: conv.accepted.length ? { undoes: conv.accepted[conv.accepted.length - 1].text } : {}, errors: conv.accepted.length ? [] : ["nothing to undo in this conversation"], tiles: 0 };
+    case "generate": {
+      if (!s.spec) return fail(step, ["an imported map has no settings: it cannot be generated again"]);
+      // what M9a does not steer yet: said, with the map it can make instead
+      const without = { ...step } as Record<string, unknown>;
+      delete without.variety;
+      delete without.flowDirection;
+      delete without.intentions;
+      if (step.variety !== undefined) return fail(step, ["Variety becomes a setting in M9b: the map is made at its default Variety"], { note: "the same map at the default Variety", step: without });
+      if (step.flowDirection !== undefined) return fail(step, ["choosing the flow direction waits for M9b: the land picks it"], { note: "the same map with the land's own flow direction", step: without });
+      if (step.intentions !== undefined) return fail(step, ["steering to intentions waits for M9b"], { note: "the same map, its intentions drawn by the land", step: without });
+      const theme = (step.theme ?? s.spec.theme) as ThemeId;
+      const side = step.size ?? s.spec.size.x;
+      const size = { x: side, y: step.size ?? s.spec.size.y };
+      const settings = step.theme && step.theme !== s.spec.theme ? defaultSettings(theme, s.spec.designedFor, size) : JSON.parse(JSON.stringify(s.spec.settings));
+      if (step.verticality !== undefined) settings.terrain.verticality = Math.round(step.verticality);
+      const patch: Record<string, unknown> = { theme, archetype: theme, seed: step.seed ?? s.spec.seed, size, settings };
+      const moved = [step.theme !== undefined ? `theme ${theme}` : null, step.seed !== undefined ? `seed ${step.seed}` : null, step.size !== undefined ? `size ${side}` : null, step.verticality !== undefined ? `Verticality ${Math.round(step.verticality)}${step.verticality >= 70 ? " (land may rise above 16)" : ""}` : null].filter(Boolean);
+      return { ok: true, step, ops: [{ op: "specPatch", params: { patch } }], made: [], report: [`a new map from the processes: ${moved.join(", ") || "the same settings"}`], resolved: { patch: { theme, seed: patch.seed, size, verticality: settings.terrain.verticality } }, errors: [], tiles: 0 };
+    }
+    case "placeNarrows": {
+      // the river and the place along it: a named river (at 0–1, default halfway), or a place in
+      // words, read as the river course through it and the middle of its stretch there
+      let riverId: string;
+      let at = step.at ?? 0.5;
+      const resolved: Record<string, unknown> = {};
+      if (step.where !== undefined) {
+        const where = resolve(v, step.where, refs);
+        if (!where.ok) return fail(step, where.errors);
+        const net = network(v);
+        let best: { id: string; n: number; s: number; length: number; reversed: boolean } | null = null;
+        for (const c of net.courses) {
+          if (step.target !== undefined) {
+            const t = targetFeature(s, conv, step.target);
+            if (typeof t === "string" || t.id !== c.id) continue;
+          }
+          let n = 0;
+          let sum = 0;
+          for (let i = 0; i < where.mask.length; i++)
+            if (where.mask[i] && c.field.d[i] < Math.max(3, c.width)) {
+              n++;
+              sum += c.field.s[i];
+            }
+          if (n && (!best || n > best.n)) best = { id: c.id, n, s: sum / n, length: c.length, reversed: c.reversed };
+        }
+        if (!best) return fail(step, [`no river runs through ${where.place ? "that place" : "there"}: a narrows closes in on a river`]);
+        riverId = best.id;
+        // (the feature's own path order: the builder measures along it)
+        const frac = best.s / Math.max(1, best.length);
+        at = Math.round((best.reversed ? 1 - frac : frac) * 100) / 100;
+        Object.assign(resolved, { place: where.place, assumptions: where.assumptions });
+      } else {
+        const f = targetFeature(s, conv, step.target!);
+        if (typeof f === "string") return fail(step, [f]);
+        if (f.kind !== "river") return fail(step, [`${step.target} is not a river`]);
+        riverId = f.id;
+      }
+      const id = newId(conv, "naturalNarrows");
+      const r = planNarrowsEdit(s, { river: riverId, at, reach: step.reach, rise: step.rise }, id);
+      if (!r.ok) {
+        // the nearest place along the river where the spurs fit
+        for (const d of [0.05, -0.05, 0.1, -0.1, 0.2, -0.2, 0.3, -0.3]) {
+          const a2 = Math.round(Math.min(0.95, Math.max(0.05, at + d)) * 100) / 100;
+          if (planNarrowsEdit(s, { river: riverId, at: a2, reach: step.reach, rise: step.rise }, id).ok) return fail(step, r.errors, { note: `the nearest place along the river where spurs fit on both banks: ${Math.round(a2 * 100)}% of the way along it`, step: { op: "placeNarrows", target: riverId, at: a2, ...(step.reach !== undefined ? { reach: step.reach } : {}), ...(step.rise !== undefined ? { rise: step.rise } : {}) } });
+        }
+        return fail(step, r.errors, undefined, resolved);
+      }
+      const h = newHandle(conv, "narrows", step.handle);
+      return { ok: true, step, ops: r.ops, made: [{ handle: h, id, kind: "naturalNarrows" }], report: r.report, resolved: { ...resolved, river: riverId, at, gap: r.gap }, errors: [], tiles: r.tiles.length };
+    }
   }
 }
 

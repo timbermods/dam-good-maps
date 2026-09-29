@@ -14,5 +14,8 @@ export function shareCases(): MapSpec[] {
   const c = makeSpec({ seed: 77, size: { x: 96, y: 112 }, theme: "lakeBasin" });
   c.settings.water.rivers = 3;
   c.settings.start.area = "large";
-  return [a, b, c];
+  // Any, the default theme (D209), with Verticality away from its preset
+  const d = makeSpec({ seed: 12, size: { x: 96, y: 96 }, theme: "any" });
+  d.settings.terrain.verticality = 60;
+  return [a, b, c, d];
 }

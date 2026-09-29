@@ -13,7 +13,7 @@ differently, this file wins.
   that serves both halves.
 - **Editor-ready from the first milestone.** M1 already generates maps *from* parametric features
   and offers them as a project file, so the editor opens every generated map with its plan kept,
-  for "Generate, keeping my edits" and Claude's steering. No generator code is
+  for the analysis and Claude's steering. No generator code is
   retrofitted later. (The editor showed those features as objects with handles until Live
   editing; the brushes shape the land now, D182, D184.)
 - **Every milestone ends with its blocking criteria met and its tests green.**
@@ -291,7 +291,7 @@ The deviations are PLAN §20 D24–D34. In-game checks B1–B4 are pending.
 - Every voxel-format investigation map imports and re-exports its normalized world byte for byte.
 - The two 0.6 maps import.
 - Generate, add a user feature, change a setting, regenerate: the user feature survives and
-  nothing is silently dropped.
+  nothing is silently dropped. (Superseded by D336: edits never replay onto new land.)
 - The spike report answers each open question with evidence.
 
 **In-game check:** no. Import normalization is checked in game at M8 (F3).
@@ -307,7 +307,7 @@ criterion passes:
 - all 30 voxel-format investigation maps re-export their normalized world byte for byte, and the
   two 0.6 maps import;
 - regeneration keeps the player's features and flags every edit that no longer applies, with
-  its reason;
+  its reason (superseded by D336);
 - the spike report answers the open questions with evidence.
 
 Two spike questions need Kyler's own run of the published page: `sample`'s latency with tools,
@@ -339,7 +339,8 @@ and who can open the artifact. The deviations are PLAN §20 D35–D41, and D8 an
 **Acceptance**
 - Every investigation map imports, renders and exports unchanged.
 - The 3D view builds in < 1.5 s at 256² and orbits at 60 fps on a mid-range laptop.
-- Generate → refine → back to settings → regenerate → refine keeps user edits.
+- Generate → refine → back to settings → regenerate → refine keeps user edits. (Superseded by
+  D336: Generate makes a new map, and the edited one stays one step away.)
 
 **In-game check:** no.
 
@@ -354,7 +355,8 @@ criterion passes:
   the budget was judged on its integrated GPU with the CPU slowed 4× on a laptop-sized screen
   (D46);
 - generate → refine → back to settings → regenerate → refine keeps the player's edits, tested
-  through the page.
+  through the page (superseded by D336: Generate makes a new map, and Back to editing returns to
+  the edited one).
 
 The deviations are PLAN §20 D42–D46.
 
@@ -515,7 +517,8 @@ start rules as reasons to reject a map:
 2. **Starting wood** (D164): at least 120 / 80 / 40 logs of grown trees within 20 tiles' walk of
    the start (slopes allowed), each tree by its species' yield (oak 8, pine 2, birch 1), alive or
    dead. A sapling's logs are shown apart, as wood still growing. (As built in M8: 60 / 40 / 20
-   living trees.)
+   living trees. From M9a, D224 and D227: 250 / 200 / none within 20 tiles, and the starting-logs
+   floor, 178 logs within 40 tiles' walk at every difficulty, which rejects every map below it.)
 3. **Starting bushes:** at least 40 / 30 / 20 living berry bushes within 20 tiles' walk of the
    start (slopes allowed), counted across any number of patches.
 
@@ -890,6 +893,9 @@ A small step right after Resources like the official maps, and before the Real p
 **Blocking:** breakage (batches ≥ 98% final per theme and size, byte checks), and every map having its
 badwater source. Generated maps change (a generator version bump and a contact sheet, D144).
 
+**Status:** built on `feature/badwater-source` (docs/progress/badwater-source.md), a PR into `dev`;
+generator 0.6.3.
+
 ---
 
 ## Live editing
@@ -1041,8 +1047,8 @@ text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
 out, clear trees and objects); Ctrl-click samples a level (on water, its bed); heavy operations
-("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
-an operation that replays exactly and survives regeneration and format 3; only changed chunks
+shown growing, never a frozen wait; every stroke
+an operation that replays exactly onto its own land (edits never replay onto new land, D336) and survives format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
 landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
 shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks
@@ -1070,6 +1076,8 @@ terrain steps extend the same brushes to caves and tunnels.
 ---
 
 ## The page is the editor (D232–D234)
+
+**The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), approved by Kyler on 2026-09-29, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
 
 After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
 automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
@@ -1288,7 +1296,7 @@ M9 waits for that approval.
   information the generator prefers, not a guard (#67); Kyler picks the candidate intentions later
   (#66).
 - **Models and priority** (D210, amended by D262 and D278): the M9a build on Opus 5.5 at xhigh; M9b
-  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5 at medium; M9a comes first when
+  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5.5 at medium; M9a comes first when
   work competes for the machine. M9c is removed (D278): `m9-build` stays defined but unused.
 
 **Staging: M9a and M9b, approved by Kyler** (2026-09-25; PLAN §20 D145; M9c folded into M9b, D278).
@@ -1298,11 +1306,25 @@ stage waits for Kyler's approval of design version 2; M9b's own list below is D2
 design version 1's.
 
 - **M9a: terrain and water from processes** (tag `m9a-done`).
+  - **Status (2026-09-27):** built on `feature/m9a` (PR #56), generator 0.7.0, with Kyler's answers
+    D211 (settings), D213 (the last badwater spring), D224, D227 and D229 (the starting-logs floor,
+    met the way the land offers it) and D252 (1) (starts stop looking alike: the map's own groves and
+    patches first, the start rules' planting spread over the walk the way the land offers it,
+    `tests/contract/startPlanting.test.ts`); natural ramps only climb cliffs and badwater ditches
+    wind (D209); `dev` merged in (Live editing, the forces, the waterfalls). The generator is frozen
+    again after D252 (1) (788c145); every batch on it is at 98% final or better, and the probe maps
+    are rebuilt on it; the Claude suite is no longer an M9a gate (D277) (docs/progress/m9a.md). Kyler
+    said yes on D252 (2)'s review set (D294). The DGM Probe batch ran twice (the files now store the
+    settled water's outflows); on its findings (D302) the start's water must be fed by a source or
+    last the drought, never a sealed puddle (both validators; the batches run again on it), the
+    probe's wet-tile counts are judged as D297 judges water, and tall maps' project files reopen
+    (a river bed step up to 22 levels, M9b's finding). Every gating batch passes on D302's rule (98%
+    final or better). Left: the release.
   - Delivers: the genome and the themes as priors; the field (uplift, erosion, levels) and the
     hydrology (rivers from the drainage, lakes, falls, pools, splits, deltas) in `src/core`;
     features read back out of the field (rivers, natural lakes, badwater hollows, the start,
-    objects, resources); the settler; `water.storage_possible` in place of `water.reservoir` and the
-    dam-wall check, in both validators; the document model (a stored field, project format 3); the
+    objects, resources); the settler; `water.storage_possible` in place of `water.reservoir`
+    (information the generator prefers, not a guard, #67) and the dam-wall check, in both validators; the document model (a stored field, project format 3); the
     generator version 0.7.0; K = 1.
   - **Format 3's terrain holds runs** (I-1, D119; time-sensitive): the document's `field` and
     `base` store heights plus runs: the surface per tile, and the solid runs of every tile that is
@@ -1326,10 +1348,9 @@ design version 1's.
     cliff-bench terraces) emerge more as it rises; never stamped. Traversable at any value: the
     start and its first resources on reachable land, natural ramps where the land needs them;
     stairs-only heights allowed as rewards. Terrain above 16, up to 22 with layer 22 empty, only
-    at high Verticality (70+). It is built in M9a but stays locked until a DGM Probe batch
-    confirms such maps load and keep their terrain, water and objects (asked under D117; Kyler
-    confirmed this stage, D145). 3D-b extends Verticality to 3D forms. The vertical-reach measure
-    joins the batch tools.
+    at high Verticality (70+): unlocked, since the tall-maps probe batch confirmed such maps load and
+    keep their terrain, water and objects (run 20260925-tall, D172), and both validators allow up
+    to 22. 3D-b extends Verticality to 3D forms. The vertical-reach measure joins the batch tools.
   - **The techniques playbook as proposals** (D131; investigation/techniques/): independent
     spatial controls, protected contours and channels before snapping, starts chosen by
     guarantees and opportunity vectors, catchments and spill levels kept. Each is tried against
@@ -1545,6 +1566,8 @@ After the High look is adopted (Map look 2, above), so there is only one mesher 
 
 After the view (D280 (3)).
 
+**Where the tools sit (D335, Kyler, 2026-09-29):** the Block tool (`investigation/block-tool`, D335) sits on the tools row with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it's built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool. Erode stays on the forces row.
+
 **Delivers**
 1. **Erode**, a new force, adopted from its investigation (`investigation/erode`, D281) onto the
    forces core, under the forces' principles (D257: bound only by nature; D258: no predicted route
@@ -1600,8 +1623,8 @@ Once M9b has settled (D280 (4)).
 3. Verticality (`vt`, in the spec, share links and the panel from M9a, D132) extends to these forms
    (PLAN §5.9's table; D123). Themes carry their own defaults.
 4. Traversal: derived slopes on the floor graph, and rewards planned on stairs-only heights.
-5. Relief to 22 at Verticality 70 and above comes with M9a, locked until a probe batch confirms it
-   (D132, D145). If it is still locked, the Probe's T6 here unlocks it once it passes.
+5. Relief to 22 at Verticality 70 and above comes with M9a, unlocked: the tall-maps probe batch
+   passed (run 20260925-tall, D172).
 6. NaturalOverhang bridges and badtide drains in cliff notches (from Later).
 7. The 3D measures in the batch and the M9 measure suite.
 
@@ -1742,7 +1765,7 @@ doesn't need a separate naturalness pass over stamped shapes, because nothing in
 decisions-pending #29 (containment should look natural) and #13 (moot since D184) go with them.
 
 Its remaining small items become housekeeping: no milestone, no release, no gate — each is fixed
-when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, medium, D286 (5)):
+when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5.5, medium, D286 (5)):
 - pending decision [#2](docs/decisions-pending.md): `plants.drought` warns on every River Valley
   map, because the berry bushes near the start grow on water that drains in a drought;
 - pending decision [#12](docs/decisions-pending.md): narrow a generated fall's channel to 1–3
@@ -1761,6 +1784,8 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   (`src/core/format/json.ts`) now reads objects into null-prototype records, so a `__proto__` key
   stays its own data property, and rejects raw control characters inside strings, as `JSON.parse`
   does; each with its round-trip test (`tests/unit/format.test.ts`);
+- **three stale capture tools** (`tools/capture-look.ts`, `capture-objects.ts`, `capture-saplings.ts`): they look for tabs retired
+  since D184 and no longer run against today's interface; bring them up to date, or retire them if nothing uses them;
 - **the held dependency upgrades** (PLAN §20 D150): TypeScript 7.0, `@types/node` 26, and any
   future major (list them with `npm outdated`), one at a time, each with the full nightly suite, at
   a quiet time and never mid-milestone;
@@ -1768,9 +1793,9 @@ when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, 
   map and regrowing it region by region; their operations, fields and the stamp origin are removed,
   and an old project holding a lock still opens with its land as it was kept.
 
-Every check keeps passing (`water.storage_possible` included, D111); batches stay at 98% or better;
-the Python oracle changes with the TypeScript, with 0 disagreements, wherever an item touches
-generated maps.
+Every blocking check keeps passing (`water.storage_possible` is information the generator prefers,
+#67); batches stay at 98% or better; the Python oracle changes with the TypeScript, with 0
+disagreements, wherever an item touches generated maps.
 
 ---
 
