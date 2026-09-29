@@ -1,6 +1,6 @@
 # Integration
 
-Add a session view preference `flowArrows`, default false, beside the existing look controls; it is not map data and does not affect export or undo.
-Let MapRenderer own one arrow mesh (replace the demo's private-scene bridge), setting visibility from that preference in both looks.
-On setMap and every displayed water update, rebuild from that same SurfaceWater using the existing surfaceFlow result; commit water and arrows together so stale directions never linger.
-Refresh the quiet material when the actual look changes, adjust close-view scale on camera changes, and dispose geometry/material with the renderer.
+Add a session view preference `flowArrows`, default false, beside look controls; no map/export/undo schema change.
+Transfer the settle's retained `out` and matching depth with each displayed water revision, including preview results; reject stale revisions and show no arrows when flow is absent. Do not substitute surface slope.
+Let MapRenderer own FlowArrows instead of the demo's private scene/camera bridge, updating water and flow in one commit.
+Keep CSS-pixel sizing/spacing and whole-glyph occlusion in both looks; resample on camera changes, stop drift for reduced motion, and dispose the overlay with the renderer.
