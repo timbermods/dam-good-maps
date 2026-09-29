@@ -210,7 +210,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const i = y * W + x;
         if (before.water.depth[i] > 0.05 && Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
       }
-  for (const q of path) q.floor = Math.max(0, q.floor - riverClearance);
+  // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
+  // still sink into the floor without going below the Floor; the plan is held at it below as well)
+  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);

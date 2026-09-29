@@ -19,7 +19,7 @@ import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
 import { makePlan } from "../../src/core/forces/glaciate/plan";
-import { FLOOR_DEFAULT, holdAtFloor } from "../../src/core/forces/floor";
+import { FLOOR_DEFAULT } from "../../src/core/forces/floor";
 import { floodAllowance } from "../../src/core/forces/glaciate/floor";
 import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
 import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
@@ -82,26 +82,31 @@ function run(req: ed.ForceRequest): { shown: Uint8Array } {
 }
 
 describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
-  it("gives the investigation's land, water and objects on its hero click and Kyler's cross-valley Aim, with the floor's water left as round 4 left it (held at the Floor, D321 item 40)", () => {
+  it("gives the investigation's land, water and objects on its hero click and Kyler's cross-valley Aim, with the floor's water left as round 4 left it (on its canyon raised clear of the Floor, D321 item 40)", () => {
     for (const [x, y, end] of [
       [22, 22, null],
       [24, 80, [96, 36]],
-    ] as const) {
-      const m = fixture("canyon-128");
-      const intent = { origin: y * m.W + x, ...(end ? { end: end[1] * m.W + end[0] } : {}) };
-      const settings = { ...GLACIATE_DEFAULTS, mode: end ? ("aim" as const) : ("flow" as const) };
-      const p = makePlan(snapshotMap(m), settings, intent, undefined, false);
-      const q = protoPlan(snapshotMap(m) as never, settings, intent);
-      // (the investigation moves the start itself; in the editor the start is the editor's, D257)
-      const without = (e: { template: string }) => e.template !== "StartingLocation";
-      // the Floor (D321, item 40), which the investigation didn't have: its land held at level 1, and
-      // its water only where the Floor held nothing (the water is worked out on the held ground)
-      const held = q.map.heights.slice();
-      const n = holdAtFloor(m.heights, held, FLOOR_DEFAULT);
-      expect(Array.from(p.map.heights), `${x},${y}`).toEqual(Array.from(held));
-      expect(p.map.entities.filter(without).map((e) => e.id).sort(), `${x},${y}`).toEqual(q.map.entities.filter(without).map((e) => e.id).sort());
-      if (!n) expect(digest({ ...p.map, entities: p.map.entities.filter(without) }), `${x},${y}`).toBe(digest({ ...(q.map as unknown as FullForceMap), entities: q.map.entities.filter(without) }));
-    }
+    ] as const)
+      for (const raise of [0, 6]) {
+        // the canyon as it is, and raised six levels: the Floor (D321, item 40), which the
+        // investigation didn't have, keeps the editor's trough a level above it (its channel and tarn
+        // within it), so on the canyon as it is nothing goes below it; raised, the glacier never comes
+        // near the Floor, and it is the investigation's exactly
+        const m = fixture("canyon-128");
+        for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.min(m.maxHeight, m.heights[i] + raise);
+        for (const e of m.entities) e.z = Math.min(m.maxHeight, e.z + raise);
+        const intent = { origin: y * m.W + x, ...(end ? { end: end[1] * m.W + end[0] } : {}) };
+        const settings = { ...GLACIATE_DEFAULTS, mode: end ? ("aim" as const) : ("flow" as const) };
+        const p = makePlan(snapshotMap(m), settings, intent, undefined, false);
+        const what = `${x},${y} raised ${raise}`;
+        for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] < Math.min(m.heights[i], FLOOR_DEFAULT)) expect.fail(`${what}: tile ${i} below the Floor`);
+        if (!raise) continue;
+        const q = protoPlan(snapshotMap(m) as never, settings, intent);
+        expect(Array.from(q.map.heights).some((v, i) => v <= FLOOR_DEFAULT + 1 && v < m.heights[i]), what).toBe(false);
+        // (the investigation moves the start itself; in the editor the start is the editor's, D257)
+        const without = (e: { template: string }) => e.template !== "StartingLocation";
+        expect(digest({ ...p.map, entities: p.map.entities.filter(without) }), what).toBe(digest({ ...(q.map as unknown as FullForceMap), entities: q.map.entities.filter(without) }));
+      }
   });
 
   it("finishes the floor's water (D292): the river visits the falls' pools and inflows, no join runs along a wall's foot, and the game's water keeps off the dry floor", () => {
