@@ -20,6 +20,8 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   const started = performance.now(), before = input.terrain, t = before.clone(), { W, H, N } = t;
   const P = clamp(set.power / 100, 0, 1), S = clamp((set.size ?? 25 + 0.6 * set.power) / 100, 0, 1);
   const width = 1 + 8 * S * S, incision = 1 + Math.round(7 * P * P);
+  // Small washes retain round 2's simple section. Broad, deep arroyos expose different beds.
+  const large = clamp((Math.min(P, S) - 0.45) / 0.55, 0, 1);
   const points = gesture.points.map(p => ({ x: clamp(p.x, 1, W - 2), y: clamp(p.y, 1, H - 2) }));
   const tile = (x: number, y: number) => clamp(Math.floor(y), 0, H - 1) * W + clamp(Math.floor(x), 0, W - 1);
   const neighbours = (i: number) => [i % W > 0 ? i - 1 : -1, i % W < W - 1 ? i + 1 : -1,
@@ -102,11 +104,12 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   // A short click or a map-corner gesture always retains an actual centre cell.
   if (!centre.length) centre.push(start);
   const mainLength = centre.length;
-  const fallCount = Math.min(incision - 1, Math.round(details.dryFalls / 100 * 4));
-  let bed = Math.max(0, heights[centre[0]] - incision + fallCount);
+  const fallHeight = 1 + Math.round(large);
+  const fallCount = Math.min(Math.floor((incision - 1) / fallHeight), Math.round(details.dryFalls / 100 * (4 - 2 * large)));
+  let bed = Math.max(0, heights[centre[0]] - incision + fallCount * fallHeight);
   const levels = centre.map((i, k) => {
     bed = Math.min(bed, Math.max(0, heights[i] - 1), Math.max(0, heights[centre[0]] - incision +
-      fallCount - Math.floor(k / Math.max(1, mainLength - 1) * fallCount)));
+      (fallCount - Math.floor(k / Math.max(1, mainLength - 1) * fallCount)) * fallHeight));
     return bed;
   });
   const tail = outletRoute(centre[centre.length - 1], bed);
@@ -115,7 +118,7 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   }
   const outlet = centre[centre.length - 1];
   const floor = new Int16Array(N).fill(-1), mask = new Uint8Array(N);
-  const stamp = (i: number, level: number, radius: number) => {
+  const stamp = (i: number, level: number, radius: number, banks = false) => {
     const x = i % W, y = Math.floor(i / W);
     for (let yy = Math.max(0, Math.floor(y - radius - 1)); yy <= Math.min(H - 1, Math.ceil(y + radius + 1)); yy++)
       for (let xx = Math.max(0, Math.floor(x - radius - 1)); xx <= Math.min(W - 1, Math.ceil(x + radius + 1)); xx++) {
@@ -123,27 +126,46 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
         if (input.keep?.[j]) continue;
         const r = radius * (0.87 + 0.26 * noise3(set.seed, xx, yy, 0, 6));
         if (Math.hypot(xx - x, yy - y) > r) continue;
-        const z = Math.min(heights[j], level);
+        let rise = 0;
+        if (banks && large > 0) {
+          const across = Math.hypot(xx - x, yy - y) / r;
+          const bedrock = noise3(set.seed ^ 0x4d, xx, yy, 0, 8);
+          const style = 0.5 + 0.5 * Math.sin(xx / 7 + yy / 11 + hash(set.seed, 26) * 6);
+          const shoulder = clamp((across - (0.3 + bedrock * 0.2)) / 0.6, 0, 1);
+          const relief = Math.max(0, heights[j] - level - 1);
+          // A continuous apron in soft beds; two broad benches in layered beds; hard reaches
+          // retain a sheer face. All rise toward the bank, so no isolated lumps fill the bed.
+          if (style > 0.68) rise = Math.round(shoulder * relief * large);
+          else if (style > 0.28) rise = Math.floor(shoulder * 2.5) * Math.max(1, Math.round(relief * large / 3));
+        }
+        const z = Math.min(heights[j], level + rise);
         floor[j] = floor[j] < 0 ? z : Math.min(floor[j], z); mask[j] = 1;
       }
   };
-  centre.forEach((i, k) => stamp(i, levels[k], k < mainLength ? width : Math.max(1, width * 0.65)));
+  centre.forEach((i, k) => stamp(i, levels[k], k < mainLength ? width : Math.max(1, width * 0.65), true));
   // Tributaries climb from their confluence into the plain, with narrow winding heads.
   const gullies = Math.round(details.sideGullies / 100 * (2 + 5 * S));
   for (let g = 0; g < gullies; g++) {
-    const k = Math.min(mainLength - 2, Math.max(1, Math.round((0.12 + 0.76 * hash(set.seed, g + 700)) * mainLength)));
+    const position = large > 0 ? 0.16 + (g + 0.25 + 0.5 * hash(set.seed, g + 700)) / gullies * 0.72 : 0.12 + 0.76 * hash(set.seed, g + 700);
+    const k = Math.min(mainLength - 2, Math.max(1, Math.round(position * mainLength)));
     const i = centre[k], prev = centre[k - 1], next = centre[k + 1];
     const dx = next % W - prev % W, dy = Math.floor(next / W) - Math.floor(prev / W), L = Math.hypot(dx, dy) || 1;
-    const side = g % 2 ? -1 : 1, reach = width * (1.8 + hash(set.seed, g + 800));
+    const side = g % 2 ? -1 : 1, reach = width * (1.8 + 1.4 * large + hash(set.seed, g + 800));
     for (let d = 0; d <= reach; d += 0.45) {
       const bend = Math.sin(d / 3 + g) * 1.2 * d / reach;
       const j = tile(i % W - dy / L * d * side + dx / L * bend, Math.floor(i / W) + dx / L * d * side + dy / L * bend);
-      stamp(j, Math.min(heights[j], levels[k] + Math.floor(d / reach * Math.min(3, incision - 1))), Math.max(0.8, width * 0.35 * (1 - d / reach) + 0.6));
+      stamp(j, Math.min(heights[j], levels[k] + Math.floor(d / reach * Math.min(3 + 3 * large, incision - 1))), Math.max(0.8, width * 0.35 * (1 - d / reach) + 0.6));
     }
   }
   // Connect every bed tile to the outlet, then propagate only lowering along that tree and the
   // trunk. This also removes tiny pits where meanders, gullies or original low ground overlap.
   const parent = new Int32Array(N).fill(-1), order = [outlet]; parent[outlet] = outlet;
+  // Feed broad shelves toward the trunk, not across other shelves on a shortest path to the
+  // outlet. The old cross-bed shortcut was cutting long straight trenches through the benches.
+  if (large > 0) for (let k = centre.length - 2; k >= 0; k--) {
+    const i = centre[k];
+    if (parent[i] < 0) { parent[i] = centre[k + 1]; order.push(i); }
+  }
   for (let k = 0; k < order.length; k++) for (const j of neighbours(order[k]))
     if (mask[j] && parent[j] < 0) { parent[j] = order[k]; order.push(j); }
   const next = new Map<number, number[]>();
@@ -158,10 +180,10 @@ export function planWash(input: ErodeInput, gesture: Gesture, set: ErodeSettings
   // Short cantilevers along pockets of the banks, with the same flat bed and up to five levels
   // of clearance. Their footprint is limited to three tiles; the support pass trims corners.
   if (details.undercutBanks > 0) {
-    const depth = Math.ceil(details.undercutBanks / 100 * 3);
+    const depth = Math.min(3, Math.ceil(details.undercutBanks / 100 * 3 + large * 0.8));
     for (const i of order) {
       const x = i % W, y = Math.floor(i / W), z0 = floor[i];
-      if (noise3(set.seed ^ 0x83, x, y, 0, 6) > details.undercutBanks / 140) continue;
+      if (noise3(set.seed ^ 0x83, x, y, 0, 6) > details.undercutBanks / 140 + large * 0.25) continue;
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
         if (mask[tile(x + dx, y + dy)]) continue;
         for (let d = 1; d <= depth; d++) {

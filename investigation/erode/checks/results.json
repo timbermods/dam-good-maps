@@ -1,6 +1,34 @@
 {
  "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)",
  "result": "PASS",
+ "round3": {
+  "result": "PASS",
+  "unchangedRound2Cases": [
+   "crater-lip",
+   "canyon-cave",
+   "tall-shore",
+   "wash-small"
+  ],
+  "arch": {
+   "footprint": "3×3",
+   "headroom": 5,
+   "floor": 8,
+   "x": 28,
+   "y": 86,
+   "roofedTiles": 5
+  },
+  "wash": {
+   "dryFallsAtLeastTwoLevels": 2,
+   "fallHeights": [
+    2,
+    2
+   ],
+   "tributaryTiles": 84,
+   "shelfTiles": 1086,
+   "sheerBankTiles": 80,
+   "undercutTiles": 78
+  }
+ },
  "round2": {
   "cases": [
    {
@@ -42,12 +70,12 @@
     "droppedOnLoad": 0,
     "floor": 8,
     "headroom": 5,
-    "buildableFloorTiles": 3,
+    "buildableFloorTiles": 5,
     "footprints3x3": 0,
     "leftoverSingleBlocks": 0,
     "leftoverSmallClusters": 0,
-    "worn": 34,
-    "held": 28,
+    "worn": 38,
+    "held": 25,
     "lowPowerWorn": 30,
     "result": "PASS"
    },
@@ -120,8 +148,8 @@
      "droppedOnLoad": 0,
      "undrainedBedTiles": 0,
      "downstreamRises": 0,
-     "bedTiles": 2065,
-     "worn": 13415,
+     "bedTiles": 2212,
+     "worn": 10849,
      "outlet": "edge",
      "details": {
       "winding": 86,
@@ -129,7 +157,7 @@
       "dryFalls": 78,
       "undercutBanks": 24
      },
-     "buildableFloorTiles": 7,
+     "buildableFloorTiles": 17,
      "leftoverSingleBlocks": 0,
      "leftoverSmallClusters": 0,
      "result": "PASS"
@@ -153,7 +181,7 @@
    "blocksOverAir": 131,
    "deepest": 12,
    "roofedTiles": 131,
-   "msToFinal": 10.8,
+   "msToFinal": 10.2,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -213,33 +241,33 @@
   {
    "case": "tall-arch",
    "map": "tall",
-   "worn": 34,
-   "held": 28,
-   "fell": 0,
+   "worn": 38,
+   "held": 25,
+   "fell": 1,
    "droppedOnLoad": 0,
    "reach": 2,
    "blocksOverAir": 5,
    "deepest": 1,
    "roofedTiles": 5,
-   "msToFinal": 1,
+   "msToFinal": 2,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 34,
-     "held": 28,
+     "worn": 38,
+     "held": 25,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 35,
-     "held": 27,
+     "worn": 38,
+     "held": 25,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 34,
-     "held": 28,
+     "worn": 38,
+     "held": 25,
      "dropped": 0
     }
    ]
@@ -255,7 +283,7 @@
    "blocksOverAir": 19,
    "deepest": 2,
    "roofedTiles": 19,
-   "msToFinal": 1.8,
+   "msToFinal": 1.3,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -289,7 +317,7 @@
    "blocksOverAir": 0,
    "deepest": 0,
    "roofedTiles": 0,
-   "msToFinal": 3.3,
+   "msToFinal": 3.2,
    "seconds": 0.65,
    "tryAnother": [
     {
@@ -315,32 +343,32 @@
   {
    "case": "wash-giant",
    "map": "wash",
-   "worn": 13415,
+   "worn": 10849,
    "held": 0,
    "fell": 0,
    "droppedOnLoad": 0,
-   "reach": 1,
-   "blocksOverAir": 17,
-   "deepest": 1,
-   "roofedTiles": 17,
-   "msToFinal": 13.6,
+   "reach": 2,
+   "blocksOverAir": 78,
+   "deepest": 2,
+   "roofedTiles": 78,
+   "msToFinal": 15,
    "seconds": 0.65,
    "tryAnother": [
     {
      "seed": 2,
-     "worn": 15940,
+     "worn": 13647,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 3,
-     "worn": 14934,
+     "worn": 12571,
      "held": 0,
      "dropped": 0
     },
     {
      "seed": 4,
-     "worn": 15911,
+     "worn": 12564,
      "held": 0,
      "dropped": 0
     }
@@ -354,7 +382,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 4,
+   "slowestMs": 7,
    "result": "PASS"
   },
   {
@@ -363,7 +391,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 8,
+   "slowestMs": 5,
    "result": "PASS"
   },
   {
@@ -372,7 +400,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 8,
+   "slowestMs": 11,
    "result": "PASS"
   },
   {
@@ -381,7 +409,7 @@
    "acted": 40,
    "droppedOnLoad": 0,
    "maxReach": 3,
-   "slowestMs": 4,
+   "slowestMs": 6,
    "result": "PASS"
   }
  ]

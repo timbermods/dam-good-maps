@@ -17,6 +17,7 @@ import { support } from "../core/support";
 import { LAYERS, Terrain } from "../core/terrain";
 import { CASES } from "../demo/cases";
 import { drainageMetrics, round2Checks, washChecks } from "./round2";
+import { round3Checks } from "./round3";
 
 const show = process.argv.includes("--show");
 const only = process.argv.find((a) => a.startsWith("--case="))?.slice(7);
@@ -169,7 +170,8 @@ if (!only) {
   mkdirSync(new URL("../checks/", import.meta.url), { recursive: true });
   const round2 = round2Checks(load);
   Object.assign(round2, { wash: washChecks(load) });
-  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round2, cases: results, random }, null, 1) + "\n");
+  const round3 = round3Checks(load);
+  writeFileSync(new URL("../checks/results.json", import.meta.url), JSON.stringify({ note: "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops; ms is the planner alone at 128² (median of 5)", result: failures ? "FAIL" : "PASS", round3, round2, cases: results, random }, null, 1) + "\n");
 }
 console.log(failures ? `FAILED: ${failures} results drop voxels` : "Every result drops 0 voxels under the support rule.");
 process.exit(failures ? 1 : 0);

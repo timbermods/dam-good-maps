@@ -1,5 +1,24 @@
 # Erode: the report
 
+## Round 3
+
+Large washes now expose sheer reaches, broad shelves, slumped banks and undercuts, with longer tributaries and two two-level dry falls in the 100/100 Auto case; flat bed reaches drain between the falls. The thin-ridge opening now clears a level **3×3 footprint with five air levels**, with supports beside it.
+
+| Giant wash, Power 100 / Size 100 | Low along the wash |
+|---|---|
+| ![](captures/round3-wash-after.jpg) | ![](captures/round3-wash-low.jpg) |
+| Arch, original Power 70 / Size 45 | Through the opening |
+| ![](captures/round3-arch-after.jpg) | ![](captures/round3-arch-through.jpg) |
+
+**PASS:** all six cases, three extra seeds each, and all 160 random gestures drop **0 voxels**; review cases leave **0 single blocks or small debris clusters**. Drainage, animation support, Auto/pin extremes and TypeScript pass. Final land: **0.660 s** for the largest checked 128² Auto wash (13,647 blocks), **0.669 s** for the arch; immediate next action passes. [Automatic results](checks/results.json) · [Browser timing](checks/round3-browser.json).
+
+- Choice: scale bank relief only above Power/Size 45; the 30/30 wash and the crater, cave and shoreline fixtures remain byte-identical to round 2.
+- Choice: keep the arch's outside floor at level 8 and reserve its building footprint before placing supports; retain the existing controls, details, gestures, timing, effects and sounds.
+
+Still short: the thin ridge roofs only five of the footprint's nine tiles; the building extends beyond it. Voxel steps and the existing stone material remain visible; water flow is checked geometrically, not in Timberborn.
+
+---
+
 ## Round 2
 
 | Crater rim: before, Power 100 / Size 100 | After the sweep |

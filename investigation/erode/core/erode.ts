@@ -151,6 +151,25 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
     return q.z === undefined || q.z >= before.surface(i) - 1;
   }))) return planWash(input, gesture, set);
   const floor = face.floor;
+  // In a thin fin, supports belong at the ends of the opening. Reserve an actual building
+  // footprint when the original ground can carry it; never raise the floor or invent a roof.
+  const room = new Set<number>();
+  const thin = before.surface(face.i) >= floor + HEADROOM + 2 && [1, 2, 3, 4].some(d =>
+    !before.solid(Math.floor(face.x) + face.nx * d, Math.floor(face.y) + face.ny * d, floor + HEADROOM));
+  if (thin && p.P >= 0.45 && p.s >= 0.25) {
+    let best: { tiles: number[]; score: number } | undefined;
+    for (const i of regionTiles) {
+      const x = i % W, y = Math.floor(i / W), distance = toStroke(pts, x + 1.5, y + 1.5);
+      if (x + 2 >= W || y + 2 >= H || distance > p.radius) continue;
+      const tiles = Array.from({ length: 9 }, (_, k) => i + k % 3 + Math.floor(k / 3) * W);
+      if (tiles.some(j => !allowed(j) || before.run0Top(j) < floor)) continue;
+      const roofed = tiles.filter(j => before.surface(j) >= floor + HEADROOM + 2).length;
+      if (roofed < 3 || !tiles.some(j => before.surface(j) === floor)) continue;
+      const score = roofed - distance * 2;
+      if (!best || score > best.score) best = { tiles, score };
+    }
+    if (best) for (const i of best.tiles) room.add(i);
+  }
   const focus = { x: face.x, y: face.y, z: floor };
   const samples: Pt[] = [pts[0]];
   for (let k = 1; k < pts.length; k++) {
@@ -214,6 +233,11 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
     for (let z = floor; z < ceiling[i]; z++) remove(i, z, depth[i]);
   }
   if (!step.size) return none();
+  for (const i of room) {
+    if (!connected[i]) { connected[i] = 1; queue.push(i); }
+    ceiling[i] = Math.max(ceiling[i], floor + HEADROOM);
+    for (let z = floor; z < floor + HEADROOM; z++) remove(i, z, depth[i]);
+  }
 
   // Keep broad, irregular remnants of the original rock only when a roof actually needs them.
   // Choose one at a time by the roof it holds and the coherent rock grain; no spacing grid,
@@ -228,11 +252,11 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
     const loose = new Set(sup.unsupported.filter(v => Math.floor(v / N) === zs).map(v => v % N));
     let best: { tiles: number[]; score: number } | undefined;
     for (const i of regionTiles) {
-      if (!connected[i] || depth[i] < 1 || !t.at(i, zs) || t.at(i, zs - 1)) continue;
+      if (!connected[i] || (depth[i] < 1 && !room.size) || !t.at(i, zs) || t.at(i, zs - 1)) continue;
       const x = i % W, y = Math.floor(i / W);
       const grain = noise3(set.seed ^ 0x77, x, y, floor, 3.7);
       const sx = hash(set.seed, i) < 0.5 ? -1 : 1, sy = hash(set.seed + 1, i) < 0.5 ? -1 : 1;
-      const fits = (j: number) => allowed(j) && before.run0Top(j) > zs;
+      const fits = (j: number) => allowed(j) && !room.has(j) && before.run0Top(j) > zs;
       const tiles = [[sx, sy], [-sx, sy], [sx, -sy], [-sx, -sy]].map(([a, b]) =>
         [i, i + a, i + b * W, i + a + b * W]).find(c => c.every(fits));
       if (!tiles) continue;
@@ -301,7 +325,7 @@ export function planErode(input: ErodeInput, gesture: Gesture, set: ErodeSetting
         if (core.has(j) || !connected[j] || !allowed(j)) continue;
         const grain = noise3(set.seed ^ 0xc0, x + dx, y + dy, 0, 1.9);
         const levels = grain > 0.48 ? [floor, ceiling[j] - 1] : [ceiling[j] - 1];
-        for (const z of levels) if (z >= floor && before.at(j, z) && t.at(i, z)) {
+        for (const z of levels) if (z >= floor && !(room.has(j) && z < floor + HEADROOM) && before.at(j, z) && t.at(i, z)) {
           t.set(j, z, true); step.delete(z * N + j);
         }
       }
