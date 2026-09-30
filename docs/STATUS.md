@@ -77,6 +77,32 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 
 None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
 
+### Your short checklist: what changed since the forces sitting (the preview from `feature/forces` at 32aee5cf, 2026-10-01)
+
+On <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refine this map**. Only the changed items.
+
+**The forces** (D344, D356, D360 (1))
+1. F with the mouse and `[ ]` set a force's Size, `{ }` its Power, with the number beside the pointer; "Auto (68)" when on Auto.
+2. A drawn gesture shows as a band of the force's width, no ring (Quake's band is its reach from the fault: judge its size).
+3. Esc while drawing cancels; Esc while a force plays skips to its end; Ctrl+Z (or Z, or Revert) takes it back at any moment.
+4. A small drawn loop gives a small eruption, even at max Size; Carve plays from where the stroke began.
+5. Glaciate's ice and sound end as its land settles.
+6. A Carve click at the map's edge carves inward; a Quake click, Lift or Slide, makes a short natural fault.
+
+**The editor** (D345, D347, D351, D352, D360 (2))
+7. Every camera view frames the map centred; long settings rows wrap to a second line; More opens as a grid.
+8. The level control sits top right beside the compass, with Watch and Sound under it.
+9. Ctrl+scroll over a source changes its strength at once; clicking a source never places a second one.
+10. Delete counts and removes submerged objects, and everything inside a selection.
+11. Placing an object never spills water.
+12. X puts down whatever tool is held; the plain pointer picks and drags every object (trees and bushes too), with a hover highlight.
+13. Select: Ctrl+click takes a level, Shift+scroll dials it, Whole map beside the marking icons, "Up 1" and "Down 1".
+14. The bottom-left readout names whatever is under the pointer ("Ruin, 5 levels, 75 scrap metal · Height 5, dry soil").
+15. Hover any control: every one has a one-line tooltip with its key.
+16. The forces row: Carve, Craterize, Erupt · Quake, Glaciate; the first-run hint points at Carve.
+17. The water status after an undo or redo shows the worker's real state.
+18. Saved files are named `dgm-<theme>-<seed>.timber` (`dgm-<name>` for imports and places), numbered, never overwritten.
+
 ### Your checklist for the forces sitting (the preview from `feature/forces` at 9e14f189, 2026-09-29)
 
 One sitting on <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refine this map**. Each line is
