@@ -2093,6 +2093,7 @@ change is a deterministic operation, D158, D342).
 - One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
   intended action).
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109, merged 2026-10-01): the two-code join works, with 324-character codes; the maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across different networks over the internet (Kyler tests it himself).
 - **Planned: area locks** (Kyler, 2026-09-30; to settle in the design Q&A). Each player can reserve parts of the map (for
   example half each), so the other player's operations can't change them. Open questions: locks protect land and objects
   from the other player's edits, but water still flows across borders as physics dictates; a force whose effect would reach
