@@ -114,10 +114,11 @@ the way its water leaves by, from the sill beside the basin to lower ground or t
 down: a channel widened on one bank (the side that takes the less ground away), its width changing
 smoothly along the way (0.8–1.2 of `width`, never tile by tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
 the sill is short. Never within two tiles of the basin under its level, never on `keep`, never below
-`floor`. The cut is one shape along that way (D360 (3)): the largest piece of the worn ground stays
-and the rest is left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray tiles and
-tiles off to the path's side, and a cut that isn't one piece with none of either is refused. It
+`floor`. The cut is one shape along that way (D360 (3)): no part of it narrower than three tiles
+(`openSquare`: no arms or stubs where the path turns, no slivers), the largest piece of the worn
+ground kept and the rest left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray
+tiles, tiles off to the path's side and thin tiles, and a cut that isn't one clean piece is refused. It
 returns the new ground, the tiles cut and the path, or null. The generator calls it on a shown land
 whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
-the water still rising (9, then 17 tiles, the first that settles, a cut of at most 2% of the map);
+the water still rising (9, then 17 tiles, the first that settles, a cut of at most 200 tiles);
 `tests/unit/outletWear.test.ts`.

@@ -785,9 +785,10 @@ the basin standing over its level, else of the water still rising, is worn wider
 that takes the less ground away), its width changing smoothly, never tile by tile, banks stepping
 back up a level a tile, a level under the basin past its shore
 so the sill is short, never within two tiles of the basin under its level; one shape along that way
-(D360 (3)): the largest piece of the worn ground, the rest left as it was, checked by `cutShape`,
-no stray tiles, nothing off to its side; 9, then 17 tiles, the first that settles, a cut of at most
-2% of the map), recorded in the land so the link rebuilds it. The settle runs up to 6 game days (D358), so few maps need
+(D360 (3)): the largest piece of the worn ground, no part of it narrower than three tiles (no arms
+or stubs where the path turns), the rest left as it was, checked by `cutShape`, no stray tiles,
+nothing off to its side; 9, then 17 tiles, the first that settles, a cut of at most 200 tiles: a
+map that needs more is fixed at its source), recorded in the land so the link rebuilds it. The settle runs up to 6 game days (D358), so few maps need
 a cut at all.
 
 ### 7.10 Output
