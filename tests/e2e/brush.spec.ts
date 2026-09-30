@@ -52,7 +52,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await expect(bar.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");
   // the first run's three hints (D184): painting the land takes its line away
   const hints = page.getByRole("status", { name: "First steps" });
-  await expect(hints).toContainText("Paint the land");
+  await expect(hints).toContainText("Shape the land");
   await expect(hints).toContainText("Place things");
   await expect(hints).toContainText("Add water");
 
@@ -61,7 +61,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   let during: number[] = [];
   await stroke(page, at, [at[0] + 8, at[1]], { mid: async () => void (during = await heights(page)) });
   expect(during.some((h, i) => h > before[i])).toBe(true);
-  await expect(hints).not.toContainText("Paint the land");
+  await expect(hints).not.toContainText("Shape the land");
   await expect(hints).toContainText("Place things");
   await settled(page);
   let i = await info(page);

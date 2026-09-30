@@ -202,6 +202,10 @@ export function singleParams(kind: MapObjectKind, x: number, y: number, o: Orien
 // --------------------------------------------------------------------------------- Remove
 
 /** What the editor's Remove takes (its filters, PLAN §20 D184). */
+/** The objects the plain pointer picks up and drags (D345, B7): the ones the player places one at a time.
+ *  (Trees, bushes, ruin columns and slopes are scatter: a drag on them is the camera's.) */
+export const DRAGGABLE_OBJECTS = /^(UndergroundRuins|SmallRelic|MediumRelic|LargeRelic|GeothermalField|NaturalDam|Blockage)$/;
+
 export type RemoveKind = "trees" | "bushes" | "ruins" | "sources" | "water" | "badwater" | "slopes" | "objects" | "start";
 
 /** The kind of object a template is, for Remove's filters. The start is the player's like any object

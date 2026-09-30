@@ -59,7 +59,10 @@ async function drag(page: Page, from: [number, number], to: [number, number], st
  *  choice may not be there (nothing of that kind stands in the selection). */
 async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = false) {
   await row.getByRole("button", { name: "Delete", exact: true }).click();
-  const item = page.getByRole("menu", { name: "Delete" }).getByRole("menuitem", { name });
+  const menu = page.getByRole("menu", { name: "Delete" });
+  // (the core counts what stands in the selection, objects under water too: a moment)
+  await expect(menu.getByText("Counting…")).toHaveCount(0);
+  const item = menu.getByRole("menuitem", { name });
   if (optional && (await item.count()) === 0) {
     await page.keyboard.press("Escape");
     return;
@@ -73,9 +76,9 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   await bar.getByRole("button", { name: "Select (M)" }).click();
   const row = page.getByRole("group", { name: "Selection" });
   await expect(row).toBeVisible();
-  // the marking modes are icons, each named; Whole map sits beside them (D323 items 6 and 43)
+  // the marking modes are icons, each named, Whole map among them (D323 items 6 and 43, D345 B8)
   const modes = await row.getByRole("group", { name: "How to select" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(modes).toEqual(["Rectangle", "Circle", "Freehand", "Brush", "Wand"]);
+  expect(modes).toEqual(["Rectangle", "Circle", "Freehand", "Brush", "Wand", "Whole map"]);
   await expect(row.getByRole("button", { name: "Whole map" })).toBeVisible();
 
   // a circle, dragged from its middle out: its radius beside the pointer

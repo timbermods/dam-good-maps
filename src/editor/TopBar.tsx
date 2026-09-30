@@ -117,20 +117,51 @@ export interface Force {
   key?: string;
   hint?: string;
 }
-export const FORCES: readonly Force[] = [
+/** The forces row's order, by prominence (D352): three clusters in one row. A new player meets the most
+ *  rewarding forces first: (1) the most prominent, immediately understood; (2) the ground breaking and
+ *  moving; (3) the slower processes that reward experience. **The one list**: a force not adopted yet takes
+ *  its place here when it arrives (it needs only its entry in `FORCES` below); the row, its clusters and
+ *  the tooltips follow. */
+export const FORCE_GROUPS: readonly (readonly string[])[] = [
+  ["carve", "craterize", "erupt"],
+  ["rift", "quake", "glaciate"],
+  ["erode", "deposit"],
+];
+
+const FORCE_LIST: readonly Force[] = [
   { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill, shown from where you began. Esc skips to its end, Ctrl+Z takes it back" },
   { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
   { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, Size its breadth, or draw a fissure: the shape you draw sets its extent. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges: it runs the line you draw. Esc skips to its end, Ctrl+Z takes it back" },
 ];
+
+/** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */
+export const FORCES: readonly Force[] = [...FORCE_LIST].sort((a, b) => {
+  const at = (f: Force) => {
+    const g = FORCE_GROUPS.findIndex((grp) => grp.includes(f.id));
+    return g < 0 ? [FORCE_GROUPS.length, 0] : [g, FORCE_GROUPS[g].indexOf(f.id)];
+  };
+  const [ag, ai] = at(a);
+  const [bg, bi] = at(b);
+  return ag - bg || ai - bi;
+});
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
  *  (release.ts, D219). */
 export const SHOWN_FORCES: readonly Force[] = forcesShownIn({ mode: import.meta.env.MODE, base: import.meta.env.BASE_URL }) ? FORCES.filter((f) => f.ready) : [];
 
+/** The shown forces as the row's clusters (D352): one cluster per group that has a force shown. */
+export const FORCE_CLUSTERS: readonly (readonly Force[])[] = FORCE_GROUPS.map((g) => SHOWN_FORCES.filter((f) => g.includes(f.id))).concat([SHOWN_FORCES.filter((f) => !FORCE_GROUPS.some((g) => g.includes(f.id)))]).filter((c) => c.length);
+
 /** This build shows the force `id`. */
 export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
+
+/** What a force's mode switch does, one line each (D351). */
+const MODE_TITLES: Record<string, string> = {
+  Lift: "Lift: the ground on one side of the fault rises (V flips the side)",
+  Slide: "Slide: the ground on one side slips along the fault (V flips the side)",
+};
 
 /** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
  *  Size and Try another (D289). */
@@ -140,7 +171,7 @@ export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: str
       {p.force.modes ? (
         <div class="segmented" role="group" aria-label="Mode">
           {p.force.modes.map((m) => (
-            <button type="button" key={m} aria-pressed={p.mode === m} onClick={() => p.onMode?.(m)}>
+            <button type="button" key={m} aria-pressed={p.mode === m} title={MODE_TITLES[m] ?? m} onClick={() => p.onMode?.(m)}>
               {m}
             </button>
           ))}
@@ -309,7 +340,7 @@ export function FloorControl() {
  *  the forces' shared Floor ends it (D321, item 40). */
 export function MoreRow(p: { force: Force; children: ComponentChildren }) {
   return (
-    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} details`}>
+    <div class="map-bar options-row force-options more-grid" role="group" aria-label={`${p.force.name} details`}>
       <div class="bar-group">
         {p.children}
         <FloorControl />
@@ -356,7 +387,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then raise, lower or level it, delete what stands there, or work only inside it (Ctrl+A: the whole map)"}
+            title={off ? why : "Select (M): mark an area, then raise, lower or level it, delete what stands there, or work only inside it. Ctrl+click takes a level, Shift+scroll sets it, Ctrl+A marks the whole map, X puts it away"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -367,25 +398,29 @@ export function TopBar(p: TopBarProps) {
       </div>
       {SHOWN_FORCES.length ? (
         <div class="map-bar" role="group" aria-label="Forces">
-          {SHOWN_FORCES.map((f) => (
-            <button
-              type="button"
-              key={f.id}
-              class="icon-button"
-              aria-pressed={p.force === f.id}
-              aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-              title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
-              disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
-              onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
-            >
-              <Icon tool={f.id} />
-              <span class="icon-word">{f.name}</span>
-            </button>
+          {FORCE_CLUSTERS.map((cluster) => (
+            <span class="force-cluster" key={cluster[0].id}>
+              {cluster.map((f) => (
+                <button
+                  type="button"
+                  key={f.id}
+                  class="icon-button"
+                  aria-pressed={p.force === f.id}
+                  aria-label={f.key ? `${f.name} (${f.key})` : f.name}
+                  title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
+                  disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
+                  onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
+                >
+                  <Icon tool={f.id} />
+                  <span class="icon-word">{f.name}</span>
+                </button>
+              ))}
+            </span>
           ))}
         </div>
       ) : null}
       {t ? (
-        <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
+        <div class="map-bar options-row two-lines" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
             <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and move the mouse to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
             {hasTarget(t) ? (
@@ -422,6 +457,9 @@ export function TopBar(p: TopBarProps) {
                 onChange={(m) => set({ modes: { ...s.modes, [t]: m } })}
               />
             </span>
+          </div>
+          {/* (a second line for the rest: D345, B2) */}
+          <div class="bar-group">
             <span class="segmented-field">
               Sources
               <Segmented<SourcesChoice>
@@ -443,7 +481,7 @@ export function TopBar(p: TopBarProps) {
                 {s.steps !== null ? (
                   <label>
                     every
-                    <select aria-label="Steps apart" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
+                    <select aria-label="Steps apart" title="How many levels apart the terraces are" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
                       {[2, 3, 4].map((k) => (
                         <option key={k} value={String(k)}>
                           {k} levels

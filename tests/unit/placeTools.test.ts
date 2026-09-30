@@ -74,6 +74,7 @@ describe("the shelf's quiet words (D184)", () => {
   it("say why in a word or two", () => {
     expect(quietWord("it would stand inside the ground: the ground under it is not level")).toBe("needs level ground");
     expect(quietWord("the district center stands there")).toBe("the start stands there");
+    expect(quietWord("the water is in the way: the ground here is uneven, and levelling it would spill the water")).toBe("water is in the way");
     expect(quietWord("a mine site stands there")).toBe("a mine site is there");
     expect(quietWord("too close to the map edge")).toBe("too near the edge");
     expect(quietWord("under water")).toBe("under water");

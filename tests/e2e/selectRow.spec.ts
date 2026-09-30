@@ -56,7 +56,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(lowest));
   // Raise: one level per click, one step; Lower likewise
   const n0 = (await labels(page)).length;
-  await row.getByRole("button", { name: "Raise" }).click();
+  await row.getByRole("button", { name: "Up 1" }).click();
   await idle(page);
   expect((await labels(page)).length).toBe(n0 + 1);
   expect((await labels(page)).at(-1)).toBe("Raise 49 tiles by 1");
@@ -93,7 +93,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await idle(page);
   // hovering an action shows what it would change, on the land inside the selection (a tinted overlay)
   const before = await page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
-  await row.getByRole("button", { name: "Raise" }).hover();
+  await row.getByRole("button", { name: "Up 1" }).hover();
   const hovered = await page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
   expect(hovered).toBeGreaterThan(before);
   // X closes the selection, as Esc does
@@ -152,7 +152,7 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
 });
 
-test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only)", async ({ page }) => {
+test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only; the forces in their clusters by prominence, D352)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("1");
   const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
@@ -161,7 +161,7 @@ test("four rows, top to bottom: the view bar, the tools, the forces, then the ac
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
   expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Select"]);
-  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
+  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
   const ys = [await y(view), await y(tools), await y(forces), await y(options)];
   expect(ys).toEqual([...ys].sort((a, b) => a - b));
   expect(new Set(ys).size).toBe(4);

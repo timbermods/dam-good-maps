@@ -32,5 +32,5 @@ test("the page generates a map and offers both downloads", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Download project file" })).toBeEnabled();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: /\.timber/ }).click();
-  expect((await download).suggestedFilename()).toBe("River Valley (4242).timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4242.timber");
 });

@@ -683,3 +683,73 @@ button[aria-pressed="true"] {
   padding: 3px 10px;
   border-radius: 999px;
 }
+
+/* the top-right corner (D345, B3): the level control beside the compass, larger and easy to see, as in
+   Timberborn's own editor; Watch and Sound under it */
+.view3d-corner {
+  position: absolute;
+  top: 10px;
+  right: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.view3d-corner > * {
+  pointer-events: auto;
+}
+
+.view3d-corner .layer-widget {
+  height: 44px;
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.view3d-corner .layer-widget button {
+  height: 44px;
+  min-width: 40px;
+  padding: 0 10px;
+  font-size: 1.2rem;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.view3d-corner .layer-widget output {
+  min-width: 3ch;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  padding: 0 8px;
+}
+
+.view3d-corner .layer-widget.quiet output {
+  color: inherit;
+}
+
+.corner-below {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.corner-below button {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+
+.corner-below button[aria-pressed="true"] {
+  background: var(--accent);
+}
+
+/* the view bar leaves room for the corner's level control */
+.editor-view .view3d-controls {
+  right: 230px;
+}

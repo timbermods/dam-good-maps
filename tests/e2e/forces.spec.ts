@@ -60,9 +60,12 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
   const far = await page.evaluate(
     ([s0, s1]) => {
       const m = window.dgm3d!.renderer.mapState()!;
+      // (below the rows over the map, which grow with the force picked: a force's options and its More take
+      // more than the two rows and the first-run hints)
+      const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
-        return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+        return p.y > below && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       let best: [number, number] = [0, 0];
       let score = -Infinity;
@@ -92,7 +95,7 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
+  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
   await page.keyboard.press("8");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });

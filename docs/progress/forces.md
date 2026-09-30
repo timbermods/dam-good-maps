@@ -1480,3 +1480,40 @@ At the last push: `npm run test:quick` 621 passed, 13 skipped; `npx playwright t
   again may bring the rock back (the rock is taken from the forces' operations and trimmed to the
   ground as it stands).
 - Water ambience (a nearby waterfall or stream) is not wired (off by default, as decided).
+
+## The forces sitting, batch B: the editor (D345, D347; `feature/sitting-b`)
+
+Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDITOR_PLAN has the rules.
+
+- **B6, the water spill:** the cause was neither a filled wet tile nor the edge slopes as such. A footprint touching
+  water fell back to D328's "cut down to its lowest tile", which cut dry ground below the water beside it, and the water
+  ran in and then drained; the integrity pass also rounded a lone levelled tile down beside a lake. Now the level rises
+  to the water's surface instead (filling dry ground), the edge never cuts below it, the levelling ops are `exact`, and a
+  footprint standing in water on uneven ground is refused ("the water is in the way…"). `tests/contract/placeNoSpill.test.ts`.
+- **B5:** the counts and Everything include what the resource features hold under water (`core/doc/inArea.ts`); a ruin
+  field only partly inside the selection keeps the columns the water hides (their heights are assigned over the whole area).
+- **B4:** Ctrl+scroll and a click near a source's marker (a few pixels) count as on the source; the old exact-tile test
+  missed it and the click placed a second source. Placing on a source's own tile is refused by the core, as before.
+- **B7:** the plain pointer picks and drags placed objects too (mine site, relics, geothermal field, natural dam, blockage:
+  `planMoveEntity`); X puts down whatever is held. **B8, B10, B11** as EDITOR_PLAN describes.
+- Keys: **X** changed (it closed the selection; now it puts down anything held, the selection included); **Shift+scroll**
+  and **Ctrl+click** now also work in Select (the Level number). No key was added or moved otherwise. The shortcuts
+  reference (EDITOR_PLAN §7) is updated; the first-run hints name no key, so they stand.
+- Tests updated for the new names: the Select row's "Up 1" and "Down 1", the saved file names (`dgm-<theme>-<seed>`,
+  places `dgm-<place>`, the folder's numbering `-2`), the taken-name test in `platform.test.ts`.
+- **B12 (D351):** every control has a tooltip; the sweep added the missing ones and corrected the ones this week's changes
+  made wrong (Select's Ctrl+click, Shift+scroll and X, Delete's menu, a picked source and object, Quake's Lift and Slide,
+  the ⋯ menu, the history, the settings page). `tests/e2e/tooltips.spec.ts` collects the interactive controls from the
+  rendered page in every state and fails on any without a `title` (its own, or its label's). Batch A's new controls carry
+  their own tooltips; check them when `feature/forces` is merged in.
+- **B13 (D352):** the forces row in clusters, one list (`FORCE_GROUPS`); keys unchanged (Erupt 0 before Quake 9 in the row);
+  the first-run hint points at Carve, and a kept force completes it.
+- **B14, the water bar stuck at "0%" after an undo:** every edit began a journey in the page, and the worker sent water
+  frames and a settled event only when it had a settle to run; an undo back to water that was already settled ran none, so
+  the journey waited for ever. The worker now answers every update with `waterSettled` (its own state: no settle running for
+  it), and the page begins a journey only when it is false. `tests/contract/waterStatus.test.ts` (fails without it),
+  `tests/unit/waterPlayer.test.ts`, and an e2e in `sittingB.spec.ts`. The background check's answer carries it too and ends any journey (a CI run of the e2e once stuck at "flowing 84%" after a redo: the check had put the canonical water in place and stopped the worker's own settle, and its answer carried no water, so nothing ended the journey); a journey now always has a first frame. A kept force taken back carries it too; the force
+  paths batch A owns (a force's own keep) answer without it and play as before. The Weather view builds on the same
+  `WaterPlayer` (`settled()` is its "nothing playing" state).
+- **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
+  Glaciate · Erode, Deposit.

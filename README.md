@@ -28,7 +28,7 @@ The generator:
 - **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
-  name is kept, and the new one is saved as "Name (2)".
+  name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **Download project file** keeps the map for editing later.
 

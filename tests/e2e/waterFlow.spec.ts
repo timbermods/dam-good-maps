@@ -58,7 +58,17 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
 
   // a strong water source on high ground away from the start: its water spreads over seconds
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
-  const at: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
+  const want: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
+  // (up from there if a bar over the map, the water bar's, covers it)
+  const at = await page.evaluate(([x, y]) => {
+    let yy = y;
+    while (yy > 4) {
+      const c = window.dgmEditor!.tileToClient(x, yy);
+      if (document.elementFromPoint(c.x, c.y)?.tagName === "CANVAS") break;
+      yy--;
+    }
+    return [x, yy] as [number, number];
+  }, want);
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), at);
   const w0 = await wet(page);
   await page.mouse.click(p.x, p.y);
