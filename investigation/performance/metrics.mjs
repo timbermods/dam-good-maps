@@ -9,7 +9,7 @@ export function summarize(raw, budgets) {
     if (f.dt > budgets.frame.absoluteHitchMs || (center !== null && f.dt > center * budgets.frame.neighborMultiplier)) {
       const from = f.at - f.dt;
       hitches.push({ ...f, neighborMedian: center, sources: raw.calls.filter(c => c.end >= from && c.start <= f.at).map(c => ({ name: c.name, duration: c.end - c.start, args: c.args })),
-        unattributed: !raw.calls.some(c => c.end >= from && c.start <= f.at) });
+        unattributed: true, attribution: 'unattributed; overlapping method spans are context, not proven causes' });
     }
   }
   const first = raw.rendered[0], last = raw.rendered.at(-1);

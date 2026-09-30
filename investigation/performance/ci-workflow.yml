@@ -11,6 +11,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci --no-audit --no-fund
       - run: npm ci --no-audit --no-fund
         working-directory: investigation/performance
@@ -23,9 +26,13 @@ jobs:
         working-directory: investigation/performance
       - run: node test.mjs
         working-directory: investigation/performance
-      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs
+      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs
         working-directory: investigation/performance
       - run: node typecheck.mjs
+        working-directory: investigation/performance
+      - run: node typecheck.mjs --integrated
+        working-directory: investigation/performance
+      - run: python audio.test.py
         working-directory: investigation/performance
       - run: node verify.mjs
         working-directory: investigation/performance

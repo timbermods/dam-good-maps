@@ -30,7 +30,7 @@
     "fiveMinutesObserved": false,
     "trailingUnobservedMs": 3663245
   },
-  "allManifestsInspected": 18,
+  "allManifestsInspected": 45,
   "qualified": {
     "timings": 0,
     "captures": 0,
@@ -38,11 +38,11 @@
   },
   "sources": [
     {
-      "path": "local/window-status.json",
+      "path": "local/windows/2026-09-30-0200/window-status.json",
       "sha256": "cc32292b33fc414c033ca1226280c321e4245980c5ba8f8b71b9ee3fef5185eb"
     },
     {
-      "path": "local/window-load.jsonl",
+      "path": "local/windows/2026-09-30-0200/window-load.jsonl",
       "sha256": "cd9a15120fce5174a244e97da91683bbac26786713afd9fb7dd2a6ab0960a881"
     }
   ],

@@ -84,7 +84,7 @@ try {
     let failed=false;
     for(const phase of ['before','after']) {
       const outcome=await run(task,phase);
-      if(outcome==='busy'){queue.unshift(task);failed=true;break}
+      if(outcome==='busy'){queue.push(task);failed=true;break}
       if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});failed=true;break}
     }
     // The child independently qualifies 60 seconds before every case; this outer loop dispatches.
@@ -92,7 +92,7 @@ try {
       while(queue.length && Date.now()<shortCutoff) {
         const task2=queue.shift();status.pending=queue;save();let outcome='complete';
         for(const phase of ['before','after']){outcome=await run(task2,phase);if(outcome!=='complete')break}
-        if(outcome==='busy'){queue.unshift(task2);break}
+        if(outcome==='busy'){queue.push(task2);break}
         if(outcome==='error'){status.errors??=[];status.errors.push({task:task2});}
       }
     }
@@ -113,7 +113,7 @@ try {
       const task=queue.shift();status.pending=queue;save();
       for(const phase of ['before','after']) {
         const outcome=await run(task,phase);
-        if(outcome==='busy'){queue.unshift(task);busy=true;break}
+        if(outcome==='busy'){queue.push(task);busy=true;break}
         if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});break}
       }
     }

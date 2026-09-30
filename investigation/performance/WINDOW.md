@@ -1,6 +1,6 @@
 # September 30 quiet window
 
-Current authorized window: **07:40–09:40 America/Los_Angeles (14:40–16:40 UTC)**.
+Completed morning window: **07:40–09:40 America/Los_Angeles (14:40–16:40 UTC)**.
 One serial runner uses `node window.mjs --suite=core --start=2026-09-30T14:40:00Z --end=2026-09-30T16:40:00Z --hour-first=true`.
 The latest user instruction puts the single hour first, then shorter paired work. Short-work
 priority spreads crater, brush and abuse across looks/platforms, with footage before each timing
@@ -44,3 +44,17 @@ result is unchanged; no late measurements are taken. `node window-summary.mjs` r
 explicit `--start=<UTC-ISO> --end=<UTC-ISO>` arguments; this expired window cannot restart.
 
 The hour uses the CPU proxy: native attempts had measured CPU spikes of 55% and 35%, despite low unrelated load (1.54% and 3.19%). A third native qualification was cancelled before measurement. Native core repetitions remain required; the single proxy hour keeps the same full duration and start/end regression checks.
+
+## Morning outcome
+
+The controller finished at 09:40:00.382. All 27 manifests and full traces were audited:
+four blocked, 22 CPU-discarded, one cancelled premeasurement; zero qualified completions.
+Twenty-two quiet prefixes passed, but measured CPU reached 28–100%. All five measured hour
+attempts aborted during their introductory brush, before the hour loop. Seventeen Standard
+before-capture attempts were discarded; their first-case requeue starved all other work.
+Post-window fixes rotate retries, catch asynchronous capture-abort failures and improve
+visibility/PCM context telemetry. No late validation run is taken.
+`node morning-audit.mjs` regenerates the bound morning index; `python review-morning.py`
+regenerates the diagnostic contact sheet/GIF. REPORT.md and morning-review.json distinguish
+discarded observations from missing qualified evidence. PR #107 remains draft; recurrence stops.
+Morning controller status/load/log are frozen in `local/windows/2026-09-30-0740/`.

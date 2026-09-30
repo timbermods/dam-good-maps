@@ -35,7 +35,8 @@ node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
 node build.mjs before
 node build.mjs after
 node test.mjs
-node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs
+node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs
+python audio.test.py
 node typecheck.mjs
 node run.mjs --mode=smoke --phase=after --sizes=128 --looks=standard --cases=craterize-fast,brush-large --repeats=1
 node run.mjs --suite=core --phase=before
@@ -49,10 +50,12 @@ node gate.mjs
 
 All build outputs, raw events, per-frame PNGs, output PCM, full byte snapshots, one-hour streams and
 GIFs go to gitignored `local/`. `python audio.py <capture-audio.jsonl>` regenerates a mono WAV and
-gap index. `python water-design.py` regenerates the small committed schematic. Python needs Pillow.
+gap index; select `--context-id=context-N` for labelled contexts. Overlaps refuse conversion
+before creating output. Legacy unlabelled overlaps remain unverified.
+`python water-design.py` regenerates the small committed schematic. Python needs Pillow.
 
 `node window-summary.mjs` regenerates the September 30 load/coverage proof from the retained
-`local/window-status.json` and `local/window-load.jsonl`; hashes bind the compact committed index
+`local/windows/2026-09-30-0200/window-status.json` and its `window-load.jsonl`; hashes bind the compact committed index
 to those raw files. This is a historical index, not a way to reconstruct unrecorded CPU load.
 For a separately authorized future window, pass UTC bounds explicitly:
 `node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>`. Expired windows are refused.
@@ -125,6 +128,24 @@ The hour run streams raw events so instrumentation does not retain an hour's eve
 Its load log records private and working memory; owned browser processes supply before/end private
 memory on both browsers, alongside GPU counts and the heap estimate where the browser exposes it.
 Memory and pacing limits remain provisional until quiet runs establish a useful noise envelope.
+
+Morning completion: `node morning-audit.mjs` audits every 07:40–09:40 manifest and full load
+trace (archived controller logs: `local/windows/2026-09-30-0740/`), writes `morning-proof.json`, and binds all source files through ignored
+`local/morning-evidence.json`. Individual hitches/tasks/candidate flags stay in
+`local/morning-hitches/`. `python review-morning.py` (Pillow + NumPy) decodes and compares
+every frame, regenerates the contact sheet and labelled **unqualified, before-only** diagnostic
+GIF; `morning-review.json` records the limits of human inspection. Neither offline command
+launches measurements. Raw files are retained locally; regeneration cannot recover missing data.
+
+Post-window harness repairs rotate busy retries instead of starving later cases, catch capture
+drain failures during intentional abort, and record visibility/focus and PCM context IDs.
+These changes have regression/syntax checks but no new qualified browser validation.
+All recorded morning attempts remain invalid; source hashes are not recertified.
+The current per-case 60-second wait alone consumes **384 minutes** for 240 timing and 144
+capture executions, before the single hour or interactions. Before another two-hour window,
+resolve batching of interactions within a qualified pass, and whether the shared-load test
+should exclude the tested application's CPU. This is a proposed measurement-policy change,
+not a waiver: current total-CPU spike rejection and all coverage requirements remain in force.
 
 For each scenario, retain final typed-array bytes, object data and feature snapshots before and
 after, plus undo/redo snapshots. Add export-file byte comparison before adoption; current snapshots

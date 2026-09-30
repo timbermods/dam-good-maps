@@ -10,6 +10,7 @@ test('reports every local and absolute hitch, including unattributed pauses', ()
   const result = summarize({ frames, calls: [{ name: 'meshWater', start: frames[4].at - 38, end: frames[4].at - 2 }], tasks: [], rendered: [], errors: [], discontinuities: [] }, budgets);
   assert.deepEqual(result.hitches.map(f => f.dt), [40, 200]);
   assert.equal(result.hitches[0].sources[0].name, 'meshWater');
+  assert.equal(result.hitches[0].unattributed, true); // A temporal overlap is not causal proof.
   assert.equal(result.hitches[1].unattributed, true);
 });
 test('retains snapshot overhead separately while counting real interaction stalls', () => {

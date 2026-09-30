@@ -38,7 +38,7 @@ if (window.AudioContext && window.AudioNode) {
           const tap = new AudioWorkletNode(context, 'performance-capture'), mute = context.createGain(); mute.gain.value = 0;
           connect.call(tap, mute); connect.call(mute, context.destination);
           for (const output of audioOutputs.filter(o => o.context === context)) connect.call(output, tap);
-          tap.port.onmessage = e => state.pcm.push({ frame: e.data.frame, rate: e.data.rate, pcm: Array.from(e.data.pcm) });
+          tap.port.onmessage = e => state.pcm.push({ contextId: `context-${audioContexts.indexOf(context)}`, frame: e.data.frame, rate: e.data.rate, pcm: Array.from(e.data.pcm) });
           audioTaps.set(context, tap);
         }
         audioTaps.get(context).port.postMessage({ record: true });
@@ -58,7 +58,7 @@ window.addEventListener('unhandledrejection', e => { if (state.active) state.err
 let last = null;
 function frame(t) {
   if (state.active) {
-    if (last !== null) state.frames.push({ at: t, dt: t - last, instrumentation: instrumentation(last, t) });
+    if (last !== null) state.frames.push({ at: t, dt: t - last, visibility: document.visibilityState, focused: document.hasFocus(), instrumentation: instrumentation(last, t) });
     last = t;
   } else last = null;
   requestAnimationFrame(frame);
@@ -158,7 +158,7 @@ window.performanceHarness = {
     measurementPause = null;
     if (capture) await window.startPerformanceAudioCapture?.();
     last = null;
-    return { gpu: renderer?.gpu(), software: renderer?.software, userAgent: navigator.userAgent, cores: navigator.hardwareConcurrency,
+    return { visibility: document.visibilityState, focused: document.hasFocus(), gpu: renderer?.gpu(), software: renderer?.software, userAgent: navigator.userAgent, cores: navigator.hardwareConcurrency,
       longTasksSupported: PerformanceObserver.supportedEntryTypes.includes('longtask'), pixelRatio: devicePixelRatio };
   },
   drainImages() { return state.images.splice(0); },

@@ -1,0 +1,23 @@
+{
+  "qualified": false,
+  "source": "2026-09-30T16-19-36.786Z-before-capture/edge-native-256-standard-craterize-fast-1",
+  "fullResolutionFramesInspected": [0, 4, 5, 6, 31],
+  "automatedPixelReview": "local/morning-pixel-review.json: all 3926 PNGs decoded and consecutive pixels compared",
+  "contactSheet": "local/morning-contact-sheet.png: maximum-change neighbours from each of the 17 discarded capture attempts inspected",
+  "confirmedRecordedTransition": {
+    "fromFrame": 4, "toFrame": 5, "elapsedMs": 990,
+    "maxLandChange": 12, "maxWaterChange": 5.266912460327148,
+    "observation": "Crater appears in one recorded step; water becomes stepped bands",
+    "cause": "unattributed; CPU-discarded capture and approximately 1 Hz frames cannot establish normal gameplay behaviour"
+  },
+  "unverifiedVisual": ["terrain-holes-seams", "chunk-popping", "water-hover-through-land", "water-jumps in qualified playback", "lighting-shadow-reflection-flicker", "object-ground-following", "all-flicker"],
+  "audio": {
+    "signalSeconds": 161.352, "files": 17,
+    "positiveTimestampGaps": 18, "overlappingTimestampBoundaries": 9,
+    "contextLabels": "not present in these recorded streams",
+    "interpretation": "Capture anomalies, not verified product dropouts. Overlapping streams refuse conversion; one continuous 26.03 s stream converted for review.",
+    "unverified": ["perceptual listening", "audio-motion-sync", "land-settle release timing", "audio-crackle-dropout"]
+  },
+  "qualifiedBeforeAfterGifs": "unavailable: no complete qualified capture pair",
+  "diagnosticGif": "local/diagnostic-crater-standard.gif: labelled UNQUALIFIED, before build only; not a before/after deliverable"
+}

@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { root } from './adoption.mjs';
 import { cases, forces, setup, act, idle, snapshot } from './scenarios.mjs';
 import { summarize } from './metrics.mjs';
+import {protectDrain} from './drain.mjs';
 import { configurations, coreCases, isQuiet, loadSpiked } from './coverage.mjs';
 const dir = resolve(root, 'investigation/performance'), local = resolve(dir, 'local');
 mkdirSync(local, { recursive: true });
@@ -54,7 +55,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const build = resolve(local, 'build', phase);
 const provenance = JSON.parse(readFileSync(resolve(build, 'provenance.json')));
 const harnessDigest = createHash('sha256');
-for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
+for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs', 'drain.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
 const harnessHash = harnessDigest.digest('hex');
 const server = createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -168,7 +169,7 @@ try {
           const captures = resolve(output, `${name}-frames`);
           if (capture) {
             mkdirSync(captures, { recursive: true });
-            drainPromise = (async () => {
+            drainPromise = protectDrain((async () => {
               while (draining) {
                 const frames = await page.evaluate(() => window.performanceHarness.drainImages());
                 for (const f of frames) {
@@ -179,7 +180,14 @@ try {
                 if (audio.length) appendFileSync(join(output, `${name}-audio.jsonl`), audio.map(a => JSON.stringify(a)).join('\n') + '\n');
                 if (draining) await new Promise(ok => setTimeout(ok, 400));
               }
-            })();
+            })(),()=>aborting||stopping,error => {
+              // Attach immediately: an intentional CPU abort can close the page long before
+              // finally awaits this promise. Preserve unexpected drain failures as faults.
+              item.captureDrainError=String(error.stack ?? error);
+              item.qualified=false;
+              item.status='error';
+              save();
+            });
           }
           const initial = await snapshot(page);
           await act(page, c, spots, 4242 + repeat); await idle(page);
@@ -261,7 +269,7 @@ try {
           writeFileSync(join(output, `${name}-raw.json`), JSON.stringify(raw));
           if (capture) item.captureHash = captureHash(captures, join(output, `${name}-audio.jsonl`), join(output, `${name}-raw.json`));
           item.summary = mode === 'smoke' ? { errors: raw.errors, findings: raw.findings, renderedFrames: raw.rendered.length } : summarize(raw, budgets);
-          item.status = item.status === 'invalid-busy' ? item.status : 'complete';
+          item.status = ['invalid-busy','error'].includes(item.status) ? item.status : 'complete';
           item.qualified &&= !item.device.software;
           item.capture = capture ? captures : undefined;
           console.log(`${name}: ${item.status}; redo bytes ${item.redoExact ? 'equal' : 'DIFFERENT'}`);

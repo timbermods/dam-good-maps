@@ -7,14 +7,25 @@ from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument('input', type=Path)
 parser.add_argument('--output', type=Path)
+parser.add_argument('--context-id', help='Select one labelled audio context; never interleave contexts')
 args = parser.parse_args()
 blocks = [json.loads(line) for line in args.input.read_text().splitlines() if line.strip()]
+if args.context_id is not None:
+    blocks = [b for b in blocks if b.get('contextId') == args.context_id]
 if not blocks:
     raise SystemExit('No PCM recorded: audio oracle unavailable')
+if len({b.get('contextId') for b in blocks}) > 1:
+    raise ValueError('Multiple audio contexts; select --context-id and review separate WAVs')
 rate = blocks[0]['rate']
 cursor = blocks[0]['frame']
 path = args.output or args.input.with_suffix('.wav')
 gaps = []
+# Validate before creating output: a failed conversion must not leave a plausible partial WAV.
+expected = cursor
+for b in blocks:
+    if b['rate'] != rate or b['frame'] < expected:
+        raise ValueError('Changed sample rate or overlapping frames; audio evidence remains unverified')
+    expected = b['frame'] + len(b['pcm'])
 with wave.open(str(path), 'wb') as output:
     output.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
     for b in blocks:

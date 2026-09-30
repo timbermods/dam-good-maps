@@ -1,0 +1,1763 @@
+{
+  "window": {
+    "start": "2026-09-30T14:40:00Z",
+    "end": "2026-09-30T16:40:00Z",
+    "finished": "2026-09-30T16:40:00.382Z"
+  },
+  "rule": {
+    "cpuPercentMax": 25,
+    "durationMs": 60000,
+    "maxSampleGapMs": 30000,
+    "samples": 2
+  },
+  "currentHarnessHash": "d39e4a031508f859d7333f5d113b60aa0200d1455408ac44745a70f26c9319fe",
+  "attempts": 27,
+  "qualified": 0,
+  "statuses": {
+    "blocked-busy": 4,
+    "invalid-busy": 22,
+    "cancelled-qualification": 1
+  },
+  "dispatchCpu": {
+    "samples": 385,
+    "min": 0,
+    "median": 12,
+    "max": 45
+  },
+  "capturedFrames": 3926,
+  "audioFiles": 17,
+  "evidenceIndex": {
+    "path": "local/morning-evidence.json",
+    "sha256": "5df006cf3424b21d69e932c4f35ba9ff68af2639f653a1dc25c0f02d51901c96"
+  },
+  "qualification": "No capture timing counts as interaction pacing; discarded diagnostics cannot certify smoothness",
+  "rows": [
+    {
+      "folder": "2026-09-30T15-02-23.462Z-before-measure",
+      "phase": "before",
+      "mode": "measure",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "blocked-busy",
+      "qualified": false,
+      "harnessHash": "4347a343e0b80993b3b22170ad639740b8d627dd6616b59f1bffe515446ba451",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": false,
+        "durationMs": 0,
+        "cpu": {
+          "samples": 1,
+          "min": 39,
+          "median": 39,
+          "max": 39
+        }
+      },
+      "waitingCpu": {
+        "samples": 1,
+        "min": 39,
+        "median": 39,
+        "max": 39
+      },
+      "duringCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "abort": null,
+      "error": null,
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": null
+    },
+    {
+      "folder": "2026-09-30T15-03-51.485Z-before-measure",
+      "phase": "before",
+      "mode": "measure",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "blocked-busy",
+      "qualified": false,
+      "harnessHash": "4347a343e0b80993b3b22170ad639740b8d627dd6616b59f1bffe515446ba451",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": false,
+        "durationMs": 0,
+        "cpu": {
+          "samples": 1,
+          "min": 33,
+          "median": 33,
+          "max": 33
+        }
+      },
+      "waitingCpu": {
+        "samples": 1,
+        "min": 33,
+        "median": 33,
+        "max": 33
+      },
+      "duringCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "abort": null,
+      "error": null,
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": null
+    },
+    {
+      "folder": "2026-09-30T15-09-09.508Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "blocked-busy",
+      "qualified": false,
+      "harnessHash": "4347a343e0b80993b3b22170ad639740b8d627dd6616b59f1bffe515446ba451",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": false,
+        "durationMs": 0,
+        "cpu": {
+          "samples": 2,
+          "min": 17,
+          "median": 27,
+          "max": 27
+        }
+      },
+      "waitingCpu": {
+        "samples": 2,
+        "min": 17,
+        "median": 27,
+        "max": 27
+      },
+      "duringCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "abort": null,
+      "error": null,
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": null
+    },
+    {
+      "folder": "2026-09-30T15-12-10.475Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "blocked-busy",
+      "qualified": false,
+      "harnessHash": "4347a343e0b80993b3b22170ad639740b8d627dd6616b59f1bffe515446ba451",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": false,
+        "durationMs": 0,
+        "cpu": {
+          "samples": 1,
+          "min": 36,
+          "median": 36,
+          "max": 36
+        }
+      },
+      "waitingCpu": {
+        "samples": 1,
+        "min": 36,
+        "median": 36,
+        "max": 36
+      },
+      "duringCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "abort": null,
+      "error": null,
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": null
+    },
+    {
+      "folder": "2026-09-30T15-16-50.886Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "3986773f17968748383b033defbaee48e56b820ad561940703b3f8a4745cbc35",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 61449.6687,
+        "cpu": {
+          "samples": 13,
+          "min": 1,
+          "median": 15,
+          "max": 23
+        }
+      },
+      "waitingCpu": {
+        "samples": 31,
+        "min": 1,
+        "median": 19,
+        "max": 67
+      },
+      "duringCpu": {
+        "samples": 1,
+        "min": 55,
+        "median": 55,
+        "max": 55
+      },
+      "abort": {
+        "at": "2026-09-30T15:19:55.4948736Z",
+        "cpu": 55,
+        "unrelatedCpu": 1.5389426356054692
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:27:14)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": {
+        "frames": 643,
+        "p99": 70.69999999998254,
+        "max": 122.09999999997672,
+        "hitches": 16,
+        "unattributed": 16,
+        "withoutOverlappingSpans": 0,
+        "tasks": 15,
+        "candidates": {},
+        "instrumentationFrames": 184
+      }
+    },
+    {
+      "folder": "2026-09-30T15-21-01.272Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "3986773f17968748383b033defbaee48e56b820ad561940703b3f8a4745cbc35",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 61266.104100000004,
+        "cpu": {
+          "samples": 13,
+          "min": 4,
+          "median": 11,
+          "max": 21
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 4,
+        "median": 11,
+        "max": 21
+      },
+      "duringCpu": {
+        "samples": 1,
+        "min": 35,
+        "median": 35,
+        "max": 35
+      },
+      "abort": {
+        "at": "2026-09-30T15:22:31.9493176Z",
+        "cpu": 35,
+        "unrelatedCpu": 3.1863074913996114
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:27:14)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": {
+        "frames": 645,
+        "p99": 76.5,
+        "max": 114.80000000000291,
+        "hitches": 16,
+        "unattributed": 16,
+        "withoutOverlappingSpans": 0,
+        "tasks": 14,
+        "candidates": {},
+        "instrumentationFrames": 181
+      }
+    },
+    {
+      "folder": "2026-09-30T15-23-37.954Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "cancelled-qualification",
+      "qualified": false,
+      "harnessHash": "3986773f17968748383b033defbaee48e56b820ad561940703b3f8a4745cbc35",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": false,
+        "durationMs": null,
+        "cpu": {
+          "samples": 0,
+          "min": null,
+          "median": null,
+          "max": null
+        }
+      },
+      "waitingCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "duringCpu": {
+        "samples": 0,
+        "min": null,
+        "median": null,
+        "max": null
+      },
+      "abort": null,
+      "error": "Controller stopped before measurement to switch the single hour to the CPU proxy; stale child lock cleared after PID exit",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": null
+    },
+    {
+      "folder": "2026-09-30T15-29-54.913Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 63006.123600000006,
+        "cpu": {
+          "samples": 13,
+          "min": 1,
+          "median": 16,
+          "max": 25
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 1,
+        "median": 16,
+        "max": 25
+      },
+      "duringCpu": {
+        "samples": 1,
+        "min": 28,
+        "median": 28,
+        "max": 28
+      },
+      "abort": {
+        "at": "2026-09-30T15:31:46.4193330Z",
+        "cpu": 28,
+        "unrelatedCpu": 3.834550870629895
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:27:14)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": {
+        "frames": 299,
+        "p99": 555.7000000000116,
+        "max": 559.1000000000058,
+        "hitches": 40,
+        "unattributed": 40,
+        "withoutOverlappingSpans": 1,
+        "tasks": 25,
+        "candidates": {},
+        "instrumentationFrames": 180
+      }
+    },
+    {
+      "folder": "2026-09-30T15-32-53.808Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60270.9112,
+        "cpu": {
+          "samples": 13,
+          "min": 7,
+          "median": 10,
+          "max": 23
+        }
+      },
+      "waitingCpu": {
+        "samples": 14,
+        "min": 7,
+        "median": 12,
+        "max": 45
+      },
+      "duringCpu": {
+        "samples": 1,
+        "min": 32,
+        "median": 32,
+        "max": 32
+      },
+      "abort": {
+        "at": "2026-09-30T15:34:48.6926103Z",
+        "cpu": 32,
+        "unrelatedCpu": 0.3763274544522151
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:27:14)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": {
+        "frames": 275,
+        "p99": 500.1000000000058,
+        "max": 559.4000000000087,
+        "hitches": 39,
+        "unattributed": 39,
+        "withoutOverlappingSpans": 0,
+        "tasks": 24,
+        "candidates": {},
+        "instrumentationFrames": 181
+      }
+    },
+    {
+      "folder": "2026-09-30T15-35-55.950Z-after-measure",
+      "phase": "after",
+      "mode": "measure",
+      "hour": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 63328.2439,
+        "cpu": {
+          "samples": 13,
+          "min": 6,
+          "median": 12,
+          "max": 22
+        }
+      },
+      "waitingCpu": {
+        "samples": 14,
+        "min": 6,
+        "median": 13,
+        "max": 33
+      },
+      "duringCpu": {
+        "samples": 1,
+        "min": 30,
+        "median": 30,
+        "max": 30
+      },
+      "abort": {
+        "at": "2026-09-30T15:37:52.7675855Z",
+        "cpu": 30,
+        "unrelatedCpu": 1.4535780837773007
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:27:14)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 0,
+      "audio": null,
+      "diagnostic": {
+        "frames": 261,
+        "p99": 516.8000000000029,
+        "max": 588.1999999999971,
+        "hitches": 39,
+        "unattributed": 39,
+        "withoutOverlappingSpans": 0,
+        "tasks": 19,
+        "candidates": {},
+        "instrumentationFrames": 177
+      }
+    },
+    {
+      "folder": "2026-09-30T15-38-59.679Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60947.4404,
+        "cpu": {
+          "samples": 13,
+          "min": 3,
+          "median": 11,
+          "max": 25
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 3,
+        "median": 11,
+        "max": 25
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 7,
+        "median": 22,
+        "max": 40
+      },
+      "abort": {
+        "at": "2026-09-30T15:40:30.3514286Z",
+        "cpu": 40,
+        "unrelatedCpu": 3.6813022803824653
+      },
+      "error": null,
+      "framesCaptured": 223,
+      "audio": {
+        "blocks": 15,
+        "samples": 337024,
+        "rate": 48000,
+        "seconds": 7.021333333333334,
+        "peak": 0.4139440059661865,
+        "nonzero": 165623,
+        "maxStep": 0.39835794270038605,
+        "gaps": [
+          {
+            "expected": 3345792,
+            "actual": 3346304
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 229,
+        "p99": 143.39999999999418,
+        "max": 145.90000000000873,
+        "hitches": 15,
+        "unattributed": 15,
+        "withoutOverlappingSpans": 0,
+        "tasks": 0,
+        "candidates": {
+          "water-under-ground": 32476,
+          "water-state-mismatch": 276275
+        },
+        "instrumentationFrames": 155
+      }
+    },
+    {
+      "folder": "2026-09-30T15-41-46.548Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 61389.6923,
+        "cpu": {
+          "samples": 13,
+          "min": 2,
+          "median": 15,
+          "max": 22
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 2,
+        "median": 15,
+        "max": 22
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 19,
+        "median": 19,
+        "max": 61
+      },
+      "abort": {
+        "at": "2026-09-30T15:43:17.7660861Z",
+        "cpu": 61,
+        "unrelatedCpu": 4.1369567239137535
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:49:16\n    at async idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:44:3)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 221,
+      "audio": {
+        "blocks": 16,
+        "samples": 356608,
+        "rate": 48000,
+        "seconds": 7.429333333333333,
+        "peak": 0.3954216539859772,
+        "nonzero": 168390,
+        "maxStep": 0.39835794270038605,
+        "gaps": [
+          {
+            "expected": 3366912,
+            "actual": 3368320
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 227,
+        "p99": 130.40000000000873,
+        "max": 144.5,
+        "hitches": 14,
+        "unattributed": 14,
+        "withoutOverlappingSpans": 0,
+        "tasks": 1,
+        "candidates": {
+          "water-under-ground": 35723,
+          "water-state-mismatch": 265841
+        },
+        "instrumentationFrames": 128
+      }
+    },
+    {
+      "folder": "2026-09-30T15-44-33.781Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 62220.657100000004,
+        "cpu": {
+          "samples": 13,
+          "min": 3,
+          "median": 8,
+          "max": 25
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 3,
+        "median": 8,
+        "max": 25
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 15,
+        "median": 21,
+        "max": 39
+      },
+      "abort": {
+        "at": "2026-09-30T15:46:05.8746412Z",
+        "cpu": 39,
+        "unrelatedCpu": 1.549195969770403
+      },
+      "error": null,
+      "framesCaptured": 227,
+      "audio": {
+        "blocks": 14,
+        "samples": 336896,
+        "rate": 48000,
+        "seconds": 7.018666666666666,
+        "peak": 0.41050273180007935,
+        "nonzero": 166134,
+        "maxStep": 0.4624345302581787,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 231,
+        "p99": 137.59999999999127,
+        "max": 137.8000000000029,
+        "hitches": 18,
+        "unattributed": 18,
+        "withoutOverlappingSpans": 1,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 36065,
+          "water-state-mismatch": 273718
+        },
+        "instrumentationFrames": 161
+      }
+    },
+    {
+      "folder": "2026-09-30T15-47-28.966Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 62095.425800000005,
+        "cpu": {
+          "samples": 13,
+          "min": 7,
+          "median": 10,
+          "max": 24
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 7,
+        "median": 10,
+        "max": 24
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 8,
+        "median": 13,
+        "max": 45
+      },
+      "abort": {
+        "at": "2026-09-30T15:49:00.7829683Z",
+        "cpu": 45,
+        "unrelatedCpu": 1.5608826134359577
+      },
+      "error": "page.evaluate: Target page, context or browser has been closed\n    at C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:49:16\n    at async idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:44:3)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:185:53",
+      "framesCaptured": 221,
+      "audio": {
+        "blocks": 16,
+        "samples": 357120,
+        "rate": 48000,
+        "seconds": 7.44,
+        "peak": 0.40542173385620117,
+        "nonzero": 165747,
+        "maxStep": 0.3983592689037323,
+        "gaps": [
+          {
+            "expected": 3402880,
+            "actual": 3403904
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 229,
+        "p99": 144.6999999999971,
+        "max": 146.59999999999127,
+        "hitches": 13,
+        "unattributed": 13,
+        "withoutOverlappingSpans": 0,
+        "tasks": 1,
+        "candidates": {
+          "water-under-ground": 38050,
+          "water-state-mismatch": 284038
+        },
+        "instrumentationFrames": 124
+      }
+    },
+    {
+      "folder": "2026-09-30T15-50-17.644Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 63725.4602,
+        "cpu": {
+          "samples": 13,
+          "min": 1,
+          "median": 9,
+          "max": 22
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 1,
+        "median": 9,
+        "max": 22
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 11,
+        "median": 25,
+        "max": 38
+      },
+      "abort": {
+        "at": "2026-09-30T15:51:51.2044348Z",
+        "cpu": 38,
+        "unrelatedCpu": 2.025090146367128
+      },
+      "error": null,
+      "framesCaptured": 226,
+      "audio": {
+        "blocks": 15,
+        "samples": 337024,
+        "rate": 48000,
+        "seconds": 7.021333333333334,
+        "peak": 0.39542073011398315,
+        "nonzero": 165617,
+        "maxStep": 0.3983592689037323,
+        "gaps": [
+          {
+            "expected": 3479168,
+            "actual": 3479680
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 231,
+        "p99": 138.6999999999971,
+        "max": 145.6999999999971,
+        "hitches": 18,
+        "unattributed": 18,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 27704,
+          "water-state-mismatch": 289385
+        },
+        "instrumentationFrames": 150
+      }
+    },
+    {
+      "folder": "2026-09-30T15-53-14.135Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60251.910200000006,
+        "cpu": {
+          "samples": 13,
+          "min": 5,
+          "median": 17,
+          "max": 22
+        }
+      },
+      "waitingCpu": {
+        "samples": 14,
+        "min": 5,
+        "median": 17,
+        "max": 30
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 6,
+        "median": 16,
+        "max": 31
+      },
+      "abort": {
+        "at": "2026-09-30T15:54:50.0732753Z",
+        "cpu": 31,
+        "unrelatedCpu": 1.2667492153731976
+      },
+      "error": null,
+      "framesCaptured": 221,
+      "audio": {
+        "blocks": 14,
+        "samples": 336896,
+        "rate": 48000,
+        "seconds": 7.018666666666666,
+        "peak": 0.4216083586215973,
+        "nonzero": 164913,
+        "maxStep": 0.4246572405099869,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 233,
+        "p99": 144.40000000000873,
+        "max": 154.70000000001164,
+        "hitches": 17,
+        "unattributed": 17,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 36065,
+          "water-state-mismatch": 288356
+        },
+        "instrumentationFrames": 126
+      }
+    },
+    {
+      "folder": "2026-09-30T15-56-06.647Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 65419.1077,
+        "cpu": {
+          "samples": 13,
+          "min": 4,
+          "median": 13,
+          "max": 19
+        }
+      },
+      "waitingCpu": {
+        "samples": 38,
+        "min": 4,
+        "median": 14,
+        "max": 30
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 17,
+        "median": 20,
+        "max": 65
+      },
+      "abort": {
+        "at": "2026-09-30T15:59:51.7787653Z",
+        "cpu": 65,
+        "unrelatedCpu": 3.3047533905618947
+      },
+      "error": null,
+      "framesCaptured": 222,
+      "audio": {
+        "blocks": 15,
+        "samples": 337024,
+        "rate": 48000,
+        "seconds": 7.021333333333334,
+        "peak": 0.4105050563812256,
+        "nonzero": 166129,
+        "maxStep": 0.4624370187520981,
+        "gaps": [
+          {
+            "expected": 9795584,
+            "actual": 9795968
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 229,
+        "p99": 139,
+        "max": 147.79999999998836,
+        "hitches": 13,
+        "unattributed": 13,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 27704,
+          "water-state-mismatch": 291476
+        },
+        "instrumentationFrames": 153
+      }
+    },
+    {
+      "folder": "2026-09-30T16-02-04.702Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 64805.72670000001,
+        "cpu": {
+          "samples": 13,
+          "min": 3,
+          "median": 11,
+          "max": 22
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 3,
+        "median": 11,
+        "max": 22
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 7,
+        "median": 19,
+        "max": 56
+      },
+      "abort": {
+        "at": "2026-09-30T16:03:39.0570191Z",
+        "cpu": 56,
+        "unrelatedCpu": 2.404527056720259
+      },
+      "error": null,
+      "framesCaptured": 221,
+      "audio": {
+        "blocks": 16,
+        "samples": 317184,
+        "rate": 48000,
+        "seconds": 6.608,
+        "peak": 0.42160922288894653,
+        "nonzero": 165234,
+        "maxStep": 0.4246518909931183,
+        "gaps": [
+          {
+            "expected": 3532544,
+            "actual": 3532928
+          },
+          {
+            "expected": 3681408,
+            "actual": 3681280
+          },
+          {
+            "expected": 3681408,
+            "actual": 3681536
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 230,
+        "p99": 138.1999999999971,
+        "max": 151.6999999999971,
+        "hitches": 17,
+        "unattributed": 17,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 38510,
+          "water-state-mismatch": 283206
+        },
+        "instrumentationFrames": 122
+      }
+    },
+    {
+      "folder": "2026-09-30T16-04-56.101Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60502.5668,
+        "cpu": {
+          "samples": 13,
+          "min": 4,
+          "median": 12,
+          "max": 19
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 4,
+        "median": 12,
+        "max": 19
+      },
+      "duringCpu": {
+        "samples": 2,
+        "min": 13,
+        "median": 74,
+        "max": 74
+      },
+      "abort": {
+        "at": "2026-09-30T16:06:25.8660044Z",
+        "cpu": 74,
+        "unrelatedCpu": 1.0606673457899836
+      },
+      "error": null,
+      "framesCaptured": 190,
+      "audio": {
+        "blocks": 12,
+        "samples": 288768,
+        "rate": 48000,
+        "seconds": 6.016,
+        "peak": 0.41699880361557007,
+        "nonzero": 165745,
+        "maxStep": 0.3983592689037323,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 194,
+        "p99": 142.5,
+        "max": 147.39999999999418,
+        "hitches": 10,
+        "unattributed": 10,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 36065,
+          "water-state-mismatch": 283905
+        },
+        "instrumentationFrames": 158
+      }
+    },
+    {
+      "folder": "2026-09-30T16-07-42.187Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 62262.872800000005,
+        "cpu": {
+          "samples": 13,
+          "min": 3,
+          "median": 13,
+          "max": 17
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 3,
+        "median": 13,
+        "max": 17
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 10,
+        "median": 23,
+        "max": 38
+      },
+      "abort": {
+        "at": "2026-09-30T16:09:13.9363997Z",
+        "cpu": 38,
+        "unrelatedCpu": 2.3110570930446626
+      },
+      "error": null,
+      "framesCaptured": 225,
+      "audio": {
+        "blocks": 15,
+        "samples": 337024,
+        "rate": 48000,
+        "seconds": 7.021333333333334,
+        "peak": 0.4054216742515564,
+        "nonzero": 166135,
+        "maxStep": 0.39835794270038605,
+        "gaps": [
+          {
+            "expected": 3400448,
+            "actual": 3400960
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 231,
+        "p99": 137.09999999999127,
+        "max": 139.5,
+        "hitches": 17,
+        "unattributed": 17,
+        "withoutOverlappingSpans": 1,
+        "tasks": 1,
+        "candidates": {
+          "water-under-ground": 32476,
+          "water-state-mismatch": 264774
+        },
+        "instrumentationFrames": 149
+      }
+    },
+    {
+      "folder": "2026-09-30T16-10-29.956Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60741.111800000006,
+        "cpu": {
+          "samples": 13,
+          "min": 3,
+          "median": 10,
+          "max": 15
+        }
+      },
+      "waitingCpu": {
+        "samples": 15,
+        "min": 3,
+        "median": 10,
+        "max": 15
+      },
+      "duringCpu": {
+        "samples": 2,
+        "min": 19,
+        "median": 63,
+        "max": 63
+      },
+      "abort": {
+        "at": "2026-09-30T16:12:15.6613401Z",
+        "cpu": 63,
+        "unrelatedCpu": 2.597659561534893
+      },
+      "error": null,
+      "framesCaptured": 197,
+      "audio": {
+        "blocks": 13,
+        "samples": 288896,
+        "rate": 48000,
+        "seconds": 6.018666666666666,
+        "peak": 0.42388275265693665,
+        "nonzero": 166640,
+        "maxStep": 0.3983592689037323,
+        "gaps": [
+          {
+            "expected": 4079744,
+            "actual": 4080128
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 197,
+        "p99": 123.89999999999418,
+        "max": 136.8000000000029,
+        "hitches": 12,
+        "unattributed": 12,
+        "withoutOverlappingSpans": 0,
+        "tasks": 1,
+        "candidates": {
+          "water-under-ground": 36065,
+          "water-state-mismatch": 279037
+        },
+        "instrumentationFrames": 156
+      }
+    },
+    {
+      "folder": "2026-09-30T16-13-31.955Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 61798.152500000004,
+        "cpu": {
+          "samples": 12,
+          "min": 6,
+          "median": 12,
+          "max": 19
+        }
+      },
+      "waitingCpu": {
+        "samples": 48,
+        "min": 6,
+        "median": 15,
+        "max": 29
+      },
+      "duringCpu": {
+        "samples": 2,
+        "min": 23,
+        "median": 73,
+        "max": 73
+      },
+      "abort": {
+        "at": "2026-09-30T16:18:14.9172182Z",
+        "cpu": 73,
+        "unrelatedCpu": 2.710819335385171
+      },
+      "error": null,
+      "framesCaptured": 191,
+      "audio": {
+        "blocks": 12,
+        "samples": 288768,
+        "rate": 48000,
+        "seconds": 6.016,
+        "peak": 0.4139452278614044,
+        "nonzero": 168486,
+        "maxStep": 0.39835794270038605,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 200,
+        "p99": 129.39999999996508,
+        "max": 137.19999999995343,
+        "hitches": 17,
+        "unattributed": 17,
+        "withoutOverlappingSpans": 0,
+        "tasks": 1,
+        "candidates": {
+          "water-under-ground": 32476,
+          "water-state-mismatch": 266701
+        },
+        "instrumentationFrames": 160
+      }
+    },
+    {
+      "folder": "2026-09-30T16-19-36.786Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 62581.324100000005,
+        "cpu": {
+          "samples": 11,
+          "min": 3,
+          "median": 17,
+          "max": 24
+        }
+      },
+      "waitingCpu": {
+        "samples": 66,
+        "min": 3,
+        "median": 19,
+        "max": 65
+      },
+      "duringCpu": {
+        "samples": 8,
+        "min": 3,
+        "median": 12,
+        "max": 100
+      },
+      "abort": {
+        "at": "2026-09-30T16:26:40.5042132Z",
+        "cpu": 100,
+        "unrelatedCpu": 0.5774583328241435
+      },
+      "error": null,
+      "framesCaptured": 32,
+      "audio": {
+        "blocks": 76,
+        "samples": 1565312,
+        "rate": 48000,
+        "seconds": 32.61066666666667,
+        "peak": 0.4094926714897156,
+        "nonzero": 170984,
+        "maxStep": 0.39835794270038605,
+        "gaps": [
+          {
+            "expected": 16519680,
+            "actual": 16519552
+          },
+          {
+            "expected": 16519680,
+            "actual": 16519808
+          },
+          {
+            "expected": 16566656,
+            "actual": 16566528
+          },
+          {
+            "expected": 16566656,
+            "actual": 16566784
+          },
+          {
+            "expected": 16598400,
+            "actual": 16598272
+          },
+          {
+            "expected": 16598400,
+            "actual": 16598528
+          },
+          {
+            "expected": 16707712,
+            "actual": 16707584
+          },
+          {
+            "expected": 16707712,
+            "actual": 16707584
+          },
+          {
+            "expected": 16707712,
+            "actual": 16707968
+          },
+          {
+            "expected": 16750080,
+            "actual": 16749952
+          },
+          {
+            "expected": 16750080,
+            "actual": 16750208
+          },
+          {
+            "expected": 17083136,
+            "actual": 17083008
+          },
+          {
+            "expected": 17083136,
+            "actual": 17083264
+          },
+          {
+            "expected": 17144448,
+            "actual": 17144320
+          },
+          {
+            "expected": 17144448,
+            "actual": 17144576
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 25,
+        "p99": 1000.7000000000116,
+        "max": 1000.7000000000116,
+        "hitches": 25,
+        "unattributed": 25,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-state-mismatch": 63424
+        },
+        "instrumentationFrames": 6
+      }
+    },
+    {
+      "folder": "2026-09-30T16-27-50.849Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 60053.912800000006,
+        "cpu": {
+          "samples": 12,
+          "min": 8,
+          "median": 13,
+          "max": 19
+        }
+      },
+      "waitingCpu": {
+        "samples": 12,
+        "min": 8,
+        "median": 13,
+        "max": 19
+      },
+      "duringCpu": {
+        "samples": 10,
+        "min": 7,
+        "median": 13,
+        "max": 33
+      },
+      "abort": {
+        "at": "2026-09-30T16:29:39.5638943Z",
+        "cpu": 33,
+        "unrelatedCpu": 1.7375038598841308
+      },
+      "error": "page.waitForFunction: Target page, context or browser has been closed\n    at idle (C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\scenarios.mjs:32:16)\n    at async file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/performance/local/checkout/investigation/performance/run.mjs:193:51",
+      "framesCaptured": 680,
+      "audio": {
+        "blocks": 52,
+        "samples": 1249408,
+        "rate": 48000,
+        "seconds": 26.029333333333334,
+        "peak": 0.395418256521225,
+        "nonzero": 174103,
+        "maxStep": 0.39835794270038605,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 1133,
+        "p99": 139.59999999999127,
+        "max": 175.8000000000029,
+        "hitches": 203,
+        "unattributed": 203,
+        "withoutOverlappingSpans": 9,
+        "tasks": 5,
+        "candidates": {
+          "water-under-ground": 36065,
+          "water-state-mismatch": 801881
+        },
+        "instrumentationFrames": 501
+      }
+    },
+    {
+      "folder": "2026-09-30T16-31-21.864Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 61224.5415,
+        "cpu": {
+          "samples": 12,
+          "min": 9,
+          "median": 13,
+          "max": 20
+        }
+      },
+      "waitingCpu": {
+        "samples": 12,
+        "min": 9,
+        "median": 13,
+        "max": 20
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 15,
+        "median": 19,
+        "max": 39
+      },
+      "abort": {
+        "at": "2026-09-30T16:32:53.0978629Z",
+        "cpu": 39,
+        "unrelatedCpu": 1.6492268238384227
+      },
+      "error": null,
+      "framesCaptured": 211,
+      "audio": {
+        "blocks": 16,
+        "samples": 361088,
+        "rate": 48000,
+        "seconds": 7.522666666666667,
+        "peak": 0.4169985055923462,
+        "nonzero": 169818,
+        "maxStep": 0.39835794270038605,
+        "gaps": [
+          {
+            "expected": 3368320,
+            "actual": 3368832
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 224,
+        "p99": 145.5,
+        "max": 169.8000000000029,
+        "hitches": 25,
+        "unattributed": 25,
+        "withoutOverlappingSpans": 1,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 35723,
+          "water-state-mismatch": 352699
+        },
+        "instrumentationFrames": 179
+      }
+    },
+    {
+      "folder": "2026-09-30T16-34-20.464Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 64601.1466,
+        "cpu": {
+          "samples": 13,
+          "min": 10,
+          "median": 12,
+          "max": 19
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 10,
+        "median": 12,
+        "max": 19
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 12,
+        "median": 20,
+        "max": 68
+      },
+      "abort": {
+        "at": "2026-09-30T16:35:55.0747832Z",
+        "cpu": 68,
+        "unrelatedCpu": 1.5405191031763286
+      },
+      "error": null,
+      "framesCaptured": 229,
+      "audio": {
+        "blocks": 15,
+        "samples": 337024,
+        "rate": 48000,
+        "seconds": 7.021333333333334,
+        "peak": 0.42160895466804504,
+        "nonzero": 166259,
+        "maxStep": 0.42465390264987946,
+        "gaps": [
+          {
+            "expected": 3530624,
+            "actual": 3531008
+          }
+        ],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 239,
+        "p99": 133.3000000000029,
+        "max": 145.39999999999418,
+        "hitches": 17,
+        "unattributed": 17,
+        "withoutOverlappingSpans": 0,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 33278,
+          "water-state-mismatch": 344038
+        },
+        "instrumentationFrames": 182
+      }
+    },
+    {
+      "folder": "2026-09-30T16-37-13.951Z-before-capture",
+      "phase": "before",
+      "mode": "capture",
+      "hour": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "status": "invalid-busy",
+      "qualified": false,
+      "harnessHash": "d6a4c80616e39424f88c5659dd7517ce17dfc34bf22a6c280f09ce40927c3f6c",
+      "matchesCurrent": false,
+      "prefix": {
+        "quiet": true,
+        "durationMs": 64500.26500000001,
+        "cpu": {
+          "samples": 13,
+          "min": 7,
+          "median": 15,
+          "max": 25
+        }
+      },
+      "waitingCpu": {
+        "samples": 13,
+        "min": 7,
+        "median": 15,
+        "max": 25
+      },
+      "duringCpu": {
+        "samples": 3,
+        "min": 17,
+        "median": 19,
+        "max": 34
+      },
+      "abort": {
+        "at": "2026-09-30T16:38:48.4250127Z",
+        "cpu": 34,
+        "unrelatedCpu": 1.3649551159079325
+      },
+      "error": null,
+      "framesCaptured": 189,
+      "audio": {
+        "blocks": 13,
+        "samples": 312832,
+        "rate": 48000,
+        "seconds": 6.517333333333333,
+        "peak": 0.41699686646461487,
+        "nonzero": 159288,
+        "maxStep": 0.3983592689037323,
+        "gaps": [],
+        "interpretation": "Signal/gap diagnostics only; silence, sample steps and tap gaps are not verified audible faults"
+      },
+      "diagnostic": {
+        "frames": 211,
+        "p99": 151.60000000000582,
+        "max": 151.8000000000029,
+        "hitches": 27,
+        "unattributed": 27,
+        "withoutOverlappingSpans": 1,
+        "tasks": 2,
+        "candidates": {
+          "water-under-ground": 35723,
+          "water-state-mismatch": 321708
+        },
+        "instrumentationFrames": 210
+      }
+    }
+  ]
+}
