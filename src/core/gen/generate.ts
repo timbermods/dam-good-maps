@@ -1331,7 +1331,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (with a margin: the settled water's banks run a little straighter than the planned water's, and
       // a shown land can't be planned again for it, D348)
       if (!lastAttempt) {
-        const st = straightness(W, H, est);
+        // (every channel the rivers were planned in counts as water, however shallow the plan's
+        // estimate: River Valley 128² seed 2's main river ran 37 tiles straight to its edge at 0.05)
+        const chan = Float64Array.from(est);
+        for (let i = 0; i < N; i++) if ((hy.water[i] === 1 || hy.water[i] === 2) && chan[i] < 0.1) chan[i] = 0.1;
+        const st = straightness(W, H, chan);
         if ((st.longest?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.run || (st.canal?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.canal) return fail("ruler-straight channel", null, true);
       }
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
