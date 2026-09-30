@@ -32,7 +32,7 @@ for(const [theme,seed,size] of [['riverValley',4242,128],['delta',42,128],['rive
   const edited=size===128?view(buildMap({W:size,H:size,seed,features:r.features,
     ...(r.field?{field:generatedField(r.field,size,size)}:{}),
     sculpts:[{params:{mode:'lower',amount:2,cells:Array.from({length:5},(_,k)=>[y-2+k,x-2,x+2] as [number,number,number])}}]})):original;
-  save(size===128?theme:'performance',{theme,seed,edit:{x,y,description:'Lower riverbed two blocks'},original,edited});
+  save(size===128?theme:'performance-map',{theme,seed,edit:{x,y,description:'Lower riverbed two blocks'},original,edited});
   console.log(`Saved ${original.water.count} wet tiles; edit ${x},${y}`);
   if(theme==='riverValley'&&size===128) {
     // A controlled, level-bed reach cut through generated terrain. Moving the source to
