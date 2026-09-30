@@ -58,6 +58,8 @@ export type Rgba = [number, number, number, number];
 export const SELECTED: Rgba = [255, 208, 90, 190];
 export const MOVING: Rgba = [110, 214, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
+/** A drawn force's band, under its edge (D344, A3): the force's width along its line, softly. */
+export const DRAWING_BAND: Rgba = [150, 235, 120, 70];
 /** A force's reach round the cursor (D312): a faint ring. */
 export const FAINT: Rgba = [230, 240, 230, 70];
 /** What a Select action's hover shows it would raise, and lower (D323 item 6). */

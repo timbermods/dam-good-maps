@@ -50,6 +50,10 @@ export interface ForceCue {
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
+  /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
+   *  Fast compresses it, Watch stretches it; D344 A7): its effects and sounds keep to the land. Absent:
+   *  its own pace. */
+  pace?: number;
 }
 
 /** A staged force as the worker drives it. */

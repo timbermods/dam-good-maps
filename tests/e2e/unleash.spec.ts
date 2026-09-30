@@ -1,6 +1,6 @@
 // Unleash, on a source (PLAN §20 D239), through the page: a placed source, selected, has a small
 // Unleash action beside its strength (and U); it carves its own course with Carve's engine, kept as one
-// step when it ends (no Stop, D289) and undo takes it back, Esc takes it all back as it runs; dragged from Unleash onto
+// step when it ends (no Stop, D289) and undo takes it back, Ctrl+Z takes it all back as it runs; dragged from Unleash onto
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -17,7 +17,7 @@ async function stopIfRunning(page: Page) {
   await idle(page);
 }
 
-test("Unleash: a selected source carves its own course, kept as one step when it ends; Esc takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
+test("Unleash: a selected source carves its own course, kept as one step when it ends; Ctrl+Z takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=96&d=n&t=highlands");
@@ -106,14 +106,14 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   await expect.poll(() => heights(page)).toEqual(before);
   expect(await labels(page)).toHaveLength(n0);
 
-  // U, then Esc as it runs: all of it goes
+  // U, then Ctrl+Z as it runs: all of it goes
   await select();
   await page.keyboard.press("u");
   await expect(work).toBeVisible();
-  // (Esc while it still runs: generator 0.7.0's land can end a short course within a second)
+  // (Ctrl+Z while it still runs: generator 0.7.0's land can end a short course within a second)
   await page.waitForTimeout(300);
   expect(await running(page)).not.toBeNull();
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+z");
   await expect.poll(() => running(page), { timeout: 10_000 }).toBeNull();
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);

@@ -7,8 +7,8 @@
 // walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
 // Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
 // it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
-// another re-rolls only the details still on Auto. While a force is at work its row is its status and
-// Revert (Esc). Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
+// another re-rolls only the details still on Auto. While a force is at work its row is its status, the
+// hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
 // and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
@@ -16,7 +16,7 @@ import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBrea
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
  *  rays), behind More, start on Auto (null) until the player pins one (D309). */
@@ -82,7 +82,8 @@ export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, p
 /** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
 export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
 
-/** A force at work: what it is doing, and Revert (Esc). */
+/** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
+ *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (V flips the side that moves)" : "The ground is moving…";
@@ -92,7 +93,14 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
         <span class="bar-status" role="status">
           {st.stopping ? "Settling…" : doing}
         </span>
-        <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
+        {st.painting && !st.stopping ? (
+          <span class="bar-status force-keys" title="Esc takes the fault back while you are still drawing it">
+            Esc to cancel
+          </span>
+        ) : (
+          <ForceKeys />
+        )}
+        <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
           Revert
         </button>
       </div>
@@ -103,10 +111,10 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
 function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
-    <label class="slider-field" title={p.title}>
+    <label class="slider-field" title={`${p.title} (now ${word}). { and } change it by 5`}>
       Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
-      <output>{word}</output>
+      <output title={word}>{p.value}</output>
     </label>
   );
 }
@@ -149,7 +157,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
         <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits: deeper, wider, with more debris" />
         <SizeControl
           label="Size"
-          title="The crater's width, in tiles (Auto: the size Power gives; a bigger crater is shallower for the same Power)"
+          title="The crater's width, in tiles, for a click or a drawn blow (Auto: the size Power gives; a bigger crater is shallower). Hold F and move the mouse, or [ and ], to set it"
           value={Math.round(size / 2) * 2}
           min={4}
           max={180}
@@ -220,7 +228,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
         <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
         <SizeControl
           label="Size"
-          title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives)"
+          title="How broad a clicked volcano spreads, in tiles across (Auto: the breadth Power gives); a drawn fissure's shape sets its own. Hold F and move the mouse, or [ and ], to set it"
           value={breadth}
           min={ERUPT_SIZE_MIN}
           max={ERUPT_SIZE_MAX}
@@ -322,7 +330,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice: a deeper, longer valley" />
         <SizeControl
           label="Size"
-          title="The valley's width, in tiles (Auto: the width Power gives)"
+          title="The valley's width, in tiles, clicked or drawn (Auto: the width Power gives; a drawn path sets how far it runs). Hold F and move the mouse, or [ and ], to set it"
           value={Math.round(size / 2) * 2}
           min={GLACIATE_SIZE_MIN}
           max={GLACIATE_SIZE_MAX}
