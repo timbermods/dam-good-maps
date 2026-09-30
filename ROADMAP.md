@@ -2081,7 +2081,7 @@ change is a deterministic operation, D158, D342).
 
 ## Later
 
-**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge.
+**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
