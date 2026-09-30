@@ -1,5 +1,5 @@
 // The forces sitting, batch B (PLAN §20 D345, D347): the map framed centred (B1), the level control top
-// right with Watch and Sound under it (B3), a source's strength by Ctrl+scroll at once and never a
+// right with Slow forces and Sound under it (B3), a source's strength by Ctrl+scroll at once and never a
 // duplicate (B4), X putting down what is held and the plain pointer picking and moving objects (B7),
 // Select's Ctrl+click and Shift+scroll level and its buttons (B8), Max water depth's tooltip (B9),
 // and every thing's hover readout (B11).
@@ -49,7 +49,7 @@ const sourcesOn = (page: Page) =>
     return out;
   });
 
-test("B1 and B3: the map is centred in every view; the level control sits top right with Watch and Sound under it", async ({ page }) => {
+test("B1 and B3: the map is centred in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const centred = async () =>
@@ -77,7 +77,7 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
     expect(c.w, `${step}: the whole map is in view`).toBeLessThan(c.cw);
     expect(c.h, `${step}: the whole map is in view`).toBeLessThan(c.ch);
   }
-  // the level control: top right, beside the compass, larger; Watch and Sound under it
+  // the level control: top right, beside the compass, larger; Slow forces and Sound under it
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const layer = await box(page.getByRole("group", { name: "Visible layers" }));
   const compass = await box(page.locator(".compass"));
@@ -86,11 +86,25 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
   expect(layer.x + layer.width).toBeLessThanOrEqual(compass.x + 2);
   expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(120);
   expect(layer.height).toBeGreaterThanOrEqual(40);
-  const watch = await box(page.getByRole("button", { name: "Watch", exact: true }));
+  const watch = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
   const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
   expect(watch.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
   expect(sound.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
   expect(watch.x + watch.width).toBeGreaterThan(layer.x);
+  // aligned with the compass (D361, item 8): level control and compass on one line, the same height;
+  // Slow forces and the speaker under them, flush with the compass's right edge
+  expect(Math.abs(layer.y - compass.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(layer.height - compass.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(sound.x + sound.width - (compass.x + compass.width))).toBeLessThanOrEqual(2);
+  expect(sound.y).toBeGreaterThanOrEqual(compass.y + compass.height);
+  // the speaker is an icon (a drawing, no word), crossed out when the sounds are off
+  const speaker = page.getByRole("button", { name: "Sound", exact: true });
+  await expect(speaker).toHaveText("");
+  await expect(speaker.locator(".crossed")).toHaveCount(0);
+  await speaker.click();
+  await expect(speaker.locator(".crossed")).toHaveCount(1);
+  await speaker.click();
+  await expect(speaker.locator(".crossed")).toHaveCount(0);
   // and the level control still works there
   await page.getByRole("button", { name: "Lower the visible layer" }).click();
   await expect(page.getByRole("group", { name: "Visible layers" }).locator("output")).not.toHaveText("∞");
@@ -223,7 +237,7 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h - 1));
   // the depth control's tooltip, when the selection holds deep water
   const depth = row.getByRole("button", { name: "Max water depth" });
-  if (await depth.count()) await expect(depth).toHaveAttribute("title", "Raises the ground under deeper water so the water there is at most that deep");
+  if (await depth.count()) await expect(depth).toHaveAttribute("title", "Make the water no deeper than this");
 });
 
 test("B11: hovering a thing names it and the ground under it, with any tool held", async ({ page }) => {

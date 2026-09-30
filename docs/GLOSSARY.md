@@ -27,9 +27,9 @@ The shared terms of Dam Good Maps, each defined once, with the decision that set
 
 **Floor (a force's).** A setting for every force that digs: the lowest level it ever cuts to (default 1, pinnable, not Auto). Where it stops a force, the result runs shallower. Not the starting-logs floor or the water floor. ([D321](../PLAN.md#20-editor-decisions))
 
-**Watch.** One toggle in the view bar beside Sound. Off is Fast: the land is final in about two seconds. On plays each force out slowly, about four times as long; a new gesture, Esc or a click jumps it to the final land. Nothing to do with the water's pace. ([D321](../PLAN.md#20-editor-decisions), [D268](../PLAN.md#20-editor-decisions))
+**Slow forces.** (Called Watch until D361.) One toggle in the view bar beside Sound. Off is Fast: the land is final in about two seconds. On plays each force out slowly, about four times as long; a new gesture, Esc or a click jumps it to the final land. Nothing to do with the water's pace. ([D321](../PLAN.md#20-editor-decisions), [D268](../PLAN.md#20-editor-decisions))
 
-**View bar.** The top row of the shelf: the view switches (Top-down, Level lines, Height colours, Markers and the like), with Sound and Watch. Leaner since D287, which removed the Dam sites, Moisture and Drought views. ([D184](../PLAN.md#20-editor-decisions), [D287](../PLAN.md#20-editor-decisions), [D248](../PLAN.md#20-editor-decisions))
+**View bar.** The top row of the shelf: the view switches (Top-down, Level lines, Height colours, Markers and the like), with Sound and Slow forces. Leaner since D287, which removed the Dam sites, Moisture and Drought views. ([D184](../PLAN.md#20-editor-decisions), [D287](../PLAN.md#20-editor-decisions), [D248](../PLAN.md#20-editor-decisions))
 
 **Shelf.** The controls around the map: the view bar, the tools, the forces, then the active tool's settings with More. Its left side places things (Water source, Badwater source, Start, trees and so on). The structure is item 9 (D323); the design pass styles it. ([D184](../PLAN.md#20-editor-decisions), [D226](../PLAN.md#20-editor-decisions), [D323](../PLAN.md#20-editor-decisions))
 

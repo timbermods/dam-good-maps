@@ -27,7 +27,7 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
       <button type="button" class="icon-button" aria-pressed={p.paused} title={p.paused ? "Play the water" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
         <span class="icon-word">{p.paused ? "Play" : "Pause"}</span>
       </button>
-      <label class="bar-group" title="How fast the water flows after a change (Instant: straight to where it settles)">
+      <label class="bar-group" title="How fast the water flows">
         Speed
         <select aria-label="Water speed" value={p.speedName} onChange={(e) => p.setSpeed((e.target as HTMLSelectElement).value as WaterSpeed)}>
           {WATER_SPEEDS.map((v) => (
@@ -40,13 +40,13 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
       <button type="button" class="icon-button" title="Skip to where the water settles" disabled={progress === null} onClick={() => p.skip()}>
         <span class="icon-word">Skip</span>
       </button>
-      <button type="button" class="icon-button" title="Watch the last change's water again" disabled={!p.canReplay} onClick={() => p.replay()}>
+      <button type="button" class="icon-button" title="Play the last change's water again" disabled={!p.canReplay} onClick={() => p.replay()}>
         <span class="icon-word">Replay</span>
       </button>
-      <button type="button" class="icon-button" aria-pressed={weather === "drought"} title={weather === "drought" ? "End the drought: the water as the map has it" : "Watch a drought: the sources stop, the water drains and dries, then comes back"} onClick={() => onWeather("drought")}>
+      <button type="button" class="icon-button" aria-pressed={weather === "drought"} title={weather === "drought" ? "End the drought" : "Play a drought: the sources stop"} onClick={() => onWeather("drought")}>
         <span class="icon-word">Drought</span>
       </button>
-      <button type="button" class="icon-button" aria-pressed={weather === "badtide"} title={weather === "badtide" ? "End the badtide: the water as the map has it" : "Watch a badtide: the clean sources give badwater, it spreads and poisons the ground, then washes out"} onClick={() => onWeather("badtide")}>
+      <button type="button" class="icon-button" aria-pressed={weather === "badtide"} title={weather === "badtide" ? "End the badtide" : "Play a badtide: clean sources turn bad"} onClick={() => onWeather("badtide")}>
         <span class="icon-word">Badtide</span>
       </button>
     </div>

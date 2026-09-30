@@ -58,6 +58,7 @@ import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
+import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
 
@@ -970,7 +971,7 @@ export class MapRenderer {
   /** The ghost of an object being placed (the left shelf, D184): the object itself, its footprint's
    *  corner at tile (x, y) on the ground at `z`, tinted green where it fits, red where it doesn't
    *  (null: not known yet); null puts it away. */
-  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | null } | null): void {
+  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | "warn" | null } | null): void {
     if (!g) {
       if (this.ghost) {
         this.scene.remove(this.ghost.group);
@@ -988,7 +989,7 @@ export class MapRenderer {
         disposeGroup(this.ghost.group);
       }
       const { group } = buildEntities(oneObject(g.template, g.orientation), this.objectMat, null, 0, this.software);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
+      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
       if (tint)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
@@ -1884,7 +1885,11 @@ export class MapRenderer {
       this.held.delete(ev.key.toLowerCase());
       if (ev.key === "Shift") this.glide.fast = false;
     });
-    this.on(window, "blur", () => this.held.clear());
+    // the window loses focus: no key, Shift or mouse button is held any more, and a stroke or gesture
+    // in progress ends as a released button ends it (D361, item 5)
+    this.on(window, "blur", () => {
+      focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
+    });
   }
 
   /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still

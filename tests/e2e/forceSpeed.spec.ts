@@ -1,5 +1,5 @@
 // Every force is fast, with a choice to watch (PLAN §20 D321, item 29), through the page. Fast, the
-// default: each force's land is final within about two seconds of its gesture, however large. Watch
+// default: each force's land is final within about two seconds of its gesture, however large. Slow forces
 // (in the view bar beside Sound, remembered): about four times as long, and a click anywhere jumps it
 // straight to its final land, kept as one step. The water stays as it was until the land is final
 // (item 30): no frame of a force carries any.
@@ -106,9 +106,9 @@ const CASES: { name: string; key: string; mode?: string; go(page: Page, s: Await
   { name: "Glaciate", key: "-", go: (page, s) => click(page, s.high) },
 ];
 
-test("Fast (the default): each force's land is final within about two seconds of its gesture; Watch plays about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
+test("Fast (the default): each force's land is final within about two seconds of its gesture; Slow forces play about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
   await refine(page, 96);
-  const watch = page.getByRole("button", { name: "Watch", exact: true });
+  const watch = page.getByRole("button", { name: "Slow forces", exact: true });
   await expect(watch).toHaveAttribute("aria-pressed", "false");
   const s = await spots(page);
   const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
@@ -129,7 +129,7 @@ test("Fast (the default): each force's land is final within about two seconds of
     await page.keyboard.press("Control+z");
     await idle(page);
   }
-  // Watch: remembered; a carve plays out about four times Fast's own, and a click jumps it to its end.
+  // Slow forces: remembered; a carve plays out about four times Fast's own, and a click jumps it to its end.
   // (The click comes in the page frame that sees it showing, so it finds it at work on any machine.)
   await watch.click();
   await expect(watch).toHaveAttribute("aria-pressed", "true");
@@ -156,7 +156,7 @@ test("Fast (the default): each force's land is final within about two seconds of
   expect((await labels(page)).length).toBe(n0 + 1);
   await page.reload();
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 120_000 });
-  await expect(page.getByRole("button", { name: "Watch", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Slow forces", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("the forces' Fast timings at 128² and 256² (DGM_BENCH_FORCES=1: information only)", async ({ page }) => {

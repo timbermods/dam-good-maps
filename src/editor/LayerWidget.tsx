@@ -25,7 +25,7 @@ export function LayerWidget(p: LayerWidgetProps) {
       </button>
       <output
         aria-label="Visible layer"
-        title="The layer showing: drag up or down to change it"
+        title="The layer showing (drag up or down)"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
           drag.current = { y: e.clientY, acc: 0 };

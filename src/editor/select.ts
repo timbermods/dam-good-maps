@@ -233,7 +233,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   let tiles: number[] = [];
   /** Brush mode: the tiles painted so far in this drag. */
   let painted: Set<number> | null = null;
-  /** Ctrl held on a click: the Level number, unless it drags. */
+  /** Ctrl held on a click: the Level number, from the tile pressed, never a selection. */
   let sampling: TileHit | null = null;
   const mode = () => forced ?? host.mode();
   const words = (list: readonly number[]): string | null => {
@@ -276,16 +276,19 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
     wantsAlt: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
-      // Ctrl+click: the tile's level, as the Level number, selection or none (a Ctrl+drag selects as any
-      // drag does; a brush's Ctrl+drag hands its drag here and only selects)
-      if ((ev.ctrlKey || ev.metaKey) && !forced && host.sample) sampling = hit;
+      // Ctrl+click: the tile's level, as the Level number, and nothing else: it never creates or changes
+      // the selection, however the hand moves before the button is let go (D361, item 7). A brush's
+      // Ctrl+drag hands its drag here `forced`, and only selects.
+      if ((ev.ctrlKey || ev.metaKey) && !forced && host.sample) {
+        sampling = hit;
+        start = null;
+        painted = null;
+        tiles = [];
+        host.drawing(null, null, null);
+        return true;
+      }
       how = ev.shiftKey ? "add" : ev.altKey ? "subtract" : "set";
       if (mode() === "wand") {
-        // (Ctrl+click takes the level, it selects nothing)
-        if (sampling) {
-          start = null;
-          return true;
-        }
         // a click on water takes that water; on land, the ground at its level joined to it
         const W = host.W;
         const onWater = host.wet?.(hit.y * W + hit.x) ?? false;
@@ -304,9 +307,8 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
       return true;
     },
     move(hit: TileHit | null, ev: PointerEvent) {
-      // (a Ctrl+press that moves to another tile is a drag, not a click)
-      if (sampling && hit && (hit.x !== sampling.x || hit.y !== sampling.y)) sampling = null;
       if (mode() === "brush") host.ring?.(hit ? [hit.x + 0.5, hit.y + 0.5] : null, host.brushSize?.() ?? 3);
+      if (sampling) return;
       if (!start || !hit) return;
       const last = points[points.length - 1];
       const m = mode();

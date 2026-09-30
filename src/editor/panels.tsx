@@ -11,7 +11,7 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo, WaterLayers } 
 import type { FixOp } from "../core/validate/report";
 import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail } from "../core/analysis/wood";
-import type { StartCheck } from "./features";
+import { startStatus, type StartCheck } from "./features";
 import { plain } from "./words";
 
 // ------------------------------------------------------------------------------ the water layers
@@ -61,6 +61,17 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
   );
 }
 
+/** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
+ *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and
+ *  not the row. Highlighted: it is the source being changed. */
+export function SourceReadout(p: { label: string; words: string }) {
+  return (
+    <span class="source-readout" role="status" aria-label={p.label} data-source-readout>
+      <span class="source-readout-label">{p.label}</span> <output>{p.words}</output>
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------------------- the start
 
 /** The start's footprint check while it is dragged: whether it fits, the three start requirements
@@ -68,11 +79,12 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
  *  targets it misses as warnings. */
 export function StartIndicators({ check, rules }: { check: StartCheck; rules: { waterWithin: number; woodWithin20: number; bushesWithin20: number } }) {
   const mark = (ok: boolean) => (ok ? "ok" : "low");
+  const status = startStatus(check);
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
 
   return (
     <div class="start-indicators" role="status">
-      <p class={check.problem || !check.meets ? "bad" : "ok"}>
+      <p class={status === "blocked" ? "bad" : status === "warn" ? "warn" : "ok"} data-status={status}>
         {check.problem ? `Does not fit: ${check.problem}` : check.meets ? "The district center fits here" : "Fits, but misses a start requirement"}
       </p>
       <ul>
@@ -114,13 +126,13 @@ export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJ
       <p class="muted">Click a step to go back to it. Nothing is lost: you can go forward again until you make a new edit.</p>
       <ol>
         <li>
-          <button type="button" class="linkish" aria-current={current === -1} title="Go back to the map as it was before any edit" onClick={() => onJump(-1)}>
+          <button type="button" class="linkish" aria-current={current === -1} title="Go back to before any edit" onClick={() => onJump(-1)}>
             {info.kind === "import" ? "Opened the map" : "The generated map"}
           </button>
         </li>
         {info.history.map((h, k) => (
           <li key={k} class={h.applied ? "" : "undone"}>
-            <button type="button" class="linkish" aria-current={current === k} title={`Go to the map as it was after: ${h.label}`} onClick={() => onJump(k)}>
+            <button type="button" class="linkish" aria-current={current === k} title="Go back to this step" onClick={() => onJump(k)}>
               {h.label}
             </button>
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}
@@ -170,7 +182,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && c.fix?.length ? (
             <>
               {" "}
-              <button type="button" class="linkish" title={`Fix it in one click: ${(c.fix[0].label || "fix it").toLowerCase()} (undo takes it back)`} onClick={() => actions.onFix(c.fix!)}>
+              <button type="button" class="linkish" title={`${c.fix[0].label || "Fix it"} (Ctrl+Z undoes it)`} onClick={() => actions.onFix(c.fix!)}>
                 {c.fix[0].label || "Fix it"}
               </button>
             </>

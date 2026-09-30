@@ -3,6 +3,10 @@
 // panel and the ⋯ menu says in one plain line what it does, and its key where it has one. This test
 // collects the interactive controls from the rendered page, in every state the editor has, and fails
 // on any control with no tooltip (its own `title`, or the label or group that holds it).
+//
+// A tooltip is a short phrase that says what the control is for at a glance, then its key where it has
+// one (D351, as amended by D361): no second sentence, no technical detail, about 60 characters at most.
+// This test fails on any title in the page that has a second sentence or runs past that.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -42,6 +46,28 @@ async function untitled(page: Page): Promise<string[]> {
   });
 }
 
+/** The longest a tooltip may be, keys included. */
+const MAX_TOOLTIP = 60;
+
+/** Every tooltip on the page that breaks the form: a second sentence, or too long. */
+async function wordy(page: Page): Promise<string[]> {
+  return page.evaluate((max) => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("[title]"))) {
+      const t = (el.getAttribute("title") ?? "").trim().replace(/\s+/g, " ");
+      if (!t) continue;
+      // (a second sentence: a full stop, ! or ? then a new capital or bracket; ".timber" and "Ctrl+Z" are not)
+      const second = /[.!?][)"']?\s+[A-Z(]/.test(t);
+      if ((second || t.length > max) && !seen.has(t)) {
+        seen.add(t);
+        out.push(`${second ? "second sentence" : `${t.length} characters`}: ${t}`);
+      }
+    }
+    return out;
+  }, MAX_TOOLTIP);
+}
+
 async function open(page: Page) {
   await page.setViewportSize({ width: 1400, height: 1000 });
   await page.goto("./#s=9&z=96&d=n&t=riverValley");
@@ -57,7 +83,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await open(page);
   const missing: Record<string, string[]> = {};
   const check = async (state: string) => {
-    const m = await untitled(page);
+    const m = [...(await untitled(page)), ...(await wordy(page))];
     if (m.length) missing[state] = m;
   };
   await check("the editor as it opens");
@@ -161,7 +187,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.getByRole("button", { name: "Badwater", exact: true }).click();
   await check("the badwater layer");
 
-  expect(missing, "controls with no tooltip, by state").toEqual({});
+  expect(missing, "controls with no tooltip, or a tooltip that is not one short phrase, by state").toEqual({});
   expect((await info(page)).W).toBeGreaterThan(0);
 });
 
@@ -173,7 +199,7 @@ test("every control on the settings page has a tooltip", async ({ page }) => {
   const missing: Record<string, string[]> = {};
   // (the advanced sections open too)
   for (const s of await page.locator("summary").all()) if (await s.isVisible()) await s.click().catch(() => undefined);
-  const m = await untitled(page);
+  const m = [...(await untitled(page)), ...(await wordy(page))];
   if (m.length) missing["the settings page"] = m;
   expect(missing, "controls with no tooltip, by state").toEqual({});
 });

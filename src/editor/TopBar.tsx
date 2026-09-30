@@ -129,11 +129,11 @@ export const FORCE_GROUPS: readonly (readonly string[])[] = [
 ];
 
 const FORCE_LIST: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click (at the map's edge it carves inward), or draw its path: it carves along the line, downhill, shown from where you began. Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, Size its breadth, or draw a fissure: the shape you draw sets its extent. Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length, and a click makes a short fault the land turns (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges: it runs the line you draw. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "carve a river" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "an impact crater" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "a fault that lifts or slides the land" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "a glacier carves a valley" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */
@@ -159,8 +159,8 @@ export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
 /** What a force's mode switch does, one line each (D351). */
 const MODE_TITLES: Record<string, string> = {
-  Lift: "Lift: the ground on one side of the fault rises (V flips the side)",
-  Slide: "Slide: the ground on one side slips along the fault (V flips the side)",
+  Lift: "Lift one side of the fault (V flips it)",
+  Slide: "Slide one side along the fault (V flips it)",
 };
 
 /** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
@@ -215,7 +215,7 @@ export const FORCE_KEYS = "Esc to skip · Ctrl+Z to undo";
 
 export function ForceKeys() {
   return (
-    <span class="bar-status force-keys" title="Esc skips the force to its end, kept as one step; Ctrl+Z (or Z, or Revert) takes all of it back">
+    <span class="bar-status force-keys" title="Esc skips it, Ctrl+Z takes it back">
       {FORCE_KEYS}
     </span>
   );
@@ -266,7 +266,7 @@ export function SizeControl(p: {
         <output>{words}</output>
       </label>
       {p.auto ? (
-        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power: move the slider, hold F over the map or press [ or ] to set it yourself` : `Let ${p.label.toLowerCase()} follow Power again`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
+        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power` : `Let ${p.label.toLowerCase()} follow Power`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
           Auto
         </button>
       ) : null}
@@ -293,7 +293,7 @@ export function AutoDetail(p: { label: string; on: boolean; onAuto(on: boolean):
   return (
     <span class="size-control">
       {p.children}
-      <button type="button" class="auto-button" aria-pressed={p.on} aria-label={`${p.label} follows the land`} title={p.on ? `${p.label}: drawn from the land; set it yourself to pin it` : `Let ${p.label.toLowerCase()} be drawn from the land again`} onClick={() => p.onAuto(!p.on)}>
+      <button type="button" class="auto-button" aria-pressed={p.on} aria-label={`${p.label} follows the land`} title={p.on ? `${p.label}: drawn from the land` : `Draw ${p.label.toLowerCase()} from the land`} onClick={() => p.onAuto(!p.on)}>
         Auto
       </button>
     </span>
@@ -304,7 +304,7 @@ export function AutoDetail(p: { label: string; on: boolean; onAuto(on: boolean):
  *  second row of their own, the same shape as the first. */
 export function MoreButton(p: { open: boolean; onToggle(): void }) {
   return (
-    <button type="button" aria-expanded={p.open} onClick={p.onToggle} title={p.open ? "Hide its other settings" : "Its other settings: how it looks, drawn from the land unless you set them"}>
+    <button type="button" class="more-button" aria-expanded={p.open} onClick={p.onToggle} title={p.open ? "Hide the other settings" : "More settings"}>
       {p.open ? "Less" : "More"}
     </button>
   );
@@ -322,13 +322,13 @@ export function FloorControl() {
   if (!f) return null;
   return (
     <span class="size-control">
-      <label class="slider-field" title="The lowest level any force cuts down to: where it would go deeper, it runs shallower (every force shares it)">
+      <label class="slider-field" title="The lowest level forces cut to">
         Floor
         <input type="range" min={FLOOR_MIN} max={CEILING} step={1} aria-label="Floor" value={f.value} onInput={(e) => f.set(Number((e.target as HTMLInputElement).value))} />
         <output>{f.value}</output>
       </label>
       {f.value !== FLOOR_DEFAULT ? (
-        <button type="button" class="auto-button" aria-label="Floor back to 1" title="Back to the default floor, level 1" onClick={() => f.set(FLOOR_DEFAULT)}>
+        <button type="button" class="auto-button" aria-label="Floor back to 1" title="Back to level 1" onClick={() => f.set(FLOOR_DEFAULT)}>
           Default
         </button>
       ) : null}
@@ -351,9 +351,9 @@ export function MoreRow(p: { force: Force; children: ComponentChildren }) {
 
 /** The target's words for players coming from the game's editor (D322, item 37). */
 const TARGET_TITLE: Record<"raise" | "lower" | "flatten", string> = {
-  raise: "Relative raise, as in the game's editor: the ground under the brush rises to this level, and higher ground stays. Shift+scroll or Ctrl+click on the land sets it; Free raises softly as you paint",
-  lower: "Relative lower, as in the game's editor: the ground under the brush is cut down to this level, and lower ground stays. Shift+scroll or Ctrl+click on the land sets it; Free digs softly as you paint",
-  flatten: "Absolute height, as in the game's editor: the ground under the brush becomes this level, higher or lower. Shift+scroll or Ctrl+click on the land sets it",
+  raise: "Raise to this level (Shift+scroll, Ctrl+click)",
+  lower: "Lower to this level (Shift+scroll, Ctrl+click)",
+  flatten: "Set to this level (Shift+scroll, Ctrl+click)",
 };
 
 export function TopBar(p: TopBarProps) {
@@ -362,7 +362,7 @@ export function TopBar(p: TopBarProps) {
   const t = p.active;
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
-  const why = p.loading ? "The map is still loading" : "A force is at work: Esc skips to its end, Ctrl+Z takes it back";
+  const why = p.loading ? "The map is still loading" : "A force is at work (Esc skips it)";
   return (
     <div class="brush-bar-wrap">
       <div class="map-bar" role="toolbar" aria-label="Tools">
@@ -387,7 +387,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area, then raise, lower or level it, delete what stands there, or work only inside it. Ctrl+click takes a level, Shift+scroll sets it, Ctrl+A marks the whole map, X puts it away"}
+            title={off ? why : "Select (M): mark an area to change"}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -422,7 +422,7 @@ export function TopBar(p: TopBarProps) {
       {t ? (
         <div class="map-bar options-row two-lines" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
-            <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and move the mouse to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
+            <SizeControl label="Size" title="The brush's size (F, [ and ])" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
             {hasTarget(t) ? (
               <label title={TARGET_TITLE[t]}>
                 Level
@@ -450,9 +450,9 @@ export function TopBar(p: TopBarProps) {
                 label="Mode"
                 value={s.modes[t]}
                 options={[
-                  ["ground", "Ground", "Change only dry land: rivers and lakes stay where they are, and nothing spills"],
-                  ["water", "Water", "Change only the ground under water: reshape a bed without touching its banks"],
-                  ["both", "Both", "Change everything under the brush"],
+                  ["ground", "Ground", "Change only dry land"],
+                  ["water", "Water", "Change only the ground under water"],
+                  ["both", "Both", "Change everything"],
                 ]}
                 onChange={(m) => set({ modes: { ...s.modes, [t]: m } })}
               />
@@ -466,22 +466,22 @@ export function TopBar(p: TopBarProps) {
                 label="Sources"
                 value={s.sources[t]}
                 options={[
-                  ["ride", "Ride", "Water sources move with the ground under them"],
-                  ["keep", "Keep", "Water sources and the ground they stand on stay exactly where they are"],
-                  ["clear", "Clear", "The water sources the brush passes over go with the stroke (they glow red under the ring first)"],
+                  ["ride", "Ride", "Sources move with the ground"],
+                  ["keep", "Keep", "Sources stay where they are"],
+                  ["clear", "Clear", "Remove the sources the brush passes"],
                 ]}
                 onChange={(v) => set({ sources: { ...s.sources, [t]: v } })}
               />
             </span>
-            <Toggle label="Square" title="A square brush instead of a round one" on={s.square} onChange={(square) => set({ square })} />
-            <Toggle label="Straight lines" title="The stroke runs straight from where you press to the pointer; its length shows beside it" on={s.straight} onChange={(straight) => set({ straight })} />
+            <Toggle label="Square" title="A square brush" on={s.square} onChange={(square) => set({ square })} />
+            <Toggle label="Straight lines" title="Draw straight lines" on={s.straight} onChange={(straight) => set({ straight })} />
             {t === "flatten" ? (
               <>
-                <Toggle label="In steps" title="Terraces: benches every few levels from the level" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
+                <Toggle label="In steps" title="Terraces every few levels" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
                 {s.steps !== null ? (
                   <label>
                     every
-                    <select aria-label="Steps apart" title="How many levels apart the terraces are" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
+                    <select aria-label="Steps apart" title="Levels between terraces" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
                       {[2, 3, 4].map((k) => (
                         <option key={k} value={String(k)}>
                           {k} levels

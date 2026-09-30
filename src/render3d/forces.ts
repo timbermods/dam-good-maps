@@ -49,7 +49,7 @@ export interface ForceMoment {
   erupt?: { vents: { x: number; y: number }[]; radius: number; fissure: boolean; line: { x: number; y: number }[] };
   quake?: { path: { x: number; y: number }[]; slide: boolean; side: 1 | -1 };
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
-  /** Its own seconds a second of its showing (Fast, Watch: D344 A7); absent, 1. */
+  /** Its own seconds a second of its showing (Fast, Slow forces: D344 A7); absent, 1. */
   pace?: number;
 }
 
@@ -392,9 +392,9 @@ type Stations = NonNullable<NonNullable<ForceMoment["glaciate"]>["path"]>;
  *  tongue (fixed cross sections over the land as it was, a curved nose and streaks flowing down it)
  *  advances for three of its seconds and melts back for two, kept to the land's own showing (D344,
  *  A7): its clock is the glacier's stage as its frames bring it, run on between them at the showing's
- *  pace (Fast compresses it, Watch stretches it) and never ahead of the next stage, so the front
+ *  pace (Fast compresses it, Slow forces stretch it) and never ahead of the next stage, so the front
  *  reaches each tile as the land there changes and the ice is gone as the land settles. Skipped to its
- *  end (Esc, Watch's click), it melts away at once. */
+ *  end (Esc, Slow forces' click), it melts away at once. */
 class Glacier {
   readonly group = new Group();
   private gatherMat = new MeshBasicMaterial({ color: css(JUICE.ice), transparent: true, opacity: 0.55, depthWrite: false });

@@ -39,7 +39,7 @@ export interface View3DProps {
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
   /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
-   *  switches (Watch, Sound). */
+   *  switches (Slow forces, Sound). */
   cornerLevel?: ComponentChildren;
   cornerBelow?: ComponentChildren;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
@@ -281,7 +281,7 @@ export function View3D(props: View3DProps) {
         Height colours
       </button>
       {props.besideHeight}
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show the sources, slope arrows and a line at every level, and draw small far-off objects larger">
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
     </>
@@ -293,10 +293,10 @@ export function View3D(props: View3DProps) {
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
       <div ref={controls} class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
+        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
           Top-down
         </button>
-        <button type="button" title="Frame the whole map again, centred, at the usual angle" onClick={() => renderer.current?.resetView()}>
+        <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
           Reset view
         </button>
         {props.togglesInButtons ? toggles : null}

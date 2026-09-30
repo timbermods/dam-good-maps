@@ -1,7 +1,7 @@
 // A carve as the editor shows it (PLAN §20 D321, items 29 and 30): the whole run is worked out first,
 // a slice at a time (the worker answers the page between slices; the head's surge gathers at the
 // origin meanwhile), each step's changes recorded; then it is played back at the pace the player
-// chose (Fast: the land final within about two seconds of the gesture; Watch: about four times as
+// chose (Fast: the land final within about two seconds of the gesture; Slow forces: about four times as
 // long). The land, the objects and the sources change only as the head reaches them; the water stays
 // as it was until the land is final. What is kept is always the run's own final map, so the result
 // never depends on the pace.

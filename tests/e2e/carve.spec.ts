@@ -246,11 +246,11 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   };
   expect(cut(at[0], at[1])).toBeGreaterThan(0);
   expect(cut(Math.round((endX + at[0]) / 2), bendY)).toBeGreaterThan(0);
-  // undo while it runs takes it back (Watch: long enough to catch it running)
+  // undo while it runs takes it back (Slow forces: long enough to catch it running)
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
-  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
   await page.mouse.move(s0.x, s0.y);
   await page.mouse.down();
   await page.mouse.move(s1.x, s1.y, { steps: 10 });
@@ -262,5 +262,5 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   await idle(page);
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
-  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
 });
