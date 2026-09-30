@@ -98,7 +98,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
   const N = W * H;
   const side = Math.min(W, H);
   const areaK = N / (128 * 128);
-  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring");
+  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring" && f.role !== "river/lakeSpring");
   const main = rivers.find((r) => r.role === "river/main") ?? rivers[0];
   const wet = (i: number) => D[i] >= 0.05;
   // ---- the main river's valley floor: across the course, the low ground either side of the water

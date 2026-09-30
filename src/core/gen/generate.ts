@@ -263,6 +263,8 @@ interface LandStage {
   dropped: string[];
   /** Sources fed stronger on it (a lake that fell, D350): their flows, kept on every later attempt. */
   fed: Record<string, number>;
+  /** Springs added on it (a lake nothing fed): kept on every later attempt. */
+  springs: RiverFeature[];
   /** The last badwater hollows whose water settled on it: an attempt whose own hollows keep the
    *  water from settling takes these (the rivers' water alone may not settle, D348). */
   goodBad?: Hazards;
@@ -1150,6 +1152,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
     fixes.push("lake fed");
   }
+  if (from?.springs.length) {
+    for (const f of from.springs) {
+      rivers.push(structuredClone(f));
+      contains.add(f.id);
+    }
+    fixes.push("lake spring");
+  }
   const fail = (why: string, b: BuildResult | null, replannable: boolean): Attempt => {
     info.stage = why;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
@@ -1301,7 +1310,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {} };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
@@ -1381,6 +1390,43 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     feeders.forEach((f, n) => setFlow(f, base[n]));
     return null;
   };
+  // (a lake nothing reaches, filled by the pre-fill and falling as it evaporates: a small spring at its
+  // deepest tile keeps it full, about three times what it loses; the field holds it, no channel cut)
+  const lakeSpring = (b: BuildResult): BuildResult | null => {
+    const falling = fallingWater(b);
+    if (!falling) return null;
+    let deep = -1;
+    let n = 0;
+    for (let i = 0; i < N; i++)
+      if (falling[i]) {
+        n++;
+        if (deep < 0 || b.water[i] > b.water[deep]) deep = i;
+      }
+    if (deep < 0) return null;
+    const x = deep % W;
+    const y = (deep - x) / W;
+    const role = "river/lakeSpring";
+    const f: RiverFeature = {
+      id: featureId(seed, "river", `${role}/${attempt}`),
+      kind: "river",
+      origin: "generated",
+      role,
+      locked: false,
+      params: { path: [[x, y], [x + 1, y]], width: 1, bedDepth: 1, bedProfile: { start: b.heights[deep], steps: [] }, flow: Math.max(0.2, Math.round(n * 0.0001 * 2 * 3 * 1000) / 1000), style: "straight", entry: { spring: [x, y] }, exit: { basin: [x, y] }, badwater: false },
+    };
+    contains.add(f.id);
+    rivers.push(f);
+    const b2 = build([...rivers, ...bad.features], "resources");
+    const inFlow = sourcesInFlow(b2.waterModel, mapObjects({ entities: b2.entities.map(entityJson) }), b2.water).inFlow.length;
+    if (b2.settle.settled && !inFlow) {
+      fixes.push("lake spring");
+      landStage?.springs.push(structuredClone(f));
+      return b2;
+    }
+    rivers.pop();
+    contains.delete(f.id);
+    return null;
+  };
   const unsettled = (b: BuildResult): Attempt => {
     if (landStage) landStage.unsettled++;
     if (bad.features.length) {
@@ -1414,7 +1460,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (worn) b1 = worn;
   }
   if (!b1.settle.settled && !lastAttempt) {
-    const fed = feedFix(b1);
+    const fed = feedFix(b1) ?? lakeSpring(b1);
     if (fed) b1 = fed;
   }
   // (not on the last attempt, whose map is kept)
