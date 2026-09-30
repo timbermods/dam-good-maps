@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test.mjs && node --test metrics.test.mjs audio-worklet.test.mjs",
+    "run": "node run.mjs",
+    "gifs": "python gifs.py",
+    "gate": "node gate.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.58.2"
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "scope": "128 clean native; functional byte comparisons only, NOT timing certification",
+  "checks": [
+    {
+      "browser": "edge",
+      "name": "craterize-fast",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T08-16-22.720Z-after-smoke",
+      "finalEqual": true,
+      "hash": "0ed5c10d5ff7a7ee389d1b93da51815b287bb33ddd91795ec793679e5fed14cf",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 16120.90000000596
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 15741.699999988079
+          }
+        ]
+      }
+    },
+    {
+      "browser": "edge",
+      "name": "brush-large",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T07-53-35.722Z-after-smoke",
+      "finalEqual": true,
+      "hash": "22df7cc634e0b7a18de3e8f68013fd8ea725dce58bdbb8bea6379cda575dd720",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 15329.5
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 24086.20000001788
+          }
+        ]
+      }
+    },
+    {
+      "browser": "edge",
+      "name": "select-raise",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T07-53-35.722Z-after-smoke",
+      "finalEqual": true,
+      "hash": "4713776b964dfcb2f26c9acff80eb8e6b9532a9632b73ef6ab99b27d4b929f6f",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 14784.799999982119
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 15273.300000011921
+          }
+        ]
+      }
+    },
+    {
+      "browser": "firefox",
+      "name": "craterize-fast",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T07-53-35.722Z-after-smoke",
+      "finalEqual": true,
+      "hash": "0ed5c10d5ff7a7ee389d1b93da51815b287bb33ddd91795ec793679e5fed14cf",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 21461
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 28192
+          }
+        ]
+      }
+    },
+    {
+      "browser": "firefox",
+      "name": "brush-large",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T07-53-35.722Z-after-smoke",
+      "finalEqual": true,
+      "hash": "caac246d1184ad4ca2706a8f931c82760d74e3e9efdcd78bdef1b8af5aedae7b",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 19877
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 27573
+          }
+        ]
+      }
+    },
+    {
+      "browser": "firefox",
+      "name": "select-raise",
+      "before": "2026-09-30T07-50-24.109Z-before-smoke",
+      "after": "2026-09-30T07-53-35.722Z-after-smoke",
+      "finalEqual": true,
+      "hash": "4713776b964dfcb2f26c9acff80eb8e6b9532a9632b73ef6ab99b27d4b929f6f",
+      "sourceHash": {
+        "before": "b7550294341b0028f4375337cf55b21307987a216025c2ae342d3ec34bea5766",
+        "after": "4c9971050e9844dd10f5da192f5ec0ee6c3cb8511d1761f23a7ad88e21656dd7"
+      },
+      "glitches": {
+        "before": [],
+        "after": []
+      },
+      "findings": {
+        "before": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 19288
+          }
+        ],
+        "after": [
+          {
+            "kind": "outside-scope-interface-status",
+            "status": "Water flowing… 0%",
+            "checks": "Ready to play",
+            "workerSettled": true,
+            "waterQueue": 0,
+            "at": 21470
+          }
+        ]
+      }
+    }
+  ]
+}
