@@ -1,0 +1,104 @@
+{
+ "result": "PASS",
+ "note": "128², installed Chrome; gesture release through worker, animation and final view update; longest repeated three times",
+ "cases": [
+  {
+   "case": "kyler-133-tiles-72-auto68",
+   "worn": 6597,
+   "held": 1640,
+   "fell": 93,
+   "dropped": 0,
+   "ms": 209.19999998807907,
+   "checkMs": 12.199999988079071,
+   "box": {
+    "x0": 66,
+    "y0": 74,
+    "x1": 121,
+    "y1": 127
+   },
+   "finalMs": 668,
+   "sweep": {
+    "parts": 23,
+    "galleries": 22,
+    "washes": 1,
+    "roofs": 0
+   },
+   "rubble": 0
+  },
+  {
+   "case": "longest-399-tiles-100-100",
+   "worn": 11985,
+   "held": 7144,
+   "fell": 40,
+   "dropped": 0,
+   "ms": 932.5,
+   "checkMs": 13.199999988079071,
+   "box": {
+    "x0": 61,
+    "y0": 70,
+    "x1": 127,
+    "y1": 127
+   },
+   "finalMs": 987.6999999880791,
+   "sweep": {
+    "parts": 71,
+    "galleries": 70,
+    "washes": 1,
+    "roofs": 0
+   },
+   "rubble": 0
+  },
+  {
+   "case": "longest-399-tiles-100-100",
+   "worn": 11985,
+   "held": 7144,
+   "fell": 40,
+   "dropped": 0,
+   "ms": 713.6999999880791,
+   "checkMs": 11,
+   "box": {
+    "x0": 61,
+    "y0": 70,
+    "x1": 127,
+    "y1": 127
+   },
+   "finalMs": 760.5999999940395,
+   "sweep": {
+    "parts": 71,
+    "galleries": 70,
+    "washes": 1,
+    "roofs": 0
+   },
+   "rubble": 0
+  },
+  {
+   "case": "longest-399-tiles-100-100",
+   "worn": 11985,
+   "held": 7144,
+   "fell": 40,
+   "dropped": 0,
+   "ms": 764.5999999940395,
+   "checkMs": 6.5,
+   "box": {
+    "x0": 61,
+    "y0": 70,
+    "x1": 127,
+    "y1": 127
+   },
+   "finalMs": 805,
+   "sweep": {
+    "parts": 71,
+    "galleries": 70,
+    "washes": 1,
+    "roofs": 0
+   },
+   "rubble": 0
+  }
+ ],
+ "undoRedoEscTryAnother": "PASS",
+ "singleUndoStep": "PASS",
+ "objectsRestored": "PASS",
+ "cameraUnchanged": "PASS",
+ "gifBytes": 2491358,
+ "pageErrors": []
+}

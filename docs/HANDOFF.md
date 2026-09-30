@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D331) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D342) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
@@ -62,9 +62,9 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    - **Batch 6, documents** (D326; items 33, 23, then 34): `dev`, the main clone, `routine` (Sonnet 5.5, medium);
      started 2026-09-29.
    Batches 2 and 3 merge into `feature/forces` in the order 3, 2, 1. When all three are in, the session deploys the
-   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** #74 (Erode round 7, roofs, is
-   with Codex; don't merge), Real places (D319), items 19 (Spring) and 45 (flow arrows).
+   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** Real places (D319), items 19 (Spring) and 45 (flow arrows).
 5. **Item 34, at the forces release boundary** (batch 6, D326; converts existing files, adds no parallel ones):
+   `docs/ARCHITECTURE.md` includes D342 (operations only, a headless core, questions as plain core functions, reasons for every refusal, contract tests on the core).
    STATUS §7's workstream table becomes `docs/WORK.md` (claim before starting); the progress docs' top notes become
    fixed-format hand-back notes; STATUS shrinks to its short summary and drops "Decisions since M8"; PLAN §20 splits one
    file per decision in the same pass as item 33's statuses; tests are renamed as the specification only when touched.
@@ -98,7 +98,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.
 11. **Held for Kyler, nothing to do until he answers** (STATUS §1): the High look's sitting (item 3's verdict; D310's option (a) is settled, batch 4); the High look (#75, `build`); Drought and Badtide day by day
    (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting).
-12. **Erode (Codex; #74, `investigation/erode`):** Kyler approved round 2 ("magical, almost perfect") and round 3
+12. **Erode: merged into `dev` as an investigation (be2342a2, #74 at 47c02e67, rounds 2–9, Kyler's approval); adoption at 3D step 3.** Earlier notes: Kyler approved round 2 ("magical, almost perfect") and round 3
    (89305ca6) landed and was approved: its flat-ground wash. Round 4 is with Codex now, narrow: washes across
    uneven ground, and telling a wash sweep from a cliff sweep. **Next:** wait for Codex's round 4; when it lands,
    check the automatic support check passes (0 dropped voxels); then hold #74 for Kyler's look; merge it as an
@@ -116,7 +116,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D332**.
+number on `dev` is **#94**. The next decision is **D343**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -138,7 +138,7 @@ clean and matched origin at the pause.
 | The look (batch 4, D324) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | 86eddaea | `build-light`; built 2026-09-29, CI green; held for Kyler's High look sitting |
 | Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
-| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` | 89305ca6 | rounds 2 and 3 approved by Kyler; round 4 (washes on uneven ground, wash vs cliff sweep) with Codex; then Kyler's look |
+| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` (Kyler's demo runs here) | 47c02e67 | merged into `dev` (be2342a2), rounds 2–9 approved by Kyler; adoption at 3D step 3 |
 | The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aaa | done; already in `feature/forces` |
 | Kyler's review worktree | `review/m9a-set` | — | `DamGoodMaps-review` | 6575ebc9 | the M9a review set; not written to by agents |
 
@@ -167,7 +167,7 @@ Both are released: M9a as `m9a-done` (2026-09-27, #80), Live editing as `live-ed
 
 - **Live on `main`** (a4af2bb0): everything to `m9a-done`, generator 0.7.0.
 - **Held for Kyler:** the forces and Glaciate (his sitting), M9b (his eye), the High look and the water shades (D310),
-  Drought and Badtide day by day, Erode.
+  Drought and Badtide day by day.
 - **Waiting on Kyler:** STATUS §1.
 
 ## 6. Open questions
@@ -181,9 +181,9 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
 - **Progress log** (D221): a short, plain comment on [#57](https://github.com/timbermods/dam-good-maps/issues/57) each time
   a step finishes, something is released, a probe batch runs or something is parked for Kyler (what happened, links, what's
   next). `docs/STATUS.md` stays the full record, with its summary at the top.
-- **Pings:** when Kyler asks for one, or something waits on him and he may have walked away: `powershell -NoProfile
+- **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his eye, an approval, a probe batch awaiting his yes, work stuck on his side, anything broken he sees or plays), never for progress, green CI or information. Each ping: one or two lines on what's needed, where, and what carries on meanwhile; batch non-urgent asks; never wait silently. The toast: `powershell -NoProfile
   -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body "<where>"` (a Windows toast on this
-  machine; the PushNotification tool is skipped while he is at the terminal) and a chat line such as "🔔🔔 … 🔔🔔".
+  machine; the PushNotification tool is skipped while he is at the terminal), a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; give each e2e run its own free port; CI runs the specs in four parallel shards, `--shard=i/4`, so a run there is `browser (i/4)` jobs, not one long job),
   `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
@@ -213,12 +213,14 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
   `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
+- **What every session does** (D332): pings Kyler the moment his attention or input is needed (Â§7, "Pings"), and never waits on him silently.
+- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **What every milestone and handoff does** (D326): at each month's end, copy the Progress log (#57) to
   `docs/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D332), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D343), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
@@ -235,7 +237,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   | (idle: M9a is released) | `m9a-build` (kept) | Opus 5.5, xhigh |
   | The forces and the fixes from Kyler's sitting, the Glaciate adoption, the 3D foundations and water engine (wiring after the forces and M9b merge), the High look's fixes, Erode's adoption; anything touching the water simulation, the generator's processes or the forces | `build` | Opus 5.5, high |
   | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5.5, high |
-  | Batch 3's well-specified items (D318 (2)'s trial of medium; removed once judged) | `build-light-medium` | Sonnet 5.5, medium |
+  | Self-contained items with a clear spec (D341) | `build-light-medium` | Sonnet 5.5, medium |
   | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
   | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
   | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
@@ -248,7 +250,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   wrapper, so write scripts to files; foreground `sleep` chains are blocked (use background commands or until-loops).
   (The old machine's Store Python couldn't read `%LOCALAPPDATA%\Temp`; this machine's Python can.)
 - Off-limits: Kyler's `Documents` folder (it holds secrets; never read it); his saves, settings and mods except through the
-  probe runner; `C:\dgm-reference\` (his in-game screenshots: look, never copy, crop or commit); `C:\dgm-workshop\` (other
+  probe runner; `C:\dgm-reference\` (his in-game screenshots: look, never copy, crop or commit; **amended by Kyler, 2026-09-29:** thirteen of his Timberborn screenshots, from Steam's screenshot folder for app 1062090, are committed downscaled in `docs/look/reference/timberborn/` as a visual reference for the look only, never as textures or assets, with one read-only copy of his map `pair-map.timber`; nothing else is copied, and nothing else of `Documents` is read); `C:\dgm-workshop\` (other
   creators' maps and local review pages: never commit); the decompiled game code in `investigation/decompiled/` and the
   official maps in `investigation/raw/` (gitignored; for answers only, never copied).
 - **Shared machine:** agents stop only processes whose command line names their own worktree (one cleanup once killed another

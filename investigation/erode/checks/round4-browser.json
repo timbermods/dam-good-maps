@@ -1,0 +1,118 @@
+{
+ "result": "PASS",
+ "note": "128², installed Chrome; finalMs includes worker planning and final view update from gesture end",
+ "cases": [
+  {
+   "case": "wash-terraces-up",
+   "worn": 7154,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 21.599999994039536,
+   "checkMs": 8.600000008940697,
+   "box": {
+    "x0": 12,
+    "y0": 43,
+    "x1": 127,
+    "y1": 82
+   },
+   "finalMs": 660.7000000029802,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  },
+  {
+   "case": "wash-terraces-down",
+   "worn": 7154,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 17.299999997019768,
+   "checkMs": 7.700000002980232,
+   "box": {
+    "x0": 12,
+    "y0": 43,
+    "x1": 127,
+    "y1": 82
+   },
+   "finalMs": 665.2999999970198,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  },
+  {
+   "case": "wash-step",
+   "worn": 6045,
+   "held": 0,
+   "fell": 0,
+   "dropped": 0,
+   "ms": 11.700000002980232,
+   "checkMs": 14.700000002980232,
+   "box": {
+    "x0": 27,
+    "y0": 44,
+    "x1": 127,
+    "y1": 81
+   },
+   "finalMs": 666.2000000029802,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  },
+  {
+   "case": "wash-terraces-down-100",
+   "worn": 14063,
+   "held": 0,
+   "fell": 3,
+   "dropped": 0,
+   "ms": 18.5,
+   "checkMs": 5.5,
+   "box": {
+    "x0": 9,
+    "y0": 40,
+    "x1": 127,
+    "y1": 86
+   },
+   "finalMs": 665.5,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  },
+  {
+   "case": "wash-step-100",
+   "worn": 12443,
+   "held": 0,
+   "fell": 3,
+   "dropped": 0,
+   "ms": 15.800000011920929,
+   "checkMs": 4,
+   "box": {
+    "x0": 25,
+    "y0": 41,
+    "x1": 127,
+    "y1": 84
+   },
+   "finalMs": 668.4000000059605,
+   "details": {
+    "winding": 60,
+    "sideGullies": 30,
+    "dryFalls": 51,
+    "undercutBanks": 62
+   }
+  }
+ ],
+ "immediateNextGesture": "PASS",
+ "pageErrors": []
+}

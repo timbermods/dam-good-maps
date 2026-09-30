@@ -33,7 +33,11 @@
     { "term": "hold to dig", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
     { "term": "precise mode", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
     { "term": "waypoint", "retired": "D321", "instead": "the freehand path: a drag draws the travelling force's path (item 41)" },
-    { "term": "aim arrow", "retired": "D321", "instead": "the drawn line: a drag shows the line the player draws (item 41)" }
+    { "term": "aim arrow", "retired": "D321", "instead": "the drawn line: a drag shows the line the player draws (item 41)" },
+    { "term": "Generate, keeping my edits", "retired": "D336", "instead": "Generate: every Generate makes a new map; an edited map stays saved and one step away (Back to editing)" },
+    { "term": "Discard edits", "retired": "D336", "instead": "Generate: the edited map stays saved beside the new one" },
+    { "term": "lets you edit what the generator made", "retired": "D336", "instead": "an older map opens exactly as it was saved; no rebuild keeps its edits" },
+    { "term": "rebuildWithCurrentGenerator", "retired": "D336", "instead": "edits never replay onto new land: an older map opens exactly as it was saved" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

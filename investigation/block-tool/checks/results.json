@@ -1,0 +1,42 @@
+{
+  "seed": 335,
+  "gestures": 864,
+  "steps": 2137,
+  "accepted": 1785,
+  "refused": 199,
+  "noops": 153,
+  "dropped": 0,
+  "ghostMismatches": 0,
+  "refusalMutations": 0,
+  "replayMismatches": 0,
+  "maxPreviewMs": 7.378799999998591,
+  "coverage": [
+    {
+      "id": "cliff",
+      "dimensions": [
+        128,
+        128
+      ],
+      "gestures": 288,
+      "faces": 19421
+    },
+    {
+      "id": "cave",
+      "dimensions": [
+        128,
+        128
+      ],
+      "gestures": 288,
+      "faces": 19713
+    },
+    {
+      "id": "flat",
+      "dimensions": [
+        128,
+        128
+      ],
+      "gestures": 288,
+      "faces": 21972
+    }
+  ]
+}
