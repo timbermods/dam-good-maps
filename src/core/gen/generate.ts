@@ -23,7 +23,7 @@
 // the map is the same on every machine).
 
 import { sourcesInFlow } from "../analysis/sources";
-import { straightness, tooStraight } from "../analysis/straight";
+import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
@@ -1281,7 +1281,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water, start and objects are planned again on it
     if (!from) {
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
-      if (!lastAttempt && tooStraight(straightness(W, H, est))) return fail("ruler-straight channel", null, true);
+      // (with a margin: the settled water's banks run a little straighter than the planned water's, and
+      // a shown land can't be planned again for it, D348)
+      if (!lastAttempt) {
+        const st = straightness(W, H, est);
+        if ((st.longest?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.run || (st.canal?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.canal) return fail("ruler-straight channel", null, true);
+      }
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
@@ -1781,6 +1786,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   return {
     passed,
     stage: landStage,
+    // (a ruler-straight channel on a shown land is its water's shape: no plan on it mends that)
+    stuck: !passed && !!straight,
     // (a map that passed without storage near the start may be planned again on its field, for one)
     replannable: same && (!passed || info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
     result: {
