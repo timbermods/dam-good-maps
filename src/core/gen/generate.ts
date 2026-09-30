@@ -199,6 +199,9 @@ export interface GenerateOptions {
   variety?: number;
   /** Each attempt as it ends, passed or failed (information, for the measures). */
   onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult }) => void;
+  /** A land needs a second place for a start, away from the first, before it is shown; false turns
+   *  it off (for measuring it). */
+  secondStart?: boolean;
   /** The land-stage screen on the planned water's outcomes (`landScreen`); false turns it off (for
    *  the measures). */
   screen?: boolean;
@@ -1385,7 +1388,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // ground above 16 on a map that is not tall, no ruler-straight channel or dam wall on the water its
     // rivers were planned with (both run again on the settled water), and (the first lands, within
     // `landScreen`) the theme's promise and a readable water story on that water; then a place for a
-    // start on it (D333 (2): a land with none is drawn again before any settle). A land that passes
+    // start on it (D333 (2): a land with none is drawn again before any settle), and a second place
+    // away from the first. A land that passes
     // is the map from here on, shown at once (the first look, editable land) and kept while its
     // water, start and objects are planned again on it
     if (!from) {
@@ -1413,6 +1417,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     guess = settlerOn(est, zero, moisture(h, est, zero, W, H, null), 0, avoidOf(null));
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
+      // (and a second place, away from the first: a land with one place for a start has nothing to
+      // fall back on when the settled water or the objects fail it, and a shown land can't be drawn
+      // again, D348)
+      if (guess && !lastAttempt && opts.secondStart !== false) {
+        const off = avoidOf(null);
+        markTried(off, guess, W, H);
+        if (!settlerOn(est, zero, moisture(h, est, zero, W, H, null), 5, off)) return fail("one place for a start", null, true);
+      }
       firstLook = Math.round(performance.now() - t0);
       landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
@@ -1786,12 +1798,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!cache.get(model)) {
         const pv = previewSettle({ model: b1.waterModel, water: b1.settle }, model);
         if (wetRing({ ...bw, water: pv.depth, contamination: pv.contamination, waterModel: model } as BuildResult, cur)) {
+          // (the next start is found on the ground as it was, before this one's pad)
+          const levelled = h.slice();
+          h.set(hBefore);
           const again = nextStart(cur);
           if (again) {
-            h.set(hBefore);
             cur = again;
             continue;
           }
+          h.set(levelled);
         }
       }
     }
@@ -1840,9 +1855,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
     // attempt keeps what it has)
-    const again = tryN + 1 < START_TRIES && !lastAttempt ? nextStart(cur) : null;
-    if (!again) return fail(why, b, true);
+    if (!(tryN + 1 < START_TRIES) || lastAttempt) return fail(why, b, true);
+    const levelled = h.slice();
     h.set(hBefore);
+    const again = nextStart(cur);
+    if (!again) {
+      h.set(levelled);
+      return fail(why, b, true);
+    }
     cur = again;
   }
   pick = cur;  if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
