@@ -89,7 +89,7 @@ differently, this file wins.
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
 | 3D-4 | Terrain above terrain, step 4: generation, once M9b has settled | DESIGN.md §5 · PLAN §5.9 · D123, D132, D138, D280 | a probe batch (T1–T4, T6, T7; D145) | high |
 | Weather | Weather view: the drought line and a map-card line; Drought and Badtide day by day (#73) with the contamination veins and the Unstable Core's moment; closes step 1, after "The page is the editor" (D285, D349) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
-| Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
+| Design | Design pass, in step 3, polish, after 3D: Kyler's editor UI audit, then the design pass (D236, D349) | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration (deferred until Kyler resumes it, D277) | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
 | M13 | Problem reports, shortcuts and help, a final performance pass, folded into the polish step before collaborative editing (D285, D349) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
 | Later | See the end of this file, now including versioned deploys, mobile layouts and the build time-lapse (D285) | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
@@ -117,7 +117,7 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   `3d-c-done` split;
 - the Weather view (slimmed to the drought line and a map-card line, D285 (2)): tagged
   `weather-view-done`;
-- the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236);
+- the design pass: tagged `design-done` (in step 3, polish, after 3D, following Kyler's editor UI audit; D236, D349);
   **housekeeping** (the former refinement phase's remaining items, D283 (3)) has no milestone, gate
   or tag — each item ships on its own, when convenient;
 - after M12: Claude.
@@ -1104,10 +1104,8 @@ full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser w
 changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
 way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
 exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
-pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
-his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
-M9b doesn't wait for this step: it runs in parallel with it and takes the machine first when the two compete
-(D236).
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview. Kyler's editor UI audit and the design pass come later, in step 3, polish, after 3D (D349),
+so both judge the finished editor.
 
 **Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
 always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
@@ -1177,9 +1175,8 @@ it's chosen for (blocking: what a player feels). **High's frame rate is measured
 
 ## Design pass
 
-Straight after Kyler's editor UI audit of the combined page and editor, which follows "The page is the editor" on the
-preview (Kyler, 2026-09-26; PLAN §20 D236; before that it came after M11 and the refinement phase). It runs alongside
-M9b, which takes the machine first. It is the Impeccable design pass with the timbermods design system, moved
+In step 3, polish, after 3D (Kyler, 2026-10-01, D349; earlier it followed "The page is the editor" straight away, D236),
+after Kyler's editor UI audit of the finished editor. It is the Impeccable design pass with the timbermods design system, moved
 from M13 and then forward to here. It follows the impeccable-app-flow skill
 (timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
 MEANING.md behind: the design records every later interface follows (D176, D236).
@@ -1672,6 +1669,8 @@ Once M9b has settled (D280 (4)).
 
 ## Weather view
 
+**Also required (Kyler, 2026-10-01, D361):** the day-by-day view can stay on any chosen day (the drought's worst day, say) without cycling back to the start, and steps forward and back one day at a time.
+
 After the 3D stages (Kyler, 2026-09-25; PLAN §20 D133, D253; **slimmed by D285 (2)**, 2026-09-27:
 the separate timeline and its plain-language summary are dropped; the strategy axes move to M9b as
 information instead).
@@ -2087,6 +2086,8 @@ loaded in the game, their water checked against our model, the game's smoothness
 reported. PLAN §20 D357 has the whole decision.
 
 ## Collaborative editing (D349)
+
+**The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
 
 After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
 ordered list of operations; each browser rebuilds the map from it, so both see identical terrain and water (every

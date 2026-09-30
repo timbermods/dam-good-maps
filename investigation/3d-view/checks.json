@@ -1,0 +1,1302 @@
+{
+  "gpu": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+    "width": 1200,
+    "height": 750,
+    "dpr": 1
+  },
+  "errors": [],
+  "results": [
+    {
+      "id": "heightfield",
+      "look": "standard",
+      "repeat": 0,
+      "frames": 594,
+      "rendered": 595,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 12.19999999999709,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 81899.30000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 79059481
+        },
+        "last": {
+          "id": 594,
+          "at": 85513.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 28920259
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "heightfield",
+      "look": "standard",
+      "repeat": 1,
+      "frames": 578,
+      "rendered": 579,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.600000000005821,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 86097.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 30078000
+        },
+        "last": {
+          "id": 578,
+          "at": 89600.80000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 30838156
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "heightfield",
+      "look": "standard",
+      "repeat": 2,
+      "frames": 578,
+      "rendered": 579,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.5,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 89788.89999997616,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 33658664
+        },
+        "last": {
+          "id": 578,
+          "at": 93293.5,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 134,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 31217428
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "many-caves",
+      "look": "standard",
+      "repeat": 0,
+      "frames": 578,
+      "rendered": 579,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.30000000000291,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 94446.80000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 51006879
+        },
+        "last": {
+          "id": 578,
+          "at": 97951.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 50913051
+        }
+      },
+      "slowCalls": [
+        {
+          "name": "renderNow",
+          "start": 95421.69999998808,
+          "end": 95431.59999996424
+        }
+      ]
+    },
+    {
+      "id": "many-caves",
+      "look": "standard",
+      "repeat": 1,
+      "frames": 582,
+      "rendered": 583,
+      "p50": 6.099999999991269,
+      "p99": 6.30000000000291,
+      "max": 7.30000000000291,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 98097.09999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 35649252
+        },
+        "last": {
+          "id": 582,
+          "at": 101626.5,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 32877584
+        }
+      },
+      "slowCalls": [
+        {
+          "name": "renderNow",
+          "start": 100418.69999998808,
+          "end": 100429
+        }
+      ]
+    },
+    {
+      "id": "many-caves",
+      "look": "standard",
+      "repeat": 2,
+      "frames": 579,
+      "rendered": 580,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.2000000000116415,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 102341.80000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 31840244
+        },
+        "last": {
+          "id": 579,
+          "at": 105852.89999997616,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 140,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 30712539
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "heightfield",
+      "look": "high",
+      "repeat": 0,
+      "frames": 579,
+      "rendered": 580,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.2000000000116415,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 107278.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 51245963
+        },
+        "last": {
+          "id": 579,
+          "at": 110790.5,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 51132759
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "heightfield",
+      "look": "high",
+      "repeat": 1,
+      "frames": 577,
+      "rendered": 578,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 12.19999999999709,
+      "hitches": [
+        {
+          "at": 112147,
+          "dt": 12.19999999999709,
+          "visibility": "visible",
+          "focused": true,
+          "neighborMedian": 6,
+          "sources": [
+            {
+              "name": "renderNow",
+              "duration": 0.6000000238418579
+            }
+          ],
+          "unattributed": true,
+          "attribution": "unattributed; overlapping method spans are context, not proven causes"
+        }
+      ],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 111146.89999997616,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 30660244
+        },
+        "last": {
+          "id": 577,
+          "at": 114653.69999998808,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 31205464
+        }
+      },
+      "slowCalls": [
+        {
+          "name": "renderNow",
+          "start": 111771.09999996424,
+          "end": 111780.80000001192
+        }
+      ]
+    },
+    {
+      "id": "heightfield",
+      "look": "high",
+      "repeat": 2,
+      "frames": 583,
+      "rendered": 584,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.2000000000116415,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 114870.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 33361880
+        },
+        "last": {
+          "id": 583,
+          "at": 118406,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 146,
+          "calls": 65,
+          "triangles": 22786,
+          "heap": 33702104
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "many-caves",
+      "look": "high",
+      "repeat": 0,
+      "frames": 582,
+      "rendered": 583,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.69999999999709,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 119976.80000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 51170131
+        },
+        "last": {
+          "id": 582,
+          "at": 123505.59999996424,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 54824251
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "many-caves",
+      "look": "high",
+      "repeat": 1,
+      "frames": 586,
+      "rendered": 587,
+      "p50": 6.099999999991269,
+      "p99": 6.5,
+      "max": 7.5,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 123851.80000001192,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 48974296
+        },
+        "last": {
+          "id": 586,
+          "at": 127405.39999997616,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 52651172
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "many-caves",
+      "look": "high",
+      "repeat": 2,
+      "frames": 577,
+      "rendered": 578,
+      "p50": 6.099999999991269,
+      "p99": 6.2000000000116415,
+      "max": 6.30000000000291,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 127544.39999997616,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 33500928
+        },
+        "last": {
+          "id": 577,
+          "at": 131043.69999998808,
+          "waterQueue": 0,
+          "geometries": 65,
+          "textures": 152,
+          "calls": 65,
+          "triangles": 24168,
+          "heap": 30525716
+        }
+      },
+      "slowCalls": []
+    },
+    {
+      "id": "canyon-cave",
+      "look": "standard",
+      "edit": true,
+      "frames": 276,
+      "rendered": 277,
+      "p50": 6.100000000005821,
+      "p99": 6.2000000000116415,
+      "max": 6.699999999982538,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 131650.59999996424,
+          "waterQueue": 0,
+          "geometries": 11,
+          "textures": 158,
+          "calls": 11,
+          "triangles": 3268,
+          "heap": 38165266
+        },
+        "last": {
+          "id": 276,
+          "at": 133323.59999996424,
+          "waterQueue": 0,
+          "geometries": 11,
+          "textures": 158,
+          "calls": 11,
+          "triangles": 3268,
+          "heap": 53652015
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 14.600000023841858,
+          "apply": 0.10000002384185791,
+          "latency": 15.100000023841858
+        },
+        {
+          "worker": 18.900000035762787,
+          "apply": 0.10000002384185791,
+          "latency": 19.399999976158142
+        },
+        {
+          "worker": 20,
+          "apply": 0.10000002384185791,
+          "latency": 21.100000023841858
+        },
+        {
+          "worker": 25.30000001192093,
+          "apply": 0.10000002384185791,
+          "latency": 25.80000001192093
+        },
+        {
+          "worker": 14.5,
+          "apply": 0,
+          "latency": 15
+        },
+        {
+          "worker": 12.700000047683716,
+          "apply": 0.09999996423721313,
+          "latency": 13.699999988079071
+        },
+        {
+          "worker": 14.100000023841858,
+          "apply": 0.10000002384185791,
+          "latency": 14.699999988079071
+        },
+        {
+          "worker": 16.5,
+          "apply": 0,
+          "latency": 16.900000035762787
+        },
+        {
+          "worker": 30.80000001192093,
+          "apply": 0.20000004768371582,
+          "latency": 31.30000001192093
+        },
+        {
+          "worker": 14.5,
+          "apply": 0.19999998807907104,
+          "latency": 15.199999988079071
+        },
+        {
+          "worker": 31.69999998807907,
+          "apply": 0.10000002384185791,
+          "latency": 32.5
+        },
+        {
+          "worker": 44,
+          "apply": 0.09999996423721313,
+          "latency": 44.59999996423721
+        },
+        {
+          "worker": 19.400000035762787,
+          "apply": 0.19999998807907104,
+          "latency": 20
+        },
+        {
+          "worker": 14,
+          "apply": 0,
+          "latency": 14.5
+        },
+        {
+          "worker": 12.800000011920929,
+          "apply": 0.19999998807907104,
+          "latency": 13.300000011920929
+        },
+        {
+          "worker": 12.099999964237213,
+          "apply": 0.10000002384185791,
+          "latency": 12.800000011920929
+        },
+        {
+          "worker": 55.09999996423721,
+          "apply": 0,
+          "latency": 55.69999998807907
+        }
+      ],
+      "revisions": {
+        "requested": 258,
+        "applied": 258,
+        "pending": 0
+      }
+    },
+    {
+      "id": "block-tunnel",
+      "look": "standard",
+      "edit": true,
+      "frames": 193,
+      "rendered": 194,
+      "p50": 6.099999999976717,
+      "p99": 6.2000000000116415,
+      "max": 6.2999999999883585,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 133936.69999998808,
+          "waterQueue": 0,
+          "geometries": 9,
+          "textures": 162,
+          "calls": 9,
+          "triangles": 1452,
+          "heap": 26602880
+        },
+        "last": {
+          "id": 193,
+          "at": 135107.5,
+          "waterQueue": 0,
+          "geometries": 9,
+          "textures": 162,
+          "calls": 9,
+          "triangles": 1452,
+          "heap": 51242140
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 36.40000003576279,
+          "apply": 0.10000002384185791,
+          "latency": 37
+        },
+        {
+          "worker": 16.700000047683716,
+          "apply": 0.10000002384185791,
+          "latency": 17.80000001192093
+        },
+        {
+          "worker": 26.30000001192093,
+          "apply": 0.19999998807907104,
+          "latency": 26.899999976158142
+        },
+        {
+          "worker": 23.399999976158142,
+          "apply": 0.19999998807907104,
+          "latency": 24.399999976158142
+        },
+        {
+          "worker": 15.899999976158142,
+          "apply": 0.09999996423721313,
+          "latency": 16.69999998807907
+        },
+        {
+          "worker": 15.300000011920929,
+          "apply": 0.10000002384185791,
+          "latency": 15.699999988079071
+        },
+        {
+          "worker": 16.69999998807907,
+          "apply": 1.0999999642372131,
+          "latency": 18.19999998807907
+        },
+        {
+          "worker": 66.5,
+          "apply": 0.09999996423721313,
+          "latency": 67.39999997615814
+        },
+        {
+          "worker": 28.200000047683716,
+          "apply": 0.10000002384185791,
+          "latency": 28.69999998807907
+        },
+        {
+          "worker": 21.400000035762787,
+          "apply": 0.10000002384185791,
+          "latency": 21.900000035762787
+        }
+      ],
+      "revisions": {
+        "requested": 270,
+        "applied": 270,
+        "pending": 0
+      }
+    },
+    {
+      "id": "rift",
+      "look": "standard",
+      "edit": true,
+      "frames": 323,
+      "rendered": 324,
+      "p50": 6.100000000005821,
+      "p99": 6.2000000000116415,
+      "max": 6.2000000000116415,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 135624.09999996424,
+          "waterQueue": 0,
+          "geometries": 17,
+          "textures": 165,
+          "calls": 17,
+          "triangles": 12784,
+          "heap": 65970307
+        },
+        "last": {
+          "id": 323,
+          "at": 137582.19999998808,
+          "waterQueue": 0,
+          "geometries": 17,
+          "textures": 165,
+          "calls": 17,
+          "triangles": 12784,
+          "heap": 57594127
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 45.799999952316284,
+          "apply": 0.800000011920929,
+          "latency": 47.10000002384186
+        },
+        {
+          "worker": 16.099999964237213,
+          "apply": 0.19999998807907104,
+          "latency": 16.69999998807907
+        },
+        {
+          "worker": 15.600000023841858,
+          "apply": 0.19999998807907104,
+          "latency": 16.399999976158142
+        },
+        {
+          "worker": 25,
+          "apply": 0.20000004768371582,
+          "latency": 25.600000023841858
+        },
+        {
+          "worker": 32.5,
+          "apply": 0.19999998807907104,
+          "latency": 32.90000003576279
+        },
+        {
+          "worker": 40.19999998807907,
+          "apply": 0.10000002384185791,
+          "latency": 40.69999998807907
+        },
+        {
+          "worker": 38.39999997615814,
+          "apply": 0.19999998807907104,
+          "latency": 38.80000001192093
+        },
+        {
+          "worker": 20.599999964237213,
+          "apply": 0.19999998807907104,
+          "latency": 21.099999964237213
+        },
+        {
+          "worker": 18.899999976158142,
+          "apply": 0.5,
+          "latency": 23.099999964237213
+        },
+        {
+          "worker": 18.600000023841858,
+          "apply": 0.10000002384185791,
+          "latency": 19.100000023841858
+        },
+        {
+          "worker": 30.19999998807907,
+          "apply": 0.40000003576278687,
+          "latency": 30.900000035762787
+        },
+        {
+          "worker": 42.59999996423721,
+          "apply": 0.19999998807907104,
+          "latency": 43.09999996423721
+        },
+        {
+          "worker": 23.69999998807907,
+          "apply": 0.10000002384185791,
+          "latency": 24.100000023841858
+        },
+        {
+          "worker": 20.600000023841858,
+          "apply": 0.30000001192092896,
+          "latency": 22.80000001192093
+        },
+        {
+          "worker": 67.69999998807907,
+          "apply": 0,
+          "latency": 68.09999996423721
+        },
+        {
+          "worker": 73.79999995231628,
+          "apply": 0,
+          "latency": 74.10000002384186
+        },
+        {
+          "worker": 73.80000001192093,
+          "apply": 0,
+          "latency": 74.19999998807907
+        }
+      ],
+      "revisions": {
+        "requested": 289,
+        "applied": 289,
+        "pending": 0
+      }
+    },
+    {
+      "id": "canyon-cave",
+      "look": "high",
+      "edit": true,
+      "frames": 278,
+      "rendered": 279,
+      "p50": 6.099999999976717,
+      "p99": 6.2000000000116415,
+      "max": 6.2000000000116415,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 138120.69999998808,
+          "waterQueue": 0,
+          "geometries": 11,
+          "textures": 171,
+          "calls": 11,
+          "triangles": 3268,
+          "heap": 31168655
+        },
+        "last": {
+          "id": 278,
+          "at": 139806.19999998808,
+          "waterQueue": 0,
+          "geometries": 11,
+          "textures": 171,
+          "calls": 11,
+          "triangles": 3268,
+          "heap": 24012335
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 51.59999996423721,
+          "apply": 0.10000002384185791,
+          "latency": 52.60000002384186
+        },
+        {
+          "worker": 18.899999976158142,
+          "apply": 0,
+          "latency": 21.100000023841858
+        },
+        {
+          "worker": 29.100000023841858,
+          "apply": 0.20000004768371582,
+          "latency": 29.900000035762787
+        },
+        {
+          "worker": 20.5,
+          "apply": 0.19999998807907104,
+          "latency": 21
+        },
+        {
+          "worker": 13.100000023841858,
+          "apply": 0,
+          "latency": 13.5
+        },
+        {
+          "worker": 13.5,
+          "apply": 0.09999996423721313,
+          "latency": 14.099999964237213
+        },
+        {
+          "worker": 16,
+          "apply": 0.10000002384185791,
+          "latency": 17.19999998807907
+        },
+        {
+          "worker": 14.300000011920929,
+          "apply": 0.09999996423721313,
+          "latency": 14.799999952316284
+        },
+        {
+          "worker": 14.299999952316284,
+          "apply": 0.10000002384185791,
+          "latency": 14.700000047683716
+        },
+        {
+          "worker": 28.30000001192093,
+          "apply": 0.10000002384185791,
+          "latency": 28.80000001192093
+        },
+        {
+          "worker": 15.699999988079071,
+          "apply": 0,
+          "latency": 16.099999964237213
+        },
+        {
+          "worker": 21.30000001192093,
+          "apply": 0.10000002384185791,
+          "latency": 21.69999998807907
+        },
+        {
+          "worker": 31.5,
+          "apply": 0,
+          "latency": 32
+        },
+        {
+          "worker": 16.19999998807907,
+          "apply": 0.10000002384185791,
+          "latency": 16.900000035762787
+        },
+        {
+          "worker": 13.399999976158142,
+          "apply": 0.10000002384185791,
+          "latency": 13.800000011920929
+        },
+        {
+          "worker": 18.5,
+          "apply": 0.10000002384185791,
+          "latency": 19.100000023841858
+        },
+        {
+          "worker": 31.80000001192093,
+          "apply": 0,
+          "latency": 32.5
+        }
+      ],
+      "revisions": {
+        "requested": 308,
+        "applied": 308,
+        "pending": 0
+      }
+    },
+    {
+      "id": "block-tunnel",
+      "look": "high",
+      "edit": true,
+      "frames": 178,
+      "rendered": 179,
+      "p50": 6.099999999976717,
+      "p99": 6.2000000000116415,
+      "max": 6.5,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 140285.80000001192,
+          "waterQueue": 0,
+          "geometries": 9,
+          "textures": 175,
+          "calls": 9,
+          "triangles": 1452,
+          "heap": 38793265
+        },
+        "last": {
+          "id": 178,
+          "at": 141364.80000001192,
+          "waterQueue": 0,
+          "geometries": 9,
+          "textures": 175,
+          "calls": 9,
+          "triangles": 1452,
+          "heap": 63491149
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 16.899999976158142,
+          "apply": 0.09999996423721313,
+          "latency": 17.299999952316284
+        },
+        {
+          "worker": 14.399999976158142,
+          "apply": 0.09999996423721313,
+          "latency": 14.899999976158142
+        },
+        {
+          "worker": 15.899999976158142,
+          "apply": 0.09999996423721313,
+          "latency": 16.5
+        },
+        {
+          "worker": 26.899999976158142,
+          "apply": 0,
+          "latency": 27.400000035762787
+        },
+        {
+          "worker": 27.19999998807907,
+          "apply": 0.09999996423721313,
+          "latency": 28
+        },
+        {
+          "worker": 20.69999998807907,
+          "apply": 0.10000002384185791,
+          "latency": 22.100000023841858
+        },
+        {
+          "worker": 15.199999988079071,
+          "apply": 0.10000002384185791,
+          "latency": 15.899999976158142
+        },
+        {
+          "worker": 19.30000001192093,
+          "apply": 0.09999996423721313,
+          "latency": 19.799999952316284
+        },
+        {
+          "worker": 13,
+          "apply": 0.10000002384185791,
+          "latency": 13.600000023841858
+        },
+        {
+          "worker": 23.69999998807907,
+          "apply": 0,
+          "latency": 24.30000001192093
+        }
+      ],
+      "revisions": {
+        "requested": 320,
+        "applied": 320,
+        "pending": 0
+      }
+    },
+    {
+      "id": "rift",
+      "look": "high",
+      "edit": true,
+      "frames": 287,
+      "rendered": 288,
+      "p50": 6.099999999976717,
+      "p99": 6.2999999999883585,
+      "max": 6.600000000005821,
+      "hitches": [],
+      "longTasks": [],
+      "glitches": [],
+      "findings": [],
+      "discontinuities": [],
+      "instrumentation": {
+        "pauses": [],
+        "frames": [],
+        "tasks": []
+      },
+      "memory": {
+        "first": {
+          "id": 0,
+          "at": 141843.80000001192,
+          "waterQueue": 0,
+          "geometries": 17,
+          "textures": 178,
+          "calls": 17,
+          "triangles": 12784,
+          "heap": 78522055
+        },
+        "last": {
+          "id": 287,
+          "at": 143584.80000001192,
+          "waterQueue": 0,
+          "geometries": 17,
+          "textures": 178,
+          "calls": 17,
+          "triangles": 12784,
+          "heap": 52282319
+        }
+      },
+      "slowCalls": [],
+      "timings": [
+        {
+          "worker": 38.59999996423721,
+          "apply": 0.40000003576278687,
+          "latency": 39.30000001192093
+        },
+        {
+          "worker": 12.800000011920929,
+          "apply": 0,
+          "latency": 13.099999964237213
+        },
+        {
+          "worker": 20.5,
+          "apply": 0.19999998807907104,
+          "latency": 20.899999976158142
+        },
+        {
+          "worker": 17.69999998807907,
+          "apply": 0.09999996423721313,
+          "latency": 18
+        },
+        {
+          "worker": 16.799999952316284,
+          "apply": 0.10000002384185791,
+          "latency": 17.30000001192093
+        },
+        {
+          "worker": 18.799999952316284,
+          "apply": 0.30000001192092896,
+          "latency": 19.400000035762787
+        },
+        {
+          "worker": 18.80000001192093,
+          "apply": 0.19999998807907104,
+          "latency": 19.400000035762787
+        },
+        {
+          "worker": 21.399999976158142,
+          "apply": 0.09999996423721313,
+          "latency": 21.80000001192093
+        },
+        {
+          "worker": 28.399999976158142,
+          "apply": 0.19999998807907104,
+          "latency": 28.899999976158142
+        },
+        {
+          "worker": 17.900000035762787,
+          "apply": 0.10000002384185791,
+          "latency": 18.30000001192093
+        },
+        {
+          "worker": 28.19999998807907,
+          "apply": 0,
+          "latency": 28.69999998807907
+        },
+        {
+          "worker": 33.30000001192093,
+          "apply": 0.10000002384185791,
+          "latency": 34
+        },
+        {
+          "worker": 36.799999952316284,
+          "apply": 0.10000002384185791,
+          "latency": 37.40000003576279
+        },
+        {
+          "worker": 16.100000023841858,
+          "apply": 0.10000002384185791,
+          "latency": 16.399999976158142
+        },
+        {
+          "worker": 46.80000001192093,
+          "apply": 0,
+          "latency": 47.10000002384186
+        },
+        {
+          "worker": 40.90000003576279,
+          "apply": 0,
+          "latency": 41.19999998807907
+        },
+        {
+          "worker": 33.39999997615814,
+          "apply": 0,
+          "latency": 33.69999998807907
+        }
+      ],
+      "revisions": {
+        "requested": 339,
+        "applied": 339,
+        "pending": 0
+      }
+    }
+  ]
+}
