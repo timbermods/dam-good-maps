@@ -62,6 +62,17 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
 - In a drought every source ramps to 0 over S/2.67 days before it and back after; in a badtide clean sources emit
   badwater at full strength (0.5 to 1.0 to 0.5). WS Q1, Q7.
 - 150 of the 170 official water sources are on from day 1; 20 are delayed (Nomads). WS Q1.
+- **A seep's stop (D337):** off while the water column at its own block coordinates (its origin tile) is deeper than 0.8,
+  back on below 0.72 (`WaterDepthStrengthModifier`, `DepthLimit` 0.8, 0.9 of it to restart). It starts off at every load
+  and turns on at the first tick only below 0.72; it fades back in at 0.5 a second, and goes off at once. So a pit a seep
+  alone feeds holds 0.72 to 0.8: the canonical start fills it only to 0.8 over the seep (`sim/prefill.ts` `flowThrough`).
+  Probe `parity-20260930`: the model run from the file gave 3.008 over a flooded seep, the game 3.010. [parity](progress/parity.md) "The probe's run".
+- **A sink (D337):** a negative strength takes dt·|S|/N from each of its tiles a substep, floored at dry
+  (`WaterDepthSetter`); the game caps a strength only from above. A 36-tile pit with a source of 1 and a sink of −1 lost
+  only what evaporates: 99.160 to 92.575 in 2,289 ticks; the model 92.572. Same probe.
+- **A start delay (D337):** `WaterSourceActivator` multiplies the strength by 0 until the countdown ends (cycle
+  `CyclesUntilCountdownActivation` reached and `DaysUntilActivation` days passed); the file's `CurrentStrength` is recomputed
+  at load. The file's water comes only from what runs at the start. Same probe: 0 at the load, 1 a day later.
 - Every official map has lasting badwater (18 of 19 a source; Spillage seeps; Nomads and Oasis time-activated), 1 / 2 / 4 /
   3.5 sources by size, 84% in a hollow, the nearest a median 56 tiles from the start. [badwater-source](progress/badwater-source.md) "The official maps"; D200.
 
@@ -75,7 +86,11 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
   99.79–100% of slots; the old model left 114 of 36,453 plants (seeds 1–3, 18 maps) on ground the game dries. PLAN §20 D298.
 - Plants die on moisture 0 (a timer of 0.9–1.1 x DaysToDieDry: pine 13, birch 11, oak 15, maple 12, chestnut 8,
   blueberry 9), on any water on their tile, or on any soil contamination (0.2–0.3 days); the timer resets when moisture
-  returns. Succulents die if moist. Dead trees keep their logs. WS Q4.
+  returns. Dead trees keep their logs. WS Q4.
+  - **Succulents** die on moist soil after 8 days × 0.9–1.1 (`AridNaturalResource`, `DaysToDieWet` 8; moist as for every
+    plant, `SoilIsMoist` at its tile), the timer reset whenever the soil dries; with water on their tile, after 4 days
+    (`FloodableNaturalResource`). None had died 4 days in (probe `parity-20260930`: the check was too short).
+  - **Corrected:** "succulents die if moist" (WS Q4) left out the 8-day timer.
 - **Yields** (the floor counts these): pine 2 logs, birch 1, oak 8, maple 6, chestnut 4, mangrove 2; growth in days: pine 12,
   birch 7, oak 30. WS Q4; D224.
 - A tree needs 3 free cells above it; the start needs 5. Nothing checks for sky or light. GR §5.
@@ -186,6 +201,11 @@ are recorded in M9A and [STATUS](STATUS.md) "Probe batches".
   landscape match the game. The game drops exactly the 24 voxels our rule predicts, half a day after loading. STATUS "Probe batches".
 - **Ceiling** (`ceiling-20260927`): editor-made land above 16 loads with its heights, water, objects and sources at 19–21. One
   failure, not about height: the badtide model contaminated one watched tile a moment before the game. D244.
+- **Parity** (`parity-20260930`, 7 maps, 10 of 15 checks passed): the Badtide Drain, the Aquifer with its drill and the
+  three reserves as the game's rules say. The water model run from each file matched the game (sink, seep, the core's
+  crater); the misses were the file's water (a seep's pit filled to its rim, a neighbour's overflow in a delayed source's
+  pit, the core's preview flooded the same way) and a succulent check too short. Fixed; the re-run waits for Kyler's yes.
+  [parity](progress/parity.md) "The probe's run".
 - **How it runs:** speed 99 (the game's own top), records inside the tick, no saves, its own folder, a confirm code per plan and
   launch. [probe REPORT](../investigation/probe/REPORT.md) decisions 3, 9, 12, 17.
 - Wet-tile counts are judged with a 0.01 band round the 0.05 line (D302). M9A "Kyler's D302".

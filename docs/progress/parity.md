@@ -75,10 +75,52 @@ launch the batch needs Kyler's yes in chat (CLAUDE.md).
 
 ## What falls short
 
-- Nothing here has been seen in Timberborn: the probe batch has not run.
+- Nothing here has been seen in Timberborn: the probe batch has not run. **Superseded:** it ran on 2026-09-30 (below, "The probe's run").
 - The blast view redraws the water by settling the changed ground again and recomputes moisture and soil on the height map; under
   roofs and hanging ground it is approximate (the view says how many tiles are roofed).
 - The Badtide Drain runs in the water model only during a badtide, and the day-by-day Badtide view (#73) does not exist yet.
 - A reserve's goods are only what the file says; the probe does not read inventories, so the amounts are judged by eye.
 - The models were checked at the render level, not against the game's meshes (they are original, as intended).
 - Natural Overhangs are not on the shelf (ROADMAP's 3D item 6 points to the Block tool, D338).
+
+## The probe's run (parity-20260930) and what it fixed
+
+Played in Timberborn 1.1.2.4 with Kyler's yes, 7 maps, with the installed mods; the restore was clean. The Badtide Drain, the
+Aquifer and its drill, and the three reserves passed. The five failures, each read against the game's code
+(`investigation/decompiled/`, never copied) and re-judged on the recorded data with this branch's checks
+(`--compare-only parity-20260930 --compare-to parity-20260930-rejudged`, `DGM_PROBE_PARITY` pointed at the played maps, kept in
+`C:\dgm-probe\parity-20260930\`):
+
+- **Seep.** The game's rule is the model's (off above 0.8 at its own tile, on below 0.72); the model run from the file gave 3.008
+  over the seep, the game 3.010. The file was wrong: the canonical start filled every basin on a running emitter's path to its
+  spill level, a seep's included, so the seep's pit started full (and the source beside it flooded the platform into it). Fixed
+  in `sim/prefill.ts`: a seep's water stands no higher than its anchor's floor plus 0.8. The model also starts a seep off, as
+  the game does at every load (on at the first tick only below 0.72). The Python prototype follows.
+- **Delay.** The delayed source ran no water in any settle (canonical, preview, live), as the game's `WaterSourceActivator`
+  says; its tile was wet from the other source's overflow over the shared platform, in the file and in the game alike. The
+  sample now walls the delayed source's pit a level above the platform. Ctrl+scroll over a delayed source wrote its current
+  strength as if it ran (the game recomputes it at load, so nothing played differently); it now uses the core's own patch.
+- **Sink.** The model matches the game (volume 92.572 against 92.575 after 2,289 ticks); the check compared the game after 3 days
+  with the file's water, so the pit's evaporation failed it. It now compares with the model run from the file for the ticks
+  the game played (`compare.ts` `parityForecast`); re-judged, it passes.
+- **Core.** Land and objects exact. The model run from the old file with the blast applied matches the game on 169 of 169
+  watched tiles; the preview missed because its canonical start walked the seep's water across the level plateau into the
+  crater (the seep fix above). The sample now breaches the pond, so the seep refills pond and crater, plays 8 calm days, and the
+  check compares the game's water once it has settled again (95% of the watched tiles within 0.1 of two days before) with the
+  preview's settled water. The blast preview also keeps the lakes a carve sealed.
+- **Succulents.** The game's rule: 8 days × 0.9–1.1 on moist soil (`AridNaturalResource`), not at once; 4 days was too short.
+  The map now plays 10 days, on the moistest tiles by the pond, and the check wants every moist one dead, none before 7.2 days.
+- **The runner** planned all 51 maps when `--group Parity` matched none (the maps were not written yet). A group or list that
+  matches nothing now refuses with a plain reason (`catalog.ts` `gameIdsFor`), in the self-test. Carry it to dev.
+- **One test re-pinned for the rule:** `water-speedups.test.ts`'s `seep_pit` digest, and its golden vectors regenerated with the
+  Python reference (`tools/export-fixtures.py`; only `seep_pit`'s pre-fill, settle and drought storage changed; the TypeScript
+  agrees within 1e-6).
+
+Tooltips (D351): the seep's says it starts again below 0.72, the succulent's that moist ground kills it in about 8 days, a
+delay's "Later" that the map's water leaves it out, More on a water object names Sink and the start, and Remove, × and Show
+after it goes off name their keys.
+
+**Next probe (after the forces release, Kyler's yes):** the seven Parity maps as written now (`npx tsx tools/probe-parity.ts`):
+the seep holding 0.72–0.8 in its own pit; the delayed pit dry at the load and filling only after its countdown; the sink
+against the model; the core's water settled again against the preview, with the pond breached; succulents on moist soil dying
+between 7.2 and 8.8 days. About 10 minutes of play.

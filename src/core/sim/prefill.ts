@@ -7,7 +7,8 @@
 // algorithm, checked against this one by the oracle):
 // - basins: a priority flood from the draining map edge gives every tile its spill level. Water
 //   from the sources runs downhill on that filled surface; every depression it passes through
-//   starts full, at its spill level (surfaces settle flat, notes/water_and_soil.md Q2);
+//   starts full, at its spill level (surfaces settle flat, notes/water_and_soil.md Q2); a seep's
+//   water stands no higher than its anchor's floor plus 0.8, where the game stops it (`flowThrough`);
 // - rivers: the other tiles on the water's path start at the depth an open channel carries its
 //   flow with, about 0.3·Q/w (Q the flow through the tile, w the channel width there; a lip tile
 //   passes all its water each substep, PLAN §9.2).
@@ -60,8 +61,15 @@ export function spillLevels(m: WaterModel): Float64Array {
 
 /** The flow through each tile (`q`, blocks a second: the strength of every running emitter whose
  *  water passes it, walking downhill or level on the filled surface), its badwater part, the tiles
- *  it passes (`path`) and the spill levels it walked on. */
-export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Array; path: Uint8Array; spill: Float64Array } {
+ *  it passes (`path`), the spill levels it walked on, and the level the water stands at on each
+ *  tile it reaches (`level`: the spill level, or lower where only a seep's water gets there).
+ *
+ *  A seep stops while more than its limit stands over it (0.8, the game's `WaterDepthStrengthModifier`),
+ *  so its water never stands higher than its anchor's floor plus that limit: out of a pit that spills
+ *  lower it runs on like a source's, but a pit that holds it fills only to that level, and its water
+ *  reaches only the ground lower than that (the probe's parity-20260930: the start filled such a pit
+ *  to its rim, and the game kept that water with the seep off). */
+export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Array; path: Uint8Array; spill: Float64Array; level: Float64Array } {
   const { W, H } = m;
   const N = W * H;
   const spill = spillLevels(m);
@@ -70,9 +78,14 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
   const path = new Uint8Array(N);
   const mark = new Int32Array(N);
   const queue = new Int32Array(N);
+  // (with no running seep, every tile's water stands at its spill level: the same array)
+  const seeps = m.emitters.some((e) => e.depthLimit && e.strength > 0);
+  const level = seeps ? new Float64Array(N).fill(-Infinity) : spill;
   let stamp = 0;
   for (const e of m.emitters) {
     if (!(e.strength > 0)) continue;
+    // the highest a seep's water stands: its anchor's floor plus its limit
+    const cap = e.depthLimit ? m.floor[e.depthLimit.anchor] + e.depthLimit.off : Infinity;
     stamp++;
     let head = 0;
     let tail = 0;
@@ -87,6 +100,10 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
       q[c] += e.strength;
       if (e.contamination > 0) qBad[c] += e.strength * e.contamination;
       path[c] = 1;
+      if (seeps) {
+        const lv = spill[c] < cap ? spill[c] : cap;
+        if (lv > level[c]) level[c] = lv;
+      }
       const x = c % W;
       const y = (c - x) / W;
       for (let k = 0; k < 4; k++) {
@@ -96,23 +113,25 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
         else if (k === 2) n = y < H - 1 ? c + W : -1;
         else n = x < W - 1 ? c + 1 : -1;
         if (n < 0 || mark[n] === stamp || spill[n] > spill[c]) continue;
+        // (a seep's water stands no higher than its cap: ground at or above it stays dry)
+        if (cap !== Infinity && m.floor[n] + (m.dam && m.dam[n] >= 0 ? m.dam[n] : 0) >= cap) continue;
         mark[n] = stamp;
         queue[tail++] = n;
       }
     }
   }
-  return { q, qBad, path, spill };
+  return { q, qBad, path, spill, level };
 }
 
 /** The deterministic starting state of the canonical settle (see the file comment). */
 export function prefill(m: WaterModel): WaterState {
   const { W, H } = m;
   const N = W * H;
-  const { q, qBad, path, spill } = flowThrough(m);
+  const { q, qBad, path, level } = flowThrough(m);
   // open-channel tiles (on the path, not in a depression): local width = the shorter of the row
   // and column runs of such tiles through the tile
   const open = new Uint8Array(N);
-  for (let i = 0; i < N; i++) open[i] = path[i] && !(spill[i] > m.floor[i]) ? 1 : 0;
+  for (let i = 0; i < N; i++) open[i] = path[i] && !(level[i] > m.floor[i]) ? 1 : 0;
   const runX = new Int32Array(N);
   const runY = new Int32Array(N);
   for (let y = 0; y < H; y++) {
@@ -146,7 +165,7 @@ export function prefill(m: WaterModel): WaterState {
   for (let i = 0; i < N; i++) {
     if (!path[i]) continue;
     let d: number;
-    if (spill[i] > m.floor[i]) d = spill[i] - m.floor[i];
+    if (level[i] > m.floor[i]) d = level[i] - m.floor[i];
     else {
       const w = runX[i] < runY[i] ? runX[i] : runY[i];
       d = (0.3 * q[i]) / w;

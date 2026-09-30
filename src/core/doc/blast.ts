@@ -90,6 +90,8 @@ export function explosionAfter(s: MapSession, id: string): ExplosionAfter {
   const entities = b.entities.filter((e) => !after.removed.has(e.id) && !(e.raw && !placementOf(e.raw)));
   const objects = entities.map(toMapObject);
   const model = waterModel(W, H, heights, objects);
+  // (the lakes the map's carves sealed keep their water after the blast, as the map's own settle does)
+  if (b.waterModel.retained?.length) model.retained = b.waterModel.retained;
   const settle = canonicalSettle(model);
   const barrier = moistureBarrier(W, H, objects);
   const sum = blastSummary(m.terrain, m.objects, id);

@@ -9,10 +9,10 @@
 //   parity-drain      a Badtide Drain and an Aquifer with its drill: the drain runs only in the badtide; the aquifer,
 //                     unpowered, gives nothing (D337 (2), (3))
 //   parity-reserves   a Reserve Pile, Warehouse and Tank, each holding its good (D338 (1))
-//   parity-core       an Unstable Core going off in cycle 1 beside a pond, trees and a ruin in its sphere: the land and
-//                     water afterwards match the preview (D339)
+//   parity-core       an Unstable Core going off in cycle 1, its sphere breaching a seep's pond, trees and a ruin in it: the
+//                     land, and the water once settled again, match the preview (D339)
 //   parity-succulents a stand of succulents painted on dry ground and another on moist ground beside the water: the game's
-//                     soil keeps the first and kills the second (D338 (4))
+//                     soil keeps the first and kills the second within 7.2 to 8.8 days (D338 (4))
 //
 //   npx tsx tools/probe-parity.ts [--out C:\dgm-probe\parity]
 //
@@ -44,7 +44,7 @@ const out = (() => {
 let n = 0;
 const uuid = () => guidFrom(OWNER, String(++n));
 
-function open(seed: number): MapSession {
+export function open(seed: number): MapSession {
   const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
@@ -96,7 +96,7 @@ function place(s: MapSession, template: string, x: number, y: number, comps?: Re
 }
 const find = (s: MapSession, id: string) => s.built.entities.find((e) => e.id === id)!;
 
-interface Sample {
+export interface Sample {
   id: string;
   title: string;
   tests: string;
@@ -110,16 +110,18 @@ interface Sample {
 }
 
 const PIT = 5;
-const SAMPLES: Sample[] = [
+export const SAMPLES: Sample[] = [
   {
     id: "parity-seeps",
     seed: 4242,
     days: 3,
     title: "Parity · a Water Seep and a Water Source in closed pits: the seep stops at 0.8",
-    tests: "A Water Seep (2×2, strength 1) at the bottom of a 5×5 pit three levels deep and a Water Source of strength 1 in another: the source fills its pit to the rim, the seep switches itself off while more than 0.8 deep stands over it and holds the pit at about 0.8 (WaterDepthStrengthModifier, DepthLimit 0.8, restart at 0.72).",
+    tests: "A Water Seep (2×2, strength 1) at the bottom of a 5×5 pit three levels deep and a Water Source of strength 1 in another: the source fills its pit to the rim, the seep switches itself off while more than 0.8 deep stands over it and holds the pit at about 0.8 (WaterDepthStrengthModifier, DepthLimit 0.8, restart at 0.72). The seep's pit is walled a level above the platform, so the source's overflow never reaches it.",
     data: {},
     build(s) {
       const [x, y, level] = platform(s, 16);
+      // (the source floods the platform once its pit is full: a wall a level high keeps that water out of the seep's pit)
+      flatten(s, x + 1, y + 1, PIT + 2, level + 1);
       flatten(s, x + 2, y + 2, PIT, level - 3);
       flatten(s, x + 9, y + 2, PIT, level - 3);
       const seep = place(s, "WaterSeep", x + 4, y + 4, placeComponents("WaterSeep", { strength: 1 }));
@@ -132,10 +134,12 @@ const SAMPLES: Sample[] = [
     seed: 4242,
     days: 5,
     title: "Parity · a source that starts in cycle 1 after a day, beside one that runs at once",
-    tests: "Two sources of strength 1 in separate pits: one runs from the start, the other has a start delay (TimeActivatedComponent enabled, cycle 1, 1 day): its current strength is 0 until the countdown ends, then it starts and its pit begins to fill.",
+    tests: "Two sources of strength 1 in separate pits: one runs from the start, the other has a start delay (TimeActivatedComponent enabled, cycle 1, 1 day): its current strength is 0 until the countdown ends, then it starts and its pit begins to fill. The delayed source's pit is walled a level above the platform, so the other source's overflow never reaches it: its pit is dry in the file.",
     data: {},
     build(s) {
       const [x, y, level] = platform(s, 16, 4);
+      // (the source that runs floods the platform once its pit is full: a wall a level high keeps that water out of the other pit)
+      flatten(s, x + 8, y + 1, PIT + 2, level + 1);
       flatten(s, x + 2, y + 2, PIT, level - 2);
       flatten(s, x + 9, y + 2, PIT, level - 2);
       const now = place(s, "WaterSource", x + 4, y + 4, placeComponents("WaterSource", { strength: 1 }));
@@ -195,18 +199,19 @@ const SAMPLES: Sample[] = [
   {
     id: "parity-core",
     seed: 4242,
-    days: 6,
+    days: 8,
     title: "Parity · an Unstable Core going off in cycle 1, its sphere over land, a pond, trees and a ruin",
-    tests: "An Unstable Core (radius 3, so a sphere of 4) that goes off in cycle 1 half a day after its countdown starts, beside a pond, with pines and a ruin column in its sphere: the ground it clears, the objects it deletes and the water afterwards are what the editor's preview (Show after it goes off) drew.",
+    tests: "An Unstable Core (radius 3, so a sphere of 4) that goes off in cycle 1 half a day after its countdown starts, its sphere breaching a pond held by a seep, with pines and a ruin column in it: the ground it clears, the objects it deletes and the water once it has settled again (the seep refilling pond and crater to 0.8 over it), in calm weather, are what the editor's preview (Show after it goes off) drew.",
     data: {},
     build(s) {
       const [x, y, level] = platform(s, 20, 16);
       // a small pond beside the core: a pit with a seep (it stops at 0.8, so the pond stays in its pit)
       flatten(s, x + 12, y + 12, 4, level - 2);
       place(s, "WaterSeep", x + 13, y + 13, placeComponents("WaterSeep", { strength: 1 }));
-      const core = place(s, "UnstableCore", x + 8, y + 8, placeComponents("UnstableCore", { radius: 3, cycles: 1, days: 0.5 }));
-      for (const [dx, dy] of [[5, 8], [6, 6], [9, 11]]) place(s, "Pine", x + dx, y + dy, undefined);
-      place(s, "RuinColumnH2", x + 8, y + 5, undefined);
+      // (its sphere reaches into the pond: the pond drains into the crater, and the seep refills both)
+      const core = place(s, "UnstableCore", x + 9, y + 9, placeComponents("UnstableCore", { radius: 3, cycles: 1, days: 0.5 }));
+      for (const [dx, dy] of [[6, 9], [7, 7], [10, 12]]) place(s, "Pine", x + dx, y + dy, undefined);
+      place(s, "RuinColumnH2", x + 9, y + 6, undefined);
       const after = explosionAfter(s, core);
       const e = find(s, core);
       const changed: [number, number, number][] = [];
@@ -221,9 +226,9 @@ const SAMPLES: Sample[] = [
   {
     id: "parity-succulents",
     seed: 4242,
-    days: 4,
+    days: 10,
     title: "Parity · succulents on dry ground and on moist ground",
-    tests: "A stand of succulents painted on ground the soil keeps dry and another on the bank of a pond, where the soil is moist: the game keeps the first alive and kills the second (a succulent dies if moist).",
+    tests: "A stand of succulents painted on ground the soil keeps dry and another on the bank of a pond, where the soil is moist: the game keeps the first alive and kills the second after 8 days on moist soil, 7.2 to 8.8 (AridNaturalResource, DaysToDieWet 8, times 0.9 to 1.1).",
     data: {},
     build(s) {
       const [x, y, level] = platform(s, 20, 0);
@@ -231,14 +236,16 @@ const SAMPLES: Sample[] = [
       flatten(s, x + 14, y + 8, 5, level - 2);
       place(s, "WaterSeep", x + 15, y + 9, placeComponents("WaterSeep", { strength: 1 }));
       s.settleCanonical();
-      const moist: number[] = [];
+      // moist ground: the moistest dry tiles beside the pond, where the soil stays moist while the seep tops the pond up
+      const near: number[] = [];
       const dry: number[] = [];
       for (let yy = y + 2; yy < y + 20; yy++)
         for (let xx = x + 1; xx < x + 20; xx++) {
           const i = yy * W + xx;
           if (s.built.water[i] > 0 || (xx >= x + 14 && xx < x + 19 && yy >= y + 8 && yy < y + 13)) continue;
-          if (s.built.moisture[i] > 0 && moist.length < 12 && xx >= x + 10) moist.push(i);
+          if (s.built.moisture[i] > 0 && xx >= x + 10) near.push(i);
         }
+      const moist = near.sort((a, b) => s.built.moisture[b] - s.built.moisture[a] || a - b).slice(0, 12);
       // dry ground: the free tiles nearest the platform that no water reaches
       const free = paintGround(s).free;
       const drier = Array.from({ length: W * W }, (_, i) => i).filter((i) => free[i] && !(s.built.water[i] > 0) && !(s.built.moisture[i] > 0) && i % W > 6 && i % W < W - 6 && i / W > 6 && i / W < W - 6);
@@ -252,16 +259,23 @@ const SAMPLES: Sample[] = [
   },
 ];
 
+/** One sample made as the probe gets it: its map, with the water its file gets (the canonical settle), and what the
+ *  probe watches. */
+export function buildSample(p: Sample): { s: MapSession; data: Record<string, unknown> } {
+  n = 0;
+  const s = open(p.seed);
+  const data = p.build(s);
+  s.settleCanonical();
+  return { s, data };
+}
+
 async function main(): Promise<void> {
   mkdirSync(out, { recursive: true });
   const maps: Record<string, unknown>[] = [];
   let failures = 0;
   for (const p of SAMPLES) {
-    n = 0;
     const t0 = Date.now();
-    const s = open(p.seed);
-    const data = p.build(s);
-    s.settleCanonical();
+    const { s, data } = buildSample(p);
     const exported = s.exportTimber({ warnings: [] });
     const file = s.exportFile();
     const checks = validateMap(file, { profile: "export" }).report.checks.filter((c) => !c.ok && c.class === "load");
@@ -288,4 +302,4 @@ async function main(): Promise<void> {
   if (failures) process.exit(1);
 }
 
-void main();
+if (/probe-parity.ts$/.test(process.argv[1] ?? "")) void main();

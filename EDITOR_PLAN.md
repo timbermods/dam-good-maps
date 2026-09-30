@@ -137,7 +137,7 @@ editor is desktop-first (D185).
   lands: the same plan (`core/gen/paint.ts`) the operation makes. Painting over objects fills the gaps up to the density
   (what stands there counts toward it), never stacking two on a tile, only on dry, free ground (no water, no cave, no other
   object). Trees and bushes planned on dry ground tint amber with a quiet "dry ground: these will die" (succulents on moist
-  ground: "wet ground: these will die"); still allowed. **Mixed woods** paints the generator's own Pine, Birch and Oak
+  ground: "wet ground: these will die"; the game kills them there in about 8 days); still allowed. **Mixed woods** paints the generator's own Pine, Birch and Oak
   mix (47, 27, 20) in one stroke; the faction-only plants stay off the shelf, as in the game's editor. A **ruin field** is grown as
   the generator grows one (`gen/blobs.ts` growth with the official gaps over an ellipse of a random stretch, one level, fields
   of the calibrated size for the map, a tile of moat between them; storeys, models and turns in the official shares), so a
@@ -420,7 +420,9 @@ Make a valley, drop a source, and there's a river.
   colour-blind views (D198).
 - **The other water objects** (D337): the seeps, the aquifer and its drill, the badtide drain, a source's **start delay** and
   **Sink** (a negative strength) are on the shelf's other objects (§3): the water model handles them as the game's does (a sink takes
-  down the water on its tiles as the game's `WaterDepthSetter` does, a seep switches off above 0.8 and back on below 0.72).
+  down the water on its tiles as the game's `WaterDepthSetter` does, a seep switches off above 0.8 and back on below 0.72, and
+  starts off at every load, as the game's does). The map's water comes only from what runs at the start: a delayed source gives
+  none, and a pit a seep alone feeds starts 0.8 deep over it, never full (probe `parity-20260930`).
 - **Water source and Badwater source** (D212): first on the left shelf, before the start (D226's
   order). Click to
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;

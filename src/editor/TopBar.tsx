@@ -258,9 +258,9 @@ export function AutoDetail(p: { label: string; on: boolean; onAuto(on: boolean):
 
 /** A force's More button (D309): closed by default, at the end of its row; its details sit in a
  *  second row of their own, the same shape as the first. */
-export function MoreButton(p: { open: boolean; onToggle(): void }) {
+export function MoreButton(p: { open: boolean; onToggle(): void; title?: string }) {
   return (
-    <button type="button" aria-expanded={p.open} onClick={p.onToggle} title={p.open ? "Hide its other settings" : "Its other settings: how it looks, drawn from the land unless you set them"}>
+    <button type="button" aria-expanded={p.open} onClick={p.onToggle} title={p.open ? "Hide its other settings" : (p.title ?? "Its other settings: how it looks, drawn from the land unless you set them")}>
       {p.open ? "Less" : "More"}
     </button>
   );

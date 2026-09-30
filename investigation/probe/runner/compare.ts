@@ -8,8 +8,11 @@ import { execFileSync } from 'node:child_process';
 import { type CheckDef, D0, startWater, startWaterOf, type Verdict, weirTiles } from './catalog';
 import type { MapResult, MapSnapshot, SampleRow } from './job';
 import type { Prepared } from './jobs';
-import { wetAreas, type MapInfo } from './mapfile';
+import { storedOutflows, wetAreas, type MapInfo } from './mapfile';
 import { isObject, num } from '../../../src/core/format/json';
+import { storedWater, surfaceOf as worldSurface } from '../../../src/core/format/world';
+import { waterModelFromWorld } from '../../../src/core/sim/model';
+import { WaterSim } from '../../../src/core/sim/water';
 import type { ModelRun } from './model';
 import { REPO } from './paths';
 
@@ -74,6 +77,30 @@ export class Loaded {
 }
 
 const safe = (s: string) => s.replace(/[^A-Za-z0-9_-]/g, '_');
+
+/**
+ * The like-for-like forecast of a parity map's water (probe parity-20260930: the checks had compared the game after
+ * days of play with the file's own water, so a pit that only evaporated failed): this checkout's water model
+ * (src/core/sim) run on the map's file from the water and outflows it stores, in calm weather, for the ticks the game
+ * played. Only for maps whose water objects all run from the start or never (no start delay, drought or badtide).
+ */
+const forecasts = new WeakMap<MapInfo, WaterSim>();
+export function parityForecast(info: MapInfo, ticks: number): Float64Array {
+  let sim = forecasts.get(info);
+  if (!sim || sim.ticks > ticks) {
+    const w = info.file.world;
+    const W = w.sizeX, N = W * w.sizeY;
+    const stored = storedWater(w.singletons, W, w.sizeY);
+    const depth = new Float64Array(N), contamination = new Float64Array(N);
+    for (let k = 0; k < stored.tile.length; k++) (depth[stored.tile[k]] = stored.depth[k]), (contamination[stored.tile[k]] = stored.contamination[k]);
+    sim = new WaterSim(waterModelFromWorld(w, worldSurface(w)), { depth, contamination });
+    const flows = storedOutflows(info.file);
+    if (flows) sim.out.set(flows.out);
+    forecasts.set(info, sim);
+  }
+  if (ticks > sim.ticks) sim.run(ticks - sim.ticks);
+  return sim.D.slice();
+}
 
 // ------------------------------------------------------------------------------ generic measures
 
@@ -466,17 +493,24 @@ const EVALS: Record<string, Eval> = {
   },
   'parity-seep'(c) {
     const e = c.L.prepared.game.parity!;
-    if (!e.seep || !e.source) throw new NotMeasurable('the manifest has no seep');
+    if (!e.seep || !e.source || !e.pits?.length) throw new NotMeasurable('the manifest has no seep');
     const rows = c.L.samples();
     if (!rows.length) throw new NotMeasurable('no samples');
+    const s1 = need(c.L.snapshot('end'), 'end');
+    const W = c.L.info.W;
     const depth = (r: SampleRow, t: [number, number]) => Loaded.topWater(r, t[0], t[1]).depth;
+    // (the highest over the seep once the first half day has passed: a file's water may start anywhere under 0.8)
     let seepMax = 0;
-    for (const r of rows) seepMax = Math.max(seepMax, depth(r, e.seep.anchor));
-    const last = rows.at(-1)!;
-    const seepEnd = depth(last, e.seep.anchor), sourceEnd = depth(last, e.source.tile);
-    const g = c.L.snapshot('end')?.sources.find((x) => x.id === e.seep!.id);
-    const ok = seepEnd >= 0.6 && seepEnd <= 0.95 && seepMax <= 1.0 && sourceEnd > 2;
-    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(last.day - D0)} days the water over the seep is ${f3(seepEnd)} deep (highest ${f3(seepMax)}) and the seep's current strength ${g?.source ? `${f3(g.source.current)} of ${f3(g.source.specified)}` : 'is not recorded'}; over the source of the same strength it is ${f3(sourceEnd)}` };
+    for (const r of rows) if (r.day >= D0 + 0.5) seepMax = Math.max(seepMax, depth(r, e.seep.anchor));
+    const at = (t: [number, number]) => t[1] * W + t[0];
+    const seepEnd = s1.depth[at(e.seep.anchor)] || 0, sourceEnd = s1.depth[at(e.source.tile)] || 0;
+    const g = s1.sources.find((x) => x.id === e.seep!.id);
+    // like for like: both pits against the model run from the file for the ticks the game played
+    const model = parityForecast(c.L.info, s1.tick);
+    const inPits = (t: number) => e.pits!.some(([x0, y0, w, h]) => t % W >= x0 && t % W < x0 + w && Math.floor(t / W) >= y0 && Math.floor(t / W) < y0 + h);
+    const d = waterDiff(c.L.info, s1, { depth: model }, inPits);
+    const ok = seepEnd >= 0.6 && seepEnd <= 0.95 && seepMax <= 1.0 && sourceEnd > 2 && d.within01 >= 0.9;
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days the water over the seep is ${f3(seepEnd)} deep (highest ${f3(seepMax)} after the first half day; the model ${f3(model[at(e.seep.anchor)])}) and the seep's current strength ${g?.source ? `${f3(g.source.current)} of ${f3(g.source.specified)}` : 'is not recorded'}; over the source of the same strength it is ${f3(sourceEnd)}; both pits against the model run from the file (model → game): ${waterText(d)}` };
   },
   'parity-delay'(c) {
     const e = c.L.prepared.game.parity!;
@@ -488,7 +522,9 @@ const EVALS: Record<string, Eval> = {
     const d0 = cur(s0, e.delayed.id), d1 = cur(s1, e.delayed.id), n0 = cur(s0, e.now.id);
     if (d0 === undefined || d1 === undefined || n0 === undefined) throw new NotMeasurable('the sources are not in the snapshots');
     const first = c.L.samples().find((r) => Loaded.topWater(r, e.delayed!.tile[0], e.delayed!.tile[1]).depth > 0.02);
-    const ok = Math.abs(d0) < 1e-6 && d1 > 0 && n0 > 0 && !wet(s0, e.delayed.tile) && wet(s1, e.delayed.tile) && wet(s1, e.now.tile);
+    // (its countdown starts on cycle 1's first day and runs `days` days: its water comes no sooner than half of that)
+    const early = !!first && first.day - D0 < 0.5 * e.delayed.days;
+    const ok = Math.abs(d0) < 1e-6 && d1 > 0 && n0 > 0 && !wet(s0, e.delayed.tile) && wet(s1, e.delayed.tile) && wet(s1, e.now.tile) && !early;
     return { verdict: ok ? 'passed' : 'failed', detail: `the delayed source (cycle ${e.delayed.cycles}, ${e.delayed.days} days): current strength ${f3(d0)} at the load and ${f3(d1)} after ${f2(s1.day - D0)} days; its tile ${wet(s0, e.delayed.tile) ? 'wet' : 'dry'} at the load and ${wet(s1, e.delayed.tile) ? 'wet' : 'dry'} at the end${first ? `, first wet at day ${f2(first.day - D0)}` : ''}; the source that runs at once: ${f3(n0)} at the load, its tile ${wet(s1, e.now.tile) ? 'wet' : 'dry'} at the end` };
   },
   'parity-sink'(c) {
@@ -498,9 +534,12 @@ const EVALS: Record<string, Eval> = {
     const W = c.L.info.W;
     const [x0, y0, w, h] = e.pits[0];
     const cur = s1.sources.find((x) => x.id === e.sink!.id)?.source?.current;
-    const d = waterDiff(c.L.info, s1, undefined, (t) => t % W >= x0 && t % W < x0 + w && Math.floor(t / W) >= y0 && Math.floor(t / W) < y0 + h);
+    // like for like: the model run from the file for the ticks the game played (the pit evaporates meanwhile)
+    const model = parityForecast(c.L.info, s1.tick);
+    const inPit = (t: number) => t % W >= x0 && t % W < x0 + w && Math.floor(t / W) >= y0 && Math.floor(t / W) < y0 + h;
+    const d = waterDiff(c.L.info, s1, { depth: model }, inPit);
     const ok = cur !== undefined && cur < 0 && d.within01 >= 0.9;
-    return { verdict: ok ? 'passed' : 'failed', detail: `the sink's current strength ${cur === undefined ? 'is not recorded' : f3(cur)}; the pit's water after ${f2(s1.day - D0)} days against the file's (the editor's settle with the sink in it): ${waterText(d)}` };
+    return { verdict: ok ? 'passed' : 'failed', detail: `the sink's current strength ${cur === undefined ? 'is not recorded' : f3(cur)}; the pit's water after ${f2(s1.day - D0)} days against the model run from the file for the same ${s1.tick} ticks (model → game): ${waterText(d)}` };
   },
   'parity-drain'(c) {
     const e = c.L.prepared.game.parity!;
@@ -542,11 +581,22 @@ const EVALS: Record<string, Eval> = {
     const wrong = e.expectedHeights.filter(([x, y, hh]) => s1.terrain[y * W + x] !== hh);
     const ends = new Set((c.L.result!.entitiesAtEnd ?? []).map((g) => g.id));
     const alive = e.removed.filter((o) => ends.has(o.id));
-    let near = 0;
-    for (const [x, y, d] of e.watched) if (Math.abs((s1.depth[y * W + x] || 0) - d) <= 0.15) near++;
-    const share = e.watched.length ? near / e.watched.length : 1;
-    const ok = wrong.length === 0 && alive.length === 0 && share >= 0.85;
-    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days: ${e.expectedHeights.length - wrong.length} of ${e.expectedHeights.length} cleared tiles at the preview's height${wrong.length ? ` (${wrong.slice(0, 4).map(([x, y, hh]) => `(${x}, ${y}) ${hh} → ${s1.terrain[y * W + x]}`).join(', ')})` : ''}; ${e.removed.length - alive.length} of ${e.removed.length} objects the preview deleted are gone${alive.length ? ` (still there: ${alive.slice(0, 4).map((o) => `${o.template} (${o.x}, ${o.y})`).join(', ')})` : ''}; the water within 0.15 of the preview on ${pct(share)} of ${e.watched.length} watched tiles` };
+    // like for like (Kyler, 2026-09-30): the game's water once it has settled again after the blast, in calm weather,
+    // against the preview's settled water. Settled: the watched tiles within 0.1 of where they stood two days before.
+    const before = c.L.snapshotAt(s1.day - 2, 0.3);
+    if (!before) throw new NotMeasurable('no snapshot two days before the end');
+    let steady = 0, near = 0;
+    for (const [x, y, d] of e.watched) {
+      const t = y * W + x;
+      if (Math.abs((s1.depth[t] || 0) - (before.depth[t] || 0)) <= 0.1) steady++;
+      if (Math.abs((s1.depth[t] || 0) - d) <= 0.15) near++;
+    }
+    const n = e.watched.length || 1;
+    const settled = steady / n >= 0.95;
+    const calm = [before, s1].every((x) => x.weather === 'temperate');
+    const share = near / n;
+    const ok = wrong.length === 0 && alive.length === 0 && settled && calm && share >= 0.85;
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days: ${e.expectedHeights.length - wrong.length} of ${e.expectedHeights.length} cleared tiles at the preview's height${wrong.length ? ` (${wrong.slice(0, 4).map(([x, y, hh]) => `(${x}, ${y}) ${hh} → ${s1.terrain[y * W + x]}`).join(', ')})` : ''}; ${e.removed.length - alive.length} of ${e.removed.length} objects the preview deleted are gone${alive.length ? ` (still there: ${alive.slice(0, 4).map((o) => `${o.template} (${o.x}, ${o.y})`).join(', ')})` : ''}; the game's water ${settled ? 'settled again' : 'still moving'} (${pct(steady / n)} of the watched tiles within 0.1 of day ${f2(before.day - D0)}), weather ${calm ? 'calm' : `${before.weather} / ${s1.weather}`}; the water within 0.15 of the preview's settled water on ${pct(share)} of ${e.watched.length} watched tiles` };
   },
   'parity-succulents'(c) {
     const e = c.L.prepared.game.parity!;
@@ -556,8 +606,14 @@ const EVALS: Record<string, Eval> = {
     const alive = (ids: string[]) => ids.filter((i) => by.get(i)?.plant && !by.get(i)!.plant!.dead).length;
     const seen = (ids: string[]) => ids.filter((i) => by.has(i)).length;
     const dryAlive = alive(e.dry), moistAlive = alive(e.moist);
-    const ok = seen(e.dry) === e.dry.length && dryAlive === e.dry.length && e.moist.length - moistAlive >= Math.ceil(0.8 * e.moist.length);
-    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days: ${dryAlive} of ${e.dry.length} succulents on dry soil alive, ${e.moist.length - moistAlive} of ${e.moist.length} on moist soil dead` };
+    // the game's rule (AridNaturalResource): on moist soil a succulent dies DaysToDieWet (8) times 0.9 to 1.1 days after
+    // the load, its timer reset whenever its soil dries
+    const moist = new Set(e.moist);
+    const days = (c.L.result!.plantDeaths ?? []).filter((d) => moist.has(d.id)).map((d) => d.day - D0);
+    const early = days.filter((d) => d < 7.2 - 0.1);
+    const ended = s1.day - D0 >= 8.8;
+    const ok = seen(e.dry) === e.dry.length && dryAlive === e.dry.length && ended && moistAlive === 0 && early.length === 0;
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days${ended ? '' : ' (short of the 8.8 days the timer may take)'}: ${dryAlive} of ${e.dry.length} succulents on dry soil alive, ${e.moist.length - moistAlive} of ${e.moist.length} on moist soil dead${days.length ? `, on days ${f2(Math.min(...days))} to ${f2(Math.max(...days))} (the game's timer: 7.2 to 8.8)` : ''}${early.length ? `; ${early.length} died before 7.2 days` : ''}` };
   },
 
   A1(c) {

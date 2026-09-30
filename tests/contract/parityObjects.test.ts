@@ -176,6 +176,20 @@ describe("options are operations: setEntityProps, one step each, the water answe
     expect(emitter().strength).toBe(-3);
   });
 
+  it("a delayed source's strength changed (the options, or Ctrl+scroll over it): it still waits, its current strength 0, and the file's water leaves it out", () => {
+    const s = open();
+    const [x, y] = spot(s, 6, 6);
+    const r = place(s, "WaterSource", x + 2, y + 2, placeComponents("WaterSource", { strength: 1, timed: { enabled: true, cycles: 1, days: 1 } }));
+    expect(r.errors).toEqual([]);
+    const u = s.apply(setOptionsOp(r.id, "WaterSource", comps(s, r.id), { strength: 3 }));
+    expect(u.ok).toBe(true);
+    expect(stringify(comps(s, r.id).WaterSource as never)).toBe('{"SpecifiedStrength":3.0,"CurrentStrength":0.0}');
+    const at = find(s, r.id);
+    expect(s.built.waterModel.emitters.find((e) => e.cells.length === 1 && e.cells[0] === at.y * W + at.x)!.strength).toBe(0);
+    s.settleCanonical();
+    expect(s.built.water[at.y * W + at.x]).toBe(0);
+  });
+
   it("a core's radius and cycle, and a reserve's good and stock, keep the game's order and refuse the impossible", () => {
     const s = open();
     const [x, y] = spot(s, 6, 6);

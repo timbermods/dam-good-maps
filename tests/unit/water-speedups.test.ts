@@ -42,7 +42,9 @@ const FIXTURES: Record<string, string> = {
   flat_plain: "eb0a04bb69195246",
   badwater_mix: "0fa56fd90115101c",
   weir: "e138b185a660f100",
-  seep_pit: "94322825c33ec67b",
+  // (re-pinned once for a rule, not a speedup: the canonical start fills a seep's pit only to 0.8 over it, and a
+  // seep starts off, as the game's do (probe parity-20260930); the Python reference agrees within 1e-6, water.test.ts)
+  seep_pit: "7d07aaf66b7037a4",
   terraces: "6b332df084085727",
   confluence: "88f18f70071953e4",
   evaporation: "b47b353b6bfbf696",

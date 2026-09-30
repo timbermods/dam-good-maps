@@ -109,7 +109,9 @@ export class WaterSim {
   private modSet: Int32Array;
   private modSetCount = 0;
   private readonly sourceCells: Int32Array;
-  /** Seep on/off state per emitter (1 = on). */
+  /** Seep on/off state per emitter (1 = on; every emitter that is not a seep stays on). A seep starts off, as the
+   *  game's `WaterDepthStrengthModifier` does: it turns on at the first tick only if the water over it is under
+   *  the restart depth (0.72), so a seep standing in 0.72 to 0.8 of water waits until it falls below. */
   private readonly seepOn: Uint8Array;
 
   constructor(model: WaterModel, initial?: WaterState) {
@@ -138,7 +140,7 @@ export class WaterSim {
     this.prevWet = new Int32Array(N);
     this.active = new Int32Array(N);
     this.modSet = new Int32Array(N);
-    this.seepOn = new Uint8Array(model.emitters.length).fill(1);
+    this.seepOn = Uint8Array.from(model.emitters, (e) => (e.depthLimit ? 0 : 1));
     // the map edge drains water, except the padding next to a source cell, which is solid
     this.wall = new Uint8Array(N);
     const cells: number[] = [];

@@ -83,7 +83,7 @@ export function DelayFields(p: { timed: Timed; onTimed(t: Timed): void }) {
         value={t.enabled ? "later" : "now"}
         options={[
           ["now", "At once", "It runs from the map's start"],
-          ["later", "Later", "It starts after a countdown, as the game's map editor's delayed activation"],
+          ["later", "Later", "It starts after a countdown, as the game's map editor's delayed activation; until then it gives no water, so the map's water leaves it out"],
         ]}
         onChange={(v) => p.onTimed({ ...t, enabled: v === "later" })}
       />
@@ -119,13 +119,13 @@ export function FluidFields(p: { template: string; o: ObjectOptions; onO(o: Obje
   const sign = s < 0 ? -1 : 1;
   return (
     <>
-      <label class="slider-field" title={`Blocks of water a second, at most ${MAX_STRENGTH_PER_TILE * (FLUIDS[p.template]?.tiles?.length ?? 1)} for this object`}>
+      <label class="slider-field" title={`Blocks of water a second, at most ${MAX_STRENGTH_PER_TILE * (FLUIDS[p.template]?.tiles?.length ?? 1)} for this object${p.template === "WaterSource" || p.template === "BadwaterSource" ? "; over a placed one, Ctrl+scroll sets it" : ""}`}>
         {p.label ?? "Strength"}
         <input type="range" min={0} max={steps.length - 1} step={1} value={k} aria-label={p.label ?? "Strength"} aria-valuetext={`${s} water per second`} onInput={(e) => p.onO({ ...p.o, strength: sign * steps[Number((e.target as HTMLInputElement).value)] })} />
         <output>{s < 0 ? `sink ${mag}` : s} water/s</output>
       </label>
       {mag > OFFICIAL_FLOW ? <span class="note">Stronger than any official map.</span> : null}
-      <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
+      <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} title={FLUIDS[p.template]?.timed ? "Its other settings: Sink, and when it starts" : "Its other settings: Sink"} />
       {p.more ? <FluidMore template={p.template} o={p.o} onO={p.onO} /> : null}
     </>
   );

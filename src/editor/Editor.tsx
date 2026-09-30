@@ -1009,7 +1009,8 @@ export default function Editor(props: EditorProps) {
         state.busy = true;
         state.sent = v;
         const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
-        const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
+        // (the core's own patch: a source waiting out its start delay keeps its current strength at 0)
+        const op: EditOp = setOptionsOp(e.id, e.template, e.components, { strength: v });
         void run(
           () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
           (u) => {
@@ -2569,7 +2570,8 @@ export default function Editor(props: EditorProps) {
     if (c.strength === undefined) return;
     const v = c.strength;
     // its water answers each step, and one adjustment is one undo step
-    const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
+    // (the core's own patch: a source waiting out its start delay keeps its current strength at 0)
+    const op: EditOp = setOptionsOp(e.id, e.template, e.components, { strength: v });
     const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
     void run(
       () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
@@ -2657,7 +2659,7 @@ export default function Editor(props: EditorProps) {
           {kind === "reserve" ? <ReserveFields template={e.template} o={o} onO={(n) => changeObject(e, n)} /> : null}
           {kind === "core" ? (
             <>
-              <button type="button" aria-pressed={blast?.id === e.id} title="Draw the map as it will be once this core goes off: the land and objects the game's rule clears, and the water settled again. A view only: nothing changes until the game plays it" onClick={() => (blast?.id === e.id ? void leaveBlast() : void showBlast(e.id))}>
+              <button type="button" aria-pressed={blast?.id === e.id} title="Draw the map as it will be once this core goes off: the land and objects the game's rule clears, and the water settled again. A view only: nothing changes until the game plays it (Esc returns)" onClick={() => (blast?.id === e.id ? void leaveBlast() : void showBlast(e.id))}>
                 Show after it goes off
               </button>
               {coreInfo && coreInfo.id === e.id ? (
@@ -2668,10 +2670,10 @@ export default function Editor(props: EditorProps) {
               ) : null}
             </>
           ) : null}
-          <button type="button" onClick={() => removeObject(e)}>
+          <button type="button" title="Remove it from the map, one undo step (Delete)" onClick={() => removeObject(e)}>
             Remove
           </button>
-          <button type="button" class="linkish" aria-label="Put it down" onClick={() => setPicked(null)}>
+          <button type="button" class="linkish" aria-label="Put it down" title="Put it down (Esc)" onClick={() => setPicked(null)}>
             ×
           </button>
         </>

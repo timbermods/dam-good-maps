@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { Orientation } from "../../src/core/format/footprints";
 import { MAX_STRENGTH_PER_TILE, waterModel, type MapObject } from "../../src/core/sim/model";
+import { canonicalSettle } from "../../src/core/sim/prefill";
 import { WaterSim } from "../../src/core/sim/water";
 
 const W = 24;
@@ -81,6 +82,52 @@ describe("the water objects' rules on the game's terms (D337)", () => {
     expect(volume(sim)).toBeLessThan(25);
     const filled = new WaterSim(waterModel(W, H, basin(), [obj("WaterSource", 9, 9, strength(2))])).run(4000);
     expect(volume(filled)).toBeGreaterThan(150);
+  });
+
+  it("a seep in water between its restart depth and its limit stays off at the start, as the game's does (it starts disabled)", () => {
+    // the game's WaterDepthStrengthModifier starts disabled and turns on only below 0.72 (probe parity-20260930)
+    const m = waterModel(W, H, basin(), [obj("WaterSeep", 11, 11, strength(1))]);
+    const depth = new Float64Array(N);
+    for (const i of INSIDE) depth[i] = 0.76;
+    const sim = new WaterSim(m, { depth, contamination: new Float64Array(N) });
+    const before = volume(sim);
+    sim.run(20);
+    // (only evaporation: nothing seeps up)
+    expect(volume(sim)).toBeLessThan(before);
+    // below 0.72 it runs again
+    const low = new Float64Array(N);
+    for (const i of INSIDE) low[i] = 0.5;
+    const again = new WaterSim(m, { depth: low, contamination: new Float64Array(N) }).run(20);
+    expect(volume(again)).toBeGreaterThan(0.5 * INSIDE.length);
+  });
+
+  it("the file's water: the canonical settle never fills a seep's closed pit past the depth it stops at (probe parity-20260930)", () => {
+    // the game stops a seep while more than 0.8 stands over it, so a pit it alone feeds holds about 0.8; the canonical
+    // start filled the pit to its rim (6 deep here), water the game then kept with the seep off
+    const settled = canonicalSettle(waterModel(W, H, basin(), [obj("WaterSeep", 11, 11, strength(1))]));
+    expect(settled.depth[11 * W + 11]).toBeGreaterThan(0.6);
+    expect(settled.depth[11 * W + 11]).toBeLessThanOrEqual(0.81);
+    for (const i of INSIDE) expect(settled.depth[i]).toBeLessThanOrEqual(0.81);
+    // a pit whose outlet is lower than the seep's limit lets its water go, like a source's
+    const open = basin();
+    for (let x = 16; x < W; x++) open[11 * W + x] = FLOOR;
+    const flowing = canonicalSettle(waterModel(W, H, open, [obj("WaterSeep", 11, 11, strength(1))]));
+    expect(flowing.depth[11 * W + 20]).toBeGreaterThan(0.01);
+    expect(flowing.depth[11 * W + 11]).toBeLessThan(0.8);
+  });
+
+  it("a source and a sink of the same strength in a closed pit: the pit loses only what evaporates, as in the game", () => {
+    // the game (probe parity-20260930, parity-sink): a 6 × 6 pit 2.755 deep with a source of 1 and a sink of −1 held
+    // 99.160 at the load and 92.575 after 2289 ticks; the model, run from the same water, 92.572
+    const h = new Uint8Array(N).fill(RIM);
+    const pit: number[] = [];
+    for (let y = 8; y < 14; y++) for (let x = 8; x < 14; x++) (h[y * W + x] = FLOOR), pit.push(y * W + x);
+    const m = waterModel(W, H, h, [obj("WaterSource", 9, 9, strength(1)), obj("WaterSource", 12, 12, strength(-1))]);
+    const depth = new Float64Array(N);
+    for (const i of pit) depth[i] = 99.16 / 36;
+    const sim = new WaterSim(m, { depth, contamination: new Float64Array(N) }).run(2289);
+    const v = pit.reduce((a, i) => a + sim.D[i], 0);
+    expect(Math.abs(v - 92.575)).toBeLessThan(0.05);
   });
 
   it("the ceilings: 8 for each tile an object emits into, so a source gives at most 8, a seep 32 and a badwater source 72", () => {
