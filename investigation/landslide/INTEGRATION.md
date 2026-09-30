@@ -1,5 +1,7 @@
 # Adoption
 
+> **Not adopted (Kyler, 2026-09-30, D354).** Nothing here is adopted onto the forces row. Its spillway-settle checks are kept as findings for D350's stuck basins.
+
 Base: feature/forces **9e14f189**. This PR into dev carries its unmerged history.
 The milestone session should take only the Landslide investigation commit.
 

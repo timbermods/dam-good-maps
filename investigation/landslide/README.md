@@ -1,5 +1,10 @@
 # Landslide
 
+> **Not adopted (Kyler, 2026-09-30, PLAN §20 D354).** The demo felt lame and semi-redundant: its scarp is what Quake
+> and the Rift make, its debris is a lumpy Raise, and a natural dam can already be built with the shelf's Natural Dam or
+> by raising ground across a river. It is kept for its findings: its checks that dammed lakes settle at a spillway may
+> help D350's stuck basins (#150).
+
 A hillside tears away, slides downhill and leaves a body and debris toe. A river can become a reservoir.
 Three cases use original Dam Good Maps Canyon and Highlands land at 128².
 
