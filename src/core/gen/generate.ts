@@ -126,6 +126,9 @@ export interface GenerationInfo {
   fixes?: string[];
   /** The way out worn wider (D350 (b)): the tiles cut, the basin's size and its level. */
   worn?: { cut: number[]; basin: number; level: number };
+  /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
+   *  a readable water story), before its water settled: what the land-stage screen judged. */
+  planned?: { promise: boolean; water: boolean };
   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
@@ -193,6 +196,9 @@ export interface GenerateOptions {
   variety?: number;
   /** Each attempt as it ends, passed or failed (information, for the measures). */
   onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult }) => void;
+  /** The land-stage screen on the planned water's outcomes (`landScreen`); false turns it off (for
+   *  the measures). */
+  screen?: boolean;
 }
 
 /** The species mix the settings panel starts from: a map that keeps it takes the woods its genome
@@ -262,6 +268,13 @@ interface LandStage {
   goodBad?: Hazards;
 }
 
+/** Lands at most drawn again before one is shown because, read on the water its rivers were planned
+ *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
+ *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
+export function landScreen(W: number, H: number): number {
+  const N = W * H;
+  return N <= 128 * 128 ? 6 : N <= 192 * 192 ? 4 : 3;
+}
 /** How far round a start that failed the next attempt on the same land keeps off. */
 const TRIED_RADIUS = 16;
 /** Marks a start that failed on a shown land, and the ground round it, for the next attempts on it
@@ -310,9 +323,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // again on it (the start, the badwater, the objects), never by drawing new land.
   let committed: LandStage | null = null;
   let lands = 0;
+  // (lands drawn again before one is shown because their planned water misses an outcome)
+  const screened = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
     if (committed && land) {
-      const a = attemptOnce(specIn, land, attempt, opts, t0, committed);
+      const a = attemptOnce(specIn, land, attempt, opts, t0, committed, screened);
       const r = attemptDone(a, attempt);
       if (r) return r;
       if (a.stuck) break;
@@ -335,7 +350,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const E = orientField(F.E, W, H, o);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, opts, t0);
+    const a = attemptOnce(specIn, land, attempt, opts, t0, null, screened);
     if (a.stage) {
       committed = a.stage;
       lands++;
@@ -1023,7 +1038,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   return { h, hy, keep, ramps, blocked };
 }
 
-function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null): Attempt {
+function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null, screened: { count: number } = { count: Infinity }): Attempt {
   const g = land.g;
   const spec = specFor(specIn, g, attempt);
   // the spec the result carries: the player's, with the attempt accepted (the genome's tree species
@@ -1265,6 +1280,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
       if (!lastAttempt && tooStraight(straightness(W, H, est))) return fail("ruler-straight channel", null, true);
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
+      // (the theme's promise and a readable water story, read on the planned water: the first lands
+      // that miss either are drawn again before any is shown, within `landScreen` lands, D348, D333 (3))
+      {
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        info.planned = { promise: po.promise, water: po.story.readable };
+        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!po.promise || !po.story.readable)) {
+          screened.count++;
+          return fail(!po.promise ? "promise (planned)" : "water story (planned)", null, false);
+        }
+      }
       firstLook = Math.round(performance.now() - t0);
       landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {} };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
