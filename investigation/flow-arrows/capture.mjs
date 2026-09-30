@@ -21,6 +21,19 @@ try {
   const still=settledVelocity(W,W,field).every(n=>n===0);for(let i=0;i<N;i++)out[i*4+3]=2;const east=settledVelocity(W,W,field)[54];out.fill(0);for(let i=0;i<N;i++)out[i*4+1]=2;
   return {still,east,west:settledVelocity(W,W,field)[54],missing:settledVelocity(W,W)===null};
  });assert.deepEqual(fields,{still:true,east:2,west:-2,missing:true});
+  const laneChecks=await page.evaluate(async()=>{
+  const d=window.flowDemo,{CurrentPaths}=await import('/paths.ts');
+  const quiet=new CurrentPaths({...d.current,flow:{...d.current.flow,out:new Float64Array(d.current.W*d.current.H*4)}});
+  let downstream=true,wet=true;
+  for(const lane of d.paths.lanes)for(let k=1;k<lane.points.length;k++){
+   const p=lane.points[k-1],q=lane.points[k];
+   downstream&&=(q.x-p.x)*p.vx+(q.y-p.y)*p.vy>=-0.001;
+   wet&&=!!d.paths.sample(q.x,q.y);
+  }
+  return {downstream,wet,quietLanes:quiet.lanes.length,quietWakes:quiet.wakes.length,quietSeams:quiet.seams.length,count:d.flecks.count};
+ });
+ assert.ok(laneChecks.downstream&&laneChecks.wet);assert.equal(laneChecks.quietLanes+laneChecks.quietWakes+laneChecks.quietSeams,0);
+ assert.ok(laneChecks.count<100,'River streak count must remain far below round 3\'s 387 dots');
  const rows=[];
  for(const item of [
   {name:'river-overview',map:'riverValley',flow:false,title:'River Valley · surface motion'},
@@ -42,7 +55,7 @@ try {
     panels[li].push(panel);
     if(f===12)await writeFile(`local/${item.name}-${look}.png`,png);
    }
-   rows.push(await page.evaluate(()=>({look:window.flowDemo.renderer.look,count:window.flowDemo.flecks.count,buildMs:window.flowDemo.flecks.buildMs,view:window.flowDemo.renderer.getView()})));
+   rows.push(await page.evaluate(()=>({look:window.flowDemo.renderer.look,count:window.flowDemo.flecks.count,lanes:window.flowDemo.flecks.lanes,cues:window.flowDemo.cues.stats,pathBuildMs:window.flowDemo.paths.buildMs,buildMs:window.flowDemo.flecks.buildMs,view:window.flowDemo.renderer.getView()})));
    console.log(`Recorded ${item.name} ${look}`);
   }
   const rgba=[];
@@ -65,6 +78,19 @@ try {
   }
   gif.finish();await writeFile(`captures/${item.name}.gif`,gif.bytes());console.log(`Encoded ${item.name}: ${gif.bytes().length} bytes`);
  }
+ // Paused surface-only proof: real bank shoulders and a narrowing in the generated river.
+ await load('riverValley');await page.locator('#toggle').uncheck();
+ const foamPanels=[];
+ for(const look of ['high','standard']){
+  await page.locator('#look').selectOption(look);await settled();
+  await page.evaluate(()=>{const d=window.flowDemo;d.renderer.setView({target:[56,6.3,-115],distance:58,pitch:1.15});d.freeze(2);});
+  assert.equal(await page.locator('#toggle').isChecked(),false);
+  foamPanels.push(await sharp(await page.locator('#mapCanvas').screenshot()).resize(800,480).png().toBuffer());
+ }
+ await sharp({create:{width:1600,height:522,channels:3,background:'#222d2c'}}).composite([
+  {input:caption('Flow OFF · paused foam lines and bank wakes     |     High (left) / Standard (right)',1600),left:0,top:0},
+  {input:foamPanels[0],left:0,top:42},{input:foamPanels[1],left:800,top:42}
+ ]).jpeg({quality:93}).toFile('captures/foam-wakes.jpg');
  // Focused checks: actual edit updates both fields atomically and holds the camera.
  await load('riverValley');await page.locator('#toggle').check();
  const state=()=>page.evaluate(()=>({depth:Array.from(window.flowDemo.current.water.depth),flow:Array.from(window.flowDemo.current.flow.out),view:window.flowDemo.renderer.getView(),revision:window.flowDemo.revision}));
@@ -76,5 +102,5 @@ try {
  const t0=await page.evaluate(()=>window.flowDemo.times);await page.waitForTimeout(800);const t1=await page.evaluate(()=>window.flowDemo.times);
  assert.equal(t1.flecks,t0.flecks);assert.ok(t1.surface>t0.surface&&t1.surface-t0.surface<.04);
  assert.deepEqual(errors,[]);
- await writeFile('local/smoke.json',JSON.stringify({fields,rows,editUpdate:true,undo:true,defaultOff:true,reducedMotion:{t0,t1},errors},null,2));
+ await writeFile('local/smoke.json',JSON.stringify({fields,laneChecks,rows,editUpdate:true,undo:true,defaultOff:true,reducedMotion:{t0,t1},errors},null,2));
 } finally {await browser.close();}

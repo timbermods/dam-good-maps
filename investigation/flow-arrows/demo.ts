@@ -1,6 +1,8 @@
 import { MapRenderer } from '../../src/render3d/renderer';
 import { FlowFlecks } from './flecks';
 import { SurfaceMotion } from './surface';
+import { SurfaceCues } from './cues';
+import { CurrentPaths } from './paths';
 import type { FlowMap } from './flow';
 const $=(id:string)=>document.getElementById(id)!;
 const select=(id:string)=>$(id) as HTMLSelectElement;
@@ -9,8 +11,9 @@ const renderer=new MapRenderer(canvas);
 renderer.setLookChoice('high',false);
 // A demo-only bridge; adopt these hooks at the material/map lifecycle in production.
 const bridge=renderer as any;
-const surface=new SurfaceMotion(),flecks=new FlowFlecks(bridge.scene);
+const surface=new SurfaceMotion(),flecks=new FlowFlecks(bridge.scene),cues=new SurfaceCues(bridge.scene);
 const media=matchMedia('(prefers-reduced-motion: reduce)');
+let paths:CurrentPaths;
 let data:any,current:FlowMap,edited=false,revision=0,loading=false,loadId=0;
 let frozen:number|null=null,surfaceTime=0,fleckTime=0,last=performance.now(),benchmark=false;
 // Own the animation clock so there is one frame driver. Unrelated scenery stays at its
@@ -22,6 +25,7 @@ renderer.renderNow=()=>{
   if(bridge.high?.materials?.water)surface.attach(bridge.high.materials.water);
   surface.uniforms.currentTime.value=frozen===null?surfaceTime:frozen*(media.matches?.025:1);
   flecks.tick(frozen===null?fleckTime:media.matches?0:frozen,canvas.width,canvas.height,canvas.width/Math.max(1,canvas.clientWidth));
+  cues.tick(surface.uniforms.currentTime.value,canvas.width,canvas.height,canvas.width/Math.max(1,canvas.clientWidth),renderer.look!=='standard');
   render();
 };
 function frame(now:number){
@@ -46,12 +50,12 @@ function revive(raw: any): FlowMap {
 
 function status(){
   if(loading)return;
-  $('status').textContent=`${select('map').selectedOptions[0].text} · ${renderer.look} · ${toggle.checked?`Flow on · ${flecks.count} flecks`:'surface motion'}${media.matches?' · reduced motion':''}${edited?' · edited water':''}`;
+  $('status').textContent=`${select('map').selectedOptions[0].text} · ${renderer.look} · ${toggle.checked?`Flow on · ${flecks.count} streaks · ${flecks.lanes} lanes`:'surface motion'}${media.matches?' · reduced motion':''}${edited?' · edited water':''}`;
 }
 function applyMap(keepView=false){
   current=revive(edited?data.edited:data.original);
   // Commit the matching water and flow together, before the next animation frame.
-  surface.setMap(current);flecks.setMap(current);renderer.setMap(current,keepView);revision++;
+  paths=new CurrentPaths(current);surface.setMap(current);flecks.setPaths(paths);cues.setPaths(paths);renderer.setMap(current,keepView);revision++;
   $('edit').textContent=select('map').value==='wrongWay'?(edited?'Restore west source':'Move source east'):(edited?'Undo bed edit':'Edit riverbed');
   $('case').textContent=select('map').value==='wrongWay'?(edited?'SOURCE EAST · water now runs WEST':'SOURCE WEST · water runs EAST'):'';
   renderer.renderNow();status();
@@ -72,10 +76,10 @@ toggle.onchange=()=>{flecks.enabled=toggle.checked;renderer.renderNow();status()
 $('overview').onclick=()=>renderer.resetView();$('close').onclick=close;
 $('edit').onclick=()=>{if(!loading){edited=!edited;applyMap(true);}};
 media.addEventListener('change',status);
-Object.assign(window,{flowDemo:{renderer,surface,flecks,get current(){return current;},get revision(){return revision;},get ready(){return !!data&&!loading;},get times(){return {surface:surfaceTime,flecks:fleckTime,reduced:media.matches};},
+Object.assign(window,{flowDemo:{renderer,surface,flecks,cues,get paths(){return paths;},get current(){return current;},get revision(){return revision;},get ready(){return !!data&&!loading;},get times(){return {surface:surfaceTime,flecks:fleckTime,reduced:media.matches};},
   freeze(t:number|null){frozen=t;renderer.renderNow();},close,
-  async bench(both:boolean,ms=5000){benchmark=true;surface.enable(both);flecks.enabled=both;renderer.renderNow();await new Promise(r=>setTimeout(r,600));
+  async bench(both:boolean,ms=5000){benchmark=true;surface.enable(both);flecks.enabled=both;cues.mesh.visible=both;renderer.renderNow();await new Promise(r=>setTimeout(r,600));
     const result=await renderer.benchOrbit(ms);benchmark=false;return result;}
 }});
-window.addEventListener('pagehide',()=>{surface.dispose();flecks.dispose();renderer.dispose();},{once:true});
+window.addEventListener('pagehide',()=>{surface.dispose();flecks.dispose();cues.dispose();renderer.dispose();},{once:true});
 load().catch(fail);
