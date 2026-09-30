@@ -340,7 +340,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.mouse.up();
   await expect(sel.getByRole("status")).toHaveText("6 × 5 tiles");
   const before = await heightAt(page, ...c0);
-  await sel.getByRole("button", { name: "Raise", exact: true }).click();
+  await sel.getByRole("button", { name: "Up 1", exact: true }).click();
   await idle(page);
   expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
   await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);

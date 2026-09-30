@@ -85,6 +85,7 @@ export function quietWord(problem: string): string {
   if (/district center/.test(p)) return "the start stands there";
   if (/off the map|does not fit on the map|map edge/.test(p)) return "too near the edge";
   if (/cave|overhang/.test(p)) return "a cave is there";
+  if (/water is in the way/.test(p)) return "water is in the way";
   if (/under water|in a river/.test(p)) return "under water";
   const stands = /^(an? [a-z ]+) stands there/.exec(p);
   if (stands) return `${stands[1]} is there`;

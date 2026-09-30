@@ -83,7 +83,7 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: `Download ${SMALL.name}` }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(`${SMALL.name}.timber`);
+  expect(d.suggestedFilename()).toBe(`dgm-${SMALL.name.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.timber`);
   const bytes = new Uint8Array(readFileSync(await d.path()));
   expect(sha256(bytes)).toBe(sha256(expected.bytes));
   expect(sha256(bytes)).toBe(SMALL.sha256);
@@ -122,7 +122,7 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(`${SMALL.name}.timber`);
+  expect(d.suggestedFilename()).toBe(`dgm-${SMALL.name.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.timber`);
   expect(sha256(new Uint8Array(readFileSync(await d.path())))).toBe(SMALL.sha256);
   expect(errors).toEqual([]);
 });

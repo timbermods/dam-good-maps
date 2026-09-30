@@ -235,9 +235,13 @@ export function App() {
         void storage.clear();
       }
       setProgress({ attempt: 0, stage: "land", land: null });
+      // (a seed typed as a word names the saved file, D345 B10)
+      const word = seedText.trim();
+      const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       const r = await generator.generate(
         s,
         proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+        seedWord,
       );
       if (id !== runId.current) return;
       setResult(r);

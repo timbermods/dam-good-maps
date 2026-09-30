@@ -553,3 +553,24 @@ button.pick-line[aria-pressed="true"] {
   margin: 0 0 6px;
   font-size: 0.95rem;
 }
+
+/* a brush's options on two lines (D345, B2): Size, Level and Mode, then Sources, Square and Straight
+   lines below them */
+.options-row.two-lines {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* a tool's More opens as a compact panel laid out as a grid, not a longer row (D345, B2) */
+.force-options.more-grid {
+  max-width: 640px;
+}
+
+.force-options.more-grid > .bar-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, max-content));
+  align-items: center;
+  gap: 8px 18px;
+  padding: 2px 6px;
+}

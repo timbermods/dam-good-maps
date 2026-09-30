@@ -108,7 +108,7 @@ test("generate → refine → back to settings → Generate → back to editing 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("River Valley (4244).timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4244.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // back to settings: the card shows the edited map; change a setting and generate: a new map

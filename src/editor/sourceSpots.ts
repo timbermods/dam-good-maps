@@ -29,6 +29,10 @@ export interface SourceSpot {
  *  distances to its nearest tile). */
 export const SOURCE_REACH = 2;
 
+/** How far from a source's marker (or its foot) the pointer still counts as on the source, in screen
+ *  pixels (D345, B4): a source stands up out of its tile, and its marker floats above it. */
+export const SOURCE_SCREEN_REACH = 16;
+
 export const isSource = (template: string) => template === "WaterSource" || template === "BadwaterSource";
 
 /** Every water and badwater source on the map. */

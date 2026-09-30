@@ -296,7 +296,7 @@ export function FloorControl() {
  *  the forces' shared Floor ends it (D321, item 40). */
 export function MoreRow(p: { force: Force; children: ComponentChildren }) {
   return (
-    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} details`}>
+    <div class="map-bar options-row force-options more-grid" role="group" aria-label={`${p.force.name} details`}>
       <div class="bar-group">
         {p.children}
         <FloorControl />
@@ -372,7 +372,7 @@ export function TopBar(p: TopBarProps) {
         </div>
       ) : null}
       {t ? (
-        <div class="map-bar options-row" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
+        <div class="map-bar options-row two-lines" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
             <SizeControl label="Size" title="The brush's size, in tiles from its middle ([ and ] step it; hold F and move the mouse to size it on the map)" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
             {hasTarget(t) ? (
@@ -409,6 +409,9 @@ export function TopBar(p: TopBarProps) {
                 onChange={(m) => set({ modes: { ...s.modes, [t]: m } })}
               />
             </span>
+          </div>
+          {/* (a second line for the rest: D345, B2) */}
+          <div class="bar-group">
             <span class="segmented-field">
               Sources
               <Segmented<SourcesChoice>

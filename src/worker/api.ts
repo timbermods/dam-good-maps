@@ -92,6 +92,11 @@ async function sha256(bytes: Uint8Array): Promise<string> {
 
 /** The last map generated here, for "Refine this map" and the download without water. */
 let last: GenerateResult | null = null;
+/** The seed of the last map as it was typed, when it was a word (its saved file is named with it). */
+let lastSeedWord: string | undefined;
+export function lastGeneratedSeedWord(): string | undefined {
+  return lastSeedWord;
+}
 
 export function lastGenerated(): GenerateResult | null {
   return last;
@@ -174,7 +179,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     passed: r.passed,
     attempts: r.attempts,
     timber: r.timber,
-    timberName: fileName(r.spec),
+    timberName: fileName(r.spec, lastSeedWord),
     project: r.project,
     projectName: projectFileName(r.spec),
     name: mapName(r.spec),
@@ -190,7 +195,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
  *  lakes 2, floors 3), before the water is settled. */
 export type GenProgress = { kind: "stage"; attempt: number; stage: string } | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array };
 
-export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
+export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
   const t0 = performance.now();
   const r = generate(
     spec,
@@ -203,7 +208,8 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
   );
   const ms = Math.round(performance.now() - t0);
   last = r;
-  const project = encodeProject(generatedDocument(r));
+  lastSeedWord = seedWord;
+  const project = encodeProject(generatedDocument({ ...r, seedWord }));
   return responseOf({
     spec: r.spec,
     features: r.features,
@@ -223,5 +229,5 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
 export function emptyWaterFile(): { bytes: Uint8Array; name: string } | null {
   if (!last || !last.report.passed) return null;
   const bytes = writeTimber(toTimberFile(last.spec, last.built, { emptyWater: true }));
-  return { bytes, name: fileName(last.spec).replace(/\.timber$/, " (empty water).timber") };
+  return { bytes, name: fileName(last.spec, lastSeedWord).replace(/\.timber$/, "-empty-water.timber") };
 }

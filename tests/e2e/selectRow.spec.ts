@@ -56,7 +56,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(lowest));
   // Raise: one level per click, one step; Lower likewise
   const n0 = (await labels(page)).length;
-  await row.getByRole("button", { name: "Raise" }).click();
+  await row.getByRole("button", { name: "Up 1" }).click();
   await idle(page);
   expect((await labels(page)).length).toBe(n0 + 1);
   expect((await labels(page)).at(-1)).toBe("Raise 49 tiles by 1");
@@ -93,7 +93,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await idle(page);
   // hovering an action shows what it would change, on the land inside the selection (a tinted overlay)
   const before = await page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
-  await row.getByRole("button", { name: "Raise" }).hover();
+  await row.getByRole("button", { name: "Up 1" }).hover();
   const hovered = await page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
   expect(hovered).toBeGreaterThan(before);
   // X closes the selection, as Esc does

@@ -1454,3 +1454,24 @@ At the last push: `npm run test:quick` 621 passed, 13 skipped; `npx playwright t
   again may bring the rock back (the rock is taken from the forces' operations and trimmed to the
   ground as it stands).
 - Water ambience (a nearby waterfall or stream) is not wired (off by default, as decided).
+
+## The forces sitting, batch B: the editor (D345, D347; `feature/sitting-b`)
+
+Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDITOR_PLAN has the rules.
+
+- **B6, the water spill:** the cause was neither a filled wet tile nor the edge slopes as such. A footprint touching
+  water fell back to D328's "cut down to its lowest tile", which cut dry ground below the water beside it, and the water
+  ran in and then drained; the integrity pass also rounded a lone levelled tile down beside a lake. Now the level rises
+  to the water's surface instead (filling dry ground), the edge never cuts below it, the levelling ops are `exact`, and a
+  footprint standing in water on uneven ground is refused ("the water is in the way…"). `tests/contract/placeNoSpill.test.ts`.
+- **B5:** the counts and Everything include what the resource features hold under water (`core/doc/inArea.ts`); a ruin
+  field only partly inside the selection keeps the columns the water hides (their heights are assigned over the whole area).
+- **B4:** Ctrl+scroll and a click near a source's marker (a few pixels) count as on the source; the old exact-tile test
+  missed it and the click placed a second source. Placing on a source's own tile is refused by the core, as before.
+- **B7:** the plain pointer picks and drags placed objects too (mine site, relics, geothermal field, natural dam, blockage:
+  `planMoveEntity`); X puts down whatever is held. **B8, B10, B11** as EDITOR_PLAN describes.
+- Keys: **X** changed (it closed the selection; now it puts down anything held, the selection included); **Shift+scroll**
+  and **Ctrl+click** now also work in Select (the Level number). No key was added or moved otherwise. The shortcuts
+  reference (EDITOR_PLAN §7) is updated; the first-run hints name no key, so they stand.
+- Tests updated for the new names: the Select row's "Up 1" and "Down 1", the saved file names (`dgm-<theme>-<seed>`,
+  places `dgm-<place>`, the folder's numbering `-2`), the taken-name test in `platform.test.ts`.

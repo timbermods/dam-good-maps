@@ -1457,6 +1457,9 @@ export class MapRenderer {
 
   setMode(mode: ViewMode): void {
     this.setView({ mode });
+    // (a view switched to frames the whole map, centred: D345, B1)
+    this.frameMap();
+    this.requestRender();
   }
 
   private glideFrameTo = 0;
@@ -1497,7 +1500,55 @@ export class MapRenderer {
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
     this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.frameMap();
     this.requestRender();
+  }
+
+  /** The map waits to be framed until the canvas has a size. */
+  private framePending = false;
+
+  /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
+   *  the canvas's middle, whatever the view (orbit or top-down) and however big the window. The map's
+   *  four corners are projected; the distance scales to fit them and the target moves to centre them. */
+  frameMap(): void {
+    const m = this.map;
+    if (!m) return;
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    if (!w || !h) {
+      this.framePending = true;
+      return;
+    }
+    this.framePending = false;
+    let sum = 0;
+    for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
+    const level = sum / m.heights.length;
+    const corners: [number, number][] = [[0, 0], [m.W, 0], [0, m.H], [m.W, m.H]];
+    const box = () => {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const [x, y] of corners) {
+        const p = this.project(x, level, -y);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+      return { x0, y0, x1, y1 };
+    };
+    const r = this.canvas.getBoundingClientRect();
+    for (let pass = 0; pass < 4; pass++) {
+      let b = box();
+      const s = Math.max((b.x1 - b.x0) / (w * 0.86), (b.y1 - b.y0) / (h * 0.86));
+      if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
+      b = box();
+      const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
+      const mid = this.pickAtLevel(r.left + w / 2, r.top + h / 2, level);
+      if (!at || !mid) break;
+      this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
+    }
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
@@ -1589,6 +1640,7 @@ export class MapRenderer {
     const h = this.canvas.clientHeight;
     if (!w || !h) return;
     this.gl.setSize(w, h, false);
+    if (this.framePending) this.frameMap();
     this.requestRender();
   }
 
