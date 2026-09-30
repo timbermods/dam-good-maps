@@ -26,6 +26,8 @@ import { sourcesInFlow } from "../analysis/sources";
 import { straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { wearOutlet } from "../water/outletWear";
+import { WaterSim } from "../sim/water";
+import { spillLevels } from "../sim/prefill";
 import { standIslandsClear } from "../land/islands";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -253,6 +255,8 @@ interface LandStage {
   unsettled: number;
   /** Rivers that left it (their sources reached by another's water): gone on every attempt on it. */
   dropped: string[];
+  /** Sources fed stronger on it (a lake that fell, D350): their flows, kept on every later attempt. */
+  fed: Record<string, number>;
   /** The last badwater hollows whose water settled on it: an attempt whose own hollows keep the
    *  water from settling takes these (the rivers' water alone may not settle, D348). */
   goodBad?: Hazards;
@@ -628,12 +632,16 @@ function springByStart(b: BuildResult, rule: number, seed: number, attempt: numb
   if (!b.start) return null;
   const d = startWalk(b, false);
   if (!d) return null;
+  const padLevel = b.heights[b.start.y * W + b.start.x];
   const cands: [number, number][] = [];
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
     if (b.water[i] > 0.05 || b.occupied[i] || Math.max(Math.abs(x - b.start.x), Math.abs(y - b.start.y)) <= 4) continue;
     if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) continue;
+    // (a level or more under the start's pad: the spring's water, running on from its pond, never
+    // reaches the start's ground)
+    if (b.heights[i] >= padLevel) continue;
     let walk = Infinity;
     for (const n of [i - 1, i + 1, i - W, i + W]) if (d[n] + 1 < walk && b.heights[n] >= b.heights[i] && b.heights[n] - b.heights[i] <= 2) walk = d[n] + 1;
     if (!(walk <= rule - 4)) continue;
@@ -685,6 +693,63 @@ function springByStart(b: BuildResult, rule: number, seed: number, attempt: numb
     }
   }
   return null;
+}
+
+/** The largest group (20+ tiles, 4-connected) of water still falling at the end of a settle that
+ *  didn't settle: 256 more ticks from its water, tiles that lost more than 0.003 (D350). */
+function fallingWater(b: BuildResult): Uint8Array | null {
+  const { W, H } = b;
+  const N = W * H;
+  const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+  // (with the settle's momentum, so nothing moves only because the flows restart)
+  if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
+  const before = sim.D.slice();
+  sim.run(256);
+  const fall = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (before[i] > 0.05 && sim.D[i] < before[i] - 0.003) fall[i] = 1;
+  const seen = new Uint8Array(N);
+  let best: number[] = [];
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!fall[s0] || seen[s0]) continue;
+    const q = [s0];
+    seen[s0] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+        if (n >= 0 && fall[n] && !seen[n]) {
+          seen[n] = 1;
+          q.push(n);
+        }
+      }
+    }
+    if (q.length > best.length) best = q;
+  }
+  if (best.length < 20) return null;
+  const out = new Uint8Array(N);
+  for (const i of best) out[i] = 1;
+  return out;
+}
+
+/** Whether water from `cells` runs down (or level) on the spill levels to a tile of `mask`, as the
+ *  canonical pre-fill runs it (sim/prefill.ts). */
+function reachesDown(cells: readonly number[], spill: Float64Array, W: number, H: number, mask: Uint8Array): boolean {
+  const seen = new Uint8Array(W * H);
+  const q = [...cells];
+  for (const c of q) seen[c] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const c = q[k];
+    if (mask[c]) return true;
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+      if (n < 0 || seen[n] || spill[n] > spill[c]) continue;
+      seen[n] = 1;
+      q.push(n);
+    }
+  }
+  return false;
 }
 
 /** Tiles the colony walks to from the start (the objects must not cut the start off). */
@@ -1059,6 +1124,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     rivers = rivers.filter((f) => !dropped.has(f.id));
   };
   if (from?.dropped.length) dropRivers(from.dropped);
+  // (and the sources fed stronger on an earlier attempt, D350)
+  if (from && Object.keys(from.fed).length) {
+    for (const f of rivers) {
+      const v = from.fed[f.id];
+      if (v === undefined) continue;
+      if (f.kind === "river") f.params.flow = v;
+      else if (f.kind === "lake") f.params.inflow = { spring: v };
+    }
+    fixes.push("lake fed");
+  }
   const fail = (why: string, b: BuildResult | null, replannable: boolean): Attempt => {
     info.stage = why;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
@@ -1191,7 +1266,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!lastAttempt && tooStraight(straightness(W, H, est))) return fail("ruler-straight channel", null, true);
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {} };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
@@ -1201,6 +1276,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (water still changing after the settle's four days, water.settles, on the shown land, D348: when
   // the rivers' water alone settles, the hollows unsettled it, and the next plan keeps off them; when
   // it does not, no plan on this land settles, and the attempts stop there, never drawing new land)
+  const floodLine = rulesFor(spec).maxWaterShare;
+  const floodShare = (b: BuildResult) => {
+    let n = 0;
+    for (let i = 0; i < N; i++) if (b.water[i] > WET) n++;
+    return n / N;
+  };
   const wearFix = (b: BuildResult): BuildResult | null => {
     const keepW = new Uint8Array(N);
     for (const e of b.waterModel.emitters)
@@ -1230,6 +1311,39 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       h.set(before);
     }
+    return null;
+  };
+  // D350: a lake fed less than it loses falls for days from where the pre-fill started it (full,
+  // at its spill level): the sources whose water reaches it run stronger (1.6, then 2.5 times) until
+  // it settles within the water's flood line; recorded in the features, so the link rebuilds it
+  const feedFix = (b: BuildResult): BuildResult | null => {
+    const falling = fallingWater(b);
+    if (!falling) return null;
+    const spill = spillLevels(b.waterModel);
+    const feeders = rivers.filter((f) => {
+      if (f.kind !== "river" && f.kind !== "lake") return false;
+      if (f.kind === "river" && f.params.badwater) return false;
+      const cells: number[] = [];
+      for (const e of b.entities) if (e.owner === f.id && e.template === "WaterSource" && e.x >= 0 && e.y >= 0 && e.x < W && e.y < H) cells.push(e.y * W + e.x);
+      return cells.length > 0 && reachesDown(cells, spill, W, H, falling);
+    });
+    if (!feeders.length) return null;
+    const flowOf = (f: Feature) => (f.kind === "river" ? f.params.flow : f.kind === "lake" && "spring" in f.params.inflow ? f.params.inflow.spring : 0);
+    const setFlow = (f: Feature, v: number) => {
+      if (f.kind === "river") f.params.flow = v;
+      else if (f.kind === "lake") f.params.inflow = { spring: v };
+    };
+    const base = feeders.map(flowOf);
+    for (const k of [1.6, 2.5]) {
+      feeders.forEach((f, n) => setFlow(f, Math.round(base[n] * k * 1000) / 1000));
+      const b2 = build([...rivers, ...bad.features], "resources");
+      if (b2.settle.settled && floodShare(b2) <= floodLine) {
+        fixes.push("lake fed");
+        if (landStage) feeders.forEach((f) => (landStage!.fed[f.id] = flowOf(f)));
+        return b2;
+      }
+    }
+    feeders.forEach((f, n) => setFlow(f, base[n]));
     return null;
   };
   const unsettled = (b: BuildResult): Attempt => {
@@ -1264,16 +1378,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const worn = wearFix(b1);
     if (worn) b1 = worn;
   }
+  if (!b1.settle.settled && !lastAttempt) {
+    const fed = feedFix(b1);
+    if (fed) b1 = fed;
+  }
   // (not on the last attempt, whose map is kept)
   if (!b1.settle.settled && !lastAttempt) return unsettled(b1);
   // D348: water over more of the map than the flood line (water.no_flood) on the shown land: its
   // rivers and springs run gentler, 0.7 of their flow at a time, at most twice; the land stays
-  const floodLine = rulesFor(spec).maxWaterShare;
-  const floodShare = (b: BuildResult) => {
-    let n = 0;
-    for (let i = 0; i < N; i++) if (b.water[i] > WET) n++;
-    return n / N;
-  };
   for (let k = 0; k < 2 && !lastAttempt && floodShare(b1) > floodLine; k++) {
     for (const f of rivers) {
       if (f.kind === "river" && !f.params.badwater) f.params.flow = Math.round(f.params.flow * 700) / 1000;
