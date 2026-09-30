@@ -759,10 +759,16 @@ outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
 readable water, a worker of its own looks for a sibling that meets all three (`gen/versions.ts`, up
 to 6). Only a missed promise gets a note naming what the version has ("A version with its sea is
 ready", D333 (5)); one found for its water alone is kept quietly, and Another like this shows it.
-Nothing else is generated until the player asks (Another like this, More in the strip). The land is
-kept once it passes its own stage (D333 (2): its courses, a start on its planned water), shown then
-as editable land; what fails after it is planned again on the same land, and only a failure bound to
-the land (water that never settles, no start on its settled water) draws new land.
+Nothing else is generated until the player asks (Another like this, More in the strip). The first
+land shown is the map (D348): a land is shown as editable land once it passes every check the land
+alone can judge (its courses, the Rivers count, no source in a flow, a start on its planned water, no
+ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water), and it is
+never replaced. What needs its settled water is fixed on it: with no place for a start on the settled
+water, the start goes where the plan put it, or else on level dry ground joined to enough land; a
+start the settled water leaves dry gets a spring by it (D330's fix: a group of sources in a dry bed or
+hollow the colony walks beside, checked as `start.water` reads it); a start, hollows or objects that
+fail are planned again on the same land, keeping off what failed. Water whose rivers alone do not
+settle stops the attempts on that land (decisions-pending #150, Kyler's to decide).
 
 ### 7.10 Output
 

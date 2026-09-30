@@ -210,6 +210,73 @@ The worker's `GenerateResponse` carries `walkReach` and `levers` (the shapes of
 sends: a generated one, a version the background search found, a sibling, an edited document
 (`tests/contract/levers.test.ts`).
 
+## D348 and the probe's refill gap (2026-09-29, night)
+
+### The refill gap: the game's rule, and what the model misses
+
+- **The rule** (`Timberborn.WaterSystem` `OutflowsUpdateTask.GetOutflow`, read-only): water flows
+  from a column to a neighbour by 2.25 × dt × the head difference plus 0.999 of last substep's flow;
+  where no dam limits it and the neighbour is dry (`WaterDepth + Overflow == 0`) on the same floor,
+  the head difference first loses `WaterSpillThreshold` 0.1. So a sheet spreads onto dry ground of
+  its own level only where it stands more than 0.1 above it. The drought ramps (`DroughtWaterStrength
+  Modifier`), the evaporation (0.001/s under 0.02 deep, else 0.0001/s, times the cluster saturation's
+  modifier), the source step and the task order are the model's too, line by line.
+- **One misalignment, fixed** (`investigation/probe/runner/model.ts`): the game shows its water one
+  simulation step behind its clock (`TickAll` finishes step T−1, ticks the singletons, where the
+  probe reads, then starts step T). Read one tick earlier, the model matches the probe's samples on
+  Lake Basin 128² seed 2 to 1e-6 through both drought ramps (before, up to 0.04 while the sources
+  ramped), and the whole map within 0.003 from day 1 to the drought's end, draining included.
+- **What it leaves** (the knife-edge): the thin sheets the refill spreads over big flats settle at
+  0.090 deep in the game, 0.01 under the threshold, and stop there; the model's sheet, with the same
+  outlets (the dead-end channel blocked), settles at 0.089 too, the same equilibrium. But in the
+  refill's wave the model's front at (83, 66) reaches 0.1003, crosses the threshold and re-wets
+  everything beyond; the game's front stays under it. A sixth of a day into the refill the model and
+  the game already differ by 0.009 m (rms, largest 0.07) where lakes fill and sheets advance, which
+  float32 arithmetic (0.0001), the spill threshold's variants, the evaporation modifiers' timing,
+  momentum and the flow factor do not explain (each variant fits worse). No rule difference found;
+  the gap is a transient's, deciding a threshold crossing by millimetres. What a player meets is the
+  game's: flats that hold a sheet within a centimetre of the threshold lose it to the first drought
+  for good. That is the generator's to avoid (no flat level with a water surface), as D333 began.
+
+### The first land shown is the map (D348)
+
+- `gen/generate.ts`: a land is shown once it passes every check the land alone can judge (its
+  courses, the Rivers count, no source in a flow, a start on its planned water, and now no ground
+  above 16 unless tall, and no ruler-straight channel or dam wall on its planned water), and it is
+  never replaced (`LAND_TRIES` went). After its water settles: no place for a start takes the plan's
+  start, or a start the plan's water gives that is dry on the settled water too, or level dry ground
+  (`settler.ts` `dryStart`); a start without water a pump reaches on foot gets a spring by it
+  (`springByStart`, D330's fix); what fails is planned again on the same land, keeping off the
+  starts and hollows that failed. `start.water` is read as the check reads it (before, a pump
+  beside the walk counted and the check then failed on the finished map). The spring is no river of
+  the water story or the signature. Water whose rivers alone do not settle stops the attempts:
+  decisions-pending #150, Kyler's to decide; the fixes, #151.
+- Seeds 1–10 of every theme, six maps at a time on the shared machine (before: D333's hand-back,
+  3e5578c6, with the land replaced on 19 and 15 of 70 maps):
+
+  | | before | after |
+  |---|---|---|
+  | lands shown then replaced | 19 / 15 of 70 | 0 / 0 |
+  | 128², land / settled water / map (median, p90) | 0.5 / 4.9, 1.8 / 6.2, 2.5 / 7.1 s | 0.6 / 1.0, 1.9 / 8.2, 2.8 / 9.9 s |
+  | 256², land / settled water / map | 1.8 / 13.3, 7.1 / 23.0, 9.5 / 25.2 s | 2.3 / 3.6, 7.5 / 20.7, 11.1 / 30.6 s |
+  | maps passing every absolute | 70 / 70 | 64 / 58 |
+  | first maps meeting all three, 128² | 38 of 70 | 28 |
+  | first maps meeting all three, 256² | 35 of 70 | 28 |
+
+  Per theme at 128² (Any, River Valley, Canyon, Highlands, Lake Basin, Delta, Islands): 7, 4, 4,
+  3, 3, 3, 4 of 10; at 256²: 5, 5, 6, 5, 1, 3, 3. The maps that don't pass: water that doesn't
+  settle, 5 at 128² and 10 at 256² (#150); no start after 23 attempts (Any 128² 3); starts that flood
+  once levelled, 24 attempts each (Any 256² 4 and 7). A failing map's attempts are what the p90s
+  hold. The land shows within D333's 256² target (3 / 6 s); settled water at 256² is at 7.5 / 20.7
+  s against 8 / 20.
+- **Islands and Delta at 256²** (D345): Islands 7 → 3 of 10. Seeds 1–3 miss the promise (the sea
+  13–17% of the map against 25%, 1–2 islands: no land broken into islands); seeds 6, 8, 9, 10 have
+  seas that don't settle (a sea standing up to a level over its spill level, its way out too narrow
+  for its springs, spilling over its rim at the map's edges), which D333 hid by drawing new land.
+  Delta 3 → 3 of 10: seeds 1, 2, 9 miss the promise and readable water (the main river wet on 56–72%
+  of its course, 30–31% of the land near clean water, two rivers that never join), seeds 7, 8, 10
+  the promise alone (1–2 mouths, 3 asked), seed 3's water doesn't settle.
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
@@ -630,3 +697,7 @@ check, the start, the water settling).
   of the start's pad: (40, 40) is water), the water view (seed 33: seed 15's river takes a tributary
   above the point it reads).
 
+- D348: `investigation/probe/runner/test.ts`'s start-water check (every pool a pump reaches counts,
+  not only the nearest) sinks its one-tile pool beside the start itself: the generator no longer
+  leaves Canyon 128² seed 1 its sealed hole (D148). New: `tests/contract/firstLand.test.ts`, a shown
+  land is never replaced (Highlands 3 and 7, Any 4, Islands 7 at 128², whose land D333 replaced).

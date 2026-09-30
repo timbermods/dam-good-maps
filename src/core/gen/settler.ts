@@ -456,6 +456,69 @@ export function pickStart(
   return { x, y, level: h[c.i], orientation: c.o, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };
 }
 
+/** A start for a shown land whose settled water left no place for one (D348): level dry ground (a
+ *  5×5 at one level, else within a level, which is levelled), its ring dry, its door onto level
+ *  ground, off `avoid`, with no water asked for: a spring by it gives it water afterwards (D330's
+ *  fix). Among such places, the most level ground at the start's own level within 8 tiles and the
+ *  most land joined by one-level steps (`foot`), nearest the water, then nearest `near`. */
+export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, hydro: Pick<Hydro, "water">, opts: { avoid?: Uint8Array | null; foot?: { lab: Int32Array; size: number[] } | null; minFoot?: number; near?: { x: number; y: number } | null } = {}): StartPick | null {
+  const N = W * H;
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wet[i] = 1;
+  const dWet = distanceFrom(wet, W, H);
+  const margin = Math.max(8, Math.round(Math.min(W, H) * 0.08));
+  let best: StartPick | null = null;
+  let bestScore = -Infinity;
+  for (let pass = 0; pass < 2 && !best; pass++)
+    for (let y = margin; y < H - margin; y++)
+      for (let x = margin; x < W - margin; x++) {
+        const i = y * W + x;
+        const L = h[i];
+        if (opts.avoid?.[i] || dWet[i] < 3.5) continue;
+        const foot = opts.foot ? (opts.foot.size[opts.foot.lab[i]] ?? 0) : 0;
+        if (opts.minFoot && foot < opts.minFoot) continue;
+        let ok = true;
+        let uneven = false;
+        for (let dy = -2; dy <= 2 && ok; dy++)
+          for (let dx = -2; dx <= 2 && ok; dx++) {
+            const j = (y + dy) * W + x + dx;
+            if (D[j] > 0.001 || hydro.water[j] === 1 || hydro.water[j] === 2) ok = false;
+            else if (h[j] !== L) {
+              if (pass === 0 || Math.abs(h[j] - L) > 1 || Math.max(Math.abs(dx), Math.abs(dy)) <= 1) ok = false;
+              uneven = true;
+            }
+          }
+        if (!ok) continue;
+        let o: Orientation | null = null;
+        let door = Infinity;
+        for (const oo of ORIENTATIONS) {
+          const [X, Y] = coordinatesForMinCorner(3, 3, x - 1, y - 1, oo);
+          const [ex, ey] = rotate(oo, 1, -1);
+          const e = (Y + ey) * W + X + ex;
+          if (h[e] !== L) continue;
+          if (dWet[e] < door) {
+            door = dWet[e];
+            o = oo;
+          }
+        }
+        if (!o) continue;
+        let bench = 0;
+        for (let dy = -8; dy <= 8; dy++)
+          for (let dx = -8; dx <= 8; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (dx * dx + dy * dy <= 64 && xx >= 0 && yy >= 0 && xx < W && yy < H && h[yy * W + xx] === L) bench++;
+          }
+        const near = opts.near ? Math.hypot(x - opts.near.x, y - opts.near.y) : 0;
+        const score = Math.min(1, bench / 150) + Math.min(1, foot / (0.2 * N)) - 0.02 * Math.min(40, dWet[i]) - 0.002 * near;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { x, y, level: L, orientation: o, kind: "dry", shoreWalk: Infinity, levelled: uneven };
+        }
+      }
+  return best;
+}
+
 /** The last resort, as the old generator did (D97): beside clean pumpable water, a 5×5 pad and a
  *  3-wide path to the shore, levelled one level above the water, on ground within two levels of it,
  *  where most ground round it stands at the pad's level. */

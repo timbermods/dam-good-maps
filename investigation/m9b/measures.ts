@@ -54,6 +54,12 @@ export interface MapMeasure {
   ms: { firstLook: number; firstCandidate: number; final: number; land: number; water: number };
   /** Lands committed (D333 (2)): 1 when the land first shown is the map's. */
   lands?: number;
+  /** D348: lands shown (onLand calls), tiles the map's ground differs from the first shown, the
+   *  automatic fixes, and a map that did not pass: what failed. */
+  shown?: number;
+  changed?: number;
+  fixes?: string[];
+  failedChecks?: string[];
   /** The timings scaled by the process's CPU share (an idle core's, on a shared machine). */
   cpu?: { share: number; land: number; water: number; final: number };
   /** The map's outcomes (D329: the first map that passes is the map). */
@@ -76,8 +82,12 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
   const c0 = process.cpuUsage();
   let firstLook = -1;
   let firstCandidate = -1;
+  let shown = 0;
+  let shownHeights: Uint8Array | null = null;
   const r = generate(spec, {
-    onLand: () => {
+    onLand: (l) => {
+      shown++;
+      if (!shownHeights) shownHeights = l.heights.slice();
       if (firstLook < 0) firstLook = performance.now() - t0;
     },
     onCandidate: () => {
@@ -185,6 +195,11 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     failures: r.failures.map((f) => f.failed.join(' + ')),
     ms: { firstLook: Math.round(firstLook), firstCandidate: Math.round(firstCandidate), final: Math.round(final), land: r.timings.firstLook, water: r.timings.firstWater },
     lands: r.info.lands ?? 0,
+    shown,
+    // (tiles the finished map's ground differs from the land shown: the start's pad, the hollows)
+    changed: shownHeights ? (() => { let n = 0; const sh = shownHeights as Uint8Array; for (let i = 0; i < N; i++) if (sh[i] !== b.heights[i]) n++; return n; })() : -1,
+    fixes: r.info.fixes ?? [],
+    failedChecks: r.report.passed ? [] : r.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id).concat(r.info.stage !== 'built' && r.info.stage !== 'checks' ? [r.info.stage] : []),
     cpu: { share: Math.round(cpuShare * 1000) / 1000, land: Math.round(r.timings.firstLook * cpuShare), water: Math.round(r.timings.firstWater * cpuShare), final: Math.round(final * cpuShare) },
     outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout, summary: r.outcomes.summary, story: r.outcomes.story, signature: r.outcomes.signature } : null,
     spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: (f as { ms?: number }).ms !== undefined ? (f as { ms: number }).ms - (k ? ((r.failures[k - 1] as { ms?: number }).ms ?? 0) : 0) : -1 })),

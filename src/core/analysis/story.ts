@@ -165,7 +165,8 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       other += t;
     } else ponds++;
   });
-  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater);
+  // (a spring by the start, D330's fix on a shown land, D348, is no river of the map's story)
+  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring");
   // a plug's river runs dry below it until the plug is opened (the plug-lake intention, D274): its
   // course's water is not asked for
   const plugTiles = new Set<number>();
