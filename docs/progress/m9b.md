@@ -325,6 +325,33 @@ sends: a generated one, a version the background search found, a sibling, an edi
   half settle in 4.3–4.8 days, the rest are lakes whose water falls for days (fed less than they
   lose: no way out to widen); and Any 256² seed 7, whose starts flood once levelled (24 attempts).
 
+### The land-stage screen, fixes for the water that falls, time (2026-09-30, night)
+
+- **The screen** (`generate.ts`, `landScreen`): before a land is shown, its outcomes are read on the
+  water its rivers were planned with (the promise, `outcomes.ts`; the water story, `story.ts`), and
+  a land that misses either is drawn again, up to 6 lands at 128², 4 to 192², 3 above (the land
+  stage is part of the time to land). The cheap land checks and the screen run before the start's
+  guess, and a land drawn again builds nothing for its record. The planned reading holds on the shown
+  lands' promise almost always (Lake Basin 256² over-predicted on 3 of 8); it misses water stories
+  where the settled water splits the planned system (a river dry for half its course, rivers that
+  never join).
+- **Water that falls or rises:** a lake nothing feeds, falling as it evaporates, gets a small spring
+  at its deepest tile (`lakeSpring`, about three times what it loses); a lake fed less than it loses
+  gets its feeding sources stronger (1.6, 2.5×, `feedFix`); water still rising over a flat at its spill
+  level (no depression) has its way out worn wider too; a source's tiles are no way out (the game
+  walls them). All are recorded in the features or the land and kept on later attempts on the land.
+- **Faster fixes:** a start spring is judged on the pre-fill's water before its settle (one 256² map
+  34 → 23 s: 13 s went to three spring tries that flooded the start or gave it no water).
+- **Seeds 1–10 of every theme at 128²:** 1 of 70 fails an absolute (River Valley 2: a canal 35.8
+  tiles on its settled water, over the 34.3 line, planned water well under it; a shown land can't be
+  planned again for it, D348, so the attempts stop); all three outcomes on 50 of 70 (Any 8, River
+  Valley 6, Canyon 9, Highlands 6, Lake Basin 6, Delta 7, Islands 8); land 1.2 / 3.1 s, settled water
+  3.3 / 10.0 s, the map 4.4 / 10.9 s. Seeds 11–20: River Valley 5, Highlands 7, Lake Basin 6, Delta
+  9 of 10. At 256² (the screen, before the falling-water fixes): 2 of 70 fail (Any 9, Lake Basin 5),
+  all three on 52 of 70 (Any 7, River Valley 8, Canyon 9, Highlands 6, Lake Basin 4, Delta 8, Islands
+  10), but the land at 5.2 / 15.2 s and settled water 17.6 / 42.4 s CPU-scaled, far over 3 / 6 and 8 /
+  20.
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
