@@ -169,7 +169,7 @@ Tuesday's session refreshes it with the forces sitting's changes and tells you.
 
 ### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
 
-- **Ready, waiting for Kyler's YES: Sizes** (D357 (9), branch `chore/probe-sizes`): 512×512, 128×512, 64×512 and 512×256,
+- **Ready, waiting for Kyler's YES: Sizes** (D357 (9), `chore/probe-sizes`, PR #108): 512×512, 128×512, 64×512 and 512×256,
   with 256×256 and 399×399 as references; each loaded at its size, its water after a day against our model, frame times with
   a camera pan at normal speed, the fastest and the probe's speed, and the time to load. About 36 minutes as planned. The runner
   now writes a group's maps itself before it plans (`batch -- --group Sizes`), so the probe folder's four commands cover it.
