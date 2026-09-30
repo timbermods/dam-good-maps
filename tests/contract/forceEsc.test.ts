@@ -236,7 +236,7 @@ async function everyMoment(g: Gesture, speed: ForceSpeed, key: "cancel" | "jump"
     // kept: the final land, one step (Watch's Esc jumps to it; or it was over when the key came)
     expect(r.p.ended, where).toEqual(["kept"]);
     expect(landOf(state()), where).toEqual(g.again ? landOf(state()) : landOf(kept));
-    expect(state().history.length, where).toBe(before.history.length + 1);
+    expect(landOf(state()).steps.length, where).toBe(landOf(before).steps.length + 1);
     await undoWhileItShows(r.p, before, where);
   }
   // (the moments reached the force at work: its start, its working out, its frames, its keep)
@@ -284,7 +284,7 @@ describe("Esc or undo at any moment of a force (D341)", () => {
     expect(run.ended, g.name).toEqual(["kept"]);
     const kept = state();
     expect(kept.heights, g.name).not.toBe(before.heights);
-    expect(kept.history.length, g.name).toBe(before.history.length + 1);
+    expect(landOf(kept).steps.length, g.name).toBe(landOf(before).steps.length + 1);
     // (kept, its show playing on: undo takes it back, nothing lands later; then exactly as before)
     await undoWhileItShows(run, before, `${g.name} (${speed}), kept`);
     return { before, kept, trace: run.trace };
