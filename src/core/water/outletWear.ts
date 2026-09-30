@@ -304,6 +304,15 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
       }
       for (const j of band) if (near[j]) out[j] = h[j];
     }
+    // no arms or stubs (D360, Kyler on Lake Basin 256² seed 4): where the worn ground is narrower
+    // than three tiles (a stub where the path turns, a sliver along a bank) it stays as it was, so
+    // the cut follows its bends as a smooth curve
+    {
+      const worn = new Uint8Array(N);
+      for (const j of band) if (out[j] < h[j]) worn[j] = 1;
+      const open = openSquare(worn, W, H);
+      for (const j of band) if (worn[j] && !open[j]) out[j] = h[j];
+    }
     // one shape (D360 (3)): the largest piece of the worn ground stays, and whatever the kept
     // tiles, the drained basin's ground or ground already low along the way left apart from it
     // (stray tiles, fragments) stays as it was
@@ -362,12 +371,41 @@ export interface WearOptions {
 }
 
 /** How a cut sits against the path its water takes out (D360 (3)): how many shapes its tiles make
- *  (4-connected), its stray tiles (no other cut tile beside them), and its tiles farther than `reach`
- *  from the path (blobs off to its side). */
+ *  (4-connected), its stray tiles (no other cut tile beside them), its tiles farther than `reach`
+ *  from the path (blobs off to its side), and its thin tiles: arms and stubs, where it is narrower
+ *  than three tiles (no 3×3 square of the cut covers them). */
 export interface CutShape {
   regions: number;
   strays: number;
   offPath: number;
+  thin: number;
+}
+
+/** The tiles of `mask` some 3×3 square wholly inside it covers (a morphological opening): what is
+ *  left when every part narrower than three tiles is taken away. */
+export function openSquare(mask: Uint8Array, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const core = new Uint8Array(N);
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      let all = 1;
+      for (let dy = -1; dy <= 1 && all; dy++) for (let dx = -1; dx <= 1 && all; dx++) if (!mask[(y + dy) * W + x + dx]) all = 0;
+      core[y * W + x] = all;
+    }
+  const out = new Uint8Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!mask[y * W + x]) continue;
+      let hit = 0;
+      for (let dy = -1; dy <= 1 && !hit; dy++)
+        for (let dx = -1; dx <= 1 && !hit; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H && core[yy * W + xx]) hit = 1;
+        }
+      out[y * W + x] = hit;
+    }
+  return out;
 }
 
 export function cutShape(cut: readonly number[], path: readonly number[], W: number, H: number, reach = Infinity): CutShape {
@@ -415,7 +453,10 @@ export function cutShape(cut: readonly number[], path: readonly number[], W: num
     const d = distanceFrom(onPath, W, H);
     for (const i of cut) if (d[i] > reach) offPath++;
   }
-  return { regions, strays, offPath };
+  const open = openSquare(inCut, W, H);
+  let thin = 0;
+  for (const i of cut) if (!open[i]) thin++;
+  return { regions, strays, offPath, thin };
 }
 
 /** How far from its path a worn way out `width` tiles wide reaches: its widest (1.2 of half the
@@ -424,7 +465,8 @@ export function wearReach(width: number): number {
   return Math.ceil((width / 2) * 1.2) + 6;
 }
 
-/** A cut of the shape D360 (3) asks: one shape along the path, no stray tiles, nothing off to its side. */
+/** A cut of the shape D360 (3) asks: one shape along the path, no stray tiles, nothing off to its
+ *  side, no arms or stubs. */
 export function cutShapeOk(s: CutShape): boolean {
-  return s.regions === 1 && s.strays === 0 && s.offPath === 0;
+  return s.regions === 1 && s.strays === 0 && s.offPath === 0 && s.thin === 0;
 }

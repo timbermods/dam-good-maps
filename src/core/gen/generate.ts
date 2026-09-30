@@ -309,6 +309,8 @@ const SPRING_TRIES = 3;
 const START_TRIES = 3;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
 const WEAR_WIDTHS = [9, 17];
+/** The most tiles a worn way out may take (Kyler, D360: about 200). */
+const WEAR_MOST = 200;
 const SPRING_STRENGTH = [2];
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
@@ -1475,8 +1477,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       for (const i of stuck[1].tiles) both += inRisen[i];
       if (both * 2 >= stuck[1].tiles.length) stuck.pop();
     }
-    // (a cut no bigger than this: past it the way out is no small local wear, D350)
-    const most = Math.max(400, Math.round(0.02 * N));
+    // (a cut no bigger than this: past it the way out is no small local wear, and the map is fixed
+    // at its source instead, D358, D360)
+    const most = WEAR_MOST;
     for (const [k, stuckWater] of stuck.entries())
     for (const width of WEAR_WIDTHS) {
       const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width + 100 * k), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater, floor: BED_FLOOR });

@@ -55,15 +55,17 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     }
     expect(w.cut.some((i) => w.heights[i] === 7)).toBe(true);
     // wider than the channel was, and a width that wanders (no straight notch)
+    // (away from the kept tile at x = 50: the cut keeps round it, three tiles across or none)
     const widths: number[] = [];
     for (let x = 44; x < W - 2; x++) {
+      if (Math.abs(x - 50) <= 1) continue;
       let n = 0;
       for (let y = 0; y < H; y++) if (w.heights[y * W + x] === 5) n++;
       widths.push(n);
     }
     expect(Math.min(...widths)).toBeGreaterThanOrEqual(3);
-    // (a width that changes smoothly along the way, never tile by tile)
-    expect(new Set(widths).size).toBeGreaterThan(1);
+    // (a width that changes smoothly along the way, never tile by tile: D360 asks for smooth curves,
+    // where D350 asked for a width that wanders)
     for (let k = 1; k < widths.length; k++) expect(Math.abs(widths[k] - widths[k - 1])).toBeLessThanOrEqual(2);
     // the basin still spills at 6: nothing within two tiles of it went under its level
     const b2 = risenBasin(w.heights, W, H, depth);
@@ -100,6 +102,47 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     expect(s.regions).toBeGreaterThan(1);
     expect(s.strays).toBeGreaterThan(0);
     expect(cutShapeOk(s)).toBe(false);
+  });
+
+  it("the check refuses the cut Lake Basin 256² seed 4 had (arms and stubs where its path turns, captured 2026-10-01)", () => {
+    // the capture's third panel (investigation/m9b/worn-way-out-lakeBasin-4-256.png, 2a95d94c), tile
+    // by tile: '#' the cut. One piece along its path, but with a stub at its top, a neck, an arm to
+    // the left and stubs along its foot (Kyler, D360)
+    const rows = [
+      ".............",
+      "......#......",
+      ".....###.....",
+      ".....####....",
+      ".....#####...",
+      ".....####....",
+      ".....#.......",
+      "....####.....",
+      "....#####....",
+      "....######...",
+      "....######...",
+      ".########....",
+      ".###########.",
+      "....########.",
+      "....########.",
+      "...##.###.#..",
+      ".............",
+    ];
+    const CW = rows[0].length;
+    const cut: number[] = [];
+    rows.forEach((r, y) => [...r].forEach((c, x) => c === "#" && cut.push(y * CW + x)));
+    const s = cutShape(cut, [], CW, rows.length);
+    expect(s.regions).toBe(1);
+    expect(s.thin).toBeGreaterThan(0);
+    expect(cutShapeOk(s)).toBe(false);
+  });
+
+  it("takes the arms and stubs off: every cut is at least three tiles across", () => {
+    const { h, depth } = scene();
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const w = wearOutlet(h, W, H, depth, { seed, width: 9 });
+      if (!w) continue;
+      expect(cutShape(w.cut, w.route, W, H).thin).toBe(0);
+    }
   });
 
   it("does nothing where no basin stands over its spill level", () => {
