@@ -2085,6 +2085,12 @@ change is a deterministic operation, D158, D342).
 
 **A Landslide force** (Kyler, 2026-09-30): a hillside giving way, with Rockfall, Slump and Flow styles (Auto reads the slope), and natural dams that always settle at a spillway. Codex builds a demo on `investigation/landslide` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
+**A Meander force** (Kyler, 2026-09-30): ageing an existing river: migrating bends, oxbow lakes, a floodplain.
+
+**A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
+
+Codex builds a demo of each on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
+
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
 early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle
