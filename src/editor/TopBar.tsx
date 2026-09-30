@@ -118,11 +118,11 @@ export interface Force {
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Esc takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (V flips the side). Esc takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Esc takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Esc takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Ctrl+Z takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Ctrl+Z takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (V flips the side). Ctrl+Z takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Ctrl+Z takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Ctrl+Z takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -179,6 +179,13 @@ export interface TopBarProps {
   hints?: ComponentChildren;
 }
 
+/** The hint line while a force plays (D344, A4): Esc skips it to its end, undo takes it back. */
+export const FORCE_KEYS = "Esc to skip · Ctrl+Z to undo";
+
+export function ForceKeys() {
+  return <span class="bar-status force-keys">{FORCE_KEYS}</span>;
+}
+
 /** A toggle in the options row: a checkbox and its word. */
 export function Toggle(p: { label: string; title: string; on: boolean; onChange(on: boolean): void }) {
   return (
@@ -204,7 +211,9 @@ export function SizeControl(p: {
   /** A force's: it follows Power while `on`; `onAuto` switches. */
   auto?: { on: boolean; onAuto(on: boolean): void };
 }) {
-  const words = p.words ?? String(p.value);
+  // (always a number, D344 A2: on Auto, the number Power gives, as "Auto (68)")
+  const number = p.words ?? String(p.value);
+  const words = p.auto?.on ? `Auto (${number})` : number;
   return (
     <span class="size-control">
       <label class="slider-field" title={p.title}>
@@ -215,7 +224,7 @@ export function SizeControl(p: {
           max={p.max}
           step={p.step}
           aria-label={p.label}
-          aria-valuetext={p.auto?.on ? `${words}, following Power` : words}
+          aria-valuetext={p.auto?.on ? `${number}, following Power` : number}
           value={p.value}
           onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))}
         />
@@ -318,7 +327,7 @@ export function TopBar(p: TopBarProps) {
   const t = p.active;
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
-  const why = p.loading ? "The map is still loading" : "A force is at work: Stop keeps it, Esc takes it back";
+  const why = p.loading ? "The map is still loading" : "A force is at work: Esc skips to its end, Ctrl+Z takes it back";
   return (
     <div class="brush-bar-wrap">
       <div class="map-bar" role="toolbar" aria-label="Tools">

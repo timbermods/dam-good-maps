@@ -6,8 +6,8 @@
 // the controls themselves are back from before D289), and River depth (D321 item 17: 2 unless set, or
 // Off) beside Canyon depth (item 25). Try another re-rolls only the details still on Auto. The
 // gesture decides the rest of how it runs: a click unleashes it where the cursor is, a drag aims it
-// that way, cutting through rises on its way. While it runs, the row is Pause and Revert (Esc); it
-// keeps itself when it ends. Built from the shared bar styles (D176).
+// that way, cutting through rises on its way. While it runs, the row is Pause, the hint "Esc to skip ·
+// Ctrl+Z to undo" (D344, A4) and Revert; it keeps itself when it ends. Built from the shared bar styles (D176).
 
 import type { CarveSettings } from "../core/forces/carve/run";
 import { naturalDepth, naturalWidth } from "../core/forces/carve/character";
@@ -15,7 +15,7 @@ import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN } from "../core/forces/carve/run";
 import { CEILING } from "../core/format/world";
 
 import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceOptions, MoreButton, MoreRow, SizeControl, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, SizeControl, type Force } from "./TopBar";
 
 /** What the player set for the next carve (the page keeps it for the visit). Its details (wander,
  *  walls, depth), behind More, start on Auto (null) until the player pins one (D309). */
@@ -101,7 +101,8 @@ export function CarveRow(p: CarveRowProps) {
           <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
-          <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
+          <ForceKeys />
+          <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
             Revert
           </button>
         </div>
@@ -120,7 +121,7 @@ export function CarveRow(p: CarveRowProps) {
         <label class="slider-field" title="How hard it cuts and how far it runs: a creek to a catastrophe">
           Power
           <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
-          <output>{powerWord(u.power)}</output>
+          <output title={powerWord(u.power)}>{u.power}</output>
         </label>
         <SizeControl
           label="Size"

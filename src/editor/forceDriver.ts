@@ -3,14 +3,16 @@
 // surge at its origin, an impactor falling, the ground stirring, the ice gathering), then shows it at
 // the pace the player chose. **Fast** (the default): the land is final within about two seconds of
 // the gesture, however long or large the result; a force whose own pace is quicker keeps it. **Watch**:
-// about four times as long, to be watched; a click, a new gesture or Esc jumps it to its final land.
+// about four times as long, to be watched; a click or a new gesture jumps it to its final land.
 // Each frame shows the ground that changed (only its chunks) and the objects, and its moment goes to
 // the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
 // water stays as it was until the land is final (item 30), then flows on as after any edit; the camera
-// never moves by itself (D265). Pause holds a carve; a force is kept when it ends; Esc (in Fast) or undo
-// drops all of it at once, at any moment while the force is at work, its keep on its way included
-// (D341): each force is a gesture the worker knows by name, so Esc reaches it whatever the worker is
-// doing, and nothing of it lands afterwards. A painted Lift is shown whole as it is painted (the page
+// never moves by itself (D265). Pause holds a carve; a force is kept when it ends. Undo drops all of it
+// at once, at any moment while the force is at work, its keep on its way included (D341): each force is
+// a gesture the worker knows by name, so undo reaches it whatever the worker is doing, and nothing of
+// it lands afterwards. Esc (D344, A4; amends D341 (2)) cancels a gesture still being drawn (a painted
+// Lift), and skips a playing force to its end, in Fast and in Watch, kept as one step that undo still
+// takes back. A painted Lift is shown whole as it is painted (the page
 // sends the latest stroke whenever the worker is free) and kept when the pointer lets go. Nothing on
 // the page waits on it: the effects that are only a show (the water filling a channel, dust, lava's
 // glow) play on after the land is final, and the player can act again at once (undo takes it back).
@@ -98,7 +100,7 @@ export interface ForceHost {
   /** A painted Lift's stroke as it is now. */
   paint?(path: Point[], side: 1 | -1): Promise<ForceFrame | null>;
   /** Keep it (one undo step), or drop it; each applies the worker's answer to the page. The keep
-   *  asks `wanted()` when its turn comes, and sends nothing once Esc has come; the drop takes the
+   *  asks `wanted()` when its turn comes, and sends nothing once undo has come; the drop takes the
    *  gesture back in the worker whatever it has reached (D341), its keep included. */
   keep(gesture: number, wanted: () => boolean): Promise<void>;
   drop(gesture: number): Promise<void>;
@@ -144,7 +146,7 @@ export class ForceDriver {
   private token = 0;
   /** The last force's gesture (0: none yet). */
   private gesture = 0;
-  /** Gestures Esc took back (their keep, if its turn hasn't come, sends nothing). */
+  /** Gestures undo took back (their keep, if its turn hasn't come, sends nothing). */
   private dropped = new Set<number>();
   /** A painted stroke waiting for the worker (the latest wins), and one in flight. */
   private stroke: { path: Point[]; side: 1 | -1 } | null = null;
@@ -165,7 +167,7 @@ export class ForceDriver {
   }
 
   /** Start a force (`again`: Try another; `painting`: a Lift painted as it goes). False when the
-   *  worker refused it (its reason is shown), or Esc took it back before it began. */
+   *  worker refused it (its reason is shown), or undo took it back before it began. */
   async start(again = false, painting = false): Promise<boolean> {
     if (this.status) return false;
     const token = ++this.token;
@@ -180,7 +182,15 @@ export class ForceDriver {
     } catch (e) {
       r = { ok: false, errors: [String(e instanceof Error ? e.message : e)], frame: null, settings: null };
     }
-    if (token !== this.token) return false;
+    if (token !== this.token) {
+      // (Esc skipped it before its start came back, and the worker refused it: its keep sends
+      // nothing, and the reason shows)
+      if ((!r.ok || !r.frame) && this.status?.gesture === gesture) {
+        this.dropped.add(gesture);
+        if (r.errors[0]) this.host.error(r.errors[0]);
+      }
+      return false;
+    }
     if (!r.ok || !r.frame) {
       this.status = null;
       this.host.changed();
@@ -229,7 +239,7 @@ export class ForceDriver {
   }
 
   /** Keep it: it ended by itself, a painted Lift was let go, or Watch jumped to its final land (a
-   *  click, a new gesture, Esc): the whole result, at once. Esc or undo while it is being kept still
+   *  click, a new gesture, Esc): the whole result, at once. Undo while it is being kept still
    *  takes all of it back (D341). */
   async stop(): Promise<void> {
     const st = this.status;
@@ -260,8 +270,24 @@ export class ForceDriver {
     return this.stop();
   }
 
-  /** Esc (in Fast) or undo: all of it goes at once, whatever the force has reached (D341): its start
-   *  on its way, worked out, shown, or its keep on its way (the worker takes that back too). */
+  /** Esc (D344, A4): while the gesture is still being drawn (a painted Lift), all of it is cancelled;
+   *  once the force plays (being worked out, shown, or kept), it skips to its end, kept as one step, in
+   *  Fast and in Watch; undo (`cancel`) still takes it back at any moment. What it did: `cancelled`,
+   *  `skipped`, or nothing (no force at work). */
+  escape(): "cancelled" | "skipped" | null {
+    const st = this.status;
+    if (!st) return null;
+    if (st.painting && !st.stopping) {
+      this.cancel();
+      return "cancelled";
+    }
+    void this.stop();
+    return "skipped";
+  }
+
+  /** Undo (or Revert, or Esc while a painted Lift is still drawn): all of it goes at once, whatever
+   *  the force has reached (D341): its start on its way, worked out, shown, or its keep on its way (the
+   *  worker takes that back too). */
   cancel(): void {
     const st = this.status;
     if (!st) return;
@@ -323,7 +349,7 @@ export class ForceDriver {
           this.host.error(String(e instanceof Error ? e.message : e));
         }
         if (token !== this.token || !this.status) return;
-        // (the worker failed: all of it goes back, as Esc would, never a half-risen land left behind)
+        // (the worker failed: all of it goes back, as undo would, never a half-risen land left behind)
         if (!next) {
           this.cancel();
           return;

@@ -1,7 +1,8 @@
 // Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D216, D219), through the page: each in the
 // forces group with Carve, its options row starting with its mode switch; a click strikes or erupts,
 // a painted fault quakes; each is kept as one undo step, exactly as it was shown (the worker's map is
-// the page's), Esc takes it back at once, Try another replaces it and undo brings the first one back.
+// the page's), Ctrl+Z takes it back at once and Esc skips it to its end (D344, A4), Try another
+// replaces it and undo brings the first one back.
 // A force is bound only by nature (D257): through the start it goes on, and the start is carried to
 // level ground in the same step. Its gestures are clean (D258): no footprint, route or fit on the
 // land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
@@ -87,7 +88,7 @@ async function settled(page: Page) {
   await idle(page);
 }
 
-test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
+test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
   await refine(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
@@ -114,11 +115,23 @@ test("Craterize: a click strikes, kept as one step as shown; Esc takes it back; 
   await expect.poll(async () => (await gesture(page)).cursor).toEqual(far);
   expect((await gesture(page)).stroke).toBeNull();
   await expect(page.locator(".shape-note")).toHaveCount(0);
-  // Esc as it strikes: all of it goes, and the history never had it
+  // Ctrl+Z as it strikes: all of it goes, and the history never had it
   await clickTile(page, far[0], far[1]);
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+z");
   await settled(page);
   expect(await heights(page)).toEqual(before);
+  expect((await labels(page)).length).toBe(n0);
+  // Esc as it strikes: straight to its end, kept as one step (D344, A4); undo takes it back
+  await clickTile(page, far[0], far[1]);
+  await expect(page.getByRole("group", { name: "Craterize at work" }).locator(".force-keys")).toHaveText("Esc to skip · Ctrl+Z to undo");
+  await page.keyboard.press("Escape");
+  await settled(page);
+  expect((await labels(page)).at(-1)).toBe("Craterize");
+  expect(await heights(page)).not.toEqual(before);
+  expect(await worker(page)).toEqual(await heights(page));
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
 
   // struck: one step, the ground as the page showed it and as the worker keeps it

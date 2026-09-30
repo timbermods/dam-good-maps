@@ -300,8 +300,9 @@ export class JuiceEngine {
     if (this.events.get(event.id) === event) this.events.delete(event.id);
   }
 
-  /** An accent (a force's phase appends under its run's id). Null: dropped. */
-  play(name: string, params: Params = {}, { id = `one-${++this.nextId}`, phase }: { id?: Id; phase?: string } = {}): Id | null {
+  /** An accent (a force's phase appends under its run's id; `span`: how long that phase shows, in
+   *  seconds, for a recipe that fits itself to it). Null: dropped. */
+  play(name: string, params: Params = {}, { id = `one-${++this.nextId}`, phase, span }: { id?: Id; phase?: string; span?: number } = {}): Id | null {
     if (!this.allowed(name)) return null;
     const now = this.context!.currentTime;
     this.tokens = Math.min(6, this.tokens + (now - this.tokenAt) * 10);
@@ -309,7 +310,7 @@ export class JuiceEngine {
     if (this.tokens < 1) return null;
     const p = parameters(params);
     const step = this.runs.next(name, now);
-    const layers = recipe(name, p, { semitones: step, phase });
+    const layers = recipe(name, p, { semitones: step, phase, ...(span !== undefined ? { span } : {}) });
     if (!layers.length || this.sources + layers.length > LIMITS.sources) return null;
     const existing = this.events.get(id);
     if (existing && (existing.name !== name || existing.sustained || existing.stopped || !phase)) return null;

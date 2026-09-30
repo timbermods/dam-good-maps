@@ -1,5 +1,24 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **D344, 2026-09-29: the forces sitting, batch A (`feature/sitting-a`).** A4 (amends D341 (2)): Esc cancels a
+> gesture still being drawn (a line not yet let go; a painted Lift, taken back at once); once a force plays, in Fast
+> or Watch, Esc skips it to its end, kept as one step (`ForceDriver.escape`: the keep of `stop`); Ctrl+Z (or Z,
+> or Revert) takes it back at any moment; the at-work rows say "Esc to skip · Ctrl+Z to undo" (a painted Lift
+> still drawn: "Esc to cancel"). #94's machinery stands (`forceCancel`, `forceStop`, the stepped clock);
+> `forceEsc.test` now presses undo and Esc at every moment of every force, Fast and Watch, the painted Lift in both.
+> A1: F and the mouse, [ ] and { } set a force's Size and Power as a brush's (`editor/forceSize.ts`), the number
+> beside the pointer, a Size set by hand off Auto; Quake has no Size. A2: Power and Size read as numbers, "Auto
+> (68)" on Auto (Power's word is its tooltip). A3: a drawn gesture is a band of the force's width along the line,
+> no ring (`bandTiles`; Carve's and Glaciate's width, Quake's reach, a fissure's breadth). A6: a fissure's breadth
+> is Power's, never more than its shape's span (`fissureBreadth`, recorded as its `size`); Carve and Glaciate
+> already ran their drawn line end to end, Quake's line is its length: unchanged. A5: a river drawn uphill is shown
+> from where the stroke began (`CarvePlay` `fromEnd`), its land and operation the same. A7: Glaciate's ice and
+> sounds ran on their own five-second clock, so in Fast the land was final while the ice still advanced and the
+> meltwater played on; the ice now follows the glacier's stages at the showing's pace (`ForceCue.pace`), its
+> sounds fit each act (`recipe`'s `span`), and ice and sound end as the land settles. Tests: `forcesSitting`
+> (unit and contract), `e2e/forceKeys.spec.ts`; the specs that reverted a playing force with Esc use Ctrl+Z, and
+> carve's and Craterize's check Esc's skip.
+
 > **D341 (2) and (3), 2026-09-29: Esc was a real race; no test stays flaky.** Esc (or Ctrl+Z) while a force
 > was being kept (its last frame shown, the keep on its way to the worker, the row saying "Settling…") did
 > nothing, and the force landed: `ForceDriver.cancel` returned early while `stopping`. That is carve.spec:61's

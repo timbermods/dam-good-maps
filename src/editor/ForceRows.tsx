@@ -7,8 +7,8 @@
 // walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
 // Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
 // it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
-// another re-rolls only the details still on Auto. While a force is at work its row is its status and
-// Revert (Esc). Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
+// another re-rolls only the details still on Auto. While a force is at work its row is its status, the
+// hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
 // and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
@@ -16,7 +16,7 @@ import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBrea
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
 
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
  *  rays), behind More, start on Auto (null) until the player pins one (D309). */
@@ -82,7 +82,8 @@ export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, p
 /** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
 export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
 
-/** A force at work: what it is doing, and Revert (Esc). */
+/** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
+ *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (V flips the side that moves)" : "The ground is moving…";
@@ -92,7 +93,8 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
         <span class="bar-status" role="status">
           {st.stopping ? "Settling…" : doing}
         </span>
-        <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
+        {st.painting && !st.stopping ? <span class="bar-status force-keys">Esc to cancel</span> : <ForceKeys />}
+        <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
           Revert
         </button>
       </div>
@@ -106,7 +108,7 @@ function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: n
     <label class="slider-field" title={p.title}>
       Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
-      <output>{word}</output>
+      <output title={word}>{p.value}</output>
     </label>
   );
 }
