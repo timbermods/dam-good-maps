@@ -80,3 +80,11 @@ The Erode GIF uses the original pinned cave's removal buckets with lighting rebu
 
 Before adopting: rerun these geometry checks, product renderer/stacked-water tests and the full
 performance harness with the complete editor, including rapid cuts, undo and continuing water.
+
+## Added by Kyler at approval (2026-10-01)
+
+Adopted at 3D step 2, the view (D349), following this file. Also for adoption:
+- The stone pattern stretches on ceilings and at corners: fix it.
+- Cave interiors read a little murky, and deep water under roofs very dark: tune both with Kyler on real maps.
+- Objects, slopes, falls and moving water inside caves are to be integrated.
+- It passes the smoothness harness (`investigation/performance`) and the full-editor performance gates before it merges.
