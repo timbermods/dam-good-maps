@@ -124,7 +124,7 @@ export interface Force {
  *  the tooltips follow. */
 export const FORCE_GROUPS: readonly (readonly string[])[] = [
   ["carve", "craterize", "erupt"],
-  ["rift", "quake", "landslide", "glaciate"],
+  ["rift", "quake", "glaciate"],
   ["erode", "meander", "deposit"],
 ];
 

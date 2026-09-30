@@ -42,7 +42,7 @@ editor is desktop-first (D185).
 
 - **The rows over the map** (D323, item 9; structure only, the design pass styles them): four, top to bottom: the
   view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces, **in three clusters by
-  prominence** (D352, one list, `FORCE_GROUPS` in `TopBar.tsx`: Carve, Craterize, Erupt · Rift, Quake, Landslide,
+  prominence** (D352, one list, `FORCE_GROUPS` in `TopBar.tsx`: Carve, Craterize, Erupt · Rift, Quake,
   Glaciate · Erode, Meander, Deposit; today Carve, Craterize, Erupt · Quake, Glaciate, their keys unchanged: 7, 8, 0 and 9,
   -; a force not adopted yet takes its place in the list), and the first-run hint points at Carve; then the active tool's settings and its More (no Remove tool, D288: see **Delete**
   below). **Every force's row takes Glaciate's shape**

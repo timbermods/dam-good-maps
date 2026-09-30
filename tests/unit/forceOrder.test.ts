@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 import { FORCE_GROUPS, FORCES } from "../../src/editor/TopBar";
 
 describe("the forces row's order (D352)", () => {
-  it("the groups: Carve, Craterize, Erupt · Rift, Quake, Landslide, Glaciate · Erode, Meander, Deposit", () => {
+  it("the groups: Carve, Craterize, Erupt · Rift, Quake, Glaciate · Erode, Meander, Deposit", () => {
     expect(FORCE_GROUPS).toEqual([
       ["carve", "craterize", "erupt"],
-      ["rift", "quake", "landslide", "glaciate"],
+      ["rift", "quake", "glaciate"],
       ["erode", "meander", "deposit"],
     ]);
   });
