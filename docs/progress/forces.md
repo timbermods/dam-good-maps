@@ -15,7 +15,9 @@
 > showing the driver plans (`forceTiming`: `due`, `show`, `total`), the driver itself on exact time
 > (forceDriver.test, stepped clock); camera.spec (frame-sampled distances) waits on the glide's own state, its
 > pace unit-tested (`render3d/cameraGlide.ts`); share.spec:40 waited on the first map's card and now waits for
-> the new map. brushKit's F readout is batch 2's (`fix/brush-f-readout`).
+> the new map; places.spec's phone screenshot ("Unable to capture screenshot" on `feature/high-look`, beside
+> look-high's software 3D in the same shard) was a capture for the eye, never a check: captures are opt-in
+> (`DGM_CAPTURES=1`). brushKit's F readout is batch 2's (`fix/brush-f-readout`).
 
 > **Batch 1 (D321, D327), 2026-09-29: built.** Items 29+30 (Fast/Watch; nothing changes before it's
 > reached; no water in frames), 40 (the Floor, `core/forces/floor.ts`), 7 (no tree leaning), 41+13 (the
