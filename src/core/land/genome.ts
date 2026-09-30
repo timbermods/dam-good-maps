@@ -44,6 +44,8 @@ export interface Part {
   /** Basins only: a round bowl (a pond, a crater lake), a valley-shaped lake (the default for large
    *  basins), or an island sea. */
   shape?: "round" | "valley" | "sea";
+  /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
+  isle?: boolean;
 }
 
 /** The six themes the generator knows, without "Any". */
@@ -638,19 +640,31 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const side = Math.min(W, H);
   // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
   const shrink = Math.max(0.75, 1 - 0.05 * attempt);
-  const n = (k: number) => Math.max(1, Math.round(k * Math.max(1, areaK)));
+  // (D350: on a larger map fewer, larger islands, the same share of the land: count × area^0.3, size
+  // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
+  const n = (k: number) => Math.max(1, Math.round(k * Math.pow(Math.max(1, areaK), 0.3)));
+  const isleK = Math.pow(Math.max(1, areaK), 0.35);
   const isle = (at: [number, number], size: number, rise: number, depth: number, kind?: PartKind) => {
     const k: PartKind = kind ?? (rng.float() < 0.35 ? "cone" : "mesa");
-    g.parts.push({ kind: k, at, size, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
+    g.parts.push({ kind: k, at, size: size * isleK, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK, isle: true });
   };
+  let seaShape = { turn: 0, aspect: 1 };
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
+    seaShape = { turn, aspect };
   };
-  // islands scattered through a sea: evenly over its area, of mixed sizes
+  // islands scattered through a sea: evenly over its area (its ellipse, D350: over a round area an
+  // elongated sea's islands stood on its shores, joined to the land), of mixed sizes
   const scatter = (cx: number, cy: number, R: number, count: number, depth: number, big = 0.1) => {
+    const [tx, ty] = unit(seaShape.turn);
+    const sa = Math.sqrt(seaShape.aspect);
     for (let k = 0; k < count; k++) {
-      const [ux, uy] = unit(rng.float());
-      const r = 0.92 * Math.sqrt(rng.float()) * R;
+      const [vx, vy] = unit(rng.float());
+      const r = 0.85 * Math.sqrt(rng.float()) * R;
+      const a = vx * sa;
+      const b = vy / sa;
+      const ux = a * tx - b * ty;
+      const uy = a * ty + b * tx;
       const roll = rng.float();
       const size = roll < big ? 9 + 5 * rng.float() : roll < big + 0.3 ? 5.5 + 3.5 * rng.float() : 3 + 2.5 * rng.float();
       // (D333: the islands stand clear of the sea's water; on the beds' floor, item 47, the land's
@@ -670,8 +684,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     }
     case "edge": {
       // the sea lies along the south edge, behind a strip of coast its outlet crosses
-      g.focus = [0.35 + 0.3 * rng.float(), 0.25 + 0.06 * rng.float()];
-      const R = side * (0.32 + 0.08 * rng.float());
+      // (D350: a quarter of the map at least, the promise's line; it lay half beyond the rim before)
+      g.focus = [0.35 + 0.3 * rng.float(), 0.3 + 0.06 * rng.float()];
+      const R = side * (0.38 + 0.08 * rng.float());
       const depth = 8 + 2 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
       scatter(g.focus[0], g.focus[1], R, n(9 + 7 * rng.float()), depth);
@@ -705,7 +720,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
       const base = turn + (bend > 0 ? -0.25 : 0.25);
       const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
-      const count = n(9 + 5 * rng.float());
+      // (the chain's count stays as at 128²: its islands grow with the map instead, and more of them
+      // along the same arc ran together into one)
+      const count = Math.max(1, Math.round(9 + 5 * rng.float()));
       for (let k = 0; k < count; k++) {
         const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
         const [ux, uy] = unit(base + t * span);

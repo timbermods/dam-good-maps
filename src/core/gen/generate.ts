@@ -25,6 +25,8 @@
 import { sourcesInFlow } from "../analysis/sources";
 import { straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
+import { wearOutlet } from "../water/outletWear";
+import { standIslandsClear } from "../land/islands";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
@@ -45,7 +47,7 @@ import { planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
-import { orientationOf, orientDir, orientField } from "../land/orient";
+import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, type IntentionId } from "../land/intentions";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -116,9 +118,12 @@ export interface GenerationInfo {
    *  map (0 when none passed the land stage). */
   lands?: number;
   /** The automatic fixes made on the shown land after its water settled (D348): "start from the
-   *  plan" (no place for a start on the settled water: the start goes where the plan put it),
-   *  "spring by the start" (a group of sources in a hollow or dry bed by the start, D330's fix). */
+   *  plan" (no place for a start on the settled water: the start goes where the plan put it), "start
+   *  on dry ground", "spring by the start" (a group of sources in a hollow or dry bed by the start,
+   *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)). */
   fixes?: string[];
+  /** The way out worn wider (D350 (b)): the tiles cut, the basin's size and its level. */
+  worn?: { cut: number[]; basin: number; level: number };
   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
@@ -270,6 +275,8 @@ function markTried(tried: Uint8Array, st: { x: number; y: number }, W: number, H
  *  strength (doc/waterFix.ts `FIX_STRENGTH` runs 1.5 and 3; one strength keeps it to a settle a
  *  place). */
 const SPRING_TRIES = 3;
+/** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
+const WEAR_WIDTHS = [7, 11, 15];
 const SPRING_STRENGTH = [2];
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
@@ -865,6 +872,15 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   const channels = new Uint8Array(N);
   for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 || ctx?.locked?.mask[i] ? 1 : 0;
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
+  // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
+  // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
+  // that a drought leaves dry or not by millimetres (the probe's refill, D333, M9b): a stream a level
+  // under the flat takes its water on instead)
+  {
+    const wet = new Uint8Array(N);
+    for (let i = 0; i < N; i++) wet[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
+    carveOutlets(h, W, H, channels, hash32(seed, "outlets-small", attempt), 3, 4, 60, wet);
+  }
   // a sea's way out as wide as its water needs, so it settles within the four days (the rivers'
   // heads, the kept lakes and the locks stay as they are)
   {
@@ -877,6 +893,17 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     }
     for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal, hy.lakes.map((l) => l.tiles));
+  }
+  // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
+  // ground, is parted from it by a strait)
+  if (g.seaLayout) {
+    const isles = g.parts.filter((p) => p.isle).map((p) => {
+      const [x, y] = orientXY(p.at[0] * (W - 1), p.at[1] * (H - 1), W, H, (g.orientation ?? 0) as LandOrientation);
+      return { x, y, r: p.size };
+    });
+    const keepI = new Uint8Array(N);
+    for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
+    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
@@ -1172,6 +1199,37 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (water still changing after the settle's four days, water.settles, on the shown land, D348: when
   // the rivers' water alone settles, the hollows unsettled it, and the next plan keeps off them; when
   // it does not, no plan on this land settles, and the attempts stop there, never drawing new land)
+  const wearFix = (b: BuildResult): BuildResult | null => {
+    const keepW = new Uint8Array(N);
+    for (const e of b.waterModel.emitters)
+      for (const i of e.cells) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) keepW[(y + dy) * W + x + dx] = 1;
+      }
+    for (let i = 0; i < N; i++) if (bad.avoid[i] || protect?.[i] || ctx?.locked?.mask[i]) keepW[i] = 1;
+    for (const width of WEAR_WIDTHS) {
+      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW });
+      if (!w) return null;
+      const before = h.slice();
+      h.set(w.heights);
+      const b2 = build([...rivers, ...bad.features], "resources");
+      if (b2.settle.settled) {
+        // (the worn way out is the land from here on, for this attempt's later plans and the next)
+        for (const j of w.cut) {
+          hLand[j] = w.heights[j];
+          if (from) from.hLand[j] = w.heights[j];
+          if (landStage?.goodBad) landStage.goodBad.heights[j] = w.heights[j];
+          bad.heights[j] = w.heights[j];
+        }
+        fixes.push("way out worn wider");
+        info.worn = { cut: w.cut, basin: w.basin.length, level: w.level };
+        return b2;
+      }
+      h.set(before);
+    }
+    return null;
+  };
   const unsettled = (b: BuildResult): Attempt => {
     if (landStage) landStage.unsettled++;
     if (bad.features.length) {
@@ -1196,6 +1254,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     h.set(bad.heights);
     for (const f of bad.features) contains.add(f.id);
     b1 = build([...rivers, ...bad.features], "resources");
+  }
+  // D350 (b): a basin whose water rose over its spill level, its way out too narrow: that way out worn
+  // wider as the map arrives (the smallest cut that settles it, as if water wore it), recorded in the
+  // land (the field), so the map's link rebuilds it
+  if (!b1.settle.settled && !lastAttempt) {
+    const worn = wearFix(b1);
+    if (worn) b1 = worn;
   }
   // (not on the last attempt, whose map is kept)
   if (!b1.settle.settled && !lastAttempt) return unsettled(b1);

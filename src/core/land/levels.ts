@@ -482,7 +482,7 @@ export function fillDryHollows(h: Uint8Array, W: number, H: number, keep: Uint8A
  *  basins of `minArea` tiles or more whose flat at the spill level is `minFlat` tiles or more; the
  *  tiles of `keep` (the river channels) are never cut, a lake's shallow shore may be. Returns the
  *  tiles cut. */
-export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120): number {
+export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120, wet: Uint8Array | null = null): number {
   const N = W * H;
   // spill levels from the draining map edge (priority flood)
   const spill = new Int16Array(N).fill(-1);
@@ -537,6 +537,8 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
   let cut = 0;
   basins.forEach((b, id) => {
     if (b.tiles.length < minArea || b.level < BED_FLOOR + 1) return;
+    // (with `wet`, only a basin the planned water reaches: its own tiles or beside them)
+    if (wet && !b.tiles.some((i) => wet[i] || (i % W > 0 && wet[i - 1]) || (i % W < W - 1 && wet[i + 1]) || (i >= W && wet[i - W]) || (i < N - W && wet[i + W]))) return;
     const S = b.level;
     // the flat at the spill level joined to the basin: a sheet of water would spread over all of it
     const seen = new Uint8Array(N);
@@ -698,7 +700,7 @@ export function unreachedLakes(h: Uint8Array, W: number, H: number, heads: reado
 
 /** Spill levels from the draining map edge (priority flood): the lowest level water standing on a
  *  tile drains at. */
-function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
+export function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
   const N = W * H;
   const spill = new Int16Array(N).fill(-1);
   const heap = new MinHeap();
@@ -881,11 +883,34 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
       }
     }
     if (!n) return;
-    // undone if it drains the sea or a kept lake (a hollow beside the route may join it)
-    const after = edgeSpill(h, W, H);
-    let drained = false;
-    for (let i = 0; i < N && !drained; i++) if ((label[i] === id || (keep[i] && !inBand[i])) && spill[i] > before[i] && after[i] < spill[i]) drained = true;
-    if (drained) {
+    // where it drains the sea or a kept lake (a hollow beside the route may join it), the cut round
+    // what drained stands as it was (M9b, D350 (d): before, the whole widening was undone, and a
+    // sea kept a way out too narrow for its springs, rising a level over its spill level); undone
+    // when that is not enough
+    let after = edgeSpill(h, W, H);
+    let drained: number[] = [];
+    for (let round = 0; round < 4; round++) {
+      drained = [];
+      for (let i = 0; i < N; i++) if ((label[i] === id || (keep[i] && !inBand[i])) && spill[i] > before[i] && after[i] < spill[i]) drained.push(i);
+      if (!drained.length) break;
+      const near = new Uint8Array(N);
+      for (const i of drained) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -3; dy <= 3; dy++)
+          for (let dx = -3; dx <= 3; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx >= 0 && yy >= 0 && xx < W && yy < H) near[yy * W + xx] = 1;
+          }
+      }
+      for (const j of band) if (near[j] && h[j] !== before[j]) {
+        h[j] = before[j];
+        n--;
+      }
+      after = edgeSpill(h, W, H);
+    }
+    if (drained.length || n <= 0) {
       h.set(before);
       return;
     }

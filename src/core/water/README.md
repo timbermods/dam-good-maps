@@ -105,3 +105,12 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
   once the row is placed and before the water settles; `keep` holds the force's own channel if it runs
   along the edge.
 - **Real places** (when it resumes, D319): each head the conversion puts on an edge.
+
+# A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
+
+`wearOutlet(h, W, H, depth, { seed, width, keep })` finds the largest basin whose water stands over
+its spill level (`risenBasin`) and widens the route its water leaves by: banks above the route's own
+bed come down to it by a width that wanders (0.6–1.4 of `width`, ragged at the edge), never within two
+tiles of the basin under its level, never on `keep`. It returns the new ground and the tiles cut, or
+null. The generator calls it on a shown land whose water doesn't settle (7, 11, then 15 tiles, the
+first that settles); `tests/unit/outletWear.test.ts`.

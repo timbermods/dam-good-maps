@@ -767,8 +767,16 @@ never replaced. What needs its settled water is fixed on it: with no place for a
 water, the start goes where the plan put it, or else on level dry ground joined to enough land; a
 start the settled water leaves dry gets a spring by it (D330's fix: a group of sources in a dry bed or
 hollow the colony walks beside, checked as `start.water` reads it); a start, hollows or objects that
-fail are planned again on the same land, keeping off what failed. Water whose rivers alone do not
-settle stops the attempts on that land (decisions-pending #150, Kyler's to decide).
+fail are planned again on the same land, keeping off what failed; hollows whose water settled are
+reused, rivers that left (their sources reached) leave on every later attempt, and water over the
+flood line runs gentler (0.7 of its flow, twice at most). Water that does not settle (D350): a
+basin's way out is widened while the land is shaped (`levels.ts` `widenOutlets`, a level under the
+basin past a short sill, only the tiles round what it would drain kept as they were), and a small
+basin whose spill level is a broad flat gets a stream a level under the flat (`carveOutlets`), so no
+sheet stands a few hundredths over a flat; what is left is worn wider as the map arrives
+(`water/outletWear.ts`: the route its water leaves by, banks taken down to the route's own bed by a
+wandering width, never within two tiles of the basin under its level; 7, 11, then 15 tiles, the
+first that settles), recorded in the land so the link rebuilds it.
 
 ### 7.10 Output
 
