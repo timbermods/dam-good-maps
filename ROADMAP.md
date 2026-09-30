@@ -2083,11 +2083,11 @@ change is a deterministic operation, D158, D342).
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
-**A Meander force** (Kyler, 2026-09-30): ageing an existing river: migrating bends, oxbow lakes, a floodplain.
+**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
 
 **A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
 
-Codex builds a demo of each on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
+Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
