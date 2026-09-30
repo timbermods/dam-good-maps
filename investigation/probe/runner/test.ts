@@ -219,6 +219,94 @@ async function main(): Promise<void> {
   const onLine = tl(0.045), off = tl(0);
   check('cal-timeline: tiles within 0.01 of the wet line are left out of the wet counts (D297, D302)', /wet tiles 0\.0%/.test(onLine.detail) && Number(/wet tiles (\d+\.\d)%/.exec(off.detail)?.[1] ?? 0) >= 5 && off.verdict === 'failed', `${onLine.detail.slice(-160)} | ${off.detail.slice(-160)}`);
 
+  // 4a. a group or list that matches nothing refuses, never the whole catalog in its place (probe parity-20260930)
+  const refuses = (only: string | undefined, group: string | undefined, words: RegExp) => {
+    try {
+      catalogM.gameIdsFor(games, only, group);
+      return false;
+    } catch (e) {
+      return words.test((e as Error).message);
+    }
+  };
+  const inM8 = catalogM.gameIdsFor(games, undefined, 'M8');
+  check('select: a group plays its own maps', inM8.length > 0 && inM8.every((id) => games.find((g) => g.id === id)!.group === 'M8'), inM8.join(', '));
+  check('select: an unknown group refuses', refuses(undefined, 'Nonesuch', /^no maps in group Nonesuch: no game belongs to it/));
+  check('select: an empty group or list refuses', refuses(undefined, '', /^no maps in group \(none\)/) && refuses('', undefined, /^no maps named/));
+  check('select: an unknown id refuses; nothing named plays the whole catalog', refuses('m8-preview,nonesuch', undefined, /^unknown games: nonesuch/) && catalogM.gameIdsFor(games).length === 0);
+  // (the catalog as it is before tools/probe-parity.ts has written the Parity maps)
+  const noParity = games.filter((g) => g.group !== 'Parity');
+  try {
+    catalogM.gameIdsFor(noParity, undefined, 'Parity');
+    check('select: --group Parity with no Parity maps refuses', false);
+  } catch (e) {
+    check('select: --group Parity with no Parity maps refuses', /^no maps in group Parity: its maps have not been written \(npx tsx tools\/probe-parity\.ts\)/.test((e as Error).message), (e as Error).message);
+  }
+
+  // 4a'. the parity checks compare like for like (probe parity-20260930): when the parity maps are written
+  const parity = prepared.filter((p) => p.game.group === 'Parity');
+  if (parity.length) {
+    const pz = require('node:zlib') as typeof import('node:zlib');
+    type Snap = import('./job').MapSnapshot;
+    let run = 0;
+    const evalParity = (p: (typeof parity)[number], snaps: Record<string, (s: Snap) => void>, extra: Partial<import('./job').MapResult>) => {
+      const dir = join(sandbox, `compare-parity-${++run}`);
+      mkdirSync(dir, { recursive: true });
+      const N = p.info.W * p.info.H;
+      const files: string[] = [];
+      for (const m of p.map.moments.filter((x) => x.snapshot)) {
+        const s: Snap = { momentId: m.id, day: m.day, tick: Math.round((m.day - catalogM.D0) * 768), weather: 'temperate', width: p.info.W, height: p.info.H, depth: [...p.info.depth], contamination: [...p.info.contamination], floor: [...p.info.floor], moisture: [...p.info.moisture], soilContamination: [...p.info.soilContamination], terrain: [...p.info.heights], terrainColumns: new Array(N).fill(1), layered: [], plants: [], sources: [] };
+        (snaps[m.id] ?? snaps['*'])?.(s);
+        const f = `${p.game.id}-${m.id.replace(/[^A-Za-z0-9_-]/g, '_')}.snapshot.json.gz`;
+        writeFileSync(join(dir, f), pz.gzipSync(JSON.stringify(s)));
+        files.push(f);
+      }
+      const ents = p.info.entities.filter((e) => e.template !== 'StartingLocation').map((e) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
+      const res = { runId: 't', mapId: p.game.id, title: 't', mapFile: '', status: 'done', log: [], notes: [], samples: [], snapshots: files, shots: [], entitiesAtStart: ents, entitiesAtEnd: ents, plantDeaths: [], loadingIssues: [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: null, adults: 9, children: 4, bots: 0 }, ...extra } as unknown as import('./job').MapResult;
+      return compare.evaluate({ L: new compare.Loaded(dir, p, res), others: new Map(), model: null, modelError: null }, p.checks.filter((c) => c.id !== 'parity-load'))[0];
+    };
+    const sink = parity.find((p) => p.game.id === 'parity-sink');
+    if (sink) {
+      const e = sink.game.parity!;
+      const src = (s: Snap) => (s.sources = [{ id: e.sink!.id, template: 'WaterSource', x: e.sink!.tile[0], y: e.sink!.tile[1], z: 0, orientation: 'Cw0', source: { specified: -1, current: -1, contamination: 0 } }]);
+      const like = evalParity(sink, { '*': (s) => ((s.depth = [...compare.parityForecast(sink.info, s.tick)]), src(s)) }, {});
+      const stale = evalParity(sink, { '*': (s) => src(s) }, {});
+      check("parity-sink: the game's water as the model runs it from the file passes; the file's own water after 3 days of evaporation fails", like.verdict === 'passed' && stale.verdict === 'failed', `${like.detail} | ${stale.detail}`);
+    }
+    const seeps = parity.find((p) => p.game.id === 'parity-seeps');
+    if (seeps) {
+      const e = seeps.game.parity!;
+      const W = seeps.info.W;
+      const samples = [0.5, 1, 2, 3].map((d) => ({ day: catalogM.D0 + d, tick: Math.round(d * 768), weather: 'temperate', tiles: [e.seep!.anchor].map(([x, y]) => ({ x, y, columns: [[seeps.info.heights[y * W + x], compare.parityForecast(seeps.info, Math.round(d * 768))[y * W + x], 0]] as [number, number, number][], moisture: 0, soilContamination: 0 })) }));
+      const like = evalParity(seeps, { '*': (s) => (s.depth = [...compare.parityForecast(seeps.info, s.tick)]) }, { samples } as never);
+      check('parity-seep: water that holds 0.8 over the seep, as the model runs it from the file, passes', like.verdict === 'passed', like.detail);
+    }
+    const core = parity.find((p) => p.game.id === 'parity-core');
+    if (core) {
+      const e = core.game.parity!;
+      const W = core.info.W;
+      const settled = (s: Snap) => {
+        for (const [x, y, h] of e.expectedHeights!) s.terrain[y * W + x] = h;
+        for (const [x, y, d] of e.watched!) s.depth[y * W + x] = d;
+      };
+      const gone = new Set(e.removed!.map((o) => o.id));
+      const ents = core.info.entities.filter((x) => x.template !== 'StartingLocation' && !gone.has(x.id)).map((x) => ({ id: x.id, template: x.template, x: x.x, y: x.y, z: x.z, orientation: x.orientation }));
+      const ok = evalParity(core, { '*': settled }, { entitiesAtEnd: ents });
+      const endDay = core.map.moments.find((m) => m.id === 'end')!.day;
+      const beforeId = core.map.moments.filter((m) => m.snapshot && m.id !== 'end').sort((a, b) => Math.abs(a.day - (endDay - 2)) - Math.abs(b.day - (endDay - 2)))[0].id;
+      const moving = evalParity(core, { '*': settled, [beforeId]: (s) => (settled(s), e.watched!.forEach(([x, y]) => (s.depth[y * W + x] += 0.5))) }, { entitiesAtEnd: ents });
+      check("parity-core: the preview's settled water, the game's settled again in calm weather, passes; water still moving fails", ok.verdict === 'passed' && moving.verdict === 'failed' && /still moving/.test(moving.detail), `${ok.detail} | ${moving.detail}`);
+    }
+    const succ = parity.find((p) => p.game.id === 'parity-succulents');
+    if (succ) {
+      const e = succ.game.parity!;
+      const plants = (dead: boolean) => (s: Snap) => (s.plants = [...e.dry!.map((id) => ({ id, template: 'Succulent', x: 0, y: 0, z: 0, orientation: 'Cw0', plant: { dead: false, dry: true, flooded: false, contaminated: false, growth: 1 } })), ...e.moist!.map((id) => ({ id, template: 'Succulent', x: 0, y: 0, z: 0, orientation: 'Cw0', plant: { dead, dry: false, flooded: false, contaminated: false, growth: 1 } }))]);
+      const deaths = (d: number) => e.moist!.map((id) => ({ id, template: 'Succulent', x: 0, y: 0, day: catalogM.D0 + d, cause: 'wet' }));
+      const ok = evalParity(succ, { '*': plants(true) }, { plantDeaths: deaths(8) });
+      const early = evalParity(succ, { '*': plants(true) }, { plantDeaths: deaths(4) });
+      check("parity-succulents: moist ones dead on day 8 pass (the game's timer, 7.2 to 8.8); dead on day 4 fails", ok.verdict === 'passed' && early.verdict === 'failed', `${ok.detail} | ${early.detail}`);
+    }
+  }
+
   // 4b. the model starts from what the game loads: the file's water and the outflows it stores
   const modelM = require('./model') as typeof import('./model');
   const m9a = prepared.filter((p) => p.game.group === 'M9a' && p.game.model);

@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { buildMod } from './build-mod';
-import { catalog, type GameDef } from './catalog';
+import { catalog, type GameDef, gameIdsFor } from './catalog';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
 import type { MapResult } from './job';
@@ -67,12 +67,11 @@ function planFromArgs(): Plan {
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
   const smoke = flag('smoke');
   const all = catalog(extraMaps);
-  let ids = opt('only')?.split(',') ?? [];
-  if (opt('group')) ids = all.filter((g) => g.group === opt('group')).map((g) => g.id);
+  // (a named group or list that matches nothing refuses: never the whole catalog in its place)
+  const valueOf = (n: string) => (argv.includes(`--${n}`) ? ((v) => (v === undefined || v.startsWith('--') ? '' : v))(opt(n)) : undefined);
+  let ids = gameIdsFor(all, valueOf('only'), valueOf('group'));
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
-  const unknown = ids.filter((id) => !all.some((g) => g.id === id));
-  if (unknown.length) throw new Error(`unknown games: ${unknown.join(', ')} (known: ${all.map((g) => g.id).join(', ')})`);
   return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods') };
 }
 

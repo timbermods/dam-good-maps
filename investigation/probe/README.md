@@ -24,7 +24,7 @@ the yes, run the same command with `--confirmed-launch <code> --run-id <id>` as 
 once, and only for the plan it was printed for.
 
 - `--smoke`: one map (the M8 preview) for one game day, a few minutes.
-- `--only m2-rv,cal-rv2` or `--group Calibration`: some games (`--job-only` lists them).
+- `--only m2-rv,cal-rv2` or `--group Calibration`: some games (`--job-only` lists them). A group with no maps (an unknown name, or maps not written yet, such as Parity before `tools/probe-parity.ts`) or an unknown id refuses: nothing is planned.
 - The tall maps (terrain up to 22, PLAN §20 D172): make them with `npx tsx tools/probe-tall.ts` (it writes
   `C:\dgm-probe\tall\` and checks each map with both validators), then play them as the group
   `Tall maps`, with `--keep-mods`.

@@ -196,6 +196,33 @@ function ceilingBytes(t: CeilingEntry): Uint8Array {
   return b;
 }
 
+/** The tool that writes each group's maps, for groups whose maps are made outside the repository. */
+const GROUP_TOOLS: Record<string, string> = { Parity: 'tools/probe-parity.ts', 'Tall maps': 'tools/probe-tall.ts', Ceiling: 'tools/probe-ceiling.ts' };
+
+/**
+ * The games a batch plays, by id: `--only`'s, or `--group`'s. An unknown id, or a group with no maps (a name no game
+ * has, or a group whose maps have not been written yet), refuses with a plain reason: never the whole catalog in its
+ * place (probe parity-20260930: `--group Parity` before the Parity maps were written planned all 51 maps).
+ */
+export function gameIdsFor(all: readonly { id: string; group: string }[], only?: string, group?: string): string[] {
+  const groups = [...new Set(all.map((g) => g.group))];
+  if (group !== undefined) {
+    const ids = all.filter((g) => g.group === group).map((g) => g.id);
+    if (!ids.length) {
+      const tool = GROUP_TOOLS[group];
+      const why = tool ? `its maps have not been written (npx tsx ${tool})` : group ? 'no game belongs to it' : 'no group was named';
+      throw new Error(`no maps in group ${group || '(none)'}: ${why}. Nothing was planned. Groups with maps: ${groups.join(', ')}`);
+    }
+    return ids;
+  }
+  if (only === undefined) return [];
+  const ids = only.split(',').map((x) => x.trim()).filter(Boolean);
+  if (!ids.length) throw new Error('no maps named after --only: nothing was planned');
+  const unknown = ids.filter((id) => !all.some((g) => g.id === id));
+  if (unknown.length) throw new Error(`unknown games: ${unknown.join(', ')} (known: ${all.map((g) => g.id).join(', ')})`);
+  return ids;
+}
+
 export const D0 = NEW_GAME_DAY;
 
 // ------------------------------------------------------------------------------------ sources
@@ -324,14 +351,14 @@ export const CEILING = {
  *  states each one's tolerance in its verdict. */
 export const PARITY = {
   load: { id: 'parity-load', title: 'Loads: no loading issue, no error or exception in the log, every object in the file in the game at its tile', how: 'measure' },
-  seep: { id: 'parity-seep', title: 'A Water Seep stops at 0.8 deep: after its pit has filled, the seep holds the water over it between 0.6 and 0.95 (never above 1.0), while the Water Source of the same strength in the other pit fills its pit over 2 deep', how: 'measure' },
-  delay: { id: 'parity-delay', title: "A delayed source starts when its countdown ends: its current strength is 0 at the load and above 0 by the end, its pit dry at the load and wet by the end, the source that runs at once wet throughout", how: 'measure' },
-  sink: { id: 'parity-sink', title: "A sink drains: its current strength is negative in the game, and the pit's water after 3 days matches the file's (the editor's settle with the sink in it) within 0.1 on 90% of the wet tiles", how: 'measure' },
+  seep: { id: 'parity-seep', title: 'A Water Seep stops at 0.8 deep: the seep holds the water over it between 0.6 and 0.95 (never above 1.0 after the first half day), while the Water Source of the same strength in the other pit fills its pit over 2 deep; both pits within 0.1 of the model run from the file for the same ticks on 90% of their wet tiles', how: 'measure' },
+  delay: { id: 'parity-delay', title: "A delayed source starts when its countdown ends: its current strength is 0 at the load and above 0 by the end, its pit dry at the load (the file's water comes only from what runs at the start) and wet by the end, no sooner than halfway through its countdown; the source that runs at once wet throughout", how: 'measure' },
+  sink: { id: 'parity-sink', title: "A sink drains: its current strength is negative in the game, and the pit's water after 3 days is within 0.1 of the model run from the file for the same ticks on 90% of the wet tiles", how: 'measure' },
   drain: { id: 'parity-drain', title: "A Badtide Drain runs only in a badtide: its current strength is 0 at the load and above 0 on the badtide's first day, with badwater (contamination above 0.5) on the tile in front of it", how: 'measure' },
   aquifer: { id: 'parity-aquifer', title: "An Aquifer with its drill gives no water at the map's start: the aquifer's current strength is 0 and its tile is dry, at the load and at the end", how: 'measure' },
   reserves: { id: 'parity-reserves', title: 'Each reserve loads and stands where it was placed, holding its good', how: 'partial', why: 'the probe records objects, not their inventories: the goods each holds are judged by eye from the screenshots and by the game loading them (a reserve with a good its kind cannot hold is a loading issue)' },
-  core: { id: 'parity-core', title: "An Unstable Core goes off in its cycle, and the land and water afterwards are what the editor's preview drew: the ground the preview cleared is as it says (every tile's height), the objects it deleted are gone, the water round the crater within 0.15 deep on 85% of the watched tiles", how: 'measure' },
-  succulents: { id: 'parity-succulents', title: "Succulents survive where the game's soil keeps them: those painted on dry ground are alive after 4 days, those on moist ground are dead (a succulent dies if moist)", how: 'measure' },
+  core: { id: 'parity-core', title: "An Unstable Core goes off in its cycle, and the land and water afterwards are what the editor's preview drew: the ground the preview cleared is as it says (every tile's height), the objects it deleted are gone, and the water, once it has settled again in calm weather (95% of the watched tiles within 0.1 of two days before), within 0.15 of the preview's settled water on 85% of the watched tiles", how: 'measure' },
+  succulents: { id: 'parity-succulents', title: "Succulents survive where the game's soil keeps them: those painted on dry ground are alive after 10 days, those on moist ground all dead, none before 7.2 days (the game's timer: 8 days on moist soil, times 0.9 to 1.1)", how: 'measure' },
 } satisfies Record<string, CheckDef>;
 
 /** The parity maps' weather: a temperate day, a 3-day badtide (the drain's map), then calm. */
@@ -606,7 +633,9 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     for (const [x, y] of t.watched ?? []) if (watch.length < 20 && (x + y) % 3 === 0) watch.push([x, y]);
     games.push({
       id: t.id, title: t.title, group: 'Parity', parity: t, bytes: memo(() => parityBytes(t)), faction: 'Folktails', mode: 'Normal',
-      cycles: t.badtide ? PARITY_BADTIDE : [calm], days: t.days, tiles: () => watch.slice(0, 20), sampleHours: 1, snapshotsAt: [0.05, 0.5, 1, 2, 3],
+      cycles: t.badtide ? PARITY_BADTIDE : [calm], days: t.days, tiles: () => watch.slice(0, 20), sampleHours: 1,
+      // (the core's map: a snapshot two days before the end, to see its water has settled again)
+      snapshotsAt: [0.05, 0.5, 1, 2, 3, ...(t.core ? [t.days - 2] : [])],
       poses: (m) => [
         { id: 'parity', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW, pitch: deg(45), distance: 30, fovY: 40, width: 1280, height: 800 },
         { id: 'parity-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 34, fovY: 40, width: 1280, height: 800 },
