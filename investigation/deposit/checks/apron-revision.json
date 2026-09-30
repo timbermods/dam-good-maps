@@ -1,0 +1,289 @@
+{
+  "settingsChecked": 576,
+  "unchangedModelsVerified": 542,
+  "changedModelsSettledTwice": 34,
+  "baselineWaterFailures": 0,
+  "currentWaterFailures": 0,
+  "noopsByFloor": {
+    "12": 2,
+    "22": 144
+  },
+  "changedMaxWaterTicks": 4608,
+  "baselineSha256": "fd91b78dae765064cf804372f9596e73fdf968ab350cf052e591fc6b5e133c0d",
+  "priorPlannerSha256": "013f77e0adc7bf3fe3edec1ef7b5e5ea1b60db170fa7a01ef576fdbbbde98c65",
+  "affected": [
+    {
+      "case": "canyon",
+      "seed": 2,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 6,
+      "floor": 3,
+      "power": 0,
+      "volume": 56,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 10,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 66,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 70,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 512
+    },
+    {
+      "case": "canyon",
+      "seed": 82,
+      "floor": 3,
+      "power": 1,
+      "volume": 53,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 90,
+      "floor": 3,
+      "power": 1,
+      "volume": 52,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 102,
+      "floor": 3,
+      "power": 35,
+      "volume": 104,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 150,
+      "floor": 3,
+      "power": 1,
+      "volume": 55,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 154,
+      "floor": 3,
+      "power": 1,
+      "volume": 52,
+      "ticks": 384
+    },
+    {
+      "case": "canyon",
+      "seed": 166,
+      "floor": 3,
+      "power": 35,
+      "volume": 105,
+      "ticks": 384
+    },
+    {
+      "case": "dry",
+      "seed": 104731,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104734,
+      "floor": 1,
+      "power": 0,
+      "volume": 53,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104735,
+      "floor": 3,
+      "power": 0,
+      "volume": 53,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104739,
+      "floor": 3,
+      "power": 0,
+      "volume": 53,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104746,
+      "floor": 1,
+      "power": 1,
+      "volume": 52,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104762,
+      "floor": 1,
+      "power": 35,
+      "volume": 105,
+      "ticks": 576
+    },
+    {
+      "case": "dry",
+      "seed": 104815,
+      "floor": 3,
+      "power": 1,
+      "volume": 54,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104858,
+      "floor": 1,
+      "power": 0,
+      "volume": 52,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104879,
+      "floor": 3,
+      "power": 1,
+      "volume": 53,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104892,
+      "floor": 12,
+      "power": 35,
+      "volume": 104,
+      "ticks": 896
+    },
+    {
+      "case": "dry",
+      "seed": 104903,
+      "floor": 3,
+      "power": 35,
+      "volume": 105,
+      "ticks": 576
+    },
+    {
+      "case": "lake",
+      "seed": 209460,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209464,
+      "floor": 3,
+      "power": 0,
+      "volume": 53,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209476,
+      "floor": 3,
+      "power": 1,
+      "volume": 53,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209480,
+      "floor": 3,
+      "power": 1,
+      "volume": 54,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209540,
+      "floor": 3,
+      "power": 1,
+      "volume": 53,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209544,
+      "floor": 3,
+      "power": 1,
+      "volume": 52,
+      "ticks": 576
+    },
+    {
+      "case": "lake",
+      "seed": 209548,
+      "floor": 3,
+      "power": 1,
+      "volume": 52,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209564,
+      "floor": 3,
+      "power": 35,
+      "volume": 104,
+      "ticks": 384
+    },
+    {
+      "case": "lake",
+      "seed": 209588,
+      "floor": 3,
+      "power": 0,
+      "volume": 53,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209596,
+      "floor": 3,
+      "power": 0,
+      "volume": 52,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209599,
+      "floor": 1,
+      "power": 0,
+      "volume": 53,
+      "ticks": 320
+    },
+    {
+      "case": "lake",
+      "seed": 209604,
+      "floor": 3,
+      "power": 1,
+      "volume": 52,
+      "ticks": 4608
+    }
+  ],
+  "totalSeconds": 193.7
+}

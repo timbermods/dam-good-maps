@@ -98,7 +98,5 @@
       "waterTicks": 512
     }
   ],
-  "totalSeconds": 546.59,
-  "waterVerification": "All 576 final models checked: 542 byte-identical to the completed full-water sweep; 34 altered models settled twice. See apron-revision.json.",
-  "revision": "apron-revision.json"
+  "totalSeconds": 546.59
 }

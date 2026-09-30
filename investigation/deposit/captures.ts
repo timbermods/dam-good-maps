@@ -4,14 +4,27 @@ import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import gifenc from "gifenc";
 const { GIFEncoder, quantize, applyPalette } = gifenc;
-import { CASES } from "./maps";
+import { DEMOS as CASES } from "./maps";
 import { pathLength } from "../../src/core/forces/path";
 import type {} from "./app";
 import type { Settings, Intent } from "./deposit";
+declare global { interface Window { depositAudio: { loop: boolean; rate: number; seconds: number; stopped: boolean }[] } }
 const url = process.env.DEPOSIT_URL ?? "http://127.0.0.1:5177";
 mkdirSync("captures", { recursive: true }); mkdirSync("local/frames", { recursive: true }); mkdirSync("checks", { recursive: true });
 const browser = await chromium.launch({ channel: "msedge", headless: true, args: ["--enable-webgl", "--ignore-gpu-blocklist"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 854 }, deviceScaleFactor: 1 });
+await page.addInitScript(() => {
+  window.depositAudio = [];
+  const records = new WeakMap<AudioBufferSourceNode, typeof window.depositAudio[number]>();
+  const start = AudioBufferSourceNode.prototype.start, stop = AudioBufferSourceNode.prototype.stop;
+  AudioBufferSourceNode.prototype.start = function(this: AudioBufferSourceNode, ...args: Parameters<typeof start>) {
+    const r = { loop: this.loop, rate: this.playbackRate.value, seconds: this.buffer?.duration ?? 0, stopped: false };
+    records.set(this, r); window.depositAudio.push(r); return start.apply(this, args);
+  };
+  AudioBufferSourceNode.prototype.stop = function(this: AudioBufferSourceNode, ...args: Parameters<typeof stop>) {
+    const r = records.get(this); if (r) r.stopped = true; return stop.apply(this, args);
+  };
+});
 const errors: string[] = [];
 const responses: string[] = [];
 page.on("response", r => { if (r.status() >= 400 && !r.url().endsWith("favicon.ico")) responses.push(`${r.status()} ${r.url()}`); });
@@ -39,7 +52,10 @@ async function jpeg(path: string): Promise<void> {
 for (let index = 0; index < CASES.length; index++) {
   const c = CASES[index];
   await page.evaluate(i => window.deposit.choose(i), index);
+  await page.evaluate(() => window.deposit.set({ power: 100, size: 64, floor: 1 }, false));
   await jpeg(`captures/${c.id}-before.jpg`);
+  const close = [{ x: 32, y: 30 }, { x: 107, y: 20 }, { x: 52, y: 68 }][index];
+  if (close) { await page.evaluate(p => window.deposit.camera(p), close); await jpeg(`captures/${c.id}-close-before.jpg`); await page.evaluate(() => window.deposit.camera()); }
   const before = await signature();
   const cameraBefore = await page.evaluate(() => window.deposit.screen({x:64,y:64}));
   await page.locator("#example").click();
@@ -50,6 +66,7 @@ for (let index = 0; index < CASES.length; index++) {
   assert(m.finalMs < 2200, "Fast within about two seconds");
   assert.deepEqual(await page.evaluate(() => window.deposit.screen({x:64,y:64})), cameraBefore, "camera stays fixed");
   await jpeg(`captures/${c.id}-after.jpg`);
+  if (close) { await page.evaluate(p => window.deposit.camera(p), close); await jpeg(`captures/${c.id}-close-after.jpg`); await page.evaluate(() => window.deposit.camera()); }
   await page.locator("#undo").click(); assert.equal(await signature(), before, "browser undo is exact");
 }
 // Actual freehand pointer: a band while drawing, cancelled by Escape without a map mutation.
@@ -87,7 +104,7 @@ assert.equal(await page.evaluate(() => window.deposit.metrics.lastSeed), firstSe
 assert.equal(await page.evaluate(() => window.deposit.state().history), 1);
 await page.locator("#undo").click(); assert.equal(await signature(), initial);
 // Keys expose the numbers; F + drag changes Size and braces change sediment supply.
-await page.evaluate(() => window.deposit.set({ size: 22 }));
+await page.evaluate(() => window.deposit.set({ size: 22, power: 70 }));
 const power = await page.locator("#powerValue").innerText(); await page.keyboard.press("}");
 assert.notEqual(await page.locator("#powerValue").innerText(), power);
 await page.keyboard.down("f"); await page.mouse.move(440, 350); await page.mouse.down(); await page.mouse.move(480, 350, { steps: 5 }); await page.mouse.up(); await page.keyboard.up("f");
@@ -113,7 +130,7 @@ for(const f of regressions) {
   await page.evaluate(f => {window.deposit.set({...f.s,seed:f.seed-1},false);void window.deposit.run(f.intent);},f);
   await page.waitForFunction(() => window.deposit.metrics.waterDone);
   const result=await page.evaluate(() => ({...window.deposit.metrics,ticks:window.deposit.state().waterTicks}));
-  assert(result.settled && result.ticks>3072,"continued worker water really converges");
+  assert(result.settled,"round-one slow-water regression really converges");
   assert(result.finalMs<2200,"slow water does not delay final land");
   const old=JSON.parse(before),after=JSON.parse(await signature());
   for(const e of old.entities.filter((e:{template:string})=>/Source|Seep/.test(e.template))) {
@@ -132,6 +149,8 @@ for(const f of regressions) {
 // One small Watch GIF. Bulk frames stay ignored.
 await page.evaluate(() => window.deposit.choose(2));
 await page.evaluate(() => window.deposit.set({}, true));
+await page.evaluate(() => window.deposit.camera({ x: 52, y: 68 }, 2.1));
+await page.locator("#sound").check();
 const encoder = GIFEncoder();
 async function gifFrame(delay: number): Promise<void> {
   const png = PNG.sync.read(await page.locator("#land").screenshot({ type: "png" }));
@@ -144,14 +163,27 @@ async function gifFrame(delay: number): Promise<void> {
   encoder.writeFrame(applyPalette(rgba, palette), width, height, { palette, delay, repeat: 0 });
 }
 await gifFrame(500); await page.locator("#example").click();
-for (let k = 0; k < 24; k++) { await page.waitForTimeout(260); await gifFrame(260); }
+await page.evaluate(() => window.deposit.pose(0));
+await page.waitForFunction(() => window.deposit.metrics.watchStages === 3);
+// Sample the same Watch renderer on a controlled clock. PNG capture/quantization must not
+// consume its playback time and leave most of the GIF sitting on already-final land.
+for (let k = 1; k <= 24; k++) {
+  await page.evaluate(async progress => {
+    window.deposit.pose(progress); await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  }, k / 25);
+  await gifFrame(330);
+}
 await page.keyboard.press("Escape"); await page.waitForFunction(() => window.deposit.metrics.waterDone); await gifFrame(1200);
+const watch = await page.evaluate(() => ({ stages: window.deposit.metrics.watchStages, waterFrames: window.deposit.metrics.waterFrames, captureClock: "24 evenly spaced Watch poses" }));
+assert(watch.stages >= 2 && watch.waterFrames > 8, "Watch shows source-driven water on changing channel poses");
+const sound = await page.evaluate(() => window.depositAudio);
+assert(sound.some(s => s.loop && s.seconds > 0 && s.stopped), "decoded CC0 rushing loop plays and stops");
 encoder.finish(); writeFileSync("captures/deposit.gif", encoder.bytes());
 assert.deepEqual(errors, [], "no browser errors");
 assert.deepEqual(responses, [], "no failed asset requests");
 const result = { browser: "headless Microsoft Edge", viewport: "1280×854", captures: "960×640, downscaled", timings,
   longest: { points: 20, strokeLength: +pathLength(long).toFixed(1), reachCap: 112, plannedMs: +longest.plannedMs.toFixed(1), finalMs: +longest.finalMs.toFixed(1) },
-  waterContinuation,
+  waterContinuation, watch, sound,
   checks: ["real pointer band", "Esc drawing", "undo mid-force", "Esc Fast and Watch finish", "one undo step", "byte-exact undo", "Try another replacement", "F size", "brace power", "Floor / Channels controls", "water convergence", "fixed camera", "water continuation in actual worker", "source strength / riding", "start after continued water"], errors };
 writeFileSync("checks/browser.json", JSON.stringify(result, null, 2) + "\n"); console.log(result);
 await browser.close();

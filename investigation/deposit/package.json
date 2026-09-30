@@ -9,7 +9,8 @@
     "samples": "node run.mjs samples.ts",
     "check": "node run.mjs check.ts",
     "captures": "node run.mjs captures.ts",
-    "check:water": "node run.mjs water-check.ts"
+    "check:water": "node run.mjs water-check.ts",
+    "check:clicks": "node run.mjs click-check.ts"
   },
   "dependencies": {
     "three": "0.186.0",
