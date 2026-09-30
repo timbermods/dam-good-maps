@@ -62,6 +62,7 @@ import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
 import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
 import { ModeIcon, WholeMapIcon } from "./SelectIcons";
 import { WaterBar } from "./WaterBar";
+import { WaterJourney } from "./waterJourney";
 import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
@@ -273,6 +274,16 @@ export default function Editor(props: EditorProps) {
       setFlowing(player.current!.progress);
     },
   });
+  // what the worker says about the water, and the bar that reads it (waterJourney.ts, D345 B14)
+  const applyViewRef = useRef<(v: ViewUpdate) => void>(() => undefined);
+  applyViewRef.current = applyView;
+  const journey = useRef<WaterJourney | null>(null);
+  journey.current ??= new WaterJourney(player.current, {
+    applyView: (v) => applyViewRef.current(v),
+    mapWater: () => mirror.current.mapWater,
+    // (Max water depth's few words, once the water has settled, D264)
+    settledInPlace: () => checkDepthRef.current(),
+  });
   const [instant, setInstant] = useState<CheckItem[]>([]);
   /** The first run's hints (D184): the steps done so far. */
   const [firstRun, setFirstRun] = useState<Set<FirstStep>>(loadFirstRun);
@@ -443,11 +454,10 @@ export default function Editor(props: EditorProps) {
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
       if (weatherRef.current) setWeather(null);
-      // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
-      // says "Water settled" at once, D345 B14)
-      if (u.waterSettled) player.current?.settled();
-      else player.current?.begin({ water: u.view.water ?? mirror.current.mapWater, done: 0 });
     }
+    // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
+    // says "Water settled" at once; the news that came first is played now, D345 B14)
+    journey.current?.update(u, u.info.version);
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
@@ -678,9 +688,7 @@ export default function Editor(props: EditorProps) {
           // while the check ran (the check started as an edit went in): only the report waits
           // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
           // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
-          if (r.view.water && player.current?.hasJourney) player.current.push({ water: r.view.water, done: 1, final: () => applyView(r.view) });
-          else if (r.waterSettled && player.current?.playing) player.current.push({ water: mirror.current.mapWater, done: 1, final: () => applyView(r.view) });
-          else applyView(r.view);
+          journey.current?.check(r);
           if (!live || r.check.version !== infoRef.current.version) return;
           setCheck(r.check);
           setProgress(null);
@@ -713,10 +721,13 @@ export default function Editor(props: EditorProps) {
   useEffect(() => {
     void api.listen(
       proxy((e: EditorEvent) => {
-        if (e.version !== infoRef.current.version) return;
+        // the water's journey keeps its own count of versions: news that comes before the page reaches its
+        // version waits for it, older news is dropped (waterJourney.ts)
+        const news = (e.kind === "water" && !e.draft) || e.kind === "settled";
+        if (!news && e.version !== infoRef.current.version) return;
         // a force at work shows its own water; the map's settled view comes after it
         if (forcer.current?.running) {
-          if (e.kind === "settled") deferred.current.push(e.view);
+          if (e.kind === "settled" && e.version === infoRef.current.version) deferred.current.push(e.view);
           return;
         }
         if (e.kind === "water" && e.draft) {
@@ -732,24 +743,11 @@ export default function Editor(props: EditorProps) {
               draftWater.current = null;
               if (w) showWater(w, true);
             });
-        } else if (e.kind === "water") {
+        } else if (e.kind === "water" || e.kind === "settled") {
           // (a stroke's frame still waiting is older than the edit's water)
           draftWater.current = null;
-          // an edit's water plays at a pace the eye can follow
-          player.current?.push({ water: e.water, done: e.done });
-        } else if (e.kind === "settled") {
-          draftWater.current = null;
-          // (no water in it: the map's water was sent before, so it is the last put in place, not the
-          // frame on screen)
-          player.current?.push({
-            water: e.view.water ?? mirror.current.mapWater,
-            done: 1,
-            final: () => {
-              applyView(e.view);
-              // (Max water depth's few words, once the water has settled, D264)
-              checkDepthRef.current();
-            },
-          });
+          // an edit's water plays at a pace the eye can follow, and the settled water ends it
+          journey.current?.news(e);
         } else if (e.kind === "weather") {
           const w = weatherRef.current;
           if (!w) return;

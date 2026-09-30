@@ -739,8 +739,18 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
   waterJob = null;
   const s = j.session;
   if (session !== s || !s.adoptWater(j.job.model, water)) return;
-  const view = viewUpdate(s);
-  listener?.({ kind: "settled", version, view, info: sessionInfo(s) });
+  settledNews(s, viewUpdate(s));
+}
+
+/** The map's water is settled and in place: tell the page, on the channel its frames came on, so that its
+ *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
+ *  background check that stopped it, D345 B14). */
+function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
+  if (!listener) return view;
+  // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
+  const copy = structuredClone(view);
+  listener({ kind: "settled", version, view, info: sessionInfo(s) });
+  return copy;
 }
 
 // ------------------------------------------------------------------------------------ weather
@@ -1269,7 +1279,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     s.adoptWater(run.model, w);
     // the canonical water replaces the preview's: the background preview has nothing left to do
     stopWater();
-    view = viewUpdate(s);
+    view = settledNews(s, viewUpdate(s));
   }
   onProgress?.({ stage: "checks", done: 1 });
   let v: Validation;
@@ -1311,7 +1321,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
   let view: ViewUpdate = {};
   if (r.water && s.waterPending && s.adoptWater(r.water.model, r.water.water)) {
     stopWater();
-    view = viewUpdate(s);
+    view = settledNews(s, viewUpdate(s));
   }
   if (r.layers) lastWater = { version: v0, ...r.layers };
   lastCheck = r.check;

@@ -1491,3 +1491,19 @@ Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDI
   `WaterPlayer` (`settled()` is its "nothing playing" state).
 - **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
   Glaciate · Erode, Deposit.
+
+## The water bar's race, found by ordering (D341, after batch B merged)
+
+B14's e2e once left the bar at "Water flowing… 84%" after a redo on CI, which is the state B14 fixes, so it was treated
+as a real race. The cause, found by delivering the worker's real messages in every order (no clock):
+- The page's journey was ended by two things only, the worker's `settled` event and the background check's answer.
+- When the check put the canonical water in place first, it stopped the worker's own settle, so no `settled` event
+  came; the check's answer ended the journey only if it carried water and the journey had frames, and it ended nothing
+  when the worker's settle had finished in between (an answer without water). A journey the worker had finished
+  therefore waited for news that was never sent.
+- Now every route to "settled" is on the channel the frames use: the worker sends the `settled` event whenever it puts
+  settled water in place (its own settle or a check's), the check's answer and the update's answer carry the worker's
+  word (`waterSettled`), and the page's journey (`src/editor/waterJourney.ts`, pure of the page) ends on any of them,
+  holds news that comes before the page reaches its version, ignores older news and frames of a version already settled.
+- `tests/contract/waterJourneyOrder.test.ts` records the messages of a redo (the check first, the settle first) and
+  delivers them in every interleaving and with each terminal message lost; it fails without the worker's new event.
