@@ -45,6 +45,8 @@ import type { Feature, MapObjectFeature, RiverFeature, StartFeature } from "../f
 import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
+import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
+import { mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
@@ -65,7 +67,7 @@ import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, MINE_LO, MINE_REACH_LO, minesWanted, rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -94,6 +96,10 @@ export type { IntentionResult };
  *  start before its settle, a cheap attempt, and whose kept land takes a second; the first map that
  *  passes is returned at once). */
 export const MAX_ATTEMPTS = 24;
+/** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
+ *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
+ *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
+export const FREE_DRAWS = 16;
 /** Plans on one field before a new genome is drawn. */
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
@@ -129,6 +135,9 @@ export interface GenerationInfo {
   /** The way out worn wider (D350 (b), D360 (3)): the tiles cut, the basin's size and its level, the
    *  width worn and the path its water takes out. */
   worn?: { cut: number[]; basin: number; level: number; width: number; route: number[] };
+  /** Mine-site pads levelled as the land was shaped (D363): each pad's middle, level and the tiles
+   *  taken down a level. */
+  pads?: MinePad[];
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -261,6 +270,10 @@ interface LandStage {
   cache: SettleCache;
   /** River path fields shared by the builds on it. */
   fields: FieldCache;
+  /** The mine sites' squares and a margin round them (D363): the hollows keep off them. */
+  mineKeep: Uint8Array;
+  /** The mine sites' pads levelled as it was shaped (D363). */
+  pads?: MinePad[];
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
@@ -287,16 +300,20 @@ export function landScreen(W: number, H: number): number {
   const N = W * H;
   return N <= 128 * 128 ? 6 : N <= 192 * 192 ? 4 : 3;
 }
-/** How far round a start that failed the next attempt on the same land keeps off. */
+/** How far round a start that failed the next attempt on the same land keeps off, from 128² up;
+ *  less on smaller maps, as the distance bands shrink (`bandScale`): at 96² a disc of 16 took a
+ *  tenth of the map a start, and three failed starts left a shown land no place for one (D363's
+ *  measures). */
 const TRIED_RADIUS = 16;
 /** Marks a start that failed on a shown land, and the ground round it, for the next attempts on it
  *  to keep off. */
 function markTried(tried: Uint8Array, st: { x: number; y: number }, W: number, H: number): void {
-  for (let dy = -TRIED_RADIUS; dy <= TRIED_RADIUS; dy++)
-    for (let dx = -TRIED_RADIUS; dx <= TRIED_RADIUS; dx++) {
+  const R = Math.max(6, Math.round(TRIED_RADIUS * bandScale(W, H)));
+  for (let dy = -R; dy <= R; dy++)
+    for (let dx = -R; dx <= R; dx++) {
       const x = st.x + dx;
       const y = st.y + dy;
-      if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= TRIED_RADIUS * TRIED_RADIUS) tried[y * W + x] = 1;
+      if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= R * R) tried[y * W + x] = 1;
     }
 }
 
@@ -326,7 +343,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   const H = specIn.size.y;
   const seed = specIn.seed;
   const failures: GenerateResult["failures"] = [];
-  const max = opts.maxAttempts ?? MAX_ATTEMPTS;
+  let max = opts.maxAttempts ?? MAX_ATTEMPTS;
+  let free = 0;
   let last: Attempt | null = null;
   let land: Land | null = null;
   let genomes = 0;
@@ -348,7 +366,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   const screened = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
     if (committed && land) {
-      const a = attemptOnce(specIn, land, attempt, opts, t0, committed, screened);
+      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, committed, screened);
       const r = attemptDone(a, attempt);
       if (r) return r;
       if (a.stuck) break;
@@ -371,7 +389,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const E = orientField(F.E, W, H, o);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, opts, t0, null, screened);
+    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, null, screened);
     if (a.stage) {
       committed = a.stage;
       lands++;
@@ -379,6 +397,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     const r = attemptDone(a, attempt);
     if (r) return r;
     if (a.stuck) break;
+    // (a land drawn again before it was shown leaves the attempts to the land that will be)
+    if (!a.stage && opts.maxAttempts === undefined && free < FREE_DRAWS) {
+      free++;
+      max++;
+    }
   }
   return (last as Attempt | null)!.result;
 
@@ -1320,9 +1343,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
   // (on a land kept for another attempt, D333 (2): the starts that failed on it are kept off too)
   const tried = from?.tried ?? new Uint8Array(N);
-  const avoidOf = (bad: Hazards | null) => {
+  // (the objects keep off what the start keeps off but the starts tried: a mine site or a relic may
+  // stand where a start failed, D363)
+  const avoidOf = (bad: Hazards | null, starts = true) => {
     const a = new Uint8Array(N);
-    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) || (tried?.[i] ?? 0) ? 1 : 0;
+    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) || (starts && tried[i]) ? 1 : 0;
     return a;
   };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
@@ -1373,6 +1398,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (and, on a shown land, off the hollows that kept its water from settling, D348)
     keepOff: from ? orMask(weir ? orMask(protect, pool) : protect, from.badTried) : weir ? orMask(protect, pool) : protect,
   };
+  // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
+  const mineKeep = from ? from.mineKeep : new Uint8Array(N);
+  if (from?.pads) info.pads = from.pads;
   const noBad: Hazards = { count: 0, features: [], avoid: new Uint8Array(N), heights: h };
   const badAt = (D: ArrayLike<number>, start: { x: number; y: number }, salt: number): Hazards => {
     const bad = planBadwater(h, W, H, D, hy, badAsk, seed, attempt * 4 + salt, start);
@@ -1449,10 +1477,37 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         markTried(off, guess, W, H);
         if (!settlerOn(est, zero, moisture(h, est, zero, W, H, null), 5, off)) return fail("one place for a start", null, true);
       }
+      // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
+      // is shown rather than failing every attempt on it)
+      if (!lastAttempt && edgeRuleApplies(W, H) && edgeWalls(h, W, H).some((e) => e.share >= EDGE_SHARE)) return fail("an edge wall", null, true);
+      // (D363: level ground for the mine sites the colony must reach, made as the land is shaped:
+      // where the start's walk holds too few level squares, the ground nearest to level becomes a
+      // pad, taken down a level at most, clear of the water)
+      if (guess) {
+        const keepP = new Uint8Array(N);
+        for (let i = 0; i < N; i++) keepP[i] = keep[i] || hy.water[i] === 1 || hy.water[i] === 2 || pool[i] || ramps.tiles[i] || protect?.[i] || ctx?.locked?.mask[i] ? 1 : 0;
+        const scale = bandScale(W, H);
+        const pads = minePads(h, W, H, { start: guess, wet: est, keep: keepP, want: minesWanted(W, H), lo: MINE_REACH_LO * scale + 1, far: MINE_LO * scale + 1, seed: hash32(seed, "mine-pads", attempt) });
+        // (a land whose start's walk has no room for them, even with pads a level down, is drawn
+        // again before it is shown: rugged or small land, D363)
+        if (mineSquares().length < minesWanted(W, H) && !lastAttempt) return fail("no room for the mine sites", null, true);
+        for (const p of pads) for (const j of p.cut) hLand[j] = h[j];
+        if (pads.length) info.pads = pads;
+        // (the hollows keep off the mine sites' squares and a margin round them, on this attempt and
+        // every later one on the land)
+        const mark = (c: number, r: number) => {
+          const cx = c % W;
+          const cy = (c - cx) / W;
+          for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) mineKeep[(cy + dy) * W + cx + dx] = 1;
+        };
+        for (const c of mineSquares()) mark(c, 6);
+        for (const way of mineWays()) for (const c of way) mark(c, 2);
+      }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, badTried: new Uint8Array(N), mineKeep, pads: info.pads, unsettled: 0, dropped: [], fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
+    badAsk.keepOff = orMask(badAsk.keepOff ?? null, mineKeep);
     // (on a shown land, the hollows whose water settled on an earlier attempt stay where they are:
     // the rivers and hollows settle as they did, and the settle cache hands that settle back)
     if (guess && badAsk.count > 0 && from?.goodBad) {
@@ -1724,8 +1779,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (d[i] < badWithin + 2) out[i] = 1;
     return out;
   };
-  // (near the guess the hollows were planned from, so they keep the distance the settings ask for)
-  const near = bad.features.length ? guess : null;
+  // (near the guess: the hollows were planned from it, so they keep the distance the settings ask
+  // for, and the land was judged and shaped round it before it was shown: its second place for a
+  // start, its mine-site pads, D363)
+  const near = guess;
   // the land the start's ground joins, on the settled water and the ground as it now stands (a
   // floodplain's water or a hollow cuts the planned land apart: item 47, a start on a strip of land
   // cut off by water and cliffs reaches neither its mine sites nor room to grow)
@@ -1735,7 +1792,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return footComponents(h, W, H, wetNow);
   };
   foot = footOf(b1);
-  let pick = settlerOn(b1.water, b1.contamination, b1.moisture, 1, beyondBad(b1), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
+  // (D363: a start in land with room for the mine sites it must reach, level ground clear of the
+  // settled water, where the land has any: the pads were made as the land was shaped, round the
+  // plan's start)
+  // (what the objects' placement keeps off, gen/extras.ts: the hollows' ground and what the start
+  // keeps off, channels, objects, lakes, protected set pieces)
+  const roomKeepOf = (b: typeof b1) => {
+    const k = avoidOf(bad, false);
+    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || b.channel[i] || b.occupied[i] || b.cache.terrain.protect[i] || hy.water[i] === 2) k[i] = 1;
+    return k;
+  };
+  const scale = bandScale(W, H);
+  const mineRoomAt = roomMap(h, W, H, { wet: b1.water, keep: roomKeepOf(b1), want: minesWanted(W, H), lo: MINE_REACH_LO * scale + 1 });
+  let anyRoom = false;
+  for (let i = 0; i < N && !anyRoom; i++) if (mineRoomAt[i]) anyRoom = true;
+  const roomy = (a: Uint8Array): Uint8Array => {
+    if (!anyRoom) return a;
+    for (let i = 0; i < N; i++) if (!mineRoomAt[i]) a[i] = 1;
+    return a;
+  };
+  let pick = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
   if (!pick && bad.features.length) {
     // the hollow took the only good place for a start: the start first, then the hollow
     h.set(hLand);
@@ -1766,7 +1842,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   // (else level dry ground joined to enough land, nearest the water: its spring comes below)
   if (!pick) {
-    pick = dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess });
+    pick = dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess }) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess });
     if (pick) fixes.push("start on dry ground");
   }
   // (no start on the settled water or the plan: the shown land has no place left for one, D348)
@@ -1808,11 +1884,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (another start on the same settled water, off the one that failed and the ground round it)
   const nextStart = (failed: StartPick): StartPick | null => {
     markTried(tried, failed, W, H);
-    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, beyondBad(b1), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess });
+    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
   for (let tryN = 0; ; tryN++) {
     const hBefore = h.slice();
     levelStart(cur);
+    // (a start whose pad leaves its walk no room for the mine sites, D363, a pad dug down to the
+    // water's level, gives way to the next start before its water is settled)
+    if (tryN + 1 < START_TRIES && !lastAttempt && anyRoom && mineRoom(h, W, H, { start: cur, wet: b1.water, keep: roomKeepOf(b1), want: minesWanted(W, H), lo: MINE_REACH_LO * scale + 1 }) < minesWanted(W, H)) {
+      const levelled = h.slice();
+      h.set(hBefore);
+      const again = nextStart(cur);
+      if (again) {
+        cur = again;
+        continue;
+      }
+      h.set(levelled);
+    }
     layout = [...rivers, ...bad.features, startOf(cur)];
     // (a start whose pad changes the water is first judged on the water warm-started from the
     // settle before it, which costs a fraction of a settle: a pad the water would cover gives way to
@@ -1890,7 +1978,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
     cur = again;
   }
-  pick = cur;  if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
+  pick = cur;
+  if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)
@@ -1902,7 +1991,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   opts.onProgress?.({ attempt, stage: "objects" });
   const avoid = avoidOf(bad);
   const walked = startWalkable(base);
-  const objects = planExtras({ spec, base, features: layout, protect, avoid, candidate: 0, attempt, relicHigh: !!g.relicHigh });
+  const objects = planExtras({ spec, base, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
     const own = (f: MapObjectFeature) => objectTiles(f, W, H).length;

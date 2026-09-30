@@ -775,7 +775,15 @@ hollow the colony walks beside, checked as `start.water` reads it); a start whos
 water covers (judged first on water warm-started from the settle, which costs a fraction of one), or
 that no spring serves, gives way to another on the same settled water (three in all); a start or
 objects that still fail are planned again on the same land, keeping off what failed, and keeping
-the hollows whose water settled, so the settle is reused; hollows whose water settled are
+the hollows whose water settled, so the settle is reused; the mine sites' ground is made as the land
+is shaped (D363, `land/minePads.ts`): where the planned start's walk (its land joined two tiles or
+more from the planned water) holds fewer level squares for a site (7×7, clear of the water) at
+least 24 tiles out than it needs, the ground nearest to level becomes a pad, a level over it taken
+down to it (about 49 tiles, at most 61 with its edge), round, its edge wandering a tile or two out
+and eased where the ground over it would stand as a cliff, five tiles or more from the planned
+water; the hollows keep off those squares and the colony's way to them; on the settled water the
+start goes where its walk has that room, passing over one whose pad would leave none, and the
+objects may stand where a start failed; hollows whose water settled are
 reused, rivers that left (their sources reached) leave on every later attempt, and water over the
 flood line runs gentler (0.7 of its flow, twice at most). Water that does not settle (D350): a
 basin's way out is widened while the land is shaped (`levels.ts` `widenOutlets`, a level under the
