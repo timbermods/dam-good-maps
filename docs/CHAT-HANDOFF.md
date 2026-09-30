@@ -5,7 +5,7 @@ Read this first, then docs/PERFECT.md (the yardstick), docs/STATUS.md (its summa
 - Kyler decides everything; his eye is the final judge. It's a one-person passion project with no launch date: realising his vision matters more than speed (docs/PERFECT.md).
 - The planning chat (claude.ai) is his advisor and reviewer: it reads the repo, branches, PRs and captures itself, gives brutally honest and specific feedback, and writes the exact prompts he sends elsewhere.
 - The milestone session (Claude Code, Opus 5.5 at xhigh) runs on a dedicated, always-on computer with Timberborn installed. It's the only session that changes dev, merges and releases. It may run DGM Probe batches there without asking (D218); releases still need Kyler's approval. It logs each step in the "Progress log" issue (#57).
-- Codex tasks (GPT-6 Astra at xhigh) build prototypes on their own investigation branches; the milestone session merges them as proposals.
+- Codex tasks build prototypes on their own investigation branches; the milestone session merges them as proposals (only Codex's own commits when a branch starts from an unreleased feature branch, as #90 and #99 did). Models (Kyler, 2026-09-30): **GPT-6.1 Sol at high** is the default for force demos and physics exploration (the Rift was its first, done well in one round at about a fifth of Astra's cost); **GPT-6 Astra at high** stays the choice for look work, where its judgment has the track record.
 
 ## How the planning chat works
 - Check-ins: git fetch the repo (all branches), read the summary at the top of docs/STATUS.md, the Progress log issue, recent commits and open PRs, and view captures with git show. Prefer git over the GitHub REST API, which rate-limits quickly from shared addresses.
@@ -13,7 +13,7 @@ Read this first, then docs/PERFECT.md (the yardstick), docs/STATUS.md (its summa
 - Code blocks are the exact text Kyler sends; prose is for him. Each prompt stands on its own and says where it goes. Never assume a prompt was sent until Kyler says "sent".
 - Codex prompts start with HARD RULES: the authorization to push one named branch and open one PR; no merges, approvals, auto-merge, other branches, tags or releases; work only in its own folder; large generated results out of git; original or clearly licensed assets only (nothing from the game's files); a git diff check before the PR; "don't wait for my replies". Each new Codex branch gets an adoption note for the milestone session.
 - Kyler batches hands-on reviews into single sittings: collect what's ready on the preview and give him one checklist.
-- Models: Codex on Astra at xhigh; Claude builds on Opus 5.5 (xhigh for the hardest, high otherwise; the main session ideally at high); Sonnet 5.5 at medium for routine work.
+- Models: Codex on Sol (high) for force demos and physics, Astra (high) for look work; Claude builds on Opus 5.5 (xhigh for the hardest, high otherwise; the main session ideally at high); Sonnet 5.5 at medium for routine work.
 
 ## Kyler's principles and taste
 docs/PERFECT.md is the yardstick. In short: maps designed by nature, genuinely varied, with character, inviting building, and playing exactly right; water is the heart (the result of sources and land, what you see is what you get); the editor is a painter's studio (the land is the interface, few tools, things just work, simpler is better, nothing ruler-straight or stamped); the forces pass the magic bar; challenge comes from terrain, never starving the start. Trust his eye over numbers; match the game where players have muscle memory; no hand-holding.

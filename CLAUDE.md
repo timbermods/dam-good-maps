@@ -136,8 +136,8 @@ text.
   - the four terrain-above-terrain steps (PLAN §20 D279–D281, D286; ROADMAP.md, "Terrain above terrain"): 1
     Foundations `3d-foundations-done`, 2 the view `3d-view-done`, 3 creating them `3d-creating-done`, 4
     generation `3d-generation-done`;
-  - the Weather view (after the 3D steps; slimmed to the drought line and a map-card line, PLAN §20 D285) is
-    tagged `weather-view-done`;
+  - the Weather view (Drought and Badtide day by day, at the end of finishing the editor, after "The page is the
+    editor"; PLAN §20 D285, D349) is tagged `weather-view-done`;
   - the refinement phase is cut (PLAN §20 D283): its remaining items are housekeeping, released with whatever
     step ships them, no tag of its own.
 - When dev changes `deploy.yml`, keep its noindex step.

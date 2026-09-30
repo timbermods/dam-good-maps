@@ -54,6 +54,18 @@ differently, this file wins.
   `docs/sheets/<step>.png`: seeds 1–30 of every built theme at 128², top-down, each labelled with
   its seed and theme; our own generated maps only; under 1 MB.
 
+**The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
+1. **Finish the editor as players will know it:** the forces release, M9b's release, the High look's release, the
+   parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
+   #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
+   timeline; its sitting comes then (D349, 2026-09-30).
+2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
+3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
+   **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
+   editing's first users (D349, 2026-09-30).
+4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
+5. **M12 (Claude)**, after collaborative editing (D277, D342).
+
 ## Overview
 
 | # | Milestone | From | In-game check (logged as pending, D11) | Effort |
@@ -74,10 +86,10 @@ differently, this file wins.
 | 3D-2 | Terrain above terrain, step 2: the view, after Map look 2 | DESIGN.md §6–7 · D126, D280, D281 | no | high |
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
 | 3D-4 | Terrain above terrain, step 4: generation, once M9b has settled | DESIGN.md §5 · PLAN §5.9 · D123, D132, D138, D280 | a probe batch (T1–T4, T6, T7; D145) | high |
-| Weather | Weather view: the drought line and a map-card line, after the 3D stages (slimmed, D285) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
+| Weather | Weather view: the drought line and a map-card line; Drought and Badtide day by day (#73) with the contamination veins and the Unstable Core's moment; closes step 1, after "The page is the editor" (D285, D349) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
 | Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration (deferred until Kyler resumes it, D277) | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
-| M13 | Problem reports, shortcuts and help, a final performance pass (slimmed, D285) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
+| M13 | Problem reports, shortcuts and help, a final performance pass, folded into the polish step before collaborative editing (D285, D349) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
 | Later | See the end of this file, now including versioned deploys, mobile layouts and the build time-lapse (D285) | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
 
 In the rows for M1–M8 and Look, "EDITOR §n" and E1–E9 name EDITOR_PLAN.md's sections and
@@ -2059,9 +2071,25 @@ the new screens; no second full design pass.
 
 ---
 
+## Collaborative editing (D349)
+
+After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
+ordered list of operations; each browser rebuilds the map from it, so both see identical terrain and water (every
+change is a deterministic operation, D158, D342).
+
+- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
+- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply
+  code to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with
+  one-click copy and each step plainly worded.
+- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay;
+  a network that blocks the connection is told plainly.
+- One player hosts and keeps the order of operations.
+- **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
+  intended action).
+
 ## Later
 
-**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge.
+**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
