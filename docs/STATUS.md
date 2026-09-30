@@ -169,6 +169,10 @@ Tuesday's session refreshes it with the forces sitting's changes and tells you.
 
 ### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
 
+- **Ready, waiting for Kyler's YES: Sizes** (D357 (9), branch `chore/probe-sizes`): 512×512, 128×512, 64×512 and 512×256,
+  with 256×256 and 399×399 as references; each loaded at its size, its water after a day against our model, frame times with
+  a camera pan at normal speed, the fastest and the probe's speed, and the time to load. About 36 minutes as planned. The runner
+  now writes a group's maps itself before it plans (`batch -- --group Sizes`), so the probe folder's four commands cover it.
 - **2026-09-30, Parity, on Kyler's main PC, on his YES** (`parity-20260930`, `feature/parity` at 13565ec0, 7 maps; settings backed up to `C:dgm-probesettings-backup6-09-30T05-49-15`; registry unchanged, nothing left behind): passed the Badtide Drain, the Aquifer and its drill, the reserves loading; failed the seep's 0.8 stop, a delayed source's tile already wet at load, the sink's draining, the water after a core's blast (its land matched exactly), and succulents dying on moist soil. Each is with `build` on `feature/parity` to match the game.
 - **2026-09-29, on Kyler's main PC, on his YES** (settings backed up to `C:dgm-probesettings-backup6-09-29T22-36-02`; registry unchanged, nothing left behind; only Steam's `steam_autocloud.vdf` files changed):
   - **M9b** (`m9b-20260929b`, `feature/m9b` at 7695e6a8, 18 maps): 14 pass every check, both 256² chaos maps included. The two Sources: None maps fail only the water check's handling of an empty map (0/0 wet tiles). River Valley and Lake Basin 128² seed 2 diverge from the game from day 7, when the water refills after the drought (the model refills more); with M9b.

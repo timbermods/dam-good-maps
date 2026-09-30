@@ -104,6 +104,7 @@ namespace DGMProbe
             // A settlement name is required (an empty one asks the player); no save is ever written under it.
             string settlement = "DGMProbe " + Probe.SafeName(map.Id);
             Probe.Log($"starting map {next + 1}/{Probe.Job.Maps.Count}: {map.Title} ({faction}, {map.Mode})");
+            Probe.LoadStartedReal = Time.realtimeSinceStartup;
             _gameSceneLoader.StartNewGame(new NewGameConfiguration(faction, MapFileReference.FromDisk(map.MapFile), mode, settlement));
         }
 

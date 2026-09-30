@@ -207,9 +207,11 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `build-mod -- --no-install`, `batch -- --backup-settings`, `batch -- --group …`, `restore`). Before a probe, check out the
   branch that needs probing there, detached (`git checkout --detach origin/<branch>`, the probe's own code included), run
   `npm ci` at the root and in `investigation/probe` if the lockfiles changed, then run from that folder. Always print the
-  plan and check it before launching: the right maps, a sensible time, no fallback to a bigger batch. The map writers some
-  groups need first (`tools/probe-3d.ts`, `tools/probe-parity.ts`) are not among the four rules: if one is refused, leave
-  the batch for Kyler.
+  plan and check it before launching: the right maps, the maps written (file, size, sha256), a sensible time, no fallback
+  to a bigger batch. A group whose maps are made outside the repository has its writer in the runner's catalog, and
+  `batch -- --group <name>` writes its maps first (Kyler, 2026-09-30): no separate step. `Tall maps` and `Sizes` have one;
+  `Parity` has one on `feature/parity`; `Terrain 3D` (`tools/probe-3d.ts`) needs one when it merges, and until then its
+  writer is not among the four rules: if it is refused, leave the batch for Kyler.
 - **DGM Probe** (`investigation/probe`): the only way Claude may launch Timberborn, and **only after Kyler's yes in chat for
   that batch, every time** (CLAUDE.md, D117). **On this machine only (§9), D218 lifts the ask:** run a batch whenever the plan
   calls for one, and report it in STATUS and on #57; everything else below still applies. Elsewhere, ask in one message: how

@@ -80,26 +80,35 @@ export function prepare(games: GameDef[], runId: string): Prepared[] {
       moments,
       actions: game.actions?.(info) ?? [],
       poses,
+      ...(game.perf ? { perf: { startDay: D0 + game.perf.afterDays, rowSpacing: game.perf.rowSpacing, phases: game.perf.phases } } : {}),
     };
+    // the frame-time phases' real seconds come on top of the map's own time
+    map.timeoutSeconds += Math.round(perfSeconds(map));
     return { game, map, info, checks: pendingChecks(game) };
   });
 }
 
-/** Rough real time: loading, game days at the speed a map of this size runs, and screenshots. */
+/** The real seconds a map's frame-time phases take (0 without them). */
+export function perfSeconds(map: Pick<JobMap, 'perf'>): number {
+  return (map.perf?.phases ?? []).reduce((n, p) => n + p.seconds, 0);
+}
+
+/** Rough real time: loading, game days at the speed a map of this size runs, screenshots and frame-time phases. */
 export function estimateMinutes(p: Prepared[]): number {
   let s = 0;
   for (const x of p) {
     const area = (x.info.W * x.info.H) / (128 * 128);
     const shots = x.map.moments.reduce((n, m) => n + m.shots.length, 0);
-    s += 45 + x.game.days * 20 * Math.max(0.5, area) + shots * 1.5;
+    s += 45 + x.game.days * 20 * Math.max(0.5, area) + shots * 1.5 + perfSeconds(x.map);
   }
   return Math.ceil(s / 60) + 2;
 }
 
-export function summary(p: Prepared[], kind: 'smoke' | 'batch', keepMods = false): PlanSummary {
+export function summary(p: Prepared[], kind: 'smoke' | 'batch', keepMods = false, written?: PlanSummary['written']): PlanSummary {
   return {
     kind,
     keepMods,
+    ...(written?.length ? { written } : {}),
     estimateMinutes: estimateMinutes(p),
     maps: p.map((x) => ({ id: x.game.id, title: x.game.title, checks: x.checks.filter((c) => c.how !== 'none').map((c) => c.id), days: x.game.days })),
   };

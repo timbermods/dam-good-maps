@@ -89,3 +89,14 @@ Each open choice, what was chosen, and why.
     terrain voxel for voxel (the game's terrain columns against the file's), stored water at the load and
     after a day (on the whole map and above 16), every object, the start at 22, the sources above 16, the
     water flowing and standing above 16, and the screenshots by eye.
+20. **Each group made outside the repository writes its own maps** (Kyler, 2026-09-30). A group declares its writer in
+    the catalog; `batch --group <name>` (or `--only` with its ids) calls it in the runner's own process before it
+    plans: every map is built, compared by sha256 with the file on disk and rewritten if it differs, so a stale map is
+    never planned, and the plan lists every map written. The launch code covers those bytes. The four probe-folder
+    commands in Kyler's allow rules then cover every group; `tools/probe-<group>.ts` stays as a wrapper to run a writer
+    by hand. `Tall maps` and `Sizes` have writers; `Parity` gets one on its branch; `Terrain 3D` needs one when it merges.
+21. **Frame times and load time** (PLAN §20 D357 (9), DGM Probe 0.2.1). A game with `perf` runs timed phases after its
+    first day: one speed each (normal, the fastest, the probe's), a camera pan over the whole map at the game's own zoom,
+    the player's graphics, nothing else recorded meanwhile. Frames are timed with `Time.unscaledDeltaTime` inside the
+    mod; the speed reached is game seconds per real second. The load time runs from `StartNewGame` to the game's
+    interface. The Sizes group uses them; any group can.
