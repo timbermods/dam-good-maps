@@ -1,5 +1,18 @@
 # September 30 quiet window
 
+**Afternoon complete: 10:30–13:30 PDT (17:30–20:30 UTC).** Controller and continuous sampler
+finished at 13:29:45; neither remains active. No late or duplicate measurements. The single
+Edge/CPU-proxy/High hour went first and was retried twice while sufficient time remained;
+all three aborted during introductory brushes. All 57 manifests were audited: 44 CPU-discarded,
+13 Firefox setup failures, zero qualified completions. The 45 quiet generations and full
+continuous trace are frozen with controller logs in `local/windows/2026-09-30-1030/`.
+`node afternoon-audit.mjs` and `python review-afternoon.py` regenerate the offline indices.
+REPORT.md states exact missing coverage and review limits. PR #107 remains draft; this
+one-window follow-up stops, with no measurements authorized after 13:30.
+
+The sections below retain earlier window history; the afternoon's continuous lease supersedes
+morning per-case qualification. Its telemetry is the archived session, never window-load.jsonl.
+
 Completed morning window: **07:40–09:40 America/Los_Angeles (14:40–16:40 UTC)**.
 One serial runner uses `node window.mjs --suite=core --start=2026-09-30T14:40:00Z --end=2026-09-30T16:40:00Z --hour-first=true`.
 The latest user instruction puts the single hour first, then shorter paired work. Short-work

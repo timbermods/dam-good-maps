@@ -1,60 +1,61 @@
 # Terrain in motion
 
-**September 30 morning window complete; PR #107 remains draft. No run qualified.**
-Product source is untouched, based on `feature/forces` `9e14f189`.
+**September 30 afternoon complete; PR #107 stays draft. No qualified comparison exists.**
+Product source is untouched; adoption is based on `feature/forces` `9e14f189`.
 
-07:40–09:40 PDT: **27 attempts; four refused qualification, 22 CPU-discarded, one cancelled
-before measurement**. Twenty-two passed a 60.05–65.42 s quiet prefix (CPU 1–25%) before
-measured CPU rose to 28–100%; sampled unrelated CPU at abort was only 0.38–4.14%.
-385 dispatch samples: 0–45%, median 12%. Total CPU and per-process samples use different
-intervals; their discrepancy is unresolved. Other agents are not an established cause.
-The controller finished at 09:40:00; no late measurements were taken.
+10:30–13:30 PDT: **57 attempts: 44 CPU-discarded, 13 Firefox setup failures**. Continuous
+telemetry: 1,851 in-window samples, CPU **1–85%, median 15%**; unrelated CPU 0.10–32.34%,
+median 3.78%. All **45 qualification generations** passed 60.18–65.29 seconds at ≤25%;
+requalification followed discards. No invalid samples or gaps over 30 seconds. Total CPU and
+process estimates use different intervals; the discrepancy is unresolved. Other agents are
+not an established cause. Cleanup finished **13:29:45**; no duplicate or late measurements.
 
-| Standard **and** High, 256² | Qualified timing pairs | Qualified capture pairs | Qualified p99 / hitches |
-|---|---:|---:|---|
-| Edge/native, three repeats | 0/72 | 0/24 | unavailable |
-| Firefox/native, one pass | 0/24 | 0/24 | unavailable |
-| Edge/CPU proxy, one pass | 0/24 | 0/24 | unavailable |
+| 256² configuration | Qualified timing pairs | Capture pairs | Discarded active CPU | Qualified p99/hitches |
+|---|---:|---:|---:|---|
+| Edge/native Standard | 0/36 | 0/12 | 12–84% | unavailable |
+| Edge/native High | 0/36 | 0/12 | 7–85% | unavailable |
+| Firefox/native Standard | 0/12 | 0/12 | 23–68% | unavailable |
+| Firefox/native High | 0/12 | 0/12 | no active interval | unavailable |
+| Edge/CPU proxy Standard | 0/12 | 0/12 | 23–56% | unavailable |
+| Edge/CPU proxy High | 0/12 | 0/12 | 13–45% | unavailable |
 
-Every force at Power 100 in Fast/Watch, brush and abuse remain unqualified in both looks.
-The full hour is **0/1**: two measured native attempts failed at 55%/35%; three proxy attempts
-failed at 28%/32%/30%, during their introductory brush, before the hour loop. The single hour
-was moved to the proxy explicitly; it was never shortened. Firefox, High core captures,
-abuse and all after captures did not run: first-case retries starved the queue.
+Missing: **all 240 timing executions, 144 captures, one hour**. Craterize Fast reached every
+configuration; brush reached Edge/native and Firefox/Standard. Other forces, Watch and abuse
+never reached measurement. Firefox stalled waiting for a stable “Top-down” button; deadline
+logs also show probe timeout and WebGL context loss, with cause unproved. The hour went first
+on **Edge/proxy/High**, retried twice, discarded at **32%, 36%, 40% CPU** during its introductory
+brush, before the hour loop. Never shortened. [afternoon-proof.json](afternoon-proof.json)
+lists every failed attempt and missing phase/repeat. Morning evidence remains frozen and invalid.
 
-PC: Ryzen 7 9800X3D, 16 threads, 61.6 GiB RAM, RTX 4080 SUPER; Edge 154.
-Proxy: Windows job CPU cap 625/10000, aggregate one logical CPU, four-core affinity;
-native GPU/RAM, not a second physical machine. High fixture is pinned at `84fe4d36`.
+PC: Ryzen 7 9800X3D, 16 threads, 61.6 GiB RAM, RTX 4080 SUPER; Edge 154, Firefox 146.0.1.
+Proxy: Windows job cap 625/10000, one logical CPU aggregate, affinity 15 (four logical CPUs),
+native GPU/RAM; no physical laptop. High fixture: `84fe4d36`.
 
-Discarded diagnostics contain **628 hitches, all causally unattributed**, and 127 long tasks.
-614 hitches overlap renderer/update calls; overlap is not proof. The worst frame was
-1000.7 ms while its overlapping render call took 0.6 ms. Visibility was not recorded,
-so background throttling remains a hypothesis. Every event is retained by `morning-audit.mjs`.
+Discarded diagnostics: **709 hitches, all causally unattributed**, 277 Edge long tasks; Firefox
+Long Tasks unavailable. Fifteen hitches have no method overlap. Worst: **1,043.1 ms in a proxy
+capture**; capture overhead is not pacing. Every event is retained in `local/afternoon-hitches/`.
 
-All **3,926 PNGs** were decoded and compared; selected full-resolution frames and the change
-contact sheet were inspected. In the 16:19 UTC Standard recording, frames 4→5 show an abrupt
-crater and stepped water bands: land changes by 12 and water by 5.27 over 990 ms.
-This recorded pop is confirmed; normal-playback causality is unverified. Water geometry flags
-are candidates, not pixel-proven hovering/penetration. Qualified seams/holes, chunk popping,
-water contact/continuity, lighting/reflections, object following and flicker checks remain unverified.
+All **1,251 full-resolution PNGs** decoded/compared; 13 change sheets and selected originals
+inspected. High Craterize Fast visibly jumps **12 land levels in both builds**, over 78.2/71.2 ms.
+This recorded pop is confirmed; normal-playback causality is unverified. The bright disk afterward
+is the coded impact flash. Brush preview rectangles and water geometry flags remain candidates.
+Morning's recorded stepped-water pop remains documented. Qualified holes/seams, chunk popping,
+water contact/continuity, shadows/reflections, object following and flicker remain unverified.
 
-PCM analysis covers **161.35 s in 17 files**: 18 timestamp gaps and nine overlaps, not verified
-audible dropouts. Legacy streams lack context IDs; overlapping streams cannot be converted
-faithfully. Sound synchronization, ending, crackle and dropout checks remain unverified.
-No qualified GIF pair exists; generation refuses. A labelled before-only diagnostic GIF is local.
+PCM: **49.024 seconds, 13 labelled streams**, converted separately; five timestamp gaps
+(96 ms total), no overlaps, nonfinite samples or clipping. Tap gaps are not verified audible
+dropouts. Audible crackle/dropout, motion synchronization and sound ending remain unverified.
+**No qualified GIF pair exists**; generation refuses. [afternoon-review.json](afternoon-review.json)
+records inspection limits.
 
-`adoption.patch` proposes frame scheduling, GPU-buffer reuse, lazy water blends, sound release
-and waterfall refreshes. Improvement is unproved. Harness fixes preserve warm-up waits, catch
-abort drain failures, rotate retries, label PCM contexts and record visibility. **37 tests pass**,
-both typechecks pass, three computation bundles are byte-identical, patch/diff checks pass.
-The core gate reports **218 failures/missing evidence**. Export-byte proof and calibration remain.
+`adoption.patch`: frame scheduling, GPU-buffer reuse, lazy water blends, sound release and
+shore/fall refreshes; improvement unproved. **39 tests**, both typechecks, patch and worker-byte
+checks pass. Three discarded brush undo/redo sets match across builds; export-byte proof is
+missing. Gate: **218 failures/missing evidence**. Calibration lacks three quiet baselines;
+budgets stay provisional.
 
-**Separate interface finding:** Highlands 4242 → Craterize Power 100 Fast → wait → Undo:
+**Separate interface finding:** Highlands 4242 → Craterize Power 100 Fast → settle → Undo:
 both builds show “Water flowing… 0%” despite settled worker, empty queue and “Ready to play”.
-Untouched and nonblocking; interface lifecycle/status belongs after **“The page is the editor”**.
-
-`INTEGRATION.md` gives regeneration and the mandatory gate for future forces. The current
-per-case quiet waits alone require 384 minutes plus the hour; batching needs resolution before
-another two-hour window. Budgets have not been relaxed. The one-window recurrence is stopped.
-
-**Next authorized window:** 10:30–13:30 PDT. Continuous qualification now replaces the 384 minutes of per-case waiting: qualify once, retain sampling across cases, requalify only after a load-discarded case. All scaled coverage and budgets remain. Eleven harness regressions pass; the morning's zero qualified result is unchanged.
+Untouched/nonblocking; status/interface lifecycle belong after **“The page is the editor”**.
+`INTEGRATION.md` gives offline regeneration and future-force requirements. This one-window
+follow-up stops; further measurements need another authorized window.

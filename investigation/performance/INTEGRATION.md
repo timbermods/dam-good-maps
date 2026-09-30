@@ -101,20 +101,20 @@ the job between cases. No other process or machine power settings are changed.
 
 ## Evidence and budgets
 
-`load.ps1` qualifies **60 consecutive sampled seconds at CPU ≤25% before every measured case,
-capture and hour session**, after fixture/shader warm-up. Missing CPU samples or gaps over 30 s
-refuse qualification. During each run, total or unrelated CPU above 25% immediately discards
-the attempt; window.mjs requeues it, qualifies afresh and repeats while time remains. Post-run
-CPU samples also invalidate a newly busy attempt. GPU engine load is recorded for diagnosis,
-including unavailable readings, rather than adding a hidden quiet threshold. Do not terminate
-other agents to obtain quiet numbers. Smoke checks supply no timing certification.
+`load.ps1` qualifies **once at CPU ≤25% for 60 consecutive sampled seconds**, then records
+continuously while cases run back to back. Only a load-discarded run invalidates that lease;
+window.mjs requeues that individual phase/repeat and requalifies while time remains. Missing
+samples, gaps over 30 seconds, unbracketed active intervals, or total/unrelated CPU above 25%
+discard a run. Warm-up and initial byte extraction precede its active interval. GPU load is
+diagnostic, including unavailable readings. Do not terminate other agents to obtain quiet
+numbers. Smoke checks supply no timing certification.
 
 Pacing runs record every display-frame delta, every renderer method interval and available long
 tasks; captures separately copy **every actual rendered frame** and diagnose stale terrain tops,
 water below ground, water/state mismatches and per-tile movement jumps. Those geometry checks do
 not prove the absence of topology holes, reflections, lighting flicker, cave issues or perceptual
-jitter. Capture overhead is excluded from pacing. Every detected hitch has overlapping method
-spans; an unexplained pause is retained as **unattributed**, never assigned a speculative cause.
+jitter. Capture overhead is excluded from pacing. Overlapping method spans record context;
+every hitch remains **unattributed** unless separate evidence demonstrates its cause.
 Byte extraction after idle is labelled as harness overhead: all its frame/task records remain in
 raw data and the summary's instrumentation section, excluded from interaction pacing budgets.
 
@@ -141,11 +141,10 @@ Post-window harness repairs rotate busy retries instead of starving later cases,
 drain failures during intentional abort, and record visibility/focus and PCM context IDs.
 These changes have regression/syntax checks but no new qualified browser validation.
 All recorded morning attempts remain invalid; source hashes are not recertified.
-The current per-case 60-second wait alone consumes **384 minutes** for 240 timing and 144
-capture executions, before the single hour or interactions. Before another two-hour window,
-resolve batching of interactions within a qualified pass, and whether the shared-load test
-should exclude the tested application's CPU. This is a proposed measurement-policy change,
-not a waiver: current total-CPU spike rejection and all coverage requirements remain in force.
+The superseding continuous lease removes the historical 384 minutes of per-case waiting.
+Total CPU still includes the tested application: that rule was preserved, not silently relaxed.
+Afternoon total/process CPU discrepancies and Firefox setup stalls need diagnosis before
+another window. Do not infer smoothness improvements from discarded observations.
 
 For each scenario, retain final typed-array bytes, object data and feature snapshots before and
 after, plus undo/redo snapshots. Add export-file byte comparison before adoption; current snapshots
@@ -169,3 +168,20 @@ before it merges.** Register its actual gestures; unknown/missing force coverage
 ## Superseding continuous qualification (September 30, 10:30–13:30 PDT)
 
 Kyler authorized qualification once at CPU <=25% for 60 seconds, then cases back to back under one continuous sampler. Only a load-discarded case invalidates that qualification and triggers another minute. This replaces per-case quiet waits; coverage, repetitions and other budgets are unchanged. window.mjs shares its session with children; standalone/CI runs qualify once per invocation. Each active interval retains bracketing CPU samples and its original qualification generation. Fixture generation and initial byte extraction precede the active interval, while continuous raw telemetry remains recorded. Missing or stale telemetry still fails. The hour is attempted first, with retry opportunities between shorter cases while at least 65 minutes remain; it is never shortened. Private-memory start evidence comes from the current browser sample, rather than an old qualification prefix.
+
+Afternoon completion: `node afternoon-audit.mjs` freezes finished controller status/log and the
+actual continuous session into `local/windows/2026-09-30-1030/`. It audits **every** manifest,
+all 45 original generations/waits, full active traces and bracketing samples, recomputes
+protocol/source/build hashes, and binds raw files through `local/afternoon-evidence.json`.
+`afternoon-proof.json` gives exact missing phase/repeat coverage; individual events stay in
+`local/afternoon-hitches/`. Aborted runs without final timestamps cannot prove complete intervals.
+Historical `window-load.jsonl` is never afternoon telemetry. Source hashes must match for
+regeneration; missing raw evidence cannot be reconstructed by these offline commands.
+
+`python review-afternoon.py` (Pillow + NumPy) decodes/compares all original pixels and regenerates
+13 change sheets plus separate `audio.py --context-id` WAVs in `local/afternoon-review/`.
+`afternoon-review.json` records which originals were visually inspected, numeric PCM findings
+and every unverified oracle. No qualified pair exists, so `python gifs.py` refuses GIF creation.
+These commands launch no browser or measurement. Keep budgets.json unchanged: its provisional
+status is part of the measured protocol hash. Calibration needs three actual quiet baselines
+and a migration preserving that fingerprint; editing status alone would stale all observations.

@@ -1,0 +1,21 @@
+{
+  "qualified": false,
+  "proof": "afternoon-proof.json",
+  "fullResolutionPixelsDecoded": 1251,
+  "changeContactSheetsInspected": 13,
+  "originalFramesInspected": [
+    {"folder":"2026-09-30T17-47-31.857Z-before-capture","frames":[18,19,20]},
+    {"folder":"2026-09-30T17-49-16.296Z-after-capture","frames":[22,23,24]},
+    {"folder":"2026-09-30T19-39-04.024Z-before-capture","frames":[0,1]}
+  ],
+  "confirmedRecordedChanges": [
+    {"config":"edge/native/256/high","case":"craterize-fast","before":{"frames":[18,19],"elapsedMs":78.2,"maxLandLevels":12},"after":{"frames":[22,23],"elapsedMs":71.2,"maxLandLevels":12},"finding":"Crater appears between adjacent captured frames in both builds. Normal-playback cause unverified; these runs were CPU-discarded."}
+  ],
+  "intentionalEffect": "The subsequent bright disk matches the impact flash in src/render3d/forces.ts; it is not established lighting/reflection flicker.",
+  "candidatesOnly": ["water-under-ground geometry flags", "water-state-mismatch geometry flags", "brush target/preview rectangles"],
+  "pcm": {"files":13,"contexts":"context-0 separately per recording","seconds":49.024,"gaps":5,"missingSamples":4608,"rate":48000,"overlaps":0,"convertedStreams":13,"audibleReviewVerified":false,"interpretation":"Actual PCM samples and timestamps inspected numerically; gaps are not automatically product dropouts. Sample steps are not crackle verdicts."},
+  "requiredOraclesPassed": [],
+  "unverified": ["terrain-holes-seams","chunk-popping","water-hover-through-land","water-jumps","lighting-shadow-reflection-flicker","object-ground-following","all-flicker","audio-motion-sync","audio-crackle-dropout","held sound release at land settling","full-hour memory and frame-time regression","export-file byte identity"],
+  "hitches": {"count":709,"causallyUnattributed":709,"overlapIsNotCausality":true},
+  "regenerate": "node afternoon-audit.mjs; python review-afternoon.py (Pillow and NumPy). Sources bound by afternoon-proof.json -> local/afternoon-evidence.json; derived pixel/PCM index and WAVs in local/afternoon-review/."
+}
