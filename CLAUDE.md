@@ -38,8 +38,9 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
 
 ## Standing rules
 
-- **Tooltips (PLAN §20, D351):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an
-  accurate one-line tooltip saying what it does, plus its key or shortcut. Whoever changes a control's behaviour
+- **Tooltips (PLAN §20, D351, D361):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an
+  accurate tooltip: a short phrase that tells its purpose at a glance, then its key ("Flatten: level the ground · F
+  size"); no second sentence, no technical detail. Whoever changes a control's behaviour
   updates its tooltip in the same commit; a test checks every interactive control has one.
 - **The editor's architecture (PLAN §20, D342):** every change to a map is an operation in `ops.schema.json`, in plain
   terms, validated and rejected with a one-line reason, never silently clamped; all editing logic lives in `src/core/`

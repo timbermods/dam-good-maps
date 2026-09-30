@@ -1664,6 +1664,8 @@ Once M9b has settled (D280 (4)).
 
 ## Weather view
 
+**Also required (Kyler, 2026-10-01, D361):** the day-by-day view can stay on any chosen day (the drought's worst day, say) without cycling back to the start, and steps forward and back one day at a time.
+
 After the 3D stages (Kyler, 2026-09-25; PLAN §20 D133, D253; **slimmed by D285 (2)**, 2026-09-27:
 the separate timeline and its plain-language summary are dropped; the strategy axes move to M9b as
 information instead).
