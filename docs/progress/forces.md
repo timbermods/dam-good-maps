@@ -17,7 +17,14 @@
 > meltwater played on; the ice now follows the glacier's stages at the showing's pace (`ForceCue.pace`), its
 > sounds fit each act (`recipe`'s `span`), and ice and sound end as the land settles. Tests: `forcesSitting`
 > (unit and contract), `e2e/forceKeys.spec.ts`; the specs that reverted a playing force with Esc use Ctrl+Z, and
-> carve's and Craterize's check Esc's skip.
+> carve's and Craterize's check Esc's skip. Tooltips follow D351 for everything above.
+> **A8 (D356): a visible effect wherever a force is used.** `tests/contract/forceEverywhere.ts`: each force used as
+> the page does (Quake on a 12-tile fault) at 4 random places and on flat ground, water, a peak, a slope, the edge
+> and beside the start, Power 10, 50 and 90, headless, seed 5; visible = at least 9 tiles change by a level. Every
+> theme at 128²: 1,079 of 1,080 uses visible; the one not: Carve at Power 10 at the map's edge (islands, 6 tiles: the
+> creek runs straight off the map). In the editor, a Quake click with Lift starts nothing (the page waits for a
+> drawn tile); a Slide click quakes. Both wait for Kyler (`KNOWN`). Quick suite: a 96² sample; nightly: every theme at
+> 128²; `tools/force-everywhere.ts` for 256² too.
 
 > **D341 (2) and (3), 2026-09-29: Esc was a real race; no test stays flaky.** Esc (or Ctrl+Z) while a force
 > was being kept (its last frame shown, the keep on its way to the worker, the row saying "Settling…") did
