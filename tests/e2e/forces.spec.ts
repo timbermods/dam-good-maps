@@ -59,9 +59,12 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
   const far = await page.evaluate(
     ([s0, s1]) => {
       const m = window.dgm3d!.renderer.mapState()!;
+      // (below the rows over the map, which grow with the force picked: a force's options and its More take
+      // more than the two rows and the first-run hints)
+      const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
-        return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+        return p.y > below && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       let best: [number, number] = [0, 0];
       let score = -Infinity;

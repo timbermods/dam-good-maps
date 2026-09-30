@@ -181,7 +181,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     timber: r.timber,
     timberName: fileName(r.spec, lastSeedWord),
     project: r.project,
-    projectName: projectFileName(r.spec),
+    projectName: projectFileName(r.spec, lastSeedWord),
     name: mapName(r.spec),
     premise: description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",

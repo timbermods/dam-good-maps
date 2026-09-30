@@ -24,7 +24,7 @@ import type { Runs } from "../math/grid";
 import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
-import { description, mapName, toTimberFile } from "../gen/pack";
+import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
 import { replay, type AppliedOp } from "./ops";
@@ -295,11 +295,12 @@ export function checkDocument(doc: MapDocument): void {
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
 }
 
-export function projectFileName(spec: MapSpec): string {
-  return `${mapName(spec)} (${spec.seed}).damgoodmaps.json`;
+/** The project file's name: the map's saved name (D345, B10) with its own extension. */
+export function projectFileName(spec: MapSpec, seedWord?: string): string {
+  return fileName(spec, seedWord).replace(/\.timber$/, ".damgoodmaps.json");
 }
 
 /** The project file's name for any document. */
 export function documentFileName(doc: MapDocument): string {
-  return doc.spec ? projectFileName(doc.spec) : `${doc.meta.name}.damgoodmaps.json`;
+  return doc.spec ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
 }

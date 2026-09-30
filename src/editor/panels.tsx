@@ -170,7 +170,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && c.fix?.length ? (
             <>
               {" "}
-              <button type="button" class="linkish" onClick={() => actions.onFix(c.fix!)}>
+              <button type="button" class="linkish" title={`Fix it in one click: ${(c.fix[0].label || "fix it").toLowerCase()} (undo takes it back)`} onClick={() => actions.onFix(c.fix!)}>
                 {c.fix[0].label || "Fix it"}
               </button>
             </>
@@ -178,7 +178,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && actions.canShow(c) ? (
             <>
               {" "}
-              <button type="button" class="linkish" onClick={() => actions.onShow(c)}>
+              <button type="button" class="linkish" title="Show where on the map this is" onClick={() => actions.onShow(c)}>
                 Show
               </button>
             </>
