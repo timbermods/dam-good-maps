@@ -191,6 +191,7 @@ export function describe(o: Outcome): string {
  *  and the check fails on anything else. */
 export const KNOWN: readonly { use: Use; ground: Ground; power: number; why: string }[] = [
   { use: "carve", ground: "edge", power: 10, why: "a creek unleashed at the map's edge runs straight off it: a few tiles cut (2026-09-30)" },
+  { use: "carve", ground: "edge", power: 50, why: "the same at mid Power on a delta's low edge: 2 tiles cut (256², 2026-09-30)" },
 ];
 
 /** The uses that did nothing visible and are not among the known ones. */

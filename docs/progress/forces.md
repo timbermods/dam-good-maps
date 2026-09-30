@@ -21,8 +21,9 @@
 > **A8 (D356): a visible effect wherever a force is used.** `tests/contract/forceEverywhere.ts`: each force used as
 > the page does (Quake on a 12-tile fault) at 4 random places and on flat ground, water, a peak, a slope, the edge
 > and beside the start, Power 10, 50 and 90, headless, seed 5; visible = at least 9 tiles change by a level. Every
-> theme at 128²: 1,079 of 1,080 uses visible; the one not: Carve at Power 10 at the map's edge (islands, 6 tiles: the
-> creek runs straight off the map). In the editor, a Quake click with Lift starts nothing (the page waits for a
+> theme at 128²: 1,079 of 1,080 uses visible; at 256², 1,078 of 1,080. The ones not: Carve unleashed at the map's
+> edge, the river running straight off it (Power 10 on islands 128², 6 tiles; Power 10 and 50 on delta 256², 0 and 2
+> tiles). In the editor, a Quake click with Lift starts nothing (the page waits for a
 > drawn tile); a Slide click quakes. Both wait for Kyler (`KNOWN`). Quick suite: a 96² sample; nightly: every theme at
 > 128²; `tools/force-everywhere.ts` for 256² too.
 
