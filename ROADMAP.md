@@ -2082,6 +2082,8 @@ reported. PLAN §20 D357 has the whole decision.
 
 ## Collaborative editing (D349)
 
+**The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
+
 After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
 ordered list of operations; each browser rebuilds the map from it, so both see identical terrain and water (every
 change is a deterministic operation, D158, D342).
