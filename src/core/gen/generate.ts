@@ -27,7 +27,7 @@ import { straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
-import { spillLevels } from "../sim/prefill";
+import { prefill, spillLevels } from "../sim/prefill";
 import { standIslandsClear } from "../land/islands";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -395,7 +395,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     }
     failures.push({ attempt, failed: failedIds(a.result), ms: Math.round(performance.now() - t0) });
     // (the next attempt on a shown land keeps off the start that failed, TRIED_RADIUS round it)
-    const st = a.result.built.start;
+    // (only on a shown land: a land drawn again before it was shown builds nothing for its record)
+    const st = committed && a.stage ? a.result.built.start : null;
     if (committed && st) markTried(committed.tried, st, W, H);
     return null;
   }
@@ -1154,13 +1155,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
     // the last attempt, whose map is kept when none passes: a settle there would be spent for nothing)
     if (!b && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
-      const land = build(rivers, "water");
-      return {
-        passed: false,
-        replannable,
-        stage: landStage,
-        result: { spec: shown, features: [...rivers], built: land, report: { profile: "generate", checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), file: toTimberFile(spec, land), attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
-      };
+      // (its land, built only if something reads it: a land drawn again before it was shown costs
+      // no build, time to land, D333 (2))
+      const features = [...rivers];
+      const field = fieldData(fieldOf());
+      let land: BuildResult | null = null;
+      let file: TimberFile | null = null;
+      const landOf = () => (land ??= build(features, "water"));
+      const result = { spec: shown, features, report: { profile: "generate" as const, checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), attempts: attempt + 1, failures: [], field, intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } } as unknown as GenerateResult;
+      Object.defineProperty(result, "built", { get: landOf, enumerable: true });
+      Object.defineProperty(result, "file", { get: () => (file ??= toTimberFile(spec, landOf())), enumerable: true });
+      return { passed: false, replannable, stage: landStage, result };
     }
     const built = b ?? build(rivers, null);
     const file = toTimberFile(spec, built);
@@ -1267,21 +1272,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   {
     const est = plannedWater(h, hy, W, H);
     const zero = new Float64Array(N);
-    guess = settlerOn(est, zero, moisture(h, est, zero, W, H, null), 0, avoidOf(null));
-    // D333 (2): a land with no place for a start on the water its rivers were planned with is drawn
-    // again before it is shown (before the settle); a land that has one is the map from here on,
-    // shown at once (the first look, editable land) and kept while its water, start and objects are
-    // planned again on it
+    // D348: every check the land alone can judge runs before it is shown, the cheapest first: no
+    // ground above 16 on a map that is not tall, no ruler-straight channel or dam wall on the water its
+    // rivers were planned with (both run again on the settled water), and (the first lands, within
+    // `landScreen`) the theme's promise and a readable water story on that water; then a place for a
+    // start on it (D333 (2): a land with none is drawn again before any settle). A land that passes
+    // is the map from here on, shown at once (the first look, editable land) and kept while its
+    // water, start and objects are planned again on it
     if (!from) {
-      if (!guess && !lastAttempt) return fail("no start", null, true);
-      // D348: every check the land alone can judge runs before it is shown: no ground above 16 on a
-      // map that is not tall, and no ruler-straight channel or dam wall on the water its rivers were
-      // planned with (both run again on the settled water)
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
       if (!lastAttempt && tooStraight(straightness(W, H, est))) return fail("ruler-straight channel", null, true);
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
-      // (the theme's promise and a readable water story, read on the planned water: the first lands
-      // that miss either are drawn again before any is shown, within `landScreen` lands, D348, D333 (3))
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
@@ -1290,6 +1291,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           return fail(!po.promise ? "promise (planned)" : "water story (planned)", null, false);
         }
       }
+    }
+    guess = settlerOn(est, zero, moisture(h, est, zero, W, H, null), 0, avoidOf(null));
+    if (!from) {
+      if (!guess && !lastAttempt) return fail("no start", null, true);
       firstLook = Math.round(performance.now() - t0);
       landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {} };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
@@ -1581,6 +1586,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const spring = springByStart(base, rule, seed, attempt, (f) => {
       // (the field holds it: its sources are placed, no channel is cut)
       contains.add(f.id);
+      // (first on the pre-fill's water, which costs no settle: a spring whose pond would stand on the
+      // start's ground, or give it no water, is passed over before its water is settled)
+      {
+        const bw = build([...layout, f], "water");
+        const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+        const pf = prefill(model);
+        const guessB = { ...bw, water: pf.depth, contamination: pf.contamination, waterModel: model } as BuildResult;
+        if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= rule - 2)) {
+          contains.delete(f.id);
+          return false;
+        }
+      }
       const b = build([...layout, f], "resources");
       const ok = b.settle.settled && !wetRing(b, at) && startWaterServed(b, rule, droughtDays) <= rule - 2 && !sourcesInFlow(b.waterModel, mapObjects({ entities: b.entities.map(entityJson) }), b.water).inFlow.length;
       if (ok) base = b;

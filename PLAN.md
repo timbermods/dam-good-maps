@@ -763,7 +763,9 @@ Nothing else is generated until the player asks (Another like this, More in the 
 land shown is the map (D348): a land is shown as editable land once it passes every check the land
 alone can judge (its courses, the Rivers count, no source in a flow, a start on its planned water, no
 ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water), and it is
-never replaced. What needs its settled water is fixed on it: with no place for a start on the settled
+never replaced. Before one is shown, a land whose planned water misses the theme's promise or a
+readable water story is drawn again, up to 6 lands at 128² (4 to 192², 3 above: the land stage is
+part of the time to land), so first maps meet all three outcomes more often (D333 (3)). What needs its settled water is fixed on it: with no place for a start on the settled
 water, the start goes where the plan put it, or else on level dry ground joined to enough land; a
 start the settled water leaves dry gets a spring by it (D330's fix: a group of sources in a dry bed or
 hollow the colony walks beside, checked as `start.water` reads it); a start, hollows or objects that
