@@ -61,7 +61,8 @@ None added. F, [ and ] and Esc now also work on a shelf brush, as on the terrain
   `.timber` round trip), `tests/e2e/parity.spec.ts` (the shelf, a brush's Size, Density, Age, plan and one undo step, the seep,
   the core and its view, the reserve, Markers).
 - One test changed: `placeTools.test.ts` "a placed source starts at the game's own default strength" now also expects the game's
-  disabled countdown (`TimeActivatedComponent`) that a new source carries; the strengths it checks are as before.
+  disabled countdown (`TimeActivatedComponent`) that a new source carries; the strengths it checks are as before. And
+  `brushKit.spec.ts` pins the shelf's first entries: they now include Succulent and Mixed woods before Ruin (D338).
 
 ## Probe samples (not run)
 
