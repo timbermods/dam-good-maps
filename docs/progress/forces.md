@@ -1534,3 +1534,15 @@ as a real race. The cause, found by delivering the worker's real messages in eve
   holds news that comes before the page reaches its version, ignores older news and frames of a version already settled.
 - `tests/contract/waterJourneyOrder.test.ts` records the messages of a redo (the check first, the settle first) and
   delivers them in every interleaving and with each terminal message lost; it fails without the worker's new event.
+
+## D360 (Kyler's answers on batch B's three open points)
+
+- **(a) Picking:** the plain pointer picks and drags every object (trees, bushes, ruin columns included), with a hover
+  highlight of exactly what a click picks; a bigger object wins over a tree or bush (`pickWinner`). Sources and the start keep
+  their own grabs, a slope is not picked. Note: a left-drag over trees in the orbit view now moves a tree, not the camera
+  (right-drag still pans). `tests/contract/pickObjects.test.ts` (failed first), `tests/e2e/sittingB.spec.ts`.
+- **(b) Delete and a partly selected ruin field:** the field gets a `cleared` tile list (schema, `rasterizeRuins`), its
+  columns' heights still assigned over the whole area, so the columns outside the selection stay exactly as they were and the
+  ones inside (under water too) are deleted. `tests/contract/deleteSubmerged.test.ts` (failed first).
+- **(c) Save names:** already what Kyler asked (imported maps and places save as `dgm-<name>`, file-safe, numbered `-2` rather
+  than overwritten), so there was no failing test to write first; a contract test now pins the imported-file names.
