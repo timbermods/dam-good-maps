@@ -1486,7 +1486,7 @@ Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDI
   frames and a settled event only when it had a settle to run; an undo back to water that was already settled ran none, so
   the journey waited for ever. The worker now answers every update with `waterSettled` (its own state: no settle running for
   it), and the page begins a journey only when it is false. `tests/contract/waterStatus.test.ts` (fails without it),
-  `tests/unit/waterPlayer.test.ts`, and an e2e in `sittingB.spec.ts`. A kept force taken back carries it too; the force
+  `tests/unit/waterPlayer.test.ts`, and an e2e in `sittingB.spec.ts`. The background check's answer carries it too and ends any journey (a CI run of the e2e once stuck at "flowing 84%" after a redo: the check had put the canonical water in place and stopped the worker's own settle, and its answer carried no water, so nothing ended the journey); a journey now always has a first frame. A kept force taken back carries it too; the force
   paths batch A owns (a force's own keep) answer without it and play as before. The Weather view builds on the same
   `WaterPlayer` (`settled()` is its "nothing playing" state).
 - **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
