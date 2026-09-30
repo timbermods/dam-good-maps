@@ -1,0 +1,870 @@
+{
+  "smoke": {
+    "rows": [
+      {
+        "rules": "game",
+        "name": "channel_sealed",
+        "digest": "13d94e4e8e6975a2",
+        "ticks": 512
+      },
+      {
+        "rules": "game",
+        "name": "channel_gap",
+        "digest": "6e01e315258129f0",
+        "ticks": 896
+      },
+      {
+        "rules": "game",
+        "name": "waterfall",
+        "digest": "13a08c6b19709d4a",
+        "ticks": 384
+      },
+      {
+        "rules": "game",
+        "name": "lake_sill",
+        "digest": "e625b2523d491882",
+        "ticks": 384
+      },
+      {
+        "rules": "game",
+        "name": "flat_plain",
+        "digest": "447189b38f250f3e",
+        "ticks": 512
+      },
+      {
+        "rules": "game",
+        "name": "badwater_mix",
+        "digest": "1e83108f76337c5c",
+        "ticks": 768
+      },
+      {
+        "rules": "game",
+        "name": "weir",
+        "digest": "84da01e759d67044",
+        "ticks": 1664
+      },
+      {
+        "rules": "game",
+        "name": "seep_pit",
+        "digest": "46b1ddaf14deb4fa",
+        "ticks": 3072
+      },
+      {
+        "rules": "game",
+        "name": "terraces",
+        "digest": "9185cae3652d6a14",
+        "ticks": 384
+      },
+      {
+        "rules": "game",
+        "name": "confluence",
+        "digest": "3dee22750da62ea7",
+        "ticks": 768
+      },
+      {
+        "rules": "game",
+        "name": "evaporation",
+        "digest": "3a3ab4fbf4fe8d75",
+        "ticks": 3072
+      },
+      {
+        "rules": "game",
+        "name": "valley_basin",
+        "digest": "00b29d342e1aa6c8",
+        "ticks": 384
+      },
+      {
+        "rules": "port",
+        "name": "channel_sealed",
+        "digest": "aa07174a55ad6fdc",
+        "ticks": 512
+      },
+      {
+        "rules": "port",
+        "name": "channel_gap",
+        "digest": "af9ddf3be87ae665",
+        "ticks": 896
+      },
+      {
+        "rules": "port",
+        "name": "waterfall",
+        "digest": "edc49bdbcf69cdfe",
+        "ticks": 384
+      },
+      {
+        "rules": "port",
+        "name": "lake_sill",
+        "digest": "d453c37ebb8827f9",
+        "ticks": 384
+      },
+      {
+        "rules": "port",
+        "name": "flat_plain",
+        "digest": "eb0a04bb69195246",
+        "ticks": 512
+      },
+      {
+        "rules": "port",
+        "name": "badwater_mix",
+        "digest": "0fa56fd90115101c",
+        "ticks": 768
+      },
+      {
+        "rules": "port",
+        "name": "weir",
+        "digest": "e138b185a660f100",
+        "ticks": 1664
+      },
+      {
+        "rules": "port",
+        "name": "seep_pit",
+        "digest": "94322825c33ec67b",
+        "ticks": 3072
+      },
+      {
+        "rules": "port",
+        "name": "terraces",
+        "digest": "6b332df084085727",
+        "ticks": 384
+      },
+      {
+        "rules": "port",
+        "name": "confluence",
+        "digest": "88f18f70071953e4",
+        "ticks": 768
+      },
+      {
+        "rules": "port",
+        "name": "evaporation",
+        "digest": "b47b353b6bfbf696",
+        "ticks": 3072
+      },
+      {
+        "rules": "port",
+        "name": "valley_basin",
+        "digest": "df68c726b64d9399",
+        "ticks": 384
+      },
+      {
+        "rules": "game",
+        "name": "1x1",
+        "digest": "b1796b2de7a60e56"
+      },
+      {
+        "rules": "game",
+        "name": "1x9",
+        "digest": "52b7b43af3251ae3"
+      },
+      {
+        "rules": "game",
+        "name": "9x1",
+        "digest": "a8439af4b30bfd65"
+      },
+      {
+        "rules": "game",
+        "name": "2x2",
+        "digest": "a62ace51b7852bad"
+      },
+      {
+        "rules": "game",
+        "name": "3x7",
+        "digest": "ac894c589ddc37c2"
+      },
+      {
+        "rules": "game",
+        "name": "13x11",
+        "digest": "e33b457a7ddadcd4"
+      },
+      {
+        "rules": "game",
+        "name": "24x20",
+        "digest": "85f688d808ccab49"
+      },
+      {
+        "rules": "port",
+        "name": "1x1",
+        "digest": "07d728dc78ee75ad"
+      },
+      {
+        "rules": "port",
+        "name": "1x9",
+        "digest": "52064885f33dfcaf"
+      },
+      {
+        "rules": "port",
+        "name": "9x1",
+        "digest": "93e17e0cb77f6be1"
+      },
+      {
+        "rules": "port",
+        "name": "2x2",
+        "digest": "1a96344d244be764"
+      },
+      {
+        "rules": "port",
+        "name": "3x7",
+        "digest": "020bdeb88598de87"
+      },
+      {
+        "rules": "port",
+        "name": "13x11",
+        "digest": "dfc45c27400ced53"
+      },
+      {
+        "rules": "port",
+        "name": "24x20",
+        "digest": "7a89cde87fe10b98"
+      }
+    ],
+    "randomScenes": 100,
+    "randomTicks": 10000,
+    "fixtureTicks": 23400,
+    "gridTicks": 3584,
+    "liveCheckpoints": 532,
+    "status": "pass"
+  },
+  "browser": {
+    "browser": "154.0.8037.58",
+    "status": "pass",
+    "cases": [
+      {
+        "id": "fixture-channel_sealed",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 512,
+            "settled": true,
+            "canonical": "490600702404c36d4f0b20cccdaa34d199433b6fbc6ca5c87e15d44cf26cb872",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "b83c27ae469c8662fc6964bf78db12e84c40708cb55e50f133890f420de75a74"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "ebf982e4f1d510dc399fed02bf30527580690037e691494d24d9ce6da1065f1a"
+              }
+            ],
+            "checks": 252
+          },
+          {
+            "rules": "port",
+            "ticks": 512,
+            "settled": true,
+            "canonical": "03a31cb2d225909b4f95e6b626c459144fb638643e7e66918c1a79f36ed0f530",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "2d231b7326efac48b75d5a1b0ba0058f7582dc3943444cc563596ffe6914a813"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "b959bc7ad7e6edf6e9daae2361732c8513a071f6518d233be94d7be3d5bd0961"
+              }
+            ],
+            "checks": 252
+          }
+        ]
+      },
+      {
+        "id": "fixture-channel_gap",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 896,
+            "settled": true,
+            "canonical": "1b85efe52c53b35c6560ffb55fc0abbd938bce00635fe070c41539dc0c35a1ff",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "0203103f6412a8ea6e701734f92b6d77426622cd33e99b13569360303ca9eea4"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "ae571a3b18f1c120e7772fb596eb323120f004255658c409ba38f3284e53014e"
+              }
+            ],
+            "checks": 255
+          },
+          {
+            "rules": "port",
+            "ticks": 896,
+            "settled": true,
+            "canonical": "146bdcb70784eb754d3cec9e1db3e1110e1f82c4b5c99a5a163b07d88b1734e0",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "3fa0692d3fb6dbb528d2052a150588a872ba66022aafae53efab702de91ddafb"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "3f8dac2c51efe71012d34cb87a0b893df9234f59d175c83e1f2cb4f2c0d5740b"
+              }
+            ],
+            "checks": 255
+          }
+        ]
+      },
+      {
+        "id": "fixture-waterfall",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "03df2739afbc3b66e537c5f128aba3711f023ecf197fc0d1ae1a19c43e1cea38",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "a503deb724658d9fe1c37c067d92f676f81e7417183b7d7d179ef48ecb2a595f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "33e928d2ad7204a1bd4d16d9d8fcf145bd97062b6db4f9972cc18e0ac46a49aa"
+              }
+            ],
+            "checks": 251
+          },
+          {
+            "rules": "port",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "ba8ac4451cf1d339f57de473909be4c8cd50938f76c8eaa8a02349f6bdf27c02",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "1242050d17b9babc8cb3beec258ce9208caacfc04b0cd5e6a24b0f2e20ac5cbe"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "1d7219261fe2f715df1dcaca9255f06bcbc04fa70081b793ea1f20e6f60d4acd"
+              }
+            ],
+            "checks": 251
+          }
+        ]
+      },
+      {
+        "id": "fixture-lake_sill",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "6f3c0f1144a00d040f4dec5b4a4f177d81dc34fd2a5a8027210e6cc0e2ea8735",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "6c6851dcffbe5de99aea77e282259b03f2afb3385176b89d534e8e79b5ce0d3b"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "f155d374d9abd89f6bfb821831039e62b5f1360533af0c8c60ceaa70ab1e51a9"
+              }
+            ],
+            "checks": 251
+          },
+          {
+            "rules": "port",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "7be550e7c8b69c7a9954a1bfa84bdd5fc43eeb699cb7b5209840922cf53ca631",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "071e09c3c862b08f3b1d4d9e489e7be21f7f05caf8eb635f56a5b7da60d52e67"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "5da29aacb2292f645fb584033265ca245901805763df57786089e00c0ad6a925"
+              }
+            ],
+            "checks": 251
+          }
+        ]
+      },
+      {
+        "id": "fixture-flat_plain",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 512,
+            "settled": true,
+            "canonical": "95187daf35ecb47180ce8465b9962c8eb79f0ccd7488d6cf61cdc266f6f490ba",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "a928eef2315ab88c4dfe8f907cf869c7817f6c4eb14350e6829c6a058011a026"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "930a31cc593bec1df263a4119853ceda179ef8eaa9bac3c2bbf28dee54076a01"
+              }
+            ],
+            "checks": 252
+          },
+          {
+            "rules": "port",
+            "ticks": 512,
+            "settled": true,
+            "canonical": "c98fadef368a0b85294f1107d4ef3a671597681fb17277fa03a9a11820772d4d",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "96ba53a5ecd9781df9e6c3c8db6dfc7538e1a828d79b788a8d08a99ade23ea97"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "8f9c3bf7f2b4a69bca317c4b2b721d682972920ab66c7b8e4600396d5f7e87db"
+              }
+            ],
+            "checks": 252
+          }
+        ]
+      },
+      {
+        "id": "fixture-badwater_mix",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 768,
+            "settled": true,
+            "canonical": "1a7b5d25a1b397c5f0450c388cb4c5c036607f432303d9939929e856edc320ad",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "5de14c0e64da0ce984b81c48134f866ea3c7b6c691d2aaf6f64403090c80c892"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "b0bdaa479bf48c644cecee74533cd9e1ef73b3478dd1b999ee5f7b6a16d32268"
+              }
+            ],
+            "checks": 254
+          },
+          {
+            "rules": "port",
+            "ticks": 768,
+            "settled": true,
+            "canonical": "2ae553fdbd8ff50181785fed9dd5ae7757a8b03513ba56b97dd4f3811cdcb9cb",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "370245a1519b2fdc14f70fdd0dae95d16eb185cb899b1d7ab9ca9aafb2b1692f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "4dbb21a216b5bcd887f451abc9410f756198405a82359adde8db3e8d523ef7a0"
+              }
+            ],
+            "checks": 254
+          }
+        ]
+      },
+      {
+        "id": "fixture-weir",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 1664,
+            "settled": true,
+            "canonical": "8e864453efab9cdfdbeab56df9a633b54612a7406924a9ae05ed8759b415c4f6",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "70aeeebd0434a7b95cd97540184c0cce9e0b5cb26cf76297f8603f83b7b61bfc"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "fb40d81d1314fbb89c121f566e7b4dc125fff28c0160238eb23e1505183a6555"
+              }
+            ],
+            "checks": 261
+          },
+          {
+            "rules": "port",
+            "ticks": 1664,
+            "settled": true,
+            "canonical": "efdc17561f3c18deec699024f613fbea1b3cce8657c52ffa034f2609aac9cdfa",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "2989016a8fe3e5b2bf9c62a61f091b176c1d318c3977be6db909b2dd9c45b901"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "898a49115b10139d473fd1f31dc5ec930bedfb52f8120eadc729b16e730911d2"
+              }
+            ],
+            "checks": 261
+          }
+        ]
+      },
+      {
+        "id": "fixture-seep_pit",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 3072,
+            "settled": false,
+            "canonical": "c5b04f366cf5a9a61ae1b9f4c93d2ec21cce0e14ae3e05bc63e4fe0f85b8728b",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "020dc799082817ccd8f1d78f97922f57e1083b5b4068250effaede16b869b23f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "20d1a33657757f740d3dae344fca4791b27f7e247257793a01e632280e00b090"
+              }
+            ],
+            "checks": 272
+          },
+          {
+            "rules": "port",
+            "ticks": 3072,
+            "settled": false,
+            "canonical": "fd2b98f30acda8e2c456461d60df3d0873a8359c37326d16cc72db72754201e8",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "2e3bd3797ae93a168a3459b49baed51d4a6a41ef27f8a414bb001c54bb66bee0"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "2013c0dbc102cadeeab6355a7336ab84bcd2de6f581d7b9464f45393e80d888d"
+              }
+            ],
+            "checks": 272
+          }
+        ]
+      },
+      {
+        "id": "fixture-terraces",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "833fa8cca4480663f3c929fa795378a5e44a6df3839ce330c6feea9380d66cca",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "c8b2836269c58c3cdc17b3f6bdda2baaaac4b476397c4670c62a0d40fddb7340"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "5684bfdf1d443987624de55e1b906a37f85aca1223ccccebbfe79aef086e6622"
+              }
+            ],
+            "checks": 251
+          },
+          {
+            "rules": "port",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "964d8adbb35fcc9fbc211a273d91e4f6c62a218c995168e2339ac063c73f38a2",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "4d437b98944d3e6a5cea5d66fbcc5d9cb9a66ad49f9c4558054fb5f51544e358"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "a10306f3bd7efdc0b22d6340bfded7890db32f16f308b22b84c7c117def0e689"
+              }
+            ],
+            "checks": 251
+          }
+        ]
+      },
+      {
+        "id": "fixture-confluence",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 768,
+            "settled": true,
+            "canonical": "7eb40d07dcece6d421e60b4e7836b24f2e5dafbe44bd7336ba527dc6ee7781af",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "5d3cccd470ff735ee4c6a2eec6033b07eb37bcacafaa86001d5c96013cda9afa"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "93e4a07def01c28260c084668721e69d159d65111858a79eb12beaa68353c322"
+              }
+            ],
+            "checks": 254
+          },
+          {
+            "rules": "port",
+            "ticks": 768,
+            "settled": true,
+            "canonical": "c7ad50d46e8a43a236bb6153e5af68fb2d71fb7448835e1fd8c1ddfcc17e9869",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "c63b7477a7062033b0902070395597d14468202bde127e23a34fa66d34902584"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "8da56a08903b60ea62018e2a1623d8d7ac0507d62c1a602f6cb768c2014b8e48"
+              }
+            ],
+            "checks": 254
+          }
+        ]
+      },
+      {
+        "id": "fixture-evaporation",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 3072,
+            "settled": false,
+            "canonical": "245a0878ea33a54567cf9a4db06cb004c67653965c52395dd367367dc1915232",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "bd46ff73ba43c34e84ab005d79ed091d83f572fff761cb5fdfc326d03be68921"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "fbddc0656af7c6fa98dfc0c7f101411e92fdd714fd9f5911cc17c6e064eac7a7"
+              }
+            ],
+            "checks": 272
+          },
+          {
+            "rules": "port",
+            "ticks": 3072,
+            "settled": false,
+            "canonical": "59ff7629adbd60b89e270bb4c531f534377fad42a8c56a3216f04b04b12ee46e",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "fdea38cc5489db1f065ea999f18f3332ac8db25ad0f1f28958e5847082acedaf"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "2969e1ffa68c10171c691de6c41a9ebf6745938b3cf9372334af4d076c7288d8"
+              }
+            ],
+            "checks": 272
+          }
+        ]
+      },
+      {
+        "id": "fixture-valley_basin",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "5963ef0178c3c252bf78e8e37a1267b08c9e42818a633a7f30a15613ca67ead1",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "62a7ebfd42f86f9bddbe1de914090582740523bd70b35fd2dc34085175f6b1f4"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "ee26a233ba3fd6cb2ce580985a159212f61a787a2e42bff1bc428d518878da21"
+              }
+            ],
+            "checks": 251
+          },
+          {
+            "rules": "port",
+            "ticks": 384,
+            "settled": true,
+            "canonical": "806ca3de6eaa30874c92bcee680a5c25567b0d8552ba7b49c87322637850eca0",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "fb2348a292d81c71648dc77cd7eb1f3eb9585882003f89b39e22347ccb65705f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "07afc97d5ef1a27cfca15cbb0ae94465155757e6a138383ebd723f71cb2f07f2"
+              }
+            ],
+            "checks": 251
+          }
+        ]
+      },
+      {
+        "id": "riverValley-128",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 896,
+            "settled": true,
+            "canonical": "a9df9a0d5362c1edb8052a6992341c272ffb70ec24efe0e2cd411c81cdf50761",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "64a7f3fe0bf6cba02c1499f5a0ce44bb30103a1e5b9345fe2b74829bfddcc764"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "e181984562a5a785fd3940eda5b5e56e815b6c4b07f505514eaadd8b63733a15"
+              }
+            ],
+            "checks": 255
+          }
+        ]
+      },
+      {
+        "id": "lakeBasin-128",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 1408,
+            "settled": true,
+            "canonical": "33a83780142d491fedb03bfd4b8b853fd57e8d52b6408f4e8c4fd1dc493d0d0e",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "b91f0a20ceae0b0755c3d62e65913a05f648fa227c6f0c44baca58c82daba33f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "263f35584a7bb2d2b5fcd7bf067538b1c41a1e8b84f337cae2267df25761194b"
+              }
+            ],
+            "checks": 259
+          }
+        ]
+      },
+      {
+        "id": "islands-128",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 2176,
+            "settled": true,
+            "canonical": "67a11ba1109782343ec4d33e6964ef31a760d5a0e3dfbfbe7fc7173327e7c322",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "5c4ccda2b8513a25bfdd26b7d14adac5712a6ef2377b97f51ab4feb37dc15538"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "d19d9515faa950c948c1006821e419e2a327e59544bf1718f27ad0202d7a80bf"
+              }
+            ],
+            "checks": 265
+          }
+        ]
+      },
+      {
+        "id": "riverValley-256",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 1024,
+            "settled": true,
+            "canonical": "20df478d453daac96c35ffaa2071094fd825ad95a564b21098e6bb6a13a3f611",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "809375ed93ce6466c2c91719e85f6942cdd18b5b53617b37ed46e37aed58fa19"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "6bc28c1b03c78909647bb21edae2bc7c862c58937143731f4995a20acfd1af1f"
+              }
+            ],
+            "checks": 256
+          }
+        ]
+      },
+      {
+        "id": "lakeBasin-256",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 3072,
+            "settled": false,
+            "canonical": "7e85db05535ee1bc822ee08cd8e6bc8b53cd0b5cf3ad8341751f2dc8a114f896",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "a80d9c5277cfd4995acd43cf32374cace60ad2e9c46a0b146d50f2b6d2acc65f"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "83cdd2a75ec7b4b7bd7becbd49bcd8acdf47173968bb30467ddf693a02cfa653"
+              }
+            ],
+            "checks": 272
+          }
+        ]
+      },
+      {
+        "id": "islands-256",
+        "result": [
+          {
+            "rules": "game",
+            "ticks": 1792,
+            "settled": true,
+            "canonical": "f103d638d7fe4ecec6bef39cf4a445137b2a725665ac08d75488048b20114189",
+            "weather": [
+              {
+                "hazard": "drought",
+                "digest": "7ab382a21f2e0de7d81660f3e19cebe7381fb3abd1b2b92e1ef776d4fd036137"
+              },
+              {
+                "hazard": "badtide",
+                "digest": "b0c6204173198d7f1c877de1f928f6ca48b5d43991e9ab0e9a5f707946b24a84"
+              }
+            ],
+            "checks": 262
+          }
+        ]
+      }
+    ]
+  },
+  "candidateFailures": [
+    {
+      "file": "contract/badwater.test.ts",
+      "test": "badwater on every map (D200) D213: removing the map's last badwater spring switches it to No badwater, and undoing brings the spring back",
+      "messages": [
+        "AssertionError: expected 0 to be greater than 0\n    at <checkout>/tests/contract/badwater.test.ts:151:28\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3314:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3257:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3876:64"
+      ]
+    },
+    {
+      "file": "unit/water.test.ts",
+      "test": "the game's own save (local only) 975 ticks from empty reproduce the saved water within 0.001",
+      "messages": [
+        "AssertionError: expected 0.0010567997879132873 to be less than 0.001\n    at <checkout>/tests/unit/water.test.ts:112:19\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3314:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3257:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3876:64"
+      ]
+    }
+  ],
+  "baselineControls": [
+    {
+      "file": "contract/badwater.test.ts",
+      "test": "badwater on every map (D200) D213: removing the map's last badwater spring switches it to No badwater, and undoing brings the spring back",
+      "messages": [
+        "AssertionError: expected 0 to be greater than 0\n    at <checkout>/tests/contract/badwater.test.ts:151:28\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3314:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3257:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3876:64"
+      ]
+    },
+    {
+      "file": "unit/water.test.ts",
+      "test": "the game's own save (local only) 975 ticks from empty reproduce the saved water within 0.001",
+      "messages": [
+        "AssertionError: expected 0.0010567997879132873 to be less than 0.001\n    at <checkout>/tests/unit/water.test.ts:112:19\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3314:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3257:10)\n    at file:///C:/Users/Kyler/code/DamGoodMaps-m9b/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3876:64"
+      ]
+    }
+  ],
+  "galleryTests": 85,
+  "typescript": {
+    "typescript": "5.9.3",
+    "files": 1116,
+    "diagnostics": []
+  }
+}
