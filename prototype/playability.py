@@ -18,7 +18,7 @@ import numpy as np
 import calibrated as cal
 from analysis import (components, dam_sites, distance_from, is_dead, placement, point_clusters, start_water_shore,
                       reach_at, walk_distance, walk_regions)
-from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
+from watersim import (SETTLE_DAYS, TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
 from soil import DEFAULT_SOIL_RULES, contamination_game, moisture_game
 from storage import SECONDS_PER_DAY, dam_walls, levee_storage, running_flow
@@ -437,10 +437,10 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # only real flow is the water still changing: a sealed lake only evaporating has settled (D222)
     steady_at = sim.ticks if settled else sim.steady_ticks
     if steady_at is None:
-        rep.add("water.settles", False, "still changing after 4 game days", sim.ticks, 4 * TICKS_PER_DAY)
+        rep.add("water.settles", False, f"still changing after {SETTLE_DAYS} game days", sim.ticks, SETTLE_DAYS * TICKS_PER_DAY)
     else:
         rep.add("water.settles", True, f"steady after {steady_at} ticks ({steady_at / TICKS_PER_DAY:.1f} days)"
-                + ("" if settled else "; a sealed lake keeps slowly evaporating"), steady_at, 4 * TICKS_PER_DAY)
+                + ("" if settled else "; a sealed lake keeps slowly evaporating"), steady_at, SETTLE_DAYS * TICKS_PER_DAY)
     share = float(np.count_nonzero(wet)) / N
     rep.add("water.no_flood", share <= rules["max_share"], f"{share:.0%} of the map under water (official p90 40%)",
             round(share, 3), rules["max_share"])

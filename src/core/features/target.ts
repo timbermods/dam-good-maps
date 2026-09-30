@@ -57,6 +57,33 @@ export function boundsOf(points: readonly (readonly number[])[]): Rect | null {
  *  one document. */
 export type FieldCache = Map<string, PathField | Float64Array>;
 
+/** The most fields a cache shared between documents' builds keeps (the oldest go first): a 256²
+ *  path field is about a megabyte. */
+const SHARED_FIELDS = 32;
+
+/** A build's own field cache that also looks in, and adds to, `shared` (the generator's, kept by
+ *  the builds of one land: its fixes build the same rivers again). A field taken from `shared`
+ *  becomes the build's own, so the build keeps only the fields it used. */
+export function sharedFields(shared: FieldCache): FieldCache {
+  const own: FieldCache = new Map();
+  const get = own.get.bind(own);
+  const set = own.set.bind(own);
+  own.get = (k) => {
+    let v = get(k);
+    if (v === undefined) {
+      v = shared.get(k);
+      if (v !== undefined) set(k, v);
+    }
+    return v;
+  };
+  own.set = (k, v) => {
+    shared.set(k, v);
+    while (shared.size > SHARED_FIELDS) shared.delete(shared.keys().next().value!);
+    return set(k, v);
+  };
+  return own;
+}
+
 export interface TargetInit {
   W: number;
   H: number;

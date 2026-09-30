@@ -1,0 +1,1 @@
+{"name":"dgm-collab-spike","private":true,"type":"module","scripts":{"build":"node build.mjs","check":"node check.mjs"},"dependencies":{"esbuild":"0.25.12","fflate":"0.8.3"},"engines":{"node":">=22"},"devDependencies":{"playwright":"1.58.0"}}

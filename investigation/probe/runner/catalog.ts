@@ -183,6 +183,15 @@ const within = (m: MapInfo, cx: number, cy: number, r: number, pred: (t: number)
 
 const calm: Cycle = { temperateDays: 60, hazard: 'drought', hazardDays: 0 };
 
+/** D358's slow-settling maps for the M9b group: [id, title, spec fragment]; their final settle ran
+ *  past 4 game days on feature/m9b (the ticks said in the title). */
+const M9B_SLOW: [string, string, string][] = [
+  ['m9b-slow-lb-16-256', 'Lake Basin 256² (seed 16, 4,608 ticks)', 's=16&t=lakeBasin&z=256&d=n'],
+  ['m9b-slow-lb-5-256', 'Lake Basin 256² (seed 5, 4,096 ticks)', 's=5&t=lakeBasin&z=256&d=n'],
+  ['m9b-slow-any-12-256', 'Any 256² (seed 12, 4,608 ticks)', 's=12&t=any&z=256&d=n'],
+  ['m9b-slow-islands-3-128', 'Islands 128² (seed 3, 4,352 ticks)', 's=3&t=islands&z=128&d=n'],
+];
+
 // ------------------------------------------------------------------------------------ generic checks
 
 const LOAD: CheckDef = { id: 'load', title: 'Loads cleanly: no loading issue, no error or exception in the game log, the start placed', how: 'measure' };
@@ -552,6 +561,15 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
   for (const seed of [1, 2]) games.push(m9bGame(`m9b-chaos-256-${seed}`, `Chaos: Any 256², Variety 100, Verticality 100 (seed ${seed})`, `s=${seed}&t=any&z=256&d=n&vy=100&vt=100`, [M9A_WEATHER[1], M9A_BADWATER]));
   games.push(m9bGame('m9b-none-any', 'Any 128², Sources: None (seed 3)', 's=3&t=any&z=128&d=n&so=n', []));
   games.push(m9bGame('m9b-none-rv', 'River Valley 128², Sources: None (seed 5)', 's=5&t=riverValley&z=128&d=n&so=n', []));
+  // D358: maps whose water settles between 4 and 6 game days (big lakes and seas rising by their way
+  // out's head), to confirm the game's water holds as in the file after the longer settle: a calm day
+  // and a half, the generic checks (the stored water after a day within 0.1 deep of the file)
+  for (const [id, title, fragment] of M9B_SLOW)
+    games.push({
+      id, title: `M9b · ${title}, water settled in 4–6 days`, group: 'M9b', bytes: memo(() => generatedFrom(fragment)), faction: 'Folktails', mode: 'Normal',
+      cycles: [calm], days: 1.5, tiles: (m) => startWater(m, 'Normal').slice(0, 6), sampleHours: 1, snapshotsAt: [0.5, 1],
+      checks: [...GENERIC, M9A_SHOTS],
+    });
 
   // Any time: E4, a map with no StartingLocation (last: the game may stop on it)
   const e4 = memo(() => withoutStart(new Uint8Array(readFileSync(join(REPO, m1)))));

@@ -59,6 +59,8 @@ differently, this file wins.
    parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
    #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
    timeline; its sitting comes then (D349, 2026-09-30).
+   Then **custom map sizes** (D357): any width and height from 4 to 512, shaped by the generator, after a probe of
+   large and long maps in the game.
 2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
 3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
    **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
@@ -2071,6 +2073,19 @@ the new screens; no second full design pass.
 
 ---
 
+## Custom map sizes (D357)
+
+At the end of step 1, after the Weather view. Any width and height from the game's minimum (4) up to 512 on either
+side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
+boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
+down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
+with the map while the absolutes never relax. What grows with area may take longer beyond the standard sizes; what the
+player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
+256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
+refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
+loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
+reported. PLAN §20 D357 has the whole decision.
+
 ## Collaborative editing (D349)
 
 After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
@@ -2086,10 +2101,23 @@ change is a deterministic operation, D158, D342).
 - One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
   intended action).
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109, merged 2026-10-01): the two-code join works, with 324-character codes; the maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across different networks over the internet (Kyler tests it himself).
+- **Planned: area locks** (Kyler, 2026-09-30; to settle in the design Q&A). Each player can reserve parts of the map (for
+  example half each), so the other player's operations can't change them. Open questions: locks protect land and objects
+  from the other player's edits, but water still flows across borders as physics dictates; a force whose effect would reach
+  into the other's area (a Carve drawn through both, an eruption near the line); how areas are claimed (drawn with
+  Select's shapes), shown (a tint in each player's colour), released or offered to the other; and the default (the whole
+  map shared until someone claims an area).
 
 ## Later
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
+
+**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
+
+**A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
+
+Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

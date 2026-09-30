@@ -47,10 +47,12 @@ const FIXTURES: Record<string, string> = {
   flat_plain: "eb0a04bb69195246",
   badwater_mix: "0fa56fd90115101c",
   weir: "e138b185a660f100",
-  seep_pit: "94322825c33ec67b",
+  // (D358: the two fixtures whose water never settles run their canonical settle to the new 6-day
+  // limit; their 975 ticks are as they were, re-pinned 2026-10-01)
+  seep_pit: "6db5c1595e91b09f",
   terraces: "6b332df084085727",
   confluence: "88f18f70071953e4",
-  evaporation: "b47b353b6bfbf696",
+  evaporation: "f0be98676869fc36",
   valley_basin: "df68c726b64d9399",
 };
 
@@ -73,10 +75,11 @@ const GAME_FIXTURES: Record<string, string> = {
   flat_plain: "447189b38f250f3e",
   badwater_mix: "1e83108f76337c5c",
   weir: "84da01e759d67044",
-  seep_pit: "46b1ddaf14deb4fa",
+  // (D358, as above)
+  seep_pit: "90f0cbe04aaba0fe",
   terraces: "9185cae3652d6a14",
   confluence: "3dee22750da62ea7",
-  evaporation: "3a3ab4fbf4fe8d75",
+  evaporation: "201c1efea94586f5",
   valley_basin: "00b29d342e1aa6c8",
 };
 

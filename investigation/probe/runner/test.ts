@@ -220,7 +220,7 @@ async function main(): Promise<void> {
     for (let r = 2; r <= 5 && !pooled; r++) for (let dy = -r; dy <= r && !pooled; dy++) for (let dx = -r; dx <= r && !pooled; dx++) {
       const x = st.x + dx, y = st.y + dy, t = y * CW + x;
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || x < 1 || y < 1 || x >= CW - 1 || y >= ci.H - 1 || ci.depth[t] > 0) continue;
-      const heights = Uint8Array.from(ci.heights), depth = Float64Array.from(ci.depth), contamination = Float64Array.from(ci.contamination);
+      const heights = Uint8Array.from(ci.heights), depth = Float32Array.from(ci.depth), contamination = Float32Array.from(ci.contamination);
       heights[t] = ci.heights[t] - 1;
       depth[t] = 1;
       contamination[t] = 0;

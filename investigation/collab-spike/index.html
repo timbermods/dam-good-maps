@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Two players · one map</title>
+<style>
+:root{font:16px system-ui;color:#e6eee8;background:#17221e;color-scheme:dark}
+body{max-width:1040px;margin:30px auto;padding:0 20px}h1{font-size:28px;margin-bottom:6px}
+p{color:#b7c7bd;line-height:1.5}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+section{background:#21332a;border:1px solid #3e5548;border-radius:12px;padding:20px}
+button,select{font:inherit;border:1px solid #78977e;border-radius:6px;padding:9px 13px;margin:3px;background:#315940;color:white}
+button:disabled{opacity:.4}textarea{width:100%;box-sizing:border-box;height:92px;margin:8px 0;font:12px monospace;resize:vertical}
+label{display:block;margin-top:12px}canvas{width:100%;image-rendering:pixelated;border-radius:6px;touch-action:none}
+#proof{font-weight:650;overflow-wrap:anywhere}pre{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px;overflow:auto}
+small{color:#b7c7bd}#status{padding:12px 0;font-size:18px}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style>
+<h1>Two players · one map</h1>
+<p>Open this file on both devices. One player hosts. Copy two codes, then edit together.</p>
+<div id="status" role="status" aria-live="polite">Choose Host or Join.</div>
+<div class="grid">
+<section>
+<button id="invite" title="Host this map and make a fresh Invite code. Keep the ordered edits on rejoin.">Host · Invite</button>
+<button id="join" title="Join the host by pasting their Invite code below.">Join a map</button>
+<label><input id="stun" type="checkbox" title="Use Google's public STUN service for internet address lookup only. No map data or relay."> Different networks: use public STUN</label>
+<p id="step">Host: press Invite. Guest: press Join a map.</p>
+<label for="out">Your code to send</label><textarea id="out" readonly title="Copy this entire code and send it to the other player."></textarea>
+<button id="copy" title="Copy the entire outgoing code to the clipboard.">Copy code</button>
+<small id="length"></small>
+<label for="input">Code from the other player</label><textarea id="input" placeholder="Paste their code here" title="Paste the other player's complete Invite or Reply code."></textarea>
+<button id="accept" title="Use the pasted Invite or Reply code to connect.">Use pasted code</button>
+<button id="drop" title="Close this peer connection. The host keeps the map and log for a fresh Invite.">Drop connection</button>
+</section>
+<section>
+<canvas id="map" width="48" height="48" title="Choose an edit below, then click the map."></canvas>
+<p>Pick an edit, then click the map. The host orders both players' edits.</p>
+<select id="tool" title="Choose a brush stroke, a placement, or the real Carve force.">
+<option value="raise">Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option>
+<option value="pine">Plant pine</option><option value="source">Place water source</option><option value="force">Carve (dry)</option></select>
+<button id="sweep" title="Send 250 mixed operations from this player. Run on both sides for 500 operations.">250 mixed edits</button>
+<p id="proof">Hashes will be checked after every ordered edit.</p>
+<small id="details">Generated River Valley · seed 349 · 48 × 48 · canonical water</small>
+</section></div>
+<p>Green ground = land, blue = water, pale dots = objects. A disconnected guest cannot edit. The host can keep editing and resend the full log.</p>
+<button id="export" title="Download connection timings, code lengths, hashes, latency samples and the ordered log.">Save check results</button>
+<pre id="events" aria-live="polite"></pre>
+<script>/* BUNDLE */</script></html>

@@ -296,7 +296,9 @@ sends: a generated one, a version the background search found, a sibling, an edi
   then 23 tiles wide, the first that settles. It is part of the land (the field), so the link
   rebuilds it. Captures: `investigation/m9b/worn-way-out-delta-4-128.png` (59 tiles) and
   `...-lakeBasin-8-128.png` (13); each shows the land as shown, as the map arrived, and the cut in
-  orange (`investigation/m9b/worn.ts`).
+  orange (`investigation/m9b/worn.ts`). (Superseded by D358 and D360 (3), 2026-10-01: with the
+  6-day settle neither map needs a cut, and the cut is now one shape; the captures are
+  `worn-way-out-any-5-128.png` and `worn-way-out-lakeBasin-4-256.png`.)
 - **Islands:** the sea's rim is never breached at the edges (its inner line wandered to the edge and
   the sea drained out, 256² seeds 1–3); the edge layout's sea larger and further in; islands spread
   over the sea's ellipse; on larger maps fewer, larger islands (count × area^0.3, size × area^0.35:
@@ -351,6 +353,47 @@ sends: a generated one, a version the background search found, a sibling, an edi
   all three on 52 of 70 (Any 7, River Valley 8, Canyon 9, Highlands 6, Lake Basin 4, Delta 8, Islands
   10), but the land at 5.2 / 15.2 s and settled water 17.6 / 42.4 s CPU-scaled, far over 3 / 6 and 8 /
   20.
+
+### Time, water that settles, straight channels, D358 and D360 (3) (2026-10-01)
+
+- **Time, exactly** (no map changes): a river's path field prunes whole tile blocks against its
+  segments' chunks (`features/geometry.ts`; `tests/unit/pathField.test.ts` proves it bit for bit
+  against every segment for every tile) and a land's builds share the fields (`sharedFields`); the
+  settle cache keeps the last four settles (the attempts on one land reuse what they share); the
+  drainage flood takes its directions by index (about twice as fast, the same tiles in the same
+  order). On five 256² maps the path fields went from 8.7 s to under 4 s.
+- **The 20-seed measures, before D358** (seeds 1–20, every theme, both sizes, 6 jobs): at 128² 4 of
+  140 failed an absolute, all three outcomes on 102 (73%); at 256² 13 of 140 failed (10 water that
+  wouldn't settle, 3 straight channels), all three on 83 (59%), settled water 9.2 / 25.4 s. Every
+  256² water failure was a big lake or sea the pre-fill starts at its spill level, rising by its
+  outlet's head for 4.2–9 days (D68, D83): a narrow way out, a broad flat at the spill level carrying
+  the rivers' water (Islands 12's sea is fed across a 9,700-tile shelf through a 3–4-tile corridor),
+  or a plug holding a lake over a 2-tile line (Lake Basin 16). A pre-fill that adds the outlet's head
+  was tried crudely and didn't help (over-filled basins spill into side hollows).
+- **Fixes on the shown land:** a plug that keeps the water from settling is opened; the wear takes
+  the basin over its level, then the water still rising (found by running the settle on), at 9 then
+  17 tiles, a cut of at most 2% of the map (stopping at once when the rivers' water alone won't
+  settle was tried and undone: River Valley 128² seed 7 settles on its second plan's hollows). A
+  start the settled water covers or that no
+  spring serves gives way to another on the same settle (three in all; a levelled pad judged first on
+  water warm-started from the settle), and later attempts on a shown land keep the hollows whose
+  water settled, so their settle is reused.
+- **Straight channels found only on the settled water** (Any 12 128², Any 13, River Valley 17, Canyon
+  4 and Any 17 at 256²): the outlets cut across a basin's flat ran along the grid (`carveOutlets`: the
+  cheapest way over a flat is a straight line); they are wound like a gully now (`land/wind.ts`, the
+  ditches' winding moved there), a badwater ditch that stays straight is refused, and a cut shelf's
+  straight water edge gets notches. All five pass.
+- **D358** (Kyler, 2026-10-01): the canonical settle runs up to 6 game days (`SETTLE_DAYS`, and the
+  Python checker). The golden vectors change only for the two fixtures whose water never settles;
+  `tests/unit/settleDays.test.ts` proves water that settles within 4 days ends the same; of 28
+  generated maps 26 keep their bytes, the two that change had water still moving at 4 days. Of the
+  25 256² maps that failed water.settles or needed a water fix, 23 passed with 6 days and 16 needed
+  no fix at all.
+- **D360 (3)**: the worn way out is one shape along its water's path: a channel widened on one bank
+  (the side that takes the less ground away), its width changing smoothly, the largest piece of the
+  worn ground kept (`cutShape`: one piece, no stray tiles, nothing
+  off the path's side; it refuses Lake Basin 8's old cut). The route through a basin's necks is gone
+  with it.
 
 ## Handoff (2026-09-27, evening)
 
@@ -776,3 +819,10 @@ check, the start, the water settling).
   not only the nearest) sinks its one-tile pool beside the start itself: the generator no longer
   leaves Canyon 128² seed 1 its sealed hole (D148). New: `tests/contract/firstLand.test.ts`, a shown
   land is never replaced (Highlands 3 and 7, Any 4, Islands 7 at 128², whose land D333 replaced).
+- D358: `tests/unit/water-speedups.test.ts` re-pins seep_pit's and evaporation's digests (their water
+  never settles, so their canonical settle runs to the 6-day limit; the 975 ticks are unchanged);
+  `tests/unit/sealedBasins.test.ts`'s evaporating lake runs to `SETTLE_DAYS`; the golden vectors
+  (`tests/golden/water.json.gz`) are regenerated by the Python oracle. New:
+  `tests/unit/settleDays.test.ts`, `tests/unit/pathField.test.ts`.
+- D360 (3): `tests/unit/outletWear.test.ts`'s worn channel changes width smoothly (it asked for a
+  ragged one), and checks the cut is one shape (`cutShape`), refusing Lake Basin 8's old cut.

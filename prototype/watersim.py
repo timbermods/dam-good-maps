@@ -33,6 +33,9 @@ SPILL = 0.1               # spill threshold onto dry ground of the same floor
 KEEP = 0.999              # flow momentum kept per substep
 BAL = 0.8                 # outflow balancing against the reverse flow
 TICKS_PER_DAY = 768
+# the game days the canonical settle may run (PLAN §10, D358: 6; 4 before 2026-10-01); it stops at
+# the first check that passes, so water that settles sooner is the same whatever the limit
+SETTLE_DAYS = 6
 EVAPORATION_PER_DAY = 0.0535
 DEFAULT_WATER_RULES = "game"   # M9b's switch (D308, D311)
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
@@ -189,7 +192,7 @@ class WaterSim:
             self.ticks += 1
         return self
 
-    def settle(self, max_days=4.0, tol=0.005, check_every=128, sealed=None):
+    def settle(self, max_days=SETTLE_DAYS, tol=0.005, check_every=128, sealed=None):
         """Run with sources on until the water stops changing (PLAN §11.3): between two checks
         128 ticks apart, the total volume changes by under 0.2% and at least 99.5% of tiles move
         by at most `tol`. (A strict max-change test never passes: thin sheets at spill
@@ -403,14 +406,14 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
 
 
 def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=(), rules=None):
-    """The canonical settle: the pre-fill, then the simulation until it settles (at most 4 game
-    days). Returns (sim, settled); `sim.steady_ticks` is set when only sealed basins evaporating
+    """The canonical settle: the pre-fill, then the simulation until it settles (at most
+    SETTLE_DAYS game days, D358). Returns (sim, settled); `sim.steady_ticks` is set when only sealed basins evaporating
     kept it from settling (D222), and such water has settled too (`water.settles`). `rules`: the
     water rules (DEFAULT_WATER_RULES when not given)."""
     d0, c0 = prefill(floor, sources, dam, retained)
     sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0, rules=rules)
     sealed = sorted({i for lake in retained or () for i in lake["tiles"]})
-    settled = sim.settle(max_days=4, sealed=sealed or None)
+    settled = sim.settle(max_days=SETTLE_DAYS, sealed=sealed or None)
     return sim, settled
 
 

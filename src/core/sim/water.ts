@@ -64,6 +64,10 @@ export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
 export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
+/** The game days the canonical settle may run before its water counts as not settling (PLAN §10,
+ *  §11.3; D358: 6, 4 before 2026-10-01). It stops at the first check that passes, so a map whose
+ *  water settles sooner is the same whatever the limit. */
+export const SETTLE_DAYS = 6;
 
 /** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
 export type WaterRules = "game" | "port";
@@ -673,7 +677,7 @@ function clamp(v: number, lo: number, hi: number): number {
 // ------------------------------------------------------------------------------------------ settle
 
 export interface SettleOptions {
-  /** Give up after this many game days (PLAN §11.3: 4). */
+  /** Give up after this many game days (PLAN §11.3: `SETTLE_DAYS`). */
   maxDays?: number;
   /** Largest depth change between checks that counts as still (PLAN §11.3: 0.005). */
   tol?: number;
@@ -806,7 +810,7 @@ export class SettleRun {
     readonly sim: WaterSim,
     opts: SettleOptions = {},
   ) {
-    const maxDays = opts.maxDays ?? 4;
+    const maxDays = opts.maxDays ?? SETTLE_DAYS;
     this.tol = opts.tol ?? 0.005;
     this.movedShare = opts.movedShare ?? 0.005;
     this.sealed = opts.sealed?.length ? opts.sealed : null;

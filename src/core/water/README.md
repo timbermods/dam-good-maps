@@ -108,9 +108,16 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 
 # A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
 
-`wearOutlet(h, W, H, depth, { seed, width, keep })` finds the largest basin whose water stands over
-its spill level (`risenBasin`) and widens the route its water leaves by: banks above the route's own
-bed come down to it by a width that wanders (0.6–1.4 of `width`, ragged at the edge), never within two
-tiles of the basin under its level, never on `keep`. It returns the new ground and the tiles cut, or
-null. The generator calls it on a shown land whose water doesn't settle (7, 11, then 15 tiles, the
-first that settles); `tests/unit/outletWear.test.ts`.
+`wearOutlet(h, W, H, depth, { seed, width, keep, basin, floor })` takes the water that doesn't settle
+(`basin`, else the largest basin whose water stands over its spill level, `risenBasin`) and widens
+the way its water leaves by, from the sill beside the basin to lower ground or the map edge and on
+down: a channel widened on one bank (the side that takes the less ground away), its width changing
+smoothly along the way (0.8–1.2 of `width`, never tile by tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
+the sill is short. Never within two tiles of the basin under its level, never on `keep`, never below
+`floor`. The cut is one shape along that way (D360 (3)): the largest piece of the worn ground stays
+and the rest is left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray tiles and
+tiles off to the path's side, and a cut that isn't one piece with none of either is refused. It
+returns the new ground, the tiles cut and the path, or null. The generator calls it on a shown land
+whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
+the water still rising (9, then 17 tiles, the first that settles, a cut of at most 2% of the map);
+`tests/unit/outletWear.test.ts`.

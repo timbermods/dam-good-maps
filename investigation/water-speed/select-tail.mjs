@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {LOCAL,json,hash} from './common.mjs';
+const all=JSON.parse(readFileSync(resolve(LOCAL,'timing-all.json'),'utf8'));
+assert.equal(all.rows.length,1073);
+assert.equal(all.buildId,hash(readFileSync(resolve(LOCAL,'baseline.cjs'))+readFileSync(resolve(LOCAL,'fast.cjs'))));
+const slow=all.rows.slice().sort((a,b)=>b.rows[0].baselineCpuMs-a.rows[0].baselineCpuMs).slice(0,3);
+const low=all.rows.slice().sort((a,b)=>a.rows[0].cpuRatio-b.rows[0].cpuRatio).slice(0,3);
+const ids=[...new Set([...slow,...low].map(r=>r.id))];
+json(resolve(LOCAL,'tail-selection.json'),{buildId:all.buildId,slow:slow.map(r=>r.id),low:low.map(r=>r.id),ids});
+console.log(ids.join(','));

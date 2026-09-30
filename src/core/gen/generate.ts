@@ -36,6 +36,8 @@ import type { JsonObject } from "../format/json";
 import { pumpShoreDistance, reachAt, startWaterShore, walkDistance } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, type BuildResult, type GeneratedField, type LockedLayer } from "../features/build";
+import { previewSettle } from "../sim/preview";
+import type { FieldCache } from "../features/target";
 import { entityTiles } from "../features/edits";
 import { featureId } from "../features/ids";
 import { objectTiles } from "../features/objects";
@@ -75,7 +77,7 @@ import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
 import { toTimberFile } from "./pack";
-import { outcomesOf, type Outcomes } from "./outcomes";
+import { outcomesOf, PLAN_MARGIN, PROMISES, type Outcomes } from "./outcomes";
 import { mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
@@ -124,8 +126,9 @@ export interface GenerationInfo {
    *  on dry ground", "spring by the start" (a group of sources in a hollow or dry bed by the start,
    *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)). */
   fixes?: string[];
-  /** The way out worn wider (D350 (b)): the tiles cut, the basin's size and its level. */
-  worn?: { cut: number[]; basin: number; level: number };
+  /** The way out worn wider (D350 (b), D360 (3)): the tiles cut, the basin's size and its level, the
+   *  width worn and the path its water takes out. */
+  worn?: { cut: number[]; basin: number; level: number; width: number; route: number[] };
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -196,6 +199,9 @@ export interface GenerateOptions {
   variety?: number;
   /** Each attempt as it ends, passed or failed (information, for the measures). */
   onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult }) => void;
+  /** A land needs a second place for a start, away from the first, before it is shown; false turns
+   *  it off (for measuring it). */
+  secondStart?: boolean;
   /** The land-stage screen on the planned water's outcomes (`landScreen`); false turns it off (for
    *  the measures). */
   screen?: boolean;
@@ -253,6 +259,10 @@ interface LandStage {
   ramps: ReturnType<typeof naturalRamps>;
   firstLook: number;
   cache: SettleCache;
+  /** River path fields shared by the builds on it. */
+  fields: FieldCache;
+  /** The settles counted on it (the settle cache hands later attempts the ones they share). */
+  counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
   tried: Uint8Array;
   /** Where badwater hollows that kept the water from settling stood (and round them): kept off. */
@@ -294,8 +304,11 @@ function markTried(tried: Uint8Array, st: { x: number; y: number }, W: number, H
  *  strength (doc/waterFix.ts `FIX_STRENGTH` runs 1.5 and 3; one strength keeps it to a settle a
  *  place). */
 const SPRING_TRIES = 3;
+/** Starts tried on one settled water before the attempt is planned again (each new plan settles
+ *  the water again). */
+const START_TRIES = 3;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
-const WEAR_WIDTHS = [7, 11, 15, 23];
+const WEAR_WIDTHS = [9, 17];
 const SPRING_STRENGTH = [2];
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
@@ -410,7 +423,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
  *  Drought reserve setting reads), off the locks and the protected tiles; each is cut a level
  *  lower, never below the beds' floor. Returns how many were cut. */
 export const SHELF_MIN = 60;
-function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
+function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null, seed = 0): number {
   const N = W * H;
   const spill = drainage(h, W, H, { eight: false }).filled;
   const shelf = new Uint8Array(N);
@@ -456,9 +469,59 @@ function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, lo
     }
     return true;
   });
-  for (const i of keep) h[i]--;
-  return keep.length;
+  // (D209: a shelf cut along a straight line leaves a ruler-straight bank, where the water it holds
+  // runs as a channel between straight edges. Along every straight run of the water's edge the cut
+  // makes, a tile of the cut in every few stays as it was, so the bank is ragged, as a worn one is)
+  const wet = new Float64Array(N);
+  for (let i = 0; i < N; i++) if (spill[i] > h[i]) wet[i] = 1;
+  const cutAt = new Uint8Array(N);
+  for (const i of keep) {
+    wet[i] = 1;
+    cutAt[i] = 1;
+  }
+  for (const run of straightness(W, H, wet, { wet: 0.5, minRun: SHELF_RUN }).runs) {
+    const [ax, ay] = run.from;
+    const [bx, by] = run.to;
+    const vx = bx - ax;
+    const vy = by - ay;
+    const l2 = vx * vx + vy * vy;
+    if (!(l2 > 0)) continue;
+    // the cut's tiles along the run (their middles within a tile of it), in order along it
+    const along: [number, number][] = [];
+    const x0 = Math.max(0, Math.floor(Math.min(ax, bx)) - 1);
+    const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx)) + 1);
+    const y0 = Math.max(0, Math.floor(Math.min(ay, by)) - 1);
+    const y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by)) + 1);
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (!cutAt[i]) continue;
+        const t = ((x + 0.5 - ax) * vx + (y + 0.5 - ay) * vy) / l2;
+        if (t < 0 || t > 1) continue;
+        const px = ax + t * vx - (x + 0.5);
+        const py = ay + t * vy - (y + 0.5);
+        if (px * px + py * py <= 1) along.push([t, i]);
+      }
+    along.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    // (a notch every 5–8 tiles along it)
+    let next = 3 + (hash32(seed, "shelf-notch", run.from[0], run.from[1]) % 4);
+    for (let k = 0; k < along.length; k++) {
+      if (k < next) continue;
+      cutAt[along[k][1]] = 0;
+      next = k + 5 + (hash32(seed, "shelf-notch", along[k][1]) % 4);
+    }
+  }
+  let n = 0;
+  for (const i of keep)
+    if (cutAt[i]) {
+      h[i]--;
+      n++;
+    }
+  return n;
 }
+/** The shortest straight run of a cut shelf's water edge that gets notches (D209: the limits are 44
+ *  and a canal's 34; a shelf's straight edge is often both banks of a narrow channel). */
+const SHELF_RUN = 14;
 
 /** What the finished map says about how it plays, for its description (gen/names.ts). */
 function playFacts(r: GenerateResult): PlayFacts {
@@ -1070,7 +1133,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
-  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect);
+  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect, hash32(seed, "shelves", attempt));
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -1136,17 +1199,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   const fixes = info.fixes!;
   const cache = from ? from.cache : new SettleCache();
+  const fieldCache: FieldCache = from ? from.fields : new Map();
+  const counted = from ? from.counted : new WeakSet<object>();
   const contains = new Set<string>(hy.rivers.map((r) => r.id));
-  let settleKey: unknown = null;
   const fieldOf = (): GeneratedField => {
     const steps = standingSteps(ramps.steps, h, W, H);
     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
   };
   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
-    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
+    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
     if (stop === "water") return b;
-    if (b.settle.depth !== settleKey) {
-      settleKey = b.settle.depth;
+    // (a settle counts once: the cache hands the attempts on a land the settles they share)
+    if (!counted.has(b.settle.depth)) {
+      counted.add(b.settle.depth);
       info.settles++;
     }
     return b;
@@ -1248,7 +1313,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
   // (on a land kept for another attempt, D333 (2): the starts that failed on it are kept off too)
-  const tried = from?.tried ?? null;
+  const tried = from?.tried ?? new Uint8Array(N);
   const avoidOf = (bad: Hazards | null) => {
     const a = new Uint8Array(N);
     for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) || (tried?.[i] ?? 0) ? 1 : 0;
@@ -1323,7 +1388,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // ground above 16 on a map that is not tall, no ruler-straight channel or dam wall on the water its
     // rivers were planned with (both run again on the settled water), and (the first lands, within
     // `landScreen`) the theme's promise and a readable water story on that water; then a place for a
-    // start on it (D333 (2): a land with none is drawn again before any settle). A land that passes
+    // start on it (D333 (2): a land with none is drawn again before any settle), and a second place
+    // away from the first. A land that passes
     // is the map from here on, shown at once (the first look, editable land) and kept while its
     // water, start and objects are planned again on it
     if (!from) {
@@ -1342,20 +1408,36 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
-        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!po.promise || !po.story.readable)) {
+        // (the promise with the screen's margin: the settled water falls short of the plan's)
+        const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H), PLAN_MARGIN[shown.theme]);
+        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
-          return fail(!po.promise ? "promise (planned)" : "water story (planned)", null, false);
+          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
         }
       }
     }
     guess = settlerOn(est, zero, moisture(h, est, zero, W, H, null), 0, avoidOf(null));
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
+      // (and a second place, away from the first: a land with one place for a start has nothing to
+      // fall back on when the settled water or the objects fail it, and a shown land can't be drawn
+      // again, D348)
+      if (guess && !lastAttempt && opts.secondStart !== false) {
+        const off = avoidOf(null);
+        markTried(off, guess, W, H);
+        if (!settlerOn(est, zero, moisture(h, est, zero, W, H, null), 5, off)) return fail("one place for a start", null, true);
+      }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
-    if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
+    // (on a shown land, the hollows whose water settled on an earlier attempt stay where they are:
+    // the rivers and hollows settle as they did, and the settle cache hands that settle back)
+    if (guess && badAsk.count > 0 && from?.goodBad) {
+      bad = structuredClone(from.goodBad);
+      h.set(bad.heights);
+      for (const f of bad.features) contains.add(f.id);
+    } else if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
   }
   opts.onProgress?.({ attempt, stage: "start" });
   // ---- the one settle: the rivers and the hollows
@@ -1380,12 +1462,25 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (a source's tiles are no way out: the game walls them off from the edge)
     const sourceTiles = new Uint8Array(N);
     for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
-    // (the basin over its spill level, or else the water still rising)
-    const stuckWater = risenBasin(h, W, H, b.water, sourceTiles) ?? risingWater(b);
-    if (!stuckWater) return null;
+    // (the basin standing over its spill level, then the water still rising at the end of the
+    // settle, found by running it on: a plain whose water stands over its own level rises too, and
+    // what rises is not always the basin over its level)
+    const risen = risenBasin(h, W, H, b.water, sourceTiles);
+    const rising = risingWater(b);
+    const stuck = [risen, rising].filter((s): s is { tiles: number[]; level: number } => !!s);
+    if (stuck.length === 2) {
+      const inRisen = new Uint8Array(N);
+      for (const i of stuck[0].tiles) inRisen[i] = 1;
+      let both = 0;
+      for (const i of stuck[1].tiles) both += inRisen[i];
+      if (both * 2 >= stuck[1].tiles.length) stuck.pop();
+    }
+    // (a cut no bigger than this: past it the way out is no small local wear, D350)
+    const most = Math.max(400, Math.round(0.02 * N));
+    for (const [k, stuckWater] of stuck.entries())
     for (const width of WEAR_WIDTHS) {
-      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater });
-      if (!w) return null;
+      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width + 100 * k), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater, floor: BED_FLOOR });
+      if (!w || w.cut.length > most) break;
       const before = h.slice();
       h.set(w.heights);
       const b2 = build([...rivers, ...bad.features], "resources");
@@ -1398,7 +1493,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           bad.heights[j] = w.heights[j];
         }
         fixes.push("way out worn wider");
-        info.worn = { cut: w.cut, basin: w.basin.length, level: w.level };
+        info.worn = { cut: w.cut, basin: w.basin.length, level: w.level, width, route: w.route };
         return b2;
       }
       h.set(before);
@@ -1499,6 +1594,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     h.set(bad.heights);
     for (const f of bad.features) contains.add(f.id);
     b1 = build([...rivers, ...bad.features], "resources");
+  }
+  // (a plug that holds its lake back, D274, and keeps the water from settling: its lake fills for
+  // days over the plug's narrow line. It is opened, and stays open on the later attempts on this
+  // land; the land stays)
+  if (!b1.settle.settled && !lastAttempt && plug && rivers.some((f) => f.id === plug.feature.id)) {
+    const open = rivers.filter((f) => f.id !== plug.feature.id);
+    const b2 = build([...open, ...bad.features], "resources");
+    if (b2.settle.settled) {
+      rivers = open;
+      b1 = b2;
+      fixes.push("plug opened");
+      landStage?.dropped.push(plug.feature.id);
+    }
   }
   // D350 (b): a basin whose water rose over its spill level, its way out too narrow: that way out worn
   // wider as the map arrives (the smallest cut that settles it, as if water wore it), recorded in the
@@ -1668,46 +1776,98 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   // a hollow planned from the real start, when the guess found none
   if (badAsk.count > 0 && !bad.features.length) bad = badAt(b1.water, pick, 2);
-  levelStart(pick);
-  let layout: Feature[] = [...rivers, ...bad.features, startOf(pick)];
-  // a start on level ground and no new hollow keep the water: this build reuses the settle
-  let base = build(layout, "resources");
-  // (hollows whose water settled on this land, for the next attempts on it)
-  if (landStage && bad.features.length && base.settle.settled) landStage.goodBad = structuredClone(bad);
-  // (the settled water covers the start's ground: another start next, on the same land)
-  if (wetRing(base, pick)) return fail("start water moved", base, true);
-  if (!(startWaterServed(base, rule, droughtDays) <= rule - 2)) {
-    // the water beside the start only a sealed puddle (D302), or the water moved away. The land is
-    // shown (D348): a spring by the start (D330's fix) gives it water, the first place and strength
-    // that serves it and leaves no source in another's flow
-    const sealed = startWaterWalk(base) <= rule - 2;
-    const at = pick;
-    const spring = springByStart(base, rule, seed, attempt, (f) => {
-      // (the field holds it: its sources are placed, no channel is cut)
-      contains.add(f.id);
-      // (first on the pre-fill's water, which costs no settle: a spring whose pond would stand on the
-      // start's ground, or give it no water, is passed over before its water is settled)
-      {
-        const bw = build([...layout, f], "water");
-        const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
-        const pf = prefill(model);
-        const guessB = { ...bw, water: pf.depth, contamination: pf.contamination, waterModel: model } as BuildResult;
-        if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= rule - 2)) {
-          contains.delete(f.id);
-          return false;
+  // (a start that fails here, its ground under the settled water or its water gone, gives way to
+  // another on the same settled water, START_TRIES in all, before the attempt is planned again:
+  // each new plan settles the water again)
+  let layout: Feature[] = [];
+  let base!: BuildResult;
+  let cur: StartPick = pick;
+  // (another start on the same settled water, off the one that failed and the ground round it)
+  const nextStart = (failed: StartPick): StartPick | null => {
+    markTried(tried, failed, W, H);
+    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, beyondBad(b1), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess });
+  };
+  for (let tryN = 0; ; tryN++) {
+    const hBefore = h.slice();
+    levelStart(cur);
+    layout = [...rivers, ...bad.features, startOf(cur)];
+    // (a start whose pad changes the water is first judged on the water warm-started from the
+    // settle before it, which costs a fraction of a settle: a pad the water would cover gives way to
+    // the next start before its water is settled)
+    if (tryN + 1 < START_TRIES && !lastAttempt) {
+      const bw = build(layout, "water");
+      const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+      if (!cache.get(model)) {
+        const pv = previewSettle({ model: b1.waterModel, water: b1.settle }, model);
+        if (wetRing({ ...bw, water: pv.depth, contamination: pv.contamination, waterModel: model } as BuildResult, cur)) {
+          // (the next start is found on the ground as it was, before this one's pad)
+          const levelled = h.slice();
+          h.set(hBefore);
+          const again = nextStart(cur);
+          if (again) {
+            cur = again;
+            continue;
+          }
+          h.set(levelled);
         }
       }
-      const b = build([...layout, f], "resources");
-      const ok = b.settle.settled && !wetRing(b, at) && startWaterServed(b, rule, droughtDays) <= rule - 2 && !sourcesInFlow(b.waterModel, mapObjects({ entities: b.entities.map(entityJson) }), b.water).inFlow.length;
-      if (ok) base = b;
-      else contains.delete(f.id);
-      return ok;
-    });
-    if (!spring) return fail(sealed ? "start water a sealed puddle" : "start water moved", base, true);
-    layout.push(spring);
-    fixes.push("spring by the start");
+    }
+    // a start on level ground and no new hollow keep the water: this build reuses the settle
+    let b = build(layout, "resources");
+    // (hollows whose water settled on this land, for the next attempts on it)
+    if (landStage && bad.features.length && b.settle.settled) landStage.goodBad = structuredClone(bad);
+    let why: string | null = null;
+    // (the settled water covers the start's ground)
+    if (wetRing(b, cur)) why = "start water moved";
+    else if (!(startWaterServed(b, rule, droughtDays) <= rule - 2)) {
+      // the water beside the start only a sealed puddle (D302), or the water moved away. The land is
+      // shown (D348): a spring by the start (D330's fix) gives it water, the first place and strength
+      // that serves it and leaves no source in another's flow
+      const sealed = startWaterWalk(b) <= rule - 2;
+      const at = cur;
+      const lay = layout;
+      const spring = springByStart(b, rule, seed, attempt + 1000 * tryN, (f) => {
+        // (the field holds it: its sources are placed, no channel is cut)
+        contains.add(f.id);
+        // (first on the pre-fill's water, which costs no settle: a spring whose pond would stand on
+        // the start's ground, or give it no water, is passed over before its water is settled)
+        {
+          const bw = build([...lay, f], "water");
+          const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+          const pf = prefill(model);
+          const guessB = { ...bw, water: pf.depth, contamination: pf.contamination, waterModel: model } as BuildResult;
+          if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= rule - 2)) {
+            contains.delete(f.id);
+            return false;
+          }
+        }
+        const bs = build([...lay, f], "resources");
+        const ok = bs.settle.settled && !wetRing(bs, at) && startWaterServed(bs, rule, droughtDays) <= rule - 2 && !sourcesInFlow(bs.waterModel, mapObjects({ entities: bs.entities.map(entityJson) }), bs.water).inFlow.length;
+        if (ok) b = bs;
+        else contains.delete(f.id);
+        return ok;
+      });
+      if (!spring) why = sealed ? "start water a sealed puddle" : "start water moved";
+      else {
+        layout.push(spring);
+        fixes.push("spring by the start");
+      }
+    }
+    base = b;
+    if (!why) break;
+    // (another start on the same settled water, off this one and the ground round it; the last
+    // attempt keeps what it has)
+    if (!(tryN + 1 < START_TRIES) || lastAttempt) return fail(why, b, true);
+    const levelled = h.slice();
+    h.set(hBefore);
+    const again = nextStart(cur);
+    if (!again) {
+      h.set(levelled);
+      return fail(why, b, true);
+    }
+    cur = again;
   }
-  if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
+  pick = cur;  if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)
