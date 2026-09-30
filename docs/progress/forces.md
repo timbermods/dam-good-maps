@@ -10,7 +10,9 @@
 > largest Size, 128² highlands, the change at Power 0 / 100 (tiles, deepest, sum): Carve 1,250 / 1,820, 4 / 14,
 > Craterize 11,100 / 15,541, 2 / 14, Erupt 1,805 / 7,878, 3 / 22, Glaciate 1,264 / 1,341, 2 / 13, Lift 2 / 9.
 > Tests that failed first: `tests/contract/forcePower.test.ts` (5 forces and the painted Lift), `forceKeys.spec.ts`
-> (the narrow band, } while painting, Try another's Power).
+> (the narrow band, } while painting, Try another's Power). Tests changed to the decision: eruptHeadroom's Size test
+> (wider than Power's own volcano is now lower, not the same peak) and forces.test's Quake parity (Slide compared at
+> Power 100, where the new travel meets the prototype's).
 
 > **D360 (1), 2026-09-30: the gaps D356's check found, closed (`fix/force-gaps`).** (a) Carve clicked where its water
 > would run straight off the map (its drainage reaching the edge within a few tiles of a click within 8 of it) carves
