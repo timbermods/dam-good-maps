@@ -218,12 +218,14 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
       const out: Record<string, ReturnType<typeof compare>[]> = {};
       for (const [soil, moisture] of [["dry", 0], ["grass", 150]] as const) {
         const clean = frame(moisture, 0);
-        out[soil] = [compare(clean, frame(moisture, 128)), compare(clean, frame(moisture, 255)), compare(clean, frame(moisture, 0))];
+        // (the same clean frame drawn again: how far a redraw alone strays, as software drawing can)
+        const again = compare(clean, frame(moisture, 0));
+        out[soil] = [compare(clean, frame(moisture, 128)), compare(clean, frame(moisture, 255)), compare(clean, frame(moisture, 0)), again];
       }
       r.updateSoil(kept);
       return out;
     }, choice);
-    for (const [soil, [some, most, cleared]] of Object.entries(result)) {
+    for (const [soil, [some, most, cleared, again]] of Object.entries(result)) {
       const at = `${choice}, ${soil}`;
       // sparse veins, never a tint over the whole soil, more of them the more contaminated
       expect(some.share, at).toBeGreaterThan(0.002);
@@ -232,8 +234,10 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
       // orange-red: where the ground changed, it turned redder
       expect(some.redder, at).toBeGreaterThan(10);
       expect(most.redder, at).toBeGreaterThan(10);
-      // cleared, the clean ground comes back (a GPU may draw a value one level apart)
-      expect(cleared.max, at).toBeLessThanOrEqual(1);
+      // cleared, the clean ground comes back: no more changed than a redraw of it alone (a GPU, or
+      // software drawing, may put a value a level or two apart), and never a vein's worth
+      expect(cleared.share, at).toBeLessThanOrEqual(Math.max(again.share, 1e-4));
+      expect(cleared.max, at).toBeLessThanOrEqual(Math.max(again.max, 2));
     }
   }
   expect(errors).toEqual([]);
