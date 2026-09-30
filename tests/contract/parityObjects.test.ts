@@ -10,7 +10,7 @@ import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { paintGround, planPaintObjects } from "../../src/core/doc/paint";
 import { planEntity } from "../../src/core/doc/placing";
-import { defaultOptions, optionProblems, placeComponents, setOptionsOp } from "../../src/core/doc/objectOps";
+import { defaultOptions, markerNotes, optionProblems, placeComponents, setOptionsOp } from "../../src/core/doc/objectOps";
 import type { EditOp } from "../../src/core/doc/ops";
 import { entityJson } from "../../src/core/format/entities";
 import { FOOTPRINTS, type Orientation } from "../../src/core/format/footprints";
@@ -364,5 +364,43 @@ describe("what a core will do is a plain question (D339)", () => {
     }
     expect(Math.abs(volAfter - volBefore)).toBeGreaterThan(0.5);
     expect(a.moisture.length).toBe(W * W);
+  });
+});
+
+describe("Markers' labels are a plain question (D338, D342)", () => {
+  it("each water object, core and reserve is named with what it does, in the game's words; a plain source at once is not labelled", () => {
+    const s = open();
+    const put = (template: string, opts: Parameters<typeof placeComponents>[1], k: number) => {
+      const fp = FOOTPRINTS[template];
+      const [x, y] = spot(s, fp.size[0] + 1, fp.size[1] + 1, k * 4);
+      const r = place(s, template, x + 1, y + 1, placeComponents(template, opts));
+      expect(r.errors, template).toEqual([]);
+      return r.id;
+    };
+    const seep = put("WaterSeep", { strength: 1 }, 0);
+    const core = put("UnstableCore", { radius: 3, cycles: 5, days: 10.5 }, 1);
+    const pile = put("ReservePile", { good: "Log", amount: 100 }, 2);
+    const drain = put("BadtideDrain", { strength: 1 }, 3);
+    const plain = put("WaterSource", { strength: 1 }, 4);
+    const sink = put("WaterSource", { strength: -1 }, 5);
+    const notes = new Map(markerNotes(s.built.entities).map((n) => [n.id, n.text]));
+    expect(notes.get(seep)).toBe("Water seep · 1 water/s");
+    expect(notes.get(core)).toBe("Unstable core · radius 3 · goes off in cycle 5");
+    expect(notes.get(pile)).toMatch(/^Reserve pile · 100 /);
+    expect(notes.get(drain)).toMatch(/^Badtide drain · 1 badwater\/s · only in a badtide/);
+    expect(notes.has(plain)).toBe(false);
+    expect(notes.get(sink)).toMatch(/sink 1 water\/s/);
+  });
+});
+
+describe("a stroke is refused inside a group, in words (D342)", () => {
+  it("applyAll says a brush stroke cannot join others", () => {
+    const s = open();
+    const [x, y] = spot(s, 6, 6);
+    const area = [{ y, x0: x, x1: x + 5 }, { y: y + 1, x0: x, x1: x + 5 }];
+    const op = { op: "paintObjects", params: { kind: "thorns", area, density: 0.8, seed: 1 } } as unknown as EditOp;
+    const r = s.applyAll([op], "user", "group");
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/cannot be part of a group/);
   });
 });

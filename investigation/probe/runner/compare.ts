@@ -457,6 +457,109 @@ const EVALS: Record<string, Eval> = {
     };
   },
 
+  // ---- parity maps (PLAN §20 D337, D338, D339): the objects the shelf gained, in the game
+  'parity-load'(c) {
+    const v = loadVerdict(c);
+    const o = objectsDiff(c.L.info, c.L.result!);
+    const ok = v.verdict === 'passed' && o.missing.length === 0 && o.moved.length === 0;
+    return { verdict: ok ? 'passed' : 'failed', detail: `${v.detail}; ${o.found} of ${o.expected} objects in the game at their tiles${o.missing.length ? `; missing ${o.missing.slice(0, 6).join(', ')}` : ''}${o.moved.length ? `; moved ${o.moved.slice(0, 4).join(', ')}` : ''}` };
+  },
+  'parity-seep'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.seep || !e.source) throw new NotMeasurable('the manifest has no seep');
+    const rows = c.L.samples();
+    if (!rows.length) throw new NotMeasurable('no samples');
+    const depth = (r: SampleRow, t: [number, number]) => Loaded.topWater(r, t[0], t[1]).depth;
+    let seepMax = 0;
+    for (const r of rows) seepMax = Math.max(seepMax, depth(r, e.seep.anchor));
+    const last = rows.at(-1)!;
+    const seepEnd = depth(last, e.seep.anchor), sourceEnd = depth(last, e.source.tile);
+    const g = c.L.snapshot('end')?.sources.find((x) => x.id === e.seep!.id);
+    const ok = seepEnd >= 0.6 && seepEnd <= 0.95 && seepMax <= 1.0 && sourceEnd > 2;
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(last.day - D0)} days the water over the seep is ${f3(seepEnd)} deep (highest ${f3(seepMax)}) and the seep's current strength ${g?.source ? `${f3(g.source.current)} of ${f3(g.source.specified)}` : 'is not recorded'}; over the source of the same strength it is ${f3(sourceEnd)}` };
+  },
+  'parity-delay'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.delayed || !e.now) throw new NotMeasurable('the manifest has no delayed source');
+    const s0 = need(c.L.snapshot('start'), 'start'), s1 = need(c.L.snapshot('end'), 'end');
+    const W = c.L.info.W;
+    const cur = (s: MapSnapshot, id: string) => s.sources.find((x) => x.id === id)?.source?.current;
+    const wet = (s: MapSnapshot, t: [number, number]) => (s.depth[t[1] * W + t[0]] || 0) > 0.02;
+    const d0 = cur(s0, e.delayed.id), d1 = cur(s1, e.delayed.id), n0 = cur(s0, e.now.id);
+    if (d0 === undefined || d1 === undefined || n0 === undefined) throw new NotMeasurable('the sources are not in the snapshots');
+    const first = c.L.samples().find((r) => Loaded.topWater(r, e.delayed!.tile[0], e.delayed!.tile[1]).depth > 0.02);
+    const ok = Math.abs(d0) < 1e-6 && d1 > 0 && n0 > 0 && !wet(s0, e.delayed.tile) && wet(s1, e.delayed.tile) && wet(s1, e.now.tile);
+    return { verdict: ok ? 'passed' : 'failed', detail: `the delayed source (cycle ${e.delayed.cycles}, ${e.delayed.days} days): current strength ${f3(d0)} at the load and ${f3(d1)} after ${f2(s1.day - D0)} days; its tile ${wet(s0, e.delayed.tile) ? 'wet' : 'dry'} at the load and ${wet(s1, e.delayed.tile) ? 'wet' : 'dry'} at the end${first ? `, first wet at day ${f2(first.day - D0)}` : ''}; the source that runs at once: ${f3(n0)} at the load, its tile ${wet(s1, e.now.tile) ? 'wet' : 'dry'} at the end` };
+  },
+  'parity-sink'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.sink || !e.pits?.length) throw new NotMeasurable('the manifest has no sink');
+    const s1 = need(c.L.snapshot('end'), 'end');
+    const W = c.L.info.W;
+    const [x0, y0, w, h] = e.pits[0];
+    const cur = s1.sources.find((x) => x.id === e.sink!.id)?.source?.current;
+    const d = waterDiff(c.L.info, s1, undefined, (t) => t % W >= x0 && t % W < x0 + w && Math.floor(t / W) >= y0 && Math.floor(t / W) < y0 + h);
+    const ok = cur !== undefined && cur < 0 && d.within01 >= 0.9;
+    return { verdict: ok ? 'passed' : 'failed', detail: `the sink's current strength ${cur === undefined ? 'is not recorded' : f3(cur)}; the pit's water after ${f2(s1.day - D0)} days against the file's (the editor's settle with the sink in it): ${waterText(d)}` };
+  },
+  'parity-drain'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.drain) throw new NotMeasurable('the manifest has no drain');
+    const s0 = need(c.L.snapshot('start'), 'start');
+    const bad = ['badtide1-day1', 'badtide1-end'].map((m) => c.L.snapshot(m)).filter((x): x is MapSnapshot => !!x);
+    if (!bad.length) throw new NotMeasurable('no snapshot in the badtide');
+    const W = c.L.info.W;
+    const cur = (s: MapSnapshot) => s.sources.find((x) => x.id === e.drain!.id)?.source?.current;
+    const front = e.drain.pit[1] * W + e.drain.pit[0] + 2 * W + 2;
+    const c0 = cur(s0);
+    const running = bad.map(cur);
+    const dirty = Math.max(...bad.map((s) => s.contamination[front] || 0));
+    const ok = c0 !== undefined && Math.abs(c0) < 1e-6 && running.some((v) => v !== undefined && v > 0) && dirty > 0.5;
+    return { verdict: ok ? 'passed' : 'failed', detail: `the drain's current strength ${c0 === undefined ? 'is not recorded' : f3(c0)} at the load and ${running.map((v) => (v === undefined ? 'not recorded' : f3(v))).join(' / ')} in the badtide (day 1 / end); the badwater in its pit at most ${f3(dirty)}` };
+  },
+  'parity-aquifer'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.aquifer) throw new NotMeasurable('the manifest has no aquifer');
+    const W = c.L.info.W;
+    const snaps = [c.L.snapshot('start'), c.L.snapshot('end')].filter((x): x is MapSnapshot => !!x);
+    if (!snaps.length) throw new NotMeasurable('no snapshots');
+    const rows = snaps.map((s) => ({ cur: s.sources.find((x) => x.id === e.aquifer!.id)?.source?.current, wet: (s.depth[e.aquifer!.tile[1] * W + e.aquifer!.tile[0]] || 0) > 0.02 }));
+    const ok = rows.every((r) => r.cur !== undefined && Math.abs(r.cur) < 1e-6 && !r.wet);
+    return { verdict: ok ? 'passed' : 'failed', detail: `the aquifer's current strength ${rows.map((r) => (r.cur === undefined ? 'not recorded' : f3(r.cur))).join(' / ')} and its tile ${rows.map((r) => (r.wet ? 'wet' : 'dry')).join(' / ')} (load / end)` };
+  },
+  'parity-reserves'(c) {
+    const e = c.L.prepared.game.parity!;
+    const list = [e.pile, e.warehouse, e.tank].filter((x): x is { id: string; good: string; amount: number } => !!x);
+    const game = new Map((c.L.result!.entitiesAtStart ?? []).map((g) => [g.id, g]));
+    const missing = list.filter((r) => !game.has(r.id));
+    return { verdict: missing.length ? 'failed' : 'passed', detail: `${list.length - missing.length} of ${list.length} reserves stand where they were placed (${list.map((r) => `${r.amount} ${r.good}`).join(', ')} written in the file); the amounts the game holds are not recorded${missing.length ? `; missing ${missing.map((r) => r.id).join(', ')}` : ''}` };
+  },
+  'parity-core'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.core || !e.expectedHeights || !e.removed || !e.watched) throw new NotMeasurable('the manifest has no core');
+    const s1 = need(c.L.snapshot('end'), 'end');
+    const W = c.L.info.W;
+    const wrong = e.expectedHeights.filter(([x, y, hh]) => s1.terrain[y * W + x] !== hh);
+    const ends = new Set((c.L.result!.entitiesAtEnd ?? []).map((g) => g.id));
+    const alive = e.removed.filter((o) => ends.has(o.id));
+    let near = 0;
+    for (const [x, y, d] of e.watched) if (Math.abs((s1.depth[y * W + x] || 0) - d) <= 0.15) near++;
+    const share = e.watched.length ? near / e.watched.length : 1;
+    const ok = wrong.length === 0 && alive.length === 0 && share >= 0.85;
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days: ${e.expectedHeights.length - wrong.length} of ${e.expectedHeights.length} cleared tiles at the preview's height${wrong.length ? ` (${wrong.slice(0, 4).map(([x, y, hh]) => `(${x}, ${y}) ${hh} → ${s1.terrain[y * W + x]}`).join(', ')})` : ''}; ${e.removed.length - alive.length} of ${e.removed.length} objects the preview deleted are gone${alive.length ? ` (still there: ${alive.slice(0, 4).map((o) => `${o.template} (${o.x}, ${o.y})`).join(', ')})` : ''}; the water within 0.15 of the preview on ${pct(share)} of ${e.watched.length} watched tiles` };
+  },
+  'parity-succulents'(c) {
+    const e = c.L.prepared.game.parity!;
+    if (!e.dry || !e.moist) throw new NotMeasurable('the manifest has no succulents');
+    const s1 = need(c.L.snapshot('end'), 'end');
+    const by = new Map(s1.plants.map((p) => [p.id, p]));
+    const alive = (ids: string[]) => ids.filter((i) => by.get(i)?.plant && !by.get(i)!.plant!.dead).length;
+    const seen = (ids: string[]) => ids.filter((i) => by.has(i)).length;
+    const dryAlive = alive(e.dry), moistAlive = alive(e.moist);
+    const ok = seen(e.dry) === e.dry.length && dryAlive === e.dry.length && e.moist.length - moistAlive >= Math.ceil(0.8 * e.moist.length);
+    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s1.day - D0)} days: ${dryAlive} of ${e.dry.length} succulents on dry soil alive, ${e.moist.length - moistAlive} of ${e.moist.length} on moist soil dead` };
+  },
+
   A1(c) {
     const v = loadVerdict(c);
     return { verdict: v.verdict, detail: `measured part (the game loads the map from its file): ${v.detail}` };

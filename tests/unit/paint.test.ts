@@ -219,7 +219,7 @@ describe("a painted thorn patch is shaped as the official maps' (223 patches on 
     const fill = big.map((c) => c.length / (box(c).w * box(c).h));
     expect(mean(fill)).toBeGreaterThan(0.42);
     expect(mean(fill)).toBeLessThan(0.78);
-    // how much of a thorn's eight neighbours hold a thorn: the official patches' mean is 3.0 of 8
+    // how much of a thorn's eight neighbours hold a thorn: the official patches' median is 3.5 of 8
     const nb = big.map((c) => {
       const s = new Set(c);
       return c.reduce((a, i) => a + [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => (dx || dy) && s.has(i + dx + dy * W) ? 1 : 0)).reduce<number>((p, v) => p + v, 0), 0) / c.length;

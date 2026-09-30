@@ -104,7 +104,10 @@ editor is desktop-first (D185).
   resize (D226, D322).
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
-  bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
+  bush**, **Succulent**, **Mixed woods**, ruins, the mine site, relics, slopes, thorns and the rest, then the game's other
+  objects (D337, D338): the **Water seep**, **Badwater seep**, **Aquifer** and **Aquifer drill**, the **Badtide drain**, the
+  **Unstable core** and the **Reserve pile**, **warehouse** and **tank**, each a small render in the map's look (an original
+  model in both looks, in the stone basins' style; the game's own files are never used). Picking one shows a live ghost that follows the
   cursor, green where it fits and red where it doesn't, with **one label** beside the pointer (D323, item 32): the
   reason where it doesn't fit, "Move the start here" for the start where it does, "Place here" for the rest; nothing
   picked, no label. Click to place, R to rotate; **Esc or a right-click puts a picked object away** (a right-drag is
@@ -124,15 +127,44 @@ editor is desktop-first (D185).
   generated map's start already levels its own bench. A placed source starts at the game's own default strength
   (D323, item 46: 1 water/s for a water source and 3 for a badwater source, the `DefaultStrength` of the game's
   blueprints, both among the official maps' strengths); the strength can still be changed.
-  **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
-  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
-  size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
-  naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
-  field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
-  trees and bushes on dry ground tint the brush amber with a quiet "dry ground: these will die" (still allowed); trees
-  have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size places exactly one; each stroke
-  is one undo step, and Select and Delete clear them (D288). Unique landmarks stay single-placement: the start, the mine site,
-  relics and geothermal fields.
+  **Scatter-type items place like a brush** (D235, completed by D338): **Pine**, **Birch**, **Oak**, **Berry bush**,
+  **Succulent**, **Mixed woods**, **Ruin** and **Thorns** show a ring on the land with the terrain brushes' grammar: a
+  **Size** (a number and a slider up to half the map, F or [ and ] to resize, its size beside the pointer; size 1 places
+  exactly one, and a quick click places exactly one at any size), a **Density** (a sparse scatter to a dense grove; for a
+  ruin field or a thorn patch, the share of the ground it covers), and for trees, succulents and mixed woods an **Age**:
+  **Grown** (the default; the starting-logs floor counts only grown trees, D224) or **Mixed**, the generator's own share of
+  saplings (35%, growth 0.2 to 0.95). Before the button comes up the ground shows the stroke's plan, green where an object
+  lands: the same plan (`core/gen/paint.ts`) the operation makes. Painting over objects fills the gaps up to the density
+  (what stands there counts toward it), never stacking two on a tile, only on dry, free ground (no water, no cave, no other
+  object). Trees and bushes planned on dry ground tint amber with a quiet "dry ground: these will die" (succulents on moist
+  ground: "wet ground: these will die"); still allowed. **Mixed woods** paints the generator's own Pine, Birch and Oak
+  mix (47, 27, 20) in one stroke; the faction-only plants stay off the shelf, as in the game's editor. A **ruin field** is grown as
+  the generator grows one (`gen/blobs.ts` growth with the official gaps over an ellipse of a random stretch, one level, fields
+  of the calibrated size for the map, a tile of moat between them; storeys, models and turns in the official shares), so a
+  painted field is indistinguishable from a generated one; a click places one column at the height in the options. A **thorn
+  patch** is shaped as the official maps' are (a blotchy blob of about 7 tiles (3 to 13 in the middle of the official ones), about twice as long as wide, filling about 0.6 of its box, each thorn turned and
+  flipped at random; measured in `docs/FINDINGS.md`, "Thorns"); a click places one. Each stroke is one undo step (the
+  `paintObjects` operation, D342), and Select and Delete clear them (D288). Unique landmarks stay single-placement: the start,
+  the mine site, relics and geothermal fields.
+  **The game's other objects** (D337, D338, D339; every value read from the game's data, `core/data/parity.ts`): the
+  **Water seep** and **Badwater seep** (2 × 2) stop while more than 0.8 of water stands over them, so they never fill a
+  crater; an **Aquifer** (3 × 3) with its **Aquifer drill** gives no water at the map's start (the drill has no power); the
+  **Badtide drain** (1 × 3, facing the way it flows: R turns it) emits badwater only during a badtide and runs in the day-by-day
+  Badtide view (#73) when that lands. Every water object but an aquifer has a **start delay** behind **More**: "Starts: At once"
+  (the default) or from cycle N with a countdown of D days (cycles from 1, days from 0); the water view shows a delayed source as
+  not yet running. **Sink** (also behind More) makes the strength negative: instead of giving water it drains what stands on it,
+  as the game allows. A strength is at most 8 for each tile an object emits into (8 for a source, 32 for a seep, 72 for a badwater
+  source), never clamped: over the ceiling is refused with the number. New objects start at the game's defaults (water 1,
+  badwater 3, the rest 1). The **Unstable core** (2 × 2) has a **Radius** (0 to 5, default 5) and a **Cycle** (default 5, its
+  countdown 10.5 days); it explodes a sphere of radius + 1 round its middle at its base's height, clearing every voxel of ground
+  in it and every object with a block in it, after which ground more than 3 sideways steps from support falls (the game's own
+  rule, `core/sim/explosion.ts`; a core the blast reaches goes off too). Selected, it says what it will clear, and **Show after
+  it goes off** draws the map as it will be (the land, the objects, the water settled again): a view only, back with Esc, the
+  button or any edit. The **Reserve pile** (160), **warehouse** (200) and **tank** (300) each hold one good of their kind
+  (only goods the game allows), full at first (the first good the game's editor offers: dirt, berries, badwater), written with
+  `FixedStockpile` as the official maps store it. A click on a placed one selects it and shows its options; Delete removes it;
+  Markers labels each one ("Reserve pile · 100 Log", "Unstable core · radius 3 · goes off in cycle 5", "Water seep · 1 water/s").
+  Natural Overhangs are not on the shelf: they are terrain above terrain and come with the Block tool (D338, ROADMAP step 3).
 - **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down, off for the usual
   orbit), Reset view, Height colours, **Level lines** (beside Height colours, D248: a thin line wherever the ground
   steps down a level, off by default, whatever tool is picked), Markers (the sources and the slopes), Clear water and
@@ -386,6 +418,9 @@ Make a valley, drop a source, and there's a river.
   The brush ring itself turns a clear water-blue and slightly thicker, with a faint fill as a second
   cue; ordinary Lower keeps the white ring. Readable over water, badwater, every ground and in
   colour-blind views (D198).
+- **The other water objects** (D337): the seeps, the aquifer and its drill, the badtide drain, a source's **start delay** and
+  **Sink** (a negative strength) are on the shelf's other objects (§3): the water model handles them as the game's does (a sink takes
+  down the water on its tiles as the game's `WaterDepthSetter` does, a seep switches off above 0.8 and back on below 0.72).
 - **Water source and Badwater source** (D212): first on the left shelf, before the start (D226's
   order). Click to
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
@@ -558,7 +593,7 @@ top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space 
 it back (in Watch, Esc jumps it to its final land); the other keys wait, Z and C among them. A river's or a fault's
 line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Watch is a view-bar
 toggle with no key.
-Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size (a brush from the shelf too), Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live (a brush from the shelf too), its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
@@ -693,8 +728,12 @@ depth in levels, a stop level) and ramped edges with the slopes a ramped stroke 
 ground it leaves, clear of objects, water and the tiles the build keeps free; each placed again by every build while it
 still fits; a ramped stroke from before D270 has none and the slope planner joins its steps, as it did), Smooth's walkable flag (only on strokes saved before D247, which still replay exactly), and a pen's pressure per dab. Strokes saved before D322 replay
 exactly (`tests/contract/strokesBeforeD322.test.ts`, on strokes recorded by the code before it). A source's strength
-changed in steps (a slider, Ctrl+scroll) is one undo step. An object from the shelf is `placeEntity` (a
-drag's grove is one step of them, on the tiles where a tree can grow); the start moves, and turns
+changed in steps (a slider, Ctrl+scroll) is one undo step. An object from the shelf is `placeEntity`, with the components the game's editor writes, in its
+order (D337, D338: `core/doc/objectOps.ts`; a strength above its ceiling, a delay the game's editor does not take, a radius outside 0 to 5, a
+good a reserve cannot hold are each refused in words, never clamped), and its options are `setEntityProps`; a brush stroke is
+one `paintObjects` (its kind, the tiles it covers as runs, a density, an age and a seed: the map plans it as it stands, on dry free
+ground, and the log keeps the objects it placed, one step); what a core will clear is a question, `blastInfo` and `explosionAfter` in
+`core/doc/blast.ts`, answered in plain data (D339, D342); the start moves, and turns
 with the shelf's R, in one step; Delete is `deleteEntities`, with `removeSlope` for the slopes the
 build places, and never touches the ground or the start. A stroke with Sources: **Clear** is one
 step of the `brush` and a `deleteEntities` of the sources it pressed on (D249, D322), also when it changed no ground. A force's run becomes one operation whose

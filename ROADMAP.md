@@ -1624,7 +1624,9 @@ Once M9b has settled (D280 (4)).
 4. Traversal: derived slopes on the floor graph, and rewards planned on stairs-only heights.
 5. Relief to 22 at Verticality 70 and above comes with M9a, unlocked: the tall-maps probe batch
    passed (run 20260925-tall, D172).
-6. NaturalOverhang bridges and badtide drains in cliff notches (from Later).
+6. NaturalOverhang bridges and badtide drains in cliff notches (from Later): the Natural Overhangs are terrain above terrain,
+   so a player places them by hand with the **Block tool** of step 3 (PLAN §20 D335, D338), not from the shelf; here the
+   generator places them in notches. The Badtide drain itself is on the shelf already (D337).
 7. The 3D measures in the batch and the M9 measure suite.
 
 **Acceptance**

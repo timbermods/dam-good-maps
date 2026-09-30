@@ -13,7 +13,7 @@ import type { Action, Cycle, Pose } from './job';
 import { NEW_GAME_DAY } from './job';
 import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
-import { ceilingDir, REPO, tallDir } from './paths';
+import { ceilingDir, parityDir, REPO, tallDir } from './paths';
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
 import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
 import { DIFFICULTY_RULES } from '../../../src/core/spec/mapspec';
@@ -60,6 +60,8 @@ export interface GameDef {
   tall?: TallEntry;
   /** A ceiling map's entry in ceiling.json (tools/probe-ceiling.ts). */
   ceiling?: CeilingEntry;
+  /** A parity map's entry in parity.json (tools/probe-parity.ts). */
+  parity?: ParityEntry;
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -122,6 +124,62 @@ export interface CeilingEntry {
   /** The editor's settled water the probe watches, nearest its edits: flowing tiles and standing ones. */
   flowTiles: [number, number][];
   poolTiles: [number, number][];
+}
+
+/** One map of parity.json, the manifest tools/probe-parity.ts writes beside the parity maps (PLAN §20 D337, D338,
+ *  D339): one sample of each object the shelf gained, made in the editor's core. Which of the fields a map has
+ *  depends on what it tests (its id says: seeps, delay, sink, drain, reserves, core, succulents). */
+export interface ParityEntry {
+  id: string;
+  title: string;
+  tests: string;
+  file: string;
+  sha256: string;
+  size: [number, number];
+  days: number;
+  badtide: boolean;
+  focus: [number, number];
+  edits: string[];
+  // parity-seeps: a seep and a source, each in its own pit
+  seep?: { id: string; anchor: [number, number] };
+  source?: { id: string; tile: [number, number] };
+  pits?: [number, number, number, number][];
+  // parity-delay: a source that runs at once and one that waits
+  now?: { id: string; tile: [number, number] };
+  delayed?: { id: string; tile: [number, number]; cycles: number; days: number };
+  // parity-sink: a source and a sink in one pit
+  inflow?: { id: string; tile: [number, number] };
+  sink?: { id: string; tile: [number, number] };
+  // parity-drain: the badtide drain, the aquifer and its drill
+  drain?: { id: string; tile: [number, number]; pit: [number, number, number, number] };
+  aquifer?: { id: string; tile: [number, number] };
+  drill?: { id: string };
+  // parity-reserves
+  pile?: { id: string; good: string; amount: number };
+  warehouse?: { id: string; good: string; amount: number };
+  tank?: { id: string; good: string; amount: number };
+  // parity-core: the core, the ground and objects the editor's preview says it clears, the water it settles
+  core?: { id: string; tile: [number, number]; radius: number; cycles: number; days: number };
+  expectedHeights?: [number, number, number][];
+  removed?: { id: string; template: string; x: number; y: number }[];
+  watched?: [number, number, number][];
+  // parity-succulents: the ones on dry soil and the ones on moist soil
+  dry?: string[];
+  moist?: string[];
+}
+
+/** The parity maps tools/probe-parity.ts wrote (none until it has run). */
+export function parityMaps(): ParityEntry[] {
+  const f = join(parityDir(), 'parity.json');
+  if (!existsSync(f)) return [];
+  return (JSON.parse(readFileSync(f, 'utf8')) as { maps: ParityEntry[] }).maps;
+}
+
+/** A parity map's bytes, exactly the file the tool checked (its sha256 in parity.json). */
+function parityBytes(t: ParityEntry): Uint8Array {
+  const b = new Uint8Array(readFileSync(join(parityDir(), t.file)));
+  if (createHash('sha256').update(b).digest('hex') !== t.sha256) throw new Error(`${t.file} is not the file parity.json describes: run npx tsx tools/probe-parity.ts again`);
+  return b;
 }
 
 /** The ceiling maps tools/probe-ceiling.ts wrote (none until it has run). */
@@ -261,6 +319,23 @@ export const CEILING = {
     why: "the probe cannot place buildings: the mod has no construction (INTEGRATION.md §5, the bot colony); building on the slopes and the summit is on Kyler's hands-on checklist",
   },
 } satisfies Record<string, CheckDef>;
+
+/** The parity maps' own checks (PLAN §20 D337, D338, D339): each object the shelf gained, in the game. compare.ts
+ *  states each one's tolerance in its verdict. */
+export const PARITY = {
+  load: { id: 'parity-load', title: 'Loads: no loading issue, no error or exception in the log, every object in the file in the game at its tile', how: 'measure' },
+  seep: { id: 'parity-seep', title: 'A Water Seep stops at 0.8 deep: after its pit has filled, the seep holds the water over it between 0.6 and 0.95 (never above 1.0), while the Water Source of the same strength in the other pit fills its pit over 2 deep', how: 'measure' },
+  delay: { id: 'parity-delay', title: "A delayed source starts when its countdown ends: its current strength is 0 at the load and above 0 by the end, its pit dry at the load and wet by the end, the source that runs at once wet throughout", how: 'measure' },
+  sink: { id: 'parity-sink', title: "A sink drains: its current strength is negative in the game, and the pit's water after 3 days matches the file's (the editor's settle with the sink in it) within 0.1 on 90% of the wet tiles", how: 'measure' },
+  drain: { id: 'parity-drain', title: "A Badtide Drain runs only in a badtide: its current strength is 0 at the load and above 0 on the badtide's first day, with badwater (contamination above 0.5) on the tile in front of it", how: 'measure' },
+  aquifer: { id: 'parity-aquifer', title: "An Aquifer with its drill gives no water at the map's start: the aquifer's current strength is 0 and its tile is dry, at the load and at the end", how: 'measure' },
+  reserves: { id: 'parity-reserves', title: 'Each reserve loads and stands where it was placed, holding its good', how: 'partial', why: 'the probe records objects, not their inventories: the goods each holds are judged by eye from the screenshots and by the game loading them (a reserve with a good its kind cannot hold is a loading issue)' },
+  core: { id: 'parity-core', title: "An Unstable Core goes off in its cycle, and the land and water afterwards are what the editor's preview drew: the ground the preview cleared is as it says (every tile's height), the objects it deleted are gone, the water round the crater within 0.15 deep on 85% of the watched tiles", how: 'measure' },
+  succulents: { id: 'parity-succulents', title: "Succulents survive where the game's soil keeps them: those painted on dry ground are alive after 4 days, those on moist ground are dead (a succulent dies if moist)", how: 'measure' },
+} satisfies Record<string, CheckDef>;
+
+/** The parity maps' weather: a temperate day, a 3-day badtide (the drain's map), then calm. */
+export const PARITY_BADTIDE: Cycle[] = [{ temperateDays: 1, hazard: 'badtide', hazardDays: 3 }, { temperateDays: 60, hazard: 'drought', hazardDays: 0 }];
 
 /** The ceiling maps' weather: two temperate days (the water checks), a 2-day drought, two temperate days,
  *  a 2-day badtide, then calm. */
@@ -508,6 +583,33 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
         { id: 'ceiling', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW, pitch: deg(45), distance: 50 * far, fovY: 40, width: 1280, height: 800 },
         { id: 'ceiling-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 70 * far, fovY: 40, width: 1280, height: 800 },
         { id: 'ceiling-close', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW - Math.PI / 3, pitch: deg(30), distance: 22, fovY: 40, width: 1280, height: 800 },
+      ],
+      checks,
+    });
+  }
+
+  // Parity (PLAN §20 D337, D338, D339): one sample of each object the shelf gained, made in the editor's core with
+  // tools/probe-parity.ts into C:\dgm-probe\parity. Normal; the drain's map plays a badtide, the others stay calm.
+  for (const t of parityMaps()) {
+    const checks: CheckDef[] = [PARITY.load];
+    if (t.id === 'parity-seeps') checks.push(PARITY.seep);
+    if (t.id === 'parity-delay') checks.push(PARITY.delay);
+    if (t.id === 'parity-sink') checks.push(PARITY.sink);
+    if (t.id === 'parity-drain') checks.push(PARITY.drain, PARITY.aquifer);
+    if (t.id === 'parity-reserves') checks.push(PARITY.reserves);
+    if (t.id === 'parity-core') checks.push(PARITY.core);
+    if (t.id === 'parity-succulents') checks.push(PARITY.succulents);
+    const watch: [number, number][] = [];
+    const add = (p?: [number, number]) => p && watch.push(p);
+    add(t.seep?.anchor); add(t.source?.tile); add(t.now?.tile); add(t.delayed?.tile); add(t.inflow?.tile); add(t.sink?.tile); add(t.drain?.tile); add(t.aquifer?.tile);
+    if (t.drain) watch.push([t.drain.pit[0] + 2, t.drain.pit[1] + 2]);
+    for (const [x, y] of t.watched ?? []) if (watch.length < 20 && (x + y) % 3 === 0) watch.push([x, y]);
+    games.push({
+      id: t.id, title: t.title, group: 'Parity', parity: t, bytes: memo(() => parityBytes(t)), faction: 'Folktails', mode: 'Normal',
+      cycles: t.badtide ? PARITY_BADTIDE : [calm], days: t.days, tiles: () => watch.slice(0, 20), sampleHours: 1, snapshotsAt: [0.05, 0.5, 1, 2, 3],
+      poses: (m) => [
+        { id: 'parity', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW, pitch: deg(45), distance: 30, fovY: 40, width: 1280, height: 800 },
+        { id: 'parity-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 34, fovY: 40, width: 1280, height: 800 },
       ],
       checks,
     });

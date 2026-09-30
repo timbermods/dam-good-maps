@@ -136,6 +136,12 @@ declare global {
       forceTiming(): { worked: number; final: number; kept: number } | null;
       /** The last stroke painted (its operation's params), or null. */
       lastStroke(): BrushParams | null;
+      /** A shelf brush's plan before release (D338): what would be placed, and where the ground will kill it. */
+      ghost(): { placed: number; amber: number; templates: string[] } | null;
+      /** The shelf brush's size, density and age now. */
+      shelfBrush(): { size: number; density: Record<string, number>; age: string };
+      /** The blast view (D339): whether the map shows the core gone off. */
+      blastShown(): boolean;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
       startHint(): { x: number; y: number; strong: boolean; ms: number } | null;
       /** The editor's sounds (D226): the recorded bank ready, and recordings playing now. */
@@ -216,6 +222,8 @@ export default function Editor(props: EditorProps) {
   const [blast, setBlast] = useState<{ id: string; roofed: number } | null>(null);
   const blastRef = useRef(blast);
   blastRef.current = blast;
+  const blastShownRef = useRef(false);
+  blastShownRef.current = blast !== null; // (set once the map is back: `blastRef` clears when the restore starts)
   /** The shelf's icons, drawn by the view once it is ready. */
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
@@ -3813,6 +3821,9 @@ export default function Editor(props: EditorProps) {
       worker: api,
       strokeMismatches: () => strokeMismatches.current,
       lastStroke: () => localUndo.current.at(-1)?.params ?? null,
+      ghost: () => (paintedRef.current ? { placed: paintedRef.current.plan.length, amber: paintedRef.current.amber.length, templates: [...new Set(paintedRef.current.plan.map((o) => o.template))] } : null),
+      shelfBrush: () => ({ size: shelfOptionsRef.current.size, density: { ...shelfOptionsRef.current.density }, age: shelfOptionsRef.current.age }),
+      blastShown: () => blastShownRef.current,
       pendingTerrain: () => pendingTerrain.current,
       carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),

@@ -260,7 +260,7 @@ export function markerNotes(entities: readonly { id: string; template: string; x
       const strength = o.strength ?? 1;
       const plain = e.template === "WaterSource" || e.template === "BadwaterSource";
       if (plain && strength >= 0 && !o.timed?.enabled) continue;
-      const kind = e.template.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+      const kind = e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase());
       words.push(plain ? "" : kind);
       words.push(strength < 0 ? `sink ${-strength} ${bad}/s` : `${strength} ${bad}/s`);
       if (spec.needsDrill) words.push("no water until a powered drill stands on it");
@@ -268,7 +268,7 @@ export function markerNotes(entities: readonly { id: string; template: string; x
       if (o.timed?.enabled) words.push(delayWords(o.timed));
     } else if (e.template === "AncientAquiferDrill") words.push("Aquifer drill", "unpowered at the start");
     else if (e.template === "UnstableCore") words.push("Unstable core", `radius ${o.radius}`, `goes off in cycle ${o.cycles}`);
-    else if (isReserve(e.template)) words.push(e.template.replace(/^Reserve/, "Reserve "), `${o.amount} ${goodName(o.good ?? "")}`);
+    else if (isReserve(e.template)) words.push(e.template.replace(/^Reserve/, "Reserve ").toLowerCase().replace(/^./, (c) => c.toUpperCase()), `${o.amount} ${goodName(o.good ?? "")}`);
     // (the middle of its footprint, turned as it is)
     const tiles = footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped });
     const cx = tiles.length ? tiles.reduce((a, t) => a + t[0], 0) / tiles.length + 0.5 : e.x + 0.5;

@@ -34,6 +34,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [brushes.md](brushes.md) | Batch 2, the brushes (D322): the target level as the game's editor, Ground, Water and Both, Sources Ride, Keep or Clear, bigger brushes, Clear's ghost sources (branch `feature/brushes`) | 2026-09-29 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
 | [select-shelf.md](select-shelf.md) | Select, Delete, the shelf and shortcuts (batch 3, D323 and D328; branch `feature/select-shelf`) | 2026-09-29 |
+| [parity.md](parity.md) | Parity with Timberborn's map editor: the water objects, the Unstable Core and its blast view, the reserves, the brushes with size, density and age (D337, D338, D339; branch `feature/parity`) | 2026-09-29 |
 
 A milestone's date is the day of its `m<N>-done` tag.
 
