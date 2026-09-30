@@ -2,7 +2,7 @@
 // forces group (key -), its row only Power, Size (Auto), Meltwater and Try another; a click Flows and a
 // drag draws its path, the line showing as it is drawn (D321 item 41: no route, outline or footprint on
 // the land); the
-// camera never moves on its own; Fast's pace or Watch's, never the water's speed (D321); kept as one undo step
+// camera never moves on its own; Fast's pace or Slow forces', never the water's speed (D321); kept as one undo step
 // exactly as shown, Ctrl+Z takes it back at once (Esc skips it to its end, D344 A4), Try another
 // varies it and undo brings the first back.
 

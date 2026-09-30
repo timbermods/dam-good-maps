@@ -25,8 +25,8 @@ import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTileFacts, type TileObject } from "../core/doc/describeTile";
-import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
-import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
+import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, withOwnStrength, type StartCheck, type StartStatus, type TileContext } from "./features";
+import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, SourceReadout, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { isPickable, pickWinner, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 import { modalLevel } from "../core/features/footprintLevel";
@@ -73,7 +73,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, GHOST_OK, STATUS_COLOR, WARN, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -316,7 +316,7 @@ export default function Editor(props: EditorProps) {
   }, [info.badwaterRemoved]);
   const [viewTick, setViewTick] = useState(0);
   // the footprint under the pointer (an object from the shelf) and the source clicked (D196)
-  const [fit, setFit] = useState<{ tiles: number[]; problem: string | null; level?: number } | null>(null);
+  const [fit, setFit] = useState<{ tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null>(null);
   const [picked, setPicked] = useState<{ x: number; y: number; list: EntityInfo[] } | null>(null);
   /** An object picked with the plain pointer (D345, B7): a mine site, a relic and the like. */
   const [pickedObject, setPickedObject] = useState<EntityInfo | null>(null);
@@ -881,11 +881,18 @@ export default function Editor(props: EditorProps) {
     const layers: OverlayLayer[] = [];
     if (waterLayers && layer !== "none") layers.push(...layerOverlay(waterLayers, layer));
     if (painted) layers.push({ tiles: painted, color: GOOD });
-    else if (fit) layers.push({ tiles: fit.tiles, color: fit.problem ? BAD : GOOD });
+    else if (fit) {
+      // (the start's colour says what it is: green fits and meets, amber misses, red cannot stand; D361)
+      const color = fit.problem ? BAD : fit.status === "warn" ? WARN : GOOD;
+      if (fit.status !== "pending") layers.push({ tiles: fit.tiles, color });
+    }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
+    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startStatus(startDrag.check)] });
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
+    // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
+    if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });
+    if (picked) for (const e of picked.list) layers.push({ tiles: footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: 0, orientation: e.orientation, flipped: e.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
     if (selection.current.count) {
       // the working area (D254): the land outside it is locked, and dimmed
@@ -906,7 +913,7 @@ export default function Editor(props: EditorProps) {
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
+  }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor
   useEffect(() => {
@@ -1094,6 +1101,14 @@ export default function Editor(props: EditorProps) {
    *  at once, the new strength beside the pointer; one adjustment is one undo step. */
   const sourceWheel = useRef<{ key: string; record: Promise<EntityInfo | null>; value: number | null; sent: number | null; busy: boolean } | null>(null);
   const wheelNoteTimer = useRef(0);
+  /** A source's strength, by its index in the page's objects. */
+  const strengthOfEntity = (k: number) => mirror.current.entities.strength[k];
+  /** A picked object's index in the page's objects (-1: none there). */
+  function entityIndexOf(e: { template: string; x: number; y: number }): number {
+    const v = mirror.current.entities;
+    for (let k = 0; k < v.count; k++) if (v.x[k] === e.x && v.y[k] === e.y && v.templates[v.template[k]] === e.template) return k;
+    return -1;
+  }
   /** Ctrl+scroll over a source sets its strength (D196; D322 moved it off Shift+scroll, which sets a
    *  brush's target level). */
   function wheelSource(ev: WheelEvent, hit: TileHit | null): boolean {
@@ -1115,7 +1130,11 @@ export default function Editor(props: EditorProps) {
       const value = steps[Math.max(0, Math.min(steps.length - 1, k + (up ? 1 : -1)))];
       state.value = value;
       const over = value > OFFICIAL_FLOW;
-      setShapeNote({ text: over ? `${value} water/s: stronger than any official map` : `${value} water/s`, ok: true, warn: over, ...at });
+      // (one number everywhere: this source's and, in a row, the row's, as the marker's label; D361)
+      const ek = entityIndexOf(e);
+      const s = ek >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, ek) : null;
+      const words = s ? sourceStrengthWords(withOwnStrength(s, value)) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
+      setShapeNote({ text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at });
       clearTimeout(wheelNoteTimer.current);
       wheelNoteTimer.current = window.setTimeout(() => {
         setShapeNote(null);
@@ -1186,6 +1205,8 @@ export default function Editor(props: EditorProps) {
   }
   /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
    *  near the pointer and those its water comes from. */
+  /** The strength of the source the pointer is on, in words, the same as its marker's label (D361, item 6). */
+  const pointedWords = targeted !== null ? (() => { const s = sourceStrengths(groups, strengthOfEntity, targeted); return s ? sourceStrengthWords(s) : null; })() : null;
   const targetGroup = targeted === null ? -1 : groups.findIndex((g) => g.members.includes(targeted));
   const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding, ...(targetGroup >= 0 ? [targetGroup] : [])])];
   const markerRef = useRef(false);
@@ -1339,6 +1360,7 @@ export default function Editor(props: EditorProps) {
   }
 
   // the footprint under the pointer: one check in flight, then the latest tile
+  const shelfStartJob = useRef(0);
   const fitWant = useRef<string | null>(null);
   const fitBusy = useRef(false);
   /** The worker's footprint check of an object at a spot, a request at a time (the latest wins). */
@@ -1395,11 +1417,24 @@ export default function Editor(props: EditorProps) {
       const tiles: number[] = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H) tiles.push((y + dy) * W + x + dx);
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
-      setFit({ tiles: own, problem });
+      const job = ++shelfStartJob.current;
+      setFit({ tiles: own, problem, status: problem ? "blocked" : "pending" });
       shelfWord(problem);
+      if (!problem && mirror.current.water) {
+        // (whether it meets the start requirements: the walks, in the start's own worker)
+        const m = mirror.current;
+        void startWorkerApi()
+          .check({ W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x, y, door, bench, self: s.owner, needs })
+          .then((check) => {
+            if (job !== shelfStartJob.current || !mounted.current || !shelfRef.current) return;
+            setFit({ tiles: own, problem: check.problem, status: startStatus(check) });
+            renderer.current?.setGhost({ ...ghostAt.current!, ok: GHOST_OK[startStatus(check)] });
+          })
+          .catch(() => undefined);
+      }
       // (an opened map's start is levelled to the height most of its footprint stands at: D328)
       ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : modalLevel(own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
-      r.setGhost({ ...ghostAt.current, ok: !problem });
+      r.setGhost({ ...ghostAt.current, ok: problem ? false : null });
       return;
     }
     const template = templateOf(item, shelfOptionsRef.current);
@@ -1737,7 +1772,7 @@ export default function Editor(props: EditorProps) {
   glaciateUiRef.current = glaciateUi;
   /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
   const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
-  /** Watch (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
+  /** Slow forces (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
   const [watch, setWatch] = useState(forcesPrefs.watch);
   const watchRef = useRef(watch);
   watchRef.current = watch;
@@ -1897,7 +1932,7 @@ export default function Editor(props: EditorProps) {
     error: (text) => setMessage({ kind: "error", text: plain(text) }),
     moment: (f) => {
       // (the showing's pace, D344 A7: how many of the force's own seconds a second shows, so its
-      // effects and sounds keep to its land in Fast and in Watch)
+      // effects and sounds keep to its land in Fast and in Slow forces)
       const t = forcer.current?.timing;
       const cue = t && t.show > 0 && t.total > 0 ? { ...f.cue, pace: (t.total * paceOf(f.verb).ms) / t.show } : f.cue;
       lastCue.current = cue;
@@ -1922,8 +1957,8 @@ export default function Editor(props: EditorProps) {
   });
   // (a force at work when the editor closes goes with it)
   useEffect(() => () => forcer.current?.cancel(), []);
-  // Watch (D321, item 29): a click anywhere jumps the playing force straight to its final land, so
-  // Watch never traps the player (the force's own row keeps its Pause and Revert)
+  // Slow forces (D321, item 29): a click anywhere jumps the playing force straight to its final land, so
+  // Slow forces never traps the player (the force's own row keeps its Pause and Revert)
   useEffect(() => {
     const down = (ev: PointerEvent) => {
       const st = forcer.current?.status;
@@ -1985,9 +2020,18 @@ export default function Editor(props: EditorProps) {
       aim = onMap && hit && Math.hypot(hit.x - from.x, hit.y - from.y) >= 2 ? [hit.x, hit.y] : null;
       showPath(path);
     };
+    // the window loses focus mid-drag: the release never comes, so the drag ends without unleashing (D361, item 5)
+    const lost = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("blur", lost);
+      showPath(null);
+      g.up(null);
+    };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("blur", lost);
       showPath(null);
       const end = g.up(aim ? { x: aim[0], y: aim[1] } : null);
       // (a click starts it from the button's own click: starting it here would put the row's
@@ -1998,6 +2042,7 @@ export default function Editor(props: EditorProps) {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("blur", lost);
   }
 
   /** The row while an unleashed source's carve works: Carve's own controls. */
@@ -2011,7 +2056,7 @@ export default function Editor(props: EditorProps) {
           <span class="bar-status" role="status">
             {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
           </span>
-          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
+          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it here (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
           <ForceKeys />
@@ -2658,6 +2703,14 @@ export default function Editor(props: EditorProps) {
       },
     );
   }
+  /** A picked source's strength in words, as its marker's label says it (D361, item 6). */
+  function pickedWords(e: EntityInfo): string {
+    // (its own strength from the record just read, the row's total corrected to it: never a stale number)
+    const own = Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? 1);
+    const k = entityIndexOf(e);
+    const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
+    return s ? sourceStrengthWords(withOwnStrength(s, own)) : `${own} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
+  }
   /** The row beneath the top bar for a picked source: its strength, its water, Remove. */
   function pickedRow(): { label: string; content: ComponentChildren } | null {
     if (pickedObject && !picked) {
@@ -2670,7 +2723,7 @@ export default function Editor(props: EditorProps) {
             <span class="bar-status">Drag it to move it</span>
             <button
               type="button"
-              title="Delete this object (Delete)"
+              title="Delete it (Delete)"
               onClick={() => {
                 setPickedObject(null);
                 void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
@@ -2678,7 +2731,7 @@ export default function Editor(props: EditorProps) {
             >
               Delete
             </button>
-            <button type="button" class="linkish" aria-label="Put it down" title="Put it down: nothing is picked (X or Esc)" onClick={() => setPickedObject(null)}>
+            <button type="button" class="linkish" aria-label="Put it down" title="Put it down (X or Esc)" onClick={() => setPickedObject(null)}>
               ×
             </button>
           </>
@@ -2694,7 +2747,7 @@ export default function Editor(props: EditorProps) {
       label: `${bad ? "Badwater" : "Water"} source, selected`,
       content: (
         <>
-          <label title="How much water this source gives each second (Ctrl+scroll over it changes it too)">
+          <label title="Water a second (Ctrl+scroll over it)">
             Strength
             <select aria-label="Strength" value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
               {[...new Set([...steps, strength])]
@@ -2706,37 +2759,38 @@ export default function Editor(props: EditorProps) {
                 ))}
             </select>
           </label>
-          <label title="Clean water, or badwater that beavers can't drink and that spoils the soil">
+          <SourceReadout label="This source" words={pickedWords(e)} />
+          <label title="Clean water or badwater">
             Water
             <select aria-label="Water" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
               <option value="clean">Clean</option>
               <option value="bad">Badwater</option>
             </select>
           </label>
-          <button type="button" title="Remove this source: its water drains (Delete)" onClick={() => removeSources(picked!.list)}>
+          <button type="button" title="Remove this source (Delete)" onClick={() => removeSources(picked!.list)}>
             Remove
           </button>
           <span class="bar-divider" aria-hidden="true" />
           <button
             type="button"
             class="unleash-button"
-            title="Unleash (U): the source carves its own river downhill, its width from its strength (from a pool, it breaks out where the water would spill over). Drag from here onto the land to aim it."
+            title="Carve a river from it (U)"
             onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)}
             onClick={() => unleash(e)}
           >
             Unleash
           </button>
-          <label class="slider-field" title="How hard its river cuts: a creek to a catastrophe">
+          <label class="slider-field" title="How hard its river cuts">
             Power
             <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
             <output>{powerWord(unleashPower)}</output>
           </label>
           {info.forceAgain === "carve" && lastUnleash.current === e.id ? (
-            <button type="button" onClick={() => unleashAgain(e)} title="The same source, another course (it replaces the last one)">
+            <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
               Try another
             </button>
           ) : null}
-          <button type="button" class="linkish" aria-label="Put it down" title="Put it down: nothing is picked (X or Esc)" onClick={() => setPicked(null)}>
+          <button type="button" class="linkish" aria-label="Put it down" title="Put it down (X or Esc)" onClick={() => setPicked(null)}>
             ×
           </button>
         </>
@@ -2753,14 +2807,19 @@ export default function Editor(props: EditorProps) {
       // the strength of the next one (over a placed source, Ctrl+scroll sets its own, D322)
       return {
         label: `${shelf.name} options`,
-        content: <StrengthSlider value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
+        content: (
+          <>
+            <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />
+            {pointedWords ? <SourceReadout label="Pointing at" words={pointedWords} /> : null}
+          </>
+        ),
       };
     }
     if (shelf.id === "ruin")
       return {
         label: "Ruin options",
         content: (
-          <label title="How tall the ruin is, from 1 to 8 levels (a level is 15 scrap metal)">
+          <label title="How tall the ruin is">
             Height
             <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
@@ -2776,7 +2835,7 @@ export default function Editor(props: EditorProps) {
       return {
         label: "Relic options",
         content: (
-          <label title="How big the relic is: small, medium or large">
+          <label title="How big the relic is">
             Size
             <select aria-label="Size" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
               <option value="small">Small</option>
@@ -3255,10 +3314,10 @@ export default function Editor(props: EditorProps) {
   }
   /** What a Delete menu choice does, in one line (D351). */
   function deleteTitle(group: DeleteGroup | "ground", name: string): string {
-    if (group === "ground") return "Lower the selection's ground by one level (the top block of each tile; under water, the bed's)";
-    if (group === "everything") return "Delete everything in the selection, the objects under water too: sources, plants, ruins and the start; the ground stays";
-    if (group === "start") return "Delete the start in the selection";
-    return `Delete the ${name.toLowerCase()} in the selection`;
+    if (group === "ground") return "Lower the ground one level";
+    if (group === "everything") return "Delete every object here";
+    if (group === "start") return "Delete the start";
+    return `Delete the ${name.toLowerCase()}`;
   }
   /** Delete one kind of thing (or everything) in the selection, or its ground one level down. */
   function deleteChoice(group: DeleteGroup | "ground") {
@@ -3295,7 +3354,7 @@ export default function Editor(props: EditorProps) {
     if (!z || (!brushTool && !tool)) return null;
     void selectionTick;
     return (
-      <button type="button" class="select-chip" title="Open the Select tool (the brush or force goes back)" onClick={openSelect}>
+      <button type="button" class="select-chip" title="Select an area (M)" onClick={openSelect}>
         Working inside {z.w} × {z.h} · Esc to clear
       </button>
     );
@@ -3327,7 +3386,7 @@ export default function Editor(props: EditorProps) {
               <ModeIcon mode={v} />
             </button>
           ))}
-          <button type="button" class="icon-button" aria-label="Whole map" title="Whole map: select everything (Ctrl+A)" onClick={selectAll}>
+          <button type="button" class="icon-button" aria-label="Whole map" title="Select the whole map (Ctrl+A)" onClick={selectAll}>
             <WholeMapIcon />
           </button>
         </span>
@@ -3339,7 +3398,7 @@ export default function Editor(props: EditorProps) {
             <button type="button" title="Lower the selection one level (Down)" {...way("lower")} onClick={() => selectAction("lower")}>
               Down 1
             </button>
-            <label title="Ctrl+click the land to take its level; Shift+scroll to change it">
+            <label title="The level (Ctrl+click, Shift+scroll)">
               Level
               <input
                 type="number"
@@ -3351,17 +3410,17 @@ export default function Editor(props: EditorProps) {
                 onInput={(e) => setFlattenTo(Math.max(0, Math.min(BRUSH_MAX_LEVEL, Math.round(Number((e.target as HTMLInputElement).value) || 0))))}
               />
             </label>
-            <button type="button" title="Set every tile to this level: cut what is above, fill what is below" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
+            <button type="button" title="Set the area to this level" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
               Flatten
             </button>
-            <button type="button" title="Lower only the ground above this level down to it" {...way("cut")} onClick={() => selectAction("cut", level)}>
+            <button type="button" title="Cut the ground above this level" {...way("cut")} onClick={() => selectAction("cut", level)}>
               Cut down
             </button>
-            <button type="button" title="Raise only the ground below this level up to it" {...way("fill")} onClick={() => selectAction("fill", level)}>
+            <button type="button" title="Fill the ground below this level" {...way("fill")} onClick={() => selectAction("fill", level)}>
               Fill up
             </button>
             <span class="menu-wrap">
-              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} title="Delete what stands in the selection, or its top level of ground (Delete)" onClick={() => setDeleteMenu(!deleteMenu)}>
+              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} title="Delete what stands here (Delete)" onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
               </button>
               {deleteMenu ? (
@@ -3397,11 +3456,11 @@ export default function Editor(props: EditorProps) {
             </span>
             {deepest >= 1 ? (
               <>
-                <label title="Raises the ground under deeper water so the water there is at most that deep">
+                <label title="The deepest the water may be">
                   water
                   <input type="number" aria-label="Max water depth" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />
                 </label>
-                <button type="button" title="Raises the ground under deeper water so the water there is at most that deep" onClick={() => selectAction("depth", depth)}>
+                <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
                   Max water depth
                 </button>
               </>
@@ -3535,7 +3594,8 @@ export default function Editor(props: EditorProps) {
     }
     const v = info.version;
     void reachCache.current.check.then((check) => {
-      if (infoRef.current.version === v && reachWanted.current) setStartReach({ check, fading: false });
+      // (the same answer again changes nothing: the placed start keeps its colour until something about it changes, D361)
+      if (infoRef.current.version === v && reachWanted.current) setStartReach((r) => (r && !r.fading && sameStartCheck(r.check, check) ? r : { check, fading: false }));
     });
   }
 
@@ -3578,7 +3638,7 @@ export default function Editor(props: EditorProps) {
         setStartDrag(p);
         if (p) {
           const [cx, cy] = cornerFor(p.x, p.y, s.orientation);
-          renderer.current?.setGhost({ template: "StartingLocation", x: cx, y: cy, z: mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation), ok: !p.check.problem });
+          renderer.current?.setGhost({ template: "StartingLocation", x: cx, y: cy, z: mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation), ok: GHOST_OK[startStatus(p.check)] });
         }
       },
       up() {
@@ -3615,7 +3675,7 @@ export default function Editor(props: EditorProps) {
       // a force at work (D199, D202, D203, D206): Ctrl+Z (or Z) takes all of it back at any moment;
       // Esc cancels a painted Lift still being drawn, and skips a playing force to its end, kept as one
       // step (D344, A4; amends D341 (2)); Space holds a carve, V flips a painted Lift's side as it goes;
-      // the other tools wait. In Watch (D321, item 29) a key of a new gesture jumps it to its end too
+      // the other tools wait. In Slow forces (D321, item 29) a key of a new gesture jumps it to its end too
       const c = forcer.current;
       if (c?.running) {
         const watching = c.status!.speed === "watch" && !c.status!.painting;
@@ -3639,7 +3699,7 @@ export default function Editor(props: EditorProps) {
           flipRef.current?.();
           return;
         }
-        // (a new gesture's key in Watch: the force jumps to its final land first)
+        // (a new gesture's key in Slow forces: the force jumps to its final land first)
         if (watching && !mod && (/^[0-9-]$/.test(ev.key) || ev.key.toLowerCase() === "m")) {
           void c.jump();
           return;
@@ -3873,11 +3933,16 @@ export default function Editor(props: EditorProps) {
         endForceSize(true);
       }
     };
+    // the window loses focus (a screenshot tool, Alt+Tab): the keyup never comes, so F's size is set here
+    // (the renderer lets go of the camera keys and ends a stroke in progress; D361, item 5)
+    const onBlur = () => onKeyUp({ key: "f" } as KeyboardEvent);
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
     };
   });
 
@@ -3995,22 +4060,22 @@ export default function Editor(props: EditorProps) {
               togglesInButtons
               besideHeight={
                 // a view switch (D248): what shows, never how a brush works; whatever tool is picked
-                <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A thin line wherever the ground steps down a level">
+                <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A line at every level">
                   Level lines
                 </button>
               }
               showLegend={layer !== "none"}
               viewButtons={
                 <>
-                  <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through all the water to the bed and the sources (T). A brush over water clears the water round it on its own.">
+                  <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through the water (T)">
                     Clear water
                   </button>
                   {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
-                    <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the map`}>
+                    <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()}`}>
                       {OVERLAY_WORDS[k]}
                     </button>
                   ))}
-                  <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
+                  <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the map">
                     Minimap
                   </button>
                 </>
@@ -4018,16 +4083,20 @@ export default function Editor(props: EditorProps) {
               cornerLevel={<LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />}
               cornerBelow={
                 <>
-                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change (a click or Esc skips to the end). Off: each force's land is final in about two seconds">
-                    Watch
+                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play forces out slowly">
+                    Slow forces
                   </button>
                   <span class="reveal-group">
-                    <button type="button" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title="The editor's little sounds: on or off (the volume beside it)">
-                      Sound
-                    </button>
+                    {/* (the volume opens to the speaker's left, so the speaker stays where it is) */}
                     <label class="slider-field reveal" title="Volume">
                       <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
                     </label>
+                    <button type="button" class="icon-button speaker" aria-label="Sound" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title={sound.on ? "Mute sounds" : "Turn sounds on"}>
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" />
+                        {sound.on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /> : <path d="M3 3l18 18" class="crossed" />}
+                      </svg>
+                    </button>
                   </span>
                 </>
               }
@@ -4203,7 +4272,7 @@ const FORCES_KEY = "dgm.forces";
 /** Each force's More (open or closed), and the details the player has pinned (D309); a detail still
  *  on Auto is null. Power, Size, dry and mode last only the visit, as before. */
 interface ForcesPrefs {
-  /** Watch (D321, item 29): off, Fast. */
+  /** Slow forces (D321, item 29): off, Fast. */
   watch: boolean;
   /** The forces' Floor (D321, item 40): 1 unless set. */
   floor: number;

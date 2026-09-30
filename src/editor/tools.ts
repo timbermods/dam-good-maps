@@ -69,6 +69,12 @@ export const RAISES: Rgba = [90, 200, 110, 140];
 export const LOWERS: Rgba = [240, 160, 70, 150];
 export const GOOD: Rgba = [80, 200, 90, 170];
 export const BAD: Rgba = [230, 60, 50, 180];
+/** A start that fits but misses some requirement (D361). */
+export const WARN: Rgba = [235, 170, 40, 180];
+/** The start's overlay colour by its status (D361). */
+export const STATUS_COLOR: Record<"ok" | "warn" | "blocked", Rgba> = { ok: GOOD, warn: WARN, blocked: BAD };
+/** The start's ghost tint by its status: true green, "warn" amber, false red. */
+export const GHOST_OK: Record<"ok" | "warn" | "blocked", boolean | "warn"> = { ok: true, warn: "warn", blocked: false };
 export const PROBLEM: Rgba = [230, 60, 50, 150];
 /** The locked land outside the working area (D254): dimmed. */
 export const LOCKED: Rgba = [16, 20, 28, 120];

@@ -1568,3 +1568,29 @@ as a real race. The cause, found by delivering the worker's real messages in eve
   ones inside (under water too) are deleted. `tests/contract/deleteSubmerged.test.ts` (failed first).
 - **(c) Save names:** already what Kyler asked (imported maps and places save as `dgm-<name>`, file-safe, numbered `-2` rather
   than overwritten), so there was no failing test to write first; a contract test now pins the imported-file names.
+
+## Kyler's short sitting, the editor half (D361, items 4 to 10; `fix/sitting-3-editor`)
+
+Batch A took items 1 to 3 (the forces' Power, the stroke-only preview, Size). Each of 4 to 7 has a test at the level where
+its rule lives (D342), written before the fix.
+
+- **4, the start's colour:** `startStatus` (`editor/features.ts`): green it fits and meets every start requirement, amber it
+  fits but misses some (the panel says which), red it cannot be placed there. The overlay, the 3D ghost (now tri-state) and the
+  panel's first line all take it from there; the shelf's Start runs the requirements' walk in the start's own worker before it
+  colours (neutral until it answers). The placed start's reach keeps its object when the answer is the same
+  (`sameStartCheck`), so it changes colour only when something about it changed. `tests/unit/startStatus.test.ts`.
+- **5, window blur:** `render3d/focusLost.ts`: the camera keys, Shift's speed and a drag in progress are released on blur (a
+  stroke ends as a released button would end it, a camera drag ends without a click); the editor also ends F's sizing, kept.
+  `tests/unit/cameraGlide.test.ts`.
+- **6, one strength number:** `sourceStrengths`, `withOwnStrength`, `sourceStrengthWords`: the settings row's "Pointing at"
+  and "This source" readouts, the scroll's note and the marker's label agree ("this source 0.25 · row 1 water/s" in a row);
+  the source being changed is outlined; the shelf's slider is labelled **Next source**. `tests/unit/sourceStrength.test.ts`.
+- **7, Select's Ctrl+click:** a Ctrl press on land only samples the level, whatever the hand does before it lets go (my B8 rule
+  that a Ctrl press moving to another tile was a drag let jitter replace the selection). `tests/unit/select.test.ts`.
+- **8, the top right:** the level control on the compass's line, **Slow forces** (was Watch) and a speaker icon under them
+  flush with the compass; "Watch" as the toggle's name joins `tools/retired-terms.json`.
+- **9, tooltips:** every tool, force, option, shelf item, menu and settings-page tooltip rewritten to a short phrase and its key;
+  `tests/e2e/tooltips.spec.ts` fails on a second sentence or over 60 characters, and `tests/unit/tooltipForm.test.ts` checks
+  the hints where the tools, forces and shelf carry them. What the long tooltips said (Auto's value, the force details,
+  what Delete takes) now lives in EDITOR_PLAN and the rows themselves.
+- **10, More / Less:** an accent outline and a chevron.

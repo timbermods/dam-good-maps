@@ -1834,7 +1834,7 @@ export interface TrailPoint {
  *  (the heights and the rectangle they changed in; the objects, when they changed; an eruption's heat
  *  on the land, once). No water: it stays as it was until the land is final (D321, item 30). Once
  *  the force is worked out (`planned`), `total` steps show it and `shown` of them have: the page
- *  paces them (Fast or Watch, item 29). */
+ *  paces them (Fast or Slow forces, item 29). */
 export interface ForceFrame {
   verb: Verb;
   steps: number;
@@ -2447,7 +2447,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   let water: WarmState;
   if (f.carve) {
     const r = f.carve;
-    // a carve kept part way (Watch's jump to the end, D321) keeps its whole result: the playback only
+    // a carve kept part way (Slow forces' jump to the end, D321) keeps its whole result: the playback only
     // shows it
     f.play?.plan(Infinity);
     const req = f.request as Extract<ForceRequest, { verb: "carve" }>;

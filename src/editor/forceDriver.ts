@@ -2,7 +2,7 @@
 // worker works the force out first, a slice a call (the page shows its gathering meanwhile: a carve's
 // surge at its origin, an impactor falling, the ground stirring, the ice gathering), then shows it at
 // the pace the player chose. **Fast** (the default): the land is final within about two seconds of
-// the gesture, however long or large the result; a force whose own pace is quicker keeps it. **Watch**:
+// the gesture, however long or large the result; a force whose own pace is quicker keeps it. **Slow forces**:
 // about four times as long, to be watched; a click or a new gesture jumps it to its final land.
 // Each frame shows the ground that changed (only its chunks) and the objects, and its moment goes to
 // the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
@@ -11,7 +11,7 @@
 // at once, at any moment while the force is at work, its keep on its way included (D341): each force is
 // a gesture the worker knows by name, so undo reaches it whatever the worker is doing, and nothing of
 // it lands afterwards. Esc (D344, A4; amends D341 (2)) cancels a gesture still being drawn (a painted
-// Lift), and skips a playing force to its end, in Fast and in Watch, kept as one step that undo still
+// Lift), and skips a playing force to its end, in Fast and in Slow forces, kept as one step that undo still
 // takes back. A painted Lift is shown whole as it is painted (the page
 // sends the latest stroke whenever the worker is free) and kept when the pointer lets go. Nothing on
 // the page waits on it: the effects that are only a show (the water filling a channel, dust, lava's
@@ -25,12 +25,12 @@ import type { Point } from "../core/forces/quake";
 import type { AnyForceSettings, ForceFrame, ForceStarted } from "../worker/session";
 import type { MapRenderer } from "../render3d";
 
-/** How a force is shown (D321, item 29): Fast, or Watch. */
+/** How a force is shown (D321, item 29): Fast, or Slow forces. */
 export type ForceSpeed = "fast" | "watch";
 
 /** Fast: the land final within about this long of the gesture (ms). */
 export const FAST_MS = 2000;
-/** Watch plays a force out about this many times as long as Fast. */
+/** Slow forces play a force out about this many times as long as Fast. */
 export const WATCH_FACTOR = 4;
 /** The shortest a Fast showing takes, however long the force took to work out (ms). */
 export const MIN_SHOW_MS = 450;
@@ -53,7 +53,7 @@ export function paceOf(verb: Verb): { steps: number; ms: number } {
 
 /** How long a force's showing takes (ms), once it is worked out: its `total` steps at its own pace,
  *  compressed to Fast's two seconds from the gesture (`workedMs` already gone working it out, never
- *  below MIN_SHOW_MS); Watch four times Fast's own. */
+ *  below MIN_SHOW_MS); Slow forces four times Fast's own. */
 export function showMs(verb: Verb, total: number, speed: ForceSpeed, workedMs: number): number {
   const fast = Math.min(total * paceOf(verb).ms, FAST_MS);
   return speed === "watch" ? WATCH_FACTOR * fast : Math.min(fast, Math.max(MIN_SHOW_MS, FAST_MS - workedMs));
@@ -114,7 +114,7 @@ export interface ForceHost {
   moment(f: ForceFrame): void;
   /** It is over: kept or dropped (its sounds stop, its effects' tails play or go). */
   ended(kept: boolean): void;
-  /** Fast or Watch (the view bar's Watch), read as each force starts. */
+  /** Fast or Slow forces (the view bar's Slow forces), read as each force starts. */
   speed?(): ForceSpeed;
 }
 
@@ -238,7 +238,7 @@ export class ForceDriver {
     this.host.changed();
   }
 
-  /** Keep it: it ended by itself, a painted Lift was let go, or Watch jumped to its final land (a
+  /** Keep it: it ended by itself, a painted Lift was let go, or Slow forces jumped to its final land (a
    *  click, a new gesture, Esc): the whole result, at once. Undo while it is being kept still
    *  takes all of it back (D341). */
   async stop(): Promise<void> {
@@ -265,14 +265,14 @@ export class ForceDriver {
     }
   }
 
-  /** Watch's way out (D321, item 29): straight to its final land, kept. */
+  /** Slow forces' way out (D321, item 29): straight to its final land, kept. */
   jump(): Promise<void> {
     return this.stop();
   }
 
   /** Esc (D344, A4): while the gesture is still being drawn (a painted Lift), all of it is cancelled;
    *  once the force plays (being worked out, shown, or kept), it skips to its end, kept as one step, in
-   *  Fast and in Watch; undo (`cancel`) still takes it back at any moment. What it did: `cancelled`,
+   *  Fast and in Slow forces; undo (`cancel`) still takes it back at any moment. What it did: `cancelled`,
    *  `skipped`, or nothing (no force at work). */
   escape(): "cancelled" | "skipped" | null {
     const st = this.status;

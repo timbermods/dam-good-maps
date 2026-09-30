@@ -7,7 +7,7 @@
 // sources go as the front, the lava or the ice arrives (an impact's all at once, at its moment; under
 // a quake they ride the ground), and the water stays as it was until the land is final, then flows
 // on from there as after any edit (a force never adds any). The editor paces the stages (Fast or
-// Watch, item 29); Carve (carve/play.ts) is played back through the same worker calls.
+// Slow forces, item 29); Carve (carve/play.ts) is played back through the same worker calls.
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
@@ -51,7 +51,7 @@ export interface ForceCue {
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
   /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
-   *  Fast compresses it, Watch stretches it; D344 A7): its effects and sounds keep to the land. Absent:
+   *  Fast compresses it, Slow forces stretch it; D344 A7): its effects and sounds keep to the land. Absent:
    *  its own pace. */
   pace?: number;
 }

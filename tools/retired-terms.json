@@ -42,6 +42,42 @@
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [
     {
+      "pattern": "\\bfast,? (?:or|and) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Fast or Watch"
+    },
+    {
+      "pattern": "\\bwatch(?:'s)? (?:and|or) sound\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Watch and Sound"
+    },
+    {
+      "pattern": "\\bsound (?:and|or) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Sound and Watch"
+    },
+    {
+      "pattern": "\\bwatch (?:toggle|button|switch)\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "the Watch toggle"
+    },
+    {
+      "pattern": "\\b(?:in|with|beside|off) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "the forces in Watch"
+    },
+    {
+      "pattern": ">\\s*watch\\s*<",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "<button>Watch</button>"
+    },
+    {
       "pattern": "\\bno room to rise here: it breaks out\\b",
       "retired": "D258",
       "instead": "no fit preview: Erupt says only \"No room to rise here\" when a vent can't rise at all",

@@ -30,9 +30,12 @@ editor is desktop-first (D185).
   make: smart Lower, a target level that follows the ground until set (D322), clear water round a brush over
   water, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
-- **Every control says what it does** (D351): each tool, force, option, view toggle, shelf item and button has a
-  tooltip, one plain line with its key where it has one; whoever changes a control updates its tooltip in the same
-  commit, and `tests/e2e/tooltips.spec.ts` fails on any interactive control without one.
+- **Every control says what it does** (D351, amended by D361): each tool, force, option, view toggle, shelf item and
+  button has a tooltip: a short phrase that says what it is for at a glance, then its key where it has one ("Raise the
+  ground (1)"). No second sentence, no technical detail, about 60 characters at most. Whoever changes a control
+  updates its tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one
+  and on any tooltip with a second sentence or past that length (`tests/unit/tooltipForm.test.ts` checks the tools',
+  forces' and shelf's hints where they are written).
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
 
@@ -53,7 +56,8 @@ editor is desktop-first (D185).
   scarp; Glaciate's benches, steps, tarn and scree) is natural variation drawn from the ground where the force acts and the seed (`core/forces/nature.ts`: rugged
   ground carves straighter gorges between steep walls and raises steeper cones, open ground lets a river wander and
   shows an impact's rays), which Try another re-rolls; the operation keeps what was drawn, so projects replay exactly.
-  **A small More button, at the row's end, opens those details** (D309, amending D289): closed by default, remembering
+  **A small More button, at the row's end, opens those details** (D309, amending D289; outlined in the accent colour
+  with a chevron so it is clear more settings are behind it, D361, item 10): closed by default, remembering
   whether it was left open. Every detail starts on **Auto**, nature's own pick; setting one pins it, with a small way
   back to Auto beside it (the same idiom as Size's own Auto, D226). Once a force runs, a detail still on Auto shows the
   value it just took, one click away from being pinned, so the player can Try another until they love a result and pin
@@ -68,11 +72,11 @@ editor is desktop-first (D185).
   gathering shows meanwhile: a carve's surge at its origin, an impactor falling, the ground stirring, the ice gathering),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or large
   the result, and the player can act again at once; a force whose own pace is quicker keeps it (an impact about half a
-  second). **Watch**, a toggle in the view bar beside Sound, remembered with the other editor preferences: about four
+  second). **Slow forces**, a toggle in the view bar beside Sound, remembered with the other editor preferences: about four
   times as long, to be watched; a click anywhere or a new gesture's key jumps it straight to its final land, kept
   as one step (undo still takes it back).
   **Esc skips, undo takes it back** (D344, A4; amends D341 (2)): while a gesture is still being drawn (a line not yet let
-  go, a painted Lift), Esc cancels it, and nothing of it lands; once a force plays, in Fast or in Watch, Esc skips it to
+  go, a painted Lift), Esc cancels it, and nothing of it lands; once a force plays, in Fast or in Slow forces, Esc skips it to
   its end, its final land kept as one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment. While a force
   plays its row's hint line says **Esc to skip · Ctrl+Z to undo** (a painted Lift still drawn: **Esc to cancel**). The pace never follows the water's Speed. What is only a show (the water
   filling a new channel, the falls starting, dust, lava's glow) plays on after the land is final, never blocking.
@@ -151,7 +155,9 @@ editor is desktop-first (D185).
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
-  cursor, green where it fits and red where it doesn't, with **one label** beside the pointer (D323, item 32): the
+  cursor, green where it fits and red where it doesn't (the start has three colours: **green** it fits and meets every start
+  requirement, **amber** it fits but misses some, which the panel lists, **red** it cannot be placed there; a placed
+  start changes colour only when something about it changed, D361, item 4), with **one label** beside the pointer (D323, item 32): the
   reason where it doesn't fit, "Move the start here" for the start where it does, "Place here" for the rest; nothing
   picked, no label. Click to place, R to rotate; **Esc or a right-click puts a picked object away** (a right-drag is
   still the camera). **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go
@@ -192,9 +198,10 @@ editor is desktop-first (D185).
   overlay is on. No dam site is drawn on the map or named on the map card: Timberborn has no dam sites, and ours were a
   heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
   moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-  **Watch** (D321, item 29), beside Sound: the forces played out slowly; off, Fast. **The level control** (▾ ∞ ▴, D345
-  B3, as in Timberborn's own editor) sits at the top right beside the compass, larger and easy to see, with **Watch** and
-  **Sound** in a row under it; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
+  **Slow forces** (D321, item 29), beside Sound: the forces played out slowly; off, Fast. **The level control** (▾ ∞ ▴, D345
+  B3, as in Timberborn's own editor) sits at the top right on the compass's line, the same height and a gap of 10 px
+  from it, larger and easy to see; **Slow forces** (D361, item 8: it was Watch) and **Sound**, a speaker icon crossed
+  out when muted, sit in a row under them, flush with the compass's right edge; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
   map area** (D345, B1): the default view, Top-down and Reset view fit the map's corners inside the canvas with a margin
   and put its middle at the canvas's middle, whatever the window's size.
 - **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
@@ -359,7 +366,7 @@ editor is desktop-first (D185).
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,
   round 4's the likeliest) until pinned, as for the other forces; a glacier saved without them is round 4's.
   Two acts, the ice advancing for three fifths of its showing and melting back for two (in Fast about two seconds in
-  all, in Watch about eight, D321), the land under it taking its final levels as the front passes and the objects in
+  all, in Slow forces about eight, D321), the land under it taking its final levels as the front passes and the objects in
   its path going with it; the water stays as it was until the land is final, then the valley's own water takes over;
   the camera never moves (D265). **The floor reads as one river** (D292): the river winds across the level floor to the falls'
   pools and the rivers coming in, so their water drops straight into it; a fall it can't reach, nor pass within six
@@ -375,7 +382,7 @@ editor is desktop-first (D185).
   of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; undo
   reverts it at once, Try another replaces it, and it replays to the same bytes. **Its ice, its sounds and its land keep
   one pace** (D344, A7): the ice's front and its melt follow the glacier's own stages as the frames bring them, at the
-  showing's pace (`ForceCue.pace`: Fast compresses its five seconds, Watch stretches them), so the front reaches each
+  showing's pace (`ForceCue.pace`: Fast compresses its five seconds, Slow forces stretches them), so the front reaches each
   tile as the land there changes, and the ice is gone, the meltwater's sound ending, as the land settles; its sounds
   fit each act as shown (`recipe`'s `span`), and a glacier skipped to its end melts away at once. It builds up to the editor's one
   ceiling (D172's tall maximum on every map, D244). Sounds from the editor's CC0 bank (grinding stone, a
@@ -420,7 +427,9 @@ editor is desktop-first (D185).
   click that never follows the water as it moves), **Circle** (drag from the centre outward, the
   radius beside the pointer) and **Brush** (paint the selection with the brush ring, at the brushes' size); Shift adds and
   Alt subtracts in every mode. The **Level** number reaches the map's ceiling (22 under D244); Ctrl+click on the land
-  takes that tile's level as the target; it acts at once, one undo step. **The row** (D323, item 6): the marking modes
+  only takes that tile's level as the Level number (D361, item 7): it never creates or changes the selection, however
+  the hand moves before the button is let go (a brush's Ctrl+drag, which hands its drag to Select, still selects); it
+  acts at once, one undo step. **The row** (D323, item 6): the marking modes
   are icons; **Whole map** beside them selects everything (as Ctrl+A); **Raise** and **Lower** move the selection one
   level per click (the Up and Down arrow keys too, while a selection is open: W and S still move the camera); a
   **Level** number starts at the selection's lowest ground, with **Flatten** (cut and fill), **Cut down** (only lowers
@@ -468,7 +477,11 @@ Make a valley, drop a source, and there's a river.
   order). Click to
   place, and the water spreads at once; the row beneath the top bar sets the next one's strength;
   Ctrl+scroll over any source sets its strength (D322 moved it off Shift+scroll, the brushes' target; strong waterfalls allowed, with a friendly note
-  past the official range); drag to move. A click on a placed source selects it and shows its
+  past the official range); drag to move. **One strength number everywhere** (D361, item 6): the row beneath the top bar
+  shows the strength of the source being pointed at or selected, the same as its marker's label, and updates live while
+  scrolling; that source is highlighted; in a row of sources it says which the scroll changes, this source and not the
+  row, and shows both ("this source 0.25 · row 1 water/s"); with nothing pointed at, the slider is the next source's
+  (`sourceStrengths`, `sourceStrengthWords` in `features.ts`). A click on a placed source selects it and shows its
   strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
@@ -573,7 +586,7 @@ Make a valley, drop a source, and there's a river.
     `EDGE_LIP` hook once batch 5 brings it to dev (pending);
   - the visible carving effects (a surging head, crumbling blocks, dust, its muddy surge, murky for badwater), the
     camera staying where the player left it (D265: no Follow); the whole run is worked out first (its surge gathering at
-    the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
+    the origin), then played back at Fast's or Slow forces' pace (D321), the land and the objects changing only as the head
     reaches them and the water as it was until the land is final;
   - Space pauses it; it keeps itself when it ends (no Stop, D289); Ctrl+Z (or undo) reverts the whole carve instantly,
     at any moment until it is kept, its keep on its way included (D341); once kept, undo does; Esc skips it to its end,
@@ -639,7 +652,7 @@ leaving a plain pointer, which picks **every object on the map** (D360 a: trees,
 sources and the start by their own grabs) with a click and moves it with a drag, one undo step each (Esc puts a drag
 back). A quiet highlight shows exactly what will be picked, and a bigger object wins over a tree or a bush under the
 pointer (`core/features/objects.ts` `isPickable`, `pickWinner`); a slope, derived from the ground, is not picked;
-in Select, **Ctrl+click** on the land takes its level and **Shift+scroll** dials the Level number (D345, B8), whether
+in Select, **Ctrl+click** on the land only takes its level (never changing the selection, D361) and **Shift+scroll** dials the Level number (D345, B8), whether
 or not a selection is open (Z and C: D323, item 16;
 Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips
 the side of the fault that moves (it was X). With a selection open, Up and Down raise and lower it one level (the
@@ -647,8 +660,11 @@ camera keeps W and S). Delete removes what the pointer is on, or what stands in 
 top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space pauses it, Ctrl+Z (or Z) takes it
 back, and Esc skips it to its end (a painted Lift still drawn: Esc cancels it; D344, A4); the other keys wait, C among
 them. A river's or a fault's
-line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Watch is a view-bar
-toggle with no key.
+line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Slow forces is a view-bar
+toggle with no key. **When the window loses focus** (a screenshot tool, Alt+Tab; D361, item 5) the editor lets go of
+everything held: every camera key and Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a
+released mouse button would end it, at the pointer's last place (`render3d/focusLost.ts`), so nothing behaves as if a
+key or the mouse were still held.
 Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. With a force picked, F, [ and ] size it and { and } set its Power, the same way (D344, A1). U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
@@ -1060,7 +1076,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     under a second; a placed object's pop and wiggle scales its own instance; a force's moment
     (`forces.ts`: an impact's streak, flash, ring, dust and blocks; a fault's crack and dust; an
     eruption's plume and its heat on the terrain shader; no camera shake, D265) plays on its own clock
-    from fixed pools, at the force's showing's pace (Fast or Watch, D321), never the water's speed. None of them play with reduced motion or
+    from fixed pools, at the force's showing's pace (Fast or Slow forces, D321), never the water's speed. None of them play with reduced motion or
     in software rendering. Every tree stands upright on its tile, a knocked-down one as its dead model (D321, item 7: a force's
     knocked-down tree whose ground it broke is gone, `settleKnocked` in `core/forces/objects.ts`). The sounds
     are Codex's second round (#64), ported into `src/editor/juice/` (`engine.ts`, `palette.ts`,
@@ -1115,7 +1131,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   `forceStop`, `forceCancel`, `forceAgain`; no second history or water owner); its frames carry the ground and the
   objects, never water (D321, item 30), and say once it is worked out (`planned`) how many steps show it (`total`) and
   how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
-  `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Watch, `WATCH_FACTOR` (four) times
+  `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Slow forces, `WATCH_FACTOR` (four) times
   Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as undo
   would. **Undo at any moment leaves the map exactly as it was before the gesture, and nothing lands afterwards**
   (D341); **Esc skips a playing force to its end, and cancels a gesture still drawn** (D344, A4: `ForceDriver.escape`,
@@ -1125,8 +1141,8 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   its step gone and Redo as it was (`MapSession.mark`, `stepSince`, `takeBack`), while that step is still the latest.
   The page's keep sends nothing once Esc has come; Revert stays live while a force is being kept. The driver's time
   is a clock it is given (`ForceClock`): `tests/contract/forceEsc.test.ts` steps it and presses undo, and Esc, at every moment
-  of every force's run, in Fast and Watch. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks through the
-  page the showing the driver plans for Fast and Watch (never a busy machine's wall clock, D341; it prints the times, and with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
+  of every force's run, in Fast and Slow forces. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks through the
+  page the showing the driver plans for Fast and Slow forces (never a busy machine's wall clock, D341; it prints the times, and with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
   `src/editor/release.ts` (D219).
 - "Move the start here" (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,

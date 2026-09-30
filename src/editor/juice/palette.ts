@@ -236,7 +236,7 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
     }
     case "glaciate": {
       // (investigation/glaciate `audio.ts`: its runtime edits, as bank.json records them). Played a
-      // phase at a time, it fits the phase as it is shown (`span`, D344 A7: Fast's is shorter, Watch's
+      // phase at a time, it fits the phase as it is shown (`span`, D344 A7: Fast's is shorter, Slow forces'
       // longer): the cracks within the advance, the meltwater ending as the land settles
       const k = phase && span !== undefined ? Math.max(0.1, span) / (phase === "advance" ? 3 : 2) : 1;
       if (!phase || phase === "advance") {

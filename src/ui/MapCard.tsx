@@ -94,7 +94,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
       </dl>
       <StartRequirements checks={r.checks} wood={f.woodBySpecies ? { bySpecies: f.woodBySpecies, growing: f.woodGrowing } : undefined} />
       <details class="report" open={blocking.length > 0}>
-        <summary title="Show or hide every check the map passed, with what each found">
+        <summary title="Show or hide the checks the map passed">
           {summary}
           <span class="muted"> · {r.ms} ms{r.attempts > 1 ? `, ${r.attempts} attempts` : ""}</span>
         </summary>

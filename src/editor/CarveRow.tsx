@@ -98,7 +98,7 @@ export function CarveRow(p: CarveRowProps) {
           <span class="bar-status" role="status">
             {st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}
           </span>
-          <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
+          <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it here (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
           <ForceKeys />
@@ -118,14 +118,14 @@ export function CarveRow(p: CarveRowProps) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <label class="slider-field" title={`How hard it cuts and how far a clicked river runs: a creek to a catastrophe (now ${powerWord(u.power)}). { and } change it by 5`}>
+        <label class="slider-field" title="How hard it cuts ({ and })">
           Power
           <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
           <output title={powerWord(u.power)}>{u.power}</output>
         </label>
         <SizeControl
           label="Size"
-          title="How wide it cuts, in tiles, clicked or drawn: narrow for a slot canyon, wide for a lazy river (Auto: the width Power gives; a drawn path sets how far it runs). Hold F and move the mouse, or [ and ], to set it"
+          title="How wide it cuts (F, [ and ])"
           value={Math.round(width)}
           words={u.width === null ? width.toFixed(1) : String(u.width)}
           min={2}
@@ -135,15 +135,15 @@ export function CarveRow(p: CarveRowProps) {
           auto={{ on: u.width === null, onAuto: (on) => set({ width: on ? null : Math.round(width) }) }}
         />
         <div class="segmented" role="group" aria-label="What it leaves">
-          <button type="button" aria-pressed={!u.dry} title="A row of sources at its start keeps the river flowing (their strength follows the width)" onClick={() => set({ dry: false })}>
+          <button type="button" aria-pressed={!u.dry} title="A river that keeps flowing" onClick={() => set({ dry: false })}>
             Keep river
           </button>
-          <button type="button" aria-pressed={u.dry} title="No source: a dry canyon" onClick={() => set({ dry: true })}>
+          <button type="button" aria-pressed={u.dry} title="A dry canyon" onClick={() => set({ dry: true })}>
             Dry canyon
           </button>
         </div>
         {p.canAgain ? (
-          <button type="button" onClick={p.onAgain} title="The same carve from the same land, another way, with another character (it replaces the last one)">
+          <button type="button" onClick={p.onAgain} title="Carve it another way">
             Try another path
           </button>
         ) : null}
@@ -152,14 +152,14 @@ export function CarveRow(p: CarveRowProps) {
       {p.more ? (
         <MoreRow force={p.force}>
           <AutoDetail label="Wander" on={u.wander === null} onAuto={(on) => set({ wander: on ? null : wander })}>
-            <label class="slider-field" title="Straight to winding (Auto: drawn from the land and the seed)">
+            <label class="slider-field" title="How much it winds">
               Wander
               <input type="range" min={0} max={100} step={5} aria-label="Wander" aria-valuetext={`${wander}, ${wanderWord(wander)}`} value={wander} onInput={(e) => set({ wander: Number((e.target as HTMLInputElement).value) })} />
               <output>{wanderWord(wander)}</output>
             </label>
           </AutoDetail>
           <AutoDetail label="Walls" on={u.walls === null} onAuto={(on) => set({ walls: on ? null : walls })}>
-            <label title="Steep: a gorge. Wide: broad terraces (Auto: drawn from the land and the seed)">
+            <label title="Steep or wide walls">
               Walls
               <select aria-label="Walls" value={walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as CarveUi["walls"] })}>
                 <option value="steep">Steep</option>
@@ -169,7 +169,7 @@ export function CarveRow(p: CarveRowProps) {
           </AutoDetail>
           <SizeControl
             label="Canyon depth"
-            title="How deep it cuts at most, in levels below the land it runs through: how tall the canyon's walls are (Auto: drawn from the land and the seed)"
+            title="How deep the canyon cuts"
             value={depth}
             min={DEPTH_MIN}
             max={DEPTH_MAX}
@@ -178,17 +178,17 @@ export function CarveRow(p: CarveRowProps) {
             auto={{ on: u.depth === null, onAuto: (on) => set({ depth: on ? null : depth }) }}
           />
           <span class="size-control">
-            <label class="slider-field" title="How deep the river's water may be, in levels: most of Timberborn's rivers are 1 or 2 deep (the canyon's walls stay as tall). Off: as deep as it cuts">
+            <label class="slider-field" title="How deep the river's water may be">
               River depth
               <input type="range" min={1} max={CEILING} step={1} aria-label="River depth" aria-valuetext={u.riverDepth === null ? "Off" : String(u.riverDepth)} value={u.riverDepth ?? RIVER_DEPTH_DEFAULT} disabled={u.riverDepth === null} onInput={(e) => set({ riverDepth: Number((e.target as HTMLInputElement).value) })} />
               <output>{u.riverDepth === null ? "Off" : u.riverDepth}</output>
             </label>
-            <button type="button" class="auto-button" aria-pressed={u.riverDepth === null} aria-label="River depth off" title={u.riverDepth === null ? "Limit how deep the river is again" : "Let the river be as deep as it cuts"} onClick={() => set({ riverDepth: u.riverDepth === null ? RIVER_DEPTH_DEFAULT : null })}>
+            <button type="button" class="auto-button" aria-pressed={u.riverDepth === null} aria-label="River depth off" title={u.riverDepth === null ? "Limit the river's depth" : "No limit on the river's depth"} onClick={() => set({ riverDepth: u.riverDepth === null ? RIVER_DEPTH_DEFAULT : null })}>
               Off
             </button>
           </span>
           <AutoDetail label="Banks" on={u.banks === null} onAuto={(on) => set({ banks: on ? null : banks })}>
-            <label class="slider-field" title="Flat land at the water's edge on each side before the walls, in tiles: wider inside the bends (Auto: drawn from the land and the seed)">
+            <label class="slider-field" title="Flat land beside the water">
               Banks
               <input type="range" min={0} max={BANKS_MAX} step={1} aria-label="Banks" aria-valuetext={banks ? `${banks} tiles` : "None"} value={banks} onInput={(e) => set({ banks: Number((e.target as HTMLInputElement).value) })} />
               <output>{banks || "None"}</output>
