@@ -69,3 +69,12 @@ Port the settings, click and browser checks, especially balance after Floor/prot
 arrival, burial, source strength, valid start after water, byte-exact undo and separated wet branches
 past their shared feeder. Use the product renderer and canonical export settle for adoption;
 this standalone preview does not claim Timberborn export parity. Update EDITOR_PLAN.md there.
+
+## Added by Kyler at approval (2026-09-30, rounds 1 and 2)
+
+Deposit is a natural way to add land back after other forces have removed it. It stays in the forces row's third
+group (Erode, Deposit, D352) and is adopted after the forces release. For adoption:
+1. When the Floor forbids every cut, it says so plainly ("the Floor leaves nothing to take sediment from"), never
+   silently doing nothing (D356).
+2. On real maps, a full-Power dry fan reads as a gentle cone spreading out, not a stepped plateau; tune it if not.
+3. It passes the smoothness harness (`investigation/performance`) and the random-click check (D356).
