@@ -13,7 +13,7 @@ differently, this file wins.
   that serves both halves.
 - **Editor-ready from the first milestone.** M1 already generates maps *from* parametric features
   and offers them as a project file, so the editor opens every generated map with its plan kept,
-  for "Generate, keeping my edits" and Claude's steering. No generator code is
+  for the analysis and Claude's steering. No generator code is
   retrofitted later. (The editor showed those features as objects with handles until Live
   editing; the brushes shape the land now, D182, D184.)
 - **Every milestone ends with its blocking criteria met and its tests green.**
@@ -291,7 +291,7 @@ The deviations are PLAN §20 D24–D34. In-game checks B1–B4 are pending.
 - Every voxel-format investigation map imports and re-exports its normalized world byte for byte.
 - The two 0.6 maps import.
 - Generate, add a user feature, change a setting, regenerate: the user feature survives and
-  nothing is silently dropped.
+  nothing is silently dropped. (Superseded by D336: edits never replay onto new land.)
 - The spike report answers each open question with evidence.
 
 **In-game check:** no. Import normalization is checked in game at M8 (F3).
@@ -307,7 +307,7 @@ criterion passes:
 - all 30 voxel-format investigation maps re-export their normalized world byte for byte, and the
   two 0.6 maps import;
 - regeneration keeps the player's features and flags every edit that no longer applies, with
-  its reason;
+  its reason (superseded by D336);
 - the spike report answers the open questions with evidence.
 
 Two spike questions need Kyler's own run of the published page: `sample`'s latency with tools,
@@ -339,7 +339,8 @@ and who can open the artifact. The deviations are PLAN §20 D35–D41, and D8 an
 **Acceptance**
 - Every investigation map imports, renders and exports unchanged.
 - The 3D view builds in < 1.5 s at 256² and orbits at 60 fps on a mid-range laptop.
-- Generate → refine → back to settings → regenerate → refine keeps user edits.
+- Generate → refine → back to settings → regenerate → refine keeps user edits. (Superseded by
+  D336: Generate makes a new map, and the edited one stays one step away.)
 
 **In-game check:** no.
 
@@ -354,7 +355,8 @@ criterion passes:
   the budget was judged on its integrated GPU with the CPU slowed 4× on a laptop-sized screen
   (D46);
 - generate → refine → back to settings → regenerate → refine keeps the player's edits, tested
-  through the page.
+  through the page (superseded by D336: Generate makes a new map, and Back to editing returns to
+  the edited one).
 
 The deviations are PLAN §20 D42–D46.
 
@@ -1058,8 +1060,8 @@ the Moisture and Drought views (D287); the Remove tool and Select's Clear object
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
 out, Delete what stands there); Ctrl-click samples a level (on water, its bed); heavy operations
-("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
-an operation that replays exactly and survives regeneration and format 3; only changed chunks
+shown growing, never a frozen wait; every stroke
+an operation that replays exactly onto its own land (edits never replay onto new land, D336) and survives format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
 landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
 shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks
@@ -1085,6 +1087,10 @@ it feels right.
 terrain steps extend the same brushes to caves and tunnels.
 
 ---
+
+## Crop map to selection (D340)
+
+After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
 
 ## The page is the editor (D232–D234)
 
@@ -1566,6 +1572,8 @@ After the High look is adopted (Map look 2, above), so there is only one mesher 
 ### 3. Creating them (tag `3d-creating-done`)
 
 After the view (D280 (3)).
+
+**Where the tools sit (D335, Kyler, 2026-09-29):** the Block tool (`investigation/block-tool`, D335) sits on the tools row with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it's built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool. Erode stays on the forces row.
 
 **Delivers**
 1. **Erode**, a new force, adopted from its investigation (`investigation/erode`, D281) onto the

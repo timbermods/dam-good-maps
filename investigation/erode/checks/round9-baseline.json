@@ -1,0 +1,124 @@
+{
+ "round7": {
+  "ref": "9ed213b7ce515efe4b25819f35a53a066980fce5",
+  "cases": [
+   {
+    "case": "crater-lip",
+    "power": 72,
+    "size": null,
+    "worn": 868,
+    "held": 131,
+    "sha256": "5a6396df73d7a49495e4a32a1875ced8196f65326d7b19e95029dcc3d8d6baa2"
+   },
+   {
+    "case": "canyon-cave",
+    "power": 70,
+    "size": null,
+    "worn": 363,
+    "held": 47,
+    "sha256": "1474fe5cf21fa33a5fe10503f7c620ea77c6eff5f68d252d63e98177cf5e6372"
+   },
+   {
+    "case": "tall-arch",
+    "power": 70,
+    "size": 45,
+    "worn": 38,
+    "held": 25,
+    "sha256": "4a71d8c73d6742474259532c8e0fa73ddafeb5156f9bd46d02a435b84b7fd3ac"
+   },
+   {
+    "case": "tall-shore",
+    "power": 75,
+    "size": 55,
+    "worn": 104,
+    "held": 24,
+    "sha256": "7a7b7dad797f68bdce5d346e91a38d121560de16fb10b0da985a3e0afc861a71"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 30,
+    "size": null,
+    "worn": 210,
+    "held": 66,
+    "sha256": "cd5b89374a116042c34d9d6f27dc579ea9ac899215c6d601de75dd693d55dd47"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 60,
+    "size": null,
+    "worn": 443,
+    "held": 111,
+    "sha256": "22283eecba9a9dd97ddaf61d449a0326766317f52746a072abb94057ea1dade0"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 90,
+    "size": null,
+    "worn": 747,
+    "held": 167,
+    "sha256": "b02231805d656f729cac4b9411a83426e8d3f0e9237d3abb88e21013f42cfac1"
+   }
+  ]
+ },
+ "round8": {
+  "ref": "d335c50196475ab5ce7c9be0b09cce33d701cf87",
+  "cases": [
+   {
+    "case": "crater-lip",
+    "power": 72,
+    "size": null,
+    "worn": 868,
+    "held": 131,
+    "sha256": "5a6396df73d7a49495e4a32a1875ced8196f65326d7b19e95029dcc3d8d6baa2"
+   },
+   {
+    "case": "canyon-cave",
+    "power": 70,
+    "size": null,
+    "worn": 363,
+    "held": 47,
+    "sha256": "1474fe5cf21fa33a5fe10503f7c620ea77c6eff5f68d252d63e98177cf5e6372"
+   },
+   {
+    "case": "tall-arch",
+    "power": 70,
+    "size": 45,
+    "worn": 38,
+    "held": 25,
+    "sha256": "4a71d8c73d6742474259532c8e0fa73ddafeb5156f9bd46d02a435b84b7fd3ac"
+   },
+   {
+    "case": "tall-shore",
+    "power": 75,
+    "size": 55,
+    "worn": 104,
+    "held": 24,
+    "sha256": "7a7b7dad797f68bdce5d346e91a38d121560de16fb10b0da985a3e0afc861a71"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 30,
+    "size": null,
+    "worn": 641,
+    "held": 95,
+    "sha256": "43ae9f2e3f61bb6a8323befe8c667d4696d196bf44654d9e689dbaca4395cc41"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 60,
+    "size": null,
+    "worn": 443,
+    "held": 111,
+    "sha256": "22283eecba9a9dd97ddaf61d449a0326766317f52746a072abb94057ea1dade0"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 90,
+    "size": null,
+    "worn": 747,
+    "held": 167,
+    "sha256": "b02231805d656f729cac4b9411a83426e8d3f0e9237d3abb88e21013f42cfac1"
+   }
+  ]
+ }
+}

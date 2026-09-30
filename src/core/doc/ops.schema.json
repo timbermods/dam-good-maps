@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "specPatch"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -27,8 +27,7 @@
     { "if": { "properties": { "op": { "const": "deleteEntities" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/deleteEntities" } } } },
     { "if": { "properties": { "op": { "const": "setEntityProps" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setEntityProps" } } } },
     { "if": { "properties": { "op": { "const": "pinSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/pinSlope" } } } },
-    { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } },
-    { "if": { "properties": { "op": { "const": "specPatch" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/specPatch" } } } }
+    { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -331,12 +330,6 @@
       "additionalProperties": false,
       "required": ["x", "y"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } }
-    },
-    "specPatch": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["patch"],
-      "properties": { "patch": { "type": "object" } }
     }
   }
 }

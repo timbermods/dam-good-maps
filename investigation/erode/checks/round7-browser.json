@@ -1,0 +1,65 @@
+{
+ "result": "PASS",
+ "cases": [
+  {
+   "case": "roof-skylight",
+   "worn": 74,
+   "held": 0,
+   "fell": 74,
+   "dropped": 0,
+   "ms": 24.80000001192093,
+   "checkMs": 5.5,
+   "box": {
+    "x0": 59,
+    "y0": 49,
+    "x1": 67,
+    "y1": 57
+   },
+   "finalMs": 656.2999999821186,
+   "roof": "roof",
+   "rubble": 4
+  },
+  {
+   "case": "roof-bridge",
+   "worn": 981,
+   "held": 0,
+   "fell": 981,
+   "dropped": 0,
+   "ms": 16.599999994039536,
+   "checkMs": 3.600000023841858,
+   "box": {
+    "x0": 58,
+    "y0": 44,
+    "x1": 69,
+    "y1": 75
+   },
+   "finalMs": 658.2999999821186,
+   "roof": "roof",
+   "rubble": 32
+  },
+  {
+   "case": "roof-dome",
+   "worn": 292,
+   "held": 0,
+   "fell": 292,
+   "dropped": 0,
+   "ms": 11.699999988079071,
+   "checkMs": 4.0999999940395355,
+   "box": {
+    "x0": 58,
+    "y0": 54,
+    "x1": 69,
+    "y1": 65
+   },
+   "finalMs": 656.4000000059605,
+   "roof": "ceiling",
+   "rubble": 16
+  }
+ ],
+ "pointerTopAndCeiling": "PASS",
+ "undoRedoEscTryAnother": "PASS",
+ "objectsRestored": "PASS",
+ "cameraUnchanged": "PASS",
+ "gifBytes": 2739064,
+ "pageErrors": []
+}

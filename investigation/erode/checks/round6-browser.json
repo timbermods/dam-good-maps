@@ -1,0 +1,51 @@
+{
+ "result": "PASS",
+ "floorRange": "1–22",
+ "default": 1,
+ "pinReloadReset": "PASS",
+ "tryAnotherKeepsFloor": "PASS",
+ "ceilingKeepsAllGround": "PASS",
+ "original": {
+  "worn": 10849,
+  "held": 0,
+  "fell": 0,
+  "dropped": 0,
+  "ms": 38.8999999910593,
+  "checkMs": 7.4000000059604645,
+  "box": {
+   "x0": 24,
+   "y0": 35,
+   "x1": 127,
+   "y1": 88
+  },
+  "finalMs": 663,
+  "details": {
+   "winding": 86,
+   "sideGullies": 24,
+   "dryFalls": 78,
+   "undercutBanks": 24
+  }
+ },
+ "shallow": {
+  "worn": 4200,
+  "held": 0,
+  "fell": 0,
+  "dropped": 0,
+  "ms": 24.899999991059303,
+  "checkMs": 7.600000008940697,
+  "box": {
+   "x0": 26,
+   "y0": 37,
+   "x1": 127,
+   "y1": 86
+  },
+  "finalMs": 661.8999999910593,
+  "details": {
+   "winding": 86,
+   "sideGullies": 24,
+   "dryFalls": 78,
+   "undercutBanks": 24
+  }
+ },
+ "pageErrors": []
+}

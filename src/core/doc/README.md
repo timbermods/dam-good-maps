@@ -9,9 +9,9 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - Headless: it runs in the page's worker and in Node.
 
 **Start from**
-- `session.ts` `MapSession`: `apply`, undo and redo, regeneration with constraints, export.
+- `session.ts` `MapSession`: `apply`, undo and redo, export. Edits never replay onto new land (D336): no regeneration under a document's edits.
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `base.ts` (the stored base map), `placing.ts` and `tools.ts` (turn a request into planned features and operations), `bake.ts` (old drawn landforms become plain terrain, D182).
 
-**Tests**: `tests/contract/` (document, ops, bake, import, projects, views, regenerate, sourcesUnderEdits, editor; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
+**Tests**: `tests/contract/` (document, ops, bake, import, projects, views, sourcesUnderEdits, editor; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
