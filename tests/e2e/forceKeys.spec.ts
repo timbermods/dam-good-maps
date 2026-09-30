@@ -133,7 +133,11 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
     const a = await client(page, at[0] - 12, at[1] - 4);
     const b = await client(page, at[0], at[1] + 6);
     const c = await client(page, at[0] + 12, at[1] - 2);
+    // (the force's pointer tool is on the map once its ring shows under the pointer: pressed sooner,
+    // on a slow machine, the press would turn the camera)
+    await page.mouse.move(a.x + 3, a.y);
     await page.mouse.move(a.x, a.y);
+    await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
     await page.mouse.down();
     await page.mouse.move(b.x, b.y, { steps: 10 });
     await page.mouse.move(c.x, c.y, { steps: 10 });
