@@ -201,23 +201,3 @@ describe("drawn landforms stand on the ground, and say the level they reach", ()
   });
 });
 
-describe("Generate, keeping my edits, with a moved start", () => {
-  it("does not retry every layout when only the player's edits fail a check", () => {
-    const r = generate(makeSpec({ seed: 1, size: { x: W, y: W } }));
-    const s = MapSession.fromGenerated(r, r.file);
-    const start = s.features.find((f) => f.kind === "start")!;
-    const pos = (start.params as { position: [number, number] }).position;
-    // the start moved somewhere the new layout will not give it water or plants
-    s.apply({ op: "updateFeature", params: { id: start.id, patch: { params: { position: [W - 8, 8], benchLevel: 1, bank: null } } } });
-    void pos;
-    const g = s.regenerate({ designedFor: "hard", settings: makeSpec({ seed: 1, size: { x: W, y: W }, designedFor: "hard" }).settings });
-    expect(g.ok).toBe(true);
-    if (g.editProblems.length) {
-      // the generator's own map passed, and the edits' problems are named: its attempts are its
-      // own candidate choice's (M9b, D278: a first candidate that misses an outcome is followed by
-      // others), never every layout because of the edits
-      expect(g.attempts).toBeLessThan(MAX_ATTEMPTS);
-      expect(g.editProblems.every((c) => c.id.length > 0 && c.message.length > 0)).toBe(true);
-    } else expect(g.report!.passed).toBe(true);
-  });
-});

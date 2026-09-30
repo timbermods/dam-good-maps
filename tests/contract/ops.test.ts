@@ -128,16 +128,20 @@ describe("invalid operations are rejected with a reason and change nothing", () 
     expect(sha(s.exportTimber().bytes)).toBe(before);
   });
 
-  it("an imported map has no settings to change", () => {
-    const imported = MapSession.importMap(r.bytes, "x.timber");
-    expect(imported.apply({ op: "specPatch", params: { patch: { seed: 1 } } }).errors).toEqual(["an imported map has no settings to change"]);
-  });
-
-  it("a settings change that breaks the spec schema is rejected, not clamped", () => {
-    const res = s.apply({ op: "specPatch", params: { patch: { settings: { resources: { ruins: 900 } } } } });
-    expect(res.ok).toBe(false);
-    expect(res.errors[0]).toMatch(/ruins: must be <= 300/);
-    expect(s.spec!.settings.resources.ruins).toBe(100);
+  it("a settings change is no edit: edits never replay onto new land (D336)", () => {
+    // (it was `specPatch`, which regenerated the map under the player's edits)
+    const g = fresh();
+    expect(g.apply({ op: "sculpt", params: { mode: "raise", cells: rectRuns(2, 2, 4, 4), amount: 1 } }).ok).toBe(true);
+    const before = sha(g.exportTimber().bytes);
+    for (const patch of [{ seed: 78 }, { size: { x: 128, y: 128 } }]) {
+      const res = g.apply({ op: "specPatch", params: { patch } } as unknown as EditOp);
+      expect(res.ok).toBe(false);
+      expect(res.errors.join("; ")).toMatch(/^specPatch\/op: /);
+    }
+    expect(sha(g.exportTimber().bytes)).toBe(before);
+    expect(g.spec!.seed).toBe(r.spec.seed);
+    expect(g.history().length).toBe(1);
+    expect("regenerate" in g).toBe(false);
   });
 
   it("a group of operations is one step: one undo takes it all back", () => {
@@ -230,22 +234,6 @@ describe("orphaned edits are detected and reported (PLAN §19.4)", () => {
     expect(s.orphans()[1].reason).toBe(`entity ${trees[1].id} no longer exists`);
     s.undo();
     expect(s.orphans()).toEqual([]);
-  });
-
-  it("a feature edit whose target a regeneration removed", () => {
-    const s = fresh();
-    const grove = r.features.filter((f) => f.kind === "forest").at(-1)!;
-    expect(s.apply({ op: "updateFeature", params: { id: grove.id, patch: { params: { density: 0.5 } } } }).ok).toBe(true);
-    const res = s.apply({ op: "specPatch", params: { patch: { seed: 78 } } });
-    expect(res.ok).toBe(true);
-    const gone = !s.features.some((f) => f.id === grove.id);
-    expect(gone).toBe(true);
-    expect(res.regeneration!.orphans).toEqual([{ seq: 1, op: "updateFeature", label: "Change a feature", reason: `feature ${grove.id} no longer exists` }]);
-    // the orphaned edit is kept in the document, and comes back to life if its target does
-    expect(s.document.edits.map((e) => e.seq)).toEqual([1]);
-    s.undo();
-    expect(s.orphans()).toEqual([]);
-    expect(s.features.find((f) => f.id === grove.id)!.params).toMatchObject({ density: 0.5 });
   });
 });
 

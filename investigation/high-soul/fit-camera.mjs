@@ -1,0 +1,6 @@
+import {PerspectiveCamera,Vector3} from './local/node_modules/three/build/three.module.js';import {readFileSync,writeFileSync} from 'node:fs';
+const m=JSON.parse(readFileSync('investigation/high-soul/local/map-summary.json'));
+const points=[[0,0,146,570],[255,0,1526,592],[0,255,489,32],[255,255,1180,44]].map(([x,y,u,v])=>[new Vector3(x,m.heights[y*256+x],-y),u,v]);
+function err(a){const [yaw,pitch,dist,tx,ty,tz,fov]=a;const c=new PerspectiveCamera(fov,1600/670,.1,4000);c.position.set(tx+Math.sin(yaw)*Math.cos(pitch)*dist,ty+Math.sin(pitch)*dist,tz+Math.cos(yaw)*Math.cos(pitch)*dist);c.lookAt(tx,ty,tz);c.updateMatrixWorld();return points.reduce((s,[p,u,v])=>{let q=p.clone().project(c);return s+((q.x+1)*800-u)**2+((1-q.y)*335-v)**2},0)}
+let a=[-.025,.58,265,128,6,-94,40], step=[.05,.1,15,5,0,10,1];for(let round=0;round<150;round++){let improved=false;for(let i=0;i<a.length;i++)for(const dir of [-1,1]){const b=[...a];b[i]+=step[i]*dir;if(err(b)<err(a)){a=b;improved=true}}if(!improved)step=step.map(x=>x*.8)}console.log(a,Math.sqrt(err(a)/4));
+writeFileSync('investigation/high-soul/local/camera-fit.json',JSON.stringify({overview:{mode:'orbit',yaw:a[0],pitch:a[1],distance:a[2],target:a.slice(3,6),fov:a[6]},rms:Math.sqrt(err(a)/4)},null,2));

@@ -70,8 +70,8 @@ The editor:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). The
   **⋯** menu has **Open…**, **Save project**, **History** and **Back to settings**.
-- **Back to settings** keeps your edits. **Generate, keeping my edits** builds a new map around
-  them.
+- **Back to settings** keeps your edits. **Generate** makes a new map; yours stays saved, and
+  **Back to editing** returns to it.
 - **Open a map** opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your map is saved in the browser as you work.
@@ -139,7 +139,7 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
 - `npm run sheet` makes a contact sheet: seeds 1–30 of every theme at 128² on one page that opens in
   the browser. `--compare <git ref>` puts another version's maps beside them.
 - `npm run test:e2e` builds the site and runs the browser tests: Chrome and Node produce the same
-  bytes, the editor's tools and its generate-refine-regenerate journey, the 3D view, the Real places
+  bytes, the editor's tools and its generate-refine journey, the 3D view, the Real places
   gallery on a desktop and a phone, and every local investigation map through import, 3D and export.
 - `npm run places` rebuilds the Real places data from the landscape survey's library, checking every
   map. `npm run places -- --check` says whether the committed data matches a fresh run.

@@ -136,10 +136,6 @@ const api = {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
-  async regenerate(spec: MapSpec) {
-    const r = await ed.regenerate(spec);
-    return r.response ? transfer(r, responseBuffers(r.response)) : r;
-  },
   exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();

@@ -1,0 +1,3 @@
+import {defineConfig} from './local/node_modules/@playwright/test/index.mjs';
+import {resolve} from 'node:path';
+export default defineConfig({testDir:resolve('investigation/high-soul/local/site/tests/e2e'),testMatch:['look*.spec.ts','render3d.spec.ts'],outputDir:resolve('investigation/high-soul/local/e2e-results'),timeout:180000,workers:1,reporter:[['list'],['json',{outputFile:resolve('investigation/high-soul/local/e2e.json')}]],use:{baseURL:'http://localhost:4972/',channel:'chrome',launchOptions:{args:['--enable-gpu','--use-angle=d3d11','--ignore-gpu-blocklist']},storageState:{cookies:[],origins:[{origin:'http://localhost:4972',localStorage:[{name:'dgm.look',value:'high'}]}]}}});
