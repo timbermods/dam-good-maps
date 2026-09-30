@@ -31,7 +31,7 @@ export const SOURCE_REACH = 2;
 
 /** How far from a source's marker (or its foot) the pointer still counts as on the source, in screen
  *  pixels (D345, B4): a source stands up out of its tile, and its marker floats above it. */
-export const SOURCE_SCREEN_REACH = 16;
+export const SOURCE_SCREEN_REACH = 8;
 
 export const isSource = (template: string) => template === "WaterSource" || template === "BadwaterSource";
 

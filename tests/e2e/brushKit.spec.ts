@@ -295,6 +295,12 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // (below the rows over the map, which are three now: D323 item 9)
   // (a stroke that runs up to the mine site's west edge and holds there: its rim crosses the site
   // however fast the machine paints)
+  // (the mine site to the middle of the view, clear of the rows over the map: the map is centred now)
+  await page.evaluate(([x, y]) => {
+    const r = window.dgm3d!.renderer;
+    r.setView({ target: [x + 0.5, r.getView().target[1], -(y + 0.5)] });
+  }, [mine[0], mine[1]]);
+  await page.waitForTimeout(300);
   const pm = await client(page, Math.max(2, mine[0] - 7), mine[1] - 4);
   const pe = await client(page, Math.max(2, mine[0] - 2), mine[1] - 4);
   await page.mouse.move(pm.x, pm.y);
@@ -308,6 +314,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   expect(st.keep?.length ?? 0).toBeGreaterThan(0);
   expect((await page.evaluate(() => window.dgmEditor!.instant())).filter((c) => /floating|buried/i.test(c.message))).toEqual([]);
   await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
+  // (the map framed again, as it was)
+  await page.evaluate(() => window.dgm3d!.renderer.frameMap());
 
   await page.keyboard.press("4");
   // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted) and no target;

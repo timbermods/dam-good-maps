@@ -57,7 +57,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
       // (below the rows over the map, which grow with the tool picked)
-      return p.y > 260 && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      return p.y > 340 && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
     const clear = (x: number, y: number) => {
       for (let yy = y - 6; yy <= y + 6; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (m.surface.depth[yy * m.W + xx] > 0 || m.heights[yy * m.W + xx] > 12 || !onMap(xx, yy)) return false;

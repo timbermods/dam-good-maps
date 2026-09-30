@@ -3188,7 +3188,11 @@ export default function Editor(props: EditorProps) {
               </button>
               {deleteMenu ? (
                 <ul class="menu select-menu" role="menu" aria-label="Delete">
-                  {choices.length ? (
+                  {!deleteCounts ? (
+                    <li role="none">
+                      <span class="muted">Counting…</span>
+                    </li>
+                  ) : choices.length ? (
                     choices.map((c) => (
                       <li role="none" key={c.group}>
                         <button

@@ -117,7 +117,7 @@ test("generate → refine → back to settings → Generate → back to editing 
   await page.getByRole("menuitem", { name: "Back to settings" }).click();
   await expect(page.getByText("Generate makes a new map. Yours stays saved, with its edits.")).toBeVisible({ timeout: 60_000 });
   // export from the settings page too (the edited map)
-  await page.getByRole("button", { name: /^Export River Valley/ }).click();
+  await page.getByRole("button", { name: /^Export dgm-river-valley/ }).click();
   await expect(page.getByRole("dialog").getByText(/checks pass|Warnings/)).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press("Escape");
   await page.locator("summary", { hasText: /^Resources$/ }).click();
