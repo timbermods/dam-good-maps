@@ -271,3 +271,41 @@ test("B13: the forces row is in three groups by prominence: Carve, Craterize, Er
   expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
+
+test("B14: after an undo, a redo and an edit the water bar reads the worker's real state, never stuck at flowing 0%", async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  const status = page.getByRole("toolbar", { name: "Water time" }).getByRole("status");
+  await expect(status).toHaveText("Water settled", { timeout: 60_000 });
+  const spot = await flatDry(page, 3);
+  expect(spot).not.toBeNull();
+  const [sx, sy] = spot!;
+  // an edit that moves water: a source; it flows, then settles
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  const p = await client(page, sx, sy);
+  await page.mouse.move(p.x + 3, p.y);
+  await page.mouse.click(p.x, p.y);
+  await idle(page);
+  await page.keyboard.press("x");
+  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  // undo: back to water that was settled
+  await page.getByRole("button", { name: "Undo (Ctrl+Z)" }).click();
+  await idle(page);
+  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect(status).not.toContainText("0%");
+  // redo, and a second undo
+  await page.getByRole("button", { name: "Redo (Ctrl+Y)" }).click();
+  await idle(page);
+  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await page.keyboard.press("z");
+  await idle(page);
+  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  // an edit that leaves the water as it is
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Relic" }).click();
+  const q = await client(page, sx + 8, sy);
+  await page.mouse.move(q.x + 3, q.y);
+  await page.mouse.click(q.x, q.y);
+  await idle(page);
+  await page.keyboard.press("x");
+  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+});

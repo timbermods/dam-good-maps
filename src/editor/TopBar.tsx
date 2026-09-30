@@ -125,7 +125,7 @@ export interface Force {
 export const FORCE_GROUPS: readonly (readonly string[])[] = [
   ["carve", "craterize", "erupt"],
   ["rift", "quake", "glaciate"],
-  ["erode", "meander", "deposit"],
+  ["erode", "deposit"],
 ];
 
 const FORCE_LIST: readonly Force[] = [

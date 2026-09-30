@@ -103,6 +103,12 @@ export class WaterPlayer {
     this.host.changed();
   }
 
+  /** The map's water is settled and nothing is on its way (the worker says so, D345 B14): no journey, the bar
+   *  reads "Water settled". What an undo, a redo or an edit that leaves the water as it is ends with. */
+  settled(): void {
+    this.clear();
+  }
+
   /** A frame of the journey in progress. The settled water may differ from the last frame the
    *  worker's quick settle sent (the exact settle drains thin sheets it left): the journey eases
    *  into it over a few frames instead of jumping. */

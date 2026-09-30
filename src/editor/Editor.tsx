@@ -443,7 +443,10 @@ export default function Editor(props: EditorProps) {
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
       if (weatherRef.current) setWeather(null);
-      player.current?.begin(u.view.water ? { water: u.view.water, done: 0 } : null);
+      // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
+      // says "Water settled" at once, D345 B14)
+      if (u.waterSettled) player.current?.settled();
+      else player.current?.begin(u.view.water ? { water: u.view.water, done: 0 } : null);
     }
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
@@ -1819,7 +1822,7 @@ export default function Editor(props: EditorProps) {
           // (kept already, and taken back as if never kept: the history changed too)
           localUndo.current = [];
           localRedo.current = [];
-          applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0 });
+          applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0, ...(v.waterSettled !== undefined ? { waterSettled: v.waterSettled } : {}) });
         } else applyView(v);
         renderer.current?.refreshShadows();
       }),

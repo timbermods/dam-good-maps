@@ -145,6 +145,10 @@ export interface SessionUpdate {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** The map's water is settled as this answer leaves (D345, B14): no settle is running for it, so no
+   *  journey will follow. False while the worker is settling the water after this change: its frames,
+   *  then its settled water, come as events. The water bar reads this, never a guess. */
+  waterSettled?: boolean;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -432,7 +436,7 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     kickWater();
     syncChecks();
   }
-  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant };
+  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !(waterJob && waterJob.session === s) };
 }
 
 // ------------------------------------------------------------------------------ the checks worker
@@ -1845,6 +1849,8 @@ export interface ForceTakenBack extends ViewUpdate {
   info?: SessionInfo;
   /** Why nothing was taken back, when a kept force was named. */
   reason?: string;
+  /** As `SessionUpdate.waterSettled`, for the history that changed (D345, B14). */
+  waterSettled?: boolean;
 }
 
 /** The force at work: its run on its own copy of the map, the map it started from (its result is
@@ -2351,7 +2357,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     stopWater();
     const u = changed(s, true, [], t0);
     // (the whole view, not what changed since the keep: the page may never have shown the keep)
-    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info };
+    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info, waterSettled: u.waterSettled };
   }
   if (gesture > gestureLast) takenBack.add(gesture);
   return { taken: null };

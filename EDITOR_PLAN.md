@@ -43,7 +43,7 @@ editor is desktop-first (D185).
 - **The rows over the map** (D323, item 9; structure only, the design pass styles them): four, top to bottom: the
   view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces, **in three clusters by
   prominence** (D352, one list, `FORCE_GROUPS` in `TopBar.tsx`: Carve, Craterize, Erupt · Rift, Quake,
-  Glaciate · Erode, Meander, Deposit; today Carve, Craterize, Erupt · Quake, Glaciate, their keys unchanged: 7, 8, 0 and 9,
+  Glaciate · Erode, Deposit; today Carve, Craterize, Erupt · Quake, Glaciate, their keys unchanged: 7, 8, 0 and 9,
   -; a force not adopted yet takes its place in the list), and the first-run hint points at Carve; then the active tool's settings and its More (no Remove tool, D288: see **Delete**
   below). **Every force's row takes Glaciate's shape**
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
@@ -158,6 +158,10 @@ editor is desktop-first (D185).
   **Sound** in a row under it; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
   map area** (D345, B1): the default view, Top-down and Reset view fit the map's corners inside the canvas with a margin
   and put its middle at the canvas's middle, whatever the window's size.
+- **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
+  `waterSettled` (no settle is running for it); the page begins a water journey only when it is false, and reads
+  "Water settled" at once when it is true, so an undo, a redo or an edit that leaves the water as it is never leaves
+  "Water flowing… 0%" waiting for frames that will not come (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`).
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.

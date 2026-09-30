@@ -1482,3 +1482,12 @@ Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDI
   their own tooltips; check them when `feature/forces` is merged in.
 - **B13 (D352):** the forces row in clusters, one list (`FORCE_GROUPS`); keys unchanged (Erupt 0 before Quake 9 in the row);
   the first-run hint points at Carve, and a kept force completes it.
+- **B14, the water bar stuck at "0%" after an undo:** every edit began a journey in the page, and the worker sent water
+  frames and a settled event only when it had a settle to run; an undo back to water that was already settled ran none, so
+  the journey waited for ever. The worker now answers every update with `waterSettled` (its own state: no settle running for
+  it), and the page begins a journey only when it is false. `tests/contract/waterStatus.test.ts` (fails without it),
+  `tests/unit/waterPlayer.test.ts`, and an e2e in `sittingB.spec.ts`. A kept force taken back carries it too; the force
+  paths batch A owns (a force's own keep) answer without it and play as before. The Weather view builds on the same
+  `WaterPlayer` (`settled()` is its "nothing playing" state).
+- **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
+  Glaciate · Erode, Deposit.
