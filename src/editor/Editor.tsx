@@ -2972,7 +2972,7 @@ export default function Editor(props: EditorProps) {
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
     setMarkersOn(r.markers);
-    r.grab = (hit, ev) => grabSource(hit, ev) ?? grabObjectRef.current(hit) ?? startCalls.current.grabStart(hit);
+    r.grab = (hit, ev) => grabSource(hit, ev) ?? startCalls.current.grabStart(hit) ?? grabObjectRef.current(hit);
     r.onWheel = (ev, hit) => wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down
