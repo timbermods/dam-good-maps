@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { canonicalSettle, prefill } from "../../src/core/sim/prefill";
 import { PREVIEW_CHECK, previewSettle } from "../../src/core/sim/preview";
-import { sealedTiles, settle, steadyApartFromSealed, TICKS_PER_DAY, waterSteady, WaterSim, type Emitter, type WaterModel } from "../../src/core/sim/water";
+import { sealedTiles, settle, SETTLE_DAYS, steadyApartFromSealed, TICKS_PER_DAY, waterSteady, WaterSim, type Emitter, type WaterModel } from "../../src/core/sim/water";
 
 /** Python with numpy, for the oracle's side (CI has it; a machine without it skips). */
 const PY = (() => {
@@ -120,7 +120,8 @@ describe("the canonical settle: steady apart from a drying lake, and its water u
     const c = canonicalSettle(m);
     // its own test never passes (the lake's 60 tiles drop by about 0.009 a check) …
     expect(c.settled).toBe(false);
-    expect(c.ticks).toBe(4 * TICKS_PER_DAY);
+    // (it runs to the settle's limit, 6 game days since D358)
+    expect(c.ticks).toBe(SETTLE_DAYS * TICKS_PER_DAY);
     // … but the flow settled early, and that is what counts
     expect(c.steadyTicks).toBeDefined();
     expect(c.steadyTicks!).toBeLessThanOrEqual(TICKS_PER_DAY);

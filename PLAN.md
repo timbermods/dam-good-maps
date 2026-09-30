@@ -781,12 +781,14 @@ basin whose spill level is a broad flat gets a stream a level under the flat (`c
 sheet stands a few hundredths over a flat (the stream wound like a gully, D209); what is left is
 fixed as the map arrives: a plug (D274) that holds its lake over it is opened, and the way out of
 the basin standing over its level, else of the water still rising, is worn wider
-(`water/outletWear.ts`: from where the water comes in, through the basin's own necks and on along
-the way it leaves, banks taken down to the basin's level by a wandering width, and a level under it
-past the shore so the sill is short, or from the whole basin to its way out when that finds none;
-never within two tiles of the basin under its level; 9, then 17 tiles, the first that settles, a
-cut of at most 2% of the map), recorded in the land so the link rebuilds it. When the rivers' water
-alone still doesn't settle, the attempts stop there.
+(`water/outletWear.ts`: along the way its water leaves by, a channel whose width changes smoothly,
+never tile by tile, banks stepping back up a level a tile, a level under the basin past its shore
+so the sill is short, never within two tiles of the basin under its level; one shape along that way
+(D360 (3)): the largest piece of the worn ground, the rest left as it was, checked by `cutShape`,
+no stray tiles, nothing off to its side; 9, then 17 tiles, the first that settles, a cut of at most
+2% of the map), recorded in the land so the link rebuilds it. When the rivers' water alone still
+doesn't settle, the attempts stop there. The settle runs up to 6 game days (D358), so few maps need
+a cut at all.
 
 ### 7.10 Output
 

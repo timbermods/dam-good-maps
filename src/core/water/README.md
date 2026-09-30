@@ -110,14 +110,14 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 
 `wearOutlet(h, W, H, depth, { seed, width, keep, basin, floor })` takes the water that doesn't settle
 (`basin`, else the largest basin whose water stands over its spill level, `risenBasin`) and widens
-the way its water goes: from where water comes in (basin tiles beside higher water), through the
-basin and on to lower ground or the map edge. Where the route passes a neck of the basin narrower
-than the width asked, and all along its way out, banks come down to the basin's level by a width
-that wanders (0.5–1.5 of `width`, ragged at the edge, stepping back up a level a tile); past the
-shore the bed runs a level lower, so the sill is short. Where no water comes in, or that route finds
-no way out or would drain the basin, the route runs from the whole basin to its way out alone. Never
-within two tiles of the basin under its level, never on `keep`, never below `floor`. It returns the
-new ground and the tiles cut, or null. The generator calls it on a shown land whose water doesn't
-settle: on the basin over its level, then on the water still rising at the end of the settle (9,
-then 17 tiles, the first that settles, a cut of at most 2% of the map);
+the way its water leaves by, from the sill beside the basin to lower ground or the map edge and on
+down: a channel whose width changes smoothly along the way (0.8–1.2 of `width`, never tile by
+tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
+the sill is short. Never within two tiles of the basin under its level, never on `keep`, never below
+`floor`. The cut is one shape along that way (D360 (3)): the largest piece of the worn ground stays
+and the rest is left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray tiles and
+tiles off to the path's side, and a cut that isn't one piece with none of either is refused. It
+returns the new ground, the tiles cut and the path, or null. The generator calls it on a shown land
+whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
+the water still rising (9, then 17 tiles, the first that settles, a cut of at most 2% of the map);
 `tests/unit/outletWear.test.ts`.

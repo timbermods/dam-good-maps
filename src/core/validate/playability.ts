@@ -27,7 +27,7 @@ import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
 import { gameSoil, type SoilRules } from "../sim/soil";
 import type { CanonicalWater } from "../sim/prefill";
-import { TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
+import { SETTLE_DAYS, TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
 import { DIFFICULTY_RULES, SMALL_MAP, type Difficulty, type MapSpec } from "../spec/mapspec";
 import type { Collector, FixOp } from "./report";
@@ -229,10 +229,10 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     class: "playability",
     ok: waterSteady(water),
     value: steadyAt ?? water.ticks,
-    limit: 4 * TICKS_PER_DAY,
+    limit: SETTLE_DAYS * TICKS_PER_DAY,
     message:
       steadyAt === undefined
-        ? `the water is still changing after 4 game days`
+        ? `the water is still changing after ${SETTLE_DAYS} game days`
         : water.settled
           ? `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); water may keep flowing off the map`
           : `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); a sealed lake keeps slowly evaporating, as an unfed lake does in the game`,

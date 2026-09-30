@@ -126,8 +126,9 @@ export interface GenerationInfo {
    *  on dry ground", "spring by the start" (a group of sources in a hollow or dry bed by the start,
    *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)). */
   fixes?: string[];
-  /** The way out worn wider (D350 (b)): the tiles cut, the basin's size and its level. */
-  worn?: { cut: number[]; basin: number; level: number };
+  /** The way out worn wider (D350 (b), D360 (3)): the tiles cut, the basin's size and its level, the
+   *  width worn and the path its water takes out. */
+  worn?: { cut: number[]; basin: number; level: number; width: number; route: number[] };
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -1478,7 +1479,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           bad.heights[j] = w.heights[j];
         }
         fixes.push("way out worn wider");
-        info.worn = { cut: w.cut, basin: w.basin.length, level: w.level };
+        info.worn = { cut: w.cut, basin: w.basin.length, level: w.level, width, route: w.route };
         return b2;
       }
       h.set(before);

@@ -22,6 +22,8 @@ export interface OutletWear {
   /** The basin whose water rose over its spill level, and that level. */
   basin: number[];
   level: number;
+  /** The path its water takes out: from the sill beside the basin to the way out, and on down. */
+  route: number[];
 }
 
 /** Spill level of every tile: the lowest level water standing there drains at, through the map
@@ -116,24 +118,11 @@ export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike
   return { tiles: q.sort((a, c) => a - c), level };
 }
 
-/** The way out of the basin whose water rose over its spill level, worn `width` tiles wide (a
- *  wandering width round it), or null when there is none to wear. */
+/** The way out of the basin whose water rose over its spill level, worn `width` tiles wide, or null
+ *  when there is none to wear. D360 (3): the cut is one shape that follows the water's path out, a
+ *  channel smoothly widened as if water wore it: never blobs beside it, never stray tiles or
+ *  fragments (`cutShape` checks it). */
 export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: WearOptions): OutletWear | null {
-  // (through the basin from where the water comes in first; else, where that finds no way or would
-  // drain the basin, from the whole basin to its way out alone)
-  return wearOnce(h, W, H, depth, opts, true) ?? wearOnce(h, W, H, depth, opts, false);
-}
-
-export interface WearOptions {
-  seed: number;
-  width: number;
-  keep?: Uint8Array | null;
-  noOutlet?: Uint8Array | null;
-  basin?: { tiles: number[]; level: number } | null;
-  floor?: number;
-}
-
-function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: WearOptions, through: boolean): OutletWear | null {
   const N = W * H;
   // (the caller may name the stuck water itself: water still rising over a flat at its spill level,
   // which is no depression)
@@ -143,39 +132,12 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
   const inB = new Uint8Array(N);
   for (const i of basin.tiles) inB[i] = 1;
   const spill = spillOf(h, W, H, opts.noOutlet ?? null);
-  // where the water comes in: basin tiles beside water standing higher than the basin's (a river
-  // running in); the way the water goes runs from there through the basin, and a neck of the basin
-  // narrower than the width asked holds the water up as a narrow way out does
-  let surf = 0;
-  for (const i of basin.tiles) surf += h[i] + depth[i];
-  surf /= basin.tiles.length;
-  const entries: number[] = [];
-  for (const i of through ? basin.tiles : []) {
-    const x = i % W;
-    const y = (i - x) / W;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (!inB[j] && depth[j] > 0.05 && h[j] + depth[j] > surf + 0.02) {
-        entries.push(i);
-        break;
-      }
-    }
-  }
-  if (through && !entries.length) return null;
-  // (how far each basin tile lies from its shore: a neck is where the basin is narrow)
-  const shore = new Uint8Array(N);
-  for (let i = 0; i < N; i++) shore[i] = inB[i] ? 0 : 1;
-  const wide = distanceFrom(shore, W, H);
-  // the route the water leaves by: from where it comes in (or the whole basin), through the basin
-  // and on over ground at or under its level, to lower ground or the map's edge, cheapest by a
-  // noisy cost so it follows the land's own way out
+  // the route the water leaves by: from the basin over ground at or under its level, to lower ground
+  // or the map's edge, cheapest by a noisy cost so it follows the land's own way out
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const hp = new MinHeap();
-  for (const i of entries.length ? entries : basin.tiles) {
+  for (const i of basin.tiles) {
     cost[i] = 0;
     hp.push(0, i);
   }
@@ -204,7 +166,7 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
-      if ((!entries.length && inB[j]) || h[j] > S || cost[j] <= k) continue;
+      if (inB[j] || h[j] > S || cost[j] <= k) continue;
       const nk = k + 1 + 1.6 * (fbm(ns, xx, yy, 6, 2) + 1);
       if (nk < cost[j]) {
         cost[j] = nk;
@@ -214,65 +176,10 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
     }
   }
   if (end < 0) return null;
+  // (from the sill beside the basin to the way out, in order)
   const route: number[] = [];
-  for (let c = end; c >= 0 && (entries.length || !inB[c]); c = prev[c]) route.push(c);
-  // (every river that comes in finds its own way through the basin to that way out, not only the
-  // nearest: the ways from each group of entry tiles back to it, by the same noisy cost)
-  if (entries.length > 1) {
-    const back = new Float64Array(N).fill(Infinity);
-    const to = new Int32Array(N).fill(-1);
-    back[end] = 0;
-    const bh = new MinHeap();
-    bh.push(0, end);
-    while (bh.size) {
-      const c = bh.pop();
-      const k = bh.lastKey;
-      if (k > back[c]) continue;
-      const x = c % W;
-      const y = (c - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (h[j] > S || back[j] <= k) continue;
-        const nk = k + 1 + 1.6 * (fbm(ns, xx, yy, 6, 2) + 1);
-        if (nk < back[j]) {
-          back[j] = nk;
-          to[j] = c;
-          bh.push(nk, j);
-        }
-      }
-    }
-    const on = new Set(route);
-    const isEntry = new Uint8Array(N);
-    for (const i of entries) isEntry[i] = 1;
-    const seen = new Uint8Array(N);
-    for (const e0 of entries) {
-      if (seen[e0]) continue;
-      // (a group of entry tiles side by side is one river coming in: its nearest tile to the way out)
-      const group = [e0];
-      seen[e0] = 1;
-      for (let k = 0; k < group.length; k++) {
-        const c = group[k];
-        const x = c % W;
-        const y = (c - x) / W;
-        for (const [dx, dy] of N4) {
-          const j = (y + dy) * W + x + dx;
-          if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || !isEntry[j] || seen[j]) continue;
-          seen[j] = 1;
-          group.push(j);
-        }
-      }
-      let from = group[0];
-      for (const i of group) if (back[i] < back[from]) from = i;
-      if (!Number.isFinite(back[from])) continue;
-      for (let c = from; c >= 0 && !on.has(c); c = to[c]) {
-        on.add(c);
-        route.push(c);
-      }
-    }
-  }
+  for (let c = end; c >= 0 && !inB[c]; c = prev[c]) route.push(c);
+  route.reverse();
   // (and on down the way the water runs from there, twice the width: the widened sill needs a way
   // down as wide as itself)
   {
@@ -306,35 +213,30 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
         if (xx >= 0 && yy >= 0 && xx < W && yy < H) nearB[yy * W + xx] = 1;
       }
   }
-  // the banks, as water wears them: within a wandering inner width of the route the ground comes
-  // down to the route's bed; beyond it, a level more for each tile out, so the banks step back up
-  // (a worn slope, never a wall or a square notch); a tile never goes up, and never below the bed.
-  // Past the basin's shore the bed runs a level under its spill level, so the sill the water crosses
-  // is short (a long flat at the basin's level takes a slope of water, a head the basin rises by, to
-  // carry the flow: the land stage's widening does the same, land/levels.ts `widenOutlets`)
+  // the channel, as water wears it: within a width that widens and narrows smoothly along the way
+  // (0.8–1.2 of the asked for, never tile by tile) the ground comes down to the route's bed; beyond
+  // it, a level more for each tile out, so the banks step back up (a worn slope, never a wall or a
+  // square notch); a tile never goes up, and never below the bed. Past the basin's shore the bed runs
+  // a level under its spill level, so the sill the water crosses is short (a long flat at the
+  // basin's level takes a slope of water, a head the basin rises by, to carry the flow: the land
+  // stage's widening does the same, land/levels.ts `widenOutlets`)
   const low = Math.max(opts.floor ?? 0, S - 1);
   const ws = hash32(opts.seed, "outlet-wear-width");
   const target = new Int16Array(N).fill(-1);
   const band: number[] = [];
   const half = opts.width / 2;
-  const reach = Math.ceil(half * 1.5) + 6;
+  const reach = Math.ceil(half * 1.2) + 6;
   for (const r of route) {
     const rx = r % W;
     const ry = (r - rx) / W;
-    // (a neck's banks come down to the basin's level, never to its floor)
-    const bed = inB[r] ? S : Math.min(h[r], nearB[r] ? S : low);
-    // (a width that wanders along the way, 0.5–1.5 of the asked for)
-    const R = half * (0.5 + 0.5 * (fbm(ws, rx, ry, 7, 2) + 1));
-    // (inside the basin only its necks: where it is as wide as that already, nothing is worn)
-    if (inB[r] && wide[r] > R) continue;
+    const bed = Math.min(h[r], nearB[r] ? S : low);
+    const R = half * (0.8 + 0.2 * (fbm(ws, rx, ry, 12, 2) + 1));
     for (let dy = -reach; dy <= reach; dy++)
       for (let dx = -reach; dx <= reach; dx++) {
         const xx = rx + dx;
         const yy = ry + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        // (each bank tile's own reach wanders by up to a tile and a half: a ragged edge)
-        const inner = R + 1.5 * fbm(ws + 1, xx, yy, 2.5, 2);
-        const t = bed + Math.max(0, Math.ceil(Math.hypot(dx, dy) - inner));
+        const t = bed + Math.max(0, Math.ceil(Math.hypot(dx, dy) - R));
         const j = yy * W + xx;
         if (t >= h[j]) continue;
         if (target[j] < 0) {
@@ -349,20 +251,6 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
     const t = nearB[j] ? Math.max(target[j], S) : target[j];
     if (out[j] > t) out[j] = t;
   }
-  // (a lowered tile with nothing as low beside it is a pit the ragged edge left: it stays)
-  for (let round = 0; round < 2; round++)
-    for (const j of band) {
-      if (out[j] === h[j]) continue;
-      const x = j % W;
-      const y = (j - x) / W;
-      let joined = false;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < W && yy < H && out[yy * W + xx] <= out[j]) joined = true;
-      }
-      if (!joined) out[j] = h[j];
-    }
   // (where the cut would drain the basin all the same, the ground round what drained stays)
   for (let round = 0; round < 4; round++) {
     const after = spillOf(out, W, H, opts.noOutlet ?? null);
@@ -382,8 +270,120 @@ function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>,
     }
     for (const j of band) if (near[j]) out[j] = h[j];
   }
+  // one shape (D360 (3)): the largest piece of the worn ground stays, and whatever the kept tiles,
+  // the drained basin's ground or ground already low along the way left apart from it (a sliver on
+  // the channel's other side, stray tiles) stays as it was
+  {
+    const worn = new Uint8Array(N);
+    for (const j of band) if (out[j] < h[j]) worn[j] = 1;
+    const label = new Int32Array(N).fill(-1);
+    let best = -1;
+    let bestSize = 0;
+    let id = 0;
+    for (const s0 of band) {
+      if (!worn[s0] || label[s0] >= 0) continue;
+      const q = [s0];
+      label[s0] = id;
+      for (let k = 0; k < q.length; k++) {
+        const c = q[k];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [dx, dy] of N4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (!worn[j] || label[j] >= 0) continue;
+          label[j] = id;
+          q.push(j);
+        }
+      }
+      if (q.length > bestSize) {
+        best = id;
+        bestSize = q.length;
+      }
+      id++;
+    }
+    for (const j of band) if (worn[j] && label[j] !== best) out[j] = h[j];
+  }
   const cut: number[] = [];
   for (let i = 0; i < N; i++) if (out[i] !== h[i]) cut.push(i);
   if (!cut.length) return null;
-  return { heights: out, cut, basin: basin.tiles, level: S };
+  // (the shape it must have, D360 (3): the steps above make it, this proves it)
+  if (!cutShapeOk(cutShape(cut, route, W, H, opts.width))) return null;
+  // (and the basin still spills where it did: no way out opened under its level)
+  const after = spillOf(out, W, H, opts.noOutlet ?? null);
+  if (basin.tiles.some((i) => after[i] < spill[i])) return null;
+  return { heights: out, cut, basin: basin.tiles, level: S, route };
+}
+
+export interface WearOptions {
+  seed: number;
+  width: number;
+  keep?: Uint8Array | null;
+  noOutlet?: Uint8Array | null;
+  basin?: { tiles: number[]; level: number } | null;
+  floor?: number;
+}
+
+/** How a cut sits against the path its water takes out (D360 (3)): how many shapes its tiles make
+ *  (4-connected), its stray tiles (no other cut tile beside them), and its tiles farther than `reach`
+ *  from the path (blobs off to its side). */
+export interface CutShape {
+  regions: number;
+  strays: number;
+  offPath: number;
+}
+
+export function cutShape(cut: readonly number[], path: readonly number[], W: number, H: number, reach = Infinity): CutShape {
+  const N = W * H;
+  const inCut = new Uint8Array(N);
+  for (const i of cut) inCut[i] = 1;
+  const onPath = new Uint8Array(N);
+  for (const i of path) onPath[i] = 1;
+  const seen = new Uint8Array(N);
+  let regions = 0;
+  for (const s0 of cut) {
+    if (seen[s0]) continue;
+    regions++;
+    const q = [s0];
+    seen[s0] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (seen[j] || !inCut[j]) continue;
+        seen[j] = 1;
+        q.push(j);
+      }
+    }
+  }
+  let strays = 0;
+  for (const i of cut) {
+    const x = i % W;
+    const y = (i - x) / W;
+    let beside = false;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx >= 0 && yy >= 0 && xx < W && yy < H && inCut[yy * W + xx]) beside = true;
+    }
+    if (!beside) strays++;
+  }
+  let offPath = 0;
+  if (path.length && Number.isFinite(reach)) {
+    const d = distanceFrom(onPath, W, H);
+    for (const i of cut) if (d[i] > reach) offPath++;
+  }
+  return { regions, strays, offPath };
+}
+
+/** A cut of the shape D360 (3) asks: one shape along the path, no stray tiles, nothing off to its side. */
+export function cutShapeOk(s: CutShape): boolean {
+  return s.regions === 1 && s.strays === 0 && s.offPath === 0;
 }

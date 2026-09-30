@@ -27,6 +27,7 @@ import { generate } from '../../src/core/gen/generate';
 import { decodeSpecFragment, makeSpec, type ThemeId } from '../../src/core/spec/mapspec';
 import { AVAILABLE_THEMES } from '../../src/core/spec/mapspec';
 import { levelRegions } from '../../src/core/math/grid';
+import { cutShape } from '../../src/core/water/outletWear';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -61,6 +62,10 @@ export interface MapMeasure {
   fixes?: string[];
   failedChecks?: string[];
   planned?: { promise: boolean; water: boolean } | null;
+  /** The way out worn wider (D350 (b)): the tiles cut, the width, and its shape (D360 (3)). */
+  worn?: { cut: number; width: number; shape: { regions: number; strays: number; offPath: number } } | null;
+  /** The final settle's ticks (D358: up to 6 game days). */
+  settleTicks?: number;
   /** Settles the map took, and lands drawn again by the land-stage screen. */
   settles?: number;
   redrawn?: number;
@@ -206,6 +211,8 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     fixes: r.info.fixes ?? [],
     planned: r.info.planned ?? null,
     settles: r.info.settles,
+    worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, r.info.worn.width) } : null,
+    settleTicks: b.settle.ticks,
     redrawn: r.failures.filter((f) => f.failed.some((w) => w.includes('(planned)'))).length,
     failedChecks: r.report.passed ? [] : r.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id).concat(r.info.stage !== 'built' && r.info.stage !== 'checks' ? [r.info.stage] : []),
     cpu: { share: Math.round(cpuShare * 1000) / 1000, land: Math.round(r.timings.firstLook * cpuShare), water: Math.round(r.timings.firstWater * cpuShare), final: Math.round(final * cpuShare) },

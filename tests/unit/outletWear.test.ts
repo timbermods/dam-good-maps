@@ -1,6 +1,6 @@
 // A stuck basin's way out worn wider (PLAN §20 D350 (b)): the smallest local cut, as if water wore it.
 import { describe, expect, it } from "vitest";
-import { risenBasin, wearOutlet } from "../../src/core/water/outletWear";
+import { cutShape, cutShapeOk, risenBasin, wearOutlet } from "../../src/core/water/outletWear";
 
 const W = 64;
 const H = 64;
@@ -30,7 +30,7 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     expect(b.tiles.length).toBeGreaterThan(600);
   });
 
-  it("widens the way out with stepped banks, raggedly, its sill short, and the basin keeps its level", () => {
+  it("widens the way out with stepped banks, its width changing smoothly, its sill short, and the basin keeps its level", () => {
     const { h, depth } = scene();
     const keep = new Uint8Array(W * H);
     keep[30 * W + 50] = 1;
@@ -62,48 +62,44 @@ describe("a basin's way out worn wider (D350 (b))", () => {
       widths.push(n);
     }
     expect(Math.min(...widths)).toBeGreaterThanOrEqual(3);
-    expect(new Set(widths).size).toBeGreaterThan(2);
+    // (a width that changes smoothly along the way, never tile by tile)
+    expect(new Set(widths).size).toBeGreaterThan(1);
+    for (let k = 1; k < widths.length; k++) expect(Math.abs(widths[k] - widths[k - 1])).toBeLessThanOrEqual(2);
     // the basin still spills at 6: nothing within two tiles of it went under its level
     const b2 = risenBasin(w.heights, W, H, depth);
     expect(b2?.level).toBe(6);
   });
 
-  it("widens a neck of the basin between where the water comes in and its way out", () => {
-    // two round lobes (floor 4, water at 6.5) joined by a neck three tiles wide; a river comes into
-    // the west lobe (water standing higher beside it), the way out leaves the east lobe at level 6
-    const h = new Uint8Array(W * H).fill(8);
-    const depth = new Float64Array(W * H);
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        const inLobe = (x - 14) ** 2 + (y - 32) ** 2 <= 81 || (x - 46) ** 2 + (y - 32) ** 2 <= 81 || (x > 20 && x < 40 && Math.abs(y - 32) <= 1);
-        if (inLobe) {
-          h[i] = 4;
-          depth[i] = 2.5;
-        }
-      }
-    for (let x = 55; x < W; x++) {
-      h[32 * W + x] = 6;
-      depth[32 * W + x] = 0;
+  it("is one shape along the water's way out: no stray tiles, nothing off to its side (D360 (3))", () => {
+    const { h, depth } = scene();
+    for (const width of [7, 9, 17]) {
+      const w = wearOutlet(h, W, H, depth, { seed: 11, width })!;
+      expect(w).not.toBeNull();
+      expect(cutShapeOk(cutShape(w.cut, w.route, W, H, width))).toBe(true);
     }
-    for (let x = 1; x < 5; x++) {
-      h[32 * W + x] = 7;
-      depth[32 * W + x] = 1;
-    }
-    const w = wearOutlet(h, W, H, depth, { seed: 3, width: 9 })!;
-    expect(w).not.toBeNull();
-    expect(w.level).toBe(6);
-    // the neck's banks (level 8 above and below it) come down, never under the basin's level
-    let worn = 0;
-    for (let x = 24; x <= 36; x++)
-      for (const y of [30, 34]) {
-        const i = y * W + x;
-        expect(w.heights[i]).toBeGreaterThanOrEqual(6);
-        if (w.heights[i] < h[i]) worn++;
-      }
-    expect(worn).toBeGreaterThan(8);
-    // the basin still spills at 6
-    expect(risenBasin(w.heights, W, H, depth)?.level).toBe(6);
+  });
+
+  it("the check refuses the cut Lake Basin 128² seed 8 had (a blob and fragments beside it, captured 2026-09-30)", () => {
+    // the capture's third panel (investigation/m9b/worn-way-out-lakeBasin-8-128.png before D360),
+    // tile by tile: '#' the cut
+    const rows = [
+      ".................#.....#...##.......",
+      "................###........#........",
+      ".................###..#....##.......",
+      ".................##.........#.......",
+      "................#########...#.......",
+      "..............#######.......#.......",
+      "..............######.......#........",
+      "..............######................",
+      "..................#.................",
+    ];
+    const CW = rows[0].length;
+    const cut: number[] = [];
+    rows.forEach((r, y) => [...r].forEach((c, x) => c === "#" && cut.push(y * CW + x)));
+    const s = cutShape(cut, [], CW, rows.length);
+    expect(s.regions).toBeGreaterThan(1);
+    expect(s.strays).toBeGreaterThan(0);
+    expect(cutShapeOk(s)).toBe(false);
   });
 
   it("does nothing where no basin stands over its spill level", () => {
