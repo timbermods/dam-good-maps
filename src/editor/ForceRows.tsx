@@ -196,8 +196,8 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
               value={debris}
               onChange={(debris) => set({ debris })}
               options={[
-                ["light", "Light debris", "A thin skirt of debris round the rim"],
-                ["heavy", "Heavy debris", "A thick apron of debris thrown far round it"],
+                ["light", "Light debris", "A thin skirt of debris"],
+                ["heavy", "Heavy debris", "A thick apron of debris"],
               ]}
             />
           </AutoDetail>
@@ -269,7 +269,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
               onChange={(flows) => set({ flows })}
               options={[
                 ["light", "Light flows", "Short lava flows"],
-                ["heavy", "Heavy flows", "Long lava flows that can dam rivers"],
+                ["heavy", "Heavy flows", "Long lava flows"],
               ]}
             />
           </AutoDetail>
@@ -301,8 +301,8 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
               value={scarp}
               onChange={(scarp) => set({ scarp })}
               options={[
-                ["sheer", "Sheer", "One sheer cliff along the fault"],
-                ["stepped", "Stepped", "Benches stepping down from the fault"],
+                ["sheer", "Sheer", "One sheer cliff"],
+                ["stepped", "Stepped", "Benches stepping down"],
               ]}
             />
           </AutoDetail>
@@ -349,9 +349,9 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
               value={benches}
               onChange={(benches) => set({ benches })}
               options={[
-                ["none", "Sheer walls", "Sheer walls all along the valley"],
-                ["some", "Some benches", "Benches cut into the soft rock along some stretches of the walls"],
-                ["many", "Many benches", "Benches cut into the soft rock along most of the walls"],
+                ["none", "Sheer walls", "Sheer walls all along"],
+                ["some", "Some benches", "Benches along some of the walls"],
+                ["many", "Many benches", "Benches along most of the walls"],
               ]}
             />
           </AutoDetail>
@@ -361,9 +361,9 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
               value={steps}
               onChange={(steps) => set({ steps })}
               options={[
-                ["few", "Few steps", "Long level reaches: the floor drops by few steps"],
-                ["some", "Some steps", "The floor drops a level every so often"],
-                ["many", "Many steps", "Short reaches: the floor drops by many steps"],
+                ["few", "Few steps", "Long level reaches, few steps"],
+                ["some", "Some steps", "A step every so often"],
+                ["many", "Many steps", "Short reaches, many steps"],
               ]}
             />
           </AutoDetail>

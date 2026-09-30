@@ -1129,8 +1129,8 @@ export default function Editor(props: EditorProps) {
       state.value = value;
       const over = value > OFFICIAL_FLOW;
       // (one number everywhere: this source's and, in a row, the row's, as the marker's label; D361)
-      const k = entityIndexOf(e);
-      const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
+      const ek = entityIndexOf(e);
+      const s = ek >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, ek) : null;
       const words = s ? sourceStrengthWords(withOwnStrength(s, value)) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
       setShapeNote({ text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at });
       clearTimeout(wheelNoteTimer.current);
