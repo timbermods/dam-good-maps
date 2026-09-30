@@ -50,6 +50,7 @@ TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's bluepri
 # building land by Start area and its moist farmland within 20 tiles' walk; the tree amounts count
 # living trees against the official maps' living share (item 26)
 MINES_WANTED = 2
+SMALL_MAP = 80 * 80                # D333 (7): below it, one mine site the colony reaches (minesWanted)
 LEVEL_LAND = {"small": 79, "normal": 113, "large": 180}
 FARMLAND_NEAR = 100
 LIVING_SHARE = (0.267, 0.434)
@@ -95,7 +96,8 @@ def check_mines(m, rep, fps, reach, X, Y):
                   for (x, y) in own for dx in (-1, 0, 1) for dy in (-1, 0, 1))
         walked += bool(hit)
     n = walked if reach is not None else mines
-    rep.add("resources.mine_site", n >= MINES_WANTED, f"{n} of {mines} mine sites the colony reaches (at least {MINES_WANTED})", n, MINES_WANTED)
+    want = 1 if X * Y < SMALL_MAP else MINES_WANTED
+    rep.add("resources.mine_site", n >= want, f"{n} of {mines} mine sites the colony reaches (at least {want})", n, want)
 
 
 def _number(v):

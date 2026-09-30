@@ -247,6 +247,12 @@ export function upgradeMineSites(spec: unknown): void {
   if (r && typeof r === "object" && (r.mineSites === 0 || r.mineSites === 1)) r.mineSites = 2;
 }
 
+/** Maps smaller than this (in tiles) scale item 47 to their size (PLAN §20 D333 (7): Kyler named 48²;
+ *  the session's default draws the line at 80², decisions-pending): one mine site the colony reaches
+ *  (validate/playability.ts `minesWanted`) and no district behind an obstacle (land/intentions.ts);
+ *  the starting-logs floor and the other absolutes stay. */
+export const SMALL_MAP = 80 * 80;
+
 export function mineSitesForSize(x: number, y: number): number {
   const area = x * y;
   return area <= 128 * 128 ? 2 : 3;

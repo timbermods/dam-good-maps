@@ -176,7 +176,8 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
 });
 
 describe("resource areas respect moisture reach and the calibrated clustering (ROADMAP M7)", () => {
-  const s = session("s=77&t=riverValley&z=128&d=n");
+  // (seed 78 since D333, D148: seed 77's ruin field filled 95% of its box on D333's maps)
+  const s = session("s=78&t=riverValley&z=128&d=n");
   const W = 128;
   // a big rectangle across the valley: moist ground by the river, dry ground on the terraces
   const outline: [number, number][] = [[30.5, 20.5], [70.5, 20.5], [70.5, 107.5], [30.5, 107.5]];
@@ -285,10 +286,10 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 2: a seed on which every theme places every kind of object (a thorn belt is left out
-    // where it would cut the colony's land in two; seed 1 until 0.8.0, whose Delta has no room for
-    // one, D148)
-    const spec = makeSpec({ seed: 2, size: { x: 96, y: 96 }, theme });
+    // seed 1: a seed on which every theme places every kind of object (a thorn belt is left out
+    // where it would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for
+    // one, then seed 2, whose Lake Basin has none on D333's maps, D148)
+    const spec = makeSpec({ seed: 1, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -323,8 +324,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
-    // maps, and for batch 5's, D148)
-    for (const [theme, seed] of [["islands", 2], ["islands", 8], ["lakeBasin", 2], ["riverValley", 4]] as [ThemeId, number][]) {
+    // maps, for batch 5's, and for D333's, whose check walks round the objects that block the way,
+    // D148)
+    for (const [theme, seed] of [["islands", 2], ["riverValley", 3], ["canyon", 2], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -356,9 +358,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
 
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
-    // have one (generator 0.8.0; re-seeded for M9b's maps, and for batch 5's, D148)
+    // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's and for D333's, D148)
     let seen = 0;
-    for (const [theme, seed] of [["islands", 10], ["islands", 6], ["highlands", 13], ["riverValley", 7]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 1], ["islands", 4], ["highlands", 13], ["any", 6]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -391,8 +393,8 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
-    // re-seeded for M9b's maps, and for batch 5's, D148)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 9], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
+    // re-seeded for M9b's maps, for batch 5's and for D333's, D148)
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 10], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

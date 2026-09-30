@@ -52,8 +52,10 @@ export interface MapMeasure {
   attempts: number;
   failures: string[];
   ms: { firstLook: number; firstCandidate: number; final: number; land: number; water: number };
-  /** The map's outcomes' misses named (for the per-theme shares). */
-  misses?: string[];
+  /** Lands committed (D333 (2)): 1 when the land first shown is the map's. */
+  lands?: number;
+  /** The timings scaled by the process's CPU share (an idle core's, on a shared machine). */
+  cpu?: { share: number; land: number; water: number; final: number };
   /** The map's outcomes (D329: the first map that passes is the map). */
   outcomes: { met: boolean; promise: boolean; water: boolean; standout: boolean; summary?: string; story?: unknown; signature?: unknown } | null;
   /** Each failed attempt's reason and the milliseconds it took. */
@@ -71,6 +73,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
   const base = makeSpec({ seed, theme, size: { x: size, y: size } });
   const spec = set ? decodeSpecFragment(`v=${base.generatorVersion}&s=${seed}&t=${theme}&z=${size}&${set}`)!.spec : base;
   const t0 = performance.now();
+  const c0 = process.cpuUsage();
   let firstLook = -1;
   let firstCandidate = -1;
   const r = generate(spec, {
@@ -82,6 +85,9 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     },
   });
   const final = performance.now() - t0;
+  const cu = process.cpuUsage(c0);
+  // (the machine is shared: CPU time over wall time scales the timings to an idle core's)
+  const cpuShare = Math.min(1, (cu.user + cu.system) / 1000 / Math.max(1, final));
   const b = r.built;
   const { W, H } = b;
   const N = W * H;
@@ -178,6 +184,8 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     attempts: r.attempts,
     failures: r.failures.map((f) => f.failed.join(' + ')),
     ms: { firstLook: Math.round(firstLook), firstCandidate: Math.round(firstCandidate), final: Math.round(final), land: r.timings.firstLook, water: r.timings.firstWater },
+    lands: r.info.lands ?? 0,
+    cpu: { share: Math.round(cpuShare * 1000) / 1000, land: Math.round(r.timings.firstLook * cpuShare), water: Math.round(r.timings.firstWater * cpuShare), final: Math.round(final * cpuShare) },
     outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout, summary: r.outcomes.summary, story: r.outcomes.story, signature: r.outcomes.signature } : null,
     spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: (f as { ms?: number }).ms !== undefined ? (f as { ms: number }).ms - (k ? ((r.failures[k - 1] as { ms?: number }).ms ?? 0) : 0) : -1 })),
     heights: { bedMin, landMin, max, above16, small },

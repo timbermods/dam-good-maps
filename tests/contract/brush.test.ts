@@ -363,8 +363,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   });
 
   it("on a map: a ramped flatten gets the natural slopes on its rim, and the trees on it ride the ground", () => {
-    // (seed 4 since 0.8.0, D148: seed 3 has no open dry ground far from the start where this flatten goes)
-    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0)
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");
@@ -460,7 +460,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
     ["riverValley", 1],
     ["riverValley", 2],
     ["canyon", 1],
-    ["canyon", 3],
+    ["canyon", 2], // (canyon 3 until D333, whose map has no slopes or set piece, D148)
     ["highlands", 2],
     ["lakeBasin", 4],
     ["delta", 1],

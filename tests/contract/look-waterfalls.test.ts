@@ -19,7 +19,7 @@ const SY = [0, 0, 1, -1];
 describe("the flow over a fall's lip", () => {
   it.each([
     ["canyon", 3],
-    ["highlands", 2],
+    ["highlands", 5], // (highlands 2 until D333, whose map keeps 18 lips, D148)
     ["lakeBasin", 3],
   ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => {
     const W = 128;

@@ -10,7 +10,7 @@ import { encodeSpecFragment, decodeSpecFragment, makeSpec } from "../../src/core
 
 describe("the first map that passes is the map (D329)", () => {
   it("generate returns its first passing candidate, whatever its outcomes", () => {
-    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     expect(r.report.passed).toBe(true);
     // (no attempt after a passing one: every failure listed came before it)
     expect(r.failures.length).toBe(r.attempts - 1);
@@ -31,7 +31,8 @@ describe("the first map that passes is the map (D329)", () => {
   });
 
   it("the background search finds a sibling that meets all three, with its own share link", () => {
-    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (River Valley 96² seed 1 since D333's maps: seed 4's six siblings met all three on none, D148)
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     const m = missesOf(r.outcomes!);
     expect(worthSearching(m)).toBe(true);
     const v = findVersion({ spec: r.spec, intentions: r.info.genome?.intentions ?? [], heights: r.built.heights });

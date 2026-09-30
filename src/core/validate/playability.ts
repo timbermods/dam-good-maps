@@ -29,7 +29,7 @@ import { gameSoil, type SoilRules } from "../sim/soil";
 import type { CanonicalWater } from "../sim/prefill";
 import { TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
-import { DIFFICULTY_RULES, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { DIFFICULTY_RULES, SMALL_MAP, type Difficulty, type MapSpec } from "../spec/mapspec";
 import type { Collector, FixOp } from "./report";
 
 /** Water deeper than this counts as a water tile (prototype `wet = D > 0.05`). */
@@ -333,6 +333,10 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
  *  dry land joined to the start's by steps of one level: a flight of stairs at most, never across
  *  water or up a cliff; decisions-pending, the session's default). */
 export const MINES_WANTED = 2;
+/** The mine sites a map of this size needs the colony to reach (one below `SMALL_MAP`, D333 (7)). */
+export function minesWanted(W: number, H: number): number {
+  return W * H < SMALL_MAP ? 1 : MINES_WANTED;
+}
 
 function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector): void {
   let mines = 0;
@@ -358,15 +362,17 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
     if (hit) walked++;
   }
   const n = reach ? walked : mines;
+  const want = minesWanted(W, H);
+  const every = want === MINES_WANTED ? "every map needs" : "a map this small needs";
   c.add({
     id: "resources.mine_site",
     class: "playability",
-    ok: n >= MINES_WANTED,
+    ok: n >= want,
     value: n,
-    limit: MINES_WANTED,
+    limit: want,
     message: !reach
-      ? `${mines} mine site${mines === 1 ? "" : "s"} (every map needs at least ${MINES_WANTED}, the late game's lasting source of scrap metal)`
-      : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (every map needs at least ${MINES_WANTED})`,
+      ? `${mines} mine site${mines === 1 ? "" : "s"} (${every} at least ${want}, the late game's lasting source of scrap metal)`
+      : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (${every} at least ${want})`,
   });
 }
 

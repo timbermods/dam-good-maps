@@ -26,7 +26,7 @@
 // decisions-pending #61's default (D209).
 
 import type { Rng } from "../math/rng";
-import type { ThemeId } from "../spec/mapspec";
+import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
 import { levelRegions } from "../math/grid";
@@ -137,7 +137,13 @@ const CLASH: [IntentionId, IntentionId][] = [
   ["under-cliff", "long-view"],
 ];
 
-export function drawIntentions(theme: ThemeId, vt: number, rng: Rng): IntentionId[] {
+/** Intentions a map this small never draws (PLAN §20 D333 (7): item 47 scaled to the size; the line
+ *  is spec/mapspec.ts `SMALL_MAP`): a second district 40–70 tiles out has no room. */
+export function tooSmallFor(id: IntentionId, W: number, H: number): boolean {
+  return id === "district-behind" && W * H < SMALL_MAP;
+}
+
+export function drawIntentions(theme: ThemeId, vt: number, rng: Rng, size: { W: number; H: number } | null = null): IntentionId[] {
   // most maps one, some two (the mix is never a template); M9b: never none, every map has a
   // character (D273 (3)); the draw keeps its one number, so the rest of the genome keeps its draws
   const r = rng.float();
@@ -146,6 +152,7 @@ export function drawIntentions(theme: ThemeId, vt: number, rng: Rng): IntentionI
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
       if (out.includes(id) || out.some((o) => CLASH.some(([a, b]) => (a === o && b === id) || (b === o && a === id)))) return 0;
+      if (size && tooSmallFor(id, size.W, size.H)) return 0;
       return weightOf(id, theme) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
     });
     if (w.every((x) => x === 0)) break;

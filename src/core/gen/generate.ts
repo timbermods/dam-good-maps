@@ -37,6 +37,7 @@ import { objectTiles } from "../features/objects";
 import type { Feature, MapObjectFeature, StartFeature } from "../features/schema";
 import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
+import { drainage } from "../land/drainage";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
@@ -108,6 +109,8 @@ export interface GenerationInfo {
   genome: Genome | null;
   /** Settles run for the whole map. */
   settles: number;
+  /** Lands committed (D333 (2)): 1 when the land first shown is the map's. */
+  lands?: number;
   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
@@ -173,6 +176,8 @@ export interface GenerateOptions {
   /** Variety (vy, 0–100; M9b makes it a setting): how far the genome strays from its theme's
    *  ranges. For the contact sheet only: a share link does not carry it. */
   variety?: number;
+  /** Each attempt as it ends, passed or failed (information, for the measures). */
+  onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult }) => void;
 }
 
 /** The species mix the settings panel starts from: a map that keeps it takes the woods its genome
@@ -202,7 +207,40 @@ interface Attempt {
   passed: boolean;
   /** The failure leaves the land usable: plan again on the same field. */
   replannable: boolean;
+  /** The land, when the attempt passed the land stage (D333 (2)). */
+  stage: LandStage | null;
 }
+
+/** What the land stage planned, copied afresh for each attempt on it. */
+interface StageBundle {
+  hy: Hydro;
+  lakes: ReturnType<typeof lakeFeatures>;
+  weir: ReturnType<typeof planWeir>;
+  plug: ReturnType<typeof planPlug>;
+}
+
+/** A land that passed the land stage (D333 (2)): the map from here on, shown at once as editable land
+ *  and never swapped while an attempt on it can still pass. Its water, start, badwater and objects
+ *  are planned again on it (`LAND_TRIES`) rather than drawing new land. */
+interface LandStage {
+  hLand: Uint8Array;
+  bundle: StageBundle;
+  keep: Uint8Array;
+  ramps: ReturnType<typeof naturalRamps>;
+  firstLook: number;
+  cache: SettleCache;
+  /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
+  tried: Uint8Array;
+}
+
+/** Attempts on one committed land before new land is drawn (D333 (2): the land shown is kept). */
+export const LAND_TRIES = 4;
+/** How far round a start that failed the next attempt on the same land keeps off. */
+const TRIED_RADIUS = 16;
+
+/** Failures a new plan on the same land cannot mend: its water takes too long to settle, no start
+ *  on its settled water, or the land itself breaks a rule. */
+const LAND_BOUND = new Set(["water.settles", "no start", "ruler-straight channel", "above 16"]);
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
   assertSpec(specIn);
@@ -225,8 +263,22 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // theme's promise, a standout intention; gen/outcomes.ts) are measured for the page: a miss that
   // matters starts a background search for a version that meets all three (gen/versions.ts), never
   // held before the map is shown. Water storage near the start stays a preference of the settler.
+  // D333 (2): the first land that passes the land stage is committed, shown at once (the first look,
+  // editable land); what fails after it (no start, a source in a flow, a check) is planned again on
+  // the same land, up to LAND_TRIES attempts, before new land is drawn
+  let committed: LandStage | null = null;
+  let onCommitted = 0;
+  let lands = 0;
   for (let attempt = 0; attempt < max; attempt++) {
-    if (!land || !last?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
+    if (committed && land && onCommitted < LAND_TRIES) {
+      onCommitted++;
+      const a = attemptOnce(specIn, land, attempt, opts, t0, committed);
+      const r = attemptDone(a, attempt);
+      if (r) return r;
+      continue;
+    }
+    committed = null;
+    if (!land || !(last as Attempt | null)?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
       opts.onProgress?.({ attempt, stage: "land" });
       // (Variety is a setting since M9b; Another like this draws a sibling, keeping its intentions)
       const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
@@ -244,13 +296,29 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
     } else replans++;
     const a = attemptOnce(specIn, land, attempt, opts, t0);
-    land.settles += a.result.info.settles;
+    if (a.stage) {
+      committed = a.stage;
+      onCommitted = 1;
+      lands++;
+    }
+    const r = attemptDone(a, attempt);
+    if (r) return r;
+  }
+  const out = (last as Attempt | null)!.result;
+  out.attempts = max;
+  return out;
+
+  /** An attempt's bookkeeping; the map when it passed. */
+  function attemptDone(a: Attempt, attempt: number): GenerateResult | null {
+    land!.settles += a.result.info.settles;
     settles += a.result.info.settles;
     a.result.info.genomes = genomes;
     a.result.info.settles = settles;
     a.result.attempts = attempt + 1;
     a.result.failures = failures;
+    a.result.info.lands = lands;
     last = a;
+    opts.onAttempt?.({ attempt, passed: a.passed, result: a.result });
     if (a.passed) {
       const o = outcomesOf(a.result);
       a.result.outcomes = o;
@@ -273,10 +341,75 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       return a.result;
     }
     failures.push({ attempt, failed: failedIds(a.result), ms: Math.round(performance.now() - t0) });
+    // (a failure no new plan on this land mends: new land next; else the next attempt on it keeps off
+    // the start that failed, TRIED_RADIUS round it)
+    if (committed && (!a.replannable || LAND_BOUND.has(a.result.info.stage))) committed = null;
+    const st = a.result.built.start;
+    if (committed && st) {
+      for (let dy = -TRIED_RADIUS; dy <= TRIED_RADIUS; dy++)
+        for (let dx = -TRIED_RADIUS; dx <= TRIED_RADIUS; dx++) {
+          const x = st.x + dx;
+          const y = st.y + dy;
+          if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= TRIED_RADIUS * TRIED_RADIUS) committed.tried[y * W + x] = 1;
+        }
+    }
+    return null;
   }
-  const out = last!.result;
-  out.attempts = max;
-  return out;
+}
+
+/** A lake's shelves (D333): the tiles of a lake the hydrology planned (its water 2) that stand at the
+ *  level its water spills at (the priority flood from the map's edges), in 4-connected groups of
+ *  SHELF_MIN tiles or more of one level, off the locks and the protected tiles; each is cut a level
+ *  lower, never below the beds' floor. Returns how many were cut. */
+export const SHELF_MIN = 20;
+function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
+  const N = W * H;
+  const spill = drainage(h, W, H, { eight: false }).filled;
+  const shelf = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i] && h[i] > BED_FLOOR && !locked?.[i] && !protect?.[i]) shelf[i] = 1;
+  const seen = new Uint8Array(N);
+  const q = new Int32Array(N);
+  const cut: number[] = [];
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!shelf[s0] || seen[s0]) continue;
+    let tail = 0;
+    q[tail++] = s0;
+    seen[s0] = 1;
+    for (let k = 0; k < tail; k++) {
+      const t = q[k];
+      const x = t % W;
+      const y = (t - x) / W;
+      for (let d = 0; d < 4; d++) {
+        const xx = x + (d === 0 ? 1 : d === 1 ? -1 : 0);
+        const yy = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (shelf[j] && !seen[j] && h[j] === h[t]) {
+          seen[j] = 1;
+          q[tail++] = j;
+        }
+      }
+    }
+    if (tail >= SHELF_MIN) for (let k = 0; k < tail; k++) cut.push(q[k]);
+  }
+  // (a shelf tile against higher ground outside the shelf keeps its level: cut, it would stand two
+  // levels under that ground, a cliff at the lake's edge the land never had)
+  const inCut = new Uint8Array(N);
+  for (const i of cut) inCut[i] = 1;
+  const keep = cut.filter((t) => {
+    const x = t % W;
+    const y = (t - x) / W;
+    for (let d = 0; d < 4; d++) {
+      const xx = x + (d === 0 ? 1 : d === 1 ? -1 : 0);
+      const yy = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (!inCut[j] && h[j] > h[t]) return false;
+    }
+    return true;
+  });
+  for (const i of keep) h[i]--;
+  return keep.length;
 }
 
 /** What the finished map says about how it plays, for its description (gen/names.ts). */
@@ -506,7 +639,11 @@ function walkableFromStart(b: BuildResult, x: number, y: number): boolean {
   if (!b.start) return false;
   const { W, H } = b;
   const links: [number, number][] = [];
+  // (round the objects that block walking, as the colony walks: D333, a second district's site cut
+  // off by a thorn belt or ruins read as joined)
+  const blocked = new Uint8Array(W * H);
   for (const e of b.entities) {
+    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
     if (e.template !== "Slope") continue;
     const [dx, dy] = slopeHighSide(e.orientation);
     const hx = e.x + dx;
@@ -514,7 +651,7 @@ function walkableFromStart(b: BuildResult, x: number, y: number): boolean {
     if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
     links.push([e.y * W + e.x, hy * W + hx]);
   }
-  const labels = walkRegions(b.heights, W, H, null, links);
+  const labels = walkRegions(b.heights, W, H, blocked, links);
   const root = labels[b.start.y * W + b.start.x];
   return root >= 0 && root === labels[y * W + x];
 }
@@ -564,23 +701,12 @@ function wetRing(b: BuildResult, p: StartPick): boolean {
   return false;
 }
 
-function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number): Attempt {
+/** The land stage of an attempt (D333 (2)): the genome's levels, the rivers and lakes planned on
+ *  them, the processes' carving, the edge lip and the course check. Everything after it plans on
+ *  this land and never changes it but locally (the start's pad, the badwater hollows). */
+function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, ctx: PlanContext | null, protect: Uint8Array | null, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
   const g = land.g;
-  const spec = specFor(specIn, g, attempt);
-  // the spec the result carries: the player's, with the attempt accepted (the genome's tree species
-  // plan the groves, but never show up in the settings or the share link)
-  const shown: MapSpec = JSON.parse(JSON.stringify(specIn)) as MapSpec;
-  shown.accepted = spec.accepted;
-  const W = spec.size.x;
-  const H = spec.size.y;
   const N = W * H;
-  const seed = spec.seed;
-  const rule = spec.settings.start.rules.waterWithin;
-  // the rule's drought, which a start's unfed water must last (D302; `start.water`)
-  const droughtDays = DROUGHT[spec.designedFor].days;
-  const ctx = opts.context ?? null;
-  const protect = ctx?.protect ?? null;
-  const policy: DroughtPolicy = opts.drought ?? (spec.designedFor === "easy" ? "require" : "prefer");
   const h = land.h0.slice();
   // what a regeneration keeps under locks stands as it was; the water finds its way round it
   if (ctx?.locked) for (let i = 0; i < N; i++) if (ctx.locked.mask[i]) h[i] = ctx.locked.heights[i];
@@ -679,12 +805,60 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the courses checked on the finished land (M9b, D273 (1)): an inflow's water running back out by
   // its own edge is held by a lip on the edge row (up to two levels, four where the player set the
   // Rivers count, whose mouths may lie low on their edge); anything else is planned again below
+  // D333 (the pooled probe m9b-20260929b): a lake's shelf level with the lake's spill holds a thin
+  // sheet of its water that the game keeps only while it was never dry: a drought dries it and the
+  // refill leaves it dry (the game's spill threshold), so the file showed water there that the first
+  // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
+  // that stand at its spill level are cut a level lower, the lake's own bed
+  // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
+  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect);
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
+  return { h, hy, keep, ramps, blocked };
+}
+
+function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null): Attempt {
+  const g = land.g;
+  const spec = specFor(specIn, g, attempt);
+  // the spec the result carries: the player's, with the attempt accepted (the genome's tree species
+  // plan the groves, but never show up in the settings or the share link)
+  const shown: MapSpec = JSON.parse(JSON.stringify(specIn)) as MapSpec;
+  shown.accepted = spec.accepted;
+  const W = spec.size.x;
+  const H = spec.size.y;
+  const N = W * H;
+  const seed = spec.seed;
+  const rule = spec.settings.start.rules.waterWithin;
+  // the rule's drought, which a start's unfed water must last (D302; `start.water`)
+  const droughtDays = DROUGHT[spec.designedFor].days;
+  const ctx = opts.context ?? null;
+  const protect = ctx?.protect ?? null;
+  const policy: DroughtPolicy = opts.drought ?? (spec.designedFor === "easy" ? "require" : "prefer");
+  let h: Uint8Array;
+  let hy: Hydro;
+  let keep: Uint8Array;
+  let ramps: ReturnType<typeof naturalRamps>;
+  let blocked: ReturnType<typeof blockedCourses> = [];
+  // a land already committed (D333 (2)): its water, start and objects are planned again on it
+  let bundle: StageBundle | null = null;
+  if (from) {
+    h = from.hLand.slice();
+    bundle = structuredClone(from.bundle);
+    hy = bundle.hy;
+    keep = from.keep;
+    ramps = from.ramps;
+  } else {
+    const st = planLandStage(land, attempt, W, H, seed, ctx, protect, opts);
+    h = st.h;
+    hy = st.hy;
+    keep = st.keep;
+    ramps = st.ramps;
+    blocked = st.blocked;
+  }
   const hLand = h.slice();
-  const firstLook = Math.round(performance.now() - t0);
-  opts.onLand?.({ attempt, heights: hLand, water: hy.water });
+  // (the first look: the land, once it passed the land stage's checks below, D333 (2))
+  let firstLook = from ? from.firstLook : -1;
   const info: GenerationInfo = {
     genomes: 0,
     genome: g,
@@ -698,7 +872,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     startDrought: null,
     stage: "planned",
   };
-  const cache = new SettleCache();
+  const cache = from ? from.cache : new SettleCache();
   const contains = new Set<string>(hy.rivers.map((r) => r.id));
   let settleKey: unknown = null;
   const fieldOf = (): GeneratedField => {
@@ -715,20 +889,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return b;
   };
   // the natural lakes read back from the field (they describe it, never shape it)
-  const lakes = lakeFeatures(hy, W, H, seed);
+  const lakes = bundle ? bundle.lakes : lakeFeatures(hy, W, H, seed);
   for (const f of lakes) contains.add(f.id);
   // the pre-built weir (D72), on half the maps where a river's channel takes one; the start and the
   // badwater keep off its pool
-  const weir = planWeir(h, W, H, hy, seed, attempt, protect);
+  const weir = bundle ? bundle.weir : planWeir(h, W, H, hy, seed, attempt, protect);
   const pool = new Uint8Array(N);
   if (weir) for (const i of weir.pool) pool[i] = 1;
   // M9b ("a plug holds back a lake", D274): on a map steered toward it, a plug across a big lake's
   // way out; the start and the badwater keep off it and its lake
-  const plug = g.plugLake ? planPlug(h, W, H, hy, seed, protect) : null;
+  const plug = bundle ? bundle.plug : g.plugLake ? planPlug(h, W, H, hy, seed, protect) : null;
   if (plug) for (const i of plug.pool) pool[i] = 1;
   let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(plug ? [plug.feature] : []), ...(ctx?.features ?? [])];
-  const fail = (stage: string, b: BuildResult | null, replannable: boolean): Attempt => {
-    info.stage = stage;
+  const fail = (why: string, b: BuildResult | null, replannable: boolean): Attempt => {
+    info.stage = why;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
     // the last attempt, whose map is kept when none passes: a settle there would be spent for nothing)
     if (!b && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
@@ -736,6 +910,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return {
         passed: false,
         replannable,
+        stage: landStage,
         result: { spec: shown, features: [...rivers], built: land, report: { profile: "generate", checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), file: toTimberFile(spec, land), attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
       };
     }
@@ -745,19 +920,25 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return {
       passed: false,
       replannable,
+      stage: landStage,
       result: { spec: shown, features: [...rivers], built, report: { ...v.report, passed: false }, analysis: v.analysis, bytes: new Uint8Array(), file, attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
     };
   };
-  if (!hy.rivers.length) return fail("no rivers", null, false);
-  // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
-  // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
-  // of its course stood dry) is planned again (the course check runs before the first look)
-  if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
-  // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
-  // (not on the last attempt, whose map is kept when none passes)
-  if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
-  // D171: every source starts a river; a hydrology that puts one inside a flow is planned again
-  if (springsInFlow(hy, W)) return fail("source in a flow", null, true);
+  let landStage: LandStage | null = from;
+  if (!from) {
+    if (!hy.rivers.length) return fail("no rivers", null, false);
+    // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
+    // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
+    // of its course stood dry) is planned again (the course check runs before the first look)
+    if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
+    // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
+    // (not on the last attempt, whose map is kept when none passes)
+    if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
+    // D171: every source starts a river; a hydrology that puts one inside a flow is planned again
+    if (springsInFlow(hy, W)) return fail("source in a flow", null, true);
+  }
+  // (what the land stage planned, kept for the attempts on this land, D333 (2))
+  const planned = from ? null : structuredClone({ hy, lakes, weir, plug });
   let foot = footComponents(h, W, H, keep);
   // the start's ground joins at least Buildable land's walkable land (PLAN §5.2), and more is
   // preferred up to twice it
@@ -766,9 +947,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const footWant = 2 * reachMin;
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
+  // (on a land kept for another attempt, D333 (2): the starts that failed on it are kept off too)
+  const tried = from?.tried ?? null;
   const avoidOf = (bad: Hazards | null) => {
     const a = new Uint8Array(N);
-    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) ? 1 : 0;
+    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) || (tried?.[i] ?? 0) ? 1 : 0;
     return a;
   };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
@@ -830,12 +1013,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // ---- the badwater hollows, planned before the settle: away from where the start will likely be
   //      (the settler run on the water the hydrology planned), so one settle serves both
   let bad: Hazards = noBad;
+  const lastAttempt = attempt >= (opts.maxAttempts ?? MAX_ATTEMPTS) - 1;
   let guess: StartPick | null = null;
-  if (badAsk.count > 0) {
+  {
     const est = plannedWater(h, hy, W, H);
     const zero = new Float64Array(N);
     guess = settlerOn(est, zero, moisture(h, est, zero, W, H, null), 0, avoidOf(null));
-    if (guess) bad = badAt(est, guess, 0);
+    // D333 (2): a land with no place for a start on the water its rivers were planned with is drawn
+    // again before it is shown (before the settle); a land that has one is the map from here on,
+    // shown at once (the first look, editable land) and kept while its water, start and objects are
+    // planned again on it
+    if (!from) {
+      if (!guess && !lastAttempt) return fail("no start", null, true);
+      firstLook = Math.round(performance.now() - t0);
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N) };
+      opts.onLand?.({ attempt, heights: hLand, water: hy.water });
+    }
+    if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
   }
   opts.onProgress?.({ attempt, stage: "start" });
   // ---- the one settle: the rivers and the hollows
@@ -844,17 +1038,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the field's (a broad flat at a basin's spill level fills for days), so the next attempt draws
   // a new genome instead of planning again on this field (not on the last attempt, whose map is
   // kept when none passes)
-  const lastAttempt = attempt >= (opts.maxAttempts ?? MAX_ATTEMPTS) - 1;
   if (!b1.settle.settled && !lastAttempt) return fail("water.settles", b1, false);
   // D171: a source that another source's water reaches fails the map (water.source_in_flow). A
   // spring-fed river whose spring is reached leaves the map (its valley stays, dry; a river that
   // joined it now joins where it went), and a badwater hollow that is reached is planned again
-  // elsewhere; the water is settled once more. A river's mouth on the edge that is reached, or
-  // what still fails, is planned again (the check at the end).
+  // elsewhere; the water is settled once more. D333 (2), the land kept: a river whose row of
+  // sources on the edge is reached (another's water backs up to its head behind the edge's lip)
+  // leaves too, its valley holding the water that reaches it, unless the player set the Rivers
+  // count; what still fails is planned again (the check at the end).
   for (let round = 0; round < 2 && !lastAttempt; round++) {
     const owners = sourcesInFlowOwners(b1);
     if (!owners.size) break;
-    const springs = hy.rivers.filter((r) => owners.has(r.id) && "spring" in r.params.entry);
+    let springs = hy.rivers.filter((r) => owners.has(r.id) && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
+    if (springs.length >= hy.rivers.length) springs = [];
     const badHit = bad.features.some((f) => owners.has(f.id));
     if ([...owners].some((id) => !springs.some((r) => r.id === id) && !bad.features.some((f) => f.id === id))) break;
     if (springs.length) {
@@ -1134,6 +1330,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const bytes = passed ? writeTimber(file) : new Uint8Array();
   return {
     passed,
+    stage: landStage,
     // (a map that passed without storage near the start may be planned again on its field, for one)
     replannable: same && (!passed || info.storage === false || !(Math.max(v.analysis?.storage?.dam ?? 0, v.analysis?.storage?.natural ?? 0) >= (v.analysis?.storage?.need ?? 0))),
     result: {

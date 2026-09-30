@@ -266,7 +266,7 @@ small (50–100²), medium (128²), large (192²) and max (256²).
 | Setting | Range | Default | Maps to (official calibration) |
 |---|---|---|---|
 | Relief | Gentle 0 – 100 Dramatic | 55 | Height range p5–p95 = 7 + 0.08·relief levels (7–15; official 9–15, median 13). Cliff-tile share 0.06 + 0.0018·relief (0.06–0.24; official 0.07–0.24, median 0.16). |
-| Highest terrain | 10 – 16 | 16 | Terrain never exceeds this. 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (§20 D172); the in-game editor cannot edit them, and each tall map's description says so. |
+| Highest terrain | 10 – 22 | 16; 22 at Verticality 70+ | Terrain never exceeds this. 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (§20 D172); the in-game editor cannot edit them, and each tall map's description says so. As built in M9b (item 36, D325; decisions-pending #139): the default follows Verticality (16 below 70, 22 from 70), and a link from before 0.8.0 at Verticality 70+ with 16 reads as 22 (it meant no cap then). |
 | Terracing | Smooth 0 – 100 Distinct | 50 | The share of height steps that are one level: 0.86 − 0.0059·terracing (0.86–0.27; official median 0.62). Higher terracing gives wider flat benches and more cliffs. |
 | Buildable land | Tight, Normal, Generous | Normal | Land walkable from the start through slopes of at least 750 / 1,300 / 2,500 tiles (official min 765, median 1,296, p90 4,523), and flat share 0.40 / 0.52 / 0.60. As built (M6, D59): the valley floor's width, how jagged the terrace edges are, and where the terraces' cliffs go (Tight: at the valley floor's edge; Generous: above every one-level rise). |
 
@@ -279,6 +279,7 @@ small (50–100²), medium (128²), large (192²) and max (256²).
 | River flow | Trickle, Normal, Strong, Lush | Normal | Total clean source strength: 0.6× / 1× / 2× / 4× the size-aware official median (medium 2.2, large 1.2, max 1.1 per 10k tiles). Lush is about the workshop median. Sources are mostly 0.5 each, in rows of 3–8 across a channel, as in official maps. This controls river size and how fast reservoirs refill, **not** drought survival. |
 | Drought reserve | Scarce, Normal, Plenty | Normal | Minimum stored water near the start, as a multiple of the colony's drought need (§11.4): 1× / 1.5× / 3×. Also sets the number of dam sites and natural basins the layout aims for. Since M9a stored water near the start is information the generator prefers, never a guard (#67): a reserve larger than the theme's own adds valley lakes along the rivers and has the generator try up to four more attempts for a map with a dam site or natural water holding the need (the same field once, then new land); a smaller one takes valley lakes away (decisions-pending #88). This setting is what makes droughts forgiving. **Not every combination fits a small map** (§9.1, §9.10). Reservoirs are 2 deep on Easy and Normal and 3 deep on Hard, so Hard with the Normal reserve needs about 590 tiles and Hard with Plenty about 1,170. The panel disables combinations whose reservoir would exceed 15% of the map area and says why. The smallest sides that fit are: Normal with Plenty 51, Hard with Scarce 52, Hard with Normal 63, Hard with Plenty 89. Every size preset (96² and up) fits every combination, so the guard only affects custom sizes. |
 | Lakes and basins | None, Few, Some, Many | Some | Natural basins of 20+ tiles that hold water without a dam: 0 / 0.5× / 1× / 2× the official median for the size (small 1.5, medium 4, large 15.5, max 15; `basins_ge20` in the calibration table). As built (M6, D61): riverside ponds, dug two levels below a river's bed beside it and joined to it by a short cut, so the river keeps them full and they keep their water through a drought. |
+| Sources | Placed, None | Placed | Placed: the water and badwater sources as generated. **None** (§20 D330, the UI brief §8; D331): the map as generated, then every water and badwater source and its water removed, keeping the dry valleys, basins and pits they carved; the trees and bushes stay as generated. Item 47's water must-haves don't apply: the water checks say "No water source" as information until a source runs. Save to Timberborn works as usual. Share link `so=n`; a link without it reads as Placed. Real places take it too, when a place loads. |
 | Waterfalls | Off, Few, Many | Few | Number of bed drops of 2+ levels: 0 / 1–2 / 3–6. Drop height, width and flow ranges in §9.2. Generated falls sit on rivers and carry that river's flow, so they are 1–9 tiles wide, like official falls. Wider "landmark" falls are a set piece the player or Claude adds. |
 
 ### 5.4 Hazards
@@ -302,7 +303,7 @@ small (50–100²), medium (128²), large (192²) and max (256²).
 | Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map placed within the official typical range (×0.75–1.41). |
 | Relics | Off, Some | Some | 0–3 small (13–70 tiles out), 0–2 medium (40–140), 0–1 large (140+, maps ≥ 192²). As built (M7, D81): 1–3 small, 1–2 medium from 128² (0–1 below), one large from 192². |
 | Geothermal fields | Off, Some | Some | 1–3 per map, 30–120 tiles out, flat, dry, outside flood reach. As built: 1 / 2 / 3 by size (under 128², from 128², from 192²). |
-| Mine sites (UndergroundRuins) | 1 – 4 | 1 / 2 / 3 / 3 by size | Every map has at least one (Kyler, 2026-09-25): old links with 0 open with 1. Flat 5×5 with a level ring, dry, 60+ tiles out (official 24–173, median 89): 80+ where there is room, and on ground the colony walks to when there is any at that distance. |
+| Mine sites (UndergroundRuins) | 2 – 4 | 2 / 2 / 3 / 3 by size | Every map has at least two the colony reaches from its start without crossing water or climbing a cliff (item 47, D325; decisions-pending #136; one before, Kyler, 2026-09-25): old links with 0 or 1 open with 2. Maps under 80² need only one reached (D333 (7); the line is the session's default, decisions-pending #147). Flat 5×5 with a level ring, dry, 60+ tiles out (official 24–173, median 89): 80+ where there is room, and on ground the colony walks to when there is any at that distance. |
 
 As built ("Resources like the official maps", Kyler, 2026-09-25): the amounts and layouts come from
 `investigation/official-baselines.json` (`tools/official-baselines.ts`), the official maps measured
@@ -755,8 +756,12 @@ starting-logs floor, item 47's must-haves) is the map, shown at once and never s
 outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
 `analysis/signature.ts`, `gen/outcomes.ts`; a standout intention): when it misses the promise or
 readable water, a worker of its own looks for a sibling that meets all three (`gen/versions.ts`, up
-to 6), and the page offers it with a short note naming what it has ("A version with its sea is
-ready"). Nothing else is generated until the player asks (Another like this, More in the strip).
+to 6). Only a missed promise gets a note naming what the version has ("A version with its sea is
+ready", D333 (5)); one found for its water alone is kept quietly, and Another like this shows it.
+Nothing else is generated until the player asks (Another like this, More in the strip). The land is
+kept once it passes its own stage (D333 (2): its courses, a start on its planned water), shown then
+as editable land; what fails after it is planned again on the same land, and only a failure bound to
+the land (water that never settles, no start on its settled water) draws new land.
 
 ### 7.10 Output
 

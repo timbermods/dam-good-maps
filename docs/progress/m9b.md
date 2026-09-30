@@ -106,6 +106,63 @@ m9a-badwater), both chaos maps with them.
 - The runner's self-test: the High terrain group's test mesa covered Highlands 4242's start (moved
   by generator 0.8.0); the mesa now stands at the first of a few places 30+ tiles from the start.
 
+### Speed: time to editable land (D333 (2))
+
+- **The land is kept once it passes its own stage** (`gen/generate.ts` `planLandStage`): its rivers
+  planned, their courses checked, and a start on the water they were planned with (a land with no
+  place for one is drawn again before any settle). The first look (`onLand`) fires then, once per
+  land. What fails after it is planned again on the same land, up to `LAND_TRIES` (4), keeping off
+  the starts that failed; only a failure bound to the land (water that never settles, no start on
+  its settled water) draws new land. A river whose row of sources another's water reaches leaves,
+  as a reached spring does.
+- **No flat level with the water beside it** (the pooled probe's refill, above): a lake's shelf at
+  its spill level is cut a level lower at the land stage (no extra settle; not round a sea, whose
+  shelf cut down fills for days), and a tributary runs a level under a floor a bigger river cleared,
+  where it ran on the floor as a sheet (`land/hydro.ts`). Thin sheets on seeds 1–10 of every theme
+  at 128²: median 251 tiles a map → 167; failed attempts 177 → 117 in that run.
+- **Times** (seeds 1–10 of every theme, six maps at a time on the shared machine, median / p90;
+  before: 7695e6a8, run the same way earlier the same day):
+
+  | | before | after | D333's target |
+  |---|---|---|---|
+  | 128², the land | 0.4 / 5.6 s | 0.5 / 5.7 s | |
+  | 128², settled water | 2.2 / 7.2 s | 1.9 / 7.0 s | |
+  | 128², the map | 3.0 / 7.9 s | 2.7 / 8.7 s | 2 / 5 s to a settled map (accepted) |
+  | 256², the land | 1.9 / 20.2 s | 1.7 / 12.1 s | 3 / 6 s |
+  | 256², settled water | 8.5 / 24.7 s | 7.1 / 19.8 s | 8 / 20 s |
+  | 256², the map | 11.0 / 26.4 s | 9.5 / 22.4 s | |
+
+  256²'s land at the 90th percentile misses: a land drawn again after its water failed to settle
+  (10 of 70 maps, most of them Islands' seas) or after its settled water left no start. Lands shown
+  and then drawn again: 18 of 70 at 128², 12 at 256².
+
+### First maps meeting all three outcomes (D333 (3))
+
+Seeds 1–10 of every theme (before: 7695e6a8):
+
+| Theme | 128² before | 128² after | 256² before | 256² after |
+|---|---|---|---|---|
+| Any | 7 | 8 | 7 | 9 |
+| River Valley | 1 | 5 | 4 | 6 |
+| Canyon | 7 | 5 | 4 | 6 |
+| Highlands | 3 | 6 | 2 | 5 |
+| Lake Basin | 3 | 5 | 2 | 3 |
+| Delta | 4 | 5 | 3 | 3 |
+| Islands | 4 | 6 | 5 | 7 |
+| All | 29 of 70 | 40 of 70 | 27 of 70 | 39 of 70 |
+
+What changed, first-attempt quality and no more attempts: the tributary under a cleared floor and
+the lake shelves (above; River Valley's water split into systems at its junctions); the story is the
+clean water's, badwater contained by item 47 left out of it (#148); springs where the planned
+courses leave the land beyond the story's reach, one river of its own allowed when none joins; River
+Valley always has an inflow, and a map with none looks again with shorter paths; Islands' sea 1.12×
+as big and its islands 1.15× and at least 2.5 levels up (#149). Two-thirds is not reached. What
+misses most: Lake Basin's and Delta's promise at 256² (lakes under 4% of the map, fewer than three
+mouths: their lakes and arms spread on the flat low ground the beds' floor leaves), Canyon's (a gorge
+long enough but under a fifth of a long river), Islands' (fewer than three islands on some sea
+layouts), River Valley's water (a spring-fed map whose inflow edge lies below a ridge: its water
+reaches a fifth of the land).
+
 ### Items 24's and 47's numbers reach the page (#92)
 
 The worker's `GenerateResponse` carries `walkReach` and `levers` (the shapes of

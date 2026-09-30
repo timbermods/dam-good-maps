@@ -74,6 +74,12 @@ export interface HydroOptions {
   protect?: Uint8Array | null;
 }
 
+/** The story's reach (analysis/story.ts `REACH`), as a share of the map's side, and the share of the
+ *  map the planned courses aim to bring within it (D333 (3): the story asks for 35% of the dry land
+ *  near clean water; the courses are lines, their water a little wider). */
+const STORY_REACH = 0.14;
+const REACH_WANT = 0.45;
+
 const MIN_WIDTH = 2.4;
 const MAX_WIDTH = 8.4;
 
@@ -468,6 +474,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       return n;
     };
     let n = search(0.6, 0.3, rng, 0, false);
+    // (D333 (3): a map whose genome asked for an inflow and found none on the first search looks
+    // again, shorter paths and closer heads, for one: without it the water is a spring's alone and
+    // reaches little of the land)
+    if (natural && !g.hydro.exactInflows && n === 0) n = search(0.4, 0.22, stream(seed, "hydro-inflows", attempt), n, false);
     if (g.hydro.exactInflows) {
       const more = stream(seed, "hydro-inflows", attempt);
       if (n < g.hydro.inflows) n = search(0.4, 0.22, more, n, true);
@@ -516,6 +526,49 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const y = (i - x) / W;
       if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
       if (trace({ cell: i, kind: "spring", flow: 0 })) n++;
+    }
+  }
+  // D333 (3): the water reaches the land (a readable story, D294: water in one corner leaves most of
+  // the land bare): while the planned courses leave more than REACH_WANT of the land farther from
+  // them than the story's reach, a spring on the ground farthest from them starts a tributary that
+  // joins them
+  if (natural && heads.length > 0) {
+    const R = STORY_REACH * side;
+    let separateOne = false;
+    for (let more = 0; more < 4 && heads.length < maxHeads; more++) {
+      const wetP = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (owner[i] >= 0) wetP[i] = 1;
+      const dist = distanceFrom(wetP, W, H);
+      let near = 0;
+      for (let i = 0; i < N; i++) if (dist[i] <= R) near++;
+      if (near >= REACH_WANT * N) break;
+      const joinable = reachesOwned();
+      const far: [number, number][] = [];
+      const apart: [number, number][] = [];
+      for (let y = 12; y < H - 12; y++)
+        for (let x = 12; x < W - 12; x++) {
+          const i = y * W + x;
+          if (dist[i] <= R || downLen[i] < 0.35 * side || owner[i] >= 0 || protect?.[i]) continue;
+          if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
+          if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
+          else apart.push([dist[i] + 0.01 * downLen[i], i]);
+        }
+      far.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      apart.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      let added = false;
+      for (const [, i] of far.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
+        added = true;
+        break;
+      }
+      // (where no spring there joins them, one river of its own: a story reads with one river that
+      // never joins the main one, D273 (1))
+      if (!added && !separateOne)
+        for (const [, i] of apart.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
+          added = true;
+          separateOne = true;
+          break;
+        }
+      if (!added) break;
     }
   }
   // spring lakes: a big closed hollow no river crosses gets a spring at its head, just above its
@@ -857,10 +910,20 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const isIn = px >= 0 && py >= 0 && px <= W - 1 && py <= H - 1;
       const r = half((j * L) / n, L);
       let ring = Infinity;
+      // (D333: the floor a bigger river cleared, where this course crosses it: the course runs a
+      // level under it there, a channel to the river, never on the floor's own level, where its water
+      // would spread as a thin sheet the game keeps only until the first drought)
+      let floorRing = Infinity;
       const R = r + 1.6;
       for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
         for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
           const i = y * W + x;
+          if (floorOthers && water[i] === 3 && st.d[i] >= r) {
+            const dx = x - px;
+            const dy = y - py;
+            if (dx * dx + dy * dy <= R * R && h[i] < floorRing) floorRing = h[i];
+            continue;
+          }
           if (water[i] === 1 || water[i] === 2 || (floorOthers && water[i] === 3) || st.d[i] < r) continue;
           const dx = x - px;
           const dy = y - py;
@@ -899,7 +962,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         run = lakes[inLake].outletBed;
         inLake = -1;
       }
-      run = Math.min(run, ring - cut);
+      run = Math.min(run, ring - cut, floorRing - 1);
       if (run < endBed) run = endBed;
       // (never below the beds' floor, item 47: a river there runs shallower)
       if (run < BED_FLOOR) run = BED_FLOOR;

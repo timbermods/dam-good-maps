@@ -135,10 +135,21 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   let near = 0;
   for (let i = 0; i < W * H; i++) if (!(depth[i] >= 0.05) && dist[i] <= R) near++;
   const reach = dry > 0 ? near / dry : 1;
+  // (D333: the story is the clean water's; a system that is mostly badwater, which item 47 keeps
+  // apart from the clean water, is none of it)
+  const bad = new Uint8Array(sys.tiles.length);
+  if (contamination) {
+    const n = new Int32Array(sys.tiles.length);
+    for (let i = 0; i < W * H; i++) if (sys.labels[i] >= 0 && contamination[i] >= 0.5) n[sys.labels[i]]++;
+    sys.tiles.forEach((t, k) => {
+      if (2 * n[k] >= t) bad[k] = 1;
+    });
+  }
   let wet = 0;
   let vol = 0;
   let main = -1;
   sys.tiles.forEach((t, k) => {
+    if (bad[k]) return;
     wet += t;
     vol += sys.volume[k];
     if (main < 0 || sys.volume[k] > sys.volume[main]) main = k;
@@ -148,7 +159,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   let other = 0;
   let ponds = 0;
   sys.tiles.forEach((t, k) => {
-    if (k === main) return;
+    if (k === main || bad[k]) return;
     if (t >= min) {
       systems++;
       other += t;
@@ -193,7 +204,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       sn = n;
     }
     if (s === main) heads++;
-    else if (s >= 0 && sys.tiles[s] >= min) separate++;
+    else if (s >= 0 && !bad[s] && sys.tiles[s] >= min) separate++;
   }
   const mainShare = main >= 0 && wet > 0 ? sys.tiles[main] / wet : 0;
   const mainVolume = main >= 0 && vol > 0 ? sys.volume[main] / vol : 0;

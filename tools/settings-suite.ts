@@ -49,14 +49,17 @@ const num = (v: string) => Number(v);
 
 export const EXPERIMENTS: Experiment[] = [
   {
+    // (re-based under D148 by D333 (6): the base raise, item 47 (D325), lifts the land's lowest level
+    // to 4 under the editor's top of 16, so relief 90's range is capped near 12 levels where it had
+    // 15; relief 20 keeps its 9: the move was 3 levels of 15, now 2 of 12)
     setting: "Relief",
-    target: "height range p5–p95 = 7 + 0.08·relief levels",
+    target: "height range p5–p95 = 7 + 0.08·relief levels, within the 12 levels the beds' floor leaves",
     theme: "riverValley",
     values: ["20", "90"],
     apply: (s, v) => (s.settings.terrain.relief = num(v)),
     metric: (m) => m.heightRange,
     expect: "up",
-    delta: 3,
+    delta: 2,
     digits: 1,
   },
   {
@@ -209,14 +212,18 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 2,
   },
   {
+    // (re-based under D148 by D333 (6): item 47 (D325) keeps a pit off the lowest ground, two levels
+    // under the ground round it and never below the beds' floor, and contains its badwater, a pit
+    // with a short ditch first: at 20 the badwater stands about 40 tiles out, and the setting moves it
+    // about 8 tiles up to 50, where it moved 35)
     setting: "Badwater distance",
-    target: "least distance from the start to badwater or contaminated soil",
+    target: "least distance from the start to badwater or contaminated soil (a minimum the map keeps; item 47's pits stand farther at low settings)",
     theme: "riverValley",
     values: ["20", "50"],
     apply: (s, v) => (s.settings.hazards.badwaterDistance = num(v)),
     metric: (m) => (Number.isFinite(m.badwaterDistance) ? m.badwaterDistance : 200),
     expect: "up",
-    delta: 15,
+    delta: 6,
     digits: 1,
   },
   {
@@ -242,14 +249,16 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (re-based under D148 by D333 (6): item 26 (D325) counts living trees only, about a third of the
+    // trees the setting's old target counted: the move of 500 trees becomes 250 living ones)
     setting: "Forest density",
-    target: "trees per 10k tiles, size-aware (medium 1,061 at 100%, which the seed moves within the official maps' typical range, 980–1,240)",
+    target: "living trees per 10k tiles, size-aware (item 26: the official maps' living share, 0.27–0.43, of medium's 1,061 at 100%)",
     theme: "riverValley",
     values: ["50", "200"],
     apply: (s, v) => (s.settings.resources.forestDensity = num(v)),
     metric: (m) => m.treesPer10k,
     expect: "up",
-    delta: 500,
+    delta: 250,
   },
   {
     setting: "Grove size",
@@ -326,10 +335,12 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 1,
   },
   {
+    // (re-based under D148 by D333 (6): item 47 (D325) asks for two mine sites the colony reaches,
+    // so the setting runs 2–4)
     setting: "Mine sites",
-    target: "mine sites (UndergroundRuins) on flat ground 60+ tiles out: 1–4, at least one on every map",
+    target: "mine sites (UndergroundRuins) on flat ground 60+ tiles out: 2–4, two the colony reaches on every map (one under 80²)",
     theme: "riverValley",
-    values: ["1", "3"],
+    values: ["2", "4"],
     apply: (s, v) => (s.settings.resources.mineSites = num(v)),
     metric: (m) => m.mines,
     expect: "up",

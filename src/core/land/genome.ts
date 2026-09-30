@@ -20,7 +20,7 @@
 import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
-import { drawIntentions, nudgeFor, type IntentionId } from "./intentions";
+import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
 import { clamp, unit } from "./num";
 import { TWO_PI } from "../math/detmath";
 
@@ -527,7 +527,8 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
       jitter: 0.12 + 0.18 * rng.float(),
     },
     hydro: {
-      inflows: p.inflows[rng.int(0, p.inflows.length)],
+      // (D333 (3): River Valley's promise is a main river through its valley: one enters at an edge)
+      inflows: Math.max(theme === "riverValley" ? 1 : 0, p.inflows[rng.int(0, p.inflows.length)]),
       // (M9b: more springs on a larger map, as the square root of its area: a 256² map had a 128²'s,
       // and most of its land lay far from water)
       springs: Math.round(Math.max(0, d(p.springs)) * Math.max(1, Math.sqrt(areaK))),
@@ -595,7 +596,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // the volcano island are dropped, the Islands layouts standing for the second)
   g.woods = drawWoods(theme, seed, attempt, vy);
   // intentions: outcomes the processes are steered toward, never built (D138)
-  g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng) : o.intentions.slice();
+  g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng, { W, H }) : o.intentions.filter((id) => !tooSmallFor(id, W, H));
   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
   return g;
 }
@@ -617,6 +618,16 @@ const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
  * stand clear of the water is the land's doing. Its own random stream, so the rest of the genome
  * keeps its draws.
  */
+/** How much deeper the basins the Lakes setting adds are (D333 (6)). */
+const LAKES_DEEPER = 1.6;
+
+/** How much bigger and higher the scattered islands of a sea stand (D333: first maps keep Islands'
+ *  promise, three islands or more). */
+const ISLE_GROW = 1.15;
+const ISLE_RISE = 2.5;
+/** And the sea (a quarter of the map or more, the promise's line). */
+const SEA_GROW = 1.12;
+
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
   g.seaLayout = layout;
@@ -630,7 +641,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     g.parts.push({ kind: k, at, size, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
   };
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
-    g.parts.push({ kind: "basin", at, size: R * shrink, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
+    g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
   };
   // islands scattered through a sea: evenly over its area, of mixed sizes
   const scatter = (cx: number, cy: number, R: number, count: number, depth: number, big = 0.1) => {
@@ -639,7 +650,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const r = 0.92 * Math.sqrt(rng.float()) * R;
       const roll = rng.float();
       const size = roll < big ? 9 + 5 * rng.float() : roll < big + 0.3 ? 5.5 + 3.5 * rng.float() : 3 + 2.5 * rng.float();
-      isle([cx + (ux * r) / W, cy + (uy * r) / H], size, 1.5 + 4 * rng.float(), depth);
+      // (D333: the islands stand clear of the sea's water; on the beds' floor, item 47, the land's
+      // relief is squeezed a little and islands that rose 1.5 levels stood awash, joined by shelves)
+      isle([cx + (ux * r) / W, cy + (uy * r) / H], size * ISLE_GROW, ISLE_RISE + 4.5 * rng.float(), depth);
     }
   };
   let tilt = 8.5 + rng.float();
@@ -897,7 +910,13 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.lakeSprings = 0;
     g.hydro.lakeBudget = 0.0005;
   } else if (dl > 0) {
-    for (let k = 0; k < 6 * dl; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
+    // (D333 (6): half again as deep: on the beds' floor, item 47, a basin in the low land was cut
+    // off at the land's lowest level and held no lake)
+    for (let k = 0; k < 6 * dl; k++) {
+      const b = randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100);
+      b.height *= LAKES_DEEPER;
+      g.parts.push(b);
+    }
     g.troughs += 2 * dl;
     g.lakeSprings = Math.min(1, g.lakeSprings + 0.5 * dl);
     // more of the land's hollows hold water, smaller ones too (dry ones are filled)
