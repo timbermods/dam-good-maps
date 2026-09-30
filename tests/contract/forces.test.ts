@@ -64,13 +64,13 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
     expect(PINNED.results.length).toBe(45);
   });
 
-  it("Quake: Lift and Slide, Sheer and Stepped, three personalities (the prototype's, without the start: D257; Slide at Power 100, where D361's 1-to-20-tile travel meets the prototype's)", () => {
+  it("Quake: Lift and Slide, Sheer and Stepped, three personalities (the prototype's, without the start: D257; Slide at Power 100, where D361's 2-to-20-tile travel meets the prototype's)", () => {
     for (const seed of [0, 1, 42])
       for (const mode of ["lift", "slide"] as const)
         for (const scarp of ["sheer", "stepped"] as const) {
           const { m, proto } = startless("slide");
           const intent = { path: [{ x: 0, y: 38 }, { x: 63, y: 38 }], side: seed % 2 ? (1 as const) : (-1 as const) };
-          // (D361 (3): Slide travels 1 tile at Power 0 to 20 at 100, the prototype 3 to 20: the same at 100)
+          // (D361 (3): Slide travels 2 tiles at Power 0 to 20 at 100, the prototype 3 to 20: the same at 100)
           const power = mode === "slide" ? 100 : QUAKE_DEFAULTS.power;
           const p = quake(snapshotMap(m), { ...QUAKE_DEFAULTS, seed, mode, scarp, power }, intent);
           const q = protoQuake.quake(protoSnapshot(proto), { ...protoQuake.DEFAULTS, seed, mode, scarp, power }, intent);

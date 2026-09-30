@@ -1,7 +1,7 @@
 // Size and Power (PLAN §20 D361 (1), (3)): Size sets how far a force reaches, Power how strong it is
 // within that. At the largest Size, Power 0 gives the gentlest effect that still shows (D356: at least 9
 // tiles change) but small: at most a quarter of Power 100's change in all (the sum of the levels every
-// tile moved) and, where the force raises or cuts (every force but Slide, which moves land sideways), at
+// tile moved; a Slide, which moves land sideways, 30%: its 2-tile shift) and, where the force raises or cuts, at
 // most 60% of Power 100's deepest change and no more than 4 levels; and the change grows with Power
 // across 0, 50 and 100. A painted Lift answers Power while it is painted.
 
@@ -80,7 +80,8 @@ describe("Size sets the reach, Power the strength within it (D361 (3))", () => {
       const [p0, p50, p100] = [0, 50, 100].map((p) => change(force, p));
       const where = `${force}: ${JSON.stringify({ p0, p50, p100 })}`;
       expect(p0.tiles, where).toBeGreaterThanOrEqual(9);
-      expect(p0.sum, where).toBeLessThanOrEqual(p100.sum * 0.25);
+      // (a Slide moves land sideways: its gentlest is a 2-tile shift, the least that shows at a map's edge)
+      expect(p0.sum, where).toBeLessThanOrEqual(p100.sum * (force === "quake slide" ? 0.3 : 0.25));
       if (force !== "quake slide") {
         expect(p0.max, where).toBeLessThanOrEqual(Math.min(4, p100.max * 0.6));
       }

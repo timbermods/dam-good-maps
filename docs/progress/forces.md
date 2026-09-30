@@ -6,7 +6,7 @@
 > another sends the row's Power and Size. (2) The preview is the stroke: a fault's and a fissure's band is a narrow
 > line (radius 1), no reach, no filled loop; Carve's and Glaciate's keep their width. (3) Size and Power
 > (`core/forces/strength.ts`): larger than Power's own size, a force acts in proportion (Craterize, Erupt tempered
-> level by level; Carve's depth capped, banks included; Glaciate below Power 60 too); Slide 1 to 20 tiles. At the
+> level by level; Carve's depth capped, banks included; Glaciate below Power 60 too), every reached tile still moving a level; Slide 2 to 20 tiles. At the
 > largest Size, 128² highlands, the change at Power 0 / 100 (tiles, deepest, sum): Carve 1,250 / 1,820, 4 / 14,
 > Craterize 11,100 / 15,541, 2 / 14, Erupt 1,805 / 7,878, 3 / 22, Glaciate 1,264 / 1,341, 2 / 13, Lift 2 / 9.
 > Tests that failed first: `tests/contract/forcePower.test.ts` (5 forces and the painted Lift), `forceKeys.spec.ts`

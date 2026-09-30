@@ -22,5 +22,13 @@ export function glacierStrength(power: number, size: number | null, natural: num
   return Math.min(own, strength(power, size, natural));
 }
 
-/** A level changed by `strength`: the ground before, moved `k` of the way to the force's level. */
-export const tempered = (before: number, after: number, k: number): number => (k >= 1 ? after : before + (after - before) * k);
+/** A level changed by `strength`: the ground before, moved `k` of the way to the force's level, and at
+ *  least a level wherever the force moves it by a level or more, so a gentle force still shows over all
+ *  of its reach (D356): Power scales how deep, never whether. */
+export function tempered(before: number, after: number, k: number): number {
+  if (k >= 1) return after;
+  const d = after - before;
+  if (Math.abs(d) < 0.5) return before + d * k;
+  const scaled = d * k;
+  return before + (Math.abs(scaled) >= 1 ? scaled : Math.sign(d));
+}

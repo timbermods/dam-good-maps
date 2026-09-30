@@ -143,9 +143,10 @@ editor is desktop-first (D185).
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power 0):
   Craterize's and Erupt's every level scaled by it, Carve no deeper than its share of 12 levels (at least 2, its
   banks included); Glaciate's depth also follows Power below 60 (`glacierStrength`: Power 0 about a sixth as deep);
-  Quake's Slide travels 1 tile at Power 0 to 20 at 100. At the largest Size, Power 0 is the gentlest effect that
+  Quake's Slide travels 2 tiles at Power 0 to 20 at 100. A tempered force still moves every tile it reaches by at
+  least a level (`tempered`): Power scales how deep, never whether (D356). At the largest Size, Power 0 is the gentlest effect that
   still shows: `tests/contract/forcePower.test.ts` holds each force to at least 9 tiles changed, at most a quarter of
-  Power 100's change in all, at most 4 levels deep (60% of Power 100's deepest; Slide, which moves land sideways,
+  Power 100's change in all (a Slide 30%), at most 4 levels deep (60% of Power 100's deepest; Slide, which moves land sideways,
   aside), and a change growing across Power 0, 50 and 100.
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
@@ -312,7 +313,7 @@ editor is desktop-first (D185).
   and the seed. The drawn line sets its length (D226). The fault shows on the land as it is
   painted (D258: the stroke is the gesture). Lift raises along the curve and shows its whole result as it is painted
   (the ground reacts behind the pointer), kept when let go; Slide shows the fault while it is painted, then its block
-  slides along it tile by tile, 1 to 20 tiles (D361 (3)), each part of it the way the drawn line runs there (a straight fault's one
+  slides along it tile by tile, 2 to 20 tiles (D361 (3)), each part of it the way the drawn line runs there (a straight fault's one
   heading; a curved one's bending with it, D327), and a river that crossed the fault is joined again
   along it. A crack runs along the fault and dust rises at its head (the view stays still, D265).
   Objects ride with the land (a rigid one on flat ground of its own), trees on the fault go (their ground broke;
