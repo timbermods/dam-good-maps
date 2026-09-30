@@ -2,7 +2,8 @@
 // Everything runs in a sandbox: a temporary Documents folder and probe folder, a throwaway registry key
 // (HKCU\Software\DGMProbeTest\Timberborn) and a stand-in game (a copy of node.exe named
 // FakeTimberborn.exe running test/fake-game.cjs). Kyler's own settings, saves and game are never touched.
-// The tall maps are read (never written) from C:\dgm-probe\tall when tools/probe-tall.ts has made them.
+// The tall maps are read (never written) from C:\dgm-probe\tall when tools/probe-tall.ts has made them. The size maps
+// are written by their writer into the sandbox, as the batch writes them before it plans (writers.ts).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ process.env.DGM_PROBE_DOCUMENTS = join(sandbox, 'Documents');
 process.env.DGM_PROBE_REGISTRY_KEY = TEST_KEY;
 process.env.DGM_PROBE_UNITY_LOGS = join(sandbox, 'LocalLow');
 process.env.DGM_PROBE_GAME_PROCESS = 'FakeTimberborn';
+process.env.DGM_PROBE_SIZES = join(sandbox, 'sizes');
 const fakeExe = join(sandbox, 'FakeTimberborn.exe');
 copyFileSync(process.execPath, fakeExe);
 process.env.DGM_PROBE_LAUNCH = JSON.stringify([fakeExe, join(__dirname, 'test', 'fake-game.cjs')]);
@@ -29,6 +31,8 @@ const catalogM = require('./catalog') as typeof import('./catalog');
 const jobs = require('./jobs') as typeof import('./jobs');
 const compare = require('./compare') as typeof import('./compare');
 const mapfile = require('./mapfile') as typeof import('./mapfile');
+const writers = require('./writers') as typeof import('./writers');
+const groupM = require('../../../tools/probe-maps/group') as typeof import('../../../tools/probe-maps/group');
 
 let failures = 0;
 const check = (name: string, ok: boolean, detail = '') => {
@@ -84,6 +88,48 @@ async function main(): Promise<void> {
   code = consent.requestConsent(plan);
   check('consent: right plan accepted once', consent.consumeConsent(plan, code) && !consent.consumeConsent(plan, code));
   check('consent: the description says it launches Timberborn', /LAUNCHES TIMBERBORN/.test(consent.describe(plan)));
+
+  // 2b. a group made outside the repository has its maps written by its own writer before the plan (writers.ts;
+  // Kyler, 2026-09-30): written, then found current by their hash, a stale one rewritten, a failure refused
+  const fakeDir = join(sandbox, 'fake-group');
+  process.env.DGM_PROBE_FAKE = fakeDir;
+  const fakeBytes = [new Uint8Array([1, 2, 3]), new Uint8Array([4, 5, 6, 7])];
+  let fakeFails = false;
+  const fake: import('../../../tools/probe-maps/group').GroupWriter = {
+    group: 'Fake', ids: ['fake-0', 'fake-1'], tool: 'tools/probe-fake.ts', folder: 'fake', env: 'DGM_PROBE_FAKE', manifest: 'fake.json',
+    build: () => {
+      if (fakeFails) throw new Error('fake-1: no room for the start');
+      return { maps: fakeBytes.map((b, k) => ({ file: `fake-${k}.timber`, bytes: b, size: [8 + k, 8] as [number, number], entry: { id: `fake-${k}` } })), manifest: { format: 1 } };
+    },
+  };
+  const fw = { Fake: () => fake };
+  const fw1 = writers.writeGroups(['Fake'], () => {}, fw)[0];
+  const fw2 = writers.writeGroups(['Fake'], () => {}, fw)[0];
+  writeFileSync(join(fakeDir, 'fake-1.timber'), 'stale');
+  const fw3 = writers.writeGroups(['Fake'], () => {}, fw)[0];
+  check('writers: maps written, then found current by their hash; a stale one rewritten', fw1.dir === fakeDir && fw1.files.every((f) => f.status === 'written') && fw2.files.every((f) => f.status === 'current') && fw3.files[0].status === 'current' && fw3.files[1].status === 'written' && readFileSync(join(fakeDir, 'fake-1.timber')).equals(Buffer.from(fakeBytes[1])), [fw1, fw2, fw3].map((w) => w.files.map((f) => f.status).join('/')).join(', '));
+  const fakeManifest = JSON.parse(readFileSync(join(fakeDir, 'fake.json'), 'utf8')) as { maps: { file: string; size: number[]; sha256: string }[] };
+  check("writers: the manifest lists each map's file, size and sha256", fakeManifest.maps.length === 2 && fakeManifest.maps[1].sha256 === groupM.sha256(fakeBytes[1]) && fakeManifest.maps[1].size.join('x') === '9x8');
+  fakeFails = true;
+  try {
+    writers.writeGroups(['Fake'], () => {}, fw);
+    check('writers: a writer that fails refuses the plan with its reason', false);
+  } catch (e) {
+    check('writers: a writer that fails refuses the plan with its reason', /^the Fake maps could not be written: fake-1: no room for the start\. Nothing was planned\.$/.test((e as Error).message), (e as Error).message);
+  }
+  fakeFails = false;
+  check('writers: --group names its group, --only the groups of its ids, others none', JSON.stringify(writers.groupsToWrite(undefined, 'Fake', fw)) === '["Fake"]' && writers.groupsToWrite(undefined, 'M8', fw).length === 0 && JSON.stringify(writers.groupsToWrite('m8-preview,fake-1', undefined, fw)) === '["Fake"]' && writers.groupsToWrite('m8-preview', undefined, fw).length === 0 && JSON.stringify(writers.groupsToWrite(undefined, 'Sizes')) === '["Sizes"]' && JSON.stringify(writers.groupsToWrite('sizes-64x512')) === '["Sizes"]' && JSON.stringify(writers.groupsToWrite(undefined, 'Tall maps')) === '["Tall maps"]');
+  const planW = { ...plan, written: writers.writtenForPlan([fw3]) };
+  const asCurrent = { ...planW, written: planW.written.map((g) => ({ ...g, files: g.files.map((f) => ({ ...f, status: 'current' as const })) })) };
+  const otherBytes = { ...planW, written: planW.written.map((g) => ({ ...g, files: g.files.map((f, k) => ({ ...f, sha256: k ? '0'.repeat(64) : f.sha256 })) })) };
+  const text = consent.describe(planW);
+  check('plan: it lists the maps written, with their file, size and sha256', text.includes(`fake-1.timber  9×8`) && text.includes(groupM.sha256(fakeBytes[1])) && /Maps written for this plan by the Fake writer/.test(text), text.split('\n').slice(-4).join(' | '));
+  check("plan: a launch code covers the maps' bytes, not who wrote them", consent.planHash(planW) === consent.planHash(asCurrent) && consent.planHash(planW) !== consent.planHash(otherBytes) && consent.planHash(planW) !== consent.planHash(plan));
+  // the Sizes writer itself, into the sandbox (C:\dgm-probe\sizes on a real run)
+  const ts0 = Date.now();
+  const sizesW = writers.writeGroups(['Sizes'])[0];
+  const wantSizes = ['256x256', '399x399', '64x512', '128x512', '512x256', '512x512'];
+  check('Sizes: the writer writes six maps at their sizes, each file the bytes its hash says', sizesW.dir === join(sandbox, 'sizes') && sizesW.files.map((f) => f.size.join('x')).join(',') === wantSizes.join(',') && sizesW.files.every((f) => groupM.sha256(new Uint8Array(readFileSync(join(sizesW.dir, f.file)))) === f.sha256), `${sizesW.files.map((f) => `${f.file} ${(f.bytes / 1024).toFixed(0)} KB`).join(', ')} in ${((Date.now() - ts0) / 1000).toFixed(0)} s`);
 
   // 3. the catalog builds every game's job offline (maps generated, poses, moments)
   const t0 = Date.now();
@@ -169,6 +215,44 @@ async function main(): Promise<void> {
     const cv2 = compare.evaluate({ L: new compare.Loaded(cdir, cp, cres), others: new Map(), model: null, modelError: null }, [catalogM.CEILING.build])[0];
     check('ceiling checks: a lost voxel on the land the editor raised fails the upper-slopes check', cv2.verdict === 'failed', cv2.detail);
   } else console.log('skip ceiling maps: run npx tsx tools/probe-ceiling.ts first');
+  // the size maps (PLAN §20 D357 (9)): each at its size, the frame-time phases after its first day, and its checks
+  const sized = prepared.filter((p) => p.game.group === 'Sizes');
+  check('Sizes: six games at their sizes, the frame-time phases after the day-1 record', sized.length === 6 && sized.every((p) => p.info.W === p.game.sizes!.size[0] && p.info.H === p.game.sizes!.size[1] && p.map.perf?.phases.length === 3 && Math.abs(p.map.perf.startDay - (catalogM.D0 + 1.01)) < 1e-9 && p.map.moments.some((m) => m.snapshot && Math.abs(m.day - catalogM.D0 - 1) < 1e-9)), sized.map((p) => `${p.game.id} ${p.info.W}×${p.info.H}`).join(', '));
+  check('Sizes: the time the phases take is in each map\'s timeout and in the estimate', sized.every((p) => p.map.timeoutSeconds > jobs.perfSeconds(p.map) + 300) && jobs.estimateMinutes(sized) > jobs.estimateMinutes(sized.map((p) => ({ ...p, map: { ...p.map, perf: undefined } }))) + 9, `${jobs.estimateMinutes(sized)} minutes`);
+  {
+    const sp = sized.find((p) => p.game.id === 'sizes-64x512')!, ref = sized.find((p) => p.game.id === compare.SIZE_REFERENCE)!;
+    const sdir = join(sandbox, 'compare-sizes');
+    mkdirSync(sdir, { recursive: true });
+    const sz = require('node:zlib') as typeof import('node:zlib');
+    const cols = compare.fileColumns(sp.info);
+    const snapOf = (id: string, day: number, width = sp.info.W) => ({ momentId: id, day, tick: 0, weather: 'temperate', width, height: sp.info.H, depth: [...sp.info.depth], contamination: [...sp.info.contamination], floor: [...sp.info.floor], moisture: [...sp.info.moisture], soilContamination: [...sp.info.soilContamination], terrain: [...cols.top], terrainColumns: [...cols.count], layered: [], plants: [], sources: [] });
+    const write = (mutate: (id: string, s: ReturnType<typeof snapOf>) => void = () => {}) => {
+      const files: string[] = [];
+      for (const m of sp.map.moments.filter((x) => x.snapshot)) {
+        const f = `${sp.game.id}-${m.id.replace(/[^A-Za-z0-9_-]/g, '_')}.snapshot.json.gz`;
+        const s = snapOf(m.id, m.day);
+        mutate(m.id, s);
+        writeFileSync(join(sdir, f), sz.gzipSync(JSON.stringify(s)));
+        files.push(f);
+      }
+      return files;
+    };
+    const ents = sp.info.entities.filter((e) => e.template !== 'StartingLocation').map((e) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
+    const samplesOf = (dryTile?: [number, number]) => [0, 0.5, 1].map((d) => ({ day: catalogM.D0 + d, tick: 0, weather: 'temperate', tiles: sp.map.tiles.map(([x, y]) => ({ x, y, columns: sp.info.depth[y * sp.info.W + x] > 0 && !(dryTile && d === 0.5 && dryTile[0] === x && dryTile[1] === y) ? [[sp.info.floor[y * sp.info.W + x], sp.info.depth[y * sp.info.W + x], 0]] : [], moisture: 0, soilContamination: 0 })) }));
+    const perfOf = (median: number) => ({ camera: 'test', phases: sp.map.perf!.phases.map((x) => ({ id: x.id, speed: x.speed || 99, seconds: x.seconds - x.warmup, frames: 500, medianMs: median, p95Ms: median * 1.5, p99Ms: median * 2, maxMs: median * 3, over50Ms: 0, over100Ms: 0, days: 0.1, speedReached: x.speed || 40, workingSetMb: 2000 })) });
+    const s0 = sp.info.start!;
+    const resultOf = (snaps: string[], samples: ReturnType<typeof samplesOf>, extra: Record<string, unknown> = {}) => ({ runId: 't', mapId: sp.game.id, title: 't', mapFile: '', status: 'done', modVersion: '0.2.1', log: [], notes: [], samples, snapshots: snaps, shots: [{ momentId: 'start', pose: 'overview', file: 'x.jpg', day: catalogM.D0 }], entitiesAtStart: ents, entitiesAtEnd: ents, plantDeaths: [], loadingIssues: [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: { id: 'dc', template: 'DistrictCenter.Folktails', x: s0.x, y: s0.y, z: s0.z, orientation: s0.orientation }, adults: 9, children: 4, bots: 0 }, loadSeconds: 30, workingSetAtLoadMb: 2500, perf: perfOf(20), ...extra }) as unknown as import('./job').MapResult;
+    const refL = new compare.Loaded(sdir, ref, { ...resultOf([], []), mapId: ref.game.id, loadSeconds: 12, perf: perfOf(10) } as unknown as import('./job').MapResult);
+    const others = new Map([[ref.game.id, refL]]);
+    const judge = (res: import('./job').MapResult, ids?: string[]) => compare.evaluate({ L: new compare.Loaded(sdir, sp, res), others, model: null, modelError: null }, sp.checks.filter((c) => !ids || ids.includes(c.id)));
+    const sv = judge(resultOf(write(), samplesOf()));
+    const bad = sv.filter((x) => !(x.verdict === 'passed' || (x.verdict === 'recorded' && ['size-smooth', 'size-load-time', 'size-shots'].includes(x.id))));
+    check('size checks: the file itself passes; frame times and the load time are recorded against the 256² reference', bad.length === 0 && /\[256²: median 10\.0/.test(sv.find((x) => x.id === 'size-smooth')!.detail) && /256²: 12\.0 s/.test(sv.find((x) => x.id === 'size-load-time')!.detail), bad.map((x) => `${x.id} ${x.verdict}: ${x.detail}`).join(' | ') || sv.map((x) => `${x.id} ${x.verdict}`).join(', '));
+    const wrong = judge(resultOf(write((id, s) => id === 'start' && (s.width = sp.info.W - 1)), samplesOf()), ['size-load'])[0];
+    const dried = judge(resultOf(write(), samplesOf(sp.game.sizes!.flowTiles[2])), ['size-water'])[0];
+    const noPerf = judge(resultOf(write(), samplesOf(), { perf: undefined, modVersion: '0.2.0' }), ['size-smooth'])[0];
+    check('size checks: a map of another size fails the load; a river tile that dries fails the water; no frame times is not measurable', wrong.verdict === 'failed' && /NOT THE SAME/.test(wrong.detail) && dried.verdict === 'failed' && /dried/.test(dried.detail) && noPerf.verdict === 'not measurable', `${wrong.detail.slice(0, 80)} | ${dried.detail.slice(-120)} | ${noPerf.detail}`);
+  }
   const look = prepared.filter((p) => p.game.group === 'Map look');
   check('Map look: poses from the captures', look.filter((p) => p.map.poses.some((x) => x.lookCapture && existsSync(join(paths.REPO, x.lookCapture)))).length >= 7, look.map((p) => `${p.game.id} ${p.map.poses.filter((x) => x.lookCapture).length}`).join(', '));
   const cal = prepared.find((p) => p.game.id === 'cal-rv2')!;
@@ -239,10 +323,32 @@ async function main(): Promise<void> {
     catalogM.gameIdsFor(noParity, undefined, 'Parity');
     check('select: --group Parity with no Parity maps refuses', false);
   } catch (e) {
-    check('select: --group Parity with no Parity maps refuses', /^no maps in group Parity: its maps have not been written \(npx tsx tools\/probe-parity\.ts\)/.test((e as Error).message), (e as Error).message);
+    check('select: --group Parity with no Parity maps refuses', /^no maps in group Parity: its maps have not been written \(the batch writes them before it plans; by hand: npx tsx tools\/probe-parity\.ts\)/.test((e as Error).message), (e as Error).message);
   }
 
-  // 4a'. the parity checks compare like for like (probe parity-20260930): when the parity maps are written
+  try {
+    catalogM.gameIdsFor(games.filter((g) => g.group !== 'Sizes'), undefined, 'Sizes');
+    check('select: --group Sizes with no Sizes maps refuses, naming its writer', false);
+  } catch (e) {
+    check('select: --group Sizes with no Sizes maps refuses, naming its writer', /^no maps in group Sizes: its maps have not been written \(the batch writes them before it plans; by hand: npx tsx tools\/probe-sizes\.ts\)/.test((e as Error).message), (e as Error).message);
+  }
+
+  // 4a'. the batch itself, without --confirmed-launch: it writes the Sizes maps (here all current already, then one made
+  // stale), prints the plan with the maps written, and launches nothing (exit 3); an unknown group plans nothing (exit 1)
+  const batchRun = (...a: string[]) => {
+    const r = require('node:child_process').spawnSync(process.execPath, [join(paths.PROBE_DIR, 'run.cjs'), 'runner/batch.ts', ...a], { cwd: paths.PROBE_DIR, encoding: 'utf8', env: process.env, maxBuffer: 64 << 20 }) as { status: number; stdout: string; stderr: string };
+    return { status: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  const b1 = batchRun('--group', 'Sizes', '--keep-mods', '--run-id', 'test-sizes-plan');
+  writeFileSync(join(sandbox, 'sizes', 'sizes-64x512.timber'), 'stale');
+  const b2 = batchRun('--group', 'Sizes', '--keep-mods', '--run-id', 'test-sizes-plan');
+  const listsAll = (o: string) => sizesW.files.every((f) => o.includes(`${f.file}  ${f.size[0]}×${f.size[1]}`) && o.includes(f.sha256));
+  check('batch --group Sizes: the plan lists the six maps written (file, size, sha256), launches nothing', b1.status === 3 && listsAll(b1.out) && /all already current/.test(b1.out) && /LAUNCHES TIMBERBORN/.test(b1.out) && /Nothing was launched/.test(b1.out) && !safety.isGameRunning(), b1.out.split('\n').filter((l) => /Maps written|sizes-64x512|Full batch|Nothing was/.test(l)).join(' | '));
+  check('batch --group Sizes: a stale map on disk is rewritten before the plan', b2.status === 3 && /1 written now/.test(b2.out) && listsAll(b2.out) && groupM.sha256(new Uint8Array(readFileSync(join(sandbox, 'sizes', 'sizes-64x512.timber')))) === sizesW.files.find((f) => f.file === 'sizes-64x512.timber')!.sha256, b2.out.split('\n').filter((l) => /written now|sizes-64x512/.test(l)).join(' | '));
+  const b3 = batchRun('--group', 'Nonesuch', '--keep-mods');
+  check('batch --group Nonesuch: refuses and plans nothing', b3.status === 1 && /no maps in group Nonesuch/.test(b3.out) && !/LAUNCHES/.test(b3.out), b3.out.trim().split('\n').at(-1));
+
+  // 4a''. the parity checks compare like for like (probe parity-20260930): when the parity maps are written
   const parity = prepared.filter((p) => p.game.group === 'Parity');
   if (parity.length) {
     const pz = require('node:zlib') as typeof import('node:zlib');
@@ -345,7 +451,7 @@ async function main(): Promise<void> {
   check('settings backup: mod values in plain text', /ModPriority\.Local\.SomeMod\.someone\.somemod = -1/.test(listed), listed.split('\r\n').slice(3).join(' | '));
 
   // 5. snapshot and restore: settings, logs, player data, saves
-  const small = jobs.makeJob('fake-run', prepared.slice(0, 4), 99);
+  const small = jobs.makeJob('fake-run', [...prepared.slice(0, 3), sized.find((p) => p.game.id === 'sizes-64x512')!], 99);
   const snapInfo = safety.takeSnapshot();
   check('snapshot: refuses a second one before a restore', (() => {
     try {
@@ -369,6 +475,8 @@ async function main(): Promise<void> {
   const failed = small.maps.filter((m) => JSON.parse(readFileSync(join(launch.resultsDir(small.runId), `${m.id}.json`), 'utf8')).status === 'failed').map((m) => m.id);
   check('watchdog: the hung map is recorded as failed', failed.includes(small.maps[2].id), failed.join(', '));
   check('watchdog: the game is gone and the job file removed', !safety.isGameRunning() && !existsSync(paths.probePaths().job));
+  const sizedResult = JSON.parse(readFileSync(join(launch.resultsDir(small.runId), 'sizes-64x512.json'), 'utf8')) as import('./job').MapResult;
+  check("frame times: the job's phases reach the game and come back in the result, with the load time", small.maps[3].perf?.phases.map((x) => x.id).join(',') === 'normal,fastest,probe' && sizedResult.perf?.phases.map((x) => x.id).join(',') === 'normal,fastest,probe' && sizedResult.loadSeconds === 12.5, JSON.stringify(sizedResult.perf?.phases.map((x) => [x.id, x.speed])));
 
   writeFileSync(join(docs, 'PlayerData/player.data'), 'changed by the game');
   const r = safety.restore(join(sandbox, 'kept'));

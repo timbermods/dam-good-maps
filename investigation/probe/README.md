@@ -24,18 +24,29 @@ the yes, run the same command with `--confirmed-launch <code> --run-id <id>` as 
 once, and only for the plan it was printed for.
 
 - `--smoke`: one map (the M8 preview) for one game day, a few minutes.
-- `--only m2-rv,cal-rv2` or `--group Calibration`: some games (`--job-only` lists them). A group with no maps (an unknown name, or maps not written yet, such as Parity before `tools/probe-parity.ts`) or an unknown id refuses: nothing is planned.
-- The tall maps (terrain up to 22, PLAN §20 D172): make them with `npx tsx tools/probe-tall.ts` (it writes
-  `C:\dgm-probe\tall\` and checks each map with both validators), then play them as the group
-  `Tall maps`, with `--keep-mods`.
-- The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
+- `--only m2-rv,cal-rv2` or `--group Calibration`: some games (`--job-only` lists them). A group with no maps (an
+  unknown name) or an unknown id refuses: nothing is planned.
+- **Groups whose maps are made outside the repository are written by the runner first.** Each declares its writer in
+  `runner/catalog.ts` (`GROUP_WRITERS`): a module in `tools/probe-maps/` the runner calls itself. `--group <name>` (or
+  `--only` with its ids) builds the group's maps, compares each with the file on disk by its sha256, rewrites any that
+  differ, then plans; the plan lists every map written (file, size, sha256), and the launch code covers those bytes. A
+  writer that fails refuses the plan with its reason. `tools/probe-<group>.ts` runs the same writer by hand.
+  - `Tall maps` (terrain up to 22, PLAN §20 D172): `C:\dgm-probe\tall\` (`tools/probe-maps/tall.ts`; by hand,
+    `npx tsx tools/probe-tall.ts` also runs the Python validator). Play with `--keep-mods`.
+  - `Sizes` (PLAN §20 D357 (9)): 256×256 and 399×399 (the known-good references), 64×512, 128×512, 512×256 and
+    512×512, in `C:\dgm-probe\sizes\` (`tools/probe-maps/sizes.ts`; by hand, `npx tsx tools/probe-sizes.ts [--python]`).
+    Each has a river along its long axis, a lake with a spring, a start, and trees, bushes and ruins at a generated
+    map's densities. Checks: it loads at its size with its terrain and objects; its water at the load and after a day
+    against the file's settled water (our model); frame times with a camera pan over the whole map at normal speed, the
+    fastest and the probe's speed (`size-smooth`, against the 256² map); the time to load (`size-load-time`). The run's
+    `summary.md` has a table of both. The plan estimates about 36 minutes for the six maps.
+  - `Parity` (PLAN §20 D337, D338, D339): seven maps built in the editor's own core, one for each object the shelf
+    gained, in `C:\dgm-probe\parity\` (`tools/probe-maps/parity.ts`; by hand, `npx tsx tools/probe-parity.ts`). Play
+    with `--keep-mods`.
+- The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244) still need their own command first:
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
-  worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
-  group `Ceiling`, with `--keep-mods`.
-- The parity maps (PLAN §20 D337, D338, D339): make them with `npx tsx tools/probe-parity.ts` (it writes
-  `C:\dgm-probe\parity\`: seven maps built in the editor's own core, one for each object the shelf gained, and their
-  manifest `parity.json`), then play them as the group `Parity`, with `--keep-mods`. Like every launch it needs Kyler's yes
-  in chat first (CLAUDE.md).
+  worker with its limit raised to 22, in a child process, each checked by both validators' export profile), then play
+  them as the group `Ceiling`, with `--keep-mods`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
@@ -50,6 +61,32 @@ once, and only for the plan it was printed for.
 
 A full batch waits until the machine is quiet (no tests, batches, benchmarks or headless browsers of
 another session, and a low processor load). `--no-wait` skips the wait.
+
+## Running a batch from the probe folder
+
+Every probe runs from `C:\Users\Kyler\code\DamGoodMaps-probe` (docs/HANDOFF.md, "Where probes run"). For the Sizes
+group, with the branch checked out there:
+
+```sh
+npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run build-mod -- --no-install
+npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run batch -- --backup-settings
+npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run batch -- --group Sizes --keep-mods
+# after Kyler's YES for exactly that plan:
+npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run batch -- --group Sizes --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg
+```
+
+The runner writes the maps itself, so these are the only commands: all four are in Kyler's allow rules, and none is
+refused. No `npx tsx` step comes first.
+
+## Frame times (DGM Probe 0.2.1)
+
+A map whose game has `perf` (the Sizes group) runs its frame-time phases after its first day's record: each phase holds
+one game speed for some real seconds (normal 40 s, the fastest 30 s, the probe's own speed 30 s; the first 3–4 s not
+counted) while the camera pans along rows down the map's long axis, at the game's own zoom and angles, so it crosses the
+whole map once per phase. The player's own graphics are used (the probe's lower graphics come back afterwards), and
+nothing else is recorded meanwhile. Each phase records the median, 95th and 99th percentile and longest frame, the frames
+over 50 and 100 ms, the game speed reached and the game's memory; the result also has the time from starting the new
+game to its interface. The game runs several days during the probe-speed phase, so the map's end record comes later.
 
 ## What the game is compared with
 
@@ -67,8 +104,8 @@ another session, and a low processor load). `--no-wait` skips the wait.
 Everything the probe produces stays in `C:\dgm-probe\` (Kyler's decision, outside his Timberborn folders):
 the job, the heartbeat, `results\` (one JSON file per map, whole-map snapshots, the game's logs),
 `shots\` (the screenshots, never committed), `maps\` (the files played), `sheet\` (the HTML contact
-sheet), `tall\` (the tall maps), `ceiling\` (the ceiling maps) and `runner\` (the backups a run restores
-from). The game is told the folder with `-dgmprobeHome`; `DGM_PROBE_HOME` changes it.
+sheet), `tall\`, `sizes\`, `parity\` (the maps their writers make), `ceiling\` (the ceiling maps) and `runner\` (the
+backups a run restores from). The game is told the folder with `-dgmprobeHome`; `DGM_PROBE_HOME` changes it.
 
 ## Safety
 
@@ -100,6 +137,8 @@ The runner removes it after every run. If a run was cut short:
 ## Files
 
 - `mod/`: the mod (C#, built against the local game install, never published).
-- `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks),
+- `tools/probe-maps/`: the writers of the groups made outside the repository (`group.ts`, `assemble.ts`, `tall.ts`,
+  `sizes.ts`).
+- `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks), `writers.ts`,
   `jobs.ts`, `launch.ts` (Steam launch and watchdog), `compare.ts` (the verdicts), `model.ts` (the cycle
   model), `safety.ts` (snapshot and restore), `mods.ts`, `consent.ts`, `sheet.ts`, `summary.ts`, `test.ts`.

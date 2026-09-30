@@ -231,7 +231,7 @@ async function editAll(dir: string): Promise<void> {
 // ------------------------------------------------------------------------------------------ building
 
 async function buildAll(dir: string): Promise<{ failures: number }> {
-  const tall = await import("./probe-tall");
+  const tall = await import("./probe-maps/tall");
   const { writeTimber, readTimber } = await import("../src/core/format/timber");
   const { validateMap } = await import("../src/core/validate/checks");
   for (const d of [dir, join(dir, "start"), join(dir, "work")]) mkdirSync(d, { recursive: true });

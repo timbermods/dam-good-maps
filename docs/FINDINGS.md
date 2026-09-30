@@ -99,8 +99,10 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
 
 ## Terrain, height and support
 
-- Sizes 4–256 a side; 23 terrain layers (`MaxGameTerrainHeight` 22); the map editor's brushes clamp at 16; layer 22 stays
-  empty; more than 23 layers is truncated. BLK §5; FMT §0.
+- Sizes 4–256 a side in the game's New Map dialog, but larger maps load: 399×399 and 29×599 (Map Resizer maps,
+  [WORKSHOP](../investigation/WORKSHOP.md)); 512 a side is D357's probe (group `Sizes`). 23 terrain layers
+  (`MaxGameTerrainHeight` 22); the map editor's brushes clamp at 16; layer 22 stays empty; more than 23 layers is
+  truncated. BLK §5; FMT §0.
 - **The ceiling is 22 (D172, D244).** Every editor tool goes to it on any map; land above 16 makes a tall map. The game
   keeps land above 16 (probe: run 20260925-tall, 4 maps, 23 checks; `ceiling-20260927`, 3 editor-made maps).
   Timberborn's own map editor opens and saves land above 16; its brushes only can't raise it. PLAN §20 D172, D244; [STATUS](STATUS.md) "Probe batches".

@@ -1,4 +1,4 @@
-// The DGM Probe's parity maps (tools/probe-parity.ts) as the game gets them, after the probe run parity-20260930
+// The DGM Probe's parity maps (tools/probe-maps/parity.ts) as the game gets them, after the probe run parity-20260930
 // (PLAN §20 D337, D339): the file's water comes only from what runs at the map's start (a delayed source's pit is dry;
 // a seep's pit holds no more than 0.8 over it), and the core's preview draws the water the model settles to after the
 // blast, run from the file's own water.
@@ -8,7 +8,7 @@ import { explosionAfter } from "../../src/core/doc/blast";
 import { toMapObject } from "../../src/core/features/build";
 import { waterModel } from "../../src/core/sim/model";
 import { WaterSim } from "../../src/core/sim/water";
-import { buildSample, SAMPLES } from "../../tools/probe-parity";
+import { buildSample, SAMPLES } from "../../tools/probe-maps/parity";
 
 const sample = (id: string) => buildSample(SAMPLES.find((p) => p.id === id)!);
 const inBox = ([x0, y0, w, h]: number[], W: number) => Array.from({ length: w * h }, (_, k) => (y0 + Math.floor(k / w)) * W + x0 + (k % w));

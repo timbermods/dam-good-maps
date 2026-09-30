@@ -3,17 +3,21 @@
 // in each milestone's checks.txt), the cycle model's calibration points (investigation/cycles/CALIBRATION.md
 // on branch investigation/cycles-exact), the Map look captures (docs/map-look/after/after.json), the high
 // terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), the ceiling maps made in the editor
-// (tools/probe-ceiling.ts, PLAN §20 D244), and any .timber files given on the command line (the M9 prototypes,
-// for example).
+// (tools/probe-ceiling.ts, PLAN §20 D244), the parity maps (tools/probe-parity.ts), the size maps
+// (tools/probe-sizes.ts, PLAN §20 D357 (9)), and any .timber files given on the command line (the M9 prototypes, for
+// example).
+// Groups whose maps are made outside the repository declare their writer here (GROUP_WRITERS): the runner writes
+// their maps itself before it plans them (writers.ts).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import type { Action, Cycle, Pose } from './job';
+import type { Action, Cycle, PerfSpec, Pose } from './job';
 import { NEW_GAME_DAY } from './job';
 import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
-import { ceilingDir, parityDir, REPO, tallDir } from './paths';
+import { ceilingDir, parityDir, REPO, sizesDir, tallDir } from './paths';
+import type { GroupWriter } from '../../../tools/probe-maps/group';
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
 import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
 import { DIFFICULTY_RULES } from '../../../src/core/spec/mapspec';
@@ -62,6 +66,10 @@ export interface GameDef {
   ceiling?: CeilingEntry;
   /** A parity map's entry in parity.json (tools/probe-parity.ts). */
   parity?: ParityEntry;
+  /** A size map's entry in sizes.json (tools/probe-sizes.ts). */
+  sizes?: SizesEntry;
+  /** Frame times after the first day (the phases; `afterDays` from the start). */
+  perf?: Omit<PerfSpec, 'startDay'> & { afterDays: number };
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -196,21 +204,71 @@ function ceilingBytes(t: CeilingEntry): Uint8Array {
   return b;
 }
 
-/** The tool that writes each group's maps, for groups whose maps are made outside the repository. */
-const GROUP_TOOLS: Record<string, string> = { Parity: 'tools/probe-parity.ts', 'Tall maps': 'tools/probe-tall.ts', Ceiling: 'tools/probe-ceiling.ts' };
+/** One map of sizes.json, the manifest tools/probe-maps/sizes.ts writes beside the size maps (PLAN §20 D357 (9)). */
+export interface SizesEntry {
+  id: string;
+  title: string;
+  tests: string;
+  file: string;
+  sha256: string;
+  size: [number, number];
+  reference: boolean;
+  name: string;
+  alongY: boolean;
+  start: { x: number; y: number; z: number } | null;
+  lake: { centre: [number, number]; radius: number; floor: number; source: [number, number, number] } | null;
+  trees: number;
+  bushes: number;
+  ruins: number;
+  sources: number;
+  wetTiles: number;
+  flowTiles: [number, number][];
+  poolTiles: [number, number][];
+}
+
+/** The size maps the Sizes writer wrote (none until it has run). */
+export function sizesMaps(): SizesEntry[] {
+  const f = join(sizesDir(), 'sizes.json');
+  if (!existsSync(f)) return [];
+  return (JSON.parse(readFileSync(f, 'utf8')) as { maps: SizesEntry[] }).maps;
+}
+
+/** A size map's bytes, exactly the file the writer checked (its sha256 in sizes.json). */
+function sizesBytes(t: SizesEntry): Uint8Array {
+  const b = new Uint8Array(readFileSync(join(sizesDir(), t.file)));
+  if (createHash('sha256').update(b).digest('hex') !== t.sha256) throw new Error(`${t.file} is not the file sizes.json describes: run the batch again (it rewrites the Sizes maps), or npx tsx tools/probe-sizes.ts`);
+  return b;
+}
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+/**
+ * The groups whose maps are made outside the repository, each with its writer: a module the runner imports and calls
+ * itself before it plans the group (writers.ts; Kyler, 2026-09-30: `batch --group <name>` writes the group's maps
+ * first, so the probe folder's four commands cover every group). Each `tools/probe-<group>.ts` is a thin wrapper over
+ * the same module, to run it by hand. A new group of this kind adds its writer here.
+ */
+export const GROUP_WRITERS: Record<string, () => GroupWriter> = {
+  'Tall maps': () => (require('../../../tools/probe-maps/tall') as typeof import('../../../tools/probe-maps/tall')).TALL_WRITER,
+  Sizes: () => (require('../../../tools/probe-maps/sizes') as typeof import('../../../tools/probe-maps/sizes')).SIZES_WRITER,
+  Parity: () => (require('../../../tools/probe-maps/parity') as typeof import('../../../tools/probe-maps/parity')).PARITY_WRITER,
+};
+/** Groups whose maps a separate command still makes: the Ceiling maps are edited in a child process whose loader
+ *  raises the editor's limits, so they cannot be written in the runner's own process. */
+const GROUP_TOOLS: Record<string, string> = { Ceiling: 'tools/probe-ceiling.ts' };
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * The games a batch plays, by id: `--only`'s, or `--group`'s. An unknown id, or a group with no maps (a name no game
- * has, or a group whose maps have not been written yet), refuses with a plain reason: never the whole catalog in its
- * place (probe parity-20260930: `--group Parity` before the Parity maps were written planned all 51 maps).
+ * has, or a group whose maps have not been written), refuses with a plain reason: never the whole catalog in its place
+ * (probe parity-20260930: `--group Parity` before the Parity maps were written planned all 51 maps).
  */
 export function gameIdsFor(all: readonly { id: string; group: string }[], only?: string, group?: string): string[] {
   const groups = [...new Set(all.map((g) => g.group))];
   if (group !== undefined) {
     const ids = all.filter((g) => g.group === group).map((g) => g.id);
     if (!ids.length) {
-      const tool = GROUP_TOOLS[group];
-      const why = tool ? `its maps have not been written (npx tsx ${tool})` : group ? 'no game belongs to it' : 'no group was named';
+      const writer = GROUP_WRITERS[group], tool = GROUP_TOOLS[group];
+      const why = writer ? `its maps have not been written (the batch writes them before it plans; by hand: npx tsx ${writer().tool})` : tool ? `its maps have not been written (npx tsx ${tool})` : group ? 'no game belongs to it' : 'no group was named';
       throw new Error(`no maps in group ${group || '(none)'}: ${why}. Nothing was planned. Groups with maps: ${groups.join(', ')}`);
     }
     return ids;
@@ -371,6 +429,30 @@ export const CEILING_CYCLES: Cycle[] = [
   { temperateDays: 2, hazard: 'badtide', hazardDays: 2 },
   { temperateDays: 60, hazard: 'drought', hazardDays: 0 },
 ];
+
+/** The size maps' checks (PLAN §20 D357 (9)): maps beyond the standard sizes load at their size, keep their terrain,
+ *  water and objects, and how smoothly the game runs them, against the 256² reference. compare.ts states each one's
+ *  tolerance in its verdict. */
+export const SIZE = {
+  load: { id: 'size-load', title: "Loads at its size: no loading issue, no error or exception in the log, the start placed, and the game's map the file's width × height", how: 'measure' },
+  terrain: { id: 'size-terrain', title: "Terrain kept voxel for voxel: the game's terrain columns equal the file's at the load and at the end", how: 'measure' },
+  objects: { id: 'size-objects', title: 'Every object in the file is in the game, at its tile', how: 'measure' },
+  water: { id: 'size-water', title: "The water against our model (the file's settled water): at the load 99% of wet tiles within 0.1 deep; after a day 95% within 0.1 and the volume within 10%; the river's sampled tiles wet all day and the lake's surface within 0.1", how: 'measure' },
+  smooth: { id: 'size-smooth', title: "How smoothly the game runs it, with a camera pan over the whole map: frame times (median, 95th percentile) at normal speed, the fastest and the probe's speed, and the game speed reached, against the 256² reference", how: 'measure' },
+  loadTime: { id: 'size-load-time', title: "The time to load: from starting the new game to the game's interface, and the game's memory, against the 256² reference", how: 'measure' },
+  shots: { id: 'size-shots', title: 'The screenshots show nothing visibly broken', how: 'partial', why: 'judged by eye from the contact sheet' },
+} satisfies Record<string, CheckDef>;
+
+/** The size maps' frame-time phases: normal speed, the fastest the interface offers, and the probe's own speed. */
+export const SIZE_PERF: NonNullable<GameDef['perf']> = {
+  afterDays: 1.01,
+  rowSpacing: 96,
+  phases: [
+    { id: 'normal', speed: 1, seconds: 40, warmup: 4 },
+    { id: 'fastest', speed: 3, seconds: 30, warmup: 3 },
+    { id: 'probe', speed: 0, seconds: 30, warmup: 3 },
+  ],
+};
 
 const none = (id: string, title: string, why: string): CheckDef => ({ id, title, how: 'none', why });
 const BUILD = 'needs a building placed and built by beavers (a dam, levee, water wheel or pump); the probe does not play a colony yet (INTEGRATION.md: the bot colony)';
@@ -641,6 +723,19 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
         { id: 'parity-side', kind: 'look', target: at(m, t.focus[0], t.focus[1]), yaw: GAME_YAW + Math.PI / 2, pitch: deg(18), distance: 34, fovY: 40, width: 1280, height: 800 },
       ],
       checks,
+    });
+  }
+
+  // Sizes (PLAN §20 D357 (9)): maps beyond the standard sizes, written by the Sizes writer into C:\dgm-probe\sizes. A
+  // Normal calm day and a quarter: the records at the load and after a day, then the frame-time phases (about 100 real
+  // seconds; the game runs on meanwhile, several days at the probe's speed), then the end.
+  for (const t of sizesMaps()) {
+    const seen = new Set<string>();
+    const tiles = [...t.flowTiles, ...t.poolTiles, ...(t.start ? [[t.start.x + 1, t.start.y + 1] as [number, number]] : [])].filter(([x, y]) => !seen.has(`${x},${y}`) && !!seen.add(`${x},${y}`));
+    games.push({
+      id: t.id, title: t.title, group: 'Sizes', sizes: t, bytes: memo(() => sizesBytes(t)), faction: 'Folktails', mode: 'Normal',
+      cycles: [calm], days: 1.25, tiles: () => tiles.slice(0, 20), sampleHours: 1, snapshotsAt: [1], perf: SIZE_PERF,
+      checks: [SIZE.load, SIZE.terrain, SIZE.objects, SIZE.water, SIZE.smooth, SIZE.loadTime, SIZE.shots],
     });
   }
 
