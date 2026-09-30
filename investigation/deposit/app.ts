@@ -2,7 +2,7 @@ import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { FreehandPath } from "../../src/editor/freehand";
 import { showMs } from "../../src/editor/forceDriver";
 import { footprint } from "../../src/core/forces/objects";
-import { CASES, loadCase } from "./maps";
+import { DEMOS as CASES, loadCase } from "./maps";
 import { DEFAULTS, reveal, widthOf, type Plan, type Settings, type Intent } from "./deposit";
 import { View } from "./view";
 import { Sound } from "./audio";
@@ -13,10 +13,10 @@ const canvas = $<HTMLCanvasElement>("land"), view = new View(canvas), audio = ne
 const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
 let settings: Settings = { ...DEFAULTS }, map: FullForceMap, initial: FullForceMap;
 let current = CASES[0], pen = new FreehandPath(128, 128), band: { x: number; y: number }[] | null = null;
-let id = 0, active: { id: number; t0: number; plan: Plan | null; skip: boolean; watch: boolean; start: number; duration: number } | null = null;
+let id = 0, active: { id: number; t0: number; plan: Plan | null; skip: boolean; watch: boolean; start: number; duration: number; captureProgress?: number } | null = null;
 const history: { before: FullForceMap; intent: Intent; settings: Settings; plan?: Plan }[] = [];
 let sizeKey = false, resizeFrom: { x: number; size: number } | null = null, waterTicks = 0;
-const metrics = { plannedMs: 0, finalMs: 0, renderedFrames: 0, settled: false, waterDone: false, lastSeed: 0 };
+const metrics = { plannedMs: 0, finalMs: 0, renderedFrames: 0, settled: false, waterDone: false, lastSeed: 0, watchStages: 0, waterFrames: 0 };
 let pendingResolve: (() => void) | null = null;
 try {
   const prefs = JSON.parse(localStorage.getItem("deposit-prefs") ?? "{}");
@@ -59,25 +59,25 @@ function start(intent: Intent, again = false): Promise<void> {
   else settings.seed = (settings.seed + 1) >>> 0;
   const before = snapshotMap(map), s = { ...settings };
   history.push({ before, intent: structuredClone(intent), settings: s });
-  view.show(map); metrics.settled = false; metrics.waterDone = false; metrics.renderedFrames = 0;
+  view.show(map); metrics.settled = false; metrics.waterDone = false; metrics.renderedFrames = 0; metrics.watchStages = 0; metrics.waterFrames = 0;
   active = { id: ++id, t0: performance.now(), plan: null, skip: false, watch: $<HTMLInputElement>("watch").checked, start: 0, duration: 0 };
   const soundId = id;
   if ($<HTMLInputElement>("sound").checked) void audio.unlock().then(() => {
     if (soundId === id && active && $<HTMLInputElement>("sound").checked) audio.arrive();
   });
   status("Sediment is arriving…"); controls();
-  worker.postMessage({ kind: "plan", id, map: before, settings: s, intent });
+  worker.postMessage({ kind: "plan", id, map: before, settings: s, intent, watch: active.watch });
   return new Promise(resolve => { pendingResolve = resolve; });
 }
 function end(): void {
   const a = active; if (!a?.plan) return;
-  map = snapshotMap(a.plan.map); view.show(map); view.effects(null, 1);
+  map = snapshotMap(a.plan.map); map.water = reveal(a.plan, .999999).water; view.show(map); view.effects(null, 1);
   metrics.finalMs = performance.now() - a.t0; metrics.lastSeed = a.plan.settings.seed;
   if ($<HTMLInputElement>("sound").checked) audio.settle();
   const st = a.plan.stats;
   status(`Fan built · ${st.deposited.toLocaleString()} sediment blocks · water finding its way`);
   $("nature").textContent = `${st.channels} drainage lines · ${st.wet ? "river-fed" : "dry"}`;
-  $("balance").textContent = `${st.eroded.toLocaleString()} cut upstream → ${st.deposited.toLocaleString()} deposited · balance ${st.balance} · ${st.levelTiles} level interior tiles · ${st.carried} carried upright / ${st.buried} buried${st.startCarried ? " · start carried" : ""}`;
+  $("balance").textContent = `${st.eroded.toLocaleString()} cut from higher ground → ${st.deposited.toLocaleString()} deposited · balance ${st.balance} · ${st.levelTiles} level interior tiles · ${st.carried} carried upright / ${st.buried} buried${st.startCarried ? " · start carried" : ""}`;
   history.at(-1)!.plan = a.plan;
   worker.postMessage({ kind: "water", id: a.id }); active = null; controls();
   pendingResolve?.(); pendingResolve = null;
@@ -102,6 +102,9 @@ worker.onmessage = ({ data }) => {
   if (data.kind === "water" && !active) {
     map.water = data.water; waterTicks = data.ticks; view.show(map);
   }
+  if (data.kind === "waterStage" && active?.plan) {
+    (active.plan.previewWater ??= []).push({ progress: data.progress, water: data.water, heights: data.heights }); metrics.watchStages++;
+  }
   if (data.kind === "settled") {
     metrics.waterDone = true; metrics.settled = data.settled;
     const st = history.at(-1)?.plan?.stats;
@@ -111,11 +114,13 @@ worker.onmessage = ({ data }) => {
 function frame(now: number): void {
   const a = active;
   if (a?.plan) {
-    const progress = Math.min(1, (now - a.start) / a.duration);
+    const progress = a.captureProgress ?? Math.min(1, (now - a.start) / a.duration);
     if (progress >= 1) end();
     else {
       map = reveal(a.plan, progress); view.show(map, a.plan, progress); view.effects(a.plan, progress);
-      metrics.renderedFrames++; status(`${a.watch ? "Watching" : "Deposit"} · lobes growing · channels finding their way · Esc finishes · Undo restores`);
+      if (a.plan.previewWater?.some(w => w.progress <= progress)) metrics.waterFrames++;
+      const lobe = progress < .36 ? "left lobe" : progress < .68 ? "right lobe" : "outer lobes";
+      metrics.renderedFrames++; status(`${a.watch ? "Watching" : "Deposit"} · ${lobe} growing · channels switching · Esc finishes · Undo restores`);
     }
   }
   requestAnimationFrame(frame);
@@ -178,9 +183,12 @@ declare global { interface Window { deposit: {
   ready: () => boolean; choose: (i: number) => Promise<void>; run: (intent?: Intent) => Promise<void>;
   undo: () => void; finish: () => void; metrics: typeof metrics;
   state: () => { map: FullForceMap; settings: Settings; history: number; active: boolean; waterTicks: number };
-  set: (s: Partial<Settings>, watch?: boolean) => void; screen: View["screen"];
+  set: (s: Partial<Settings>, watch?: boolean) => void; screen: View["screen"]; camera: (p?: { x: number; y: number }, zoom?: number) => void;
+  pose: (progress: number) => void;
 } } }
 window.deposit = { ready: () => !!map, choose, run: (intent = current.intent) => start(intent),
   undo, finish, metrics, state: () => ({ map, settings, history: history.length, active: !!active, waterTicks }),
   set: (s, watch) => { settings = { ...settings, ...s }; if (watch !== undefined) $<HTMLInputElement>("watch").checked = watch; controls(); },
-  screen: p => view.screen(p) };
+  screen: p => view.screen(p), camera: (p, zoom) => p ? view.focus(p, zoom) : view.overview(),
+  // Capture clock only: the visible controls always use the shared Fast/Watch pacing.
+  pose: progress => { if (active) active.captureProgress = Math.max(0, Math.min(1, progress)); } };

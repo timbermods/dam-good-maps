@@ -4,34 +4,34 @@
     {
       "case": "lake",
       "seed": 209495,
-      "ticks": 4544,
+      "ticks": 5376,
       "settled": true,
       "steady": false,
-      "ms": 6346.9
+      "ms": 14231.9
     },
     {
       "case": "lake",
       "seed": 209508,
-      "ticks": 2496,
+      "ticks": 3328,
       "settled": true,
       "steady": false,
-      "ms": 3534.6
+      "ms": 6949.9
     },
     {
       "case": "lake",
       "seed": 209575,
-      "ticks": 384,
+      "ticks": 4032,
       "settled": true,
       "steady": false,
-      "ms": 810.4
+      "ms": 8272.7
     },
     {
       "case": "lake",
       "seed": 209644,
-      "ticks": 4096,
+      "ticks": 4224,
       "settled": true,
       "steady": false,
-      "ms": 5965.2
+      "ms": 8391
     }
   ]
 }

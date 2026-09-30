@@ -4,6 +4,8 @@ import { hash, clamp, smooth } from "../../src/core/forces/random";
 import type { FullForceMap } from "../../src/core/forces/force";
 import type { PathPoint } from "../../src/core/forces/path";
 import type { Plan } from "./deposit";
+import { groundColor, moistureByte, contaminationByte } from "../../src/render3d/palette";
+import { moisture } from "../../src/core/sim/moisture";
 
 // Original primitive meshes; no game assets. A fixed orthographic view makes motion readable.
 export class View {
@@ -21,6 +23,9 @@ export class View {
   private ray = new THREE.Raycaster();
   private color = new THREE.Color();
   private zoom = 1.18;
+  private soil: Float64Array = new Float64Array(0);
+  private soilAt = -Infinity;
+  private soilWater: Float64Array | null = null;
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(1.5, devicePixelRatio));
@@ -45,6 +50,7 @@ export class View {
   load(m: FullForceMap): void {
     for (const mesh of [this.terrain, this.water, this.plants, this.things]) if (mesh) { this.scene.remove(mesh); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); mesh.dispose(); }
     this.base = m;
+    this.soilWater = null; this.soilAt = -Infinity; this.overview();
     this.terrain = this.instances(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), m.W * m.H);
     this.water = this.instances(new THREE.BoxGeometry(.99, .10, .99), new THREE.MeshLambertMaterial({ color: 0x5eaaa6, transparent: true, opacity: .82 }), m.W * m.H);
     this.plants = this.instances(new THREE.ConeGeometry(.62, 2.7, 5), new THREE.MeshLambertMaterial(), m.entities.filter(isPlant).length);
@@ -53,6 +59,10 @@ export class View {
   }
   show(m: FullForceMap, p?: Plan, progress = 1): void {
     const t = this.transform, W = m.W;
+    if (this.soilWater !== m.water.depth && (!p || performance.now() - this.soilAt > 250)) {
+      this.soil = moisture(m.heights, m.water.depth, m.water.contamination, m.W, m.H);
+      this.soilWater = m.water.depth; this.soilAt = performance.now();
+    }
     const height = (i: number) => {
       if (!p) return m.heights[i];
       const f = smooth((progress - p.arrival[i]) / .14);
@@ -62,17 +72,15 @@ export class View {
       const h = height(i), x = i % W, y = Math.floor(i / W);
       t.position.set(x, Math.max(.03, h) / 2 - .04, y); t.scale.set(1, Math.max(.06, h), 1); t.updateMatrix(); this.terrain.setMatrixAt(i, t.matrix);
       const dry = m.water.depth[i] <= .04, seed = hash(4, i);
-      this.color.setHSL(.25 + seed * .015, .20, .30 + seed * .027 + h * .006);
-      if (!dry) this.color.setHSL(.16, .21, .35 + h * .007);
-      const cut = p ? p.map.heights[i] < p.before.heights[i] && progress >= p.arrival[i] : m.heights[i] < this.base.heights[i];
-      const deposit = p ? p.map.heights[i] > p.before.heights[i] && progress >= p.arrival[i] : m.heights[i] > this.base.heights[i];
-      if (deposit) this.color.setHSL(.125, .29, .48 + h * .004);
-      if (deposit && p && p.channelStages[progress < .36 ? 0 : progress < .68 ? 1 : 2][i]) this.color.setHSL(.11, .30, .34 + h * .004);
-      if (cut) this.color.setHSL(.115, .22, .36 + h * .004);
+      // Exactly the product's soil swatches and moisture rule. Height/change never chooses a
+      // sediment colour; the same land and water have the same colour before and after.
+      const rgb = groundColor(moistureByte(this.soil[i] ?? 0), contaminationByte(m.water.contamination[i]), !dry);
+      this.color.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
+      const neighbours = [i - 1, i + 1, i - W, i + W].filter(j => j >= 0 && j < m.heights.length);
+      const contact = neighbours.reduce((v, j) => v + (height(j) > h + .5 ? 1 : 0), 0);
+      this.color.multiplyScalar((.95 + seed * .10) * (1 - contact * .07));
       this.terrain.setColorAt(i, this.color);
-      // Water remains on its old surface until the land is final.
-      const waterFloor = p && progress < 1 ? p.before.heights[i] : m.heights[i];
-      t.position.set(x, waterFloor + m.water.depth[i], y); t.scale.setScalar(dry ? 0 : 1); t.updateMatrix(); this.water.setMatrixAt(i, t.matrix);
+      t.position.set(x, h + m.water.depth[i], y); t.scale.setScalar(dry ? 0 : 1); t.updateMatrix(); this.water.setMatrixAt(i, t.matrix);
     }
     let plant = 0, thing = 0;
     const originals = p ? new Map(p.before.entities.map(e => [e.id, e])) : null;
@@ -107,6 +115,11 @@ export class View {
     const v = new THREE.Vector3(p.x, this.base.heights[i] + .2, p.y).project(this.camera), r = this.canvas.getBoundingClientRect();
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }
+  focus(p: PathPoint, zoom = 2.25): void {
+    this.zoom = zoom; this.camera.position.set(p.x + 112, 150, p.y + 132);
+    this.camera.lookAt(p.x, 5, p.y); this.resize();
+  }
+  overview(): void { this.focus({ x: 64, y: 64 }, 1.18); }
   drawBand(path: PathPoint[] | null, width: number, m: FullForceMap): void {
     if (this.band) { this.scene.remove(this.band); this.band.geometry.dispose(); (this.band.material as THREE.Material).dispose(); this.band = null; }
     if (path && path.length > 1) {
