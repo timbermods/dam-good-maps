@@ -104,7 +104,7 @@ try {
         const item = { browser: browserName, profile, size, look, case: c.id, repeat, status: 'running', qualified: mode !== 'smoke', provenance, harnessHash };
         results.push(item); save();
         console.log(`${name}: ${mode}`);
-        let browser, context, page, drainPromise, draining = false, monitor, throttleHelper;
+        let browser, context, page, drainPromise, draining = false, monitor, throttleHelper, loadWatch, aborting = false;
         try {
           // Functional smoke can run headlessly while agents share the desktop. Measurements and
           // evidence captures always use an interactive compositor and retain hardware checks.
@@ -142,6 +142,18 @@ try {
           item.device = await page.evaluate(capture => window.performanceHarness.begin({ capture }), capture);
           if (mode !== 'smoke') monitor = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(dir, 'load.ps1'), '-Samples', '10000', '-IntervalMs', '1000', '-ParentPid', String(process.pid), '-Streaming', '-Output', join(output, `${name}-load-during.jsonl`)], { windowsHide: true, stdio: 'ignore' });
           activeMonitor = monitor;
+          if (mode !== 'smoke') loadWatch = setInterval(async () => {
+            const file = join(output, `${name}-load-during.jsonl`);
+            if (aborting || !existsSync(file)) return;
+            const lines = readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
+            let sample; try { sample = JSON.parse(lines.at(-1)); } catch { return; }
+            if (sample.cpuPercent <= budgets.quiet.cpuPercentMax && sample.unrelatedCpuPercent <= budgets.quiet.cpuPercentMax) return;
+            aborting = true; busy = true; item.qualified = false; item.status = 'invalid-busy'; item.abortLoad = sample; save();
+            const raw = await page.evaluate(() => window.performanceHarness.end()).catch(() => null);
+            if (raw) writeFileSync(join(output, `${name}-aborted-raw.json`), JSON.stringify(raw));
+            console.log('CPU load rose; discarding this attempt and releasing the browser.');
+            await browser.close().catch(() => {});
+          }, 1000);
           draining = true;
           const captures = resolve(output, `${name}-frames`);
           if (capture) {
@@ -244,7 +256,7 @@ try {
           item.capture = capture ? captures : undefined;
           console.log(`${name}: ${item.status}; redo bytes ${item.redoExact ? 'equal' : 'DIFFERENT'}`);
         } catch (error) {
-          item.status = 'error'; item.error = String(error.stack ?? error);
+          item.status = item.status === 'invalid-busy' ? item.status : 'error'; item.qualified = false; item.error = String(error.stack ?? error);
           if (page) {
             const raw = await page.evaluate(() => window.performanceHarness?.end()).catch(() => null);
             if (raw) {
@@ -256,6 +268,7 @@ try {
           }
           console.error(item.error);
         } finally {
+          clearInterval(loadWatch);
           monitor?.kill();
           draining = false;
           if (drainPromise) { await drainPromise.catch(() => {}); }
