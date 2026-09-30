@@ -1,15 +1,19 @@
-// Esc or undo at any moment of a force leaves the map exactly as it was before the gesture, and
-// nothing lands afterwards (PLAN §20 D341; D266: "Esc and undo still revert at once"; D321, item 29).
+// Esc or undo at any moment of a force (PLAN §20 D341; amended by D344, A4). Undo at any moment leaves
+// the map exactly as it was before the gesture, and nothing lands afterwards. Esc while the gesture is
+// still being drawn (a painted Lift) cancels it the same way; once the force plays, Esc skips it to its
+// end: its final land, the same land it keeps when left to finish, kept as one step, which undo takes
+// back.
 //
 // The page's way, headless: the force driver on a stepped clock, the page's one queue of worker calls,
 // each call a message there and a message back, and the editor's worker session itself. A whole run is
 // traced first; then the force is run again for each chosen moment of that trace (its start on its way,
 // while it is worked out, while it is shown, its last frame, its keep sent, kept in the worker with the
-// answer on its way back) and Esc comes exactly then. Every force: Carve (and its Try another path),
-// Craterize, Quake (a Slide, a painted Lift), Erupt, Glaciate. In Watch, Esc jumps to the final land
-// (the same land Fast keeps, one step) and undo takes it back at any moment; once the force is kept its
-// show plays on and undo takes it back, nothing of it landing later. Erode has no force of its own on
-// this branch yet: it gets these through the forces core (D321) when it is wired.
+// answer on its way back) and the key comes exactly then. Every force: Carve (and its Try another
+// path), Craterize, Quake (a Slide, a painted Lift), Erupt, Glaciate; in Fast and in Watch. Once the
+// force is kept its show plays on and undo takes it back, nothing of it landing later. Erode has no
+// force of its own on this branch yet: it gets these through the forces core (D321) when it is wired.
+// (Esc while a Carve's, a Glaciate's, a fault's or a fissure's line is still drawn, before any force
+// starts, is the page's own: tests/e2e/forceKeys.spec.ts.)
 //
 // Before D341, Esc while the force was being kept did nothing and the force landed anyway: the moments
 // "keep:sent", "keep:done" and "keep:back" failed here.
@@ -167,18 +171,22 @@ function moments(trace: readonly string[]): number[] {
   return [...pick].filter((n) => n !== undefined).sort((a, b) => a - b);
 }
 
-/** Press at the `at`-th message of the page (0: straight after the gesture): `key` is Esc's action,
- *  cancel (Esc in Fast, undo anywhere) or jump (Esc in Watch). Whether the force was at work then. */
-async function pressAt(g: Gesture, at: number, key: "cancel" | "jump", speed: ForceSpeed) {
+/** The keys: undo (Ctrl+Z, or Revert), and Esc. */
+type Key = "undo" | "esc";
+
+/** Press at the `at`-th message of the page (0: straight after the gesture). Whether the force was at
+ *  work then, and what Esc did (the page's Esc is the driver's `escape`). */
+async function pressAt(g: Gesture, at: number, key: Key, speed: ForceSpeed) {
   const clock = new StepClock();
   const p = page(clock, speed, g.req);
   let atWork = false;
   let pressed = false;
+  let esc: ReturnType<ForceDriver["escape"]> = null;
   const press = () => {
     pressed = true;
     atWork = p.driver.running;
-    if (key === "cancel") p.driver.cancel();
-    else void p.driver.jump();
+    if (key === "undo") p.driver.cancel();
+    else esc = p.driver.escape();
   };
   p.listen((_, n) => {
     if (n === at && !pressed) press();
@@ -189,7 +197,7 @@ async function pressAt(g: Gesture, at: number, key: "cancel" | "jump", speed: Fo
   // (and on: nothing of it lands later)
   await clock.run(10_000);
   await p.idle();
-  return { p, atWork, pressed };
+  return { p, atWork, pressed, esc: esc as ReturnType<ForceDriver["escape"]> };
 }
 
 /** The land a map shows: its ground, its objects, the labels of its applied steps. */
@@ -209,12 +217,14 @@ async function undoWhileItShows(p: ReturnType<typeof page>, before: ReturnType<t
   expect(state(), where).toEqual(before);
 }
 
-/** Every chosen moment of `g` in `speed`, pressing `key`: at work, Esc (or undo) takes all of it back
- *  (`cancel`), or Watch's Esc keeps the final land `kept` as one step (`jump`); over already, the force
- *  was kept, and undo takes it back. The map is left as `before` each time. */
-async function everyMoment(g: Gesture, speed: ForceSpeed, key: "cancel" | "jump", before: ReturnType<typeof state>, kept: ReturnType<typeof state>, trace: readonly string[]) {
+/** Every chosen moment of `g` in `speed`, pressing `key`: at work, undo takes all of it back, as Esc
+ *  does while a painted Lift is still drawn; Esc once it plays skips to the final land `kept`, one
+ *  step; over already, the force was kept, and undo takes it back. The map is left as `before` each
+ *  time. What Esc did, moment by moment, is counted. */
+async function everyMoment(g: Gesture, speed: ForceSpeed, key: Key, before: ReturnType<typeof state>, kept: ReturnType<typeof state>, trace: readonly string[]) {
   const beforeShown = hash(ed.terrainNow().heights);
   let atWork = 0;
+  const esc = { cancelled: 0, skipped: 0 };
   for (const at of moments(trace)) {
     const r = await pressAt(g, at, key, speed);
     const where = `${g.name} (${speed}): ${key} at message ${at} (${trace[at - 1] ?? "the gesture"})`;
@@ -225,22 +235,31 @@ async function everyMoment(g: Gesture, speed: ForceSpeed, key: "cancel" | "jump"
       expect(state(), where).toEqual(before);
       continue;
     }
-    if (r.atWork && key === "cancel") {
+    if (r.esc) esc[r.esc]++;
+    // (Esc cancels only a painted Lift still being drawn; a playing force it skips)
+    if (r.esc === "cancelled") expect(g.paint, where).toBeDefined();
+    if (r.atWork && (key === "undo" || r.esc === "cancelled")) {
       atWork++;
       expect(r.p.ended, where).toEqual(["dropped"]);
       expect(state(), where).toEqual(before);
       expect(hash(r.p.shown.heights), where).toBe(beforeShown);
       continue;
     }
-    if (r.atWork) atWork++;
-    // kept: the final land, one step (Watch's Esc jumps to it; or it was over when the key came)
+    if (r.atWork) {
+      atWork++;
+      expect(r.esc, where).toBe("skipped");
+    }
+    // kept: the final land, one step (Esc skipped to it; or it was over when the key came)
     expect(r.p.ended, where).toEqual(["kept"]);
     expect(landOf(state()), where).toEqual(g.again ? landOf(state()) : landOf(kept));
     expect(landOf(state()).steps.length, where).toBe(landOf(before).steps.length + 1);
+    // (the page shows the kept land: nothing of the showing is left on it)
+    expect(hash(r.p.shown.heights), where).toBe(hash(ed.terrainNow().heights));
     await undoWhileItShows(r.p, before, where);
   }
   // (the moments reached the force at work: its start, its working out, its frames, its keep)
   expect(atWork, g.name).toBeGreaterThan(8);
+  return esc;
 }
 
 describe("Esc or undo at any moment of a force (D341)", () => {
@@ -290,15 +309,35 @@ describe("Esc or undo at any moment of a force (D341)", () => {
     return { before, kept, trace: run.trace };
   }
 
-  for (const name of ["Carve", "Craterize", "Quake, Slide", "Quake, painted Lift", "Erupt", "Glaciate"]) {
-    it(`${name}, Fast: Esc at each moment until it is kept takes all of it back; after that undo does, and nothing lands later`, async () => {
-      const g = gestures.find((k) => k.name === name)!;
-      const { before, kept, trace } = await traced(g, "fast");
-      await everyMoment(g, "fast", "cancel", before, kept, trace);
-    });
-  }
+  const NAMES = ["Carve", "Craterize", "Quake, Slide", "Quake, painted Lift", "Erupt", "Glaciate"];
 
-  it("Carve's Try another path: Esc at each moment leaves the first carve exactly as it was", async () => {
+  for (const speed of ["fast", "watch"] as const)
+    for (const name of NAMES) {
+      it(`${name}, ${speed === "fast" ? "Fast" : "Watch"}: undo at each moment takes all of it back, and nothing lands later (D341)`, async () => {
+        const g = gestures.find((k) => k.name === name)!;
+        const { before, kept, trace } = await traced(g, speed);
+        await everyMoment(g, speed, "undo", before, kept, trace);
+      });
+      it(`${name}, ${speed === "fast" ? "Fast" : "Watch"}: Esc at each moment ${name.includes("painted") ? "cancels it while it is drawn and, once let go, " : ""}skips it to the land it keeps, one step that undo takes back (D344, A4)`, async () => {
+        const g = gestures.find((k) => k.name === name)!;
+        const fast = speed === "watch" ? await traced(g, "fast") : null;
+        const { before, kept, trace } = await traced(g, speed);
+        // (Watch keeps the land Fast keeps)
+        if (fast) expect(landOf(kept)).toEqual(landOf(fast.kept));
+        const esc = await everyMoment(g, speed, "esc", before, kept, trace);
+        // (a painted Lift: Esc while it is drawn cancelled it, at the moments before it was let go, and
+        // skipped it while its keep was on its way; every other force it skipped at every moment)
+        if (g.paint) {
+          expect(esc.cancelled, name).toBeGreaterThan(4);
+          expect(esc.skipped, name).toBeGreaterThan(0);
+        } else {
+          expect(esc.cancelled, name).toBe(0);
+          expect(esc.skipped, name).toBeGreaterThan(4);
+        }
+      });
+    }
+
+  it("Carve's Try another path: undo at each moment leaves the first carve exactly as it was; Esc skips it to its end", async () => {
     const first = gestures[0];
     const start = state();
     const run = await whole(first);
@@ -306,23 +345,13 @@ describe("Esc or undo at any moment of a force (D341)", () => {
     const again: Gesture = { ...first, name: "Try another path", again: true };
     const { before, kept, trace } = await traced(again, "fast");
     expect(kept.history.at(-1)).toMatch(/^\+Try another path#/);
-    await everyMoment(again, "fast", "cancel", before, kept, trace);
+    await everyMoment(again, "fast", "undo", before, kept, trace);
+    await everyMoment(again, "fast", "esc", before, kept, trace);
     // (the first carve's gesture is spent once another force was kept: undo takes it back)
     expect(ed.forceCancel(run.driver.lastGesture).taken).toBe(null);
     ed.undo();
     expect(landOf(state())).toEqual(landOf(start));
   });
-
-  for (const name of ["Carve", "Craterize", "Quake, Slide", "Erupt", "Glaciate"]) {
-    it(`${name}, Watch: undo at each moment takes all of it back; Esc jumps to the final land Fast keeps, one step`, async () => {
-      const g = gestures.find((k) => k.name === name)!;
-      const fast = await traced(g, "fast");
-      const { before, kept, trace } = await traced(g, "watch");
-      expect(landOf(kept)).toEqual(landOf(fast.kept));
-      await everyMoment(g, "watch", "cancel", before, kept, trace);
-      await everyMoment(g, "watch", "jump", before, kept, trace);
-    });
-  }
 });
 
 describe("taking a kept force back in the worker (D341)", () => {

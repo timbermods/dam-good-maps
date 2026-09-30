@@ -215,6 +215,27 @@ export function ventRadius(s: EruptSettings): number {
 /** The Size that follows Power (tiles across: what the options row shows until Size is set). */
 export const naturalBreadth = (s: EruptSettings) => 2 * ventRadius({ ...s, size: null });
 
+/** A drawn shape's span: the farthest apart two of its points are (tiles). */
+export function shapeSpan(path: readonly Point[]): number {
+  // (a long line's points, one in every few, are enough to find its farthest two)
+  const every = Math.max(1, Math.floor(path.length / 96));
+  const pts = path.filter((_, k) => k % every === 0 || k === path.length - 1);
+  let far = 0;
+  for (let a = 0; a < pts.length; a++)
+    for (let b = a + 1; b < pts.length; b++) far = Math.max(far, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y));
+  return far;
+}
+
+/** A fissure's breadth, tiles across (PLAN §20 D344, A6): the drawn shape sets its extent, and Size is
+ *  for a vent's click. The breadth Power gives a fissure, never more than the shape's own span, so a
+ *  small loop gives a small eruption whatever Size says; within the Size slider's range. The editor's
+ *  fissure runs with it as its `size`, which its operation keeps. */
+export function fissureBreadth(s: Pick<EruptSettings, "power" | "shape" | "summit">, path: readonly Point[]): number {
+  const natural = 2 * ventRadius({ ...(s as EruptSettings), mode: "fissure", size: null });
+  const b = Math.min(natural, shapeSpan(path));
+  return Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(b / 2) * 2));
+}
+
 // ------------------------------------------------------------------------------- headroom (D226)
 
 /** The least rise that still reads as a volcano with a peak: with less room than this at the vent,

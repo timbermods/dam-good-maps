@@ -69,8 +69,12 @@ editor is desktop-first (D185).
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or large
   the result, and the player can act again at once; a force whose own pace is quicker keeps it (an impact about half a
   second). **Watch**, a toggle in the view bar beside Sound, remembered with the other editor preferences: about four
-  times as long, to be watched; a click anywhere, a new gesture's key or Esc jumps it straight to its final land, kept
-  as one step (undo still takes it back). The pace never follows the water's Speed. What is only a show (the water
+  times as long, to be watched; a click anywhere or a new gesture's key jumps it straight to its final land, kept
+  as one step (undo still takes it back).
+  **Esc skips, undo takes it back** (D344, A4; amends D341 (2)): while a gesture is still being drawn (a line not yet let
+  go, a painted Lift), Esc cancels it, and nothing of it lands; once a force plays, in Fast or in Watch, Esc skips it to
+  its end, its final land kept as one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment. While a force
+  plays its row's hint line says **Esc to skip · Ctrl+Z to undo** (a painted Lift still drawn: **Esc to cancel**). The pace never follows the water's Speed. What is only a show (the water
   filling a new channel, the falls starting, dust, lava's glow) plays on after the land is final, never blocking.
   **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once at its moment; under a quake they ride
@@ -86,6 +90,12 @@ editor is desktop-first (D185).
   the operation keeps it in its settings when it isn't 1. The forces go to the preview first
   and reach the public site only once Kyler has tried them (D219): until then the public site shows
   no forces group at all.
+  **A visible effect wherever it is used** (D356): `tests/contract/forceEverywhere.ts` uses every force the editor's way
+  (Carve, Craterize, Erupt and Glaciate clicked; Quake's Slide and Lift on a short drawn fault) at random places and on
+  each kind of ground (flat, water, a peak, a slope, the map's edge, beside the start), at low, mid and high Power,
+  headless on fixed seeds, and fails where fewer than 9 tiles change by a level; a sample runs in the quick suite,
+  every theme at 128² nightly, and `tools/force-everywhere.ts` sweeps 128² and 256². What it found doing nothing waits
+  for Kyler's decision in its `KNOWN` list; a force adopted later gets the same check.
   **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its floor,
   the height ceiling, the file format); it never refuses, stops short or reshapes its result for playability. Where it
   carves, buries or moves the start's ground, the start is carried to the nearest level ground where it stands well, in
@@ -103,12 +113,23 @@ editor is desktop-first (D185).
   (`src/editor/freehand.ts`, its pen `core/forces/path.ts`): a press becomes a drawn line once the pointer moves six
   pixels, the line shows on the land as it is drawn (the player's own gesture, D258), and on release the force goes:
   Carve and Glaciate along it, Craterize's impactor the way it runs (a glancing blow), Quake's fault and Erupt's
-  fissure are it. Anything less than a drag is the force's own click. The only word a force shows is why it won't act
-  at all (Erupt's "No room to rise here").
+  fissure are it. Anything less than a drag is the force's own click. **A drawn gesture shows as a band of its width
+  along the line, never a ring** (D344, A3; `bandTiles` in `freehand.ts`): Carve's and Glaciate's width, Quake's reach
+  from its fault, a fissure's breadth; the ring shows only for a click. Craterize's aim, and a line dragged from a
+  source's Unleash, stay thin lines. **A drawn shape sets the force's extent, and Size is for clicks** (D344, A6): Carve
+  and Glaciate run the line drawn, end to end (their Size is their width, the band's); Quake's line is its length; an
+  Erupt fissure's breadth is the breadth Power gives, never more than the shape's own span (`fissureBreadth` in
+  `core/forces/erupt.ts`, the worker giving it as the fissure's `size`, which its operation keeps), so a small loop
+  gives a small eruption even at the largest Size. The only word a force shows is why it won't act at all (Erupt's "No
+  room to rise here").
   **Power and size are separate in every force** (D226): each size control follows Power by default, or is
   set by hand: Carve's **Size** (how wide it cuts; its depth follows Power and the width), Craterize's **Size**,
   Erupt's **Size** (breadth); Quake's drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
-  resize (D226, D322).
+  resize (D226, D322). **A force's Size and Power work as a brush's** (D344, A1, A2; `src/editor/forceSize.ts`): hold F
+  and move the mouse to size its ring on the map (a click or letting go keeps it, Esc or a right click puts it back),
+  [ and ] step its Size, { and } its Power by five, the number beside the pointer while it changes; a Size set by hand
+  is off Auto. Power and Size always read as numbers in the row, a Size on Auto as **Auto (68)** (Power's word, a
+  creek to a catastrophe, is its tooltip). Quake has no Size: F does nothing there.
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
@@ -264,7 +285,7 @@ editor is desktop-first (D185).
   ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing upright where their
   ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
-  aimed, the start's ground too (D257), and never adds water; one undo step, and Esc reverts. Built from
+  aimed, the start's ground too (D257), and never adds water; one undo step: undo reverts it, Esc skips it to its end (D344). Built from
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
   (D219; ready: D216, D226).
 - **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
@@ -280,7 +301,7 @@ editor is desktop-first (D185).
   Objects ride with the land (a rigid one on flat ground of its own), trees on the fault go (their ground broke;
   no tree is ever left leaning, D321 item 7); a fault
   runs wherever it is painted, through the start too (D257: the start is carried to level ground when
-  its own breaks); it never adds water; one undo step, and Esc reverts. Built from
+  its own breaks); it never adds water; one undo step: undo reverts it, Esc skips it to its end (D344). Built from
   `investigation/quake` (#52, with both Lift and Slide) on the forces core (#59), on the preview until
   Kyler has tried it (D219; ready: D226).
 - **Erupt, a force of nature** (D206, D216, D226): in the forces group (key 0). It raises a volcano:
@@ -302,7 +323,7 @@ editor is desktop-first (D185).
   vent die, standing, or go where the cone rises under them (D321, item 7), and what stands in it goes, each as the
   heat reaches it (item 30); it erupts wherever it is asked, the start's ground too (D257),
   and never adds water; nothing of its fit shows before it (D258): a small cursor, and "No room to rise
-  here" only where it can't rise at all; one undo step, and Esc reverts. Built from `investigation/erupt` (#50) on the forces core
+  here" only where it can't rise at all; one undo step: undo reverts it, Esc skips it to its end (D344). Built from `investigation/erupt` (#50) on the forces core
   (#59), on the preview until Kyler has tried it (D219).
 - **Glaciate, a force of nature** (D246, D291, D292; built on `feature/glaciate` from `investigation/glaciate`'s round 4,
   for Kyler's forces sitting): it turns a valley that's already there into a glacial valley: a broad, level floor between
@@ -333,8 +354,12 @@ editor is desktop-first (D185).
   badwater is discarded. Its springs come in groups as the game's own maps have them (D314, `core/water/sourceGroups.ts`):
   the cirque head's a row across the glacier's way down, each hanging valley's a group at its lip (small springs stay
   one), the strength shared. One `forceResult` operation, one undo step, stored literally: its changed levels and every level
-  of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; Esc
-  reverts it at once, Try another replaces it, and it replays to the same bytes. It builds up to the editor's one
+  of its own ground (so the build keeps its banks whole), the objects it swept, its springs and its tarn's water; undo
+  reverts it at once, Try another replaces it, and it replays to the same bytes. **Its ice, its sounds and its land keep
+  one pace** (D344, A7): the ice's front and its melt follow the glacier's own stages as the frames bring them, at the
+  showing's pace (`ForceCue.pace`: Fast compresses its five seconds, Watch stretches them), so the front reaches each
+  tile as the land there changes, and the ice is gone, the meltwater's sound ending, as the land settles; its sounds
+  fit each act as shown (`recipe`'s `span`), and a glacier skipped to its end melts away at once. It builds up to the editor's one
   ceiling (D172's tall maximum on every map, D244). Sounds from the editor's CC0 bank (grinding stone, a
   low wooden groan, slow cracks, meltwater: the investigation's recipe). No ice-sheet mode for now.
 - **Erode, a force of nature** (PLAN §20 D279–D281; terrain above terrain, step 3, after the view): wind and water wear
@@ -453,7 +478,7 @@ Make a valley, drop a source, and there's a river.
   width is the width whose Carve source would have the source's strength (a stronger source, a wider river); the rest is
   Carve's defaults, so it's one click. The source stays the river's origin: the carve is a dry one and adds no other
   source; a badwater source carves a badwater river. While it works the row is Carve's own (Pause, Revert; it keeps
-  itself when it ends, D289); Esc takes it all back, as with Carve; the whole carve is one undo step ("Unleash a source");
+  itself when it ends, D289); undo takes it all back and Esc skips it to its end, as with Carve; the whole carve is one undo step ("Unleash a source");
   **Try another** re-rolls the course in its place ("Try another course"). Stored literally like every force (the
   carve's `forceResult`, with the source it unleashed), so projects replay exactly; the retained oxbow water (#70) and the
   settle rule (D222) apply as to any carve. The Carve tool stays as it is. Claude's `carve` step takes a `source` to
@@ -532,8 +557,13 @@ Make a valley, drop a source, and there's a river.
     camera staying where the player left it (D265: no Follow); the whole run is worked out first (its surge gathering at
     the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
     reaches them and the water as it was until the land is final;
-  - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc (in Fast) or Ctrl+Z (or undo) reverts the whole
-    carve instantly, at any moment until it is kept, its keep on its way included (D341); once kept, undo does.
+  - Space pauses it; it keeps itself when it ends (no Stop, D289); Ctrl+Z (or undo) reverts the whole carve instantly,
+    at any moment until it is kept, its keep on its way included (D341); once kept, undo does; Esc skips it to its end,
+    kept as one step (D344, A4);
+  - **drawn uphill, shown the way it was drawn** (D344, A5): its water still runs from the line's higher end (item 41:
+    the land decides), but its showing starts where the stroke began, the head coming back up its course
+    (`core/forces/carve/play.ts`, `fromEnd`; the page asks with `shownFrom: "end"`), each tile taking its final level
+    as the head reaches it; its land and its operation are the same either way.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
   water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
@@ -594,11 +624,12 @@ or not a selection is open (Z and C: D323, item 16;
 Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips
 the side of the fault that moves (it was X). With a selection open, Up and Down raise and lower it one level (the
 camera keeps W and S). Delete removes what the pointer is on, or what stands in an open selection, else the ground's
-top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space pauses it, and Esc or Ctrl+Z takes
-it back (in Watch, Esc jumps it to its final land); the other keys wait, Z and C among them. A river's or a fault's
+top level (D288, D323); Ctrl+A selects the whole map. While a force runs, Space pauses it, Ctrl+Z (or Z) takes it
+back, and Esc skips it to its end (a painted Lift still drawn: Esc cancels it; D344, A4); the other keys wait, C among
+them. A river's or a fault's
 line is drawn freehand with the mouse (D321), so Enter and Backspace no longer do anything to it. Watch is a view-bar
 toggle with no key.
-Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. With a force picked, F, [ and ] size it and { and } set its Power, the same way (D344, A1). U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
@@ -1022,7 +1053,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     the editor's lifetime, never waited on: a sound asked for while the bank loads, while paused or
     off, or past the limits (72 recordings, 20 sounds, four held beds, ten accents a second) is
     dropped, never played late. A compressor and a bounded curve keep every sample below 0.92 of
-    full scale. A force's phases play under its run's id, so Esc or undo stops all of it at once; the
+    full scale. A force's phases play under its run's id, so undo stops all of it at once; the
     page hidden stops everything and sleeps. A sound's distance comes from where it is in the view:
     on screen, what is being edited, it plays at its full level at any zoom; off screen it fades and
     softens. Smooth's recipe is a softer, higher, shorter relative of Flatten's own scrape recording,
@@ -1065,14 +1096,15 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   objects, never water (D321, item 30), and say once it is worked out (`planned`) how many steps show it (`total`) and
   how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
   `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Watch, `WATCH_FACTOR` (four) times
-  Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as Esc
-  would. **Esc or undo at any moment leaves the map exactly as it was before the gesture, and nothing lands
-  afterwards** (D341): each force the page starts is a gesture with its own name (`ForceRequest.gesture`), and
+  Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as undo
+  would. **Undo at any moment leaves the map exactly as it was before the gesture, and nothing lands afterwards**
+  (D341); **Esc skips a playing force to its end, and cancels a gesture still drawn** (D344, A4: `ForceDriver.escape`,
+  the keep of `stop`, or `cancel` for a painted Lift not yet let go): each force the page starts is a gesture with its own name (`ForceRequest.gesture`), and
   `forceCancel(gesture)` holds the rule in the worker whatever it has reached: not started yet, it never starts; at
   work, it is dropped; kept already (Esc came while its keep was on its way), it is taken back as if never kept,
   its step gone and Redo as it was (`MapSession.mark`, `stepSince`, `takeBack`), while that step is still the latest.
   The page's keep sends nothing once Esc has come; Revert stays live while a force is being kept. The driver's time
-  is a clock it is given (`ForceClock`): `tests/contract/forceEsc.test.ts` steps it and presses Esc at every moment
+  is a clock it is given (`ForceClock`): `tests/contract/forceEsc.test.ts` steps it and presses undo, and Esc, at every moment
   of every force's run, in Fast and Watch. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks through the
   page the showing the driver plans for Fast and Watch (never a busy machine's wall clock, D341; it prints the times, and with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
   `src/editor/release.ts` (D219).

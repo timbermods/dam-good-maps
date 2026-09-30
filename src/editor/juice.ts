@@ -87,7 +87,7 @@ export function placeSound(template: string | undefined): "tree" | "berry" | "ru
 /** The part of the engine the editor uses (the tests give a fake). */
 export interface SoundEngine {
   unlock(): Promise<boolean>;
-  play(name: string, params?: Partial<SoundParams>, o?: { id?: string | number; phase?: string }): string | number | null;
+  play(name: string, params?: Partial<SoundParams>, o?: { id?: string | number; phase?: string; span?: number }): string | number | null;
   start(name: string, params?: Partial<SoundParams>, id?: string | number): string | number | null;
   update(id: string | number | null, params: Partial<SoundParams>): void;
   stop(id: string | number | null): void;
@@ -234,10 +234,13 @@ export class Juice {
           hold("slide", "grind", { ...p, activity: 1 });
         }
         break;
-      case "glaciate":
-        // the ice's grind held while it advances, its cracks once; the meltwater as it retreats
+      case "glaciate": {
+        // the ice's grind held while it advances, its cracks once; the meltwater as it retreats, ending
+        // as the land settles (D344, A7: each phase fitted to its showing, `cue.pace`)
+        const seconds = cue.glaciate?.seconds ?? 0;
+        const pace = cue.pace && cue.pace > 0 ? cue.pace : 1;
         if (cue.phase === "advance") {
-          once("advance", () => this.engine.play("glaciate", p, { id, phase: "advance" }));
+          once("advance", () => this.engine.play("glaciate", p, { id, phase: "advance", span: Math.max(0, 3 - seconds) / pace }));
           hold("glaciate", "grind", { ...p, activity: 1 });
         }
         if (cue.phase === "retreat" || cue.phase === "done") {
@@ -246,9 +249,11 @@ export class Juice {
             this.engine.stop(k);
             f.ids.splice(f.ids.indexOf(k), 1);
           }
-          once("retreat", () => this.engine.play("glaciate", p, { id, phase: "retreat" }));
+          // (already at its end, the land settled: no meltwater after it)
+          if (cue.phase === "retreat") once("retreat", () => this.engine.play("glaciate", p, { id, phase: "retreat", span: Math.max(0, 5 - seconds) / pace }));
         }
         break;
+      }
       case "erupt":
         // pressure as the ground stirs; the plume as it rises, its roar held while the volcano
         // swells, released for the cooling hiss when it is kept
@@ -268,7 +273,8 @@ export class Juice {
     this.force = null;
     if (!f) return;
     for (const k of f.ids) this.engine.stop(k);
-    if (!kept) {
+    // (a glacier's sounds end as its land settles, D344 A7: kept at its end, or skipped to it)
+    if (!kept || f.verb === "glaciate") {
       this.engine.stop(`force-${f.run}`);
       this.engine.stop(`force-${f.run}-slide`);
     } else if (f.verb === "erupt" && last) this.engine.play("erupt", { ...this.place(last.x, last.y), size: soundSize(last.size), strength: 0.3 + (0.7 * last.power) / 100 }, { id: `force-${f.run}`, phase: "cool" });

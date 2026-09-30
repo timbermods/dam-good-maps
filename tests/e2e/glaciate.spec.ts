@@ -3,7 +3,8 @@
 // drag draws its path, the line showing as it is drawn (D321 item 41: no route, outline or footprint on
 // the land); the
 // camera never moves on its own; Fast's pace or Watch's, never the water's speed (D321); kept as one undo step
-// exactly as shown, Esc takes it back at once, Try another varies it and undo brings the first back.
+// exactly as shown, Ctrl+Z takes it back at once (Esc skips it to its end, D344 A4), Try another
+// varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
@@ -110,7 +111,7 @@ test("Glaciate's More (D309): its benches, steps, tarn and scree, each on Auto; 
   await expect(page.getByRole("group", { name: "Glaciate details" })).toBeVisible();
 });
 
-test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Esc takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
+test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Ctrl+Z takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("-");
   const at = await high(page);
@@ -128,11 +129,11 @@ test("a click Flows at once, the camera still (D265); kept as one step exactly a
   const before = await heights(page);
   const n0 = (await labels(page)).length;
   const v0 = await view(page);
-  // Esc while the ice moves: all of it goes at once
+  // Ctrl+Z while the ice moves: all of it goes at once
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => status(page)).not.toBeNull();
   await page.waitForTimeout(500);
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+z");
   await settled(page);
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);

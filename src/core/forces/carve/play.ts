@@ -5,6 +5,11 @@
 // long). The land, the objects and the sources change only as the head reaches them; the water stays
 // as it was until the land is final. What is kept is always the run's own final map, so the result
 // never depends on the pace.
+//
+// A river drawn uphill (D344, A5) still runs downhill, from the line's higher end (item 41: the land
+// decides where its water goes), but it is shown the way it was drawn: `fromEnd` plays its course from
+// its end back to its origin, each tile taking its final level as the head reaches it and each object
+// going as it does. Only the showing changes: the land kept is the same.
 
 import type { EntitySpec } from "../../format/entities";
 import type { ForceHead, ForceMap } from "../force";
@@ -27,13 +32,54 @@ export class CarvePlay {
   /** Its own sources, or an unleashed one: they follow the ground as it is cut. */
   private readonly riders: boolean;
 
-  constructor(readonly run: CarveRun) {
+  /** Shown from its end (A5): each step's changes, the latest step first, each tile once at its final
+   *  level; made once it is worked out. */
+  private backward: Int32Array[] | null = null;
+
+  constructor(
+    readonly run: CarveRun,
+    /** Shown from the course's end back to its origin: the way its line was drawn (D344, A5). */
+    readonly fromEnd = false,
+  ) {
     const m = run.map;
     this.objects = m.entities.slice();
     this.map = { ...m, heights: run.original.slice(), entities: this.objects.slice(), water: { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() }, ...(m.lava ? { lava: m.lava.slice() } : {}) };
     this.first = { ...run.head };
+    // (drawn from its end: its surge gathers there while it is worked out)
+    const end = run.intent.end;
+    if (fromEnd && end !== undefined) this.first = { ...this.first, x: end % m.W, y: Math.floor(end / m.W), z: m.heights[end], dx: -this.first.dx, dy: -this.first.dy };
     this.riders = run.group.length > 0 || run.unleashedId !== null;
     this.record([]);
+  }
+
+  /** The forward step shown at step `k` from the end (k from 1 to total). */
+  private forward(k: number): number {
+    return this.total - k + 1;
+  }
+
+  /** The changes shown from the end: step k shows the forward step total - k + 1's tiles, each tile once,
+   *  at the level its latest step left (its final one). */
+  private backwardChanges(): Int32Array[] {
+    if (this.backward) return this.backward;
+    const total = this.total;
+    const seen = new Uint8Array(this.map.heights.length);
+    const out: Int32Array[] = [new Int32Array(0)];
+    for (let s = total; s >= 1; s--) {
+      const c = this.changes[s];
+      const keep: number[] = [];
+      for (let j = 0; j < c.length; j += 2)
+        if (!seen[c[j]]) {
+          seen[c[j]] = 1;
+          keep.push(c[j], c[j + 1]);
+        }
+      out.push(Int32Array.from(keep));
+    }
+    return (this.backward = out);
+  }
+
+  /** The step an object goes at, as shown (from the end: when the head reaches it coming back). */
+  private goneAt(s: number): number {
+    return this.fromEnd ? this.forward(s) : s;
   }
 
   private record(changed: readonly number[]): void {
@@ -80,21 +126,22 @@ export class CarvePlay {
   /** Show the land at step `k`. */
   showTo(k: number): void {
     const heights = this.map.heights;
+    const changes = this.fromEnd && k > this.at ? this.backwardChanges() : this.changes;
     for (let s = this.at + 1; s <= k; s++) {
-      const c = this.changes[s];
+      const c = changes[s];
       for (let j = 0; j < c.length; j += 2) heights[c[j]] = c[j + 1];
     }
-    if (this.map.lava) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < this.changes[s].length; j += 2) this.map.lava[this.changes[s][j]] &= (1 << heights[this.changes[s][j]]) - 1;
+    if (this.map.lava) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) this.map.lava[changes[s][j]] &= (1 << heights[changes[s][j]]) - 1;
     this.at = k;
     // the objects the head has reached go; its own sources and an unleashed one ride the ground
     const removed = this.run.removedAt;
     const W = this.map.W;
     let gone = 0;
-    for (const s of removed.values()) if (s <= k) gone++;
+    for (const s of removed.values()) if (this.goneAt(s) <= k) gone++;
     if (gone !== this.removedShown || this.riders) {
       this.removedShown = gone;
       this.map.entities = this.objects
-        .filter((e) => !((removed.get(e.id) ?? Infinity) <= k))
+        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!) <= k))
         .map((e) => {
           const own = this.run.group.find((g) => g.id === e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
@@ -109,15 +156,28 @@ export class CarvePlay {
     return id ? this.objects.find((e) => e.id === id) : undefined;
   }
 
-  /** The head where the shown land has it (at the origin while it is worked out). */
+  /** The head where the shown land has it (at the origin while it is worked out; from the end, at the
+   *  end, heading back up its course). */
   get head(): ForceHead {
-    return this.at === 0 ? this.first : this.heads[this.at];
+    if (this.at === 0) return this.first;
+    if (!this.fromEnd) return this.heads[this.at];
+    const h = this.heads[this.forward(this.at)];
+    return { ...h, dx: -h.dx, dy: -h.dy };
   }
 
-  /** The last stretch of the course shown (the effects' muddy surge). */
+  /** The last stretch of the course shown (the effects' muddy surge): behind the head, the way it
+   *  goes. */
   trail(): Station[] {
-    const n = this.lengths[this.at];
-    return this.run.path.slice(Math.max(0, n - 28), n);
+    if (!this.fromEnd) {
+      const n = this.lengths[this.at];
+      return this.run.path.slice(Math.max(0, n - 28), n);
+    }
+    if (this.at === 0) return [];
+    const n = Math.max(0, this.lengths[this.forward(this.at)] - 1);
+    return this.run.path
+      .slice(n, n + 28)
+      .reverse()
+      .map((q) => ({ ...q, dx: -q.dx, dy: -q.dy }));
   }
 
   /** Shown to the end. */

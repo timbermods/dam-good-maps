@@ -71,7 +71,7 @@ import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/c
 import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import type { CraterSettings } from "../core/forces/craterize";
-import type { EruptSettings, Point } from "../core/forces/erupt";
+import { fissureBreadth, type EruptSettings, type Point } from "../core/forces/erupt";
 import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
 import type { QuakeSettings } from "../core/forces/quake";
@@ -1772,10 +1772,11 @@ let lastWater: { version: number; depth: Float64Array; contamination: Float64Arr
 /** A force to start (D194, D202, D203, D206): which, its settings (the seed is the series', Try
  *  another takes the next), where (a carve's origin and aimed end, an impact and its aim, a vent or
  *  a painted fissure, a painted fault and the side that moves), and the layer showing (D207: the
- *  ground above it is left as it is). A painted Lift (`painting`) shows its result as it is painted
+ *  ground above it is left as it is). A carve drawn uphill is shown from its end (`shownFrom`, D344
+ *  A5: only its showing; its operation and its land are the same). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
-  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string }
+  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
@@ -2111,7 +2112,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
       case "erupt": {
         map = stagedForceMap(base);
         const fissure = req.settings.mode === "fissure" && req.path && req.path.length >= 2;
-        staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent" }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
+        // the editor's fissure (D344, A6): its drawn shape sets its breadth; Size is for a vent's click
+        const size = fissure && req.natural ? { size: fissureBreadth(req.settings, req.path!) } : {};
+        staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent", ...size }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
         staged.finalize = buildTouches(state, base.heights);
         break;
       }
@@ -2153,7 +2156,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     gesture,
     verb: req.verb,
     carve,
-    play: carve ? new CarvePlay(carve) : null,
+    // (a river drawn uphill is shown from its end, the way it was drawn: D344, A5; its land the same)
+    play: carve ? new CarvePlay(carve, req.verb === "carve" && req.shownFrom === "end") : null,
     staged,
     before: map,
     state,

@@ -49,6 +49,8 @@ export interface ForceMoment {
   erupt?: { vents: { x: number; y: number }[]; radius: number; fissure: boolean; line: { x: number; y: number }[] };
   quake?: { path: { x: number; y: number }[]; slide: boolean; side: 1 | -1 };
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
+  /** Its own seconds a second of its showing (Fast, Watch: D344 A7); absent, 1. */
+  pace?: number;
 }
 
 const css = (c: readonly number[]) => "rgb(" + c.map((v) => Math.round(v * 255)).join(",") + ")";
@@ -388,8 +390,11 @@ type Stations = NonNullable<NonNullable<ForceMoment["glaciate"]>["path"]>;
 
 /** Glaciate's moment: the ice gathers where it was asked while the glacier is planned; then its
  *  tongue (fixed cross sections over the land as it was, a curved nose and streaks flowing down it)
- *  advances for three seconds and melts back for two, on its own clock (it never waits for the
- *  water or the worker). */
+ *  advances for three of its seconds and melts back for two, kept to the land's own showing (D344,
+ *  A7): its clock is the glacier's stage as its frames bring it, run on between them at the showing's
+ *  pace (Fast compresses it, Watch stretches it) and never ahead of the next stage, so the front
+ *  reaches each tile as the land there changes and the ice is gone as the land settles. Skipped to its
+ *  end (Esc, Watch's click), it melts away at once. */
 class Glacier {
   readonly group = new Group();
   private gatherMat = new MeshBasicMaterial({ color: css(JUICE.ice), transparent: true, opacity: 0.55, depthWrite: false });
@@ -428,6 +433,10 @@ class Glacier {
   private began: number | null = null;
   private ended: number | null = null;
   private live = false;
+  /** The glacier's own seconds as its last frame had them, when it came, and the showing's pace. */
+  private cue = { s: 0, at: 0, pace: 1 };
+  /** Its seconds when it ended (kept, or skipped to its end). */
+  private endS = 0;
 
   constructor() {
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
@@ -443,6 +452,21 @@ class Glacier {
     this.live = true;
     this.at = { x: m.x, y: m.y, z: m.z, r: Math.max(3, m.size * 0.22) };
     this.t0 = now;
+  }
+
+  /** The glacier's own seconds from its frame (its stage), and the showing's pace. */
+  clockTo(seconds: number, pace: number, now: number): void {
+    this.cue = { s: seconds, at: now, pace: pace > 0 ? pace : 1 };
+  }
+
+  /** Its own seconds now: the last frame's, run on at the showing's pace, never past the next stage
+   *  (a tenth of its seconds); once ended, on to its end within a third of a second at most. */
+  private seconds(now: number): number {
+    const c = this.cue;
+    const s = Math.min(c.s + 0.1, c.s + ((now - c.at) / 1000) * c.pace);
+    if (this.ended === null) return Math.min(5, s);
+    const rate = Math.max(c.pace, (5 - this.endS) / 0.35);
+    return Math.min(5, Math.max(s, this.endS + ((now - this.ended) / 1000) * rate));
   }
 
   /** Its tongue from the stations, over the land as it is now; its clock starts. */
@@ -493,14 +517,17 @@ class Glacier {
   }
 
   finish(now: number): void {
-    if (this.live) this.ended ??= now;
+    if (!this.live || this.ended !== null) return;
+    this.endS = this.seconds(now);
+    this.ended = now;
   }
 
   get active(): boolean {
     if (!this.live) return false;
     const now = performance.now();
-    if (this.began === null) return true;
-    return (now - this.began) / 1000 < 5.2 && (this.ended === null || now - this.ended < 1200);
+    // (still gathering: until it is planned, or a moment after it ended)
+    if (this.began === null) return this.ended === null || now - this.ended < 350;
+    return this.seconds(now) < 5;
   }
 
   update(now: number): void {
@@ -528,7 +555,7 @@ class Glacier {
     }
     this.crystals.instanceMatrix.needsUpdate = true;
     if (this.tongue && this.began !== null) {
-      const s = (now - this.began) / 1000;
+      const s = this.seconds(now);
       const u = this.material.uniforms;
       u.front.value = Math.min(1, s / 3);
       u.back.value = s <= 3 ? 1 : Math.max(-0.01, 1 - (s - 3) / 2);
@@ -548,6 +575,8 @@ class Glacier {
     this.live = false;
     this.began = null;
     this.ended = null;
+    this.cue = { s: 0, at: 0, pace: 1 };
+    this.endS = 0;
     this.group.visible = false;
   }
 
@@ -594,6 +623,7 @@ export class ForceEffects {
     } else if (m.verb === "glaciate") {
       if (m.phase === "gather") this.glacier.gatherAt(m, now);
       else if (m.glaciate?.path) this.glacier.advance(m.glaciate.path, this.ground, now);
+      if (m.glaciate && m.phase !== "gather") this.glacier.clockTo(m.phase === "done" ? 5 : m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
     }
     this.verb = m.verb;

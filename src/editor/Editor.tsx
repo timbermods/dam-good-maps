@@ -37,16 +37,16 @@ import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
-import { ForceDriver, powerWord, type ForceStatus, type ForceTiming } from "./forceDriver";
+import { ForceDriver, paceOf, powerWord, type ForceStatus, type ForceTiming } from "./forceDriver";
 import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, RIVER_DEPTH_DEFAULT, type CarveUi } from "./CarveRow";
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
-import { eruptAnatomy } from "../core/forces/erupt";
+import { eruptAnatomy, fissureBreadth, type EruptSettings } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
 import { DEFAULT_GLACIATE, glaciateDetails, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
 import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forceReach } from "../core/forces/reach";
 import { MAX_PATH_POINTS } from "../core/forces/carve/run";
-import { FreehandPath } from "./freehand";
+import { bandTiles, FreehandPath } from "./freehand";
 import { downhillPath, pathLength, pathTiles, resamplePath, type PathPoint } from "../core/forces/path";
 import { forceCeiling } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
@@ -57,7 +57,7 @@ import { startSpots } from "./startHint";
 import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
-import { FORCES, ForceFloor, forceShown, TopBar, type TopTool } from "./TopBar";
+import { FORCES, ForceFloor, ForceKeys, forceShown, TopBar, type TopTool } from "./TopBar";
 import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
 import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
 import { ModeIcon, WholeMapIcon } from "./SelectIcons";
@@ -66,12 +66,13 @@ import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { PointerWords } from "./pointerWords";
+import { sized, sizeForReach, stepPower, stepSize, type SizedForce } from "./forceSize";
 import { BRUSHES, BRUSH_NAMES, BrushPainter, DEFAULT_BRUSH, hasTarget, nextSize, paste, sizeMax, targetWords, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -137,7 +138,8 @@ declare global {
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
        *  fault that moves (1 its left, -1 its right: V flips it, D289). */
-      gesture(): { stroke: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
+      /** The drawn gesture on the land: its tiles and its band's half width (D344, A3; 0: a thin line). */
+      gesture(): { stroke: number | null; band: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
       /** The sources glowing red for Sources: Clear (D249, D322), by their corner tiles (the view draws the
        *  glow only with a GPU: this is what it asks for). */
       sourceGlow(): number[];
@@ -342,10 +344,10 @@ export default function Editor(props: EditorProps) {
   }
 
   /** Run worker calls one after another; apply what changed to the view. (While a force is at work
-   *  the other edits wait: it is kept when it ends, Esc takes it back.) */
+   *  the other edits wait: it is kept when it ends, Esc skips it to its end, Ctrl+Z takes it back.) */
   function run(fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void): Promise<void> {
     if (forcer.current?.running) {
-      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends, Esc takes it back." });
+      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Esc skips it to its end, Ctrl+Z takes it back." });
       return Promise.resolve();
     }
     const next = queue.current.then(async () => {
@@ -893,7 +895,11 @@ export default function Editor(props: EditorProps) {
     if (selectDraw) layers.push({ tiles: selectDraw, color: DRAWING });
     if (selectPreview) layers.push({ tiles: selectPreview.tiles, color: selectPreview.color });
     // the line a force is drawn with (the gesture itself, D258, D321 item 41)
-    if (forceStroke) layers.push({ tiles: forceStroke, color: DRAWING });
+    if (forceStroke) {
+      // (a band: a soft fill and its edge; a thin line is all edge)
+      layers.push({ tiles: forceStroke, color: DRAWING_BAND });
+      layers.push({ tiles: forceStroke, color: DRAWING, outline: true });
+    }
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
@@ -1787,7 +1793,7 @@ export default function Editor(props: EditorProps) {
   }
 
   // (the driver lives as long as the editor; it calls the latest of these)
-  const forceCalls = useRef<{ keep(gesture: number, wanted: () => boolean): Promise<void>; drop(gesture: number): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void; glaciate(origin: [number, number], end: [number, number], via: [number, number][]): void } | null>(null);
+  const forceCalls = useRef<{ keep(gesture: number, wanted: () => boolean): Promise<void>; drop(gesture: number): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][], fromEnd?: boolean): void; glaciate(origin: [number, number], end: [number, number], via: [number, number][]): void } | null>(null);
   forceCalls.current = {
     // Esc while it is kept (D341): a keep whose turn comes after Esc sends nothing, and one already
     // on its way is taken back by the drop behind it, so it is never shown
@@ -1868,9 +1874,13 @@ export default function Editor(props: EditorProps) {
     changed: () => setForceTick((n) => n + 1),
     error: (text) => setMessage({ kind: "error", text: plain(text) }),
     moment: (f) => {
-      lastCue.current = f.cue;
-      renderer.current?.setForceMoment(f.cue);
-      juice.current?.forceMoment(f.cue, f.head);
+      // (the showing's pace, D344 A7: how many of the force's own seconds a second shows, so its
+      // effects and sounds keep to its land in Fast and in Watch)
+      const t = forcer.current?.timing;
+      const cue = t && t.show > 0 && t.total > 0 ? { ...f.cue, pace: (t.total * paceOf(f.verb).ms) / t.show } : f.cue;
+      lastCue.current = cue;
+      renderer.current?.setForceMoment(cue);
+      juice.current?.forceMoment(cue, f.head);
     },
     speed: () => (watchRef.current ? "watch" : "fast"),
     ended: (kept) => {
@@ -1982,7 +1992,8 @@ export default function Editor(props: EditorProps) {
           <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
-          <button type="button" onClick={() => forcer.current?.cancel()} title="Take all of it back (Esc)">
+          <ForceKeys />
+          <button type="button" onClick={() => forcer.current?.cancel()} title="Take all of it back (Ctrl+Z)">
             Revert
           </button>
         </>
@@ -2022,27 +2033,52 @@ export default function Editor(props: EditorProps) {
    *  the force's own limit), `downhill` from its higher end to its lower (a river's water runs
    *  downhill, whichever way it was drawn); its origin, its end and the tiles between. Null when it is
    *  too short to steer by (under two tiles). */
-  function steerTiles(path: readonly PathPoint[], downhill: boolean): { origin: [number, number]; end: [number, number]; via: [number, number][] } | null {
+  function steerTiles(path: readonly PathPoint[], downhill: boolean): { origin: [number, number]; end: [number, number]; via: [number, number][]; reversed: boolean } | null {
     const { W, H } = infoRef.current;
     if (pathLength(path) < 2) return null;
     let pts = resamplePath(path, 2, MAX_PATH_POINTS + 2);
+    const drawn = pts[0];
     if (downhill) pts = downhillPath(pts, mirror.current.heights, W, H);
     const tiles = pathTiles(pts, W, H);
     // (a path that comes back to where it began ends a tile short of it)
     while (tiles.length > 2 && tiles.at(-1)![0] === tiles[0][0] && tiles.at(-1)![1] === tiles[0][1]) tiles.pop();
     if (tiles.length < 2) return null;
-    return { origin: tiles[0], end: tiles.at(-1)!, via: tiles.slice(1, -1) };
+    // (`reversed`: drawn uphill, so its origin is where the line ended)
+    return { origin: tiles[0], end: tiles.at(-1)!, via: tiles.slice(1, -1), reversed: pts[0] !== drawn };
   }
 
   /** The line a force is drawn with, on the land as it is drawn (null: none), at most once a frame. */
   const pathFrame = useRef(0);
-  function showPath(path: readonly PathPoint[] | null) {
+  function showPath(path: readonly PathPoint[] | null, radius = 0) {
     cancelAnimationFrame(pathFrame.current);
-    pathFrame.current = requestAnimationFrame(() => setForceStroke(path ? strokeTiles(path) : null));
+    pathFrame.current = requestAnimationFrame(() => setForceStroke(path ? gestureTiles(path, radius) : null));
   }
 
-  function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][]) {
-    startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current, !!end), origin, ...(end ? { end } : {}), ...(end && via?.length ? { via } : {}), cut: renderer.current?.slice ?? null });
+  /** A drawn gesture on the land (D344, A3): a band of the force's width along the line (`radius`
+   *  tiles either side), never a circle; a thin line where it has no width (Craterize's aim, an
+   *  unleashed source's line). */
+  const strokeRadius = useRef(0);
+  function gestureTiles(path: readonly PathPoint[], radius: number): number[] {
+    strokeRadius.current = radius;
+    return radius > 0.5 ? bandTiles(path, radius, infoRef.current.W, infoRef.current.H) : strokeTiles(path);
+  }
+
+  /** The band's half width for the force picked, as drawn (D344, A3): Carve's and Glaciate's width,
+   *  Quake's reach from its fault; a fissure's breadth from its shape (A6). */
+  function bandRadius(path?: readonly PathPoint[]): number {
+    const verb = toolRef.current;
+    if (verb === "erupt") {
+      if (!path) return 0;
+      const u = eruptUiRef.current;
+      const drawn = forcer.current?.lastSettings.erupt as EruptSettings | undefined;
+      return fissureBreadth({ power: u.power, shape: u.shape ?? drawn?.shape ?? "steep", summit: u.summit ?? drawn?.summit ?? "auto" }, path) / 2;
+    }
+    if (verb === "craterize") return 0;
+    return reachNow() ?? 0;
+  }
+
+  function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][], fromEnd = false) {
+    startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current, !!end), origin, ...(end ? { end } : {}), ...(end && via?.length ? { via } : {}), ...(end && fromEnd ? { shownFrom: "end" as const } : {}), cut: renderer.current?.slice ?? null });
   }
 
 
@@ -2077,6 +2113,8 @@ export default function Editor(props: EditorProps) {
    *  most once a frame. */
   const cursorFrame = useRef(0);
   function showForceCursor(at: [number, number] | null, dot = true) {
+    // (F held: the ring stays where it was, its size following the pointer)
+    if (forceSizing.current) return;
     cancelAnimationFrame(cursorFrame.current);
     cursorFrame.current = requestAnimationFrame(() => {
       const now = gestureRef.current.forceCursor;
@@ -2097,6 +2135,94 @@ export default function Editor(props: EditorProps) {
     else if (r !== ring.r) setForceRing({ ...ring, r });
   }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, tool]);
 
+  // A force's Size and Power from the keys, exactly as a brush's (D344, A1; forceSize.ts): hold F and
+  // move the mouse to size its ring on the map, its size beside the pointer (a click or letting go keeps
+  // it, Esc or a right click puts it back); [ and ] step its Size, { and } its Power. A Size set by hand
+  // is off Auto.
+  const forceSizing = useRef<{ verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null>(null);
+
+  /** The Size field of a force's row: a number, or null on Auto. */
+  function forceSizeField(verb: SizedForce): number | null {
+    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : glaciateUiRef.current.size;
+  }
+  function setForceSize(verb: SizedForce, size: number | null) {
+    if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, width: size }));
+    else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, size }));
+    else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, size }));
+    else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, size }));
+  }
+  function forcePowerOf(verb: Verb): number {
+    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : glaciateUiRef.current.power;
+  }
+  function setForcePower(verb: Verb, power: number) {
+    if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, power }));
+    else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, power }));
+    else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, power }));
+    else if (verb === "quake") setQuakeUi({ ...quakeUiRef.current, power });
+    else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, power }));
+  }
+
+  /** F went down with a sized force picked and its ring on the map: the ring stays where it is, and
+   *  its size follows the pointer's distance from its middle. */
+  function startForceSize() {
+    const verb = toolRef.current;
+    const ring = gestureRef.current.forceRing;
+    const r = renderer.current;
+    if (!sized(verb) || !ring || !r || forceSizing.current || forcer.current?.running) return;
+    cancelAnimationFrame(cursorFrame.current);
+    const move = (ev: PointerEvent) => {
+      const f = forceSizing.current;
+      if (!f) return;
+      const p = renderer.current?.pickAtLevel(ev.clientX, ev.clientY, f.level);
+      notePointer(ev);
+      if (!p) return;
+      const size = sizeForReach(f.verb, Math.hypot(p.point[0] - f.x, -p.point[2] - f.y));
+      if (size !== f.size) {
+        f.size = size;
+        setForceSize(f.verb, size);
+        setForceRing({ x: f.x, y: f.y, r: size / 2 });
+      }
+      pointerWords.current!.sizing(`size ${size}`);
+    };
+    // (a click keeps it, a right click puts it back; neither reaches the map)
+    const down = (ev: PointerEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      endForceSize(ev.button === 0);
+    };
+    const size = Math.round(ring.r * 2);
+    forceSizing.current = {
+      verb,
+      x: ring.x,
+      y: ring.y,
+      level: r.heightAt(Math.floor(ring.x), Math.floor(ring.y)),
+      from: forceSizeField(verb),
+      size,
+      stop: () => {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerdown", down, true);
+      },
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerdown", down, true);
+    pointerWords.current!.sizing(`size ${size}`);
+  }
+
+  /** The size is set (F let go, a click) or put back (Esc, a right click). */
+  function endForceSize(keep: boolean) {
+    const f = forceSizing.current;
+    if (!f) return;
+    f.stop();
+    forceSizing.current = null;
+    if (!keep) setForceSize(f.verb, f.from);
+    pointerWords.current!.sizing(null);
+  }
+  useEffect(() => () => forceSizing.current?.stop(), []);
+  // (another tool picked: F's sizing ends, kept)
+  useEffect(() => {
+    if (forceSizing.current && forceSizing.current.verb !== tool) endForceSize(true);
+  }, [tool]);
+
   // Carve takes the map's clicks and drags while it is picked (D258, D289; D321 item 41): a click
   // unleashes it where the cursor is; a drag draws its path freehand, the line showing as it is drawn,
   // and on release the river carves along it, from the path's higher end to its lower (whichever way
@@ -2116,18 +2242,20 @@ export default function Editor(props: EditorProps) {
       move: (hit, ev) => {
         notePointer(ev);
         const path = g.move(hit ? { x: hit.x, y: hit.y } : null, ev.clientX, ev.clientY);
-        if (path) showPath(path);
+        if (path) showPath(path, bandRadius());
       },
       up: (hit) => {
         const end = g.up(hit ? { x: hit.x, y: hit.y } : null);
         showPath(null);
         if (!end) return;
         if ("click" in end) return forceCalls.current!.carve([end.click.x, end.click.y]);
+        // (drawn uphill, its water still runs downhill, but it is shown the way it was drawn: D344, A5)
         const tiles = steerTiles(end.path, true);
-        if (tiles) forceCalls.current!.carve(tiles.origin, tiles.end, tiles.via);
+        if (tiles) forceCalls.current!.carve(tiles.origin, tiles.end, tiles.via, tiles.reversed);
       },
       hover: (hit, ev) => {
         notePointer(ev);
+        if (forceSizing.current) return;
         showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
       },
       cancel: () => {
@@ -2218,7 +2346,8 @@ export default function Editor(props: EditorProps) {
     let dragged = false;
     const showStroke = (path: readonly QuakePoint[] | null) => {
       cancelAnimationFrame(strokeFrame);
-      strokeFrame = requestAnimationFrame(() => setForceStroke(path ? strokeTiles(path) : null));
+      // (a fault's or a fissure's band; Craterize's aim is a line)
+      strokeFrame = requestAnimationFrame(() => setForceStroke(path ? gestureTiles(path, bandRadius(path)) : null));
     };
     /** Erupt's one word, once a frame at most (it reads the ground round the vent). */
     let wordFrame = 0;
@@ -2333,6 +2462,7 @@ export default function Editor(props: EditorProps) {
       },
       hover: (hit, ev) => {
         notePointer(ev);
+        if (forceSizing.current) return;
         if (!hit || forcer.current?.running || down) {
           if (!hit) showForceCursor(null);
           return;
@@ -2360,6 +2490,7 @@ export default function Editor(props: EditorProps) {
       if (!down && !brush) return false;
       down = null;
       brush = null;
+      painting = false;
       showStroke(null);
       setShapeNote(null);
       return true;
@@ -2413,7 +2544,7 @@ export default function Editor(props: EditorProps) {
         const was = g.drawing;
         const path = g.move(hit ? { x: point(hit)[0], y: point(hit)[1] } : null, ev.clientX, ev.clientY);
         if (path && !was) gather(null);
-        if (path) showPath(path);
+        if (path) showPath(path, bandRadius());
       },
       up: (hit) => {
         const end = g.up(hit ? { x: point(hit)[0], y: point(hit)[1] } : null);
@@ -2427,6 +2558,7 @@ export default function Editor(props: EditorProps) {
       },
       hover: (hit, ev) => {
         notePointer(ev);
+        if (forceSizing.current) return;
         if (g.pressed) return;
         showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
       },
@@ -3452,21 +3584,22 @@ export default function Editor(props: EditorProps) {
       const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
-      // a force at work (D199, D202, D203, D206): Esc or Ctrl+Z takes it back, Space holds a carve,
-      // V flips a painted Lift's side as it goes; the other tools wait. In Watch (D321, item 29) Esc,
-      // or any other key of a new gesture, jumps it straight to its final land instead
+      // a force at work (D199, D202, D203, D206): Ctrl+Z (or Z) takes all of it back at any moment;
+      // Esc cancels a painted Lift still being drawn, and skips a playing force to its end, kept as one
+      // step (D344, A4; amends D341 (2)); Space holds a carve, V flips a painted Lift's side as it goes;
+      // the other tools wait. In Watch (D321, item 29) a key of a new gesture jumps it to its end too
       const c = forcer.current;
       if (c?.running) {
         const watching = c.status!.speed === "watch" && !c.status!.painting;
-        if (mod && ev.key.toLowerCase() === "z") {
+        if (!ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "z") {
           ev.preventDefault();
           c.cancel();
           return;
         }
         if (ev.key === "Escape") {
           ev.preventDefault();
-          if (watching) void c.jump();
-          else c.cancel();
+          // (a painted Lift cancelled: its stroke goes too)
+          if (c.escape() === "cancelled") forceEscRef.current?.();
           return;
         }
         if (ev.key === " ") {
@@ -3540,6 +3673,24 @@ export default function Editor(props: EditorProps) {
         selectAll();
         return;
       }
+      // a force picked (D344, A1): { and } step its Power, [ and ] its Size (off Auto), the number
+      // beside the pointer
+      const forcePicked = toolRef.current;
+      if (!mod && !ev.altKey && forcePicked && !brushToolRef.current && (ev.key === "{" || ev.key === "}")) {
+        ev.preventDefault();
+        const power = stepPower(forcePowerOf(forcePicked), ev.key === "}" ? 1 : -1);
+        setForcePower(forcePicked, power);
+        flashNote(`power ${power}`);
+        return;
+      }
+      if (!mod && !ev.altKey && sized(forcePicked) && !brushToolRef.current && (ev.key === "[" || ev.key === "]")) {
+        ev.preventDefault();
+        const now = forceSizeField(forcePicked) ?? 2 * (reachNow() ?? 0);
+        const size = stepSize(forcePicked, now, ev.key === "]" ? 1 : -1);
+        setForceSize(forcePicked, size);
+        flashNote(`size ${size}`);
+        return;
+      }
       // { and }: the strength (as Shift+scroll)
       if (!mod && (ev.key === "{" || ev.key === "}") && brushToolRef.current) {
         ev.preventDefault();
@@ -3559,10 +3710,15 @@ export default function Editor(props: EditorProps) {
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") {
         ev.preventDefault();
         if (!ev.repeat && brushToolRef.current) painter.current?.startResize();
+        else if (!ev.repeat) startForceSize();
         return;
       }
       if (ev.key === "Escape" && painter.current?.sizing) {
         painter.current.endResize(false);
+        return;
+      }
+      if (ev.key === "Escape" && forceSizing.current) {
+        endForceSize(false);
         return;
       }
       if (ev.key === "Escape" && painter.current?.painting) {
@@ -3683,7 +3839,10 @@ export default function Editor(props: EditorProps) {
     };
     // F let go: the size is set
     const onKeyUp = (ev: KeyboardEvent) => {
-      if (ev.key.toLowerCase() === "f") painter.current?.endResize(true);
+      if (ev.key.toLowerCase() === "f") {
+        painter.current?.endResize(true);
+        endForceSize(true);
+      }
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
@@ -3717,7 +3876,7 @@ export default function Editor(props: EditorProps) {
       selection: () => selection.current.tiles(),
       gesture: () => {
         const g = gestureRef.current;
-        return { stroke: g.forceStroke ? g.forceStroke.length : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };
+        return { stroke: g.forceStroke ? g.forceStroke.length : null, band: g.forceStroke ? strokeRadius.current : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };
       },
     };
     return () => {
@@ -3830,7 +3989,7 @@ export default function Editor(props: EditorProps) {
               cornerLevel={<LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />}
               cornerBelow={
                 <>
-                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change. Off: each force's land is final in about two seconds">
+                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change (a click or Esc skips to the end). Off: each force's land is final in about two seconds">
                     Watch
                   </button>
                   <span class="reveal-group">
