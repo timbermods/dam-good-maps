@@ -20,7 +20,7 @@ Collapsible to a thin strip. Open on the first visit, then remembers how it was 
 
 ## 4. The rows and Save
 - The rows over the map, top to bottom: the view bar (Watch beside Sound); the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select, and the Block tool at 3D step 3: the rows follow how a tool feels to use, D335); the forces (Erode joins them at 3D step 3); the active tool's settings with More. Where they sit and how they look is the design pass's.
-- **The forces row's order** (D352): three clusters in one row, by prominence: Carve, Craterize, Erupt (the most prominent, immediately understood) · Rift, Quake, Landslide, Glaciate (the ground breaking and moving) · Erode, Meander, Deposit (the slower processes that reward experience). Forces not yet adopted take their place in this order. The first-run hint points at Carve.
+- **The forces row's order** (D352): three clusters in one row, by prominence: Carve, Craterize, Erupt (the most prominent, immediately understood) · Rift, Quake, Glaciate (the ground breaking and moving) · Erode, Meander, Deposit (the slower processes that reward experience). Forces not yet adopted take their place in this order. The first-run hint points at Carve.
 - **Save to Timberborn** is a primary button at the workspace's top-right, always visible whether the panel is open or collapsed, with the checks dot right beside it (its one-click fixes there). Download .timber and the project file are in the ⋯ menu.
 
 ## 5. Speed first

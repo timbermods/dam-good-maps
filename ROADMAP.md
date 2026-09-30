@@ -2083,8 +2083,6 @@ change is a deterministic operation, D158, D342).
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
-**A Landslide force** (Kyler, 2026-09-30): a hillside giving way, with Rockfall, Slump and Flow styles (Auto reads the slope), and natural dams that always settle at a spillway. Codex builds a demo on `investigation/landslide` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
-
 **A Meander force** (Kyler, 2026-09-30): ageing an existing river: migrating bends, oxbow lakes, a floodplain.
 
 **A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
