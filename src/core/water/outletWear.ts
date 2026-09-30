@@ -118,7 +118,22 @@ export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike
 
 /** The way out of the basin whose water rose over its spill level, worn `width` tiles wide (a
  *  wandering width round it), or null when there is none to wear. */
-export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: { seed: number; width: number; keep?: Uint8Array | null; noOutlet?: Uint8Array | null; basin?: { tiles: number[]; level: number } | null; floor?: number }): OutletWear | null {
+export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: WearOptions): OutletWear | null {
+  // (through the basin from where the water comes in first; else, where that finds no way or would
+  // drain the basin, from the whole basin to its way out alone)
+  return wearOnce(h, W, H, depth, opts, true) ?? wearOnce(h, W, H, depth, opts, false);
+}
+
+export interface WearOptions {
+  seed: number;
+  width: number;
+  keep?: Uint8Array | null;
+  noOutlet?: Uint8Array | null;
+  basin?: { tiles: number[]; level: number } | null;
+  floor?: number;
+}
+
+function wearOnce(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: WearOptions, through: boolean): OutletWear | null {
   const N = W * H;
   // (the caller may name the stuck water itself: water still rising over a flat at its spill level,
   // which is no depression)
@@ -135,7 +150,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   for (const i of basin.tiles) surf += h[i] + depth[i];
   surf /= basin.tiles.length;
   const entries: number[] = [];
-  for (const i of basin.tiles) {
+  for (const i of through ? basin.tiles : []) {
     const x = i % W;
     const y = (i - x) / W;
     for (const [dx, dy] of N4) {
@@ -149,6 +164,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
       }
     }
   }
+  if (through && !entries.length) return null;
   // (how far each basin tile lies from its shore: a neck is where the basin is narrow)
   const shore = new Uint8Array(N);
   for (let i = 0; i < N; i++) shore[i] = inB[i] ? 0 : 1;
@@ -200,6 +216,63 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   if (end < 0) return null;
   const route: number[] = [];
   for (let c = end; c >= 0 && (entries.length || !inB[c]); c = prev[c]) route.push(c);
+  // (every river that comes in finds its own way through the basin to that way out, not only the
+  // nearest: the ways from each group of entry tiles back to it, by the same noisy cost)
+  if (entries.length > 1) {
+    const back = new Float64Array(N).fill(Infinity);
+    const to = new Int32Array(N).fill(-1);
+    back[end] = 0;
+    const bh = new MinHeap();
+    bh.push(0, end);
+    while (bh.size) {
+      const c = bh.pop();
+      const k = bh.lastKey;
+      if (k > back[c]) continue;
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (h[j] > S || back[j] <= k) continue;
+        const nk = k + 1 + 1.6 * (fbm(ns, xx, yy, 6, 2) + 1);
+        if (nk < back[j]) {
+          back[j] = nk;
+          to[j] = c;
+          bh.push(nk, j);
+        }
+      }
+    }
+    const on = new Set(route);
+    const isEntry = new Uint8Array(N);
+    for (const i of entries) isEntry[i] = 1;
+    const seen = new Uint8Array(N);
+    for (const e0 of entries) {
+      if (seen[e0]) continue;
+      // (a group of entry tiles side by side is one river coming in: its nearest tile to the way out)
+      const group = [e0];
+      seen[e0] = 1;
+      for (let k = 0; k < group.length; k++) {
+        const c = group[k];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [dx, dy] of N4) {
+          const j = (y + dy) * W + x + dx;
+          if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || !isEntry[j] || seen[j]) continue;
+          seen[j] = 1;
+          group.push(j);
+        }
+      }
+      let from = group[0];
+      for (const i of group) if (back[i] < back[from]) from = i;
+      if (!Number.isFinite(back[from])) continue;
+      for (let c = from; c >= 0 && !on.has(c); c = to[c]) {
+        on.add(c);
+        route.push(c);
+      }
+    }
+  }
   // (and on down the way the water runs from there, twice the width: the widened sill needs a way
   // down as wide as itself)
   {

@@ -68,6 +68,44 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     expect(b2?.level).toBe(6);
   });
 
+  it("widens a neck of the basin between where the water comes in and its way out", () => {
+    // two round lobes (floor 4, water at 6.5) joined by a neck three tiles wide; a river comes into
+    // the west lobe (water standing higher beside it), the way out leaves the east lobe at level 6
+    const h = new Uint8Array(W * H).fill(8);
+    const depth = new Float64Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const inLobe = (x - 14) ** 2 + (y - 32) ** 2 <= 81 || (x - 46) ** 2 + (y - 32) ** 2 <= 81 || (x > 20 && x < 40 && Math.abs(y - 32) <= 1);
+        if (inLobe) {
+          h[i] = 4;
+          depth[i] = 2.5;
+        }
+      }
+    for (let x = 55; x < W; x++) {
+      h[32 * W + x] = 6;
+      depth[32 * W + x] = 0;
+    }
+    for (let x = 1; x < 5; x++) {
+      h[32 * W + x] = 7;
+      depth[32 * W + x] = 1;
+    }
+    const w = wearOutlet(h, W, H, depth, { seed: 3, width: 9 })!;
+    expect(w).not.toBeNull();
+    expect(w.level).toBe(6);
+    // the neck's banks (level 8 above and below it) come down, never under the basin's level
+    let worn = 0;
+    for (let x = 24; x <= 36; x++)
+      for (const y of [30, 34]) {
+        const i = y * W + x;
+        expect(w.heights[i]).toBeGreaterThanOrEqual(6);
+        if (w.heights[i] < h[i]) worn++;
+      }
+    expect(worn).toBeGreaterThan(8);
+    // the basin still spills at 6
+    expect(risenBasin(w.heights, W, H, depth)?.level).toBe(6);
+  });
+
   it("does nothing where no basin stands over its spill level", () => {
     const { h } = scene();
     expect(wearOutlet(h, W, H, new Float64Array(W * H), { seed: 1, width: 7 })).toBeNull();

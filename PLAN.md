@@ -768,17 +768,25 @@ readable water story is drawn again, up to 6 lands at 128² (4 to 192², 3 above
 part of the time to land), so first maps meet all three outcomes more often (D333 (3)). What needs its settled water is fixed on it: with no place for a start on the settled
 water, the start goes where the plan put it, or else on level dry ground joined to enough land; a
 start the settled water leaves dry gets a spring by it (D330's fix: a group of sources in a dry bed or
-hollow the colony walks beside, checked as `start.water` reads it); a start, hollows or objects that
-fail are planned again on the same land, keeping off what failed; hollows whose water settled are
+hollow the colony walks beside, checked as `start.water` reads it); a start whose ground the settled
+water covers (judged first on water warm-started from the settle, which costs a fraction of one), or
+that no spring serves, gives way to another on the same settled water (three in all); a start or
+objects that still fail are planned again on the same land, keeping off what failed, and keeping
+the hollows whose water settled, so the settle is reused; hollows whose water settled are
 reused, rivers that left (their sources reached) leave on every later attempt, and water over the
 flood line runs gentler (0.7 of its flow, twice at most). Water that does not settle (D350): a
 basin's way out is widened while the land is shaped (`levels.ts` `widenOutlets`, a level under the
 basin past a short sill, only the tiles round what it would drain kept as they were), and a small
 basin whose spill level is a broad flat gets a stream a level under the flat (`carveOutlets`), so no
-sheet stands a few hundredths over a flat; what is left is worn wider as the map arrives
-(`water/outletWear.ts`: the route its water leaves by, banks taken down to the route's own bed by a
-wandering width, never within two tiles of the basin under its level; 7, 11, then 15 tiles, the
-first that settles), recorded in the land so the link rebuilds it.
+sheet stands a few hundredths over a flat (the stream wound like a gully, D209); what is left is
+fixed as the map arrives: a plug (D274) that holds its lake over it is opened, and the way out of
+the basin standing over its level, else of the water still rising, is worn wider
+(`water/outletWear.ts`: from where the water comes in, through the basin's own necks and on along
+the way it leaves, banks taken down to the basin's level by a wandering width, and a level under it
+past the shore so the sill is short, or from the whole basin to its way out when that finds none;
+never within two tiles of the basin under its level; 9, then 17 tiles, the first that settles, a
+cut of at most 2% of the map), recorded in the land so the link rebuilds it. When the rivers' water
+alone still doesn't settle, the attempts stop there.
 
 ### 7.10 Output
 
