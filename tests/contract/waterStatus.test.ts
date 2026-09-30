@@ -46,6 +46,20 @@ describe("the water status after undo, redo and an edit (D345, B14)", () => {
     expect(again.waterSettled).toBe(true);
   }, 120000);
 
+  it("the background check ends the journey: its answer says the water is settled, with or without water in it", async () => {
+    await fresh();
+    const e = edit();
+    expect(e.waterSettled).toBe(false);
+    // the check settles the canonical water and puts it in place: no settle is running for the map any more
+    const r = await ed.backgroundCheck();
+    expect(r).not.toBeNull();
+    expect(ed.waterSettling()).toBe(false);
+    expect(r!.waterSettled, "the check's answer says the water is settled").toBe(true);
+    // asked again with nothing to settle: it still says so (the page's journey may have begun without water frames)
+    const again = await ed.backgroundCheck();
+    expect(again!.waterSettled).toBe(true);
+  }, 120000);
+
   it("an edit that leaves the water as it is is settled at once", async () => {
     await fresh();
     // a tree planted on dry ground: no water moves

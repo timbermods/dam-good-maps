@@ -446,7 +446,7 @@ export default function Editor(props: EditorProps) {
       // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
       // says "Water settled" at once, D345 B14)
       if (u.waterSettled) player.current?.settled();
-      else player.current?.begin(u.view.water ? { water: u.view.water, done: 0 } : null);
+      else player.current?.begin({ water: u.view.water ?? mirror.current.mapWater, done: 0 });
     }
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
@@ -676,7 +676,10 @@ export default function Editor(props: EditorProps) {
           // the exact settle's water ends the journey in progress (eased into), or shows at once.
           // The worker put it in place and sends it once, so it shows even when the page moved on
           // while the check ran (the check started as an edit went in): only the report waits
+          // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
+          // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
           if (r.view.water && player.current?.hasJourney) player.current.push({ water: r.view.water, done: 1, final: () => applyView(r.view) });
+          else if (r.waterSettled && player.current?.playing) player.current.push({ water: mirror.current.mapWater, done: 1, final: () => applyView(r.view) });
           else applyView(r.view);
           if (!live || r.check.version !== infoRef.current.version) return;
           setCheck(r.check);

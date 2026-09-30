@@ -1211,6 +1211,9 @@ export interface BackgroundResult {
   /** The view after the canonical water replaced the preview's (water, and the plants on it). */
   view: ViewUpdate;
   info: SessionInfo;
+  /** No settle is running for the open map as this answer leaves (D345, B14): its water is the
+   *  canonical one, and whatever journey the page shows is over. */
+  waterSettled?: boolean;
 }
 
 let bgToken = 0;
@@ -1256,7 +1259,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
   const v0 = version;
   const token = ++bgToken;
   const current = () => session === s && version === v0 && token === bgToken;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const t0 = performance.now();
   let view: ViewUpdate = {};
   if (s.waterPending) {
@@ -1278,7 +1281,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
-      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s) };
+      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
     if (!originalFull) {
       const om = importModel(s, true);
@@ -1294,7 +1297,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!current()) return null;
     v = s.validate("export");
   }
-  return { check: grouped(s, v, t0), view, info: sessionInfo(s) };
+  return { check: grouped(s, v, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** The background check in the checks worker: its canonical water goes in place here (the view
@@ -1302,7 +1305,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
 async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => void): Promise<BackgroundResult | null> {
   const s = need();
   const v0 = version;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const r = await c.check(v0, onProgress);
   if (!r || version !== v0 || session !== s) return null;
   let view: ViewUpdate = {};
@@ -1312,7 +1315,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
   }
   if (r.layers) lastWater = { version: v0, ...r.layers };
   lastCheck = r.check;
-  return { check: r.check, view, info: sessionInfo(s) };
+  return { check: r.check, view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
