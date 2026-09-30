@@ -110,7 +110,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   expect(await sourcesOn(page)).toContain(`${sx},${sy}`);
   const before = await sourcesOn(page);
   // the shelf's source is still picked; the pointer is a few pixels off the tile, on its marker
-  await page.mouse.move(p.x + 6, p.y + 6);
+  await page.mouse.move(p.x + 4, p.y + 5);
   await page.keyboard.down("Control");
   for (let k = 0; k < 2; k++) {
     await page.mouse.wheel(0, -120);
@@ -120,7 +120,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   await expect.poll(async () => (await labels(page)).at(-1), { timeout: 20_000 }).toMatch(/^Water source: [\d.]+ water\/s$/);
   await idle(page);
   // a click there selects it, and places nothing
-  await page.mouse.click(p.x + 6, p.y + 6);
+  await page.mouse.click(p.x + 4, p.y + 5);
   await idle(page);
   expect(await sourcesOn(page)).toEqual(before);
   expect((await labels(page)).filter((l) => l === "Place water source")).toHaveLength(1);
@@ -260,4 +260,14 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await page.mouse.move(c.x + 2, c.y);
   await page.mouse.move(c.x, c.y);
   await expect(readout).toHaveText(/^Geothermal field · /);
+});
+
+test("B13: the forces row is in three groups by prominence: Carve, Craterize, Erupt · Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  const row = page.getByRole("group", { name: "Forces" });
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
+  // two clusters in one row today (the third group's forces are not adopted yet)
+  expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
+  await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });

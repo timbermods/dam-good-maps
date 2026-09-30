@@ -1800,7 +1800,11 @@ export default function Editor(props: EditorProps) {
           applyUpdate(u);
           renderer.current?.refreshShadows();
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
-          else if (u.ok) setMessage(null);
+          else if (u.ok) {
+            setMessage(null);
+            // (the first-run hint points at Carve: a force kept is shaping the land too, D352)
+            firstDoneRef.current("paint");
+          }
         } finally {
           setBusy((b) => b - 1);
         }
@@ -2500,6 +2504,7 @@ export default function Editor(props: EditorProps) {
             <span class="bar-status">Drag it to move it</span>
             <button
               type="button"
+              title="Delete this object (Delete)"
               onClick={() => {
                 setPickedObject(null);
                 void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
@@ -2507,7 +2512,7 @@ export default function Editor(props: EditorProps) {
             >
               Delete
             </button>
-            <button type="button" class="linkish" aria-label="Put it down" onClick={() => setPickedObject(null)}>
+            <button type="button" class="linkish" aria-label="Put it down" title="Put it down: nothing is picked (X or Esc)" onClick={() => setPickedObject(null)}>
               ×
             </button>
           </>
@@ -2523,7 +2528,7 @@ export default function Editor(props: EditorProps) {
       label: `${bad ? "Badwater" : "Water"} source, selected`,
       content: (
         <>
-          <label>
+          <label title="How much water this source gives each second (Ctrl+scroll over it changes it too)">
             Strength
             <select aria-label="Strength" value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
               {[...new Set([...steps, strength])]
@@ -2535,14 +2540,14 @@ export default function Editor(props: EditorProps) {
                 ))}
             </select>
           </label>
-          <label>
+          <label title="Clean water, or badwater that beavers can't drink and that spoils the soil">
             Water
             <select aria-label="Water" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
               <option value="clean">Clean</option>
               <option value="bad">Badwater</option>
             </select>
           </label>
-          <button type="button" onClick={() => removeSources(picked!.list)}>
+          <button type="button" title="Remove this source: its water drains (Delete)" onClick={() => removeSources(picked!.list)}>
             Remove
           </button>
           <span class="bar-divider" aria-hidden="true" />
@@ -2565,7 +2570,7 @@ export default function Editor(props: EditorProps) {
               Try another
             </button>
           ) : null}
-          <button type="button" class="linkish" aria-label="Put it down" onClick={() => setPicked(null)}>
+          <button type="button" class="linkish" aria-label="Put it down" title="Put it down: nothing is picked (X or Esc)" onClick={() => setPicked(null)}>
             ×
           </button>
         </>
@@ -2589,7 +2594,7 @@ export default function Editor(props: EditorProps) {
       return {
         label: "Ruin options",
         content: (
-          <label>
+          <label title="How tall the ruin is, from 1 to 8 levels (a level is 15 scrap metal)">
             Height
             <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
@@ -2605,7 +2610,7 @@ export default function Editor(props: EditorProps) {
       return {
         label: "Relic options",
         content: (
-          <label>
+          <label title="How big the relic is: small, medium or large">
             Size
             <select aria-label="Size" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
               <option value="small">Small</option>
@@ -3082,6 +3087,13 @@ export default function Editor(props: EditorProps) {
     if (tiles.some((i) => h[i] > 0)) out.push({ group: "ground", name: "Ground (one level)", count: tiles.filter((i) => h[i] > 0).length });
     return out;
   }
+  /** What a Delete menu choice does, in one line (D351). */
+  function deleteTitle(group: DeleteGroup | "ground", name: string): string {
+    if (group === "ground") return "Lower the selection's ground by one level (the top block of each tile; under water, the bed's)";
+    if (group === "everything") return "Delete everything in the selection, the objects under water too: sources, plants, ruins and the start; the ground stays";
+    if (group === "start") return "Delete the start in the selection";
+    return `Delete the ${name.toLowerCase()} in the selection`;
+  }
   /** Delete one kind of thing (or everything) in the selection, or its ground one level down. */
   function deleteChoice(group: DeleteGroup | "ground") {
     const h = mirror.current.heights;
@@ -3198,6 +3210,7 @@ export default function Editor(props: EditorProps) {
                         <button
                           type="button"
                           role="menuitem"
+                          title={deleteTitle(c.group, c.name)}
                           onClick={() => deleteChoice(c.group)}
                           onMouseEnter={() => deletePreview(c.group)}
                           onFocus={() => deletePreview(c.group)}

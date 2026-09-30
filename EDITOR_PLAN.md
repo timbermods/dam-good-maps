@@ -30,6 +30,9 @@ editor is desktop-first (D185).
   make: smart Lower, a target level that follows the ground until set (D322), clear water round a brush over
   water, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
+- **Every control says what it does** (D351): each tool, force, option, view toggle, shelf item and button has a
+  tooltip, one plain line with its key where it has one; whoever changes a control updates its tooltip in the same
+  commit, and `tests/e2e/tooltips.spec.ts` fails on any interactive control without one.
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
 
@@ -38,8 +41,10 @@ editor is desktop-first (D185).
 ## 3. The screen
 
 - **The rows over the map** (D323, item 9; structure only, the design pass styles them): four, top to bottom: the
-  view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces (Carve, Craterize, Quake, Erupt,
-  Glaciate, keys 7, 8, 9, 0 and -); then the active tool's settings and its More (no Remove tool, D288: see **Delete**
+  view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces, **in three clusters by
+  prominence** (D352, one list, `FORCE_GROUPS` in `TopBar.tsx`: Carve, Craterize, Erupt · Rift, Quake, Landslide,
+  Glaciate · Erode, Meander, Deposit; today Carve, Craterize, Erupt · Quake, Glaciate, their keys unchanged: 7, 8, 0 and 9,
+  -; a force not adopted yet takes its place in the list), and the first-run hint points at Carve; then the active tool's settings and its More (no Remove tool, D288: see **Delete**
   below). **Every force's row takes Glaciate's shape**
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click

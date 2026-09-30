@@ -152,7 +152,7 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
 });
 
-test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only)", async ({ page }) => {
+test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only; the forces in their clusters by prominence, D352)", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("1");
   const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
@@ -161,7 +161,7 @@ test("four rows, top to bottom: the view bar, the tools, the forces, then the ac
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
   expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Select"]);
-  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]);
+  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
   const ys = [await y(view), await y(tools), await y(forces), await y(options)];
   expect(ys).toEqual([...ys].sort((a, b) => a - b));
   expect(new Set(ys).size).toBe(4);

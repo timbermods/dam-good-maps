@@ -296,7 +296,7 @@ export function View3D(props: View3DProps) {
         <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
           Top-down
         </button>
-        <button type="button" onClick={() => renderer.current?.resetView()}>
+        <button type="button" title="Frame the whole map again, centred, at the usual angle" onClick={() => renderer.current?.resetView()}>
           Reset view
         </button>
         {props.togglesInButtons ? toggles : null}

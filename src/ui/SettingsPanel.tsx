@@ -117,6 +117,47 @@ function ThemeGlyph({ theme }: { theme: ThemeId }) {
   }
 }
 
+/** What each setting does, in one line, for its tooltip (D351). */
+const HINT: Record<string, string> = {
+  seed: "The number or word the map is made from: the same seed and settings make the same map",
+  size: "The map's size: one of the game's sizes, or a custom width and height",
+  "size-x": "The map's width in tiles (48 to 256)",
+  "size-y": "The map's height in tiles (48 to 256)",
+  "designed-for": "The game difficulty the map is balanced for; it plays on any difficulty",
+  relief: "How much the land rises and falls, from flat to rugged",
+  verticality: "How steep and tall the cliffs and slopes are",
+  highest: "The highest level the land may reach (the game's map editor edits up to level 16)",
+  terracing: "How much of the land is cut into flat terraces",
+  buildable: "How much of the land is flat enough to build on",
+  rivers: "How many rivers cross the map",
+  "river-style": "How the rivers run: straight, meandering or braided",
+  "river-flow": "How much water the rivers carry, from a trickle to lush",
+  reserve: "How much water the map can hold to last through a drought",
+  lakes: "How many lakes and basins the map has",
+  falls: "How many waterfalls the rivers make",
+  badwater: "How much badwater the map has, or none for a peaceful map",
+  "badwater-distance": "How far the badwater is kept from the start, in tiles",
+  thorns: "Whether belts of thorns block some of the ways through the land, and how many",
+  cores: "How many unstable cores the map has: an advanced hazard",
+  forest: "How thickly trees grow, as a share of the usual amount",
+  groves: "How big each grove of trees is, from scattered trees to big woods",
+  "mix-pine": "How much of the trees are pines (a weight against the other species)",
+  "mix-birch": "How much of the trees are birches (a weight against the other species)",
+  "mix-oak": "How much of the trees are oaks (a weight against the other species)",
+  "mix-succulent": "How much of the trees are succulents (a weight; they grow only on dry soil)",
+  "berries-start": "How many berry bushes grow near the start",
+  berries: "How many berry bushes grow elsewhere, as a share of the usual amount",
+  ruins: "How much ruin and scrap metal the map has, as a share of the usual amount",
+  relics: "Whether relics, which the game demolishes for science, are placed, and how many",
+  geothermal: "Whether geothermal fields are placed, and how many",
+  mines: "How many mine sites the map has",
+  "start-area": "Whether the land leans toward a tighter or a roomier bench round the start",
+  "rule-water": "How far the start may be from water without stairs, in tiles",
+  "rule-wood": "The fewest logs of trees the start must have within reach",
+  "rule-bushes": "The fewest berry bushes the start must have within reach",
+  "rule-ruins": "How far from the start ruins must stay, in tiles",
+};
+
 function Band({ id, text }: { id: string; text: string }) {
   return text ? (
     <span class="band" id={id}>
@@ -128,7 +169,7 @@ function Band({ id, text }: { id: string; text: string }) {
 function Slider(props: { id: string; label: string; value: number; min: number; max: number; step?: number; unit?: string; band?: string; onChange(v: number): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">
         {props.label}
         <output for={props.id}>
@@ -154,7 +195,7 @@ function Slider(props: { id: string; label: string; value: number; min: number; 
 function Pick<T extends string>(props: { id: string; label: string; value: T; choices: Choice<T>[]; band?: string; note?: string; onChange(v: T): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">{props.label}</span>
       <select id={props.id} value={props.value} aria-describedby={props.band || props.note ? bandId : undefined} onChange={(e) => props.onChange((e.target as HTMLSelectElement).value as T)}>
         {props.choices.map((c) => (
@@ -172,7 +213,7 @@ function Pick<T extends string>(props: { id: string; label: string; value: T; ch
 function Num(props: { id: string; label: string; value: number; min: number; max: number; band?: string; onChange(v: number): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">{props.label}</span>
       <input
         id={props.id}
@@ -194,7 +235,7 @@ function Num(props: { id: string; label: string; value: number; min: number; max
 function Section(props: { title: string; open?: boolean; children: JSX.Element | (JSX.Element | null)[] }) {
   return (
     <details class="section" open={props.open}>
-      <summary>{props.title}</summary>
+      <summary title={`Show or hide the ${props.title.toLowerCase()} settings`}>{props.title}</summary>
       <div class="section-body">{props.children}</div>
     </details>
   );
@@ -245,7 +286,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </fieldset>
 
       <h2>Map</h2>
-      <label class="field" for="seed">
+      <label class="field" for="seed" title={HINT.seed}>
         <span class="field-head">Seed</span>
         <div class="row">
           <input id="seed" value={p.seedText} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} aria-describedby="seed-band" />
@@ -260,7 +301,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
         </div>
         <Band id="seed-band" text={p.seedPinned ? "Kept: Generate makes this map again." : "Generate picks a new seed. Type a number or a word to keep one."} />
       </label>
-      <label class="field" for="size">
+      <label class="field" for="size" title={HINT.size}>
         <span class="field-head">Size</span>
         <select
           id="size"
@@ -371,14 +412,14 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </Section>
 
       <details class="section">
-        <summary>Limits for this size</summary>
+        <summary title="Show or hide what this map size limits">Limits for this size</summary>
         <ul class="limits">
           {limitsText(W, H).map((l) => (
             <li key={l}>{l}</li>
           ))}
         </ul>
       </details>
-      <button type="button" class="ghost wide" onClick={p.onReset}>
+      <button type="button" class="ghost wide" title="Put every setting back to the chosen theme's own" onClick={p.onReset}>
         Reset to the theme's settings
       </button>
     </div>

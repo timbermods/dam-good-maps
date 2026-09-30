@@ -107,20 +107,20 @@ export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJ
     <aside class="history" aria-label="History">
       <header>
         <h2>History</h2>
-        <button type="button" class="linkish" aria-label="Close the history" onClick={onClose}>
+        <button type="button" class="linkish" aria-label="Close the history" title="Close the history" onClick={onClose}>
           ×
         </button>
       </header>
       <p class="muted">Click a step to go back to it. Nothing is lost: you can go forward again until you make a new edit.</p>
       <ol>
         <li>
-          <button type="button" class="linkish" aria-current={current === -1} onClick={() => onJump(-1)}>
+          <button type="button" class="linkish" aria-current={current === -1} title="Go back to the map as it was before any edit" onClick={() => onJump(-1)}>
             {info.kind === "import" ? "Opened the map" : "The generated map"}
           </button>
         </li>
         {info.history.map((h, k) => (
           <li key={k} class={h.applied ? "" : "undone"}>
-            <button type="button" class="linkish" aria-current={current === k} onClick={() => onJump(k)}>
+            <button type="button" class="linkish" aria-current={current === k} title={`Go to the map as it was after: ${h.label}`} onClick={() => onJump(k)}>
               {h.label}
             </button>
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}

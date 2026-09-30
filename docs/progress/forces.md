@@ -1475,3 +1475,10 @@ Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDI
   reference (EDITOR_PLAN §7) is updated; the first-run hints name no key, so they stand.
 - Tests updated for the new names: the Select row's "Up 1" and "Down 1", the saved file names (`dgm-<theme>-<seed>`,
   places `dgm-<place>`, the folder's numbering `-2`), the taken-name test in `platform.test.ts`.
+- **B12 (D351):** every control has a tooltip; the sweep added the missing ones and corrected the ones this week's changes
+  made wrong (Select's Ctrl+click, Shift+scroll and X, Delete's menu, a picked source and object, Quake's Lift and Slide,
+  the ⋯ menu, the history, the settings page). `tests/e2e/tooltips.spec.ts` collects the interactive controls from the
+  rendered page in every state and fails on any without a `title` (its own, or its label's). Batch A's new controls carry
+  their own tooltips; check them when `feature/forces` is merged in.
+- **B13 (D352):** the forces row in clusters, one list (`FORCE_GROUPS`); keys unchanged (Erupt 0 before Quake 9 in the row);
+  the first-run hint points at Carve, and a kept force completes it.

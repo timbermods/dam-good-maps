@@ -40,7 +40,9 @@ async function hold(page: Page, x: number, y: number) {
 test("brushes and sources (D249, D322): they ride the ground; Keep holds them; Clear takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (taller than the default: the tools, the forces and the options are three rows over the map, D323 item 9)
+  // (taller than the default: the tools, the forces and the options are rows over the map, D323 item 9, and a
+  // brush's options take two lines; the map is framed whole and centred, D345 B1, so the view is centred on the
+  // two spots below, clear of the rows)
   await page.setViewportSize({ width: 1280, height: 960 });
   await page.goto("./#s=4242&z=96&d=n&t=highlands");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
@@ -54,13 +56,8 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
     const i = window.dgmEditor!.info();
     const st = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
     const m = window.dgm3d!.renderer.mapState()!;
-    const onMap = (x: number, y: number) => {
-      const p = window.dgmEditor!.tileToClient(x, y);
-      // (below the rows over the map, which grow with the tool picked)
-      return p.y > 340 && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
-    };
     const clear = (x: number, y: number) => {
-      for (let yy = y - 6; yy <= y + 6; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (m.surface.depth[yy * m.W + xx] > 0 || m.heights[yy * m.W + xx] > 12 || !onMap(xx, yy)) return false;
+      for (let yy = y - 6; yy <= y + 6; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (m.surface.depth[yy * m.W + xx] > 0 || m.heights[yy * m.W + xx] > 12) return false;
       return true;
     };
     for (let y = 16; y < m.H - 16; y += 2)
@@ -70,6 +67,12 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   expect(spot).not.toBeNull();
   const [ax, ay] = spot!;
   const bx = ax + 14;
+  // the view centred between the two spots, so no bar is over them
+  await page.evaluate(([x, y]) => {
+    const r = window.dgm3d!.renderer;
+    r.setView({ target: [x + 0.5, r.getView().target[1], -(y + 0.5)] });
+  }, [ax + 7, ay] as [number, number]);
+  await page.waitForTimeout(300);
   const shelf = page.getByRole("navigation", { name: "Place" });
   await shelf.getByRole("button", { name: /^Water source/ }).click();
   for (const x of [ax, bx]) {
