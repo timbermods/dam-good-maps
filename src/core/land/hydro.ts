@@ -1330,7 +1330,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const alongEdge = e === "west" || e === "east" ? 1 : 0;
     for (let a = 0; a < k; a++) {
       const sgn = a % 2 === 0 ? 1 : -1;
-      const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2));
+      // (D350: apart in proportion to the map's side, as the root: at 256² the mouths 13–22 tiles
+      // apart ran together at the edge, wider and wandering rivers there)
+      const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2)) * Math.sqrt(Math.max(1, Math.min(W, H) / 128));
       const ex = alongEdge ? (e === "west" ? -1 : W) : clamp(end[0] + shift, 6, W - 7);
       const ey = alongEdge ? clamp(end[1] + shift, 6, H - 7) : e === "south" ? -1 : H;
       const mid: Point = [(p0[0] + ex) / 2 + (rng.float() - 0.5) * 6, (p0[1] + ey) / 2 + (rng.float() - 0.5) * 6];

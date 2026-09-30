@@ -182,3 +182,75 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
   }
   return blocked;
 }
+
+/** Where a river's standing water ties with its exit's level on another edge (D350, Delta's lowland
+ *  courses on the beds' floor: the water split at the tie, most of it left by the near edge, and
+ *  the lower course stood dry), the edge there gets a lip a level over that water: the run of edge
+ *  tiles at or under it round where the water leaves, two rows deep, never a mouth's own tiles, never
+ *  more than a quarter of the edge or a rise of `maxRise`. Returns whether any lip was raised. */
+export function closeSideEdges(h: Uint8Array, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = [], maxRise = 2): boolean {
+  const N = W * H;
+  const sealed = sealedMouths(rivers, W, H);
+  const all = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
+  const out = new Int32Array(N).fill(-1);
+  for (let q = 0; q < all.order.length; q++) {
+    const i = all.order[q];
+    const r = all.rcv[i];
+    out[i] = r < 0 ? i : out[r];
+  }
+  const byId = new Map(rivers.map((r) => [r.id, r]));
+  const exitsOf = (r: RiverFeature, seen = new Set<string>()): number[] => {
+    const e = r.params.exit;
+    if ("river" in e) {
+      const to = byId.get(e.river);
+      if (!to || seen.has(to.id)) return [];
+      seen.add(r.id);
+      return exitsOf(to, seen);
+    }
+    const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
+    if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
+    return tiles;
+  };
+  const tol = Math.max(12, Math.round(0.35 * Math.min(W, H)));
+  const onStretch = (i: number, exits: readonly number[]) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return exits.some((e) => {
+      const ex = e % W;
+      const ey = (e - ex) / W;
+      if ((ex === 0 || ex === W - 1) && x === ex && Math.abs(y - ey) <= tol) return true;
+      if ((ey === 0 || ey === H - 1) && y === ey && Math.abs(x - ex) <= tol) return true;
+      return false;
+    });
+  };
+  let changed = false;
+  const done = new Set<number>();
+  for (const r of rivers) {
+    if (r.params.badwater) continue;
+    const exits = exitsOf(r);
+    if (!exits.length) continue;
+    for (const c of courseCells(r.params.path, W, H)) {
+      const e = out[c];
+      if (e < 0 || done.has(e) || onStretch(e, exits) || sealed[e]) continue;
+      const lx = e % W;
+      const ly = (e - lx) / W;
+      if (!(lx === 0 || ly === 0 || lx === W - 1 || ly === H - 1)) continue;
+      done.add(e);
+      const top = Math.floor(all.filled[c]);
+      const vertical = lx === 0 || lx === W - 1;
+      const len = vertical ? H : W;
+      const rows = [0, 1];
+      const at = (k: number, t: number) => (vertical ? k * W + (lx === 0 ? t : W - 1 - t) : (ly === 0 ? t : H - 1 - t) * W + k);
+      let k0 = vertical ? ly : lx;
+      let k1 = k0;
+      while (k0 > 0 && h[at(k0 - 1, 0)] <= top && !sealed[at(k0 - 1, 0)]) k0--;
+      while (k1 < len - 1 && h[at(k1 + 1, 0)] <= top && !sealed[at(k1 + 1, 0)]) k1++;
+      let low = Infinity;
+      for (let k = k0; k <= k1; k++) low = Math.min(low, h[at(k, 0)]);
+      if (k1 - k0 + 1 > 0.25 * len || top + 1 - low > maxRise) continue;
+      for (let k = k0; k <= k1; k++) for (const t of rows) if (h[at(k, t)] <= top && !sealed[at(k, t)]) h[at(k, t)] = top + 1;
+      changed = true;
+    }
+  }
+  return changed;
+}

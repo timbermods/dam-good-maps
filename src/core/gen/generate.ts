@@ -44,7 +44,7 @@ import { drainage } from "../land/drainage";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
-import { blockedCourses, closeBackEdges, sealedMouths } from "../land/courses";
+import { blockedCourses, closeBackEdges, closeSideEdges, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
@@ -953,6 +953,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
+  // (a tie with the exit on another edge: a lip there, D350)
+  for (let k = 0; k < 3 && !blocked.length && closeSideEdges(h, W, H, hy.rivers, mouthArms); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   return { h, hy, keep, ramps, blocked };
 }
 
