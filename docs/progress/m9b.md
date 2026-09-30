@@ -296,7 +296,9 @@ sends: a generated one, a version the background search found, a sibling, an edi
   then 23 tiles wide, the first that settles. It is part of the land (the field), so the link
   rebuilds it. Captures: `investigation/m9b/worn-way-out-delta-4-128.png` (59 tiles) and
   `...-lakeBasin-8-128.png` (13); each shows the land as shown, as the map arrived, and the cut in
-  orange (`investigation/m9b/worn.ts`).
+  orange (`investigation/m9b/worn.ts`). (Superseded by D358 and D360 (3), 2026-10-01: with the
+  6-day settle neither map needs a cut, and the cut is now one shape; the captures are
+  `worn-way-out-any-5-128.png` and `worn-way-out-lakeBasin-4-256.png`.)
 - **Islands:** the sea's rim is never breached at the edges (its inner line wandered to the edge and
   the sea drained out, 256² seeds 1–3); the edge layout's sea larger and further in; islands spread
   over the sea's ellipse; on larger maps fewer, larger islands (count × area^0.3, size × area^0.35:
@@ -387,8 +389,9 @@ sends: a generated one, a version the background search found, a sibling, an edi
   generated maps 26 keep their bytes, the two that change had water still moving at 4 days. Of the
   25 256² maps that failed water.settles or needed a water fix, 23 passed with 6 days and 16 needed
   no fix at all.
-- **D360 (3)**: the worn way out is one shape along its water's path: a channel whose width changes
-  smoothly, the largest piece of the worn ground kept (`cutShape`: one piece, no stray tiles, nothing
+- **D360 (3)**: the worn way out is one shape along its water's path: a channel widened on one bank
+  (the side that takes the less ground away), its width changing smoothly, the largest piece of the
+  worn ground kept (`cutShape`: one piece, no stray tiles, nothing
   off the path's side; it refuses Lake Basin 8's old cut). The route through a basin's necks is gone
   with it.
 

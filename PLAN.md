@@ -781,8 +781,9 @@ basin whose spill level is a broad flat gets a stream a level under the flat (`c
 sheet stands a few hundredths over a flat (the stream wound like a gully, D209); what is left is
 fixed as the map arrives: a plug (D274) that holds its lake over it is opened, and the way out of
 the basin standing over its level, else of the water still rising, is worn wider
-(`water/outletWear.ts`: along the way its water leaves by, a channel whose width changes smoothly,
-never tile by tile, banks stepping back up a level a tile, a level under the basin past its shore
+(`water/outletWear.ts`: along the way its water leaves by, a channel widened on one bank (the side
+that takes the less ground away), its width changing smoothly, never tile by tile, banks stepping
+back up a level a tile, a level under the basin past its shore
 so the sill is short, never within two tiles of the basin under its level; one shape along that way
 (D360 (3)): the largest piece of the worn ground, the rest left as it was, checked by `cutShape`,
 no stray tiles, nothing off to its side; 9, then 17 tiles, the first that settles, a cut of at most

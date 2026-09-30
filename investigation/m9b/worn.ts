@@ -33,6 +33,6 @@ const panel = (p: number, rgbAt: (i: number) => number[]) => {
 panel(0, (i) => [before[3 * i], before[3 * i + 1], before[3 * i + 2]]);
 panel(1, (i) => [after[3 * i], after[3 * i + 1], after[3 * i + 2]]);
 panel(2, (i) => (isCut[i] ? [240, 140, 40] : [after[3 * i], after[3 * i + 1], after[3 * i + 2]]));
-const out = `investigation/m9b/local/worn-${theme}-${seedS}-${size}.png`; // (D195: kept out of git; the two committed captures were copied by hand)
+const out = `investigation/m9b/local/worn-${theme}-${seedS}-${size}.png`; // (D195: kept out of git; the committed captures, investigation/m9b/worn-way-out-*.png, were copied by hand)
 writeFileSync(out, encodePng(img, IW, IH));
 console.log(out, 'cut', worn.cut.length, 'tiles; basin', worn.basin, 'tiles at level', worn.level, '; panels: the land as shown, as the map arrived, the cut in orange; passed', r.report.passed);

@@ -111,8 +111,8 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 `wearOutlet(h, W, H, depth, { seed, width, keep, basin, floor })` takes the water that doesn't settle
 (`basin`, else the largest basin whose water stands over its spill level, `risenBasin`) and widens
 the way its water leaves by, from the sill beside the basin to lower ground or the map edge and on
-down: a channel whose width changes smoothly along the way (0.8–1.2 of `width`, never tile by
-tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
+down: a channel widened on one bank (the side that takes the less ground away), its width changing
+smoothly along the way (0.8–1.2 of `width`, never tile by tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
 the sill is short. Never within two tiles of the basin under its level, never on `keep`, never below
 `floor`. The cut is one shape along that way (D360 (3)): the largest piece of the worn ground stays
 and the rest is left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray tiles and
