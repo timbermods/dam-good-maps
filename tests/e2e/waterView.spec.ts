@@ -20,9 +20,10 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 15 since M9a, D148: 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there
-  // one group of sources feeds the water, where three rivers join on most maps)
-  await page.goto("./#s=15&z=96&d=n&t=riverValley");
+  // (seed 33 since D333, D148: seed 15's river now has a tributary above its 60%; seed 15 since M9a:
+  // 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there one group of sources feeds
+  // the water, where three rivers join on most maps)
+  await page.goto("./#s=33&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

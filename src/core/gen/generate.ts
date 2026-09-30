@@ -83,8 +83,10 @@ import { pickStart, type DroughtPolicy, type StartPick } from "./settler";
 export type { IntentionResult };
 
 /** Attempts before the last one is kept whatever it is (16 since batch 5, D325: with item 47's
- *  must-haves a few seeds pass only after 12; the first map that passes is returned at once). */
-export const MAX_ATTEMPTS = 16;
+ *  must-haves a few seeds pass only after 12; 24 since D333, whose land stage refuses a land with no
+ *  start before its settle, a cheap attempt, and whose kept land takes a second; the first map that
+ *  passes is returned at once). */
+export const MAX_ATTEMPTS = 24;
 /** Plans on one field before a new genome is drawn. */
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
@@ -234,7 +236,7 @@ interface LandStage {
 }
 
 /** Attempts on one committed land before new land is drawn (D333 (2): the land shown is kept). */
-export const LAND_TRIES = 4;
+export const LAND_TRIES = 2;
 /** How far round a start that failed the next attempt on the same land keeps off. */
 const TRIED_RADIUS = 16;
 
@@ -359,9 +361,10 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 
 /** A lake's shelves (D333): the tiles of a lake the hydrology planned (its water 2) that stand at the
  *  level its water spills at (the priority flood from the map's edges), in 4-connected groups of
- *  SHELF_MIN tiles or more of one level, off the locks and the protected tiles; each is cut a level
+ *  SHELF_MIN tiles or more of one level (smaller ones cut changed the lakes by the start that the
+ *  Drought reserve setting reads), off the locks and the protected tiles; each is cut a level
  *  lower, never below the beds' floor. Returns how many were cut. */
-export const SHELF_MIN = 20;
+export const SHELF_MIN = 60;
 function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
   const N = W * H;
   const spill = drainage(h, W, H, { eight: false }).filled;

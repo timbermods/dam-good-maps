@@ -531,8 +531,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // D333 (3): the water reaches the land (a readable story, D294: water in one corner leaves most of
   // the land bare): while the planned courses leave more than REACH_WANT of the land farther from
   // them than the story's reach, a spring on the ground farthest from them starts a tributary that
-  // joins them
-  if (natural && heads.length > 0) {
+  // joins them (not where the player asked for Generous buildable land: its rivers cut the flats)
+  if (natural && heads.length > 0 && g.hydro.reachSprings !== false) {
     const R = STORY_REACH * side;
     let separateOne = false;
     for (let more = 0; more < 4 && heads.length < maxHeads; more++) {

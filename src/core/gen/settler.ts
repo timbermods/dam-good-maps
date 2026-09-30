@@ -439,6 +439,8 @@ export function pickStart(
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);
+  // (a best score under zero, a start intention pulling hard against every place: the best alone)
+  if (!good.length) good.push(top[0]);
   let c = good[rng.int(0, good.length)];
   const near = opts.near;
   if (near) {

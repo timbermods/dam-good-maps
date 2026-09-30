@@ -1,12 +1,13 @@
 # M9b: composition and variety
 
-> **Hand-back note (batch 5, D325; 2026-09-29).** Branch `feature/m9b` (draft PR #70), from `dev`
-> (merged to e2ed9d90). Batch 5 of Kyler's build order (`docs/feedback/2026-09-29-build-order.md`),
-> step by step below ("Batch 5"). Steps 1–5 in (the one re-pin done, the quick suite green), and
-> D330's two generator pieces (Sources: None, the automatic water fix), and step 6 (the numbers as
-> data). Next: step 7, the release candidate (the batches, the chaos batch, then the pooled probe on
-> Kyler's yes, then the review set).
-> Defaults this session chose: decisions-pending #135–#146.
+> **Hand-back note (D333, M9b's answers; 2026-09-29).** Branch `feature/m9b` (draft PR #70). Batch 5
+> (D325) is in, and the pooled probe ran on Kyler's yes (m9b-20260929b: 14 of 18 maps pass everything;
+> the two Sources: None maps' water check fixed; the refill gap explained, below). D333's answers are
+> built: the land kept once it passes (speed), first maps' quality, one note for a missed promise,
+> the nightly settings' verdicts and re-bases, item 47 scaled below 80², the Sources setting in
+> PLAN §5, `walkReach` and `levers` in the worker's response (#92). Next: the release candidate
+> (the batches, the review set). Defaults this session chose: decisions-pending #135–#149 (#135, #144,
+> #146 settled by D333).
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
@@ -111,7 +112,7 @@ m9a-badwater), both chaos maps with them.
 - **The land is kept once it passes its own stage** (`gen/generate.ts` `planLandStage`): its rivers
   planned, their courses checked, and a start on the water they were planned with (a land with no
   place for one is drawn again before any settle). The first look (`onLand`) fires then, once per
-  land. What fails after it is planned again on the same land, up to `LAND_TRIES` (4), keeping off
+  land. What fails after it is planned again on the same land, up to `LAND_TRIES` (2), keeping off
   the starts that failed; only a failure bound to the land (water that never settles, no start on
   its settled water) draws new land. A river whose row of sources another's water reaches leaves,
   as a reached spring does.
@@ -125,16 +126,17 @@ m9a-badwater), both chaos maps with them.
 
   | | before | after | D333's target |
   |---|---|---|---|
-  | 128², the land | 0.4 / 5.6 s | 0.5 / 5.7 s | |
-  | 128², settled water | 2.2 / 7.2 s | 1.9 / 7.0 s | |
-  | 128², the map | 3.0 / 7.9 s | 2.7 / 8.7 s | 2 / 5 s to a settled map (accepted) |
-  | 256², the land | 1.9 / 20.2 s | 1.7 / 12.1 s | 3 / 6 s |
-  | 256², settled water | 8.5 / 24.7 s | 7.1 / 19.8 s | 8 / 20 s |
-  | 256², the map | 11.0 / 26.4 s | 9.5 / 22.4 s | |
+  | 128², the land | 0.4 / 5.6 s | 0.5 / 4.9 s | |
+  | 128², settled water | 2.2 / 7.2 s | 1.8 / 6.2 s | |
+  | 128², the map | 3.0 / 7.9 s | 2.5 / 7.1 s | 2 / 5 s to a settled map (accepted) |
+  | 256², the land | 1.9 / 20.2 s | 1.8 / 13.3 s | 3 / 6 s |
+  | 256², settled water | 8.5 / 24.7 s | 7.1 / 23.0 s | 8 / 20 s |
+  | 256², the map | 11.0 / 26.4 s | 9.5 / 25.2 s | |
 
-  256²'s land at the 90th percentile misses: a land drawn again after its water failed to settle
-  (10 of 70 maps, most of them Islands' seas) or after its settled water left no start. Lands shown
-  and then drawn again: 18 of 70 at 128², 12 at 256².
+  The medians meet D333's targets; the 90th percentiles at 256² don't: a land drawn again after its
+  water failed to settle (11 of 70 maps, most of them Islands' seas) or after its settled water left
+  no start, and one Any map that took 14 attempts (133 s). Lands shown and then drawn again: 19 of
+  70 at 128², 15 at 256².
 
 ### First maps meeting all three outcomes (D333 (3))
 
@@ -142,19 +144,21 @@ Seeds 1–10 of every theme (before: 7695e6a8):
 
 | Theme | 128² before | 128² after | 256² before | 256² after |
 |---|---|---|---|---|
-| Any | 7 | 8 | 7 | 9 |
-| River Valley | 1 | 5 | 4 | 6 |
+| Any | 7 | 9 | 7 | 7 |
+| River Valley | 1 | 4 | 4 | 6 |
 | Canyon | 7 | 5 | 4 | 6 |
-| Highlands | 3 | 6 | 2 | 5 |
-| Lake Basin | 3 | 5 | 2 | 3 |
-| Delta | 4 | 5 | 3 | 3 |
-| Islands | 4 | 6 | 5 | 7 |
-| All | 29 of 70 | 40 of 70 | 27 of 70 | 39 of 70 |
+| Highlands | 3 | 5 | 2 | 5 |
+| Lake Basin | 3 | 5 | 2 | 1 |
+| Delta | 4 | 3 | 3 | 3 |
+| Islands | 4 | 7 | 5 | 7 |
+| All | 29 of 70 | 38 of 70 | 27 of 70 | 35 of 70 |
 
 What changed, first-attempt quality and no more attempts: the tributary under a cleared floor and
 the lake shelves (above; River Valley's water split into systems at its junctions); the story is the
 clean water's, badwater contained by item 47 left out of it (#148); springs where the planned
-courses leave the land beyond the story's reach, one river of its own allowed when none joins; River
+courses leave the land beyond the story's reach, one river of its own allowed when none joins (not
+with Generous buildable land or a Drought reserve moved from the theme's, which plan that land and
+water themselves); River
 Valley always has an inflow, and a map with none looks again with shorter paths; Islands' sea 1.12×
 as big and its islands 1.15× and at least 2.5 levels up (#149). Two-thirds is not reached. What
 misses most: Lake Basin's and Delta's promise at 256² (lakes under 4% of the map, fewer than three
@@ -162,6 +166,38 @@ mouths: their lakes and arms spread on the flat low ground the beds' floor leave
 long enough but under a fifth of a long river), Islands' (fewer than three islands on some sea
 layouts), River Valley's water (a spring-fed map whose inflow edge lies below a ridge: its water
 reaches a fifth of the land).
+
+### The nightly settings experiment (D333 (6))
+
+Ten of 34 failed at batch 5's hand-back. Each, run at seeds 1–4 at 96² as the nightly runs it, on
+the generator before batch 5 (00b39b56), at batch 5's hand-back (7b6eba7e) and now:
+
+| Setting | Verdict |
+|---|---|
+| Relief | Still changes the map (the height range 9.5 → 11.5 levels, and its cliffs), less: the base raise (item 47) leaves 12 levels under the editor's 16 where there were 15. **Re-based** (D148) to 2 levels. |
+| Verticality | **Weak, not fixed.** It still sets the height (17–22 from 70) but no longer the cliffs' share: 16 seeds, 0.034 before batch 5, 0.023 at its hand-back (the base raise, the readable land at 70+), ≈0 now (D333's cut channels and lakes add cliffs at every Verticality). |
+| Lakes and basins | **Weak, partly fixed.** Short before batch 5 too (2.7 of 3); the beds' floor flattened the lowest basins (1.5); the setting's basins now dig 1.6× as deep (2.5–2.8). |
+| Waterfalls | Changes the map as its target asks (2.8 of 2.5 now). |
+| Badwater distance | Moves the badwater 8 tiles where it moved 35: item 47 keeps a pit off the lowest ground and prefers short ditches, so at 20 the badwater stands about 40 tiles out. **Re-based** (D148) to 6 tiles; the start rule's own distance and Designed for pass. |
+| Forest density | Changes the map as much (×2.9, 50% → 200%); the counts are a third since item 26 counts living trees. **Re-based** (D148) to 250 trees. |
+| Berries near start | Passes now (34 → 88). |
+| Mine sites | Item 47's minimum is two: **re-based** (D148) to 2 → 4. |
+| Start rules: no badwater within | Passes now (moved 20–35). |
+| Designed for | Passes now (moved 17). |
+
+D333's own first cut weakened two more, both fixed: Buildable land (the springs added toward far
+land cut Generous's flats: none where the player asks for Generous) and Drought reserve (small lake
+shelves cut, and the added springs, drew starts to water or away from it: shelves of 60+ tiles only,
+and no added springs where the reserve is moved from the theme's).
+
+### 48² maps (D333 (7))
+
+Maps under 80² (`SMALL_MAP`, #147; Kyler named 48²) need one mine site the colony reaches, and never
+draw the district-behind-an-obstacle intention; the starting-logs floor and the other absolutes
+stay (the Python validator the same). Seeds 1–10 of every theme: 48² passed 23 of 70 within the
+attempts before, 39 after; 64² 57 → 67. What still fails at 48² is no start (a 5×5 of level, dry
+ground by water within the rule's walk), on the M9a generator too (8 of 35): the land's shapes are
+too large for a 48² map, a question for the land's scale, not item 47.
 
 ### Items 24's and 47's numbers reach the page (#92)
 
@@ -569,3 +605,23 @@ check, the start, the water settling).
   district (Islands 2, 8, Lake Basin 2, River Valley 4), ruins on a rise (Islands 10, 6, Highlands
   13, River Valley 7), the badwater river (River Valley 128² seed 3), the builders' ranges (seed
   13), the dropped source (River Valley 96² seed 2); the 4242 sha `050fe985…`.
+- D333, decisions: `versions.test.ts`: only a missed theme promise gets a note (D333 (5)); the
+  settings suite (`tools/settings-suite.ts`, the nightly's `settings.test.ts`): Relief moves at
+  least 2 levels (the base raise leaves 12 of the 15), Badwater distance at least 6 tiles (item 47's
+  pits stand off the lowest ground and keep short ditches), Forest density at least 250 living trees
+  (item 26), Mine sites 2 → 4 (item 47's two); `objects.test.ts`'s second district walks round the
+  objects that block the way. New: the probe's water check on a dry map (`investigation/probe`
+  self-test), the response's `walkReach` and `levers` (`levers.test.ts`).
+- D333, re-seeded for its maps: every object on (seed 3), the second district (Islands 2, River
+  Valley 3, Canyon 2, River Valley 4), ruins on a rise (Islands 1, 4, Highlands 13, Any 6), the weir
+  (Canyon 6, 7, 10, 16, Highlands 2), the resource areas' map (River Valley 128² seed 78), the ramped
+  flatten (River Valley 96² seed 1), Naturalize's Canyon (seed 2), the oxbow carve (Highlands 96²
+  seed 2, (48, 86) toward (48, 10): no Canyon seed to 400 seals its lake on D333's maps), a group of
+  operations deletes any tree (the map has no birch), the fall lips' Highlands (seed 5; seeds 1 and 3 miss by 4–10× at one
+  lip on the maps before D333 too, a look finding), the edge lake (Lake Basin 96² seed 3), the
+  background version (River Valley 96² seed 1); the 4242 sha `9644dc88…`; the browser specs: the 3D
+  view's legend (4247: 4242's map has no dead tree), smart Lower (seed 2), the editor's round trip
+  (4261: 4254's moved start has little wood and plants a drought dries), the hover readout (a tile
+  of the start's pad: (40, 40) is water), the water view (seed 33: seed 15's river takes a tributary
+  above the point it reads).
+

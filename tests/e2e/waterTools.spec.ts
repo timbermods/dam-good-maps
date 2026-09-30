@@ -58,7 +58,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // (seed 9 since D252's start planting, D148: seed 15, used since M9a's first maps, now has only one
   // stretch of flat, dry, empty ground 7 wide away from its start, and the test places two sources;
   // on 0.7.0's 4242 the river where the stroke starts has water on both sides of the line)
-  await page.goto("./#s=9&z=96&d=n&t=riverValley");
+  await page.goto("./#s=2&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

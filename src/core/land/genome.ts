@@ -73,6 +73,9 @@ export interface Genome {
     inflows: number;
     /** The Rivers setting's count, which the hydrology finds exactly when it can (set by `leanGenome`). */
     exactInflows?: boolean;
+    /** Springs added toward land far from the water (D333 (3)); false where the player asked for
+     *  Generous buildable land (set by `leanGenome`). */
+    reachSprings?: boolean;
     /** River style Straight: how far (0–1) each course is drawn toward the line between its ends
      *  (set by `leanGenome`). */
     straighten?: number;
@@ -857,6 +860,11 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const dt = (s.terrain.terracing - p.terracing) / 100;
   g.terrace.share = clamp(g.terrace.share + 0.9 * dt, 0, 1);
   if (dt >= 0.25 && g.terrace.step < 2) g.terrace.step = 2;
+  // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
+  // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
+  // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
+  // and away from the water a Plenty one stores)
+  g.hydro.reachSprings = s.terrain.buildableLand !== "generous" && s.water.droughtReserve === p.droughtReserve;
   // rivers entering on the edges (0: springs feed the water)
   // (a count the player set is the count that enters, PLAN §5.3; the preset's leaves the genome's)
   if (s.water.rivers === 0) {

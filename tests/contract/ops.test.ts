@@ -142,7 +142,8 @@ describe("invalid operations are rejected with a reason and change nothing", () 
 
   it("a group of operations is one step: one undo takes it all back", () => {
     const g = fresh();
-    const tree = r.built.entities.find((e) => e.template === "Birch")!;
+    // (any tree: D333's map has no birch, D148)
+    const tree = r.built.entities.find((e) => /^(Birch|Pine|Oak)$/.test(e.template))!;
     const res = g.applyAll(
       [
         { op: "sculpt", params: { mode: "raise", cells: rectRuns(2, 2, 4, 4), amount: 1 } },
