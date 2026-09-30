@@ -6,6 +6,7 @@
 // exactly as shown, Esc takes it back at once, Try another varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
+import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -196,25 +197,25 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   const timed = async (speed: string) => {
     await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
     const p = await client(page, at[0], at[1]);
-    const t0 = Date.now();
     await page.mouse.click(p.x, p.y);
-    await expect.poll(() => status(page), { timeout: 60_000, intervals: [20] }).toBeNull();
-    const ms = Date.now() - t0;
+    await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.forceTiming()))?.kept ?? 0, { timeout: 60_000 }).toBeGreaterThan(0);
+    const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
     await idle(page);
     await page.keyboard.press("Control+z");
     await idle(page);
-    return ms;
+    return t;
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // about two seconds either way (Fast) on a GPU: the water's speed is about the water only; where the
-  // browser draws in software (CI) each frame costs far more, so the wall clock is only bounded there,
-  // as Erupt's (c90e071b)
-  const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
-  expect(slow).toBeGreaterThan(1000);
-  expect(slow).toBeLessThan(software ? 8000 : 3200);
-  expect(quick / slow).toBeGreaterThan(0.7);
-  expect(quick / slow).toBeLessThan(1.4);
+  // the same glacier, shown at Fast's pace either way: its showing is the force's own (its steps, the
+  // time it took to work out), never the water's. (D341: the pace as the page plans it, not the wall
+  // clock of a busy machine; the driver keeps to its plan on exact time in forceDriver.test.)
+  expect(quick.total).toBe(slow.total);
+  for (const t of [slow, quick]) {
+    expect(t.speed).toBe("fast");
+    expect(Math.abs(t.show - showMs("glaciate", t.total, "fast", t.worked))).toBeLessThanOrEqual(1);
+    expect(t.due).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
+  }
 });
 
 test("Glaciate's size at the cursor (D312): a faint ring of its width, following Power and Size; no route or outline", async ({ page }) => {

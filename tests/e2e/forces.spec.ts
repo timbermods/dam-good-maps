@@ -9,6 +9,7 @@
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
+import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -416,20 +417,23 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
   const { far } = await places(page);
   const timed = async (speed: string) => {
     await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
-    const t0 = Date.now();
     await clickTile(page, far[0], far[1]);
-    await expect.poll(() => status(page), { timeout: 30_000, intervals: [20] }).toBeNull();
-    const ms = Date.now() - t0;
+    await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.forceTiming()))?.kept ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
+    const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
     await idle(page);
     await page.keyboard.press("Control+z");
     await idle(page);
-    return ms;
+    return t;
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // the same moment either way (the water's speed is about the water only)
-  expect(quick / slow).toBeGreaterThan(0.6);
-  expect(quick / slow).toBeLessThan(1.6);
+  // the same impact at its own pace either way: the water's speed is about the water only (D341: the
+  // pace as the page plans it, never a busy machine's wall clock)
+  expect(quick.total).toBe(slow.total);
+  for (const t of [slow, quick]) {
+    expect(t.speed).toBe("fast");
+    expect(Math.abs(t.show - showMs("craterize", t.total, "fast", t.worked))).toBeLessThanOrEqual(1);
+  }
 });
 
 // Kyler's forces sitting, part 1 (PLAN §20 D312)
@@ -516,17 +520,17 @@ test("Erupt's terrain is final in about two seconds (D312); its effects may ling
   const p = await client(page, far[0], far[1]);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
-  const t0 = Date.now();
   await page.mouse.click(p.x, p.y);
-  await expect.poll(() => status(page)).not.toBeNull();
-  await expect.poll(() => status(page), { timeout: 10_000, intervals: [50] }).toBeNull();
-  const ms = Date.now() - t0;
+  await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.forceTiming()))?.kept ?? 0, { timeout: 60_000 }).toBeGreaterThan(0);
+  expect(await status(page)).toBeNull();
+  const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
   const software = await page.evaluate(() => !!(window.dgm3d!.renderer as unknown as { software?: boolean }).software);
-  console.log(`Erupt: the terrain final ${ms} ms after the click${software ? " (software rendering)" : ""}`);
-  // about two seconds on a GPU (a busy machine's frames add a little); where the browser draws in
-  // software (CI), each frame of the eruption costs the page far more: there the paced part is
-  // checked (its stages at the eruption's pace, forceDriver.test) and the wall clock only bounded
-  expect(ms).toBeLessThan(software ? 8000 : 3000);
+  console.log(`Erupt: worked out ${t.worked} ms, the terrain final ${t.final} ms after the click${software ? " (software rendering)" : ""}`);
+  // about two seconds: its 28 stages at the eruption's own pace, planned to be final within Fast's two
+  // seconds of the click (or just after a slow working-out). D341: the plan, checked here; the driver
+  // keeps to it on exact time (forceDriver.test); a busy machine's frames only add to the wall clock
+  expect(Math.abs(t.show - showMs("erupt", t.total, "fast", t.worked))).toBeLessThanOrEqual(1);
+  expect(t.due).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
   // at once: the tools answer (a brush picked)
   await page.keyboard.press("1");
   await expect(page.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");

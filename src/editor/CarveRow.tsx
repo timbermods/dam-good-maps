@@ -101,7 +101,7 @@ export function CarveRow(p: CarveRowProps) {
           <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
-          <button type="button" disabled={st.stopping} onClick={p.onRevert} title="Take all of it back (Esc)">
+          <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
             Revert
           </button>
         </div>

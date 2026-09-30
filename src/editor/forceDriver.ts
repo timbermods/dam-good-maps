@@ -8,10 +8,15 @@
 // the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
 // water stays as it was until the land is final (item 30), then flows on as after any edit; the camera
 // never moves by itself (D265). Pause holds a carve; a force is kept when it ends; Esc (in Fast) or undo
-// drops all of it at once. A painted Lift is shown whole as it is painted (the page sends the latest
-// stroke whenever the worker is free) and kept when the pointer lets go. Nothing on the page waits on
-// it: the effects that are only a show (the water filling a channel, dust, lava's glow) play on after
-// the land is final, and the player can act again at once.
+// drops all of it at once, at any moment while the force is at work, its keep on its way included
+// (D341): each force is a gesture the worker knows by name, so Esc reaches it whatever the worker is
+// doing, and nothing of it lands afterwards. A painted Lift is shown whole as it is painted (the page
+// sends the latest stroke whenever the worker is free) and kept when the pointer lets go. Nothing on
+// the page waits on it: the effects that are only a show (the water filling a channel, dust, lava's
+// glow) play on after the land is final, and the player can act again at once (undo takes it back).
+//
+// Its time comes from a clock (the page's by default): the tests step it, so every moment of a force
+// can be reached exactly, never by waiting on the wall clock.
 
 import type { Verb } from "../core/forces/op";
 import type { Point } from "../core/forces/quake";
@@ -52,7 +57,26 @@ export function showMs(verb: Verb, total: number, speed: ForceSpeed, workedMs: n
   return speed === "watch" ? WATCH_FACTOR * fast : Math.min(fast, Math.max(MIN_SHOW_MS, FAST_MS - workedMs));
 }
 
+/** When the land is final, from the gesture (ms), as the driver plans it: the worked-out time plus
+ *  its showing (`showMs`). */
+export function dueMs(verb: Verb, total: number, speed: ForceSpeed, workedMs: number): number {
+  return workedMs + showMs(verb, total, speed, workedMs);
+}
+
+/** The driver's time: the page's clock and timers, or a test's own. */
+export interface ForceClock {
+  now(): number;
+  sleep(ms: number): Promise<void>;
+}
+
+const PAGE_CLOCK: ForceClock = {
+  now: () => performance.now(),
+  sleep: (ms) => new Promise<void>((r) => setTimeout(r, ms)),
+};
+
 export interface ForceStatus {
+  /** The gesture's name (D341): the worker knows the force by it. */
+  gesture: number;
   verb: Verb;
   /** Steps shown. */
   steps: number;
@@ -68,14 +92,16 @@ export interface ForceStatus {
 }
 
 export interface ForceHost {
-  /** Start it in the worker (a new force, or Try another), after the calls before it. */
-  start(again: boolean): Promise<ForceStarted>;
+  /** Start it in the worker (a new force, or Try another) as `gesture`, after the calls before it. */
+  start(again: boolean, gesture: number): Promise<ForceStarted>;
   advance(steps: number): Promise<ForceFrame | null>;
   /** A painted Lift's stroke as it is now. */
   paint?(path: Point[], side: 1 | -1): Promise<ForceFrame | null>;
-  /** Keep it (one undo step), or drop it; each applies the worker's answer to the page. */
-  keep(): Promise<void>;
-  drop(): Promise<void>;
+  /** Keep it (one undo step), or drop it; each applies the worker's answer to the page. The keep
+   *  asks `wanted()` when its turn comes, and sends nothing once Esc has come; the drop takes the
+   *  gesture back in the worker whatever it has reached (D341), its keep included. */
+  keep(gesture: number, wanted: () => boolean): Promise<void>;
+  drop(gesture: number): Promise<void>;
   renderer(): MapRenderer | null;
   /** Show a frame: the ground and the objects. */
   show(f: ForceFrame): void;
@@ -90,7 +116,21 @@ export interface ForceHost {
   speed?(): ForceSpeed;
 }
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** A force's times, from its gesture (ms): worked out; its land final, as planned (`due`) and as it
+ *  came (`final`, 0 until then); kept (0 until then); and its showing: `total` steps in `show` ms. */
+export interface ForceTiming {
+  worked: number;
+  due: number;
+  final: number;
+  kept: number;
+  total: number;
+  show: number;
+  speed: ForceSpeed;
+}
+
+/** Gestures are named once for the page's life, whichever driver starts them: an editor opened again
+ *  never reuses a name the worker still knows. */
+let gestures = 0;
 
 export class ForceDriver {
   status: ForceStatus | null = null;
@@ -98,32 +138,45 @@ export class ForceDriver {
    *  shows, with one click to pin it. Kept past the run's end (unlike `status`), so the row can show
    *  it once the force is kept or dropped. */
   lastSettings: Partial<Record<Verb, AnyForceSettings>> = {};
-  /** The last force's times (ms from the gesture): worked out, its land final, and kept (0 until then). */
-  timing: { worked: number; final: number; kept: number } | null = null;
+  /** The last force's times. */
+  timing: ForceTiming | null = null;
   private t0 = 0;
   private token = 0;
+  /** The last force's gesture (0: none yet). */
+  private gesture = 0;
+  /** Gestures Esc took back (their keep, if its turn hasn't come, sends nothing). */
+  private dropped = new Set<number>();
   /** A painted stroke waiting for the worker (the latest wins), and one in flight. */
   private stroke: { path: Point[]; side: 1 | -1 } | null = null;
   private painting = false;
 
-  constructor(private readonly host: ForceHost) {}
+  constructor(
+    private readonly host: ForceHost,
+    private readonly clock: ForceClock = PAGE_CLOCK,
+  ) {}
 
   get running(): boolean {
     return this.status !== null;
   }
 
+  /** The gesture of the force started last (kept, dropped or at work; 0: none yet). */
+  get lastGesture(): number {
+    return this.gesture;
+  }
+
   /** Start a force (`again`: Try another; `painting`: a Lift painted as it goes). False when the
-   *  worker refused it (its reason is shown). */
+   *  worker refused it (its reason is shown), or Esc took it back before it began. */
   async start(again = false, painting = false): Promise<boolean> {
     if (this.status) return false;
     const token = ++this.token;
-    const t0 = (this.t0 = performance.now());
+    const gesture = (this.gesture = ++gestures);
+    const t0 = (this.t0 = this.clock.now());
     this.timing = null;
-    this.status = { verb: "carve", steps: 0, paused: false, stopping: false, seed: 0, painting, speed: this.host.speed?.() ?? "fast" };
+    this.status = { gesture, verb: "carve", steps: 0, paused: false, stopping: false, seed: 0, painting, speed: this.host.speed?.() ?? "fast" };
     this.host.changed();
     let r: ForceStarted;
     try {
-      r = await this.host.start(again);
+      r = await this.host.start(again, gesture);
     } catch (e) {
       r = { ok: false, errors: [String(e instanceof Error ? e.message : e)], frame: null, settings: null };
     }
@@ -176,23 +229,29 @@ export class ForceDriver {
   }
 
   /** Keep it: it ended by itself, a painted Lift was let go, or Watch jumped to its final land (a
-   *  click, a new gesture, Esc): the whole result, at once. */
+   *  click, a new gesture, Esc): the whole result, at once. Esc or undo while it is being kept still
+   *  takes all of it back (D341). */
   async stop(): Promise<void> {
     const st = this.status;
     if (!st || st.stopping) return;
     // a painted stroke still on its way goes first
     if (st.painting) {
-      while (this.painting) await sleep(4);
+      while (this.painting) await this.clock.sleep(4);
       if (this.stroke) await this.pump(this.token);
+      if (this.status !== st) return;
     }
     st.stopping = true;
     this.token++;
     this.host.changed();
+    const g = st.gesture;
     try {
-      await this.host.keep();
+      await this.host.keep(g, () => !this.dropped.has(g));
     } finally {
-      if (this.timing) this.timing.kept = Math.round(performance.now() - this.t0);
-      this.finish(true);
+      // (taken back meanwhile: it is over already, and a new force may be at work)
+      if (this.status === st) {
+        if (this.timing) this.timing.kept = Math.round(this.clock.now() - this.t0);
+        this.finish(true);
+      }
     }
   }
 
@@ -201,13 +260,16 @@ export class ForceDriver {
     return this.stop();
   }
 
-  /** Esc (in Fast) or undo: all of it goes at once. */
+  /** Esc (in Fast) or undo: all of it goes at once, whatever the force has reached (D341): its start
+   *  on its way, worked out, shown, or its keep on its way (the worker takes that back too). */
   cancel(): void {
-    if (!this.status || this.status.stopping) return;
+    const st = this.status;
+    if (!st) return;
     this.token++;
     this.stroke = null;
+    this.dropped.add(st.gesture);
     this.finish(false);
-    void this.host.drop();
+    void this.host.drop(st.gesture);
   }
 
   private finish(kept: boolean): void {
@@ -235,18 +297,19 @@ export class ForceDriver {
       const st = this.status;
       if (token !== this.token || !st) return;
       if (st.paused) {
-        const p0 = performance.now();
-        await sleep(80);
-        held += performance.now() - p0;
+        const p0 = this.clock.now();
+        await this.clock.sleep(80);
+        held += this.clock.now() - p0;
         continue;
       }
-      const t = performance.now();
+      const t = this.clock.now();
       let n = 1;
       if (f.planned) {
         if (from < 0) {
           from = t;
-          length = showMs(st.verb, f.total, st.speed, t - t0);
-          this.timing = { worked: Math.round(t - t0), final: 0, kept: 0 };
+          const worked = t - t0;
+          length = showMs(st.verb, f.total, st.speed, worked);
+          this.timing = { worked: Math.round(worked), due: Math.round(dueMs(st.verb, f.total, st.speed, worked)), final: 0, kept: 0, total: f.total, show: Math.round(length), speed: st.speed };
         }
         const target = f.total * Math.min(1, (t - from - held) / Math.max(1, length));
         n = Math.max(0, Math.ceil(target - f.shown));
@@ -273,13 +336,13 @@ export class ForceDriver {
           this.host.error(String(e instanceof Error ? e.message : e));
         }
         if (f.done) {
-          if (this.timing) this.timing.final = Math.round(performance.now() - t0);
+          if (this.timing) this.timing.final = Math.round(this.clock.now() - t0);
           await this.stop();
           return;
         }
       }
       // (still being worked out: straight on, so the page draws between; then a frame at a time)
-      await sleep(f.planned ? Math.max(0, FRAME_MS - (performance.now() - t)) : 0);
+      await this.clock.sleep(f.planned ? Math.max(0, FRAME_MS - (this.clock.now() - t)) : 0);
     }
   }
 }

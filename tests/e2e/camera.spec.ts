@@ -1,9 +1,37 @@
 // The camera keys (Timberborn's): held, WASD moves the camera every frame, easing in and gliding to
-// a stop; Q and E turn it; Shift is faster; nothing moves while typing in a field.
+// a stop; Q and E turn it; Shift is faster; nothing moves while typing in a field. The glide's own pace
+// (how far, how fast, Shift's 2.5 times) is checked on exact frame times by cameraGlide.test; here, that
+// the keys reach it in the browser, frame by frame, whatever the machine's frame rate (D341: nothing
+// here waits on the wall clock for a distance).
 
 import { expect, test, type Page } from "@playwright/test";
 
 const view = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.getView());
+const glide = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.cameraGlide());
+
+/** The view's target over the page's next `n` frames. */
+const frames = (page: Page, n: number) =>
+  page.evaluate(
+    (count) =>
+      new Promise<string[]>((done) => {
+        const out: string[] = [];
+        const next = () => {
+          out.push(window.dgm3d!.renderer.getView().target.map((v) => v.toFixed(4)).join());
+          if (out.length < count) requestAnimationFrame(next);
+          else done(out);
+        };
+        requestAnimationFrame(next);
+      }),
+    n,
+  );
+
+/** Let go: it glides to a stop (no frame waiting), then stays. */
+async function rests(page: Page) {
+  await expect.poll(async () => (await glide(page)).gliding, { timeout: 30_000 }).toBe(false);
+  const at = (await view(page)).target;
+  expect(new Set(await frames(page, 6)).size).toBe(1);
+  expect((await view(page)).target).toEqual(at);
+}
 
 test("held camera keys move the view every frame and glide to a stop; typing moves nothing", async ({ page }) => {
   const errors: string[] = [];
@@ -14,61 +42,34 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
 
-  // D held: the target moves in many small steps, not a few jumps
+  // D held: the target moves every frame, not in a few jumps
   const v0 = await view(page);
-  const xs: number[] = [];
   await page.keyboard.down("d");
-  for (let k = 0; k < 12; k++) {
-    await page.waitForTimeout(40);
-    xs.push((await view(page)).target[0]);
-  }
+  await expect.poll(async () => (await glide(page)).x, { timeout: 30_000 }).toBeGreaterThan(0.5);
+  const held = await frames(page, 8);
+  expect(new Set(held).size).toBe(held.length);
   await page.keyboard.up("d");
-  // (a key's repeats would give one or two jumps; under a busy machine a frame can stretch, so
-  // five of the twelve samples must differ)
-  const distinct = new Set(xs.map((x) => x.toFixed(3))).size;
-  expect(distinct).toBeGreaterThanOrEqual(5);
-  // it glides to a stop, then stays (the glide takes about half a second; a machine busy with other
-  // tests can stretch its frames, so it is given up to three seconds to come to rest)
-  let stopped = await view(page);
-  for (let k = 0; k < 30; k++) {
-    await page.waitForTimeout(100);
-    const now = await view(page);
-    if (JSON.stringify(now.target) === JSON.stringify(stopped.target)) break;
-    stopped = now;
-  }
-  await page.waitForTimeout(300);
-  expect((await view(page)).target).toEqual(stopped.target);
-  expect(stopped.target).not.toEqual(v0.target);
+  // it glides to a stop, then stays
+  await rests(page);
+  expect((await view(page)).target).not.toEqual(v0.target);
 
-  // Shift is faster (the same hold with and without it; a machine busy with another test can
-  // stretch a frame and cut one hold short, so the pair is tried up to three times)
-  const d = (p: number[], q: number[]) => Math.hypot(p[0] - q[0], p[2] - q[2]);
-  let ratio = 0;
-  for (let k = 0; k < 3 && ratio <= 1.5; k++) {
-    const a0 = (await view(page)).target;
-    await page.keyboard.down("w");
-    await page.waitForTimeout(400);
-    await page.keyboard.up("w");
-    await page.waitForTimeout(400);
-    const a1 = (await view(page)).target;
-    await page.keyboard.down("Shift");
-    await page.keyboard.down("s");
-    await page.waitForTimeout(400);
-    await page.keyboard.up("s");
-    await page.keyboard.up("Shift");
-    await page.waitForTimeout(400);
-    const a2 = (await view(page)).target;
-    ratio = d(a1, a2) / Math.max(1e-6, d(a0, a1));
-  }
-  expect(ratio).toBeGreaterThan(1.5);
+  // Shift is faster (the glide goes at Shift's pace while it is held; how much faster is
+  // cameraGlide.test's)
+  await page.keyboard.down("Shift");
+  await page.keyboard.down("s");
+  await expect.poll(async () => (await glide(page)).y, { timeout: 30_000 }).toBeLessThan(-0.5);
+  expect((await glide(page)).fast).toBe(true);
+  await page.keyboard.up("s");
+  await page.keyboard.up("Shift");
+  expect((await glide(page)).fast).toBe(false);
+  await rests(page);
 
   // Q turns the 3D view
   const yaw = (await view(page)).yaw;
   await page.keyboard.down("q");
-  await page.waitForTimeout(300);
+  await expect.poll(async () => (await view(page)).yaw, { timeout: 30_000 }).toBeGreaterThan(yaw);
   await page.keyboard.up("q");
-  await page.waitForTimeout(300);
-  expect((await view(page)).yaw).toBeGreaterThan(yaw);
+  await rests(page);
 
   // typing in a field or choosing from a list moves nothing (a toggle just clicked does not hold the
   // keys: the camera moves on)
@@ -77,17 +78,17 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   await toggle.focus();
   const t1 = (await view(page)).target;
   await page.keyboard.down("d");
-  await page.waitForTimeout(300);
+  await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t1);
   await page.keyboard.up("d");
-  await page.waitForTimeout(300);
-  expect((await view(page)).target).not.toEqual(t1);
+  await rests(page);
   const field = page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" });
   await field.focus();
   const t0 = (await view(page)).target;
   await page.keyboard.down("d");
-  await page.waitForTimeout(300);
+  // (a key the camera would take moves it within a few frames: none here, and no glide begins)
+  await frames(page, 10);
+  expect((await glide(page)).gliding).toBe(false);
   await page.keyboard.up("d");
-  await page.waitForTimeout(300);
   expect((await view(page)).target).toEqual(t0);
   expect(errors).toEqual([]);
 });

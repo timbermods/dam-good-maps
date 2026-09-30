@@ -1,5 +1,22 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **D341 (2) and (3), 2026-09-29: Esc was a real race; no test stays flaky.** Esc (or Ctrl+Z) while a force
+> was being kept (its last frame shown, the keep on its way to the worker, the row saying "Settling…") did
+> nothing, and the force landed: `ForceDriver.cancel` returned early while `stopping`. That is carve.spec:61's
+> CI failure (Esc arrived after the last frame on a slow machine). Fixed at both ends: each force is a named
+> gesture; `forceCancel(gesture)` in the worker drops it at work, never starts it if taken back first, and takes
+> it back as if never kept when its keep got there first (`MapSession.mark`/`stepSince`/`takeBack`, Redo as it
+> was); the driver cancels in every phase and the page's keep sends nothing after Esc; Revert stays live while
+> settling. `tests/contract/forceEsc.test.ts` runs the driver on a stepped clock against the real worker session
+> and presses Esc at each moment of every force (Carve and Try another path, Craterize, Quake Slide and painted
+> Lift, Erupt, Glaciate; Fast, and Watch with Esc and undo); before the fix every force failed at `keep:sent`.
+> Erode has no force of its own here yet. Flaky tests, each made deterministic: Glaciate's and Craterize's pace
+> (a wall-clock ratio; the first run is cold) and forceSpeed/Erupt's two seconds (software frames) now check the
+> showing the driver plans (`forceTiming`: `due`, `show`, `total`), the driver itself on exact time
+> (forceDriver.test, stepped clock); camera.spec (frame-sampled distances) waits on the glide's own state, its
+> pace unit-tested (`render3d/cameraGlide.ts`); share.spec:40 waited on the first map's card and now waits for
+> the new map. brushKit's F readout is batch 2's (`fix/brush-f-readout`).
+
 > **Batch 1 (D321, D327), 2026-09-29: built.** Items 29+30 (Fast/Watch; nothing changes before it's
 > reached; no water in frames), 40 (the Floor, `core/forces/floor.ts`), 7 (no tree leaning), 41+13 (the
 > freehand path, `editor/freehand.ts`; one ring at the cursor), D327 (curved Slide), 17+25+18 (River depth,

@@ -78,6 +78,15 @@ interface GenerationRecord {
 /** One undo step: one operation, a group applied together (a fix, a proposal), or a regeneration. */
 type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string } | { kind: "generation"; label: string; before: GenerationRecord; after: GenerationRecord };
 
+/** A place in the history (`MapSession.mark`), and the one step taken since it (`stepSince`): what
+ *  `takeBack` needs to take that step back exactly. Opaque outside the session. */
+export interface HistoryMark {
+  readonly depth: number;
+  readonly below: unknown;
+  readonly redo: readonly unknown[];
+  readonly step: unknown;
+}
+
 export interface HistoryItem {
   label: string;
   /** The (first) operation of the step. */
@@ -585,6 +594,30 @@ export class MapSession {
   forgetRedo(): void {
     this.redoStack = [];
     for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
+  }
+
+  /** Where the history stands now, before a step that may have to be taken back as if it had never
+   *  been taken (a force whose Esc arrives after its keep, PLAN §20 D341). */
+  mark(): HistoryMark {
+    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
+  }
+
+  /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
+  stepSince(mark: HistoryMark): HistoryMark | null {
+    if (this.undoStack.length !== mark.depth + 1 || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return null;
+    return { ...mark, step: this.undoStack[mark.depth] };
+  }
+
+  /** Take back the step `mark` names (from `stepSince`) as if it had never been taken: the map, the
+   *  history and what Redo would bring back are exactly as they were at the mark. False, and nothing
+   *  changes, when that step is no longer the latest (another step since, or it was undone). */
+  takeBack(mark: HistoryMark): boolean {
+    const top = this.undoStack.length;
+    if (!mark.step || top !== mark.depth + 1 || this.undoStack[mark.depth] !== mark.step || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return false;
+    this.undo();
+    this.redoStack = (mark.redo as HistoryEntry[]).slice();
+    for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
+    return true;
   }
 
   private pushHistory(e: HistoryEntry): void {

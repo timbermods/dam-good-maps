@@ -36,7 +36,7 @@ import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
-import { ForceDriver, powerWord, type ForceStatus } from "./forceDriver";
+import { ForceDriver, powerWord, type ForceStatus, type ForceTiming } from "./forceDriver";
 import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, RIVER_DEPTH_DEFAULT, type CarveUi } from "./CarveRow";
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
@@ -124,8 +124,8 @@ declare global {
       carve(): ForceStatus | null;
       /** Any force at work (D202, D203, D206), or null. */
       force(): ForceStatus | null;
-      /** The last force's times from its gesture (D321, item 29): worked out, and its land final. */
-      forceTiming(): { worked: number; final: number; kept: number } | null;
+      /** The last force's times from its gesture (D321, item 29): worked out, its land final as planned and as it came, kept, and its showing. */
+      forceTiming(): ForceTiming | null;
       /** The last stroke painted (its operation's params), or null. */
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
@@ -1632,13 +1632,17 @@ export default function Editor(props: EditorProps) {
   }
 
   // (the driver lives as long as the editor; it calls the latest of these)
-  const forceCalls = useRef<{ keep(): Promise<void>; drop(): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void; glaciate(origin: [number, number], end: [number, number], via: [number, number][]): void } | null>(null);
+  const forceCalls = useRef<{ keep(gesture: number, wanted: () => boolean): Promise<void>; drop(gesture: number): Promise<void>; show(f: ForceFrame): void; carve(origin: [number, number], end?: [number, number], via?: [number, number][]): void; glaciate(origin: [number, number], end: [number, number], via: [number, number][]): void } | null>(null);
   forceCalls.current = {
-    keep: () =>
+    // Esc while it is kept (D341): a keep whose turn comes after Esc sends nothing, and one already
+    // on its way is taken back by the drop behind it, so it is never shown
+    keep: (gesture, wanted) =>
       enqueue(async () => {
+        if (!wanted()) return;
         setBusy((b) => b + 1);
         try {
-          const u = await api.forceStop();
+          const u = await api.forceStop(gesture);
+          if (!wanted()) return;
           // (the kept map's own view replaces the force's last frames)
           flushForceView(true);
           flushDeferred();
@@ -1652,13 +1656,18 @@ export default function Editor(props: EditorProps) {
           setBusy((b) => b - 1);
         }
       }),
-    drop: () =>
+    drop: (gesture) =>
       enqueue(async () => {
-        const v = await api.forceCancel();
+        const v = await api.forceCancel(gesture);
         if (!mounted.current) return;
         flushForceView(true);
         flushDeferred();
-        applyView(v);
+        if (v.info) {
+          // (kept already, and taken back as if never kept: the history changed too)
+          localUndo.current = [];
+          localRedo.current = [];
+          applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0 });
+        } else applyView(v);
         renderer.current?.refreshShadows();
       }),
     show: showForceFrame,
@@ -1667,7 +1676,7 @@ export default function Editor(props: EditorProps) {
   };
   const forcer = useRef<ForceDriver | null>(null);
   forcer.current ??= new ForceDriver({
-    start: (again) =>
+    start: (again, gesture) =>
       enqueue(() => {
         const q = forceReq.current;
         if (again || !q) {
@@ -1687,14 +1696,14 @@ export default function Editor(props: EditorProps) {
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
                       : undefined;
-          return api.forceAgain(pins && { ...pins, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined });
+          return api.forceAgain(pins && { ...pins, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
         }
-        return api.forceStart(q);
+        return api.forceStart({ ...q, gesture });
       }),
     advance: (steps) => enqueue(() => api.forceAdvance(steps)),
     paint: (path, side) => enqueue(() => api.forcePaint(path, side)),
-    keep: () => forceCalls.current!.keep(),
-    drop: () => forceCalls.current!.drop(),
+    keep: (gesture, wanted) => forceCalls.current!.keep(gesture, wanted),
+    drop: (gesture) => forceCalls.current!.drop(gesture),
     renderer: () => renderer.current,
     show: (f) => forceCalls.current!.show(f),
     changed: () => setForceTick((n) => n + 1),
@@ -1814,7 +1823,7 @@ export default function Editor(props: EditorProps) {
           <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it where it is (Space)"}>
             {st.paused ? "Resume" : "Pause"}
           </button>
-          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.cancel()} title="Take all of it back (Esc)">
+          <button type="button" onClick={() => forcer.current?.cancel()} title="Take all of it back (Esc)">
             Revert
           </button>
         </>

@@ -81,12 +81,23 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   const before = await heights(page);
   const n0 = (await labels(page)).length;
   const at = await highGround(page);
-  // Esc: the whole carve goes at once, and the history never had it
+  // Esc: the whole carve goes at once, and the history never had it. (Esc comes in the same page
+  // frame that sees the river cutting, so it finds the carve at work on any machine, however quick
+  // Fast's showing is there: D341. Every other moment of a force's run is forceEsc.test's.)
   await clickTile(page, at[0], at[1]);
-  await page.waitForFunction(() => (window.dgmEditor!.carve()?.steps ?? 0) >= 12, null, { timeout: 20_000 });
-  await expect(page.getByRole("group", { name: "Carve at work" })).toBeVisible();
-  expect(await heights(page)).not.toEqual(before);
-  await page.keyboard.press("Escape");
+  const seen = await page.waitForFunction(
+    (was) => {
+      const st = window.dgmEditor!.carve();
+      if (!st || st.steps < 12) return false;
+      const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
+      const row = !!document.querySelector('[aria-label="Carve at work"]');
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      return { cut, row, running: !!window.dgmEditor!.carve() };
+    },
+    before,
+    { timeout: 20_000 },
+  );
+  expect(await seen.jsonValue()).toEqual({ cut: true, row: true, running: false });
   await expect.poll(() => status(page)).toBeNull();
   await idle(page);
   expect(await heights(page)).toEqual(before);
