@@ -2093,6 +2093,12 @@ change is a deterministic operation, D158, D342).
 - One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
   intended action).
+- **Planned: area locks** (Kyler, 2026-09-30; to settle in the design Q&A). Each player can reserve parts of the map (for
+  example half each), so the other player's operations can't change them. Open questions: locks protect land and objects
+  from the other player's edits, but water still flows across borders as physics dictates; a force whose effect would reach
+  into the other's area (a Carve drawn through both, an eruption near the line); how areas are claimed (drawn with
+  Select's shapes), shown (a tint in each player's colour), released or offered to the other; and the default (the whole
+  map shared until someone claims an area).
 
 ## Later
 
