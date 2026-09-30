@@ -1,6 +1,6 @@
 # Terrain in motion
 
-**Core gate prepared; PR #107 stays draft, waiting for the next quiet window.**
+**September 30 07:40–09:40 PDT window running; PR #107 stays draft pending evidence.**
 Force base: `9e14f189`; product source is untouched.
 
 The core covers 256², every force at full Power in Fast and Watch, a large brush stroke and
@@ -46,6 +46,10 @@ Power 100 Fast → wait → Undo. Both builds in Edge/Firefox showed “Water fl
 the worker settled, the render queue emptied and checks said “Ready to play”. It is untouched,
 nonblocking, and belongs to the interface pass after **“The page is the editor”**.
 
+The morning runner starts the hour first, then paired shorter work across both looks/platforms.
+Four initial attempts refused qualification without recording frames. Startup spikes now reset
+the quiet minute without restarting the warmed browser; all waiting load samples are retained.
+The 09:40 follow-up will replace this interim status with actual qualified coverage and numbers.
 Remaining: core measurements and captures, visual/audio review and GIFs, the hour, export-byte
-proof and budget calibration. No new performance run starts before the next quiet window.
+proof and budget calibration. Measurements end at 09:40 PDT.
 `INTEGRATION.md` gives regeneration and the mandatory core gate for future forces.

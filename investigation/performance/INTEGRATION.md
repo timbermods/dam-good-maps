@@ -56,8 +56,11 @@ gap index. `python water-design.py` regenerates the small committed schematic. P
 to those raw files. This is a historical index, not a way to reconstruct unrecorded CPU load.
 For a separately authorized future window, pass UTC bounds explicitly:
 `node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>`. Expired windows are refused.
-The 60-second gate resets on busy/invalid samples or logging gaps. Short work continues until
-the deadline if qualification misses the full-hour start; an hour that does start stays last.
+The 60-second gate resets on busy/invalid samples or logging gaps while keeping the warmed browser
+open. Full waiting telemetry is retained separately from the qualifying suffix. Measured spikes
+invalidate the attempt. Short work continues until the deadline if qualification misses the
+full-hour start. Use `--hour-first=true` when the authorized window requires the hour first;
+otherwise it goes last. Each window needs explicit authorized bounds.
 
 Install the harness's matching Firefox with `node node_modules/playwright/cli.js install firefox`,
 or use `--firefox-path=<matching-executable>`. Installed Edge is launched through its `msedge`

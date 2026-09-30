@@ -49,7 +49,7 @@ function powershell(args) {
   });
 }
 async function load(qualify=false) { return JSON.parse(await powershell(['-Samples', String(budgets.quiet.samples), '-IntervalMs', '1000', '-ParentPid', String(process.pid),
-  '-CpuMax', String(budgets.quiet.cpuPercentMax), '-QuietDurationMs', String(qualify ? budgets.quiet.durationMs : 0), '-MaxSampleGapMs', String(budgets.quiet.maxSampleGapMs)])); }
+  '-CpuMax', String(budgets.quiet.cpuPercentMax), '-QuietDurationMs', String(qualify ? budgets.quiet.durationMs : 0), '-MaxSampleGapMs', String(budgets.quiet.maxSampleGapMs), '-DeadlineMs', String(flags.deadline ?? 0)])); }
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.mp3': 'audio/mpeg', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const build = resolve(local, 'build', phase);
 const provenance = JSON.parse(readFileSync(resolve(build, 'provenance.json')));

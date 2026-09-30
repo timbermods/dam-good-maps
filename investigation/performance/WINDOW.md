@@ -1,5 +1,18 @@
 # September 30 quiet window
 
+Current authorized window: **07:40–09:40 America/Los_Angeles (14:40–16:40 UTC)**.
+One serial runner uses `node window.mjs --suite=core --start=2026-09-30T14:40:00Z --end=2026-09-30T16:40:00Z --hour-first=true`.
+The latest user instruction puts the single hour first, then shorter paired work. Short-work
+priority spreads crater, brush and abuse across looks/platforms, with footage before each timing
+batch. Remaining cases stay queued; unfinished evidence fails the gate. A one-time 09:40
+follow-up reviews the evidence after deadline cleanup.
+
+Before measurement, CPU spikes restart the contiguous 60-second quiet wait without restarting
+the warmed browser. `load.samples` contains only the final qualifying suffix; `waitingSamples`
+retains the entire wait. Measured spikes still discard the attempt. Four initial morning attempts
+refused qualification before collecting frame statistics; that startup wait is corrected.
+The historical 02:00 status/load files are preserved in `local/windows/2026-09-30-0200/`.
+
 Authorized window: **2026-09-30 02:00–04:00 America/Los_Angeles (09:00–11:00 UTC)**.
 Existing draft PR: https://github.com/timbermods/dam-good-maps/pull/107, branch investigation/performance, base dev.
 Worktree: `investigation/performance/local/checkout` beneath the shared repository.
@@ -9,7 +22,8 @@ This expired window is retained as history. For the next authorized window, run
 `node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>` once; default suite is **core**.
 It qualifies 60 sampled seconds at CPU ≤25% before every measured run, uses the core's
 three Edge/native repeats and single Firefox/native and Edge/proxy passes, and requeues any
-attempt hit by a CPU spike. Capture pairs get one pass, and one Edge/native/High hour goes last.
+attempt hit by a CPU spike. Capture pairs get one pass; `--hour-first=true` puts the hour first,
+otherwise one Edge/native/High hour goes last.
 `--suite=full` selects the optional long matrix. Short work continues if the hour cannot fit.
 Inspect the lock and `local/window-status.json` before starting another process.
 

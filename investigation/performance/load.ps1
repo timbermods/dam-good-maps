@@ -1,4 +1,4 @@
-param([int]$Samples = 2, [int]$IntervalMs = 1000, [string]$Output = '', [int]$ParentPid = 0, [double]$CpuMax = 25, [int]$QuietDurationMs = 0, [int]$MaxSampleGapMs = 30000, [switch]$Streaming)
+param([int]$Samples = 2, [int]$IntervalMs = 1000, [string]$Output = '', [int]$ParentPid = 0, [double]$CpuMax = 25, [int]$QuietDurationMs = 0, [int]$MaxSampleGapMs = 30000, [double]$DeadlineMs = 0, [switch]$Streaming)
 $ErrorActionPreference = 'Stop'
 $cpu = Get-CimInstance Win32_Processor
 $os = Get-CimInstance Win32_OperatingSystem
@@ -7,7 +7,9 @@ $rows = @()
 $quietSince = $null
 $lastSample = $null
 $quietSpanMs = 0
+$waitStarted = [DateTime]::UtcNow
 for ($i = 0; $i -lt $Samples -or ($QuietDurationMs -gt 0 -and $quietSpanMs -lt $QuietDurationMs); $i++) {
+  if ($DeadlineMs -gt 0 -and [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $DeadlineMs) { break }
   $before = @{}
   Get-Process | ForEach-Object { $before[$_.Id] = $_.CPU }
   $start = [DateTime]::UtcNow
@@ -41,15 +43,20 @@ for ($i = 0; $i -lt $Samples -or ($QuietDurationMs -gt 0 -and $quietSpanMs -lt $
   if ($Streaming) { [IO.File]::AppendAllText($Output, ($row | ConvertTo-Json -Depth 7 -Compress) + "`n") } else { $rows += $row }
   $at = [DateTime]::Parse($row.at)
   if ($null -ne $lastSample -and ($at-$lastSample).TotalMilliseconds -gt $MaxSampleGapMs) { $quietSince = $null }
-  if ($null -eq $row.cpuPercent -or $row.cpuPercent -lt 0 -or $row.cpuPercent -gt $CpuMax) { $quietSince=$null; if ($QuietDurationMs -gt 0) { break } }
+  if ($null -eq $row.cpuPercent -or $row.cpuPercent -lt 0 -or $row.cpuPercent -gt $CpuMax) { $quietSince=$null }
   elseif ($null -eq $quietSince) { $quietSince=$at }
   if ($null -ne $quietSince) { $quietSpanMs=($at-$quietSince).TotalMilliseconds } else { $quietSpanMs=0 }
   $lastSample=$at
 }
 if ($Streaming) { exit 0 }
+$qualifiedRows = $rows
+if ($QuietDurationMs -gt 0) {
+  $qualifiedRows = @($rows | Where-Object { $null -ne $quietSince -and [DateTime]::Parse($_.at) -ge $quietSince })
+}
 $result = [pscustomobject]@{ cpu = $cpu.Name; logicalCores = $cpu.NumberOfLogicalProcessors; gpus = $gpus;
-  memoryGB = $os.TotalVisibleMemorySize / 1MB; freeMemoryGB = $os.FreePhysicalMemory / 1MB; samples = $rows;
+  memoryGB = $os.TotalVisibleMemorySize / 1MB; freeMemoryGB = $os.FreePhysicalMemory / 1MB; samples = @($qualifiedRows);
+  waitingSamples = @($rows); elapsedWaitMs = ([DateTime]::UtcNow - $waitStarted).TotalMilliseconds;
   quietDurationMs = $quietSpanMs;
-  quiet = ($rows.Count -gt 0 -and @($rows | Where-Object { $null -eq $_.cpuPercent -or $_.cpuPercent -lt 0 -or $_.cpuPercent -gt $CpuMax }).Count -eq 0 -and $quietSpanMs -ge $QuietDurationMs) }
+  quiet = ($qualifiedRows.Count -gt 0 -and @($qualifiedRows | Where-Object { $null -eq $_.cpuPercent -or $_.cpuPercent -lt 0 -or $_.cpuPercent -gt $CpuMax }).Count -eq 0 -and $quietSpanMs -ge $QuietDurationMs) }
 $json = $result | ConvertTo-Json -Depth 7
 if ($Output) { [IO.File]::WriteAllText($Output, $json) } else { $json }

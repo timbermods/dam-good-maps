@@ -10,6 +10,8 @@ mkdirSync(local, { recursive: true });
 const flags = Object.fromEntries(process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')));
 const budget = JSON.parse(readFileSync(resolve(dir,'budgets.json'))), suite = flags.suite ?? 'core';
 const start = Date.parse(flags.start ?? '2026-09-30T09:00:00Z'), end = Date.parse(flags.end ?? '2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
+const hourFirst = Object.hasOwn(flags,'hour-first');
+const shortCutoff = hourFirst ? end : shortEnd;
 if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || Date.now() >= end) throw new Error('Provide an authorized, unexpired --start=<UTC ISO> --end=<UTC ISO> window');
 const statusPath = resolve(local, 'window-status.json');
 if (existsSync(statusPath)) {
@@ -46,8 +48,11 @@ async function quiet(until) {
 const queue=[];
 const selected=suite==='core'?coreCases:cases;
 const priority=['craterize-fast','brush-large','abuse',...selected.map(c=>c.id).filter(id=>!['craterize-fast','brush-large','abuse'].includes(id))];
-for(const config of configurations(budget,suite)) for(const id of priority) queue.push({...config,mode:'measure',id});
-for(const config of configurations(budget,suite)) for(const id of priority) queue.push({...config,mode:'capture',id,repeats:config.captureRepeats});
+// Spread remaining time across looks and platforms; acquire real footage before bulk timing.
+for(const id of priority) for(const config of configurations(budget,suite)) {
+  queue.push({...config,mode:'capture',id,repeats:config.captureRepeats});
+  queue.push({...config,mode:'measure',id});
+}
 status.pending=queue; save();
 async function run(task,phase,hour=false) {
   const args=['run.mjs',`--suite=${suite}`,`--mode=${task.mode}`,`--phase=${phase}`,`--cases=${task.id}`,`--sizes=${task.size}`,`--profiles=${task.profile}`,`--browsers=${task.browser}`,`--looks=${task.look}`,`--repeats=${hour?1:task.repeats}`,`--deadline=${end-15000}`,...(hour?['--hour']:[])];
@@ -66,8 +71,14 @@ async function run(task,phase,hour=false) {
   return rows.some(r=>['invalid-busy','blocked-busy'].includes(r.status))?'busy':code===0?'complete':'error';
 }
 try {
-  while(queue.length && Date.now()<shortEnd) {
-    if(!await quiet(shortEnd)) break;
+  if(hourFirst) {
+    status.hourChoice='hour first, then shorter work, as authorized for this window';save();
+    let outcome='busy';
+    while(outcome==='busy' && Date.now()<end-64*60000 && await quiet(end-64*60000)) outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
+    status.hourOutcome=outcome;save();
+  }
+  while(queue.length && Date.now()<shortCutoff) {
+    if(!await quiet(shortCutoff)) break;
     const task=queue.shift(); status.pending=queue; save();
     let failed=false;
     for(const phase of ['before','after']) {
@@ -77,7 +88,7 @@ try {
     }
     // The child independently qualifies 60 seconds before every case; this outer loop dispatches.
     if(!failed) {
-      while(queue.length && Date.now()<shortEnd) {
+      while(queue.length && Date.now()<shortCutoff) {
         const task2=queue.shift();status.pending=queue;save();let outcome='complete';
         for(const phase of ['before','after']){outcome=await run(task2,phase);if(outcome!=='complete')break}
         if(outcome==='busy'){queue.unshift(task2);break}
@@ -86,12 +97,12 @@ try {
     }
   }
   let hourAttempted = false;
-  if(phaseAt(Date.now(),start,end,false,queue.length>0)==='hour' && await quiet(end-64*60000)) {
+  if(!hourFirst && phaseAt(Date.now(),start,end,false,queue.length>0)==='hour' && await quiet(end-64*60000)) {
     hourAttempted = true;
     status.hourChoice='after/edge/native/256/high; remaining configurations and repetitions stay pending';save();
     let outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
     while(outcome==='busy' && phaseAt(Date.now(),start,end,true)==='hour' && await quiet(end-64*60000)) outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
-  } else status.hourChoice='Insufficient quiet time for a full hour; not shortened';
+  } else if(!hourFirst) status.hourChoice='Insufficient quiet time for a full hour; not shortened';
   // Missing the full-hour start is not a reason to stop monitoring the rest of the window.
   // If an hour was started it remains the last workload; otherwise finish shorter paired work.
   while(!hourAttempted && queue.length && Date.now()<end) {
