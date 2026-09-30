@@ -2053,6 +2053,8 @@ the new screens; no second full design pass.
 
 ## Later
 
+**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge.
+
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by
 early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle
