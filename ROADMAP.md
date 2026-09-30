@@ -56,9 +56,13 @@ differently, this file wins.
 
 **The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
 1. **Finish the editor as players will know it:** the forces release, M9b's release, the High look's release, the
-   parity batch (D337–D339), "The page is the editor" (D330).
+   parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
+   #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
+   timeline; its sitting comes then (D349, 2026-09-30).
 2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
 3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
+   **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
+   editing's first users (D349, 2026-09-30).
 4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
 5. **M12 (Claude)**, after collaborative editing (D277, D342).
 
@@ -82,10 +86,10 @@ differently, this file wins.
 | 3D-2 | Terrain above terrain, step 2: the view, after Map look 2 | DESIGN.md §6–7 · D126, D280, D281 | no | high |
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
 | 3D-4 | Terrain above terrain, step 4: generation, once M9b has settled | DESIGN.md §5 · PLAN §5.9 · D123, D132, D138, D280 | a probe batch (T1–T4, T6, T7; D145) | high |
-| Weather | Weather view: the drought line and a map-card line, after the 3D stages (slimmed, D285) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
+| Weather | Weather view: the drought line and a map-card line; Drought and Badtide day by day (#73) with the contamination veins and the Unstable Core's moment; closes step 1, after "The page is the editor" (D285, D349) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
 | Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration (deferred until Kyler resumes it, D277) | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
-| M13 | Problem reports, shortcuts and help, a final performance pass (slimmed, D285) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
+| M13 | Problem reports, shortcuts and help, a final performance pass, folded into the polish step before collaborative editing (D285, D349) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
 | Later | See the end of this file, now including versioned deploys, mobile layouts and the build time-lapse (D285) | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
 
 In the rows for M1–M8 and Look, "EDITOR §n" and E1–E9 name EDITOR_PLAN.md's sections and
