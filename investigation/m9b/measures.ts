@@ -27,7 +27,7 @@ import { generate } from '../../src/core/gen/generate';
 import { decodeSpecFragment, makeSpec, type ThemeId } from '../../src/core/spec/mapspec';
 import { AVAILABLE_THEMES } from '../../src/core/spec/mapspec';
 import { levelRegions } from '../../src/core/math/grid';
-import { cutShape } from '../../src/core/water/outletWear';
+import { cutShape, wearReach } from '../../src/core/water/outletWear';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -211,7 +211,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     fixes: r.info.fixes ?? [],
     planned: r.info.planned ?? null,
     settles: r.info.settles,
-    worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, r.info.worn.width) } : null,
+    worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width)) } : null,
     settleTicks: b.settle.ticks,
     redrawn: r.failures.filter((f) => f.failed.some((w) => w.includes('(planned)'))).length,
     failedChecks: r.report.passed ? [] : r.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id).concat(r.info.stage !== 'built' && r.info.stage !== 'checks' ? [r.info.stage] : []),

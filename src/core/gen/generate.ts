@@ -77,7 +77,7 @@ import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
 import { toTimberFile } from "./pack";
-import { outcomesOf, type Outcomes } from "./outcomes";
+import { outcomesOf, PLAN_MARGIN, PROMISES, type Outcomes } from "./outcomes";
 import { mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
@@ -1408,9 +1408,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
-        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!po.promise || !po.story.readable)) {
+        // (the promise with the screen's margin: the settled water falls short of the plan's)
+        const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H), PLAN_MARGIN[shown.theme]);
+        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
-          return fail(!po.promise ? "promise (planned)" : "water story (planned)", null, false);
+          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
         }
       }
     }
@@ -1580,9 +1582,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         return fail("water.settles", b, true);
       }
     }
-    // (the rivers' water alone does not settle either, after every fix: another plan of the hollows
-    // can't settle it, and the attempts stop here rather than trying every fix again)
-    return { ...fail("water.settles", b, false), stuck: true };
+    // (the rivers' water alone does not settle either; hollows elsewhere may still hold it, so a
+    // second plan is tried before the attempts stop)
+    return (landStage?.unsettled ?? 2) >= 2 ? { ...fail("water.settles", b, false), stuck: true } : fail("water.settles", b, true);
   };
   let b1 = build([...rivers, ...bad.features], "resources");
   // (hollows that settled on an earlier attempt on this land, when these don't)

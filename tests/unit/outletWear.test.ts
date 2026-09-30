@@ -1,6 +1,6 @@
 // A stuck basin's way out worn wider (PLAN §20 D350 (b)): the smallest local cut, as if water wore it.
 import { describe, expect, it } from "vitest";
-import { cutShape, cutShapeOk, risenBasin, wearOutlet } from "../../src/core/water/outletWear";
+import { cutShape, cutShapeOk, risenBasin, wearOutlet, wearReach } from "../../src/core/water/outletWear";
 
 const W = 64;
 const H = 64;
@@ -75,7 +75,7 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     for (const width of [7, 9, 17]) {
       const w = wearOutlet(h, W, H, depth, { seed: 11, width })!;
       expect(w).not.toBeNull();
-      expect(cutShapeOk(cutShape(w.cut, w.route, W, H, width))).toBe(true);
+      expect(cutShapeOk(cutShape(w.cut, w.route, W, H, wearReach(width)))).toBe(true);
     }
   });
 

@@ -786,8 +786,7 @@ never tile by tile, banks stepping back up a level a tile, a level under the bas
 so the sill is short, never within two tiles of the basin under its level; one shape along that way
 (D360 (3)): the largest piece of the worn ground, the rest left as it was, checked by `cutShape`,
 no stray tiles, nothing off to its side; 9, then 17 tiles, the first that settles, a cut of at most
-2% of the map), recorded in the land so the link rebuilds it. When the rivers' water alone still
-doesn't settle, the attempts stop there. The settle runs up to 6 game days (D358), so few maps need
+2% of the map), recorded in the land so the link rebuilds it. The settle runs up to 6 game days (D358), so few maps need
 a cut at all.
 
 ### 7.10 Output

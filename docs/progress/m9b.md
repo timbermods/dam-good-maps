@@ -370,8 +370,9 @@ sends: a generated one, a version the background search found, a sibling, an edi
   was tried crudely and didn't help (over-filled basins spill into side hollows).
 - **Fixes on the shown land:** a plug that keeps the water from settling is opened; the wear takes
   the basin over its level, then the water still rising (found by running the settle on), at 9 then
-  17 tiles, a cut of at most 2% of the map; when the rivers' water alone won't settle the attempts
-  stop at once (they tried every fix again for nothing). A start the settled water covers or that no
+  17 tiles, a cut of at most 2% of the map (stopping at once when the rivers' water alone won't
+  settle was tried and undone: River Valley 128² seed 7 settles on its second plan's hollows). A
+  start the settled water covers or that no
   spring serves gives way to another on the same settle (three in all; a levelled pad judged first on
   water warm-started from the settle), and later attempts on a shown land keep the hollows whose
   water settled, so their settle is reused.

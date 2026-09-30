@@ -225,7 +225,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   const target = new Int16Array(N).fill(-1);
   const band: number[] = [];
   const half = opts.width / 2;
-  const reach = Math.ceil(half * 1.2) + 6;
+  const reach = wearReach(opts.width);
   for (const r of route) {
     const rx = r % W;
     const ry = (r - rx) / W;
@@ -310,7 +310,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   for (let i = 0; i < N; i++) if (out[i] !== h[i]) cut.push(i);
   if (!cut.length) return null;
   // (the shape it must have, D360 (3): the steps above make it, this proves it)
-  if (!cutShapeOk(cutShape(cut, route, W, H, opts.width))) return null;
+  if (!cutShapeOk(cutShape(cut, route, W, H, wearReach(opts.width)))) return null;
   // (and the basin still spills where it did: no way out opened under its level)
   const after = spillOf(out, W, H, opts.noOutlet ?? null);
   if (basin.tiles.some((i) => after[i] < spill[i])) return null;
@@ -381,6 +381,12 @@ export function cutShape(cut: readonly number[], path: readonly number[], W: num
     for (const i of cut) if (d[i] > reach) offPath++;
   }
   return { regions, strays, offPath };
+}
+
+/** How far from its path a worn way out `width` tiles wide reaches: its widest (1.2 of half the
+ *  width) and the banks stepping back up six levels beyond. */
+export function wearReach(width: number): number {
+  return Math.ceil((width / 2) * 1.2) + 6;
 }
 
 /** A cut of the shape D360 (3) asks: one shape along the path, no stray tiles, nothing off to its side. */
