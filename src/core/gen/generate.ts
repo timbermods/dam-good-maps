@@ -59,7 +59,7 @@ import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { WALK_BLOCKERS, type PlayabilityAnalysis } from "../validate/playability";
+import { rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -79,7 +79,7 @@ import { ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { dryStart, pickStart, type DroughtPolicy, type StartPick } from "./settler";
+import { dryStart, padFloods, pickStart, type DroughtPolicy, type StartPick } from "./settler";
 
 export type { IntentionResult };
 
@@ -244,6 +244,13 @@ interface LandStage {
   tried: Uint8Array;
   /** Where badwater hollows that kept the water from settling stood (and round them): kept off. */
   badTried: Uint8Array;
+  /** Attempts on it whose water did not settle. */
+  unsettled: number;
+  /** Rivers that left it (their sources reached by another's water): gone on every attempt on it. */
+  dropped: string[];
+  /** The last badwater hollows whose water settled on it: an attempt whose own hollows keep the
+   *  water from settling takes these (the rivers' water alone may not settle, D348). */
+  goodBad?: Hazards;
 }
 
 /** How far round a start that failed the next attempt on the same land keeps off. */
@@ -760,6 +767,27 @@ function sourcesInFlowOwners(b: BuildResult): Set<string> {
   return new Set(sourcesInFlow(b.waterModel, objects, b.water).inFlow.map((k) => owners[k]));
 }
 
+/** The features whose water reaches each feature that owns a source in another's flow. */
+function sourcesInFlowReachers(b: BuildResult): Map<string, Set<string>> {
+  const objects: MapObject[] = [];
+  const owners: string[] = [];
+  for (const e of b.entities) {
+    const j = entityJson(e);
+    const p = placementOf(j);
+    if (!p) continue;
+    objects.push({ ...p, components: j.Components as JsonObject });
+    owners.push(e.owner);
+  }
+  const r = sourcesInFlow(b.waterModel, objects, b.water);
+  const out = new Map<string, Set<string>>();
+  r.inFlow.forEach((k, n) => {
+    const set = out.get(owners[k]) ?? new Set<string>();
+    for (const o of r.reachedBy?.[n] ?? []) if (owners[o] !== owners[k]) set.add(owners[o]);
+    out.set(owners[k], set);
+  });
+  return out;
+}
+
 /** The edge tiles beside each inflow's mouth, 10 tiles either side of its channel, two rows deep. */
 function mouthBanks(hy: Hydro, W: number, H: number): Uint8Array {
   const keep = new Uint8Array(W * H);
@@ -986,6 +1014,22 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const plug = bundle ? bundle.plug : g.plugLake ? planPlug(h, W, H, hy, seed, protect) : null;
   if (plug) for (const i of plug.pool) pool[i] = 1;
   let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(plug ? [plug.feature] : []), ...(ctx?.features ?? [])];
+  // rivers that leave the map (their spring or row of sources reached by another's water, D171)
+  const dropRivers = (ids: readonly string[]) => {
+    const dropped = new Set(ids);
+    const gone = hy.rivers.filter((r) => dropped.has(r.id));
+    for (const r of gone) {
+      for (const o of hy.rivers) if ("river" in o.params.exit && o.params.exit.river === r.id) o.params.exit = { ...r.params.exit };
+      contains.delete(r.id);
+    }
+    hy.rivers = hy.rivers.filter((r) => !dropped.has(r.id));
+    for (const f of lakes) {
+      f.params.inflow = { rivers: ("rivers" in f.params.inflow ? f.params.inflow.rivers : []).filter((id) => !dropped.has(id)) };
+      if (f.params.outlet.target && dropped.has(f.params.outlet.target)) f.params.outlet = { at: f.params.outlet.at, sill: f.params.outlet.sill, to: "none" };
+    }
+    rivers = rivers.filter((f) => !dropped.has(f.id));
+  };
+  if (from?.dropped.length) dropRivers(from.dropped);
   const fail = (why: string, b: BuildResult | null, replannable: boolean): Attempt => {
     info.stage = why;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
@@ -1118,7 +1162,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!lastAttempt && tooStraight(straightness(W, H, est))) return fail("ruler-straight channel", null, true);
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N) };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
@@ -1129,6 +1173,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the rivers' water alone settles, the hollows unsettled it, and the next plan keeps off them; when
   // it does not, no plan on this land settles, and the attempts stop there, never drawing new land)
   const unsettled = (b: BuildResult): Attempt => {
+    if (landStage) landStage.unsettled++;
     if (bad.features.length) {
       const now = h.slice();
       h.set(hLand);
@@ -1139,11 +1184,38 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         return fail("water.settles", b, true);
       }
     }
-    return { ...fail("water.settles", b, false), stuck: true };
+    // (the rivers' water alone does not settle either; hollows elsewhere may still hold it, so a
+    // second plan is tried before the attempts stop)
+    return (landStage?.unsettled ?? 2) >= 2 ? { ...fail("water.settles", b, false), stuck: true } : fail("water.settles", b, true);
   };
   let b1 = build([...rivers, ...bad.features], "resources");
+  // (hollows that settled on an earlier attempt on this land, when these don't)
+  if (!b1.settle.settled && !lastAttempt && from?.goodBad && !sameBytes(from.goodBad.heights, h)) {
+    for (const f of bad.features) contains.delete(f.id);
+    bad = structuredClone(from.goodBad);
+    h.set(bad.heights);
+    for (const f of bad.features) contains.add(f.id);
+    b1 = build([...rivers, ...bad.features], "resources");
+  }
   // (not on the last attempt, whose map is kept)
   if (!b1.settle.settled && !lastAttempt) return unsettled(b1);
+  // D348: water over more of the map than the flood line (water.no_flood) on the shown land: its
+  // rivers and springs run gentler, 0.7 of their flow at a time, at most twice; the land stays
+  const floodLine = rulesFor(spec).maxWaterShare;
+  const floodShare = (b: BuildResult) => {
+    let n = 0;
+    for (let i = 0; i < N; i++) if (b.water[i] > WET) n++;
+    return n / N;
+  };
+  for (let k = 0; k < 2 && !lastAttempt && floodShare(b1) > floodLine; k++) {
+    for (const f of rivers) {
+      if (f.kind === "river" && !f.params.badwater) f.params.flow = Math.round(f.params.flow * 700) / 1000;
+      else if (f.kind === "lake" && "spring" in f.params.inflow) f.params.inflow = { spring: Math.round(f.params.inflow.spring * 700) / 1000 };
+    }
+    b1 = build([...rivers, ...bad.features], "resources");
+    if (!b1.settle.settled) return unsettled(b1);
+    if (!fixes.includes("gentler rivers")) fixes.push("gentler rivers");
+  }
   // D171: a source that another source's water reaches fails the map (water.source_in_flow). A
   // spring-fed river whose spring is reached leaves the map (its valley stays, dry; a river that
   // joined it now joins where it went), and a badwater hollow that is reached is planned again
@@ -1156,20 +1228,28 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!owners.size) break;
     let springs = hy.rivers.filter((r) => owners.has(r.id) && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
     if (springs.length >= hy.rivers.length) springs = [];
+    // (a reached river that must stay, the Rivers count's or the only one: a spring-fed river whose
+    // water reaches it leaves instead, D348)
+    const stay = [...owners].filter((id) => hy.rivers.some((r) => r.id === id) && !springs.some((r) => r.id === id));
+    if (stay.length && !lastAttempt) {
+      const reachers = sourcesInFlowReachers(b1);
+      const leave = new Set<string>();
+      for (const id of stay) for (const o of reachers.get(id) ?? []) if (hy.rivers.some((r) => r.id === o && "spring" in r.params.entry)) leave.add(o);
+      if (leave.size && leave.size < hy.rivers.length) {
+        for (const id of stay) owners.delete(id);
+        for (const id of leave) {
+          owners.add(id);
+          const r = hy.rivers.find((x) => x.id === id)!;
+          if (!springs.includes(r)) springs.push(r);
+        }
+      }
+    }
     const badHit = bad.features.some((f) => owners.has(f.id));
     if ([...owners].some((id) => !springs.some((r) => r.id === id) && !bad.features.some((f) => f.id === id))) break;
     if (springs.length) {
-      const dropped = new Set(springs.map((r) => r.id));
-      for (const r of springs) {
-        for (const o of hy.rivers) if ("river" in o.params.exit && o.params.exit.river === r.id) o.params.exit = { ...r.params.exit };
-        contains.delete(r.id);
-      }
-      hy.rivers = hy.rivers.filter((r) => !dropped.has(r.id));
-      for (const f of lakes) {
-        f.params.inflow = { rivers: ("rivers" in f.params.inflow ? f.params.inflow.rivers : []).filter((id) => !dropped.has(id)) };
-        if (f.params.outlet.target && dropped.has(f.params.outlet.target)) f.params.outlet = { at: f.params.outlet.at, sill: f.params.outlet.sill, to: "none" };
-      }
-      rivers = rivers.filter((f) => !dropped.has(f.id));
+      dropRivers(springs.map((r) => r.id));
+      // (the same rivers leave on every later attempt on this land, before its first settle)
+      if (landStage) landStage.dropped.push(...springs.map((r) => r.id));
     }
     if (badHit && guess) {
       // (off the hollow that was reached, and round it)
@@ -1231,7 +1311,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // was shown because it had one), when that is still dry ground clear of the hollows and of the
   // starts that failed here; a spring by it gives it water below when the settled water left none
   if (!pick && guess) {
-    if (!wetRing(b1, guess) && !avoidOf(bad)[guess.y * W + guess.x]) pick = guess;
+    if (!wetRing(b1, guess) && !avoidOf(bad)[guess.y * W + guess.x] && !padFloods(h, W, H, b1.water, guess.x, guess.y, guess.level)) pick = guess;
     else {
       // (else a start the plan's water gives that is dry ground on the settled water too)
       const est = plannedWater(h, hy, W, H);
@@ -1284,6 +1364,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let layout: Feature[] = [...rivers, ...bad.features, startOf(pick)];
   // a start on level ground and no new hollow keep the water: this build reuses the settle
   let base = build(layout, "resources");
+  // (hollows whose water settled on this land, for the next attempts on it)
+  if (landStage && bad.features.length && base.settle.settled) landStage.goodBad = structuredClone(bad);
   // (the settled water covers the start's ground: another start next, on the same land)
   if (wetRing(base, pick)) return fail("start water moved", base, true);
   if (!(startWaterServed(base, rule, droughtDays) <= rule - 2)) {
