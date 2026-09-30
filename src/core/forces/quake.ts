@@ -540,3 +540,44 @@ export class FaultBrush extends PathBrush {
     return { side: this.side, path: this.path() };
   }
 }
+
+/** A tap's length (tiles): a stroke shorter than this is a click. */
+export const TAP = 1;
+
+/** A click's fault (PLAN §20 D360 (1b)): a short, natural fault at the click point, as if drawn there.
+ *  The land chooses its way: along the slope's contour where the ground slopes, a seeded way on flat
+ *  ground, turned a little by the seed (Try another varies it); a slight bend; longer with Power (10 to
+ *  22 tiles); on the map. */
+export function clickFault(heights: ArrayLike<number>, W: number, H: number, at: Point, power: number, seed: number): Point[] {
+  const cx = Math.max(0, Math.min(W - 1, Math.round(at.x)));
+  const cy = Math.max(0, Math.min(H - 1, Math.round(at.y)));
+  const h = (x: number, y: number) => heights[Math.max(0, Math.min(H - 1, y)) * W + Math.max(0, Math.min(W - 1, x))];
+  // the ground's slope round the click (a 7 × 7 window)
+  let gx = 0;
+  let gy = 0;
+  for (let d = 1; d <= 3; d++)
+    for (let o = -3; o <= 3; o++) {
+      gx += h(cx + d, cy + o) - h(cx - d, cy + o);
+      gy += h(cx + o, cy + d) - h(cx + o, cy - d);
+    }
+  const turn = (hash(seed, 31) - 0.5) * 0.9;
+  const angle = Math.hypot(gx, gy) > 2 ? Math.atan2(gy, gx) + Math.PI / 2 + turn : hash(seed, 37) * Math.PI;
+  const half = (10 + Math.round(power * 0.12)) / 2;
+  const bend = (hash(seed, 41) - 0.5) * half * 0.5;
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  const out: Point[] = [];
+  for (let k = -2; k <= 2; k++) {
+    const t = (k / 2) * half;
+    const off = bend * (1 - (k / 2) ** 2);
+    out.push({ x: Math.max(0, Math.min(W - 1, cx + dx * t - dy * off)), y: Math.max(0, Math.min(H - 1, cy + dy * t + dx * off)) });
+  }
+  return out;
+}
+
+/** A stroke's length along its points (tiles). */
+export function strokeLength(path: readonly Point[]): number {
+  let l = 0;
+  for (let k = 1; k < path.length; k++) l += Math.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
+  return l;
+}

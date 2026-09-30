@@ -70,11 +70,12 @@ import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
+import { edgeAim } from "../core/forces/carve/edge";
 import type { CraterSettings } from "../core/forces/craterize";
 import { fissureBreadth, type EruptSettings, type Point } from "../core/forces/erupt";
 import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
-import type { QuakeSettings } from "../core/forces/quake";
+import { clickFault, strokeLength, TAP, type QuakeSettings } from "../core/forces/quake";
 import { geology, nextSeed } from "../core/forces/random";
 import { forceParamsOf, pathRecord } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
@@ -2068,6 +2069,11 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const { W, H } = base;
   const N = W * H;
   if (req.natural) req = naturalRequest(req, base);
+  // a Carve clicked where its water would run straight off the map carves inward (D360 (1a))
+  if (req.natural && req.verb === "carve" && req.settings.mode === "unleash" && !req.source && !req.end) {
+    const aim = edgeAim(base.heights, base.W, base.H, Math.round(req.origin[1]) * base.W + Math.round(req.origin[0]), req.settings.power);
+    if (aim !== null) req = { ...req, settings: { ...req.settings, mode: "aim", defyGravity: true }, end: [aim % base.W, Math.floor(aim / base.W)] };
+  }
   const cut = req.cut;
   const inMap = (p: [number, number]) => p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
@@ -2154,7 +2160,11 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
       }
       case "quake": {
         map = stagedForceMap(base);
-        const run = new QuakeRun(map, req.settings, { path: req.path, side: req.side }, keep);
+        // a click (a tap, no line drawn) makes a short natural fault there, the land choosing its way
+        // and the seed turning it, so Try another varies it (D360 (1b)); the operation keeps the fault
+        const tap = req.natural && !req.painting && strokeLength(req.path) < TAP;
+        const path = tap ? clickFault(base.heights, W, H, req.path[0], req.settings.power, req.settings.seed ?? 0) : req.path;
+        const run = new QuakeRun(map, req.settings, { path, side: req.side }, keep);
         run.finalize = buildTouches(state, base.heights);
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;

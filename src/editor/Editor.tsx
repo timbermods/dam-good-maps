@@ -2454,6 +2454,8 @@ export default function Editor(props: EditorProps) {
           if (verb === "quake" && quakeUiRef.current.mode === "lift") {
             showStroke(null);
             if (painting) void forcer.current?.stop();
+            // a click (nothing painted): a short natural fault there, as a Slide's click (D360 (1b))
+            else startForce({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current), path: intent.path, side: intent.side, cut: cut() });
             painting = false;
             return;
           }

@@ -129,10 +129,10 @@ export const FORCE_GROUPS: readonly (readonly string[])[] = [
 ];
 
 const FORCE_LIST: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill, shown from where you began. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click (at the map's edge it carves inward), or draw its path: it carves along the line, downhill, shown from where you began. Esc skips to its end, Ctrl+Z takes it back" },
   { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc skips to its end, Ctrl+Z takes it back" },
   { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, Size its breadth, or draw a fissure: the shape you draw sets its extent. Esc skips to its end, Ctrl+Z takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length, and a click makes a short fault the land turns (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges: it runs the line you draw. Esc skips to its end, Ctrl+Z takes it back" },
 ];
 
