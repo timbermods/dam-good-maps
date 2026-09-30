@@ -12,3 +12,13 @@ Preparation uses a pinned High renderer at 84fe4d363cabb958429c07c02fc6a25738a36
 After the window: inspect all manifest/load evidence, generate paired GIFs with gifs.py, inspect captures and audio, run tests, worker verification and gate.mjs, update REPORT.md with qualified results and remaining coverage. Do not certify unavailable visual/audio oracles. Keep PR draft unless the full budgets hold. `git diff --check` before committing/pushing only investigation/performance. No new PR, merges, approvals or other branch pushes. The interface's 0% undo status is a recorded finding, not a gate blocker.
 
 One-window heartbeat id: terrain-smoothness-quiet-window. Do not create duplicate automation or duplicate runner.
+
+## Completed-window finding
+
+The original runner finished at 02:59:02 with zero attempts: 564 CPU samples, median 16%,
+longest ≤15% stretch 143.927 seconds. It stopped after the hour reservation failed and did
+not observe the remaining 61 minutes. The control-flow fallback is repaired after the window:
+it now keeps qualifying short work until the deadline if an hour cannot start. The historical
+result is unchanged; no late measurements are taken. `node window-summary.mjs` regenerates
+`window-proof.json`, bound to the retained raw files. Future authorized windows require
+explicit `--start=<UTC-ISO> --end=<UTC-ISO>` arguments; this expired window cannot restart.

@@ -20,7 +20,7 @@ jobs:
         working-directory: investigation/performance
       - run: node test.mjs
         working-directory: investigation/performance
-      - run: node --test metrics.test.mjs audio-worklet.test.mjs
+      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs
         working-directory: investigation/performance
       - run: node typecheck.mjs
         working-directory: investigation/performance

@@ -34,7 +34,7 @@ npm ci --no-audit --no-fund
 node build.mjs before
 node build.mjs after
 node test.mjs
-node --test metrics.test.mjs audio-worklet.test.mjs
+node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs
 node typecheck.mjs
 node run.mjs --mode=smoke --phase=after --browsers=edge,firefox --profiles=native --sizes=128 --looks=clean --cases=craterize-fast,brush-large,select-raise --repeats=1
 node run.mjs --phase=before --repeats=3
@@ -49,6 +49,14 @@ node gate.mjs
 All build outputs, raw events, per-frame PNGs, output PCM, full byte snapshots, one-hour streams and
 GIFs go to gitignored `local/`. `python audio.py <capture-audio.jsonl>` regenerates a mono WAV and
 gap index. `python water-design.py` regenerates the small committed schematic. Python needs Pillow.
+
+`node window-summary.mjs` regenerates the September 30 load/coverage proof from the retained
+`local/window-status.json` and `local/window-load.jsonl`; hashes bind the compact committed index
+to those raw files. This is a historical index, not a way to reconstruct unrecorded CPU load.
+For a separately authorized future window, pass UTC bounds explicitly:
+`node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>`. Expired windows are refused.
+The five-minute gate resets on busy/invalid samples or logging gaps. Short work continues until
+the deadline if qualification misses the full-hour start; an hour that does start stays last.
 
 Install the harness's matching Firefox with `node node_modules/playwright/cli.js install firefox`,
 or use `--firefox-path=<matching-executable>`. Installed Edge is launched through its `msedge`

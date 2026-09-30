@@ -3,9 +3,12 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, m
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cases } from './scenarios.mjs';
+import { phaseAt } from './window-policy.mjs';
 const dir = fileURLToPath(new URL('.', import.meta.url)), local = resolve(dir, 'local');
 mkdirSync(local, { recursive: true });
-const start = Date.parse('2026-09-30T09:00:00Z'), end = Date.parse('2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
+const flags = Object.fromEntries(process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')));
+const start = Date.parse(flags.start ?? '2026-09-30T09:00:00Z'), end = Date.parse(flags.end ?? '2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
+if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || Date.now() >= end) throw new Error('Provide an authorized, unexpired --start=<UTC ISO> --end=<UTC ISO> window');
 const statusPath = resolve(local, 'window-status.json');
 if (existsSync(statusPath)) {
   const previous = JSON.parse(readFileSync(statusPath));
@@ -22,12 +25,14 @@ async function cpu() {
   });
 }
 async function quiet(until) {
-  let since;
+  let since, previous;
   status.state='waiting-for-five-quiet-minutes'; save();
   while(Date.now()<until) {
     const percent=await cpu(), now=Date.now();
     appendFileSync(resolve(local,'window-load.jsonl'), JSON.stringify({at:new Date(now).toISOString(),cpuPercent:percent})+'\n');
-    if(now>=start && percent<=15) since??=now; else since=undefined;
+    if(previous !== undefined && now - previous > 15000) since=undefined;
+    if(now>=start && Number.isFinite(percent) && percent>=0 && percent<=15) since??=now; else since=undefined;
+    previous=now;
     status.cpuPercent=percent; status.quietSince=since; save();
     if(since && now-since>=300000) return true;
     await sleep(5000);
@@ -79,8 +84,25 @@ try {
       }
     }
   }
-  if(Date.now()+65*60000<=end && await quiet(end-61*60000)) {
+  let hourAttempted = false;
+  if(phaseAt(Date.now(),start,end,false,queue.length>0)==='hour' && await quiet(end-64*60000)) {
+    hourAttempted = true;
     status.hourChoice='after/edge/native/256/high; remaining configurations and repetitions stay pending';save();
-    await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
+    let outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
+    while(outcome==='busy' && phaseAt(Date.now(),start,end,true)==='hour' && await quiet(end-64*60000)) outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
   } else status.hourChoice='Insufficient quiet time for a full hour; not shortened';
+  // Missing the full-hour start is not a reason to stop monitoring the rest of the window.
+  // If an hour was started it remains the last workload; otherwise finish shorter paired work.
+  while(!hourAttempted && queue.length && Date.now()<end) {
+    if(!await quiet(end)) break;
+    let busy=false;
+    while(queue.length && Date.now()<end && !busy) {
+      const task=queue.shift();status.pending=queue;save();
+      for(const phase of ['before','after']) {
+        const outcome=await run(task,phase);
+        if(outcome==='busy'){queue.unshift(task);busy=true;break}
+        if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});break}
+      }
+    }
+  }
 } finally {status.state='finished';status.finished=new Date().toISOString();status.pending=queue;delete status.current;save();}
