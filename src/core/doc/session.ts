@@ -25,7 +25,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature } from "../features/schema";
 import type { GenerateResult } from "../gen/generate";
-import { fileName as timberFileName, toTimberFile } from "../gen/pack";
+import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -259,8 +259,8 @@ export class MapSession {
   }
 
   /** The session of a map the generator just made: its own build is the starting map. */
-  static fromGenerated(r: GenerateResult, file?: TimberFile): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field), r.built);
+  static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
+    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field, seedWord), r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
@@ -738,7 +738,7 @@ export class MapSession {
    *  profile, PLAN §19.5): they are noted at the end of the map's description. */
   /** The exported file's name. */
   exportTimberName(): string {
-    return this.gen.spec ? timberFileName(this.gen.spec) : `${this.gen.meta.name}.timber`;
+    return this.gen.spec ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {

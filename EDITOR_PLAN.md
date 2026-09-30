@@ -30,6 +30,9 @@ editor is desktop-first (D185).
   make: smart Lower, a target level that follows the ground until set (D322), clear water round a brush over
   water, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
+- **Every control says what it does** (D351): each tool, force, option, view toggle, shelf item and button has a
+  tooltip, one plain line with its key where it has one; whoever changes a control updates its tooltip in the same
+  commit, and `tests/e2e/tooltips.spec.ts` fails on any interactive control without one.
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
 
@@ -38,8 +41,10 @@ editor is desktop-first (D185).
 ## 3. The screen
 
 - **The rows over the map** (D323, item 9; structure only, the design pass styles them): four, top to bottom: the
-  view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces (Carve, Craterize, Quake, Erupt,
-  Glaciate, keys 7, 8, 9, 0 and -); then the active tool's settings and its More (no Remove tool, D288: see **Delete**
+  view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces, **in three clusters by
+  prominence** (D352, one list, `FORCE_GROUPS` in `TopBar.tsx`: Carve, Craterize, Erupt · Rift, Quake,
+  Glaciate · Erode, Deposit; today Carve, Craterize, Erupt · Quake, Glaciate, their keys unchanged: 7, 8, 0 and 9,
+  -; a force not adopted yet takes its place in the list), and the first-run hint points at Carve; then the active tool's settings and its More (no Remove tool, D288: see **Delete**
   below). **Every force's row takes Glaciate's shape**
   (D289): **Power**, **Size**, at most one signature choice, and **Try another**. Carve's one choice is **Keep river** or
   **Dry canyon**; Quake's is **Lift** or **Slide**; Craterize and Erupt have none. The gesture is the mode: a click
@@ -55,6 +60,8 @@ editor is desktop-first (D185).
   what made it. Try another re-rolls only the details still on Auto; a pin is remembered with the player's other editor
   preferences, and the operation keeps the values it ran with (picked or pinned), so replay and undo stay exact and old
   projects replay unchanged. The controls themselves are the ones from before D289, brought back rather than rebuilt.
+  **A long settings row takes a second line** (D345, B2: a brush's Sources, Square and Straight lines sit below its Size,
+  Level and Mode), and **a tool's More opens as a compact grid panel**, not a longer row.
   The four forces are built on one shared forces core (D203, D206, D220). While a force works its row is its status
   (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop, D289); the other tools wait.
   **Every force is fast, with a choice to watch** (D321, item 29; amends D266): a force is worked out first (its
@@ -116,8 +123,14 @@ editor is desktop-first (D185).
   **Placed objects fit the land** (D328, extending D290; corrected by Kyler 2026-09-29): a ruin, mine site, relic,
   landmark or an opened map's start placed on uneven ground levels its footprint (the start's door too) to the height
   most of that footprint already stands at, cutting what is above and filling what is below, in the placement's one undo
-  step. It never fills a wet tile (where the level would, the footprint is cut down to its lowest tile instead, as for a
-  source), and leaves other objects' tiles, caves and water as they are. The edge meets the land around it in short
+  step. **Placing an object never visibly spills water** (D345, B6): it never fills a wet tile, never cuts a dry tile
+  below the surface of the water beside it (the level rises to that surface instead, filling dry ground, and the edge
+  slopes stop at it too), and its levelling ops are exact, so the integrity pass cannot round a lone tile down beside a
+  lake. A footprint that stands in water on uneven ground is refused with one plain reason ("the water is in the way:
+  the ground here is uneven, and levelling it would spill the water"); one already level may stand in shallow water,
+  changing nothing. The rule lives in the core (`core/features/footprintLevel.ts` `platformLevel`, `core/doc/placing.ts`
+  `levelFootprint` and `levelProblem`), the ghost shows the level the worker names. It leaves other objects' tiles, caves
+  and water as they are. The edge meets the land around it in short
   natural slopes (one level a tile, out to six tiles, fading so a steep hillside is left alone), never a step or a wall;
   no tile moves by more than about half the slope's height across a ruin. Water and badwater sources stay cut-only
   (D290). It refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A
@@ -140,7 +153,15 @@ editor is desktop-first (D185).
   overlay is on. No dam site is drawn on the map or named on the map card: Timberborn has no dam sites, and ours were a
   heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
   moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-  **Watch** (D321, item 29), beside Sound: the forces played out slowly; off, Fast.
+  **Watch** (D321, item 29), beside Sound: the forces played out slowly; off, Fast. **The level control** (▾ ∞ ▴, D345
+  B3, as in Timberborn's own editor) sits at the top right beside the compass, larger and easy to see, with **Watch** and
+  **Sound** in a row under it; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
+  map area** (D345, B1): the default view, Top-down and Reset view fit the map's corners inside the canvas with a margin
+  and put its middle at the canvas's middle, whatever the window's size.
+- **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
+  `waterSettled` (no settle is running for it); the page begins a water journey only when it is false, and reads
+  "Water settled" at once when it is true, so an undo, a redo or an edit that leaves the water as it is never leaves
+  "Water flowing… 0%" waiting for frames that will not come (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`).
 - **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits
   settle, with an outline of what the camera sees; click or drag on it to move there. On by default
   for 256² maps, off for smaller ones, with a toggle among the view buttons.
@@ -167,7 +188,17 @@ editor is desktop-first (D185).
   level returns to ∞. Brushes and placement act on the visible land, never on hidden terrain above
   the cursor. Esc never resets the slice; the widget's ∞ does.
 - **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over
-  water, its depth, the bed level and its contamination (D196).
+  water, its depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key
+  fact where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s",
+  "Badwater source, 3 badwater/s", "Pine, grown", "Relic, medium", "Geothermal field"; where an object sits on ground the
+  line gives both ("Geothermal field · Height 5, dry soil"), and up to three objects separated by ";". It works with the
+  plain pointer and with any tool held. It is one plain core function, `describeTile` (`core/doc/describeTile.ts`),
+  returning data (the ground, and each object's name, fact and words); the readout only words and shows it, and
+  `tests/contract/describeTile.test.ts` calls it directly for every kind.
+- **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (the theme the map has, `any` for a Surprise
+  me map; a seed typed as a word made file-safe, lowercase with dashes; a real place or an opened file by its name as
+  `dgm-<name>`); Save to Timberborn never overwrites: a taken name gets `-2`, `-3`. `core/gen/pack.ts` `fileName` and
+  `namedFile`.
 - **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in
   browsers that can't save to a folder); a small menu for the rest (Open, Save project, Download
   .timber, History, New map).
@@ -319,7 +350,11 @@ editor is desktop-first (D185).
   selection, one undo step per press. With a selection open, the Delete key removes everything standing inside it, or
   the ground's top level where nothing stands; the Selection row's **Delete** opens a menu of what is there with counts
   (Everything, Water sources, Badwater sources, Start, Ruins, Trees, Bushes, Slopes and the rest, then Ground (one
-  level)), and hovering a choice shows what it would take. With no selection, Delete takes what the pointer is on: a
+  level)), and hovering a choice shows what it would take. **The counts and Everything include what is under water**
+  (D345, B5): the resource features hold trees and bushes on ground a lake covers, and they stand again when the water
+  drains, so the core's `objectsIn` (`core/doc/inArea.ts`) counts them, and Delete takes them by giving those tiles up
+  from their feature's area (a ruin field wholly inside the selection goes as a whole; one partly inside keeps the
+  columns the water hides). With no selection, Delete takes what the pointer is on: a
   source within its targeting range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole
   map** selects the whole map for a map-wide Delete. One undo step; the water they fed drains as its cause is gone
   (D260), and any check the map runs (moisture, drought) follows from that same water change. **Clear everything** in
@@ -550,7 +585,12 @@ Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on
 the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
-Erupt, - Glaciate and M Select. **Z undoes, C redoes and X closes the selection** as Esc does (D323, item 16;
+Erupt, - Glaciate and M Select. **Z undoes, C redoes and X puts down whatever is held** (D345, B7; it closed the
+selection only, D323 item 16): a brush, a force, the shelf's object, Select and its selection, a picked source or object,
+leaving a plain pointer, which picks a source or a placed object (mine site, relic, geothermal field, natural dam,
+blockage) with a click and moves it with a drag, the start included, one undo step each (Esc puts a drag back);
+in Select, **Ctrl+click** on the land takes its level and **Shift+scroll** dials the Level number (D345, B8), whether
+or not a selection is open (Z and C: D323, item 16;
 Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips
 the side of the fault that moves (it was X). With a selection open, Up and Down raise and lower it one level (the
 camera keeps W and S). Delete removes what the pointer is on, or what stands in an open selection, else the ground's

@@ -227,15 +227,15 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
       },
     };
 
-    const r = await saveToTimberborn(bytes, "River Valley.timber", deps);
+    const r = await saveToTimberborn(bytes, "dgm-river-valley-7.timber", deps);
 
     expect(r).toEqual({ via: "fsa", folder: "Maps" }); // no savedAs: the name didn't change
-    expect(writes).toEqual([{ name: "River Valley.timber", bytes }]);
+    expect(writes).toEqual([{ name: "dgm-river-valley-7.timber", bytes }]);
   });
 
-  it("saves as 'Name (2)' when the plain name is already taken, with the same bytes", async () => {
+  it("saves as 'name-2' when the plain name is already taken, with the same bytes", async () => {
     const writes: { name: string; bytes: Uint8Array }[] = [];
-    const folder = fakeFolderWithFiles("Maps", new Set(["River Valley.timber"]), writes);
+    const folder = fakeFolderWithFiles("Maps", new Set(["dgm-river-valley-7.timber"]), writes);
     const bytes = new Uint8Array([1, 2, 3, 250, 255]);
     const deps: SaveToTimberbornDeps = {
       supported: () => true,
@@ -251,15 +251,15 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
       },
     };
 
-    const r = await saveToTimberborn(bytes, "River Valley.timber", deps);
+    const r = await saveToTimberborn(bytes, "dgm-river-valley-7.timber", deps);
 
-    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "River Valley (2).timber" });
-    expect(writes).toEqual([{ name: "River Valley (2).timber", bytes }]);
+    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7-2.timber" });
+    expect(writes).toEqual([{ name: "dgm-river-valley-7-2.timber", bytes }]);
   });
 
-  it("keeps counting up when '(2)' is taken too", async () => {
+  it("keeps counting up when '-2' is taken too", async () => {
     const writes: { name: string; bytes: Uint8Array }[] = [];
-    const folder = fakeFolderWithFiles("Maps", new Set(["River Valley.timber", "River Valley (2).timber"]), writes);
+    const folder = fakeFolderWithFiles("Maps", new Set(["dgm-river-valley-7.timber", "dgm-river-valley-7-2.timber"]), writes);
     const bytes = new Uint8Array([1, 2, 3]);
     const deps: SaveToTimberbornDeps = {
       supported: () => true,
@@ -275,10 +275,10 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
       },
     };
 
-    const r = await saveToTimberborn(bytes, "River Valley.timber", deps);
+    const r = await saveToTimberborn(bytes, "dgm-river-valley-7.timber", deps);
 
-    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "River Valley (3).timber" });
-    expect(writes).toEqual([{ name: "River Valley (3).timber", bytes }]);
+    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7-3.timber" });
+    expect(writes).toEqual([{ name: "dgm-river-valley-7-3.timber", bytes }]);
   });
 });
 

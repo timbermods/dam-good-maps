@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
 const DIR = "public/real-places";
@@ -83,7 +84,7 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: `Download ${SMALL.name}` }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(`${SMALL.name}.timber`);
+  expect(d.suggestedFilename()).toBe(namedFile(SMALL.name));
   const bytes = new Uint8Array(readFileSync(await d.path()));
   expect(sha256(bytes)).toBe(sha256(expected.bytes));
   expect(sha256(bytes)).toBe(SMALL.sha256);
@@ -98,7 +99,7 @@ test("Node and Chromium build the same file for a place of each size", async ({ 
     const e = INDEX.places.filter((p) => p.size === size).at(-1)!;
     const web = await page.evaluate((id) => window.dgmPlaces!.build(id), e.id);
     const n = node(e);
-    expect(web.fileName, e.id).toBe(`${e.name}.timber`);
+    expect(web.fileName, e.id).toBe(namedFile(e.name));
     expect(web.bytes, e.id).toBe(n.bytes.length);
     expect(web.sha256, e.id).toBe(sha256(n.bytes));
     expect(web.sha256, e.id).toBe(e.sha256);
@@ -122,7 +123,7 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(`${SMALL.name}.timber`);
+  expect(d.suggestedFilename()).toBe(namedFile(SMALL.name));
   expect(sha256(new Uint8Array(readFileSync(await d.path())))).toBe(SMALL.sha256);
   expect(errors).toEqual([]);
 });

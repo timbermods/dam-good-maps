@@ -33,9 +33,9 @@ import {
 import type { PlanRecord } from "../core/features/setpieces";
 import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
+import { entityProblem, footprintCheck as checkFootprint, lakeAt, levelProblem, moveObject, planEntity, planMoveEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
 import type { SetPieceKind } from "../core/features/schema";
-import { distanceFrom } from "../core/math/grid";
+import { distanceFrom, runsToTiles, tilesToRuns, type Runs } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
 import { toTimberFile } from "../core/gen/pack";
 import { thumbnailJpeg } from "../core/render/shade";
@@ -43,6 +43,8 @@ import type { EntitySpec } from "../core/format/entities";
 import { JsonFloat } from "../core/format/json";
 import { startEntranceTile, type Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
+import { describeTileOf, type TileDescription } from "../core/doc/describeTile";
+import { objectsIn, ruinFieldsWithin, submergedIn } from "../core/doc/inArea";
 import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
 import type { ImportReport } from "../core/format/normalize";
@@ -85,7 +87,7 @@ import { areaDepth, markBrushTiles } from "../core/features/raster/brush";
 import { StrokePreview } from "../core/features/raster/strokePreview";
 import { rimSlopes } from "../core/features/slopes";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
-import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
+import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
   kind: "generated" | "import";
@@ -143,6 +145,10 @@ export interface SessionUpdate {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** The map's water is settled as this answer leaves (D345, B14): no settle is running for it, so no
+   *  journey will follow. False while the worker is settling the water after this change: its frames,
+   *  then its settled water, come as events. The water bar reads this, never a guess. */
+  waterSettled?: boolean;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -430,7 +436,7 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     kickWater();
     syncChecks();
   }
-  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant };
+  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !(waterJob && waterJob.session === s) };
 }
 
 // ------------------------------------------------------------------------------ the checks worker
@@ -899,7 +905,7 @@ export function refine(): SessionOpen {
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
   if (!r.report.passed) throw new Error("this map did not pass its checks: generate another one first");
-  return opened(MapSession.fromGenerated(r, r.file));
+  return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
 /** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
@@ -1205,6 +1211,9 @@ export interface BackgroundResult {
   /** The view after the canonical water replaced the preview's (water, and the plants on it). */
   view: ViewUpdate;
   info: SessionInfo;
+  /** No settle is running for the open map as this answer leaves (D345, B14): its water is the
+   *  canonical one, and whatever journey the page shows is over. */
+  waterSettled?: boolean;
 }
 
 let bgToken = 0;
@@ -1250,7 +1259,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
   const v0 = version;
   const token = ++bgToken;
   const current = () => session === s && version === v0 && token === bgToken;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const t0 = performance.now();
   let view: ViewUpdate = {};
   if (s.waterPending) {
@@ -1272,7 +1281,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
-      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s) };
+      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
     if (!originalFull) {
       const om = importModel(s, true);
@@ -1288,7 +1297,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!current()) return null;
     v = s.validate("export");
   }
-  return { check: grouped(s, v, t0), view, info: sessionInfo(s) };
+  return { check: grouped(s, v, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** The background check in the checks worker: its canonical water goes in place here (the view
@@ -1296,7 +1305,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
 async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => void): Promise<BackgroundResult | null> {
   const s = need();
   const v0 = version;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const r = await c.check(v0, onProgress);
   if (!r || version !== v0 || session !== s) return null;
   let view: ViewUpdate = {};
@@ -1306,7 +1315,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
   }
   if (r.layers) lastWater = { version: v0, ...r.layers };
   lastCheck = r.check;
-  return { check: r.check, view, info: sessionInfo(s) };
+  return { check: r.check, view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
@@ -1449,26 +1458,72 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[],
   const startFeatures = new Set<string>();
   const removed: number[] = [];
   const counts = new Map<RemoveKind, number>();
+  // (a ruin field wholly inside the selection goes as a whole, what the water hides of it too)
+  const fields = new Set(removeTakes(kinds, "RuinColumnH1") ? ruinFieldsWithin(s, want) : []);
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
     if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
     const kind = removeKindOf(e.template);
     if (!kind || !removeTakes(kinds, e.template)) continue;
+    if (kind === "ruins" && fields.has(e.owner)) {
+      removed.push(e.y * W + e.x);
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+      continue;
+    }
     if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
     else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
     else ids.push(e.id);
     removed.push(e.y * W + e.x);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
+  // what the resource features hold under water there is deleted too (D345, B5), and nothing they would
+  // plant on these tiles later stands again as the water drains or the ground dries: the features'
+  // areas give up the tiles where nothing stands now
+  for (const o of submergedIn(s, want)) {
+    if (!removeTakes(kinds, o.template)) continue;
+    removed.push(o.tile);
+    const kind = removeKindOf(o.template)!;
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  const trims = new Map<string, Set<number>>();
+  for (const f of s.features) {
+    // (not a ruin field: its columns' heights are assigned over its whole area, so giving tiles up would
+    // change the ones that stand)
+    if (f.kind !== "forest" && f.kind !== "berryPatch") continue;
+    if (!removeTakes(kinds, f.kind === "forest" ? "Pine" : "BlueberryBush")) continue;
+    const standing = new Set<number>();
+    for (const e of s.built.entities) if (e.owner === f.id) for (const [tx, ty] of entityTiles(e)) standing.add(ty * W + tx);
+    const gone = new Set<number>();
+    for (const i of runsToTiles(f.params.area as Runs, W)) if (want.has(i) && !standing.has(i)) gone.add(i);
+    if (gone.size) trims.set(f.id, gone);
+  }
   if (!removed.length) return { ...changed(s, false, ["nothing to remove there"], t0), removed };
   const ops: EditOp[] = [];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
+  for (const [id, gone] of trims) {
+    const f = s.features.find((g) => g.id === id);
+    if (!f || !("area" in f.params)) continue;
+    const keep = runsToTiles(f.params.area as Runs, W).filter((i) => !gone.has(i));
+    // (a feature whose whole area was under water has nothing left: it goes)
+    ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
+  }
+  for (const id of fields) ops.push({ op: "deleteFeature", params: { id } });
   for (const p of slopes) ops.push({ op: "removeSlope", params: p });
   for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
   const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
   const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
   const r = s.applyAll(ops, "user", label ?? auto);
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
+}
+
+/** What is on tile (x, y): its ground and every object standing on it (D347, B11). */
+export function describeTileAt(x: number, y: number): TileDescription | null {
+  return describeTileOf(need(), x, y);
+}
+
+/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
+export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
+  return objectsIn(need(), tiles);
 }
 
 /** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope
@@ -1531,6 +1586,17 @@ export function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
   return changed(s, a.ok, a.errors, t0);
 }
 
+/** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
+export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const p = planMoveEntity(s, id, dx, dy);
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
  *  imported map's own StartingLocation. */
 export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
@@ -1555,6 +1621,8 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
   // its door are cut down to the lowest tile, in the same step (D328)
   const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return changed(s, false, [wet], t0);
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
   const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
   const r = s.applyAll([...level, move], "user", o !== e.orientation ? "Move and turn the start" : "Move start");
@@ -1573,6 +1641,8 @@ function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: num
   }
   const [cx, cy] = cornerFor(x, y, o);
   const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return changed(s, false, [wet], t0);
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set(), [door[1] * s.size.x + door[0]]);
   const place: EditOp = { op: "placeEntity", params: { id: crypto.randomUUID(), template: "StartingLocation", x: cx, y: cy, orientation: o, components: {} } };
   const r = s.applyAll([...level, place], "user", "Place the start");
@@ -1633,7 +1703,7 @@ export function entitiesAt(x: number, y: number): EntityInfo[] {
 }
 
 /** The hover preview of a single object or an entity: its tiles, and why it can't stand there. */
-export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: string | null } {
+export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: string | null; level?: number } {
   const s = need();
   if (req.tool !== "object" && req.tool !== "entity") return { tiles: [], problem: null };
   return checkFootprint(s, req);
@@ -1782,6 +1852,8 @@ export interface ForceTakenBack extends ViewUpdate {
   info?: SessionInfo;
   /** Why nothing was taken back, when a kept force was named. */
   reason?: string;
+  /** As `SessionUpdate.waterSettled`, for the history that changed (D345, B14). */
+  waterSettled?: boolean;
 }
 
 /** The force at work: its run on its own copy of the map, the map it started from (its result is
@@ -2288,7 +2360,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     stopWater();
     const u = changed(s, true, [], t0);
     // (the whole view, not what changed since the keep: the page may never have shown the keep)
-    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info };
+    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info, waterSettled: u.waterSettled };
   }
   if (gesture > gestureLast) takenBack.add(gesture);
   return { taken: null };

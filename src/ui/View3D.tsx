@@ -38,6 +38,10 @@ export interface View3DProps {
   class?: string;
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
+  /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
+   *  switches (Watch, Sound). */
+  cornerLevel?: ComponentChildren;
+  cornerBelow?: ComponentChildren;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
@@ -292,12 +296,18 @@ export function View3D(props: View3DProps) {
         <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
           Top-down
         </button>
-        <button type="button" onClick={() => renderer.current?.resetView()}>
+        <button type="button" title="Frame the whole map again, centred, at the usual angle" onClick={() => renderer.current?.resetView()}>
           Reset view
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
       </div>
+      {props.cornerLevel || props.cornerBelow ? (
+        <div class="view3d-corner" role="group" aria-label="Layers and switches">
+          {props.cornerLevel}
+          {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
+        </div>
+      ) : null}
       <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
         <div ref={compass} class="needle">
           <span>N</span>

@@ -94,7 +94,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
       </dl>
       <StartRequirements checks={r.checks} wood={f.woodBySpecies ? { bySpecies: f.woodBySpecies, growing: f.woodGrowing } : undefined} />
       <details class="report" open={blocking.length > 0}>
-        <summary>
+        <summary title="Show or hide every check the map passed, with what each found">
           {summary}
           <span class="muted"> · {r.ms} ms{r.attempts > 1 ? `, ${r.attempts} attempts` : ""}</span>
         </summary>
@@ -105,7 +105,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
           const warn = checks.filter((c) => status(c) === "warn").length;
           return (
             <details class="group" key={g} open={bad > 0 || warn > 0}>
-              <summary>
+              <summary title={`Show or hide the ${g.toLowerCase()} checks`}>
                 {g} <span class="muted">· {bad ? `${bad} failed` : warn ? `${warn} warning${warn > 1 ? "s" : ""}` : "all passed"}</span>
               </summary>
               <ul>

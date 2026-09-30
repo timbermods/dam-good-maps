@@ -235,9 +235,13 @@ export function App() {
         void storage.clear();
       }
       setProgress({ attempt: 0, stage: "land", land: null });
+      // (a seed typed as a word names the saved file, D345 B10)
+      const word = seedText.trim();
+      const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       const r = await generator.generate(
         s,
         proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+        seedWord,
       );
       if (id !== runId.current) return;
       setResult(r);
@@ -478,7 +482,7 @@ export function App() {
   }
 
   const openInput = (
-    <label class="button ghost wide">
+    <label class="button ghost wide" title="Open a .timber map or a project file in the editor">
       Open a map
       <input
         type="file"
@@ -501,7 +505,7 @@ export function App() {
         <div class="top-row">
           <h1>Dam Good Maps</h1>
           <nav class="top-nav" aria-label="Pages">
-            <a href={PLACES_URL}>Real places</a>
+            <a href={PLACES_URL} title="Real places: maps shaped from the land of real places">Real places</a>
           </nav>
         </div>
         <p class="tag">Timberborn maps from a seed: generate, refine, download, play.</p>
@@ -511,12 +515,13 @@ export function App() {
           <span>
             Continue editing <strong>{resume.name}</strong>? It was saved in this browser {new Date(resume.savedAt).toLocaleString()}.
           </span>
-          <button type="button" class="primary" onClick={() => void openBytes(resume.bytes, resume.name + ".damgoodmaps.json", true)}>
+          <button type="button" class="primary" title="Open the map you were editing, with its edits" onClick={() => void openBytes(resume.bytes, resume.name + ".damgoodmaps.json", true)}>
             Continue
           </button>
           <button
             type="button"
             class="ghost"
+            title="Forget the map you were editing"
             onClick={() => {
               setResume(null);
               void storage.clear();
@@ -531,7 +536,7 @@ export function App() {
           <span>
             You're editing <strong>{session!.name}</strong>. The map below is a new one, made from these settings.
           </span>
-          <button type="button" class="primary" onClick={() => void generator.sessionView().then(enterEditor)}>
+          <button type="button" class="primary" title="Go back to the map you were editing, with its edits" onClick={() => void generator.sessionView().then(enterEditor)}>
             Back to editing
           </button>
         </div>
@@ -554,7 +559,7 @@ export function App() {
             onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
           />
           <div class="generate-bar">
-            <button type="button" class="primary" disabled={busy || !!opening} onClick={generateClick}>
+            <button type="button" class="primary" disabled={busy || !!opening} title="Make a new map from these settings (Enter in the panel does the same)" onClick={generateClick}>
               {busy ? "Generating…" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
             {edited ? <p class="note">Generate makes a new map. Yours stays saved, with its edits.</p> : null}
@@ -562,7 +567,7 @@ export function App() {
           {note && <p class="note">{note}</p>}
           {openInput}
           <details class="more">
-            <summary>What's in this version</summary>
+            <summary title="What this version of the generator makes and checks">What's in this version</summary>
             <p>
               Any, or a theme to lean toward: River Valley, Canyon, Highlands, Lake Basin, Delta or Islands. Uplift,
               erosion and flowing water shape the land and its rivers.
@@ -581,17 +586,17 @@ export function App() {
         <section class="view" aria-label="Map">
           <div class="view-bar">
             <div class="segmented" role="group" aria-label="Preview">
-              <button type="button" aria-pressed={preview === "2d"} onClick={() => setPreview("2d")}>
+              <button type="button" aria-pressed={preview === "2d"} title="A flat picture of the map with layers to show" onClick={() => setPreview("2d")}>
                 2D
               </button>
-              <button type="button" aria-pressed={preview === "3d"} onClick={() => setPreview("3d")}>
+              <button type="button" aria-pressed={preview === "3d"} title="The map in 3D: turn, move and zoom it" onClick={() => setPreview("3d")}>
                 3D
               </button>
             </div>
             {preview === "2d" ? (
               <div class="layers" role="group" aria-label="Preview layers">
                 {(Object.keys(LAYER_NAMES) as (keyof Layers)[]).map((k) => (
-                  <label class="check" key={k}>
+                  <label class="check" key={k} title={`Show ${LAYER_NAMES[k].toLowerCase()} on the picture`}>
                     <input type="checkbox" checked={layers[k]} onChange={() => setLayers({ ...layers, [k]: !layers[k] })} />
                     {LAYER_NAMES[k]}
                   </label>
@@ -636,15 +641,15 @@ export function App() {
           {result && (
             <>
               <div class="downloads">
-                <button type="button" class="primary" disabled={busy || (!result.passed && !fromSession)} onClick={() => void refine()}>
+                <button type="button" class="primary" disabled={busy || (!result.passed && !fromSession)} title="Open this map in the editor to shape it" onClick={() => void refine()}>
                   Refine this map
                 </button>
                 {fromSession ? (
                   <>
-                    <button type="button" class="ghost" onClick={() => setExporting(true)}>
+                    <button type="button" class="ghost" title="Check the edited map and save it as a .timber for Timberborn" onClick={() => setExporting(true)}>
                       Export {session?.timberName ?? result.timberName}
                     </button>
-                    <button type="button" class="ghost" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
+                    <button type="button" class="ghost" title="Save the map with all its edits as a project file, to open and change later" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
                       Download project file
                     </button>
                   </>
@@ -654,6 +659,7 @@ export function App() {
                       type="button"
                       class="ghost"
                       disabled={busy || !result.passed}
+                      title="Download the map as a .timber file for Timberborn's Maps folder"
                       onClick={() => {
                         saveFile(result.timber, result.timberName);
                         setDownloaded(true);
@@ -661,10 +667,10 @@ export function App() {
                     >
                       Download {result.timberName}
                     </button>
-                    <button type="button" class="ghost" disabled={busy || !result.passed || savingToTimberborn} onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
+                    <button type="button" class="ghost" disabled={busy || !result.passed || savingToTimberborn} title="Save the map straight into Timberborn's Maps folder (Chrome and Edge; elsewhere it downloads)" onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
                       {savingToTimberborn ? "Saving…" : "Save to Timberborn"}
                     </button>
-                    <button type="button" class="ghost" onClick={() => saveFile(result.project, result.projectName, "application/gzip")}>
+                    <button type="button" class="ghost" title="Save the map as a project file, to open and edit later" onClick={() => saveFile(result.project, result.projectName, "application/gzip")}>
                       Download project file
                     </button>
                     <button
@@ -702,10 +708,10 @@ export function App() {
                 )}
               </div>
               <div class="share" role="group" aria-label="Share this map">
-                <button type="button" class="ghost" onClick={() => void copy(shareLink(location.href, result.spec), "Link")}>
+                <button type="button" class="ghost" title="Copy a link that opens the same map" onClick={() => void copy(shareLink(location.href, result.spec), "Link")}>
                   Copy link
                 </button>
-                <button type="button" class="ghost" onClick={() => void copy(shareText(result.spec, shareLink(location.href, result.spec)), "Seed and settings")}>
+                <button type="button" class="ghost" title="Copy the seed and settings as text, with the link" onClick={() => void copy(shareText(result.spec, shareLink(location.href, result.spec)), "Seed and settings")}>
                   Copy seed + settings
                 </button>
                 <span class="muted" role="status">
@@ -732,7 +738,7 @@ export function App() {
         </section>
       </main>
       <footer class="foot">
-        Generator {GENERATOR_VERSION}. Not affiliated with Mechanistry. <a href="https://github.com/timbermods/dam-good-maps">Source</a>
+        Generator {GENERATOR_VERSION}. Not affiliated with Mechanistry. <a href="https://github.com/timbermods/dam-good-maps" title="The source code, on GitHub">Source</a>
       </footer>
       {exporting && session && Dialog ? (
         <Dialog

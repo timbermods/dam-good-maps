@@ -49,8 +49,8 @@ ed.setAutoWater(true);
 
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
-  async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
-    const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined);
+  async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
+    const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined, seedWord);
     return transfer(r, responseBuffers(r));
   },
   /** The last generated map without pre-filled water, or null. */
@@ -65,8 +65,10 @@ const api = {
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
-    const r = placeTimber(decodePlaceFile(data));
-    return sendOpen(ed.openTimber(r.bytes, r.fileName));
+    const place = decodePlaceFile(data);
+    const r = placeTimber(place);
+    // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
+    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
   },
   sessionView: () => sendOpen(ed.sessionView()),
   terrainNow() {
@@ -117,6 +119,9 @@ const api = {
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  describeTile: (x: number, y: number) => ed.describeTileAt(x, y),
+  moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
   applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
