@@ -59,6 +59,8 @@ differently, this file wins.
    parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
    #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
    timeline; its sitting comes then (D349, 2026-09-30).
+   Then **custom map sizes** (D357): any width and height from 4 to 512, shaped by the generator, after a probe of
+   large and long maps in the game.
 2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
 3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
    **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
@@ -2062,6 +2064,19 @@ the new screens; no second full design pass.
 **Effort:** high.
 
 ---
+
+## Custom map sizes (D357)
+
+At the end of step 1, after the Weather view. Any width and height from the game's minimum (4) up to 512 on either
+side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
+boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
+down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
+with the map while the absolutes never relax. What grows with area may take longer beyond the standard sizes; what the
+player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
+256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
+refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
+loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
+reported. PLAN §20 D357 has the whole decision.
 
 ## Collaborative editing (D349)
 
