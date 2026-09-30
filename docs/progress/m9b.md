@@ -398,6 +398,29 @@ sends: a generated one, a version the background search found, a sibling, an edi
   refuses thin parts (a test on that cut), and the cap is 200 tiles. The captures:
   `investigation/m9b/worn-way-out-any-5-128.png` (64 tiles), `worn-way-out-lakeBasin-4-256.png` (51).
 
+### The 20-seed measures after D358 and D360 (889f7ddf, 2026-10-01, a quiet machine)
+
+- **Absolutes failing:** 1 of 140 at 128² (Any 11: no start, its places poor in farmland, level land
+  and wood) and 1 of 140 at 256² (Islands 12: its sea's water doesn't settle with a one-bank cut under
+  the 200-tile cap).
+- **All three outcomes:** 106 of 140 at 128² (Any 14, River Valley 11, Canyon 17, Highlands 16, Lake
+  Basin 12, Delta 17, Islands 19 of 20) and 91 of 140 at 256² (Any 12, River Valley 13, Canyon 14,
+  Highlands 11, Lake Basin 11, Delta 13, Islands 17). Most misses are water stories the planned water
+  read as whole; Highlands 256² keeps its promise on 38 of 92 lands drawn.
+- **Worn ways out (b):** 2 maps at 128² (Any 5: 64 tiles, Delta 4: 57) and 6 at 256² (20–86 tiles),
+  each one shape; 7 maps at 128² and 21 at 256² settle in 4–6 days with no cut.
+- **Times** (median / p90): 128² land 0.8 / 1.6 s, settled water 2.0 / 5.5 s, the map 2.6 / 6.3 s;
+  256² land 2.1 / 5.2 s, settled water 8.6 / 20.5 s, the map 10.6 / 22.7 s.
+
+### The probe batch m9b-20261001 (889f7ddf, 22 maps)
+
+Every map passed every check (138 passed, 22 recorded screenshots), with a clean restore; results in
+`C:\dgm-probe\results\m9b-20261001\` (local). The 18 maps of the M9b group include River Valley 2's and Lake Basin 2's
+calendar timelines, which failed on the refill gap in the last batch, and the two Sources: None
+maps. D358's four slow-settling maps (Lake Basin 256² seeds 16 and 5, Any 256² seed 12, Islands
+128² seed 3: 4,096–4,608 ticks) keep their stored water: after a day 100%, 100%, 100% and 98.3% of
+their wet tiles within 0.1 deep of the file, the volume within 0.2–0.9%.
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
