@@ -62,6 +62,8 @@ export class WaterJourney {
   news(e: WaterNews): void {
     if (e.version < this.version) return;
     if (e.version > this.version) {
+      // (only the latest frame of a version is worth holding: each is a whole map's water)
+      this.held = this.held.filter((h) => !(h.kind === "water" && e.kind === "water" && h.version === e.version));
       this.held.push(e);
       return;
     }
