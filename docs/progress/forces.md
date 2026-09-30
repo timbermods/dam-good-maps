@@ -7,8 +7,9 @@
 > line (radius 1), no reach, no filled loop; Carve's and Glaciate's keep their width. (3) Size and Power
 > (`core/forces/strength.ts`): larger than Power's own size, a force acts in proportion (Craterize, Erupt tempered
 > level by level; Carve's depth capped, banks included; Glaciate below Power 60 too), every reached tile still moving a level; Slide 2 to 20 tiles. At the
-> largest Size, 128² highlands, the change at Power 0 / 100 (tiles, deepest, sum): Carve 1,250 / 1,820, 4 / 14,
-> Craterize 11,100 / 15,541, 2 / 14, Erupt 1,805 / 7,878, 3 / 22, Glaciate 1,264 / 1,341, 2 / 13, Lift 2 / 9.
+> largest Size, 128² highlands, Power 0 against Power 100 (tiles changed, deepest, sum of levels): Carve 1,250 /
+> 1,820, 4 / 14, 2,177 / 15,501; Craterize 15,713 / 15,541, 2 / 14, 20,128 / 83,855; Erupt 4,710 / 7,878, 3 / 22,
+> 4,715 / 56,118; Glaciate 1,832 / 1,341, 2 / 13, 1,848 / 10,540; Lift 11,835 / 15,355, 2 / 9; Slide 2 tiles / 20.
 > Tests that failed first: `tests/contract/forcePower.test.ts` (5 forces and the painted Lift), `forceKeys.spec.ts`
 > (the narrow band, } while painting, Try another's Power). Tests changed to the decision: eruptHeadroom's Size test
 > (wider than Power's own volcano is now lower, not the same peak) and forces.test's Quake parity (Slide compared at
