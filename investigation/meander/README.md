@@ -1,5 +1,10 @@
 # Meander
 
+> **Adopted into Carve, not a force of its own (Kyler, 2026-09-30, PLAN §20 D355).** Meander only works on an existing
+> river, so on most of the map it does nothing. Its engine (oxbow lakes, a floodplain, cut banks and point bars) becomes
+> Carve's **Maturity** option in More (Young, Mature, Auto): Young is today's Carve; Mature carves the river, then ages
+> it with this engine. Carve used along an existing river matures it (Meander's own gesture).
+
 Give an existing river centuries. Its bends swing downstream, cut banks retreat, and sediment
 builds inside bars and a flatter valley floor. At high Power, a tight bend can become an oxbow.
 

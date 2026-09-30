@@ -1,5 +1,7 @@
 # Adopting Meander
 
+> **Adopted into Carve (Kyler, 2026-09-30, D355):** not a force of its own. This engine becomes Carve's Maturity option (Young, Mature, Auto) in More, and Carve along an existing river matures it. Adopted after the forces release, and it passes the smoothness harness before it merges.
+
 Based on feature/forces `9e14f1895c386489928dda78f888fc79772ceef6`. The PR into dev carries
 its unmerged history. Take only this investigation's commit(s); no product files changed.
 
