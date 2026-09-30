@@ -140,3 +140,116 @@ describe("the game's rules' bytes are pinned (M9b; D293, D303, D308)", () => {
     expect(digest(sim.D, sim.C, sim.Dold, sim.out, sim.saturation())).toBe(pinned);
   });
 });
+
+/** The faster settle's private bookkeeping (PLAN §20 D359), read for the check below. */
+interface Books {
+  active: Int32Array;
+  activeCount: number;
+  activePos: Int32Array;
+  wet: Int32Array;
+  wetCount: number;
+  wn: Int32Array;
+  mod: Float64Array;
+  sourceCells: Int32Array;
+  updateEvapMod(): void;
+}
+
+/** The bookkeeping the simulator keeps up to date must equal the same bookkeeping rebuilt from the
+ *  water as it stands: the active list (wet tiles, their 4-neighbours and the source cells), the wet
+ *  list, every tile's wet-neighbour count, and every tile's evaporation modifier. */
+function booksMatch(sim: WaterSim, where: string): void {
+  const { W, H, N, D } = sim;
+  const b = sim as unknown as Books;
+  const want = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!(D[i] > 0)) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    want[i] = 1;
+    if (y > 0) want[i - W] = 1;
+    if (x > 0) want[i - 1] = 1;
+    if (y < H - 1) want[i + W] = 1;
+    if (x < W - 1) want[i + 1] = 1;
+  }
+  for (const i of b.sourceCells) want[i] = 1;
+  const got = new Uint8Array(N);
+  for (let a = 0; a < b.activeCount; a++) {
+    const i = b.active[a];
+    if (got[i] || b.activePos[i] !== a) throw new Error(`${where}: active list entry ${a} (tile ${i}) is misplaced`);
+    got[i] = 1;
+  }
+  const wetGot = new Uint8Array(N);
+  for (let k = 0; k < b.wetCount; k++) wetGot[b.wet[k]] = 1;
+  // the modifiers as the tick about to run will use them (computed now; the run's own call then finds
+  // nothing left to do)
+  b.updateEvapMod();
+  for (let i = 0; i < N; i++) {
+    if (got[i] !== want[i]) throw new Error(`${where}: tile ${i} ${want[i] ? "missing from" : "wrongly in"} the active list`);
+    if (wetGot[i] !== +(D[i] > 0)) throw new Error(`${where}: tile ${i}'s place in the wet list`);
+    const x = i % W;
+    const y = (i - x) / W;
+    let wn = 1;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if ((dx || dy) && xx >= 0 && xx < W && yy >= 0 && yy < H && D[yy * W + xx] > 0) wn++;
+    }
+    if (b.wn[i] !== wn) throw new Error(`${where}: tile ${i}'s wet-neighbour count ${b.wn[i]}, not ${wn}`);
+    let mod = 1;
+    if (D[i] > 0) {
+      let sat = wn;
+      for (const [n, ok] of [[i - W, y > 0], [i - 1, x > 0], [i + W, y < H - 1], [i + 1, x < W - 1]] as const) {
+        if (!ok || !(D[n] > 0)) continue;
+        let c = 1;
+        const nx = n % W;
+        const ny = (n - nx) / W;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const xx = nx + dx;
+          const yy = ny + dy;
+          if ((dx || dy) && xx >= 0 && xx < W && yy >= 0 && yy < H && D[yy * W + xx] > 0) c++;
+        }
+        if (c - 1 > sat) sat = c - 1;
+      }
+      const t = 10 - Math.min(8, sat);
+      mod = 0.0595 * (t * t) + 0.101 * t + 0.72;
+    }
+    if (!Object.is(b.mod[i], mod)) throw new Error(`${where}: tile ${i}'s evaporation modifier ${b.mod[i]}, not ${mod}`);
+  }
+}
+
+describe("the faster settle keeps its bookkeeping exact (PLAN §20 D359)", () => {
+  it.each(golden.fixtures.map((f) => [f.name, f] as const))("%s: every tick of 400, under both rules", (_name, f) => {
+    for (const rules of ["game", "port"] as const) {
+      const sim = new WaterSim(model(f), undefined, { rules });
+      booksMatch(sim, `${rules} start`);
+      for (let t = 0; t < 400; t++) {
+        sim.run(1);
+        booksMatch(sim, `${rules} tick ${t + 1}`);
+      }
+    }
+  });
+
+  it("a grid with starting water, a seep, badwater, a drought, a warm start's momentum and the floor changed between runs (a carve)", () => {
+    const W = 24;
+    const H = 20;
+    const N = W * H;
+    const floor = Float64Array.from({ length: N }, (_, i) => (i * 13 + 7) % 5);
+    const dam = Float64Array.from({ length: N }, (_, i) => (i % 7 === 0 ? 0.65 : -1));
+    const depth = Float64Array.from({ length: N }, (_, i) => (i % 3 === 0 ? 0 : 0.01 + (i % 9) / 3));
+    const contamination = Float64Array.from({ length: N }, (_, i) => (i % 4) / 3);
+    const emitters: Emitter[] = [
+      { cells: [0], strength: 2, contamination: 0, depthLimit: { anchor: 0, off: 0.8, on: 0.72 } },
+      { cells: [N - 1], strength: 1, contamination: 1 },
+      { cells: [W - 1, N - W], strength: 0.5, contamination: 0.5 },
+    ];
+    const sim = new WaterSim({ W, H, floor, dam, emitters }, { depth, contamination });
+    sim.out.fill(0.25);
+    booksMatch(sim, "start");
+    for (let t = 0; t < 300; t++) {
+      emitters[1].contamination = t < 128 ? 1 : 0;
+      if (t === 150) for (let i = 5 * W + 5; i < 5 * W + 12; i++) sim.F[i] = 0;
+      sim.run(1, t < 64 ? 1 : t < 128 ? 0 : t < 192 ? 0.35 : 1);
+      booksMatch(sim, `tick ${t + 1}`);
+    }
+  });
+});

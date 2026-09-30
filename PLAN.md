@@ -1289,8 +1289,10 @@ basins (a lake, a valley basin and a weir pool): they agree within 5% of the sto
   | 256² | 3,000 | 11.3 s | 6.5 s |
 
   The naive active set was computed once per tick, and it changed the settled volume by 5%. **The
-  active set must be exact**: wet cells plus their 4-neighbours, recomputed every substep and kept
-  as an index list rather than a full-grid scan.
+  active set must be exact**: wet cells plus their 4-neighbours, exact every substep and kept
+  as an index list rather than a full-grid scan. Since D359 it is kept up to date as tiles turn wet
+  or dry (with the wet-neighbour counts and the evaporation modifiers) rather than rebuilt: the same
+  bytes, about 1.25× faster.
 - **Budget** (revised from 1.5 s / 0.4 s, which the measurement does not support for a cold
   start), **fixed by the M2 benchmark (D33):**
   - A canonical settle of **≤ 3 s at 256² and ≤ 0.6 s at 128²**, with the exact active list and
