@@ -3754,7 +3754,7 @@ export default function Editor(props: EditorProps) {
                   <button type="button" aria-pressed={minimap} onClick={() => setMinimap(!minimap)} title="A small picture of the whole map in the corner: click it to go there">
                     Minimap
                   </button>
-                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change. Off: each force's land is final in about two seconds">
+                  <button type="button" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play the forces out slowly, to watch the land change (a click or Esc skips to the end). Off: each force's land is final in about two seconds">
                     Watch
                   </button>
                   <span class="reveal-group">

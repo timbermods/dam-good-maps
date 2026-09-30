@@ -118,14 +118,14 @@ export function CarveRow(p: CarveRowProps) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <label class="slider-field" title="How hard it cuts and how far it runs: a creek to a catastrophe">
+        <label class="slider-field" title={`How hard it cuts and how far a clicked river runs: a creek to a catastrophe (now ${powerWord(u.power)}). { and } change it by 5`}>
           Power
           <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
           <output title={powerWord(u.power)}>{u.power}</output>
         </label>
         <SizeControl
           label="Size"
-          title="How wide it cuts, in tiles: narrow for a slot canyon, wide for a lazy river (Auto: the width Power gives)"
+          title="How wide it cuts, in tiles, clicked or drawn: narrow for a slot canyon, wide for a lazy river (Auto: the width Power gives; a drawn path sets how far it runs). Hold F and move the mouse, or [ and ], to set it"
           value={Math.round(width)}
           words={u.width === null ? width.toFixed(1) : String(u.width)}
           min={2}

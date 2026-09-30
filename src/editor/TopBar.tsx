@@ -118,11 +118,11 @@ export interface Force {
   hint?: string;
 }
 export const FORCES: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill. Ctrl+Z takes it back" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Ctrl+Z takes it back" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it (V flips the side). Ctrl+Z takes it back" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, or draw a fissure. Ctrl+Z takes it back" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges. Ctrl+Z takes it back" },
+  { id: "carve", name: "Carve", ready: true, key: "7", hint: "unleash a river where you click, or draw its path: it carves along the line, downhill, shown from where you began. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "a giant impact where you click, or draw the way it travels for a glancing blow. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "draw a fault: one side lifts, or slides along it; the line you draw is its length (V flips the side). Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano where you click, Size its breadth, or draw a fissure: the shape you draw sets its extent. Esc skips to its end, Ctrl+Z takes it back" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "click high ground and a glacier carves a valley down it, or draw its path through the ridges: it runs the line you draw. Esc skips to its end, Ctrl+Z takes it back" },
 ];
 
 /** The forces this build shows: the ready ones, and none on the public site until their release
@@ -183,7 +183,11 @@ export interface TopBarProps {
 export const FORCE_KEYS = "Esc to skip · Ctrl+Z to undo";
 
 export function ForceKeys() {
-  return <span class="bar-status force-keys">{FORCE_KEYS}</span>;
+  return (
+    <span class="bar-status force-keys" title="Esc skips the force to its end, kept as one step; Ctrl+Z (or Z, or Revert) takes all of it back">
+      {FORCE_KEYS}
+    </span>
+  );
 }
 
 /** A toggle in the options row: a checkbox and its word. */
@@ -231,7 +235,7 @@ export function SizeControl(p: {
         <output>{words}</output>
       </label>
       {p.auto ? (
-        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power: move the slider to set it yourself` : `Let ${p.label.toLowerCase()} follow Power again`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
+        <button type="button" class="auto-button" aria-pressed={p.auto.on} aria-label={`${p.label} follows Power`} title={p.auto.on ? `${p.label} follows Power: move the slider, hold F over the map or press [ or ] to set it yourself` : `Let ${p.label.toLowerCase()} follow Power again`} onClick={() => p.auto!.onAuto(!p.auto!.on)}>
           Auto
         </button>
       ) : null}

@@ -93,7 +93,13 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
         <span class="bar-status" role="status">
           {st.stopping ? "Settling…" : doing}
         </span>
-        {st.painting && !st.stopping ? <span class="bar-status force-keys">Esc to cancel</span> : <ForceKeys />}
+        {st.painting && !st.stopping ? (
+          <span class="bar-status force-keys" title="Esc takes the fault back while you are still drawing it">
+            Esc to cancel
+          </span>
+        ) : (
+          <ForceKeys />
+        )}
         <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
           Revert
         </button>
@@ -105,7 +111,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
 function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
-    <label class="slider-field" title={p.title}>
+    <label class="slider-field" title={`${p.title} (now ${word}). { and } change it by 5`}>
       Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
       <output title={word}>{p.value}</output>
@@ -151,7 +157,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
         <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits: deeper, wider, with more debris" />
         <SizeControl
           label="Size"
-          title="The crater's width, in tiles (Auto: the size Power gives; a bigger crater is shallower for the same Power)"
+          title="The crater's width, in tiles, for a click or a drawn blow (Auto: the size Power gives; a bigger crater is shallower). Hold F and move the mouse, or [ and ], to set it"
           value={Math.round(size / 2) * 2}
           min={4}
           max={180}
@@ -222,7 +228,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
         <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
         <SizeControl
           label="Size"
-          title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives)"
+          title="How broad a clicked volcano spreads, in tiles across (Auto: the breadth Power gives); a drawn fissure's shape sets its own. Hold F and move the mouse, or [ and ], to set it"
           value={breadth}
           min={ERUPT_SIZE_MIN}
           max={ERUPT_SIZE_MAX}
@@ -324,7 +330,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice: a deeper, longer valley" />
         <SizeControl
           label="Size"
-          title="The valley's width, in tiles (Auto: the width Power gives)"
+          title="The valley's width, in tiles, clicked or drawn (Auto: the width Power gives; a drawn path sets how far it runs). Hold F and move the mouse, or [ and ], to set it"
           value={Math.round(size / 2) * 2}
           min={GLACIATE_SIZE_MIN}
           max={GLACIATE_SIZE_MAX}
