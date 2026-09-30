@@ -39,7 +39,7 @@ once, and only for the plan it was printed for.
     map's densities. Checks: it loads at its size with its terrain and objects; its water at the load and after a day
     against the file's settled water (our model); frame times with a camera pan over the whole map at normal speed, the
     fastest and the probe's speed (`size-smooth`, against the 256² map); the time to load (`size-load-time`). The run's
-    `summary.md` has a table of both. About 25–30 minutes for the six maps.
+    `summary.md` has a table of both. The plan estimates about 36 minutes for the six maps.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
