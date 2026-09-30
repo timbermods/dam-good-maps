@@ -309,6 +309,10 @@ const SPRING_TRIES = 3;
 const START_TRIES = 3;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
 const WEAR_WIDTHS = [9, 17];
+/** The most tiles of a sea's planned water on ground at its own spill level (a shelf) before the
+ *  land is drawn again (D358: such seas fill for more than six days; 256² Islands lands run 2,000 to
+ *  19,000, the three over 13,000 needed a cut or didn't settle; 128² lands stay under 6,000). */
+const SEA_SHELF_MOST = 10000;
 /** The most tiles a worn way out may take (Kyler, D360: about 200). */
 const WEAR_MOST = 200;
 const SPRING_STRENGTH = [2];
@@ -1407,6 +1411,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if ((st.longest?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.run || (st.canal?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.canal) return fail("ruler-straight channel", null, true);
       }
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
+      // (a sea standing over a broad shelf at its own spill level: its water crosses the shelf as a
+      // sheet and fills for days, past the settle's six, and no small cut settles it (Islands 256²
+      // seeds 12, 15, 19, D358, D360): fixed at the source, a land drawn again)
+      if (!lastAttempt && g.seaLayout) {
+        const spill = drainage(hLand, W, H, { eight: false }).filled;
+        let shelf = 0;
+        for (let i = 0; i < N; i++) if (hy.water[i] === 2 && hLand[i] >= spill[i]) shelf++;
+        if (shelf > SEA_SHELF_MOST) return fail("a sea over its shelf", null, false);
+      }
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
