@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next, how things are run here, and the machine the session runs on (§9). Then read `CLAUDE.md`,
-`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D350) and `ROADMAP.md`. Kyler
+`docs/STATUS.md`, `EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (every decision, D1–D358) and `ROADMAP.md`. Kyler
 (he/him) owns the project and decides everything.
 
 **Now (2026-09-29):** the session runs on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB); the dedicated machine (§9) is out of allowance. Worktrees are `C:\Users\Kyler\code\DamGoodMaps-<name>`. D218 doesn't apply here: ask Kyler before every probe batch.
@@ -116,7 +116,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D351**.
+number on `dev` is **#94**. The next decision is **D359**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -202,6 +202,17 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
 - **Investigation PRs** (Codex's and others): merge at the next boundary as a merge commit once green, adopt their
   INTEGRATION.md as proposals; anything that conflicts with a decision becomes a pending decision with a default. Hold any PR
   Kyler says Codex is still working on.
+- **Where probes run** (Kyler, 2026-09-30): every probe runs from one dedicated worktree, `C:\Users\Kyler\code\DamGoodMaps-probe`,
+  whose four runner commands are in Kyler's allow rules (`npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run`
+  `build-mod -- --no-install`, `batch -- --backup-settings`, `batch -- --group …`, `restore`). Before a probe, check out the
+  branch that needs probing there, detached (`git checkout --detach origin/<branch>`, the probe's own code included), run
+  `npm ci` at the root and in `investigation/probe` if the lockfiles changed, then run from that folder. Always print the
+  plan and check it before launching: the right maps, a sensible time, no fallback to a bigger batch. The map writers some
+  groups need first (`tools/probe-3d.ts`, `tools/probe-parity.ts`) are not among the four rules: if one is refused, leave
+  the batch for Kyler. **Being replaced (Kyler, 2026-09-30):** `batch --group <name>` writes that group's maps first, from the group's own
+  writer, then runs them, and prints the maps written as part of the plan; so the four commands cover every group, now
+  and later. Built on `chore/probe-sizes` and applied to the Parity group on `feature/parity`; the 3D group gets it when
+  it merges.
 - **DGM Probe** (`investigation/probe`): the only way Claude may launch Timberborn, and **only after Kyler's yes in chat for
   that batch, every time** (CLAUDE.md, D117). **On this machine only (§9), D218 lifts the ask:** run a batch whenever the plan
   calls for one, and report it in STATUS and on #57; everything else below still applies. Elsewhere, ask in one message: how
@@ -220,7 +231,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D351), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D359), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
