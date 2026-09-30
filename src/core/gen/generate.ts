@@ -1414,11 +1414,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (a sea standing over a broad shelf at its own spill level: its water crosses the shelf as a
       // sheet and fills for days, past the settle's six, and no small cut settles it (Islands 256²
       // seeds 12, 15, 19, D358, D360): fixed at the source, a land drawn again)
+      // (and a sea standing mostly on such a shelf over a quarter of the map: its water covers the
+      // shelf thinly or not at all, and the land round it stays dry: Any 128² seed 11's atolls)
       if (!lastAttempt && g.seaLayout) {
         const spill = drainage(hLand, W, H, { eight: false }).filled;
         let shelf = 0;
-        for (let i = 0; i < N; i++) if (hy.water[i] === 2 && hLand[i] >= spill[i]) shelf++;
-        if (shelf > SEA_SHELF_MOST) return fail("a sea over its shelf", null, false);
+        let sea = 0;
+        for (let i = 0; i < N; i++)
+          if (hy.water[i] === 2) {
+            sea++;
+            if (hLand[i] >= spill[i]) shelf++;
+          }
+        if (shelf > SEA_SHELF_MOST || (shelf >= 0.75 * sea && shelf >= 0.25 * N)) return fail("a sea over its shelf", null, false);
       }
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });

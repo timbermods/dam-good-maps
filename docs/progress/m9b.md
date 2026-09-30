@@ -417,6 +417,11 @@ sends: a generated one, a version the background search found, a sibling, an edi
   over a shelf of more than 10,000 tiles is drawn again before it is shown; Islands 256² seeds 1–20
   then all pass and meet all three outcomes, one small cut left (76 tiles). Lowering a sea's shelves
   instead (as a lake's are) was tried: 5 of 20 256² seas then failed to settle.
+- **Any 128² seed 11, fixed at the source:** its atolls' sea stood 80% on a flat at its own spill
+  level (5,574 tiles, a third of the map), which its water covers thinly or not at all: the land
+  round it stayed dry and no start found farmland, wood or level land. A sea standing at least 75% on
+  its shelf over a quarter of the map is drawn again too. Any and Islands, seeds 1–20: none fails at
+  either size; all three outcomes 17 and 19 of 20 at 128², 15 and 20 at 256² (Any was 14 and 12).
 
 ### The probe batch m9b-20261001 (889f7ddf, 22 maps)
 
