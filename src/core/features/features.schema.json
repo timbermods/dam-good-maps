@@ -220,6 +220,7 @@
         "scrapTarget": { "type": "integer", "minimum": 0 },
         "heightMix": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "number", "minimum": 0 } },
         "centerBias": { "type": "number", "minimum": 0, "maximum": 2 },
+        "cleared": { "$ref": "#/$defs/runs" },
         "layout": {
           "description": "The official maps' look: the field's own storey mix, tilted by tallness (-1 short, 1 tall), a few towers among shorter columns, and the official shares of models and turns.",
           "type": "object",

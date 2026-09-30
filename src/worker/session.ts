@@ -44,7 +44,7 @@ import { JsonFloat } from "../core/format/json";
 import { startEntranceTile, type Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
 import { describeTileOf, type TileDescription } from "../core/doc/describeTile";
-import { objectsIn, ruinFieldsWithin, submergedIn } from "../core/doc/inArea";
+import { objectsIn, ruinFieldTilesIn, submergedIn } from "../core/doc/inArea";
 import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
 import type { ImportReport } from "../core/format/normalize";
@@ -1468,8 +1468,9 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[],
   const startFeatures = new Set<string>();
   const removed: number[] = [];
   const counts = new Map<RemoveKind, number>();
-  // (a ruin field wholly inside the selection goes as a whole, what the water hides of it too)
-  const fields = new Set(removeTakes(kinds, "RuinColumnH1") ? ruinFieldsWithin(s, want) : []);
+  // (a ruin field the selection reaches gives up the tiles inside it, the columns the water hides too; the
+  // columns outside keep their heights and places, D360 b)
+  const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
     if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
@@ -1517,7 +1518,14 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[],
     // (a feature whose whole area was under water has nothing left: it goes)
     ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
   }
-  for (const id of fields) ops.push({ op: "deleteFeature", params: { id } });
+  for (const [id, gone] of fields) {
+    const f = s.features.find((g) => g.id === id);
+    if (!f || f.kind !== "ruinField") continue;
+    const cleared = new Set<number>(f.params.cleared ? runsToTiles(f.params.cleared, W) : []);
+    for (const i of gone) cleared.add(i);
+    const left = runsToTiles(f.params.area, W).some((i) => !cleared.has(i));
+    ops.push(left ? { op: "updateFeature", params: { id, patch: { params: { cleared: tilesToRuns([...cleared].sort((a, b) => a - b), W) } } } } : { op: "deleteFeature", params: { id } });
+  }
   for (const p of slopes) ops.push({ op: "removeSlope", params: p });
   for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
   const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };

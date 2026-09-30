@@ -28,7 +28,7 @@ import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTil
 import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
-import { DRAGGABLE_OBJECTS, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { isPickable, pickWinner, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 import { modalLevel } from "../core/features/footprintLevel";
 
 /** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
@@ -73,7 +73,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -240,6 +240,8 @@ export default function Editor(props: EditorProps) {
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
   /** A water source being dragged to a new place: its footprint there (D184). */
   const [sourceDrag, setSourceDrag] = useState<number[] | null>(null);
+  /** The tiles of the object the plain pointer would pick where it is (D360 a): a quiet highlight. */
+  const [hoverObject, setHoverObject] = useState<number[] | null>(null);
   /** The water's journey, played at a pace the eye can follow; its controls; a drought to watch. */
   const player = useRef<WaterPlayer | null>(null);
   /** The editor is on the page (answers from the worker that come after it closed are dropped). */
@@ -881,6 +883,7 @@ export default function Editor(props: EditorProps) {
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
     if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
+    if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
     if (selection.current.count) {
       // the working area (D254): the land outside it is locked, and dimmed
@@ -901,7 +904,7 @@ export default function Editor(props: EditorProps) {
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, pickedObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
+  }, [fit, picked, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor
   useEffect(() => {
@@ -1006,12 +1009,28 @@ export default function Editor(props: EditorProps) {
    *  row), a drag moves it, the drop is one step with its ground levelled as a placement's is; Esc
    *  puts it back. Only with no tool out. */
   const objectGrab = useRef<{ cancel(): void } | null>(null);
+  /** The object the plain pointer would pick on tile (x, y) (D360 a): of those standing there that can be
+   *  picked, the bigger one wins over a tree or a bush. Its index in the page's objects. */
+  function objectUnder(x: number, y: number): number | undefined {
+    const e = mirror.current.entities;
+    const here = (coverAt().get(y * infoRef.current.W + x) ?? []).filter((j) => isPickable(e.templates[e.template[j]]));
+    return here.length ? here[pickWinner(here.map((j) => e.templates[e.template[j]]))] : undefined;
+  }
+  /** An object's tiles. */
+  function objectTiles(k: number): number[] {
+    const e = mirror.current.entities;
+    const W = infoRef.current.W;
+    const template = e.templates[e.template[k]];
+    return footprintTiles(template, { template, x: e.x[k], y: e.y[k], z: 0, orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 })
+      .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < infoRef.current.H)
+      .map(([x, y]) => y * W + x);
+  }
   function grabObject(hit: TileHit | null): PointerTool | null {
     if (!hit || brushToolRef.current || shelfRef.current || toolRef.current || selectingRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     const e = mirror.current.entities;
-    const k = (coverAt().get(hit.y * W + hit.x) ?? []).find((j) => DRAGGABLE_OBJECTS.test(e.templates[e.template[j]]));
+    const k = objectUnder(hit.x, hit.y);
     if (k === undefined) return null;
     const template = e.templates[e.template[k]];
     const at: [number, number] = [e.x[k], e.y[k]];
@@ -4012,7 +4031,11 @@ export default function Editor(props: EditorProps) {
                 const canvas = renderer.current?.canvas;
                 const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
                 const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
-                if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
+                // the object it would pick, shown before the click (D360 a)
+                const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
+                const tilesUnder = pick === undefined ? null : objectTiles(pick);
+                setHoverObject((cur) => (cur === tilesUnder || (cur && tilesUnder && cur.length === tilesUnder.length && cur[0] === tilesUnder[0]) ? cur : tilesUnder));
+                if (canvas) canvas.style.cursor = free && (t || onStart || pick !== undefined) ? "grab" : "";
                 hoverStart(!!free && onStart);
               }}
               hoverText={hover}
