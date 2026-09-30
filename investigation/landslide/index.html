@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Landslide · Dam Good Maps</title><link rel="stylesheet" href="./style.css"></head>
+<body>
+  <main>
+    <header><div><span class="eyebrow">DAM GOOD MAPS · FORCE STUDY</span><h1>Landslide <span>A hillside gives way.</span></h1></div>
+      <div class="view"><label><input id="watch" type="checkbox"> Watch</label><label><input id="sound" type="checkbox" checked> Sound</label><button id="undo">Undo</button></div>
+    </header>
+    <div class="controls">
+      <select id="case" aria-label="Landscape"></select>
+      <label>Power <input id="power" type="range" min="0" max="100" value="70"><output id="powerValue">70</output></label>
+      <label>Size <input id="size" type="range" min="4" max="64" value="22"><output id="sizeValue">Auto</output><button id="sizeAuto">Auto</button></label>
+      <button id="again">Try another</button><button id="more" aria-expanded="false">More</button>
+      <div id="details" hidden><label>Style <select id="style"><option value="auto">Auto</option><option value="rockfall">Rockfall</option><option value="slump">Slump</option><option value="flow">Flow</option></select></label>
+        <label>Floor <input id="floor" type="number" min="1" max="22" value="1"><button id="floorDefault">Default</button></label><small id="nature">The land decides.</small>
+      </div>
+    </div>
+    <div id="viewport"><canvas id="land" aria-label="Draw a freehand Landslide on the landscape"></canvas><div id="status" role="status">Loading the land…</div>
+      <div class="case-actions"><button id="example">Try this Landslide</button><button id="reset">Reset landscape</button></div>
+    </div>
+    <footer><span>Drag a path. Click on a slope. <b>F</b> + drag sets Size · <b>{ }</b> Power</span><span>Esc cancels drawing / finishes playback · Ctrl Z undo</span></footer>
+  </main>
+  <script type="module" src="./app.ts"></script>
+</body></html>
