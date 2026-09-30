@@ -1,0 +1,2402 @@
+[
+  {
+    "id": "pinned-near-thousand-islands-saint-lawrence",
+    "exportHash": "8a538129d0a62294ae3f957769261eadc05198e8b4a4a1bc7ed6a156d7fa4fd1",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "3c51957a9c888c44277f88f09f0cf433a37dc6306b6473d10620cba1db319b52"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "a00254607313fcc58afa04da74071946cb0f49ec99ae3e65bbac190147e7dfcc"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "607b31f63663978d9ecede8da4364a41fcc5422d53b7d61a3a8a7c0cfee053a7"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "0374d6758dad65c40bae0692660b635e7fc8af1803f712f389c1a386a5bf526d"
+      }
+    ],
+    "checkpoints": 301
+  },
+  {
+    "id": "pinned-near-badlands-national-park",
+    "exportHash": "c0423e9c684dd66e6cc802a0306a5810aaa447a8cbf9007bbc3f0e2da01ba3f2",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "ff2fbe440905fac751da5e99b27453a55ba0fe715d06c7bdbe2371697c0a7899"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "cae9cf561d10a85ea3981e6ba88d93c84ed80df697e405ef1646ffc5b676480a"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "d7c171bcabfaeac7f21adecb6a5a62d712ea1048cd7b487883e2ca5397a94133"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a33fe6b991fff738dc1f61759be48c484b084a347df7ae654ba7f69d4b046627"
+      }
+    ],
+    "checkpoints": 296
+  },
+  {
+    "id": "pinned-near-toklat-river",
+    "exportHash": "33ca064400e97983fd39221ba0f938e4b59d701dc7fde431b8fc51bc6e3e0306",
+    "canonical": {
+      "settled": true,
+      "ticks": 1024,
+      "digest": "fca802236bb7cb8246a2f0900a655cb27431ec15883ae9db2122bd7032595a23"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "2d028ef52830e0a3c603748d2b740d4faf2ac677ced740db1ca497d9958febf6"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "6dca27249dafa172939041cdc6afe98e900e137eb85656ddf9530f2319e56217"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "cabbfef08ba11ec77ca1e64d5175b01fa497152f9e14e9d2a9926627d7ff845d"
+      }
+    ],
+    "checkpoints": 302
+  },
+  {
+    "id": "pinned-near-crater-lake",
+    "exportHash": "006b9e61383d485a95b101c814ec92831f44595d0febf4c00bf0294ee5cd24f1",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "618990dc9f9009d533171fabf3521693f47c3897eed6308dc4c116e9036efd40"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "50cf3932ee2e63af66b1e1add8bfef77724d0b1fe458d15f791a6326b8a38970"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "6f384dd893fd8f731f56ab102af0c0d2e49a4af585657cadf9a398efa7d8fba0"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "edf9c19e1c153e2d5d26fc8be930866674db54d7e26a5d2aaa92922deda2d9a1"
+      }
+    ],
+    "checkpoints": 274
+  },
+  {
+    "id": "pinned-near-twelve-apostles",
+    "exportHash": "e7921b8016b32e9b76293cc4dd7edf02ba694a40042d3dca91b20e8b3ef2c119",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "107f74cd92dce6b5165944880440d6502fece63402d5815a1c533ac3b5689b07"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "4487bfc5fca7def61cae639c97c2088cffc9d889fadb6475e785b9af287c8048"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "2e4764f8757b73e6963ea9d0d3d7f978964b3a59d0f41502d2c5bb677e8734b9"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "f45e2cd4b4abd0f27481cc5c0688028101e760fe79a0fb847600fc4b2b61bbd2"
+      }
+    ],
+    "checkpoints": 270
+  },
+  {
+    "id": "pinned-near-colca-canyon",
+    "exportHash": "dbea1e645a81f1b8ff8d77355d2cd90e743f4b1b0274a5be7538585236591517",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "4121059d260e81a95f0c5578e56c84e51a5f16ad0d96b2e33c3e94a9b46f59f8"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "12609d8ef6a8a8365a65ab361b230ee6e023723fc17cf7bd78ea1543d85c092f"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "9f004d9447a6eb9949939ce59ffba7988a42877ca5e6d7c102cece08bce18c14"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "567a15199d8b48dfba5d19d71fad57b8f0ea1ee2523baf0cbf10cbf363300fc4"
+      }
+    ],
+    "checkpoints": 288
+  },
+  {
+    "id": "pinned-near-mount-mayon",
+    "exportHash": "fe9f4aa087c01852f50601bc016993ae0f60e7d3b5f09eec67f53fc8bcbc4bc0",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "f88dd0e8e9984a51f487edcefa0f7610b7310bc33a3fcd9fc10f4f5972b07c78"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "01281406647ad8b14c27cb229c93ff5f020f3c96a0f312d2969f8fc1c40b3e1c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "461b0428c90fa2ffb9c2bc27b59146d820086de91ac7806a8e2148e99c65d94d"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "0d7621a5bf4e734f514f9a5b5068a4d8e1a1c42c25c38c87bbd1753b77709334"
+      }
+    ],
+    "checkpoints": 308
+  },
+  {
+    "id": "pinned-near-rhine-and-moselle",
+    "exportHash": "c8a84124e574a1fae5879f3040105dbb9b11d5ac6e943a25bd2af5d33159fb74",
+    "canonical": {
+      "settled": true,
+      "ticks": 1920,
+      "digest": "5bdb642cef926d0d12a96eecf6a6c371a833d15b3d70bfaf96afecd870baffd2"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "2345d6878cf92fc9cfe98593a47856bb3a4ce9b4611a609574776fb672dc3fdb"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "ff2c4c27ea68e8e4625e623a5f2ad89cc65f08a681df1436cd95e932a34117bb"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "4a6fd219afb11f1a8a19e89fe99a18425bb6448140208ef91a12a2a9941f6bbe"
+      }
+    ],
+    "checkpoints": 343
+  },
+  {
+    "id": "pinned-near-lena-delta",
+    "exportHash": "c34ff58774292fdb83590f2d6a9b22f6a652b92880f9ca342f2f463fb5760000",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "7ec2764a2a86d0076e68400052faee3a505a7a25b795f375dcc272f8476f7772"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "d5583bead13e5bc27741245f1fd5c7310bfb1236ead9d30bba545caffab23778"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "998b142060e3a2b8110c90a9c0146829acc7bfa9355a602d0df42b3777d7c97e"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "789ad729ee5b5af7592c318105e826351b354edca5eb7ae6ae1918badfbf58f6"
+      }
+    ],
+    "checkpoints": 325
+  },
+  {
+    "id": "pinned-near-drakensberg-amphitheatre",
+    "exportHash": "481c623ecbc63adc880dbfd0052796699ff08bd70ea113899166929e421796ce",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "635ec66c3fdc3a28d8c2cc70db329661e96df62480056a7884b6809e27028f2f"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 704,
+      "digest": "859d6fae86fe4b5588e008de1b49046f439155996a47016aa040eb9734d2b319"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "5740bf9541e519e5c680bdb5cd8acc0a742b3438cb00e3213fc25607487143f7"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "e043892bbe70f9628d7e7c1456c1f2986e465a135dad588cc8897c8d510322be"
+      }
+    ],
+    "checkpoints": 312
+  },
+  {
+    "id": "pinned-near-kaieteur-falls",
+    "exportHash": "281047838ad0d2f42ae4d6938dafc3528f42c56369a0b886f5042dcc96342f95",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "9899940a87eec34cbcc5758f5eedfcf425cabae3ae66401febffb6ea69ae3efd"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "dae8fc40b8d970dfc1eec7b414de4f345095040e73ce0a5e26ff4074ad30c28e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "27cacc611328959214742c436a5300623ab6cc563772c59471942e3589b61ff5"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "fc928dc9e0b265e9de8d2bacddd3602730bff322617797758a2332e1d90eea39"
+      }
+    ],
+    "checkpoints": 292
+  },
+  {
+    "id": "pinned-near-geirangerfjord",
+    "exportHash": "515ae3457f6e1cde7297d25aa0c7c8bc8996ff62790302ee98fdc743c37ead71",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "688ecd3ddf67db10506263d4015d8d566e12f8c3c3544b57217111cf5984c2e5"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "4ed69ace569a169245e9d5cbbc3edf82320a5a61761953d4901732248b54a680"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "0fd1b7017ab3ede1b0184a0c8e148f11479079fccc674e44c3de0ee12e84fc00"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d33ef09d485594b8e297490a56f1a1c83adcd9b7c77e8d014dab224f2c44764f"
+      }
+    ],
+    "checkpoints": 288
+  },
+  {
+    "id": "pinned-near-death-valley",
+    "exportHash": "979aee43f4dffa0af0a178c2d361c55d9ab89fc42d6d968b881286b8b8bf3148",
+    "canonical": {
+      "settled": true,
+      "ticks": 2816,
+      "digest": "bef7b1f1271185e4015527d0baf3e4b862fbe6130a6a4cec2c1549b3658adf67"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "5a369c7ff760b0e57fde60dcccb6d6ac2068612541783e44c7c874435bc1d1d1"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "8b71854131aeccfb670b496d860622982af7ad0ef1ff3e146e8aa216f6af9698"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "b6a0bb7bf5917de5522c7bdebc4b28c87365962445913f0b9ed494c8b638807b"
+      }
+    ],
+    "checkpoints": 364
+  },
+  {
+    "id": "pinned-near-tiger-leaping-gorge",
+    "exportHash": "af148e6324aaef735c48280e76f37c3b2f31b6885f4109cd5caeeb30e7c9628e",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "893d9141540a96df5776367b0fef2188b25dd649115fdd3d952fc4fefc60441d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "07fb38dbd9fbf9f1c0f7b356b903cd92f547367b2da2d0712b4ea831ecdfd143"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "4ec8434c27e2ecfdcb134bb04470e66fafe377040fb4c27e8b1add434cd4575c"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "9ff1bd5af75209ec55490878e490c288b54f8c0e02558e3363658c4df4562e11"
+      }
+    ],
+    "checkpoints": 309
+  },
+  {
+    "id": "pinned-near-torres-del-paine",
+    "exportHash": "98ee905198f312f43acb022509d8e322df7f50b62f9fe5fa3eb541437805a7c1",
+    "canonical": {
+      "settled": true,
+      "ticks": 2816,
+      "digest": "24663f2cc1431e493856bd817292c0cebc32d09a8a0f0655290c228e8b6c7aae"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "156720674c75414fe2c5786de4661506dadd42ad4958341429cf57c98b43f66d"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "f3e4c90984a89c46accf718c9db44f6f5a1f06ed8afcb7f5b7227581fb9d0943"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "91430f5e09ca21f3b959b37790e5caf53829b94a8f875624b3d35778a9482551"
+      }
+    ],
+    "checkpoints": 364
+  },
+  {
+    "id": "pinned-near-english-lake-district",
+    "exportHash": "d8f790dbfa92e175c471de0cbdd9fc956cc32c2f0d4caf63797ca67795fd978f",
+    "canonical": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "1f3510219e645275cd6bfdfec76e9e2bf413c19cf2448c3b24f04b5d6a0f6fad"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "cde5ee85c176a1ce94be4cb9eae720b34d35dd7fb456a1232114962e01c81b00"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "8814d28b6deba9664a8c3b13e4c83a71045ef66c6a71ec29df5206ebac489334"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "b13e37f9dafd5cda19b68600b8d17dfe255239965d4a3ec93fc30d961f2ca35e"
+      }
+    ],
+    "checkpoints": 273
+  },
+  {
+    "id": "pinned-near-phong-nha",
+    "exportHash": "378a007f3dc5305843fd823d6025926398ccec3bc44e689975341dc1903ca858",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "d1005e375462595748df111926a00cb912518bc3352e9523512c4993574d4d01"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "61aa7b7b64f56e315ac118f022ad70b2f8d84394b080d45e237dba0905449ddc"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "3c492078c467417b62fd89338fd63555d833297cdc42eb4726176c462ac8204f"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "3bd1fa62af43d8528912dd00d6fb8dde8dff15f6419096229275448326083474"
+      }
+    ],
+    "checkpoints": 298
+  },
+  {
+    "id": "pinned-near-uvac-river",
+    "exportHash": "9357f0318248cca3c4e2ceb568e31f5ab7ecc14e4fadccaabcdc01bbbfbd9281",
+    "canonical": {
+      "settled": true,
+      "ticks": 2304,
+      "digest": "eff3eabc2cf5ba0898ed8a910e3847e375714356ab077e183f8e5938d016ff90"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "07b6c5f472c14b6cac97cd4687aa3ea398920041e708cdc911ab7c25f0f98121"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "97e5d32e97b04da2a9155758f74bfc77bbf7d1d7b1d22deab820015d83fdb0a0"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "dcd456fe2625d256b1ee3514e5f854b0298abd6bc56a569bee42392af2a0841d"
+      }
+    ],
+    "checkpoints": 324
+  },
+  {
+    "id": "pinned-near-mount-roraima",
+    "exportHash": "9da5ba2ea951175d1d7c688f43c4a4c33d4d7f7b55f73c2f2f455c8927a9eeec",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "3b71ab477bb86d270b8e9a81c3fc7697ba82c2c3cc48aa118f3d94e33f76c945"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "ad13bf5401ebe48d3a14ea4cf1ba50d39d2f8fa77323c68f8794a3249eae9442"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "17666743f5a95938a2c620f1642016b9b9a3d5b6f548754231ea0e987823f90d"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "51f51252d8b23fc30288c121a58435de71d581b4148442646592dd90b7077f6c"
+      }
+    ],
+    "checkpoints": 280
+  },
+  {
+    "id": "pinned-near-ethiopian-highlands",
+    "exportHash": "54b2c96f33cfa6d0a1536e92874c3ad41cf3696d9bedb64de1b564e64ca92439",
+    "canonical": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "4e885e6ea6752b28a3dabbd902b50e958d82301df323aca618bc48d633a61dcf"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "73b37d2b43f16a6ce3c4c8c8a78565b746a133d7848f38eeff0db4b81d804c96"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "e7ca1936f4ad43d437fa24581b73ae8ad5536cc82c577999440c8a2b7f07d34f"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "596c891d788becb237de30fcafd89014d8d9b98f47fdc0b769aaed0cf94effc5"
+      }
+    ],
+    "checkpoints": 289
+  },
+  {
+    "id": "pinned-near-drumheller",
+    "exportHash": "66c6949a0dfc7337ca488051a859e2fb6cf38c527a28733944635dc6bdc15d2f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "f6124c9e161355e8b8b5be1a73b259af5a11de30614a9562819b04df787a750c"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "ce009c7700bd709238cc8838f94fe503272ad2768e1b03b76b92beae829f5993"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "0fca0491efac451131961d7b79cf44faace562e0975c001e4afbdc36deab62be"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "4e9028b6e408cd674d398c1469387304f6f1fa4591b5bab9fe71b66efba403a2"
+      }
+    ],
+    "checkpoints": 292
+  },
+  {
+    "id": "pinned-near-lofoten",
+    "exportHash": "4c6a487ae203da3c067e163fab88ee8872b7d67578ad2f656e143aa035429080",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "51c2f619bc74250a79668430afdd8caba944192c155da2133c4d9e598424047c"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "31146477526805dd7d2f62670139a641403213c713ecc6f67655494f4369ad66"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "1cecb5e3d7df0b51c646f97a2c185f45cecb0e6ede6afaac3b99d63965b6b2e3"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "4957b22311beca1b3350479512d5988f82a8acd1d19fb01a58b97b7b03b495e6"
+      }
+    ],
+    "checkpoints": 312
+  },
+  {
+    "id": "pinned-near-aso-caldera",
+    "exportHash": "e059fe1b3a8b75c86d969439645b19584098825210107d7011e4a872374d1783",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "5c02f59c1e76321049a57356512411a1da1a3f9b5f3fe37c1de14fb4bb820ad0"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "781d6157947991d6992b5c6ec1fab1cb1ffc4edf0ec89a5d2d4ad1008e7ce013"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "677310bd36d63be685ae7404c878da37e95d63d7a571cb55614296c209bb6fd7"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "60de5cec74107d58dfe5a3e39d25707ea842c19776b3c435a99ef32eeacce2c1"
+      }
+    ],
+    "checkpoints": 311
+  },
+  {
+    "id": "pinned-near-tagliamento-river",
+    "exportHash": "ad9568b21c8e81e71db090d953b12bab888989a819fe07f572c251c632072fca",
+    "canonical": {
+      "settled": true,
+      "ticks": 1920,
+      "digest": "8e1d558db3201bffe519b46b54928daa9c9ca0600a6727b1bc3549f75e1f2c7b"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "96a462e41dc05488d1564fc7418b166f4f09f9eec9520499eb05ddb744d0442e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "e2191f715f4eb1916d867a529705a75bc19d56a8cdbbbcf4ca429b85bd084092"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "2e36175aa7ae1e799408c3afd1f3df000ecbac715178cb9b103e4c964156503a"
+      }
+    ],
+    "checkpoints": 311
+  },
+  {
+    "id": "pinned-near-blyde-river-canyon",
+    "exportHash": "5598dea991383ab94ce67f239c865477b567117222bfa330efe1333cf5e3566e",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "d842926b68e42c9796a29c90b37d0e39a16d6766a99715647ceb206dfd0ffcf1"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "33edd96f6ab9835caecafc6cf78dfb46cf2c3eb135c865f1c0ef1bf42fccb8fc"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "153558e645ef770864942266a602b7b69857ce713eae4e5d2a3d705834819b6b"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "953b0ebe0fc2ea30cc5fae1a27c5f4b28681c729a40a24781c1c6d6de1630f0d"
+      }
+    ],
+    "checkpoints": 288
+  },
+  {
+    "id": "pinned-near-cliffs-of-moher",
+    "exportHash": "33237e6bdd3ef20c03ce14098deb255a34aba50d8a48d8dd1b52f3e7c2f5bb18",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "22cbe4122e339d25d92a2bc5a3fcae6a55c8c02a4fe0dc6a9e87b8f5d6bc2355"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "d885e88f5e5c9e26cb1b345c3d5d0055657ae51dab15575c15445786f00b4341"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "aa1de8c2a8f636fda6c3655e5030a7e3bf1d98723c10d42307b852cb8a8fc4df"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d8040d55efdcd1ac1b082ff1dfbdde292466dc90e6f343d4f027c49880f9e8c7"
+      }
+    ],
+    "checkpoints": 289
+  },
+  {
+    "id": "pinned-near-alaknanda-and-bhagirathi",
+    "exportHash": "725af01c5bb154f992b87da3dc6a26d61fc65bbf358b148d46fd1a61a49676af",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "a6597abb54c667b21c18ec852ed4010d67d99ea68cb5e54c58720f2901c8dfe9"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "cb6a9cabfa0e9f07bf45322509fa6bcccdfdc4fbd4d5cc1d3b26e06f738659d4"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "956a0270b0b27b8174d39008a0a3214b926b3065bf0ef9bbf5dc2e6a545718ce"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "651808e3023b4fb81f97229959c1636a27161a72049b043a667005519af345c3"
+      }
+    ],
+    "checkpoints": 279
+  },
+  {
+    "id": "pinned-near-paricutin",
+    "exportHash": "cd7cc00b139e7a12657fb57ef9828d2984b8fb1171b08961f2320a2d296bfd1c",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "ff794d8172bb9e6c52e84a389c489dbc4daad8353d88b6eb197fa2d75f802682"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "2cabd9928bd3f510156ad9a1d49b22a55ef2ae3eb5d2e986a4a0c536d2fa04f2"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "4d5818765f8ccffc10b9fe25fd20c153aae6b582b2f261a43347f30d718933ab"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "444e9eca962367328c08ba35dcf177a4b43c37420daf6b8fbec5caea69868d6d"
+      }
+    ],
+    "checkpoints": 278
+  },
+  {
+    "id": "pinned-near-western-ghats-mahabaleshwar",
+    "exportHash": "3d18ec62a493d4d9e327cd5c798b35db1c0a790a869a15eeab3b3c3467c982fe",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "5afb818d928e1892e0c61c70e0b5ee9737e73e87c5b42ad27bcb9f599d0968ea"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "df9b052afa3edab7735192d592341b1a03165e6ffd0cc5b5ed0c05d08285c216"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "4322668c76eef79c94b08bc0dc08041e3ed42c1edcc033f777d10fc5eb1b1ab5"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "939a57686c0aac47864ec402d078463bdc40131a4e11b8f479ba3dcf412e60e7"
+      }
+    ],
+    "checkpoints": 309
+  },
+  {
+    "id": "pinned-near-danube-delta",
+    "exportHash": "3c392690c52475f3cd49b189a29ea966b545453751c6b3d070dfb4725786bc9f",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "aff5db72757d85d0dbf70395b76edb8bc8a750569e69a4980388580ccbbd9988"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "cc2f5219a758e0af6e1355f45ed55a0e43e2cdea64c5b51d89b3de1533d1e45b"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "661feb38931a7863ecc0eb865033f196195ba1f743f0212c0ddfaaa4033b7bcb"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a027564bef73c6c63e3d1b03f69558c4a817f30cd465ba4aea9c5983fc9e0e28"
+      }
+    ],
+    "checkpoints": 283
+  },
+  {
+    "id": "pinned-near-roaring-river-fan",
+    "exportHash": "b33f14969f3a152851c36a548da1d8bb370fa0e0687cc390fd4641369944c3d4",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "c231b507f59dad52a0f67f6d10328d60e08a2013f34af802c5ca365a6539cb95"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "2894f1514e3be8eea23ee33526b70b805475a66dfa6e2ee3759d677971db5f0c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "01dcd88d948fddc266ba9fc18c4831d31fcefd2a9db6d98ba97482b01692afe5"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "3162d58aca2434df58c9b92d20c519febe6080a8630284fe2d71ed00589e4a56"
+      }
+    ],
+    "checkpoints": 282
+  },
+  {
+    "id": "pinned-near-niagara-falls",
+    "exportHash": "cf4e0625bcbbf37a6aa2bde6d269499324335a8ff1bf1a57495881ebb85cb780",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "fd21bc9660f7ca75b416f3e0bfea744d3d59c42bd217e482fcbb53171af241ea"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "b3f44dc08609fb5d02df7b0c993cc1aee0af1a97d13779ec65e8bb0ffbd9505e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "20b70f8d391b91899b7e706ef7304e2b6578103fc02098858f1bf261a7f7c2a0"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "72c1d666157d6a8041f32f729567c88e63b99e7182947f0f7821fad8d37af4bf"
+      }
+    ],
+    "checkpoints": 317
+  },
+  {
+    "id": "pinned-near-chilean-aysen-fjord",
+    "exportHash": "87825d56494eba2f29cf87e691459e5cb396e708bd30e73f4d4f81332961d2bb",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "18f75b2d97c40562a52b42c19bc983a7914c3fed47a5150f1e3fcae963d5a4b8"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "f760e9ea4bb25342ed4fc983f5971bb60b93ee5892759d3a39448d9969241ed2"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "f7d904552a1a3d876e289469d995d2ebb28a40156f7f5c826b2cd19310f69218"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a8ce7cf90a7439ab46715345278cc427d51b02c278e82868295c8bcc584743f3"
+      }
+    ],
+    "checkpoints": 312
+  },
+  {
+    "id": "pinned-near-glencoe",
+    "exportHash": "99023a7911fc25f559898c4f6c73bf56df3f0c9041089ba6972b87b10bf204ec",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "ce316faee5f6c3193355bafa0c2fe745fe2a6a6d36916bc5f8ec2fe04e774589"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "9bc0f7b8ab12f4dfbe8e86f7b27e6529e129916b11cf6ed07c2ffe7c903c5b17"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "90b58bb1084bc5ccd0d1d465d87e6d6fe74e642f30786a8c1f9afbdf4488c1ac"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "2d49ec34e6a275640361664fd14c2b1efb6d84414f76b84c3f328e6f63e71538"
+      }
+    ],
+    "checkpoints": 278
+  },
+  {
+    "id": "pinned-near-verdon-gorge",
+    "exportHash": "61865f9b5d3974c57cbd6edb719de652bf2fe26935f05b01175ba95fb20203a6",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "f2f19dda78534fe19daab2691f510ad2d65391870c956195d5f7054eccceccbd"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "24bf8c64640d8edaafd0efe2f5b0c606bc48e27c60014208523c33efca834e0b"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "8ee4aaabf41a4eb1986b8ea1f19553a53b84dd922f83f3f25192ccb2fe44e09c"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d4b88600f9c09654ccb14838d1b39204b296edbd169f5979190260fe5b664a1d"
+      }
+    ],
+    "checkpoints": 297
+  },
+  {
+    "id": "pinned-near-chocolate-hills",
+    "exportHash": "2220fe06dfa4f099aa7a2b75e4b1e84b0f38efa28548ccd4cfbb3adcaa203ec5",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "0a9e8b6ad56efae5dde4355ac8744e205fe0daf33ca10a8dab55cb3e1d130ea8"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "df2d16ba83fd05f341b91cc7c6325cd4e813c8581c271377962d2b70c5e4e1e5"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "79c68b8e2eabe3763df175b99baa2b023ba5133cce0ccad22b20a7241dcd3abe"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a7deb785ab76d2091e5c98ebe4b3236215421acfc8bda638a32b868833481c29"
+      }
+    ],
+    "checkpoints": 288
+  },
+  {
+    "id": "pinned-near-finnish-saimaa",
+    "exportHash": "33cb7faa17dda037437e6e96472c5238c7a7bcaaad620782ce42197d0c73e296",
+    "canonical": {
+      "settled": true,
+      "ticks": 1792,
+      "digest": "7bb2d3e8d4dcb68767c31fa1a0ea415ecf4ccb657669fa78f55e4a7709448399"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "22ef12818a6a253ee79886b06bc3d66ecc3e01bb2e2dfbf4dec75f4d33e862f2"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "6f1ecf3c7850403f5f599bb94fb5af9f7dad8b3fb878ef8440ece96e248ffead"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "e8a876fd65acff762c5a32205cfc39576e6eba35ec33a2f4634f1e78ac767adc"
+      }
+    ],
+    "checkpoints": 300
+  },
+  {
+    "id": "pinned-near-kinabatangan-river",
+    "exportHash": "cf8a8f7f5a512d2cc535302165a089136eaea59f3feeda03c615f513161b5127",
+    "canonical": {
+      "settled": true,
+      "ticks": 1920,
+      "digest": "20e2b1e921f7481c854cd69d4f4eb8fa830b7cb92cb35f95149d07ee43f58a65"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "ce7d7a0a78f6a29a4e4957dd32c5d3f5fd9a02b02cc63122c225cd46042f3125"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "6573c50e8f87b6a7f21f6027942645f6c271515166a63b7b2b270d11a7ee55c0"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "f9da30b228bcdc31831f6157117ad04f2c72ebe791f26718bb51baa76d72df37"
+      }
+    ],
+    "checkpoints": 303
+  },
+  {
+    "id": "pinned-near-deccan-plateau",
+    "exportHash": "5f94cd0a116467551808124b94062b109d67fb9e9800a3a290b133a36e526384",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "fc37eba2f94b2c2a37ea7dda35985babf6f1276ef32ac8b6bcc5b92aa00fae8c"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "4f784f57b96160f1fefa0a79b7d9568279f71f901a4a77bc5264497b0c62dc0d"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "de12b070947a89453b87b64e7fca37a15cf770886b60fc50843e5eaba6427ab4"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "18a9ca3eb217e1822bec374a5414b9fb09e24015ce40b6a39a177b4e531ed2e1"
+      }
+    ],
+    "checkpoints": 287
+  },
+  {
+    "id": "pinned-near-ennedi-plateau",
+    "exportHash": "3af4aea083ddeff9a09359b8813a7879c660906b000cf39e526229733590eeab",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "29540f1f6d32a57c83b2d12357dbee3e50a25720e1b40e80b6f7e76dc669864d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "3a81f6e17969d365495704fc24faabfd0d752e5fc742380011c563738e44cd01"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "17bf8f2671e168158644803620cf4f7c00af6875b065d608cc377090f98f965a"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "108d38816a23473792f247ddbf439dad4a41e1f75dd20983baab8ff5218631dc"
+      }
+    ],
+    "checkpoints": 285
+  },
+  {
+    "id": "pinned-near-bardenas-reales",
+    "exportHash": "eb33887960b8e41ecb812865854069485ba14a879011fbd5e4b9098ee48b096c",
+    "canonical": {
+      "settled": true,
+      "ticks": 2048,
+      "digest": "e50b260e05b59a810703a960a95817b52e7d0a9251e1cebc5690e8364e24a999"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "33be365c4786ec2f13a10b75ef70c483d3a1947fb8ef509c7c2b9eb12441f5d7"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "1519fc8e30a09f52e465520ceedaa827eac74b9e8b10c891ff7f34a3f6cd25c8"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "7f8da8d2a10f3d1aa584f1fbb91db5555886eef7f0748c5deb5b6e78f8f0b57a"
+      }
+    ],
+    "checkpoints": 310
+  },
+  {
+    "id": "pinned-near-waimakariri-river",
+    "exportHash": "650f0e659880f979d1fdcf1bae16af58ac61cd00cdf34d62894ea95da5dd535c",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "2b4330d97a18409f30a0dbc057e031f3c9f1b69bb496160737c1a58ac6ce1bb6"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "12953d44b96944533e96b1165131f1a4793f656faf78e3a00bbc553a96b8155a"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "f5dc7b2421b116ac2b0cbef4701be94b9012b03378f090062a2ac2e2cf7b2694"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "c6e8d49cecbf9b5808635166b80e24a5307fc1c351ff7401ef1114f3d32dbf65"
+      }
+    ],
+    "checkpoints": 284
+  },
+  {
+    "id": "pinned-near-lake-toba",
+    "exportHash": "4540e6dd9ad70daaa8638538eaf726f63183fb4181968c08beca849f09731477",
+    "canonical": {
+      "settled": true,
+      "ticks": 2304,
+      "digest": "f0a1fc661aa7dacbadfd0aac0610bc6363be1bace2ccd0c014df790db8fc20e1"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "d8895edfe8b4890838f2d0db710cadd3a519701140aac6bddab9f1cc67230a91"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "2cbe2f72bcb253fedb9f75a06d452713385ce9911aaa8dad03369a63de957c28"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "5110ef0f21d755c4e03071bba1ac387b2757c8e4a228b1b44b4f8c3c8d3599e5"
+      }
+    ],
+    "checkpoints": 316
+  },
+  {
+    "id": "pinned-near-grand-canyon-colorado",
+    "exportHash": "bfc65d59d9f8f7fa46fb36d386154b8559c26c781f6fe5b5730e4d1ec6c65066",
+    "canonical": {
+      "settled": true,
+      "ticks": 2304,
+      "digest": "9fff9b3f540684a138c2980f767ced39bf7a15b3b6d213ba242d9eb01f85a74b"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "fbcfbd77dcb1ba79ba2d22de15fcf8bf9b8f0d0ca726569115e4090c55337c79"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "eaf300475d80ec28810141acee34bf573600d1f72361adfc0b1bc052906500ca"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "e0172640a66f51a4bdf1e14328e85184340459f75012cb6e5f05f1c327f9de4f"
+      }
+    ],
+    "checkpoints": 320
+  },
+  {
+    "id": "pinned-near-na-pali-coast",
+    "exportHash": "50ac71450317429ebd79d81d2678a820be6a5c1a9c597d3a47b25c045b0b0b1b",
+    "canonical": {
+      "settled": true,
+      "ticks": 2688,
+      "digest": "96cff1fc65be72dcf9de7eb5a2fdd83a30d433eb199c0953223357a63d2c7d2a"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "d3bcec7f2d64bec6ba9f38865dd70b68c6bfc0cad81bf08ffbd9e458b887518f"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "3e1ef34134fa425001e4709c18bad87dfafd2ba93996eba4c928761266ac78d1"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d4643a9d7e432d1bfb83f6ffd12b4790843bdff6c3fae79eabc2410958a4840c"
+      }
+    ],
+    "checkpoints": 321
+  },
+  {
+    "id": "pinned-near-godavari-delta",
+    "exportHash": "cd530dcd4ab8484d80cf4ea8c6a15bc8ae4bd108bc2f60382b77be1a0f0e678e",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "3114d52720c1dda4d7778917429f3c4b7f335abaf4a9ad5ab6d1637b1af90669"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "073f143d1e135ae96e10b8c4fb452405ebbe2f8ff010234a5042a399d01f674c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "cb06860e23b0ce948eb319a454e59886a9ea0152bf1aeaec4053319e1b23270b"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "3407d47c675bb9ad5f5c0ac6b679ca096566f6dbf544917d5ba68c2ef0a9dd24"
+      }
+    ],
+    "checkpoints": 294
+  },
+  {
+    "id": "pinned-near-mount-etna",
+    "exportHash": "807abbf4ffbadd760c24e4aea346093dbc470a585e4e10a3ae718ef6bbb69468",
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "a4337646548c3a1e8abfcedf62ed1d9d6bd326ea57bbd3ea2a581f03db5952a1"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "fafb4d98fa9d0b5cbc8920a878d15cd898909cf2bb060f2bab5acd0fc156b726"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "bdabd8734bebd4855c9226244a7087abf5912f6cd56fc69dca8b45c5e3891624"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "b128d78d2d94f6554c95e204c33cf8055673efb4aa9981c34672564bce6e6b55"
+      }
+    ],
+    "checkpoints": 287
+  },
+  {
+    "id": "pinned-near-gullfoss",
+    "exportHash": "b489124ff2f241e803e1d68b8fcd4987d1eb5a7725865037c1267f12d9b1de7c",
+    "canonical": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "2a5bc8a130abbddbbcf098ed1215cc5af38fd7d5953e51ff3b914b1bd674c16d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "4a0052ce5be04e4b3e3f03e57b70279b5ff13d1b2be87db607a5191f1e4717b6"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "ae1e722799877e7ee721b4d1406438f09eba127a663121752f95a3729d5e2c0e"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "00144b6f6542c8911eece094a925d793343af9246fa41b7ee05ba77aa6ff8173"
+      }
+    ],
+    "checkpoints": 273
+  },
+  {
+    "id": "pinned-near-niagara-escarpment-hamilton",
+    "exportHash": "a46231b9a5f5ed51f7bd7be8c5336a20def8ebc8cfa3841a1e6a5aa4ca58bfed",
+    "canonical": {
+      "settled": true,
+      "ticks": 1792,
+      "digest": "438431d217db4a9356dffb306e93564a618c23ef6663328676808ba308abd980"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "0bf7cdde5aadd24813a057af096c0d4a1a330dbd07db79f81e41cf4819339598"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "da90f62c5fdc03cda56ae4759a339b2b98873465d2101dd18accee1a6d7d55cb"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d6b025cb0de0fb10fbe605d08b54df7ee04d921be9222a12546c9ac564287a26"
+      }
+    ],
+    "checkpoints": 300
+  },
+  {
+    "id": "pinned-near-milford-sound",
+    "exportHash": "571e6311eb589caf8b386bc2292e76bc5bb4d9ab0068365a6bd8741437d8d5ea",
+    "canonical": {
+      "settled": true,
+      "ticks": 2048,
+      "digest": "fb6481a016b4834dc4c98a7cfe9dde15cc7b7609ea734a962ee3a859036f3caa"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "d45df67b454b08d0604c0c07dd2886260552acabdb69397b6a2958bc60b1f9db"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "03db3d7c47b0814bc8a4eab6f476bf1c773c3ec11bf6d1e443b06e1f76719890"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "37d6c35130cd8769e91c8bf95b1f41a4c73a44cce46d2eaad167850c61cec33e"
+      }
+    ],
+    "checkpoints": 346
+  },
+  {
+    "id": "pinned-near-taklimakan-kunlun-fan",
+    "exportHash": "1fd5fc978720284037865579c87cb92222b003a7af979c8561d459539f09be52",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "3804227224d7d3fff5da07bb0434d71f7f621ef110efd72fb1dd6417932f58ab"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "84ced3951698161c3f167b2188d6f696a019c2f2395a307617e3c764e14dc88e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "0f49aed5541b3273333585dc347803cab19bfd662064756e2c29bdbffdda29a8"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "338a6352d41f09cd684dadf79d51db1e0bcec517d28675473359c7706d00a461"
+      }
+    ],
+    "checkpoints": 314
+  },
+  {
+    "id": "pinned-near-lauterbrunnen",
+    "exportHash": "7aacfeb14b7bbe2031bee287964c0f196c32842f1fbdecb69556927388f4b07d",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "e82099a4c2f619fc5830bf3ab8b5e86a68ca0d531c0ff9e9248be6ee974bc409"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "ff52fc2135671896bdd7a36a8c3cbc72d4d16c06d5b93bdc9b79a460115e1de7"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "eea2dfb2b45af136dd0596de9af36a0495575f687a3c9f5dd7e3bf00e4005a7c"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "43f9c499ced6f07f81b8704a9b3b2ef66a4c6227ecab8acf8b870acecd5310b3"
+      }
+    ],
+    "checkpoints": 297
+  },
+  {
+    "id": "pinned-near-katherine-gorge",
+    "exportHash": "8d5fd42b79af16b4ba01ec4d86b959a8684f03db4dae1d7a40831ec7e9eaaa7f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1920,
+      "digest": "5650496af10fa18f1880f3235919bc80156e860b0b197c34b33a464cb5d0dc68"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "e86821aac6b876621b15c85a57ce37f651a51848df2a93a2f4d83608047a4f5c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "044fc42da84406cd70fa891b8529df4439f01a13f4d5966f760eb190fdba9119"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "e92718ce753fd07089ee4d63bdd07aa89ae549717722237622106ad7ac643077"
+      }
+    ],
+    "checkpoints": 311
+  },
+  {
+    "id": "pinned-near-dinaric-karst-plitvice",
+    "exportHash": "51255af854868692b16f402afd529db762472904b40492752dde40546cd202fa",
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "71389030d2c6e76436e0b1cdb91916d52781e15eb137843205fb9bbe3c684df3"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "c9e8d1c16d714f02de00c8f6f7702a19f83187643fcd755fa993b0f08f0e3d30"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "bad0defa6619f8a51320ed28fd733c031e1ca7903955e9b77d0525081066fdd2"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "85be1d8d9c444fd5c8efe53fc2432c4efe1ac1a03bd30bfea606e88302a25267"
+      }
+    ],
+    "checkpoints": 331
+  },
+  {
+    "id": "pinned-near-bungle-bungle",
+    "exportHash": "607b2f2f04c5d6fb01161024eb5b7f1b6cd25723cf8e302f4decfcf902ea218a",
+    "canonical": {
+      "settled": true,
+      "ticks": 1024,
+      "digest": "15b05452ff8819691b2b83ae3a6505ef2b8ecb2f7a2c8d43e2867fa27280f6d0"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "5028b4999d927f16aea6c4722bedf69ab6e0651e4fe3e7e6d683fe400a292df7"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "7afa0924ca9ac53fdd109c1cf6599367b12222af20518cb7a957813e2b21c912"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "fd04e912b57a209132a31504b7d36a8a95b6049bb54e9953af1b5baa79e0ce0f"
+      }
+    ],
+    "checkpoints": 294
+  },
+  {
+    "id": "pinned-near-lower-mississippi-oxbows",
+    "exportHash": "9035458c9e690dbcfc148c77db94b272f58cb0b34c8d3d416a599faa7812f91c",
+    "canonical": {
+      "settled": true,
+      "ticks": 2816,
+      "digest": "6c209cbb04c8ede5a18cfc8e2151940ac229382c9d82abda17133e60a8b95401"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "72376ab96ded1ccb152f623577ee71408eddf75052c78d70f4180287149e47ee"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "1193d92103e916a9241ead5b5c5c11dfe622fa036d7f70d5a47036c58fed4d11"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "6aa0b6396f68a4e276c32dc92f03e9a5dd114f7f1b1f82c296e818345a00b725"
+      }
+    ],
+    "checkpoints": 324
+  },
+  {
+    "id": "pinned-near-painted-desert",
+    "exportHash": "1386ff0810b0b4777a827047c76add018776bc793766caedfb9bca325a43acc8",
+    "canonical": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "9b15a5a2d0b148f0c6a865f75abf68d32b11af3bb95acb004efe9c815a72c916"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "57b036b79ed506bdb189460b7fd2a83799d38c6d048eed14c3f0689b3a7a330d"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "3dcd248e59ed3adfd8c8e119a02205799cf045522b14c51d6c133087f9eea187"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a210ffbdac8db7d94b6439c76b03a625261e21737dfa08762a32dbf02a748b93"
+      }
+    ],
+    "checkpoints": 277
+  },
+  {
+    "id": "pinned-near-skeidara-outwash",
+    "exportHash": "56a811add558f2b1b5e87929fd101b9e804531dad276cec4ec5327ad9e8ee662",
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "256f3f9f834bdd46f00d6fd2781dc87dd60e83cf0e6ee17c86292dda53e71a4d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "58c47b022cd7ea45b00f89eff25cf73ce276c24a8f3a56e8dbdf6f109a04975e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "c2a30ca4515412920726a7fb7ac6d8b0e298ae4f0a49118220e719c5bad90bb4"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "cadf3c8499b2989afc8f18cb7224c76a5fede63c9b813a4cdec715420794f2b2"
+      }
+    ],
+    "checkpoints": 287
+  },
+  {
+    "id": "pinned-near-tibetan-plateau",
+    "exportHash": "03ea2027302dc0c57ffd38a6ccde8d6a8c613542a2dd80324818b0feb7d56aff",
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "044ba1625ea93404acdd4723fc56faa4cd916053c343fa27d8236084921665dc"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "8077e777f39a032205b21c30e1fb17057c25809658eea9a057157ae750190ef5"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "3cc7f49a95543fdbe4b3d32be1bf07a68228e1b6e9238b454062a39d0f714d2d"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "98c097c3c7b718f726989154a49cedda2bc84a236ef22894ec82b060af7e5bfa"
+      }
+    ],
+    "checkpoints": 287
+  },
+  {
+    "id": "pinned-near-fish-river-canyon",
+    "exportHash": "54667498a581bab80947b4603c2ac1e58f522fc9e536f9c50733fe1ab4730234",
+    "canonical": {
+      "settled": true,
+      "ticks": 1024,
+      "digest": "792c69c6bb1ca6748833bb7dca07a8a4acb99e8c470019d2d062c6aea9298ff3"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "5cd676c2e258d6488f129c141e76f131b8ad83c1c0f99e3cc734d2358c653f90"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "94f917202e17b4567b41fbd34b01f13c20083e6ba8c2aa297d997e800b02d450"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "6d142da7e39344eaa1d4bbe957c364069c518256c2d0bcf3d9b1a78aba7fa531"
+      }
+    ],
+    "checkpoints": 282
+  },
+  {
+    "id": "pinned-near-mount-fuji",
+    "exportHash": "8715abe126c439a27132a6c92edadf28a3f68e3cabc09e84473a1248c193694f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "97034639084c5b840d7be25c6ff14f89039a612b4bb6247fd43e89ea3c29f201"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "06ab2b4463de31e58e48abe4442cd25a2f647a24c04a716b7e15e756cbdfd212"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "1e033756d9eedc858e5c39741a0fc649fab67a269fb3f7e4fbbc4d94eb2e6375"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "ff676b6feee81e3585f1c26cfdc7ffb24e5da3bc24ef8617d7880c04e31a66ab"
+      }
+    ],
+    "checkpoints": 302
+  },
+  {
+    "id": "pinned-near-blue-mountains-jamison",
+    "exportHash": "b3b8838ccf586f87f1c33dda52bbcccf8772f84ff10011f2c9a9ffab4f4adf99",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "9e6a7b98272de6207a1cc657d07483ce65c5f8bbe0e2714aa6b3e9f6b8d22643"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "19c252d374c4f409c134ff5f1af21b467f41baaf6f7265da42b88da81c9cb0c5"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "130027f1861558304f7b12593eb9012f3c4394dcdea878f2d09f9aab2d99670a"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "c52e97cd7d993726c3e1cbabcba28dc81ac6fda9534a0ba1fabe664904059562"
+      }
+    ],
+    "checkpoints": 280
+  },
+  {
+    "id": "pinned-near-victoria-falls",
+    "exportHash": "6fd7afa1de6f545667af44b61ea5b07082bead78d27bed78e66c6adc59609c6c",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "d2853e88833be7717b4ffc8a1014c9124a427a1faadc350c23a9c361c6ee7da8"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "f0562b1c4f9c2687b600fd827afba50a604a0001ced33f26c897d426f178304e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "1563c168648317c08c0c5f3fcfd4b6ea3acb84ca42af0564aa071d180663df41"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a5e781ee4da81001741a21295a5af08fe8a7433856441debffe3aeb3552d60f2"
+      }
+    ],
+    "checkpoints": 301
+  },
+  {
+    "id": "pinned-near-ngorongoro",
+    "exportHash": "3b7a96f40d24c9ff8fce5d3fe4c4d51413d2f2733f5f242951204892ca2247f5",
+    "canonical": {
+      "settled": true,
+      "ticks": 3072,
+      "digest": "afa5260940a0e85c2153f9d752cc04fce941952c2b1261554b6cb145ca811436"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "b7eef8523ac00c5e8b82909de7e78c3fd0bfd3ac6f0f7d524273059986899022"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "07351ace669344778fe16d4e91385e2743e98f2d6b3f8954929a282d767c2d19"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "54841f2d4e5f13c91e52f0144b43ca216de964f7b53d13b064b37748c4595868"
+      }
+    ],
+    "checkpoints": 326
+  },
+  {
+    "id": "pinned-near-atacama-fan",
+    "exportHash": "eca9c02b6ef7d202aba92de8af1ea7f48d4076c8c3c862da555c11b80a0f3d40",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "ac2ad85ae36eee251bfad2402e52b61839edcebde3b0f249dd41f30e05a31a35"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "c1bc7a35916c59b4282eb2968573590201e48e8eb6ef98047f005d315346b6f9"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "eb7b65c6a19a46afbfa1f6fd9e2f919cab046260ce13fc5aa6dd076948ba1a8f"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "3d0e1c808fe17213fe30660c3048e3eb04ff865378bdf93a1910766cb13b6c91"
+      }
+    ],
+    "checkpoints": 284
+  },
+  {
+    "id": "pinned-near-kenai-aialik-bay",
+    "exportHash": "285b6a4eda0d3ded69b8b4beef4854a35befa6e521bb1f5766c96a3307cff0b4",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "73e2fed6969d4d2a63092e35a0a10c49c7822de6af545b422e4da45597aa891e"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "ee6705729466c506e290220649307ba954656e122ff35e3bab0e54725220cafd"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "c12f6739e2ebf9f2675ea9f7547ecc634352f9e113b4da2f9238c9faf3e925ba"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "31609bcc35c7b706a424fdd72b8a5c8ddccc2e22f638d3c9702afc5c4a49e115"
+      }
+    ],
+    "checkpoints": 291
+  },
+  {
+    "id": "pinned-near-aoraki-hooker-valley",
+    "exportHash": "e80fa9d54bd22cd80e355f04fdc9ab54d942a85a5217f282e5568257b136a09c",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "71324e8ec1d2f7b53551dfe0676582c45d8c5e4636ec70e8a1ed9fab7380c16b"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "1959eccf2ea06050795100300d32cb9bb6c3cd1c145cddc51e7653ecc317b6bb"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "9c8861a5958c53db43d38ddc423422a78b956aff2a5dc4a2f7831079ff76ffd6"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "fca77d33d7dee482d94c5e59f806d815bebf58582f19cea4637484d1b23d2ba6"
+      }
+    ],
+    "checkpoints": 282
+  },
+  {
+    "id": "pinned-near-todgha-gorge",
+    "exportHash": "9398d07351a1954ae13947fe5759206004855d4ae748f353a28d433ea157635a",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "228490fe29745c39be4b0b92a33adfdbecec6235348e5ec040a0312ab7eb780f"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "134afde6b31dfa3bf1e3342173605e1c6f5b4dfebdc6fa68aa0d102e38b09eb5"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "9eb07b12d10c0a972be17fee8fd8630131514af2333c9b180ea072c860776a92"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "84df91543fb4e0b14537afd84d6443c4247946dfd9efeb4d8c1ce1ce811f4425"
+      }
+    ],
+    "checkpoints": 276
+  },
+  {
+    "id": "pinned-near-li-river-yangshuo",
+    "exportHash": "de3c3561c3eecab3ec6861ed08fe6988c88892dad725661feab84413e0ecf1b7",
+    "canonical": {
+      "settled": true,
+      "ticks": 2304,
+      "digest": "097c84e3ee01fad3e6229dcecf245641fcce4275405cfa2aedf46e1694adcede"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "6148edd99e9ce8f3303806c902bf2b8393b0324a8a80f6a5ad655d144cb4a4b9"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "4cb369712d8b85fe52fc4d426ea09f0fb6559c57e8cb1a6b42a0c4346efa4f1f"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "a18e566b84b6890e06dd540d65b200a32d05f43e387a9a2a32e8f81024d85ee8"
+      }
+    ],
+    "checkpoints": 320
+  },
+  {
+    "id": "pinned-near-goosenecks-san-juan",
+    "exportHash": "e3e29b08fcf5d7218d54eb8e28af6ef7cc57d5767a71e84f7b39a3f3d0efdc76",
+    "canonical": {
+      "settled": true,
+      "ticks": 2688,
+      "digest": "102e33f12a137652fbc51b8f58bfe730269f26e1345ba432bca79c3f2caefed4"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "e0cd9cd08295ff7e39c1c60c74069423367a4170d128b565d6e3a514e42b58de"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "dccd7adb4aafe1b692729e16e485462e4af431dea38d3034ae4ecbc4949c91c4"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "6a9f40b914dd2ce9056bd656854eafa5e1fd226d2b2502d3bb7f07d662a5ae1d"
+      }
+    ],
+    "checkpoints": 345
+  },
+  {
+    "id": "pinned-near-colorado-plateau",
+    "exportHash": "27ce212c047d41f53931d99d64139b0e5cff72a75d215b03b4d402226a604c3f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "5ab66271b5d1ffeeba9494f6c4a77c9d1bf05a47ee66995ad9a71f78128b0711"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "1a99d2c2f83fa53b4ec2f7b651e4dd29136ead37fd892e7d3b875d55f657a2cf"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "ee50fd640f1c52ac35ddf15fdd793145cd5e3e7e6f1cb42ef6f966ed529a6974"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "95e80f302407bc5b9d0040658019efdf5ff9828dfa618365ca506fda9ba12006"
+      }
+    ],
+    "checkpoints": 312
+  },
+  {
+    "id": "pinned-near-monument-valley",
+    "exportHash": "8a26ea2abf4966c995f108a578b7639aed3d50011a36ff551e6334e99fe428d3",
+    "canonical": {
+      "settled": true,
+      "ticks": 1664,
+      "digest": "481bd39f49dc81fcb3ef08b7cf510da4e88bf170dc6eb649a6487976c66fe84e"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "edba0736b765f3ff112343bc3e8187f6976aa3b05b60dcb32550f200c444d676"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "5a494212836b97949a51839db7692379b92f4be939f5c58c69ab88a9e7c84668"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "08074c6f1222cd08fbaff4892b07a091e317e0e559ec037b4504cefaa8c8fb97"
+      }
+    ],
+    "checkpoints": 305
+  },
+  {
+    "id": "pinned-near-brahmaputra-near-majuli",
+    "exportHash": "c675d9d851bf7321a5e53c2e170dce837a778f0d7bdef86a24d59ff8e9f91e28",
+    "canonical": {
+      "settled": true,
+      "ticks": 1024,
+      "digest": "08417a8851c374c55537032a40ed4a6e9bb2b87a024823092749c0c8b2379d7c"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "bd42e6277ef681a5d6810413033193109eeae6440ad04e09be17b097999ed987"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "dc867f690e11002bdc683d7d70285848f317eb7e88b1e2aa710f7631c73f302e"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "74cac90e29ca2f82277ede958894b589e5bd7ef2b83a41c63f2374430431f681"
+      }
+    ],
+    "checkpoints": 282
+  },
+  {
+    "id": "pinned-near-copper-canyon",
+    "exportHash": "649d6951ecd44317fd812a544601fbe512545076ed94e471214f3eaed64c3747",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "9db6f43d7c32a6b5b2533eb2e1c13d5bb5904ce71e088ad4eb438f66cc4f044a"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "eb0fbbdcb1d13a7d1e04ae7307cf8ac79389bbafc46f5940286006ce7daca9d0"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "72392e703cd17a0384ccedb96962399aebb750a01826a840f58950beebf2c058"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "fa593cbfd98e8ba30e9f9f8025a82761104fdc63f78b7181007a7ed65a4e78ca"
+      }
+    ],
+    "checkpoints": 274
+  },
+  {
+    "id": "pinned-near-sete-cidades",
+    "exportHash": "f929772b24b4a756ada7f78e213f42e3ca6b8af7b5f0656a087e0d6e944302c7",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "a509d28173e81d9e49c8822638124f224bc7502bbfb373ad0e076ddb22a187b8"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "983cd77662cd0b9bfacdfb5846d23c3f5fac07c5e9eb381a4d4a1e7708933fbc"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "d8562ff0d1b5810c8f7a671b628c026782d0b8b818e4c2702e9113a15d5c769d"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "d05eb1c3aa08e7b68ec78469b667c4d15a20140d39f3302393e0c7c97fd4ba98"
+      }
+    ],
+    "checkpoints": 298
+  },
+  {
+    "id": "pinned-near-bandiagara",
+    "exportHash": "5870792af9d1e96eae3738f09e07f02aef2b3372aecae4c1475b5b50e37dbf0a",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "678946607d3a9b459972a24682b93c046ed71c497688d5c855f6b86e0ff1ca85"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "59a10e01143f429c457c8bcdbf0d8531420ef77dd6cd43104c885f9adb59936c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "3ab24616e3b486fb14d901bc306e178cb7690817a845cd7a32c85243bf0532a2"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "e46130c7acb7844fe8ccf9be974727df5c7ebf4859891bc140c6efeccdb68531"
+      }
+    ],
+    "checkpoints": 279
+  },
+  {
+    "id": "pinned-near-iguazu-falls",
+    "exportHash": "0011a37a19099df594a1be483dedcde20c08ee4903c9a6520b0f222607934e9b",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "1bbb3f13d7428ad2794d51edddff47230bb6cccdde445b162dbc3457bd71bd58"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "9d4f499ffeb47701cdc3b56466adfa2a655d26b2ef6b4272e017fc5c60e8f5a0"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "e2fb565a44cb347035f935e2f8854597328bf6110a00d07dcff369e1d475c958"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "bbf19eb8bd6bb484ba62615c98a43446e7078d4945ed2b588fcaf292a250f4ac"
+      }
+    ],
+    "checkpoints": 303
+  },
+  {
+    "id": "pinned-near-ilulissat-icefjord",
+    "exportHash": "54af00f0875856b75e110dde6fe85aa6d36aa6be67bcecdd934995679ba5e91d",
+    "canonical": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "ec585a994004c83bfa8ee6da404bc3c5105365ec1b3979cde9ac6159fbc071a7"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "74701b06776f324df3c6c0b59edff37059b1feefd82306933e32c55bd7eb6ef1"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "d3eb3687bad25334d8e6320f592abd02b3fc5dbf323d1b1dc460de033b5098fa"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "500588aacaea7314192c5a1a9d7f9c97e37d9d76779c9ad2ea0e20500fed0169"
+      }
+    ],
+    "checkpoints": 279
+  },
+  {
+    "id": "pinned-near-yosemite-valley",
+    "exportHash": "3188ca735380e86e8795c20972e70b0d7a081356c6b8d5463eb9cb99529aa793",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "69ab1ff3ea6a1cd124d405aa05b84f7cf309827430da0802a0dc6c84098dac3b"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "602b8560d2f3b53ef9a5f5ee382e22a434490524a1aeb5c2bee87d9aac77a0b4"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "642e4caf1cf9a47eb274a4ec41f9e0ecdaa8dc7267c6f164068242596f8366e0"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "20d32720c48890aee16d5a064c4dc57959e1b292bc964eb0a53ee24c9f46480c"
+      }
+    ],
+    "checkpoints": 276
+  },
+  {
+    "id": "pinned-near-mount-taranaki",
+    "exportHash": "0ad20406b91d2fcf3f11dda459e61dba2da4086fdcbee25e1446059147489200",
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "e13bc18dcf930a90e302ddd53ca854ab6dc3af8fe8b73fc41827f672ddeb3d6a"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 64,
+      "digest": "101f921cb38896b69e08b542e9e39328d3c958077d433556c328fb92595354fe"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "0099716d77557c071365791020f7e75d619065be02a99c4e9ab4001e6b82f174"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "0049d394d134e8c86c3472cc5fcb000062d201a855d7964e08b771996795f6f1"
+      }
+    ],
+    "checkpoints": 287
+  },
+  {
+    "id": "pinned-near-tara-gorge",
+    "exportHash": "69549df536cfdecd1da0263bc077f797c2f8975ae1e5b5012932068a07e4a917",
+    "canonical": {
+      "settled": true,
+      "ticks": 1792,
+      "digest": "a0c80a94af27c6eb354c66a8d0f58871924243c13377f4612f8157660b950189"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "ed44080568fd3c73403589e5bf96753ee04666a2436b6bcf9bb28f76d3d7ad19"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "53a4052511a0fccb061002b4abe014a0f3a4e3f3f8a18d90c8fc6cdfffdbf012"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "200eaac353abdbede36854f579230a9df7d7c25e0a5d260da9243ea0af68bfb5"
+      }
+    ],
+    "checkpoints": 304
+  },
+  {
+    "id": "pinned-near-tsingy-bemaraha",
+    "exportHash": "ee768c9866fcea5f977eea9bb4fdff27d28a583876c004602fce7a3a68dcab2f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1792,
+      "digest": "885326f4a6fc356009ea524eb97b1b6a570b9320c2ec262c6e44c61a684fc001"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "a3f47457212633f100cb68385ab9173882b88f496c497b0853fb8e1840f44ee7"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "64d86b26ee2c9190d19951a5560857bde0eb82450c9bcc3d46b8b7f3dc7646aa"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "c72231e6be200033b2c67ceba2fe10ae742d2a0de8ce012c7f463a3219979674"
+      }
+    ],
+    "checkpoints": 304
+  },
+  {
+    "id": "pinned-near-mamore-river",
+    "exportHash": "574dc95193ae0618b64d6ab86e1011079f8c6cee7318b27c8249ae0523725b59",
+    "canonical": {
+      "settled": true,
+      "ticks": 640,
+      "digest": "e2e3fde4438b805c2dd65bd62e4a37a5213f432c929d83162389d33f2f58136c"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "6339cb5e9c0f25ebc2f4f5658526733b50b4e4cac5d1d8637822f6d3a14d342a"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "db6ea9c68c45289718196fc32d40136425f1479db8edd781e9242adbb46fee76"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "875ba1de8a2ee8529740679d9950daaae30939632d25279f6c933e14fb408238"
+      }
+    ],
+    "checkpoints": 277
+  },
+  {
+    "id": "pinned-near-capitol-reef",
+    "exportHash": "49e9cf21bfcfbca624a6ec380573f17102cb00ece6220bf918bbd7288c55ebe9",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "8ed820c808b1fc4b6de9f5e9073cc5972e31aff2f78d5119154723f6ab9d0fbf"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "4ef8b3f05d4338cf6f0d49700cd4f002375664e84ee176e3f7c23813d94d9906"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "081f38f1383abc727b318d815c1ac72d773eb855adcc22561904ee2cebaf6e0e"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "fbdc93900407e1c25b68f436867b232f91aee3babdd4ee9ad9d6c2d7fa0b600b"
+      }
+    ],
+    "checkpoints": 295
+  },
+  {
+    "id": "pinned-near-altiplano",
+    "exportHash": "f6f9bc73bbf538482344e2b5a3970a2e245e7a4255ddf530cf3199ced08f058f",
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "7fff8b8c9da172924d8202297aa4bcad774a2825e9ddd3316c166dfc96d49bb1"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "9cd294d2c5bc1da818cc5747df0e9d192300671fe81dd1568d0c3ca6f5ed214b"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "0d2b9259dd513d87051af65d0e3ec26e27fec18f690ff0fe621fad7e42871229"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "1921a132d05cc10c1fc2ee0f59ee2392adbb1578cb862c7fda5abfa7d098c734"
+      }
+    ],
+    "checkpoints": 276
+  },
+  {
+    "id": "pinned-determinism-1",
+    "exportHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonical": {
+      "settled": false,
+      "ticks": 3072,
+      "digest": "a983cea56ed4b6bbf8ff574628400d7b1a105fffe140856049bf04cf58b4b890"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "aa8e588bf3dfb4d9ff1363e81ed3bb38e78e4b0acab4d00fdc5d4e97fd4f2ca8"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "d09a042b0ab49fba3b278ba9678b029d6ef93dbed1f7be4c260628cc266eb73e"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "9f3efc1693ad1945afad98269a16347b20a9d031e7658348b9359d949f3fc6dd"
+      }
+    ],
+    "checkpoints": 370
+  },
+  {
+    "id": "pinned-determinism-0",
+    "exportHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "ab6ddd5600a0770ca37425cbb6b2e506cc31602403d2ef59cc1a9b43d06f5efe"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "ece1a152a60a13aef22cdd5ea20e8a190de58c82877fb735ee6e48c912bef6ef"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "dbc8f40d382427c29a22eb9da72f9e075f9729f6e3b405cdc5b0a2a6f887c1f6"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "c6dcd4edb1a7d0a4ca89506a55c665f5fe05720a8d5c80e91b5a5d4772bcd1e2"
+      }
+    ],
+    "checkpoints": 279
+  },
+  {
+    "id": "pinned-determinism-3",
+    "exportHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "8ea713327f6f44c240683c4cbe3ddea781ee331f01b0dc7fe6e05bca86223433"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "1c3f8bca2db88a691e78c9395948caf495e0968230ffaa2172337a22f4fb6b6e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "b5cbb6a50ebcf01fd726eca20de48d5fc03bcbc7795cc1e3e70d86f05930222a"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "c606c6b2195b5a9116117f31c0b24ae9953418b22b3f619992a6192d8f8236d1"
+      }
+    ],
+    "checkpoints": 312
+  },
+  {
+    "id": "pinned-determinism-4",
+    "exportHash": "4a59ae6f1adc0ba7cc4c61f1a959aaf7f41271fe65d66742650aaaddee27283f",
+    "canonical": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "2244ee1657163d652810a7477640c6aacae8113bcd537922def696659ecdc28d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "282da5210d5ebdb5d507d9ac1c0d21e1411cfb5286d92ab3b20a974ebde92481"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "35e853b1524c9ecffdb754331b87ccf8d51701a7fa5e955e74f5a159d5868306"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "997aa48574ead27463ce8cab49f878be13ede27b927f28a9e8e1db5d1506937a"
+      }
+    ],
+    "checkpoints": 282
+  },
+  {
+    "id": "pinned-determinism-2",
+    "exportHash": "89af5ceb144d1b5dd233aff3106eb2f311d854eadc54df9a61016db430147217",
+    "canonical": {
+      "settled": true,
+      "ticks": 1536,
+      "digest": "92cdda0d5dc54662a2b7c9bc25f357c5a38694339d9bf0b56a30ec71e8b045d3"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "085e073aa692bb52ad0654a214aa61f9bd2ee6fe44aaaa3fb8d52067c75091aa"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "ca9ecea52f1ac221d40448a05b2eaf36bfb4a9a06ee2a6b454b1ad650ff08f29"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "8d75df2b52893f316559e5cdbe0d89f71f96eab9bdb5c6633add51e2d52740af"
+      }
+    ],
+    "checkpoints": 294
+  },
+  {
+    "id": "pinned-determinism-6",
+    "exportHash": "55418a8d34fd1076fbea4ef70714b93f44607d6c31b348e71842594960abc421",
+    "canonical": {
+      "settled": true,
+      "ticks": 2432,
+      "digest": "d46f22117cb180e698aee156dd40d9ed48022ca604c0020706c7d125114f3699"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "23219fe16d1d6d901ac90b8f1913f2b3f2e2f3b4f6f0da1f610814bcd46a5d21"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "9d14f7736983c5b3138757d74b6b19146ef1fa4fe23186f8c93071b23b4faea9"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "115b021620a161dcfb66cad40345ea38dcf14bb71de4811821fcf6832cf8a840"
+      }
+    ],
+    "checkpoints": 331
+  },
+  {
+    "id": "pinned-determinism-7",
+    "exportHash": "4c2adb3c969b9fb86910fc9a959c28c8cfd044327a1da50e38f4993b00f2a88a",
+    "canonical": {
+      "settled": true,
+      "ticks": 1152,
+      "digest": "85824dbf27d31b641524d14eb4740fb38cd77ef934335f4046b5d770ba56d7bf"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "733373c41083dd4cdb42d6e070c5ea828e6ee6ac770574da28ba18bc8e65812e"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "d31b106b78ad1bb47d34143c11f0c9bf8088a248acc9ab181c228fe891603474"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "aab767cc02613538c167bbe57fc0833b217bd945b74f1223b2a5fee8276db43e"
+      }
+    ],
+    "checkpoints": 289
+  },
+  {
+    "id": "pinned-determinism-5",
+    "exportHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonical": {
+      "settled": false,
+      "ticks": 3072,
+      "digest": "f797871c5f6d3b83dc0cd077f312cb75e026933cd6f48a9a05d459f70d6df634"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "67bcc4b952ea20abb9a0ecacae070970488c039392c30c7bbe595cfffc49b790"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "50b0cd91ccbf83914cdcd5328a66e31cc333f5f4c70bfc8e72137f19539814a4"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "03fab752381982b2029a51a4414418c078923385b7e7945ce0d91647a8210a33"
+      }
+    ],
+    "checkpoints": 370
+  },
+  {
+    "id": "pinned-determinism-9",
+    "exportHash": "726e7d1ba41a52fede68b8386d3faeb134f63f21440b3419c87e5de44c44c7ef",
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "089b68f0ff7fdb1c6889983af42620ecce6338c8b91eac22d7688e89b52ece5d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "e89c8c3346768a5178ce11f8c6b1c238c4476ad2be12c7a2817b96028c63d60f"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "6268cd0329ddc22f0c909b2005be562abc0d201f04bc4e84649673591988342b"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "dfe3a935ea14f30a68f392137f7c5cbfa68ca559458c1db5ab4fe1aab2494012"
+      }
+    ],
+    "checkpoints": 279
+  },
+  {
+    "id": "pinned-live-4242",
+    "exportHash": "9644dc88f1800d6b9936057941eb174f98846c5086a454728b79314f30a680ff",
+    "canonical": {
+      "settled": true,
+      "ticks": 2304,
+      "digest": "3535c3bcecbd02beb6e4e5c6191c9acf1cbc61ff788c03274b56819311be3b0d"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "d382ed5ebf27a2d6c5598f64bde0fe60e500deaacc02245957b23301fdf71abf"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "c534e93b9ecbf95ea8e4eff572326ac3e5d019a0aa8e305e6fe3d9f0de86b007"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "f51788a844025f601eb07e1d16d8c3e07822dcdb35d984d418b44f46ece60789"
+      }
+    ],
+    "checkpoints": 316
+  },
+  {
+    "id": "pinned-determinism-8",
+    "exportHash": "c7c05790af3c19b6d00d677133be68c957b0f2168697d6437fdbfa564251235f",
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "307e7e6113cf6d0e98bcdff97e112a014a15af0562add89abeb3678eefddde54"
+    },
+    "live": {
+      "settled": false,
+      "ticks": 768,
+      "digest": "cd604cc1d3d425c9e18c4324b0e70613b97c318cbe819efebc5601e9e461299f"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "waterDigest": "96bc597ae3524a5a5e4a0dd18cd2db4569d2853afa23ebc0202c4e88122092c9"
+      },
+      {
+        "hazard": "badtide",
+        "waterDigest": "eb4ae1c080f2dd1cb876ffe4f67727997fee9457f12ab9abfeb7a426eecf98e7"
+      }
+    ],
+    "checkpoints": 328
+  }
+]

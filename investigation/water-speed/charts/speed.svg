@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="734" viewBox="0 0 900 734" role="img">
+<title>Repeated canonical settle: identical results</title><desc>Five alternating pairs after warmup: median CPU seconds and median paired gain. Ryzen 7 9800X3D / Node 24.</desc>
+<style>text{font-family:Arial,sans-serif;fill:#193343;font-size:14px}.title{font-size:23px;font-weight:bold}.small{font-size:12px}.label{font-size:13px}</style>
+<rect width="900" height="734" fill="#f8fafb"/>
+<text x="28" y="37" class="title">Repeated canonical settle: identical results</text>
+<text x="28" y="62" class="small">Five alternating pairs after warmup: median CPU seconds and median paired gain. Ryzen 7 9800X3D / Node 24.</text>
+<text x="28" y="111" class="label">any 128²</text>
+<rect x="215.00" y="90.00" width="14.61" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="105.00" width="10.99" height="12" fill="#276b8a"/>
+<text x="705" y="102" class="small">0.12 → 0.09 s</text>
+<text x="827" y="114" class="label">1.33×</text>
+<text x="28" y="155" class="label">canyon 128²</text>
+<rect x="215.00" y="134.00" width="51.20" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="149.00" width="38.34" height="12" fill="#276b8a"/>
+<text x="705" y="146" class="small">0.44 → 0.33 s</text>
+<text x="827" y="158" class="label">1.33×</text>
+<text x="28" y="199" class="label">delta 128²</text>
+<rect x="215.00" y="178.00" width="32.97" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="193.00" width="25.60" height="12" fill="#276b8a"/>
+<text x="705" y="190" class="small">0.28 → 0.22 s</text>
+<text x="827" y="202" class="label">1.28×</text>
+<text x="28" y="243" class="label">highlands 128²</text>
+<rect x="215.00" y="222.00" width="23.73" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="237.00" width="16.37" height="12" fill="#276b8a"/>
+<text x="705" y="234" class="small">0.20 → 0.14 s</text>
+<text x="827" y="246" class="label">1.34×</text>
+<text x="28" y="287" class="label">islands 128²</text>
+<rect x="215.00" y="266.00" width="120.53" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="281.00" width="82.30" height="12" fill="#276b8a"/>
+<text x="705" y="278" class="small">1.03 → 0.70 s</text>
+<text x="827" y="290" class="label">1.37×</text>
+<text x="28" y="331" class="label">lakeBasin 128²</text>
+<rect x="215.00" y="310.00" width="42.08" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="325.00" width="29.23" height="12" fill="#276b8a"/>
+<text x="705" y="322" class="small">0.36 → 0.25 s</text>
+<text x="827" y="334" class="label">1.39×</text>
+<text x="28" y="375" class="label">riverValley 128²</text>
+<rect x="215.00" y="354.00" width="29.23" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="369.00" width="23.73" height="12" fill="#276b8a"/>
+<text x="705" y="366" class="small">0.25 → 0.20 s</text>
+<text x="827" y="378" class="label">1.23×</text>
+<text x="28" y="419" class="label">any 256²</text>
+<rect x="215.00" y="398.00" width="84.05" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="413.00" width="69.32" height="12" fill="#276b8a"/>
+<text x="705" y="410" class="small">0.72 → 0.59 s</text>
+<text x="827" y="422" class="label">1.28×</text>
+<text x="28" y="463" class="label">canyon 256²</text>
+<rect x="215.00" y="442.00" width="126.02" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="457.00" width="91.30" height="12" fill="#276b8a"/>
+<text x="705" y="454" class="small">1.08 → 0.78 s</text>
+<text x="827" y="466" class="label">1.38×</text>
+<text x="28" y="507" class="label">delta 256²</text>
+<rect x="215.00" y="486.00" width="93.05" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="501.00" width="67.57" height="12" fill="#276b8a"/>
+<text x="705" y="498" class="small">0.80 → 0.58 s</text>
+<text x="827" y="510" class="label">1.37×</text>
+<text x="28" y="551" class="label">highlands 256²</text>
+<rect x="215.00" y="530.00" width="180.96" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="545.00" width="133.39" height="12" fill="#276b8a"/>
+<text x="705" y="542" class="small">1.55 → 1.14 s</text>
+<text x="827" y="554" class="label">1.38×</text>
+<text x="28" y="595" class="label">islands 256²</text>
+<rect x="215.00" y="574.00" width="272.15" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="589.00" width="189.85" height="12" fill="#276b8a"/>
+<text x="705" y="586" class="small">2.33 → 1.62 s</text>
+<text x="827" y="598" class="label">1.42×</text>
+<text x="28" y="639" class="label">lakeBasin 256²</text>
+<rect x="215.00" y="618.00" width="447.62" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="633.00" width="301.37" height="12" fill="#276b8a"/>
+<text x="705" y="630" class="small">3.83 → 2.58 s</text>
+<text x="827" y="642" class="label">1.47×</text>
+<text x="28" y="683" class="label">riverValley 256²</text>
+<rect x="215.00" y="662.00" width="133.39" height="12" fill="#bbc9d0"/>
+<rect x="215.00" y="677.00" width="94.92" height="12" fill="#276b8a"/>
+<text x="705" y="674" class="small">1.14 → 0.81 s</text>
+<text x="827" y="686" class="label">1.41×</text>
+<rect x="215.00" y="710.00" width="14.00" height="12" fill="#bbc9d0"/>
+<text x="237" y="720" class="small">Baseline</text>
+<rect x="370.00" y="710.00" width="14.00" height="12" fill="#276b8a"/>
+<text x="392" y="720" class="small">Candidate</text>
+</svg>
