@@ -76,7 +76,7 @@ ten rapid undos and successive forces). Undo/redo accompanies each case. Edge/na
 three before/after timing repeats; Firefox/native and Edge/CPU proxy each need one. These are
 12 cases × six configurations: **72 requirements, 120 paired timing repetitions**. There is
 one paired visual/audio capture per case/configuration, separate from pacing so capture overhead
-cannot masquerade as a frame-time result. The only required hour session is Edge/native/High,
+cannot masquerade as a frame-time result. The only required hour session is Edge/CPU-proxy/High,
 256², after-build, with matched start/end references and the existing mixed-edit sequence.
 
 The optional **full** suite retains 128²/256², all browser/profile combinations, three repeats,

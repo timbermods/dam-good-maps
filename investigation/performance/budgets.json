@@ -21,7 +21,7 @@
   "longTaskMs": 50,
   "glitches": 0,
   "finalByteMismatches": 0,
-  "longSession": { "required": 1, "browser": "edge", "profile": "native", "size": 256, "look": "high", "durationMs": 3600000, "endP99RatioMax": 1.05, "gpuGeometryGrowthMax": 0, "gpuTextureGrowthMax": 0, "browserPrivateGrowthRatioMax": 1.1 },
+  "longSession": { "required": 1, "browser": "edge", "profile": "laptop", "size": 256, "look": "high", "durationMs": 3600000, "endP99RatioMax": 1.05, "gpuGeometryGrowthMax": 0, "gpuTextureGrowthMax": 0, "browserPrivateGrowthRatioMax": 1.1 },
   "audio": { "dropouts": 0, "crackles": 0, "heldTextureReleaseMsMax": 150 },
   "requiredManualOracles": ["terrain-holes-seams", "chunk-popping", "water-hover-through-land", "water-jumps", "lighting-shadow-reflection-flicker", "object-ground-following", "all-flicker", "audio-motion-sync", "audio-crackle-dropout"]
 }

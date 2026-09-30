@@ -23,7 +23,7 @@ This expired window is retained as history. For the next authorized window, run
 It qualifies 60 sampled seconds at CPU ≤25% before every measured run, uses the core's
 three Edge/native repeats and single Firefox/native and Edge/proxy passes, and requeues any
 attempt hit by a CPU spike. Capture pairs get one pass; `--hour-first=true` puts the hour first,
-otherwise one Edge/native/High hour goes last.
+otherwise one Edge/CPU-proxy/High hour goes last.
 `--suite=full` selects the optional long matrix. Short work continues if the hour cannot fit.
 Inspect the lock and `local/window-status.json` before starting another process.
 
@@ -42,3 +42,5 @@ it now keeps qualifying short work until the deadline if an hour cannot start. T
 result is unchanged; no late measurements are taken. `node window-summary.mjs` regenerates
 `window-proof.json`, bound to the retained raw files. Future authorized windows require
 explicit `--start=<UTC-ISO> --end=<UTC-ISO>` arguments; this expired window cannot restart.
+
+The hour uses the CPU proxy: native attempts had measured CPU spikes of 55% and 35%, despite low unrelated load (1.54% and 3.19%). A third native qualification was cancelled before measurement. Native core repetitions remain required; the single proxy hour keeps the same full duration and start/end regression checks.

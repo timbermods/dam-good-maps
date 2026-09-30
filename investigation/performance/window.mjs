@@ -9,6 +9,7 @@ const dir = fileURLToPath(new URL('.', import.meta.url)), local = resolve(dir, '
 mkdirSync(local, { recursive: true });
 const flags = Object.fromEntries(process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')));
 const budget = JSON.parse(readFileSync(resolve(dir,'budgets.json'))), suite = flags.suite ?? 'core';
+const hourTask={mode:'measure',id:'brush-large',...budget.longSession};
 const start = Date.parse(flags.start ?? '2026-09-30T09:00:00Z'), end = Date.parse(flags.end ?? '2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
 const hourFirst = Object.hasOwn(flags,'hour-first');
 const shortCutoff = hourFirst ? end : shortEnd;
@@ -74,7 +75,7 @@ try {
   if(hourFirst) {
     status.hourChoice='hour first, then shorter work, as authorized for this window';save();
     let outcome='busy';
-    while(outcome==='busy' && Date.now()<end-64*60000 && await quiet(end-64*60000)) outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
+    while(outcome==='busy' && Date.now()<end-64*60000 && await quiet(end-64*60000)) outcome=await run(hourTask,'after',true);
     status.hourOutcome=outcome;save();
   }
   while(queue.length && Date.now()<shortCutoff) {
@@ -99,9 +100,9 @@ try {
   let hourAttempted = false;
   if(!hourFirst && phaseAt(Date.now(),start,end,false,queue.length>0)==='hour' && await quiet(end-64*60000)) {
     hourAttempted = true;
-    status.hourChoice='after/edge/native/256/high; remaining configurations and repetitions stay pending';save();
-    let outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
-    while(outcome==='busy' && phaseAt(Date.now(),start,end,true)==='hour' && await quiet(end-64*60000)) outcome=await run({mode:'measure',id:'brush-large',size:256,profile:'native',browser:'edge',look:'high'},'after',true);
+    status.hourChoice=`after/${hourTask.browser}/${hourTask.profile}/${hourTask.size}/${hourTask.look}; remaining configurations and repetitions stay pending`;save();
+    let outcome=await run(hourTask,'after',true);
+    while(outcome==='busy' && phaseAt(Date.now(),start,end,true)==='hour' && await quiet(end-64*60000)) outcome=await run(hourTask,'after',true);
   } else if(!hourFirst) status.hourChoice='Insufficient quiet time for a full hour; not shortened';
   // Missing the full-hour start is not a reason to stop monitoring the rest of the window.
   // If an hour was started it remains the last workload; otherwise finish shorter paired work.

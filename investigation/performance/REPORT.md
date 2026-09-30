@@ -7,7 +7,7 @@ The core covers 256², every force at full Power in Fast and Watch, a large brus
 abuse, in High and Standard. Edge/native gets three before/after timing repeats; Firefox/native
 and Edge/CPU proxy get one each: **72 case/configuration requirements, 120 paired repetitions**.
 Visual/audio captures get one paired pass per case/configuration. Only **one hour session**
-is required, on Edge/native/High. The larger 128²/Select/camera/cross-product suite stays optional
+is required, on Edge/CPU-proxy/High. The larger 128²/Select/camera/cross-product suite stays optional
 with `--suite=full`; it does not multiply required hours.
 
 Qualification now requires **CPU ≤25% for 60 sampled seconds before every run**. A CPU spike
