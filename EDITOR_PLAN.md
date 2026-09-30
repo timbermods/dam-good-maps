@@ -118,9 +118,11 @@ editor is desktop-first (D185).
   (`src/editor/freehand.ts`, its pen `core/forces/path.ts`): a press becomes a drawn line once the pointer moves six
   pixels, the line shows on the land as it is drawn (the player's own gesture, D258), and on release the force goes:
   Carve and Glaciate along it, Craterize's impactor the way it runs (a glancing blow), Quake's fault and Erupt's
-  fissure are it. Anything less than a drag is the force's own click. **A drawn gesture shows as a band of its width
-  along the line, never a ring** (D344, A3; `bandTiles` in `freehand.ts`): Carve's and Glaciate's width, Quake's reach
-  from its fault, a fissure's breadth; the ring shows only for a click. Craterize's aim, and a line dragged from a
+  fissure are it. Anything less than a drag is the force's own click. **The preview is the stroke** (D361 (2),
+  amending D344 A3; `bandTiles` in `freehand.ts`): a drawn gesture shows as a band along the line the player draws,
+  never an area and never a ring: Carve's and Glaciate's band their width (their Size, the player's own); a fault or a
+  fissure a narrow band about as wide as a fault's crack, a loop traced as its outline, nothing filled. What the force
+  decides (its reach, its extent) is never drawn in advance; the ring shows only for a click. Craterize's aim, and a line dragged from a
   source's Unleash, stay thin lines. **A drawn shape sets the force's extent, and Size is for clicks** (D344, A6): Carve
   and Glaciate run the line drawn, end to end (their Size is their width, the band's); Quake's line is its length; an
   Erupt fissure's breadth is the breadth Power gives, never more than the shape's own span (`fissureBreadth` in
@@ -135,6 +137,16 @@ editor is desktop-first (D185).
   [ and ] step its Size, { and } its Power by five, the number beside the pointer while it changes; a Size set by hand
   is off Auto. Power and Size always read as numbers in the row, a Size on Auto as **Auto (68)** (Power's word, a
   creek to a catastrophe, is its tooltip). Quake has no Size: F does nothing there.
+  **Size sets how far a force reaches; Power how strong it is within that** (D361 (1), (3); `core/forces/strength.ts`).
+  Power acts on every force and mode: a painted Lift answers { and } while it is painted, and Try another takes the
+  row's Power and Size as they are now. A force set larger than the size its Power gives keeps its reach and acts in
+  proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power 0):
+  Craterize's and Erupt's every level scaled by it, Carve no deeper than its share of 12 levels (at least 2, its
+  banks included); Glaciate's depth also follows Power below 60 (`glacierStrength`: Power 0 about a sixth as deep);
+  Quake's Slide travels 1 tile at Power 0 to 20 at 100. At the largest Size, Power 0 is the gentlest effect that
+  still shows: `tests/contract/forcePower.test.ts` holds each force to at least 9 tiles changed, at most a quarter of
+  Power 100's change in all, at most 4 levels deep (60% of Power 100's deepest; Slide, which moves land sideways,
+  aside), and a change growing across Power 0, 50 and 100.
 - **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater
   source** (two separate items, D212), then the **Start**, **Pine** (D226's order), **Birch**, **Oak**, **Berry
   bush**, ruins, the mine site, relics, slopes and the rest, each a small render in the map's look. Picking one shows a live ghost that follows the
@@ -300,7 +312,7 @@ editor is desktop-first (D185).
   and the seed. The drawn line sets its length (D226). The fault shows on the land as it is
   painted (D258: the stroke is the gesture). Lift raises along the curve and shows its whole result as it is painted
   (the ground reacts behind the pointer), kept when let go; Slide shows the fault while it is painted, then its block
-  slides along it tile by tile, 3 to 20 tiles, each part of it the way the drawn line runs there (a straight fault's one
+  slides along it tile by tile, 1 to 20 tiles (D361 (3)), each part of it the way the drawn line runs there (a straight fault's one
   heading; a curved one's bending with it, D327), and a river that crossed the fault is joined again
   along it. A crack runs along the fault and dust rises at its head (the view stays still, D265).
   Objects ride with the land (a rigid one on flat ground of its own), trees on the fault go (their ground broke;

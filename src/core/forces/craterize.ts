@@ -16,6 +16,7 @@ import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
+import { strength, tempered } from "./strength";
 
 export interface CraterSettings {
   mode: "strike" | "aim";
@@ -239,6 +240,8 @@ export class ImpactPlan {
   readonly settings: CraterSettings;
   readonly intent: CraterIntent;
   readonly stats = { cut: 0, raised: 0, changed: 0, erased: 0, flattened: 0 };
+  /** How strongly it acts (D361 (3): 1 unless its Size outgrows its Power). */
+  readonly strength: number;
   private row = 0;
   private done = false;
 
@@ -251,6 +254,7 @@ export class ImpactPlan {
     this.settings = { ...settings };
     this.intent = { ...intent };
     this.anatomy = craterAnatomy(before, settings, intent);
+    this.strength = strength(settings.power, settings.size, naturalSize(settings.power));
     // (the start's ground is nature's to change: the start is carried off it, D257)
     this.keep = new Uint8Array(before.W * before.H);
     if (extraKeep) for (let i = 0; i < extraKeep.length; i++) if (extraKeep[i]) this.keep[i] = 1;
@@ -302,6 +306,8 @@ export class ImpactPlan {
           if (f.ray) target = Math.max(h + f.rayHeight, Math.round(target) + f.rayHeight);
           if (f.secondary) target = h - f.secondary;
         }
+        // Size and Power (D361 (3)): larger than Power's own crater, it acts in proportion
+        target = tempered(h, target, this.strength);
         // Fixed-point boundary keeps rounding independent of harmless floating-point tails.
         target = clamp(Math.round(Math.round(target * 4096) / 4096), 0, Math.min(22, this.map.maxHeight));
         this.map.heights[i] = target;
@@ -331,7 +337,8 @@ export class ImpactPlan {
       if (this.keep[tile]) return true;
       const f = craterField(a, s, e.x, e.y);
       const plant = /^(Pine|Oak|Birch|Succulent|BlueberryBush)$/.test(e.template);
-      if (plant && f.r < 0.93) {
+      // (a gentle impact leaves a plant whose ground barely moved: D361 (3))
+      if (plant && f.r < 0.93 && (this.strength >= 0.5 || Math.abs(this.map.heights[tile] - this.before.heights[tile]) >= 2)) {
         this.stats.erased++;
         return false;
       }

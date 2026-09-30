@@ -40,7 +40,7 @@ import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice"
 import { ForceDriver, paceOf, powerWord, type ForceStatus, type ForceTiming } from "./forceDriver";
 import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, RIVER_DEPTH_DEFAULT, type CarveUi } from "./CarveRow";
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
-import { eruptAnatomy, fissureBreadth, type EruptSettings } from "../core/forces/erupt";
+import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
 import { DEFAULT_GLACIATE, glaciateDetails, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
 import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
@@ -183,6 +183,8 @@ export default function Editor(props: EditorProps) {
    *  a quake's side while it is picked, and Esc for a stroke still being drawn. */
   const anchorRef = useRef<QuakePoint | null>(null);
   const flipRef = useRef<(() => void) | null>(null);
+  /** A painted Lift's Power changed while it is painted: it is painted again with it (D361 (1)). */
+  const repaintRef = useRef<(() => void) | null>(null);
   const forceEscRef = useRef<(() => boolean) | null>(null);
   /** What a force draws (D258: clean gestures, never a prediction): the line the player draws (a
    *  travelling force's path, Craterize's aim, Quake's fault, Erupt's fissure: the gesture itself,
@@ -1878,12 +1880,15 @@ export default function Editor(props: EditorProps) {
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
                       : undefined;
-          return api.forceAgain(pins && { ...pins, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
+          // (and the row's Power and Size as they are now, D361 (1): Try another answers them)
+          const now = verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {};
+          return api.forceAgain(pins && { ...pins, ...now, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
         }
         return api.forceStart({ ...q, gesture });
       }),
     advance: (steps) => enqueue(() => api.forceAdvance(steps)),
-    paint: (path, side) => enqueue(() => api.forcePaint(path, side)),
+    // (a painted Lift takes the row's Power as it is now: { and } change it while it is painted, D361 (1))
+    paint: (path, side) => enqueue(() => api.forcePaint(path, side, quakeUiRef.current.power)),
     keep: (gesture, wanted) => forceCalls.current!.keep(gesture, wanted),
     drop: (gesture) => forceCalls.current!.drop(gesture),
     renderer: () => renderer.current,
@@ -2075,24 +2080,24 @@ export default function Editor(props: EditorProps) {
    *  tiles either side), never a circle; a thin line where it has no width (Craterize's aim, an
    *  unleashed source's line). */
   const strokeRadius = useRef(0);
+  /** A drawn fault's or fissure's band: its line, about as wide as a fault's crack (D361 (2)). */
+  const STROKE_RADIUS = 1;
   function gestureTiles(path: readonly PathPoint[], radius: number): number[] {
     strokeRadius.current = radius;
     return radius > 0.5 ? bandTiles(path, radius, infoRef.current.W, infoRef.current.H) : strokeTiles(path);
   }
 
-  /** The band's half width for the force picked, as drawn (D344, A3): Carve's and Glaciate's width,
-   *  Quake's reach from its fault; a fissure's breadth from its shape (A6). */
-  function bandRadius(path?: readonly PathPoint[]): number {
+  /** The band's half width for the force picked, as drawn (D344 A3, amended by D361 (2)): the preview
+   *  is the player's stroke, never what the force decides. Carve's and Glaciate's width is their Size,
+   *  the player's own; a fault or a fissure is its line, a narrow band about as wide as a fault's crack
+   *  (its reach, a fissure's breadth and the ground inside a loop are the force's, never drawn). */
+  function bandRadius(): number {
     const verb = toolRef.current;
-    if (verb === "erupt") {
-      if (!path) return 0;
-      const u = eruptUiRef.current;
-      const drawn = forcer.current?.lastSettings.erupt as EruptSettings | undefined;
-      return fissureBreadth({ power: u.power, shape: u.shape ?? drawn?.shape ?? "steep", summit: u.summit ?? drawn?.summit ?? "auto" }, path) / 2;
-    }
+    if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
     if (verb === "craterize") return 0;
     return reachNow() ?? 0;
   }
+
 
   function startCarve(origin: [number, number], end?: [number, number], via?: [number, number][], fromEnd = false) {
     startForce({ verb: "carve", settings: carveSettingsOf(carveUiRef.current, !!end), origin, ...(end ? { end } : {}), ...(end && via?.length ? { via } : {}), ...(end && fromEnd ? { shownFrom: "end" as const } : {}), cut: renderer.current?.slice ?? null });
@@ -2364,7 +2369,7 @@ export default function Editor(props: EditorProps) {
     const showStroke = (path: readonly QuakePoint[] | null) => {
       cancelAnimationFrame(strokeFrame);
       // (a fault's or a fissure's band; Craterize's aim is a line)
-      strokeFrame = requestAnimationFrame(() => setForceStroke(path ? gestureTiles(path, bandRadius(path)) : null));
+      strokeFrame = requestAnimationFrame(() => setForceStroke(path ? gestureTiles(path, bandRadius()) : null));
     };
     /** Erupt's one word, once a frame at most (it reads the ground round the vent). */
     let wordFrame = 0;
@@ -2384,6 +2389,9 @@ export default function Editor(props: EditorProps) {
         painting = true;
         startForce({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current), path: intent.path, side: intent.side, cut: cut(), painting: true }, true);
       } else forcer.current?.paint(intent.path, intent.side);
+    };
+    repaintRef.current = () => {
+      if (brush && painting) sendPaint();
     };
     flipRef.current = () => {
       const side = quakeUiRef.current.side === 1 ? -1 : 1;
@@ -2520,6 +2528,7 @@ export default function Editor(props: EditorProps) {
       cancelAnimationFrame(wordFrame);
       cancelAnimationFrame(cursorFrame.current);
       flipRef.current = null;
+      repaintRef.current = null;
       forceEscRef.current = null;
       if (painting) forcer.current?.cancel();
       setForceStroke(null);
@@ -3699,6 +3708,7 @@ export default function Editor(props: EditorProps) {
         ev.preventDefault();
         const power = stepPower(forcePowerOf(forcePicked), ev.key === "}" ? 1 : -1);
         setForcePower(forcePicked, power);
+        if (forcePicked === "quake") repaintRef.current?.();
         flashNote(`power ${power}`);
         return;
       }

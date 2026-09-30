@@ -34,7 +34,8 @@ import { waterModel } from "../../sim/model";
 import type { WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
 import { entityTiles, protectedGround, type ForceHead, type ForceMap, type ForceRun, type Lane } from "../force";
-import { RiverCharacter } from "./character";
+import { naturalWidth, RiverCharacter } from "./character";
+import { strength } from "../strength";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
@@ -207,6 +208,8 @@ export class CarveRun implements ForceRun {
   private visited = new Uint16Array();
   private born = new Uint16Array();
   private heading = 0;
+  /** Wider than its Power's own river: the deepest it cuts anywhere, its banks included (D361 (3)). */
+  strengthDepth: number | null = null;
   private bed = 0;
   private energy = 0;
   private splitSeen = new Set<string>();
@@ -260,7 +263,12 @@ export class CarveRun implements ForceRun {
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
-    this.depth = settings.depth ?? null;
+    // Size and Power (D361 (3)): wider than Power's own river, it cuts in proportion: no deeper than
+    // its strength's share of the deepest a carve goes (12 levels), at least 2
+    const k = strength(settings.power, settings.width, naturalWidth(settings.power));
+    const cap = k < 1 ? Math.max(2, Math.round(12 * k)) : null;
+    this.depth = cap === null ? (settings.depth ?? null) : Math.min(cap, settings.depth ?? cap);
+    this.strengthDepth = cap;
     this.floor = forceFloor(settings);
     this.initialWater = input.water.depth.slice();
     this.initialContamination = input.water.contamination.slice();

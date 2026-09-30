@@ -1,5 +1,17 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **D361 (1)–(3), 2026-09-30: Kyler's short sitting, the forces' three (`fix/sitting-3`).** (1) Power on every mode:
+> a painted Lift took its Power when the stroke began, so { } while painting changed nothing, and Try another reused
+> the first run's Power and Size; now the Lift is painted again with the row's Power (`forcePaint`'s `power`), and Try
+> another sends the row's Power and Size. (2) The preview is the stroke: a fault's and a fissure's band is a narrow
+> line (radius 1), no reach, no filled loop; Carve's and Glaciate's keep their width. (3) Size and Power
+> (`core/forces/strength.ts`): larger than Power's own size, a force acts in proportion (Craterize, Erupt tempered
+> level by level; Carve's depth capped, banks included; Glaciate below Power 60 too); Slide 1 to 20 tiles. At the
+> largest Size, 128² highlands, the change at Power 0 / 100 (tiles, deepest, sum): Carve 1,250 / 1,820, 4 / 14,
+> Craterize 11,100 / 15,541, 2 / 14, Erupt 1,805 / 7,878, 3 / 22, Glaciate 1,264 / 1,341, 2 / 13, Lift 2 / 9.
+> Tests that failed first: `tests/contract/forcePower.test.ts` (5 forces and the painted Lift), `forceKeys.spec.ts`
+> (the narrow band, } while painting, Try another's Power).
+
 > **D360 (1), 2026-09-30: the gaps D356's check found, closed (`fix/force-gaps`).** (a) Carve clicked where its water
 > would run straight off the map (its drainage reaching the edge within a few tiles of a click within 8 of it) carves
 > inward: an aimed river toward the lowest ground within 60° of straight in, 18 + Power/2 tiles away

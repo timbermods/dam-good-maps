@@ -421,7 +421,7 @@ export class QuakeRun extends Staged implements StagedRun {
   protected readonly approach = 1;
   private painted = false;
 
-  constructor(before: FullForceMap, readonly settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
+  constructor(before: FullForceMap, public settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
     super(before, keep);
     this.plan0 = new QuakePlan(before, settings, intent);
   }
@@ -453,9 +453,12 @@ export class QuakeRun extends Staged implements StagedRun {
 
   /** A painted Lift: the fault as painted so far, planned whole and shown at once (the page's pointer
    *  never waits: the worker takes the latest stroke when it is free). */
-  repaint(intent: QuakeIntent): void {
+  /** The stroke as it is now, and (D361 (1)) its Power as the row has it now: a Lift answers Power
+   *  while it is painted. */
+  repaint(intent: QuakeIntent, power?: number): void {
     const prev = this.map;
     this.intent = intent;
+    if (power !== undefined && power !== this.settings.power) this.settings = { ...this.settings, power };
     this.plan0 = new QuakePlan(this.before, this.settings, intent);
     this.planAll();
     this.painted = true;

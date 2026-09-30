@@ -18,6 +18,7 @@ import { modelOf, respectKeep, type Finalize, type ForceCue, type StagedRun } fr
 import { sizeOf, Valley, type GlaciateIntent, type GlaciateSettings } from "./model";
 import { planGlaciate, type GlaciatePlan } from "./plan";
 import { keepSourcesOnMap, type PlacedSource } from "../../water/edgeSources";
+import { glacierStrength, tempered } from "../strength";
 
 /** Steps of its advance and its retreat (ten a second: three seconds, then two). */
 export const ADVANCE_STEPS = 30;
@@ -107,6 +108,19 @@ export class GlaciateRun implements StagedRun {
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   private settle(p: GlaciatePlan): void {
     const m = p.map;
+    // Size and Power (D361 (3)): below Power 60, or larger than Power's own valley, the glacier cuts
+    // in proportion; what stands on its ground stays on it
+    const k = glacierStrength(this.settings.power, this.settings.size, sizeOf({ size: null, power: this.settings.power }));
+    if (k < 1) {
+      const b = this.before.heights;
+      const planned = p.map.heights.slice();
+      for (let i = 0; i < m.heights.length; i++) if (m.heights[i] !== b[i]) m.heights[i] = Math.round(tempered(b[i], m.heights[i], k));
+      m.entities = m.entities.map((e) => {
+        const i = e.y * m.W + e.x;
+        // (an object on ground the glacier set rides it down as far as the ground went)
+        return e.z === planned[i] && planned[i] !== m.heights[i] ? { ...e, z: m.heights[i] } : e;
+      });
+    }
     // its springs at the map's edge flow into the map (item 27: M9b's edge lip, once callable)
     const had = new Set(this.before.entities.map((e) => e.id));
     const springs = m.entities.filter((e) => e.template === "WaterSource" && !had.has(e.id)).map((e) => ({ x: e.x, y: e.y }));

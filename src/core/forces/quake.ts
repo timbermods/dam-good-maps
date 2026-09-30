@@ -47,7 +47,7 @@ export interface QuakeSettings {
 export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "sheer", seed: 1 };
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
-export const slideTiles = (power: number) => 3 + Math.round(power * 0.17);
+export const slideTiles = (power: number) => 1 + Math.round(power * 0.19);
 /** How far the shaking reaches from the fault (tiles) at a Power (the editor's ring, D312). */
 export const quakeReach = (power: number) => 14 + power * 0.5;
 
