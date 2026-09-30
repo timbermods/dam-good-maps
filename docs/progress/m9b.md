@@ -277,6 +277,54 @@ sends: a generated one, a version the background search found, a sibling, an edi
   of its course, 30–31% of the land near clean water, two rivers that never join), seeds 7, 8, 10
   the promise alone (1–2 mouths, 3 asked), seed 3's water doesn't settle.
 
+### Water that won't settle, Islands and Delta (D350, 2026-09-30)
+
+- **The rule's fix in the land (D350 (d)):** `levels.ts` `widenOutlets` kept its widening only when
+  nothing drained; now the ground round what would drain stays and the rest of the cut holds (Islands
+  128² seed 4's sea stood a level over its spill level behind a four-tile way out). `carveOutlets`
+  gives a small basin the planned water reaches, whose spill level is a broad flat (60+ tiles), a
+  stream a level under the flat, so its water leaves as a stream, not a sheet a few hundredths over
+  the flat (the probe's refill knife-edge, LB 128² seed 2's flats). `courses.ts` `closeSideEdges`:
+  where a river's water ties with its exit's level on another edge (Delta 256² seed 1: 200 tiles of
+  its course on the beds' floor, the water left by the west edge and the lower course stood dry), a
+  lip a level over it there.
+- **The repair as the map arrives (D350 (b)):** `water/outletWear.ts`, a core function: the basin
+  standing over its spill level (its depression and the water on the flat round it, one surface),
+  the route its water leaves by and on down, twice the width, and the banks along it taken down to
+  the route's own bed by a width that wanders (0.6–1.4 of the width, a ragged edge), never within two
+  tiles of the basin under its level, never on sources, hollows or the player's ground; 7, 11, 15,
+  then 23 tiles wide, the first that settles. It is part of the land (the field), so the link
+  rebuilds it. Captures: `investigation/m9b/worn-way-out-delta-4-128.png` (59 tiles) and
+  `...-lakeBasin-8-128.png` (13); each shows the land as shown, as the map arrived, and the cut in
+  orange (`investigation/m9b/worn.ts`).
+- **Islands:** the sea's rim is never breached at the edges (its inner line wandered to the edge and
+  the sea drained out, 256² seeds 1–3); the edge layout's sea larger and further in; islands spread
+  over the sea's ellipse; on larger maps fewer, larger islands (count × area^0.3, size × area^0.35:
+  the promise's island size grows with the map); and an island joined to the land by low ground is
+  parted by a strait (`land/islands.ts`). Seeds 1–30 at 128²: the promise 15 → 20, all three 14 →
+  18; 256², seeds 1–10: all three 3 → 7.
+- **Delta:** the mouths apart in proportion to the map's side (at 256² they ran together at the
+  edge); with the side lips, seeds 1–20 at 128² all three 10 of 20, 256² 5 of 10 (3 before).
+- **Seeds 1–10 of every theme** (six at a time; the machine was shared, so the times are also given
+  scaled by the process's CPU share):
+
+  | | 128² | 256² |
+  |---|---|---|
+  | maps failing an absolute | 4 of 70 (6 before) | 5 of 70 (12 before) |
+  | lands shown then replaced | 0 | 0 |
+  | ways out worn wider (b) | 2 | 5 |
+  | other fixes on the shown land | 11 maps | 4 maps |
+  | first maps meeting all three | 31 of 70 (28) | 37 of 70 (28) |
+  | land, median / p90 (CPU-scaled) | 1.3 / 2.6 s | 3.3 / 6.2 s |
+  | settled water | 3.7 / 10.2 s | 11.2 / 27.6 s |
+  | the map | 5.5 / 13.2 s | 16.0 / 51.2 s |
+
+  All three per theme (Any, River Valley, Canyon, Highlands, Lake Basin, Delta, Islands): 128² 7, 4,
+  4, 3, 5, 3, 5; 256² 5, 6, 6, 5, 3, 5, 7. Still failing: water that doesn't settle even worn wider
+  (128² Any 3, River Valley 7, Delta 9, Islands 9; 256² Any 9, River Valley 8, Lake Basin 7, Delta 7):
+  half settle in 4.3–4.8 days, the rest are lakes whose water falls for days (fed less than they
+  lose: no way out to widen); and Any 256² seed 7, whose starts flood once levelled (24 attempts).
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows

@@ -276,7 +276,7 @@ function markTried(tried: Uint8Array, st: { x: number; y: number }, W: number, H
  *  place). */
 const SPRING_TRIES = 3;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
-const WEAR_WIDTHS = [7, 11, 15];
+const WEAR_WIDTHS = [7, 11, 15, 23];
 const SPRING_STRENGTH = [2];
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
