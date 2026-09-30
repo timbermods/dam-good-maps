@@ -378,8 +378,8 @@ editor is desktop-first (D185).
   level)), and hovering a choice shows what it would take. **The counts and Everything include what is under water**
   (D345, B5): the resource features hold trees and bushes on ground a lake covers, and they stand again when the water
   drains, so the core's `objectsIn` (`core/doc/inArea.ts`) counts them, and Delete takes them by giving those tiles up
-  from their feature's area (a ruin field wholly inside the selection goes as a whole; one partly inside keeps the
-  columns the water hides). With no selection, Delete takes what the pointer is on: a
+  from their feature's area (a ruin field only partly inside the selection gives up just the tiles inside it, its `cleared` tiles, so the
+  columns outside keep their heights and places, the ones under water inside are deleted too, D360 b). With no selection, Delete takes what the pointer is on: a
   source within its targeting range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole
   map** selects the whole map for a map-wide Delete. One undo step; the water they fed drains as its cause is gone
   (D260), and any check the map runs (moisture, drought) follows from that same water change. **Clear everything** in
@@ -617,8 +617,10 @@ the same level returns to ∞), and T
 toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0
 Erupt, - Glaciate and M Select. **Z undoes, C redoes and X puts down whatever is held** (D345, B7; it closed the
 selection only, D323 item 16): a brush, a force, the shelf's object, Select and its selection, a picked source or object,
-leaving a plain pointer, which picks a source or a placed object (mine site, relic, geothermal field, natural dam,
-blockage) with a click and moves it with a drag, the start included, one undo step each (Esc puts a drag back);
+leaving a plain pointer, which picks **every object on the map** (D360 a: trees, bushes and ruin columns too, and
+sources and the start by their own grabs) with a click and moves it with a drag, one undo step each (Esc puts a drag
+back). A quiet highlight shows exactly what will be picked, and a bigger object wins over a tree or a bush under the
+pointer (`core/features/objects.ts` `isPickable`, `pickWinner`); a slope, derived from the ground, is not picked;
 in Select, **Ctrl+click** on the land takes its level and **Shift+scroll** dials the Level number (D345, B8), whether
 or not a selection is open (Z and C: D323, item 16;
 Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z work too; none of them act while typing in a field); with Quake picked, **V** flips

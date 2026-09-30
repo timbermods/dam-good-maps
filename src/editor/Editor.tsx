@@ -28,7 +28,7 @@ import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTil
 import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, type StartCheck, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
-import { DRAGGABLE_OBJECTS, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { isPickable, pickWinner, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 import { modalLevel } from "../core/features/footprintLevel";
 
 /** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
@@ -62,6 +62,7 @@ import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
 import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
 import { ModeIcon, WholeMapIcon } from "./SelectIcons";
 import { WaterBar } from "./WaterBar";
+import { WaterJourney } from "./waterJourney";
 import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
@@ -72,7 +73,7 @@ import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
-import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { BAD, BADWATER_STRENGTHS, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -239,6 +240,8 @@ export default function Editor(props: EditorProps) {
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
   /** A water source being dragged to a new place: its footprint there (D184). */
   const [sourceDrag, setSourceDrag] = useState<number[] | null>(null);
+  /** The tiles of the object the plain pointer would pick where it is (D360 a): a quiet highlight. */
+  const [hoverObject, setHoverObject] = useState<number[] | null>(null);
   /** The water's journey, played at a pace the eye can follow; its controls; a drought to watch. */
   const player = useRef<WaterPlayer | null>(null);
   /** The editor is on the page (answers from the worker that come after it closed are dropped). */
@@ -274,6 +277,16 @@ export default function Editor(props: EditorProps) {
       setPlayerTick((n) => n + 1);
       setFlowing(player.current!.progress);
     },
+  });
+  // what the worker says about the water, and the bar that reads it (waterJourney.ts, D345 B14)
+  const applyViewRef = useRef<(v: ViewUpdate) => void>(() => undefined);
+  applyViewRef.current = applyView;
+  const journey = useRef<WaterJourney | null>(null);
+  journey.current ??= new WaterJourney(player.current, {
+    applyView: (v) => applyViewRef.current(v),
+    mapWater: () => mirror.current.mapWater,
+    // (Max water depth's few words, once the water has settled, D264)
+    settledInPlace: () => checkDepthRef.current(),
   });
   const [instant, setInstant] = useState<CheckItem[]>([]);
   /** The first run's hints (D184): the steps done so far. */
@@ -445,11 +458,10 @@ export default function Editor(props: EditorProps) {
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
       if (weatherRef.current) setWeather(null);
-      // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
-      // says "Water settled" at once, D345 B14)
-      if (u.waterSettled) player.current?.settled();
-      else player.current?.begin({ water: u.view.water ?? mirror.current.mapWater, done: 0 });
     }
+    // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
+    // says "Water settled" at once; the news that came first is played now, D345 B14)
+    journey.current?.update(u, u.info.version);
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
@@ -680,9 +692,7 @@ export default function Editor(props: EditorProps) {
           // while the check ran (the check started as an edit went in): only the report waits
           // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
           // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
-          if (r.view.water && player.current?.hasJourney) player.current.push({ water: r.view.water, done: 1, final: () => applyView(r.view) });
-          else if (r.waterSettled && player.current?.playing) player.current.push({ water: mirror.current.mapWater, done: 1, final: () => applyView(r.view) });
-          else applyView(r.view);
+          journey.current?.check(r);
           if (!live || r.check.version !== infoRef.current.version) return;
           setCheck(r.check);
           setProgress(null);
@@ -715,10 +725,13 @@ export default function Editor(props: EditorProps) {
   useEffect(() => {
     void api.listen(
       proxy((e: EditorEvent) => {
-        if (e.version !== infoRef.current.version) return;
+        // the water's journey keeps its own count of versions: news that comes before the page reaches its
+        // version waits for it, older news is dropped (waterJourney.ts)
+        const news = (e.kind === "water" && !e.draft) || e.kind === "settled";
+        if (!news && e.version !== infoRef.current.version) return;
         // a force at work shows its own water; the map's settled view comes after it
         if (forcer.current?.running) {
-          if (e.kind === "settled") deferred.current.push(e.view);
+          if (e.kind === "settled" && e.version === infoRef.current.version) deferred.current.push(e.view);
           return;
         }
         if (e.kind === "water" && e.draft) {
@@ -734,24 +747,11 @@ export default function Editor(props: EditorProps) {
               draftWater.current = null;
               if (w) showWater(w, true);
             });
-        } else if (e.kind === "water") {
+        } else if (e.kind === "water" || e.kind === "settled") {
           // (a stroke's frame still waiting is older than the edit's water)
           draftWater.current = null;
-          // an edit's water plays at a pace the eye can follow
-          player.current?.push({ water: e.water, done: e.done });
-        } else if (e.kind === "settled") {
-          draftWater.current = null;
-          // (no water in it: the map's water was sent before, so it is the last put in place, not the
-          // frame on screen)
-          player.current?.push({
-            water: e.view.water ?? mirror.current.mapWater,
-            done: 1,
-            final: () => {
-              applyView(e.view);
-              // (Max water depth's few words, once the water has settled, D264)
-              checkDepthRef.current();
-            },
-          });
+          // an edit's water plays at a pace the eye can follow, and the settled water ends it
+          journey.current?.news(e);
         } else if (e.kind === "weather") {
           const w = weatherRef.current;
           if (!w) return;
@@ -883,6 +883,7 @@ export default function Editor(props: EditorProps) {
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
     if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: startDrag.check.problem || !startDrag.check.meets ? BAD : GOOD });
+    if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
     if (selection.current.count) {
       // the working area (D254): the land outside it is locked, and dimmed
@@ -903,7 +904,7 @@ export default function Editor(props: EditorProps) {
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
     r.commitOverlay();
-  }, [fit, picked, pickedObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
+  }, [fit, picked, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor
   useEffect(() => {
@@ -1008,12 +1009,28 @@ export default function Editor(props: EditorProps) {
    *  row), a drag moves it, the drop is one step with its ground levelled as a placement's is; Esc
    *  puts it back. Only with no tool out. */
   const objectGrab = useRef<{ cancel(): void } | null>(null);
+  /** The object the plain pointer would pick on tile (x, y) (D360 a): of those standing there that can be
+   *  picked, the bigger one wins over a tree or a bush. Its index in the page's objects. */
+  function objectUnder(x: number, y: number): number | undefined {
+    const e = mirror.current.entities;
+    const here = (coverAt().get(y * infoRef.current.W + x) ?? []).filter((j) => isPickable(e.templates[e.template[j]]));
+    return here.length ? here[pickWinner(here.map((j) => e.templates[e.template[j]]))] : undefined;
+  }
+  /** An object's tiles. */
+  function objectTiles(k: number): number[] {
+    const e = mirror.current.entities;
+    const W = infoRef.current.W;
+    const template = e.templates[e.template[k]];
+    return footprintTiles(template, { template, x: e.x[k], y: e.y[k], z: 0, orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 })
+      .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < infoRef.current.H)
+      .map(([x, y]) => y * W + x);
+  }
   function grabObject(hit: TileHit | null): PointerTool | null {
     if (!hit || brushToolRef.current || shelfRef.current || toolRef.current || selectingRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     const e = mirror.current.entities;
-    const k = (coverAt().get(hit.y * W + hit.x) ?? []).find((j) => DRAGGABLE_OBJECTS.test(e.templates[e.template[j]]));
+    const k = objectUnder(hit.x, hit.y);
     if (k === undefined) return null;
     const template = e.templates[e.template[k]];
     const at: [number, number] = [e.x[k], e.y[k]];
@@ -2955,7 +2972,7 @@ export default function Editor(props: EditorProps) {
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
     setMarkersOn(r.markers);
-    r.grab = (hit, ev) => grabSource(hit, ev) ?? grabObjectRef.current(hit) ?? startCalls.current.grabStart(hit);
+    r.grab = (hit, ev) => grabSource(hit, ev) ?? startCalls.current.grabStart(hit) ?? grabObjectRef.current(hit);
     r.onWheel = (ev, hit) => wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down
@@ -4014,7 +4031,11 @@ export default function Editor(props: EditorProps) {
                 const canvas = renderer.current?.canvas;
                 const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
                 const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
-                if (canvas) canvas.style.cursor = free && (t || onStart) ? "grab" : "";
+                // the object it would pick, shown before the click (D360 a)
+                const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
+                const tilesUnder = pick === undefined ? null : objectTiles(pick);
+                setHoverObject((cur) => (cur === tilesUnder || (cur && tilesUnder && cur.length === tilesUnder.length && cur[0] === tilesUnder[0]) ? cur : tilesUnder));
+                if (canvas) canvas.style.cursor = free && (t || onStart || pick !== undefined) ? "grab" : "";
                 hoverStart(!!free && onStart);
               }}
               hoverText={hover}

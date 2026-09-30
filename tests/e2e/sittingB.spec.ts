@@ -309,3 +309,50 @@ test("B14: after an undo, a redo and an edit the water bar reads the worker's re
   await page.keyboard.press("x");
   await expect(status).toHaveText("Water settled", { timeout: 90_000 });
 });
+
+test("D360 a: the plain pointer highlights, picks and drags a tree", async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  await page.getByRole("button", { name: "Top-down" }).click();
+  // a tree with a free tile three to its right, away from the bars over the map
+  const tree = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const e = m.entities;
+    const taken = new Set<number>();
+    for (let k = 0; k < e.count; k++) taken.add(e.y[k] * m.W + e.x[k]);
+    for (let k = 0; k < e.count; k++) {
+      if (!/^(Pine|Birch|Oak)$/.test(e.templates[e.template[k]])) continue;
+      const x = e.x[k];
+      const y = e.y[k];
+      if (x < 10 || x > m.W - 12 || y < 10 || y > m.H - 10 || m.surface.depth[y * m.W + x + 3] > 0) continue;
+      if ([1, 2, 3].some((d) => taken.has(y * m.W + x + d))) continue;
+      const p = window.dgmEditor!.tileToClient(x, y);
+      if (p.y < 330 || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
+      return { x, y, name: e.templates[e.template[k]] };
+    }
+    return null;
+  });
+  expect(tree).not.toBeNull();
+  const at = await client(page, tree!.x, tree!.y);
+  const lit = () => page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
+  await page.mouse.move(at.x + 20, at.y + 20);
+  const before = await lit();
+  await page.mouse.move(at.x + 1, at.y);
+  await page.mouse.move(at.x, at.y);
+  await expect.poll(lit).toBeGreaterThan(before);
+  await page.mouse.click(at.x, at.y);
+  await expect(page.getByRole("group", { name: `${tree!.name}, selected` })).toBeVisible();
+  const to = await client(page, tree!.x + 3, tree!.y);
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  expect((await labels(page)).at(-1)).toMatch(/^Move /);
+  const there = await page.evaluate(([x, y]) => {
+    const e = window.dgm3d!.renderer.mapState()!.entities;
+    for (let k = 0; k < e.count; k++) if (e.x[k] === x && e.y[k] === y && /^(Pine|Birch|Oak)$/.test(e.templates[e.template[k]])) return true;
+    return false;
+  }, [tree!.x + 3, tree!.y] as [number, number]);
+  expect(there).toBe(true);
+});

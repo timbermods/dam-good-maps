@@ -9,7 +9,7 @@ import { BUILDERS } from "../features/setpieces";
 import { badwaterMouth } from "../features/build";
 import { mouthTiles } from "../features/raster/terrain";
 import { entityTiles } from "../features/edits";
-import { DRAGGABLE_OBJECTS } from "../features/objects";
+import { isPickable } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { DERIVED_SLOPES } from "../features/ids";
 import { pathField, polygonMask } from "../features/geometry";
@@ -445,7 +445,7 @@ export function planEntity(s: MapSession, req: EntityRequest, id: string): Plann
 export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number): PlannedOps {
   const e = s.built.entities.find((g) => g.id === id);
   if (!e) return fail("that object is gone");
-  if (!DRAGGABLE_OBJECTS.test(e.template)) return fail(`a ${e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()} can't be moved`);
+  if (!isPickable(e.template)) return fail(`a ${e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()} can't be moved`);
   const req = { template: e.template, x: e.x + dx, y: e.y + dy, orientation: e.orientation, flipped: e.flipped };
   const why = entityProblem(s, req, id, { level: true });
   if (why) return fail(why);

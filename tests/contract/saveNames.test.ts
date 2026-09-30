@@ -27,4 +27,21 @@ describe("the name a map is saved under (D345, B10)", () => {
     await runGenerate(makeSpec({ seed: 12, theme: "riverValley", size: { x: 96, y: 96 } }));
     expect(ed.refine().info.timberName).toBe("dgm-river-valley-12.timber");
   }, 120000);
+
+  it("an imported map and a real place are saved as dgm-<name>, file-safe (D360 c)", async () => {
+    await runGenerate(makeSpec({ seed: 12, theme: "riverValley", size: { x: 96, y: 96 } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const saved = await ed.exportTimber(true);
+    expect(saved.ok).toBe(true);
+    for (const [file, saveAs] of [
+      ["My Island.timber", "dgm-my-island.timber"],
+      ["Near Drumheller (Alberta).timber", "dgm-near-drumheller-alberta.timber"],
+      ["Ünïcode Map?.timber", "dgm-unicode-map.timber"],
+      ["dgm-river-valley-5.timber", "dgm-river-valley-5.timber"],
+    ]) {
+      ed.openTimber(saved.bytes, file);
+      expect(ed.sessionView().info.timberName, file).toBe(saveAs);
+    }
+  }, 120000);
 });

@@ -37,9 +37,6 @@ export function submergedIn(s: MapSession, tiles: Iterable<number>): SubmergedOb
   const out: SubmergedObject[] = [];
   for (const f of resourceOrder(s.features)) {
     if (!isResource(f)) continue;
-    // (a ruin field's heights are assigned over its whole area, so it can't give tiles up: it counts,
-    // and goes, only when the selection holds all of it, see `ruinFieldsWithin`)
-    if (f.kind === "ruinField" && !runsToTiles(f.params.area, W).every((i) => inside.has(i))) continue;
     const now = cache.resources.get(f.id)?.placed;
     const ground: ResourceGround = { W, seed: b.seed, heights: b.heights, water, moisture: b.moisture, soilContamination: b.soilContamination, occupied: occupied.slice(), channel: b.channel, locked: null };
     const dry = rasterizeResource(f, ground);
@@ -75,13 +72,18 @@ export function objectsIn(s: MapSession, tiles: Iterable<number>): { counts: Rec
   return { counts, submerged };
 }
 
-/** The ruin fields that lie wholly inside `tiles`: Delete takes such a field as a whole, so that what the
- *  water hides of it does not stand again as the water drains. */
-export function ruinFieldsWithin(s: MapSession, tiles: Iterable<number>): string[] {
+/** The ruin fields the tiles reach, and the tiles of each one's area they hold (D360 b): Delete clears those
+ *  tiles of the field, so that the columns outside the selection keep their heights and their places, and
+ *  what the water hides inside it does not stand again as the water drains. */
+export function ruinFieldTilesIn(s: MapSession, tiles: Iterable<number>): Map<string, number[]> {
   const { x: W, y: H } = s.size;
   const inside = new Set<number>();
   for (const i of tiles) if (i >= 0 && i < W * H) inside.add(i);
-  const out: string[] = [];
-  for (const f of s.features) if (f.kind === "ruinField" && runsToTiles(f.params.area, W).every((i) => inside.has(i))) out.push(f.id);
+  const out = new Map<string, number[]>();
+  for (const f of s.features) {
+    if (f.kind !== "ruinField") continue;
+    const here = runsToTiles(f.params.area, W).filter((i) => inside.has(i));
+    if (here.length) out.set(f.id, here);
+  }
   return out;
 }

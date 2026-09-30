@@ -69,3 +69,75 @@ describe("Delete counts what is under water too (D345, B5)", () => {
     expect(total(ed.objectsInArea(ALL).counts)).toBe(total(counts.counts));
   }, 300000);
 });
+
+describe("Delete takes the ruin columns inside a selection, under water too, when a ruin field is only partly selected (D360 b)", () => {
+  it("the columns outside the selection stay exactly as they were", async () => {
+    let checked = false;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
+      ed.setEditorWaterMode("defer");
+      ed.refine();
+      const info = ed.sessionView().info;
+      for (const f of info.features.filter((g) => g.kind === "ruinField")) {
+        const runs = (f.params as { area: [number, number, number][] }).area;
+        const tiles = runs.flatMap(([y, a, b]) => Array.from({ length: b - a + 1 }, (_, k) => y * W + a + k));
+        if (tiles.length < 12) continue;
+        const xs = tiles.map((i) => i % W).sort((a, b) => a - b);
+        const cut = xs[xs.length >> 1];
+        const cx = Math.round(tiles.reduce((a, i) => a + (i % W), 0) / tiles.length);
+        const cy = Math.round(tiles.reduce((a, i) => a + Math.floor(i / W), 0) / tiles.length);
+        const ruinCount = () => {
+          const e = ed.sessionView().view.entities;
+          let n = 0;
+          for (let k = 0; k < e.count; k++) if (/^RuinColumnH/.test(e.templates[e.template[k]]) && tiles.includes(e.y[k] * W + e.x[k])) n++;
+          return n;
+        };
+        const dry = ruinCount();
+        // a strong source beside the field floods some of it
+        let placed = false;
+        for (let d = 0; d < 10 && !placed; d++)
+          for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
+            const req = { tool: "entity" as const, template: "WaterSource", x: cx + dx, y: cy + dy, orientation: "Cw0" as const, components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } };
+            if (ed.footprintCheck(req).problem) continue;
+            if (ed.applyTool(req, crypto.randomUUID()).ok) {
+              placed = true;
+              break;
+            }
+          }
+        if (!placed) continue;
+        ed.settleWater();
+        const selection = tiles.filter((i) => i % W < cut);
+        const inside = new Set(selection);
+        const ruins = () => {
+          const e = ed.sessionView().view.entities;
+          const out: string[] = [];
+          for (let k = 0; k < e.count; k++) if (/^RuinColumnH/.test(e.templates[e.template[k]]) && tiles.includes(e.y[k] * W + e.x[k])) out.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]}`);
+          return out;
+        };
+        // (the water drowned some of the field's columns)
+        const hiddenRuins = dry - ruinCount();
+        const outsideBefore = ruins().filter((r) => !inside.has(Number(r.split("@")[1].split(",")[1]) * W + Number(r.split("@")[1].split(",")[0]))).sort();
+        if (!hiddenRuins || !outsideBefore.length) continue;
+        checked = true;
+        const r = ed.removeAt(selection, ["ruins"], "Delete ruins");
+        expect(r.ok, JSON.stringify(r.errors)).toBe(true);
+        ed.settleWater();
+        const after = ruins();
+        const outsideAfter = after.filter((r) => !inside.has(Number(r.split("@")[1].split(",")[1]) * W + Number(r.split("@")[1].split(",")[0]))).sort();
+        expect(after.length - outsideAfter.length, "no column left inside the selection").toBe(0);
+        expect(outsideAfter, "the columns outside stay exactly as they were").toEqual(outsideBefore);
+        // the water goes: nothing inside comes back, and nothing outside changes
+        ed.removeAt(Array.from({ length: W * W }, (_, i) => i), ["sources"], "Delete sources");
+        ed.settleWater();
+        const drained = ruins();
+        const at = (r: string) => Number(r.split("@")[1].split(",")[1]) * W + Number(r.split("@")[1].split(",")[0]);
+        expect(drained.filter((r) => inside.has(at(r))).length, "nothing comes back inside the selection").toBe(0);
+        for (const r of outsideBefore) expect(drained, "the columns outside still stand").toContain(r);
+        expect(ed.objectsInArea(selection).counts, "nothing of the ruins inside the selection").not.toHaveProperty("RuinColumnH1");
+        break;
+      }
+      if (checked) break;
+    }
+    expect(checked, "a map with a partly flooded ruin field").toBe(true);
+  }, 300000);
+});

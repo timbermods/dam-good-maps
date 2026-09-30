@@ -57,6 +57,8 @@ export type Rgba = [number, number, number, number];
 /** A selection: its outline only, so its own ground shows through. */
 export const SELECTED: Rgba = [255, 208, 90, 190];
 export const MOVING: Rgba = [110, 214, 255, 150];
+/** The object the plain pointer would pick where it is (D360 a). */
+export const HOVERED: Rgba = [255, 255, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
 /** A drawn force's band, under its edge (D344, A3): the force's width along its line, softly. */
 export const DRAWING_BAND: Rgba = [150, 235, 120, 70];

@@ -1518,3 +1518,31 @@ Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDI
   `WaterPlayer` (`settled()` is its "nothing playing" state).
 - **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
   Glaciate · Erode, Deposit.
+
+## The water bar's race, found by ordering (D341, after batch B merged)
+
+B14's e2e once left the bar at "Water flowing… 84%" after a redo on CI, which is the state B14 fixes, so it was treated
+as a real race. The cause, found by delivering the worker's real messages in every order (no clock):
+- The page's journey was ended by two things only, the worker's `settled` event and the background check's answer.
+- When the check put the canonical water in place first, it stopped the worker's own settle, so no `settled` event
+  came; the check's answer ended the journey only if it carried water and the journey had frames, and it ended nothing
+  when the worker's settle had finished in between (an answer without water). A journey the worker had finished
+  therefore waited for news that was never sent.
+- Now every route to "settled" is on the channel the frames use: the worker sends the `settled` event whenever it puts
+  settled water in place (its own settle or a check's), the check's answer and the update's answer carry the worker's
+  word (`waterSettled`), and the page's journey (`src/editor/waterJourney.ts`, pure of the page) ends on any of them,
+  holds news that comes before the page reaches its version, ignores older news and frames of a version already settled.
+- `tests/contract/waterJourneyOrder.test.ts` records the messages of a redo (the check first, the settle first) and
+  delivers them in every interleaving and with each terminal message lost; it fails without the worker's new event.
+
+## D360 (Kyler's answers on batch B's three open points)
+
+- **(a) Picking:** the plain pointer picks and drags every object (trees, bushes, ruin columns included), with a hover
+  highlight of exactly what a click picks; a bigger object wins over a tree or bush (`pickWinner`). Sources and the start keep
+  their own grabs, a slope is not picked. Note: a left-drag over trees in the orbit view now moves a tree, not the camera
+  (right-drag still pans). `tests/contract/pickObjects.test.ts` (failed first), `tests/e2e/sittingB.spec.ts`.
+- **(b) Delete and a partly selected ruin field:** the field gets a `cleared` tile list (schema, `rasterizeRuins`), its
+  columns' heights still assigned over the whole area, so the columns outside the selection stay exactly as they were and the
+  ones inside (under water too) are deleted. `tests/contract/deleteSubmerged.test.ts` (failed first).
+- **(c) Save names:** already what Kyler asked (imported maps and places save as `dgm-<name>`, file-safe, numbered `-2` rather
+  than overwritten), so there was no failing test to write first; a contract test now pins the imported-file names.
