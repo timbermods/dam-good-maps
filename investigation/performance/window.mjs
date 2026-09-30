@@ -4,17 +4,21 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cases } from './scenarios.mjs';
 import { phaseAt } from './window-policy.mjs';
+import { configurations, coreCases } from './coverage.mjs';
 const dir = fileURLToPath(new URL('.', import.meta.url)), local = resolve(dir, 'local');
 mkdirSync(local, { recursive: true });
 const flags = Object.fromEntries(process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')));
+const budget = JSON.parse(readFileSync(resolve(dir,'budgets.json'))), suite = flags.suite ?? 'core';
 const start = Date.parse(flags.start ?? '2026-09-30T09:00:00Z'), end = Date.parse(flags.end ?? '2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
 if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || Date.now() >= end) throw new Error('Provide an authorized, unexpired --start=<UTC ISO> --end=<UTC ISO> window');
 const statusPath = resolve(local, 'window-status.json');
 if (existsSync(statusPath)) {
   const previous = JSON.parse(readFileSync(statusPath));
-  try { process.kill(previous.pid, 0); throw new Error(`Window runner ${previous.pid} already active`); } catch(e) { if(e.code !== 'ESRCH') throw e; }
+  if (previous.state !== 'finished') {
+    try { process.kill(previous.pid, 0); throw new Error(`Window runner ${previous.pid} already active`); } catch(e) { if(e.code !== 'ESRCH') throw e; }
+  }
 }
-const status = { pid: process.pid, window: { start, end }, started: new Date().toISOString(), state: 'waiting', attempts: [], pending: [] };
+const status = { pid: process.pid, suite, quietRule:budget.quiet, window: { start, end }, started: new Date().toISOString(), state: 'waiting', attempts: [], pending: [] };
 const save = () => writeFileSync(statusPath, JSON.stringify(status, null, 2));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 save();
@@ -26,30 +30,27 @@ async function cpu() {
 }
 async function quiet(until) {
   let since, previous;
-  status.state='waiting-for-five-quiet-minutes'; save();
+  status.state='waiting-for-60-quiet-seconds'; save();
   while(Date.now()<until) {
     const percent=await cpu(), now=Date.now();
     appendFileSync(resolve(local,'window-load.jsonl'), JSON.stringify({at:new Date(now).toISOString(),cpuPercent:percent})+'\n');
-    if(previous !== undefined && now - previous > 15000) since=undefined;
-    if(now>=start && Number.isFinite(percent) && percent>=0 && percent<=15) since??=now; else since=undefined;
+    if(previous !== undefined && now - previous > budget.quiet.maxSampleGapMs) since=undefined;
+    if(now>=start && Number.isFinite(percent) && percent>=0 && percent<=budget.quiet.cpuPercentMax) since??=now; else since=undefined;
     previous=now;
     status.cpuPercent=percent; status.quietSince=since; save();
-    if(since && now-since>=300000) return true;
+    if(since && now-since>=budget.quiet.durationMs) return true;
     await sleep(5000);
   }
   return false;
 }
 const queue=[];
-// Round-robin breadth: both looks and browsers first, then CPU profiles and map sizes.
-const priority=['craterize-fast','abuse',...cases.map(c=>c.id).filter(id=>!['craterize-fast','abuse'].includes(id))];
-for(const size of [256,128]) for(const profile of ['native','laptop']) for(const browser of ['edge','firefox']) for(const look of ['standard','high']) for(const id of ['craterize-fast','abuse']) {
-  queue.push({mode:'measure',id,size,profile,browser,look});
-  if(size===256 && ['craterize-fast','abuse'].includes(id)) queue.push({mode:'capture',id,size,profile,browser,look});
-}
-for(const id of priority.filter(id=>!['craterize-fast','abuse'].includes(id))) for(const size of [256,128]) for(const profile of ['native','laptop']) for(const browser of ['edge','firefox']) for(const look of ['standard','high']) queue.push({mode:'measure',id,size,profile,browser,look});
+const selected=suite==='core'?coreCases:cases;
+const priority=['craterize-fast','brush-large','abuse',...selected.map(c=>c.id).filter(id=>!['craterize-fast','brush-large','abuse'].includes(id))];
+for(const config of configurations(budget,suite)) for(const id of priority) queue.push({...config,mode:'measure',id});
+for(const config of configurations(budget,suite)) for(const id of priority) queue.push({...config,mode:'capture',id,repeats:config.captureRepeats});
 status.pending=queue; save();
 async function run(task,phase,hour=false) {
-  const args=['run.mjs',`--mode=${task.mode}`,`--phase=${phase}`,`--cases=${task.id}`,`--sizes=${task.size}`,`--profiles=${task.profile}`,`--browsers=${task.browser}`,`--looks=${task.look}`,'--repeats=3',`--deadline=${end-15000}`,...(hour?['--hour']:[])];
+  const args=['run.mjs',`--suite=${suite}`,`--mode=${task.mode}`,`--phase=${phase}`,`--cases=${task.id}`,`--sizes=${task.size}`,`--profiles=${task.profile}`,`--browsers=${task.browser}`,`--looks=${task.look}`,`--repeats=${hour?1:task.repeats}`,`--deadline=${end-15000}`,...(hour?['--hour']:[])];
   const previous=new Set(readdirSync(resolve(local,'runs')));
   status.state='running'; status.current={...task,phase,hour}; save();
   const code=await new Promise(ok=>{
@@ -74,7 +75,7 @@ try {
       if(outcome==='busy'){queue.unshift(task);failed=true;break}
       if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});failed=true;break}
     }
-    // A completed serial pair does not need another five-minute wait unless load rose.
+    // The child independently qualifies 60 seconds before every case; this outer loop dispatches.
     if(!failed) {
       while(queue.length && Date.now()<shortEnd) {
         const task2=queue.shift();status.pending=queue;save();let outcome='complete';

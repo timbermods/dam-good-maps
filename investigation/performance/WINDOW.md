@@ -5,7 +5,13 @@ Existing draft PR: https://github.com/timbermods/dam-good-maps/pull/107, branch 
 Worktree: `investigation/performance/local/checkout` beneath the shared repository.
 All commands below run from this worktree's `investigation/performance` directory.
 
-Run `node window.mjs` once. It writes `local/window-status.json` and `local/window-load.jsonl`, requires 300 continuous sampled seconds below 15% CPU, runs paired serial cases with three repetitions, and discards/requeues busy attempts. It stops launching short work at 02:50 to reserve quiet qualification, setup and the hour-long session last. It never starts an hour unless it can finish before 04:00. Inspect the runner lock and status before starting another process.
+This expired window is retained as history. For the next authorized window, run
+`node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>` once; default suite is **core**.
+It qualifies 60 sampled seconds at CPU ≤25% before every measured run, uses the core's
+three Edge/native repeats and single Firefox/native and Edge/proxy passes, and requeues any
+attempt hit by a CPU spike. Capture pairs get one pass, and one Edge/native/High hour goes last.
+`--suite=full` selects the optional long matrix. Short work continues if the hour cannot fit.
+Inspect the lock and `local/window-status.json` before starting another process.
 
 Preparation uses a pinned High renderer at 84fe4d363cabb958429c07c02fc6a25738a360f8 combined with the force-base presentation files in ignored copies only. `node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8`, then `node build.mjs before` and `node build.mjs after` regenerates it. Product source and computation workers are untouched. The CPU-constrained profile uses an aggregate one-logical-CPU Windows job quota and four-core affinity for this runner's browser processes, with native GPU/RAM. Report this proxy precisely; it is not a second physical machine.
 

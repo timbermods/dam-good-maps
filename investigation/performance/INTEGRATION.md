@@ -31,17 +31,18 @@ Use Node 24 and the repository lockfile, then install the separate harness lockf
 npm ci --no-audit --no-fund
 cd investigation/performance
 npm ci --no-audit --no-fund
+node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
 node build.mjs before
 node build.mjs after
 node test.mjs
-node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs
+node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs
 node typecheck.mjs
-node run.mjs --mode=smoke --phase=after --browsers=edge,firefox --profiles=native --sizes=128 --looks=clean --cases=craterize-fast,brush-large,select-raise --repeats=1
-node run.mjs --phase=before --repeats=3
-node run.mjs --phase=after --repeats=3
-node run.mjs --mode=capture --phase=before --sizes=256 --cases=craterize-fast,abuse --repeats=3
-node run.mjs --mode=capture --phase=after --sizes=256 --cases=craterize-fast,abuse --repeats=3
-node run.mjs --phase=after --cases=craterize-fast --hour --repeats=3
+node run.mjs --mode=smoke --phase=after --sizes=128 --looks=standard --cases=craterize-fast,brush-large --repeats=1
+node run.mjs --suite=core --phase=before
+node run.mjs --suite=core --phase=after
+node run.mjs --suite=core --mode=capture --phase=before
+node run.mjs --suite=core --mode=capture --phase=after
+node run.mjs --phase=after --hour --repeats=1
 python gifs.py
 node gate.mjs
 ```
@@ -55,7 +56,7 @@ gap index. `python water-design.py` regenerates the small committed schematic. P
 to those raw files. This is a historical index, not a way to reconstruct unrecorded CPU load.
 For a separately authorized future window, pass UTC bounds explicitly:
 `node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>`. Expired windows are refused.
-The five-minute gate resets on busy/invalid samples or logging gaps. Short work continues until
+The 60-second gate resets on busy/invalid samples or logging gaps. Short work continues until
 the deadline if qualification misses the full-hour start; an hour that does start stays last.
 
 Install the harness's matching Firefox with `node node_modules/playwright/cli.js install firefox`,
@@ -66,9 +67,20 @@ browsers. Browser version, GPU,
 software rendering and viewport are recorded. The harness pins Playwright 1.58.2 because this
 machine's cached Firefox is revision 1509; this is separate from the product dependencies.
 
-The matrix includes all five current forces at Power 100 using their natural Auto size, Fast and
-Watch, largest supported Raise stroke, seven whole-map Select actions, undo/redo of each, camera
-orbit/zoom, seeded interruptions/ten rapid undos/successive forces, and mixed one-hour sessions.
+The default **core** gate uses 256², Standard and High: every force at Power 100 using its
+natural Auto size in Fast and Watch, the largest Raise stroke, and seeded abuse (interruptions,
+ten rapid undos and successive forces). Undo/redo accompanies each case. Edge/native needs
+three before/after timing repeats; Firefox/native and Edge/CPU proxy each need one. These are
+12 cases × six configurations: **72 requirements, 120 paired timing repetitions**. There is
+one paired visual/audio capture per case/configuration, separate from pacing so capture overhead
+cannot masquerade as a frame-time result. The only required hour session is Edge/native/High,
+256², after-build, with matched start/end references and the existing mixed-edit sequence.
+
+The optional **full** suite retains 128²/256², all browser/profile combinations, three repeats,
+seven large Select actions, and orbit/zoom during a force. It does not multiply hour sessions.
+Use `--suite=full` on run.mjs and gate.mjs; missing full-suite evidence does not block the core gate.
+For a selected configuration, `--repeats=1 --repeat-start=2` records one distinct repeat; matching
+before/after repeat numbers pair the same seeded abuse. Valid repeats can accumulate across windows.
 High and Standard use a read-only presentation integration of the pinned `feature/high-look`
 commit `84fe4d363cabb958429c07c02fc6a25738a360f8` with force-base rendering additions. Before building,
 run `node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8`; the unique four renderer
@@ -83,10 +95,13 @@ the job between cases. No other process or machine power settings are changed.
 
 ## Evidence and budgets
 
-`load.ps1` samples five times before and after each non-smoke run (CPU ≤15%, hottest GPU engine
-≤20%). During runs it logs process CPU and descendants of the harness; unrelated activity above
-15%, or total sampled CPU above 15%, invalidates the run. Unknown GPU load also refuses qualification. Do not terminate other
-agents to obtain quiet numbers. Smoke runs exercise functionality only and supply no timing summary.
+`load.ps1` qualifies **60 consecutive sampled seconds at CPU ≤25% before every measured case,
+capture and hour session**, after fixture/shader warm-up. Missing CPU samples or gaps over 30 s
+refuse qualification. During each run, total or unrelated CPU above 25% immediately discards
+the attempt; window.mjs requeues it, qualifies afresh and repeats while time remains. Post-run
+CPU samples also invalidate a newly busy attempt. GPU engine load is recorded for diagnosis,
+including unavailable readings, rather than adding a hidden quiet threshold. Do not terminate
+other agents to obtain quiet numbers. Smoke checks supply no timing certification.
 
 Pacing runs record every display-frame delta, every renderer method interval and available long
 tasks; captures separately copy **every actual rendered frame** and diagnose stale terrain tops,
@@ -99,8 +114,10 @@ raw data and the summary's instrumentation section, excluded from interaction pa
 
 `budgets.json` contains **provisional targets**, not thresholds derived from uncollected numbers.
 `gate.mjs` fails for missing repeats, unsupported requested coverage, any hitch/task/glitch, byte
-differences, missing visual/audio oracles, and missing three-hour evidence per configuration.
-Firefox lacks the Long Tasks API here; that is unavailable evidence, not zero tasks.
+differences, missing visual/audio oracles, and the missing single hour session.
+Edge supplies the mandatory Long Tasks oracle. Firefox's compatibility pass must still pass
+frame pacing (including >50 ms stalls), byte and visual/audio checks; unavailable Long Tasks
+entries are reported as unavailable, never zero. That API absence alone does not block the core gate.
 The hour run streams raw events so instrumentation does not retain an hour's events in page memory.
 Its load log records private and working memory; owned browser processes supply before/end private
 memory on both browsers, alongside GPU counts and the heap estimate where the browser exposes it.

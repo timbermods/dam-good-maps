@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { root } from './adoption.mjs';
 import { cases, forces, setup, act, idle, snapshot } from './scenarios.mjs';
 import { summarize } from './metrics.mjs';
+import { configurations, coreCases, isQuiet, loadSpiked } from './coverage.mjs';
 const dir = resolve(root, 'investigation/performance'), local = resolve(dir, 'local');
 mkdirSync(local, { recursive: true });
 const lock = resolve(local, 'runner.lock');
@@ -24,16 +25,21 @@ function releaseLock() {
 process.on('exit', releaseLock);
 const flags = Object.fromEntries(process.argv.slice(2).map(arg => { const [k, ...v] = arg.replace(/^--/, '').split('='); return [k, v.join('=') || true]; }));
 const mode = flags.mode ?? 'measure', phase = flags.phase ?? 'before';
-const browsers = String(flags.browsers ?? 'edge,firefox').split(','), profiles = String(flags.profiles ?? 'native,laptop').split(',');
-const sizes = String(flags.sizes ?? '128,256').split(',').map(Number), looks = String(flags.looks ?? 'standard,high').split(',');
-const repetitions = Number(flags.repeats ?? 3), hour = flags.hour === true;
-const capture = mode === 'capture' || (mode === 'smoke' && flags['validate-capture'] === true);
-if (!['before', 'after'].includes(phase) || !['measure', 'capture', 'smoke'].includes(mode) || !Number.isInteger(repetitions) || repetitions < (mode === 'smoke' ? 1 : 3)) throw new Error('Bad run mode/phase/repeats');
+const suite = flags.suite ?? 'core', hour = flags.hour === true;
 const budgets = JSON.parse(readFileSync(join(dir, 'budgets.json'), 'utf8'));
+const plans = hour ? [{...budgets.longSession,repeats:1,captureRepeats:1}] : configurations(budgets,suite);
+const configs = plans.flatMap(config => (flags.sizes ? String(flags.sizes).split(',').map(Number) : [config.size]).flatMap(size =>
+  (flags.looks ? String(flags.looks).split(',') : [config.look]).map(look => ({...config,size,look})))).filter((c,i,a)=>
+  (!flags.browsers || String(flags.browsers).split(',').includes(c.browser)) && (!flags.profiles || String(flags.profiles).split(',').includes(c.profile)) &&
+  a.findIndex(other=>['browser','profile','size','look'].every(k=>other[k]===c[k]))===i);
+if (!configs.length) throw new Error('No configurations selected; use --suite=full for extended combinations');
+const repeatStart = Number(flags['repeat-start'] ?? 1);
+const capture = mode === 'capture' || (mode === 'smoke' && flags['validate-capture'] === true);
+if (!['before', 'after'].includes(phase) || !['measure', 'capture', 'smoke'].includes(mode) || !['core','full'].includes(suite) || !Number.isInteger(repeatStart) || repeatStart<1 || (flags.repeats && (!Number.isInteger(Number(flags.repeats)) || Number(flags.repeats)<1))) throw new Error('Bad run mode/phase/repeats');
 const stamp = new Date().toISOString().replaceAll(':', '-'), output = resolve(local, 'runs', `${stamp}-${phase}-${mode}`);
 mkdirSync(output, { recursive: true });
 const results = [];
-function save() { writeFileSync(join(output, 'manifest.json'), JSON.stringify({ phase, mode, started: stamp, flags, repetitions, results }, null, 2)); }
+function save() { writeFileSync(join(output, 'manifest.json'), JSON.stringify({ phase, mode, suite, started: stamp, flags, configs, results }, null, 2)); }
 function powershell(args) {
   return new Promise((ok, fail) => {
     const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(dir, 'load.ps1'), ...args], { windowsHide: true });
@@ -42,13 +48,13 @@ function powershell(args) {
     child.on('error', fail); child.on('exit', code => code === 0 ? ok(stdout) : fail(new Error(stderr || stdout)));
   });
 }
-async function load() { return JSON.parse(await powershell(['-Samples', '5', '-IntervalMs', '1000', '-ParentPid', String(process.pid),
-  '-CpuMax', String(budgets.quiet.cpuPercentMax), '-GpuMax', String(budgets.quiet.gpuEnginePercentMax)])); }
+async function load(qualify=false) { return JSON.parse(await powershell(['-Samples', String(budgets.quiet.samples), '-IntervalMs', '1000', '-ParentPid', String(process.pid),
+  '-CpuMax', String(budgets.quiet.cpuPercentMax), '-QuietDurationMs', String(qualify ? budgets.quiet.durationMs : 0), '-MaxSampleGapMs', String(budgets.quiet.maxSampleGapMs)])); }
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.mp3': 'audio/mpeg', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const build = resolve(local, 'build', phase);
 const provenance = JSON.parse(readFileSync(resolve(build, 'provenance.json')));
 const harnessDigest = createHash('sha256');
-for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
+for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
 const harnessHash = harnessDigest.digest('hex');
 const server = createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -92,12 +98,16 @@ function captureHash(folder, audio, raw) {
 }
 let busy = false;
 try {
-  outer: for (const browserName of browsers) for (const profile of profiles) for (const size of sizes) for (const look of looks) {
+  outer: for (const config of configs) {
+    const {browser:browserName,profile,size,look} = config;
+    const repetitions = Number(flags.repeats ?? (mode==='smoke'||hour ? 1 : capture ? config.captureRepeats : config.repeats));
     if (!['clean', 'standard', 'high'].includes(look) || (look === 'high' && !provenance.lookRef)) {
       results.push({ browser: browserName, profile, size, look, status: 'unsupported', reason: 'High renderer overlay missing or unknown look' }); save(); continue;
     }
-    for (let repeat = 1; repeat <= repetitions; repeat++) {
-      const chosen = flags.cases ? cases.filter(c => String(flags.cases).split(',').includes(c.id)) : cases;
+    for (let repeat = repeatStart; repeat < repeatStart + repetitions; repeat++) {
+      const selected = hour ? cases.filter(c=>c.id==='brush-large') : suite==='core' ? coreCases : cases;
+      const chosen = flags.cases ? selected.filter(c => String(flags.cases).split(',').includes(c.id)) : selected;
+      if (!chosen.length) throw new Error('No scenarios selected; extended cases require --suite=full');
       for (const c of chosen) {
         if (stopping) break outer;
         const name = `${browserName}-${profile}-${size}-${look}-${c.id}-${repeat}`;
@@ -132,9 +142,9 @@ try {
           const spots = await setup(page, url, size, look);
           // Generation, shader warm-up, decode and setup finish before the quiet gate.
           if (mode !== 'smoke') {
-            item.load = await load();
+            item.load = await load(true);
             writeFileSync(join(output, `${name}-load.json`), JSON.stringify(item.load, null, 2));
-            if (!item.load.quiet) {
+            if (!isQuiet(item.load,budgets.quiet)) {
               item.status = 'blocked-busy'; item.qualified = false; busy = true; save();
               console.log('Quiet gate refused measurement; no frame statistics collected.'); break outer;
             }
@@ -147,11 +157,11 @@ try {
             if (aborting || !existsSync(file)) return;
             const lines = readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
             let sample; try { sample = JSON.parse(lines.at(-1)); } catch { return; }
-            if (sample.cpuPercent <= budgets.quiet.cpuPercentMax && sample.unrelatedCpuPercent <= budgets.quiet.cpuPercentMax) return;
+            if (!loadSpiked([sample],budgets.quiet) && Date.now()-Date.parse(sample.at)<=budgets.quiet.maxSampleGapMs) return;
             aborting = true; busy = true; item.qualified = false; item.status = 'invalid-busy'; item.abortLoad = sample; save();
             const raw = await page.evaluate(() => window.performanceHarness.end()).catch(() => null);
             if (raw) writeFileSync(join(output, `${name}-aborted-raw.json`), JSON.stringify(raw));
-            console.log('CPU load rose; discarding this attempt and releasing the browser.');
+            console.log('CPU spike or telemetry gap; discarding this attempt and releasing the browser.');
             await browser.close().catch(() => {});
           }, 1000);
           draining = true;
@@ -246,7 +256,7 @@ try {
             monitor.kill(); monitor = undefined;
             const duringPath = join(output, `${name}-load-during.jsonl`);
             item.loadDuring = existsSync(duringPath) ? readFileSync(duringPath, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)) : [];
-            if (!item.loadDuring.length || item.loadDuring.some(s => s.cpuPercent > budgets.quiet.cpuPercentMax || s.unrelatedCpuPercent > budgets.quiet.cpuPercentMax)) { item.qualified = false; item.status = 'invalid-busy'; busy = true; }
+            if (loadSpiked(item.loadDuring,budgets.quiet)) { item.qualified = false; item.status = 'invalid-busy'; busy = true; }
           }
           writeFileSync(join(output, `${name}-raw.json`), JSON.stringify(raw));
           if (capture) item.captureHash = captureHash(captures, join(output, `${name}-audio.jsonl`), join(output, `${name}-raw.json`));

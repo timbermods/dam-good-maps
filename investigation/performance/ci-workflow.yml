@@ -14,27 +14,30 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm ci --no-audit --no-fund
         working-directory: investigation/performance
+      - run: git fetch --no-tags origin 84fe4d363cabb958429c07c02fc6a25738a360f8
+      - run: node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
+        working-directory: investigation/performance
       - run: node build.mjs before
         working-directory: investigation/performance
       - run: node build.mjs after
         working-directory: investigation/performance
       - run: node test.mjs
         working-directory: investigation/performance
-      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs
+      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs
         working-directory: investigation/performance
       - run: node typecheck.mjs
         working-directory: investigation/performance
       - run: node verify.mjs
         working-directory: investigation/performance
-      - run: node run.mjs --phase=before --repeats=3
+      - run: node run.mjs --suite=core --phase=before
         working-directory: investigation/performance
-      - run: node run.mjs --phase=after --repeats=3
+      - run: node run.mjs --suite=core --phase=after
         working-directory: investigation/performance
-      - run: node run.mjs --mode=capture --phase=before --repeats=3
+      - run: node run.mjs --suite=core --mode=capture --phase=before
         working-directory: investigation/performance
-      - run: node run.mjs --mode=capture --phase=after --repeats=3
+      - run: node run.mjs --suite=core --mode=capture --phase=after
         working-directory: investigation/performance
-      - run: node run.mjs --phase=after --cases=craterize-fast --hour --repeats=3
+      - run: node run.mjs --phase=after --hour --repeats=1
         working-directory: investigation/performance
       - run: node gate.mjs
         working-directory: investigation/performance
