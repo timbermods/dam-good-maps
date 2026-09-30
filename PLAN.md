@@ -761,7 +761,9 @@ to 6). Only a missed promise gets a note naming what the version has ("A version
 ready", D333 (5)); one found for its water alone is kept quietly, and Another like this shows it.
 Nothing else is generated until the player asks (Another like this, More in the strip). The first
 land shown is the map (D348): a land is shown as editable land once it passes every check the land
-alone can judge (its courses, the Rivers count, no source in a flow, a start on its planned water and a second place for one away from it, no
+alone can judge (its courses, the Rivers count, no source in a flow, a start on its planned water and a second place for one away from it, no sea over a shelf at its
+spill level of more than 10,000 tiles (it fills for days, D358) or mostly on one over a quarter of
+the map (it stays dry), no
 ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water), and it is
 never replaced. Before one is shown, a land whose planned water misses the theme's promise or a
 readable water story is drawn again, up to 6 lands at 128² (4 to 192², 3 above: the land stage is

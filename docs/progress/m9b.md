@@ -411,6 +411,17 @@ sends: a generated one, a version the background search found, a sibling, an edi
   each one shape; 7 maps at 128² and 21 at 256² settle in 4–6 days with no cut.
 - **Times** (median / p90): 128² land 0.8 / 1.6 s, settled water 2.0 / 5.5 s, the map 2.6 / 6.3 s;
   256² land 2.1 / 5.2 s, settled water 8.6 / 20.5 s, the map 10.6 / 22.7 s.
+- **Islands 256² seed 12, fixed at the source:** its sea stood over an 18,700-tile shelf at its own
+  spill level (the water crosses it as a sheet and fills for days; seeds 15 and 19, which needed a cut,
+  over 13,800 and 18,700; every other Islands land 2,000–8,300, 128² lands under 6,000). A sea layout
+  over a shelf of more than 10,000 tiles is drawn again before it is shown; Islands 256² seeds 1–20
+  then all pass and meet all three outcomes, one small cut left (76 tiles). Lowering a sea's shelves
+  instead (as a lake's are) was tried: 5 of 20 256² seas then failed to settle.
+- **Any 128² seed 11, fixed at the source:** its atolls' sea stood 80% on a flat at its own spill
+  level (5,574 tiles, a third of the map), which its water covers thinly or not at all: the land
+  round it stayed dry and no start found farmland, wood or level land. A sea standing at least 75% on
+  its shelf over a quarter of the map is drawn again too. Any and Islands, seeds 1–20: none fails at
+  either size; all three outcomes 17 and 19 of 20 at 128², 15 and 20 at 256² (Any was 14 and 12).
 
 ### The probe batch m9b-20261001 (889f7ddf, 22 maps)
 
