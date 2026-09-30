@@ -119,6 +119,10 @@ editor is desktop-first (D185).
   Heavy, with or without Rays); **Try another**; the impact moment with radial tree knockdown. Newer
   impacts overprint older ones; it refuses to strike where the start sits and never adds water; one
   undo step, and Esc reverts. Prototyped on `investigation/craterize` (#51, ready: D216).
+- **Every force has a visible effect wherever it's used** (D356): never "nothing happened", never "not here". It adapts to
+  where it's used (a slope, flat ground, water, a peak), scaled by Power. A force that works only in one narrow situation
+  becomes an option on another force or is dropped (Meander into Carve, D355; the Landslide dropped, D354). Every adopted
+  force has a random-click check proving a click anywhere changes the terrain visibly.
 - **Quake, a force of nature** (D203): in the forces group with Carve and Craterize. It splits the land
   along a drawn fault line: **Lift** or **Slide**; **Power**; **Sheer** or **Stepped** scarp; **Try
   another** (including a natural tilt); objects ride with the land; it refuses a fault through the start
