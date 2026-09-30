@@ -18,3 +18,5 @@ playwright-report/
 out/*/local/
 # Large generated investigation results stay out of git (PLAN.md §20, D195)
 investigation/*/local/
+# The first-visit maps: built and checked at deploy, never committed (PLAN.md §20, D343)
+public/first-visit/

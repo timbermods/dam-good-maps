@@ -379,8 +379,8 @@ dot (`core/spec/differ.ts`), Your maps' model and saver, the strip and the first
 - **The first-visit maps** (`core/library/firstVisit.ts`, `tools/first-visit-maps.ts`): one 128² map
   per named theme in `public/first-visit/`, each the first seed that passes the release checks
   (`firstVisitProblems`, `reopensAs`), as project files; `loadFirstVisit` picks one at random, or
-  none when they are another generator's (then the page generates live). Remade at each generator
-  release (docs/HANDOFF.md §7).
+  none when they are another generator's (then the page generates live). Built and checked by the
+  deploy, never committed (D343): a failed check stops the deploy.
 
 **What the workspace wires** when it puts them together: the panel's mode and each mode's controls;
 Generate's `onGenerate` (Enter included) and `differs`; the card's input from the shown map

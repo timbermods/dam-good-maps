@@ -1,19 +1,15 @@
-// The first-visit maps (docs/UI-BRIEF.md §7, PLAN §20 D330): one of a handful of ready-made 128²
-// maps, picked at random, made and checked by tools/first-visit-maps.ts at each generator release.
-// The committed files must open as project files and be this generator's (a page on another
-// version would open them frozen): when this fails after a generator change, run
-// `npx tsx tools/first-visit-maps.ts`.
+// The first-visit maps (docs/UI-BRIEF.md §7, PLAN §20 D330, D343): one of a handful of ready-made
+// 128² maps, picked at random. tools/first-visit-maps.ts builds them during the deploy and stops it
+// when a check fails; these are its checks (`firstVisitProblems`, `reopensAs`), on one small map:
+// it passes them all, and each check, made to fail, turns it away with a plain reason.
 
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
-import { generate } from "../../src/core/gen/generate";
-import { FIRST_VISIT_DIR, FIRST_VISIT_SIZE, firstVisitProblems, pickFirstVisit, reopensAs, type FirstVisitIndex } from "../../src/core/library/firstVisit";
-import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
+import { encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { readTimber, writeTimber } from "../../src/core/format/timber";
+import { generate, type GenerateResult } from "../../src/core/gen/generate";
+import { firstVisitProblems, pickFirstVisit, reopensAs, type FirstVisitIndex } from "../../src/core/library/firstVisit";
+import { makeSpec } from "../../src/core/spec/mapspec";
 import { thumbnailPixels } from "../../src/core/render/thumb";
-
-const DIR = resolve(__dirname, "../../public", FIRST_VISIT_DIR);
 
 describe("picking a first-visit map", () => {
   const index: FirstVisitIndex = {
@@ -34,34 +30,37 @@ describe("picking a first-visit map", () => {
   });
 });
 
-describe("what makes a first-visit map", () => {
-  it("a map that passes the release checks, and reopens as itself from its project file", () => {
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const why = firstVisitProblems(r);
-    // every reason is a plain line; a passing map has none
-    for (const w of why) expect(w).toMatch(/^(its|it) /);
-    if (r.report.passed) expect(why.filter((w) => w.startsWith("its checks fail"))).toEqual([]);
-    else expect(why[0]).toMatch(/^its checks fail \(/);
-    const back = reopensAs(r, encodeProject(generatedDocument(r)));
-    expect(back.same).toBe(true);
-  });
-});
+describe("the deploy's checks on a first-visit map", () => {
+  const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
+  const project = encodeProject(generatedDocument(r));
 
-describe("the committed first-visit maps", () => {
-  it("are this generator's, 128², and open as project files", () => {
-    const path = join(DIR, "index.json");
-    expect(existsSync(path), "public/first-visit/index.json is missing: run npx tsx tools/first-visit-maps.ts").toBe(true);
-    const index = JSON.parse(readFileSync(path, "utf8")) as FirstVisitIndex;
-    expect(index.generatorVersion, "the first-visit maps are another generator's: run npx tsx tools/first-visit-maps.ts").toBe(GENERATOR_VERSION);
-    expect(index.size).toBe(FIRST_VISIT_SIZE);
-    expect(index.maps.length).toBeGreaterThanOrEqual(3);
-    for (const m of index.maps) {
-      const doc = decodeProject(new Uint8Array(readFileSync(join(DIR, m.file))));
-      expect(doc.generatorVersion).toBe(GENERATOR_VERSION);
-      expect(doc.spec?.size).toEqual({ x: FIRST_VISIT_SIZE, y: FIRST_VISIT_SIZE });
-      expect(doc.spec?.seed).toBe(m.seed);
-      expect(doc.edits).toEqual([]);
-    }
+  it("a map that passes them all, and reopens as itself from its project file", () => {
+    expect(firstVisitProblems(r)).toEqual([]);
+    expect(reopensAs(r, project).same).toBe(true);
+  });
+
+  it("turns a map away when its own checks fail", () => {
+    const failed = { ...r, report: { ...r.report, passed: false, checks: [...r.report.checks, { id: "start.water", ok: false, severity: "error", message: "no water" }] } } as GenerateResult;
+    expect(firstVisitProblems(failed)).toEqual(["its checks fail (start.water)"]);
+  });
+
+  it("turns a map away when its written file fails the validator or the starting-logs floor", () => {
+    // the same map's file with its trees taken out: the report still passes; the file must not
+    const file = readTimber(r.bytes);
+    file.world.entities = file.world.entities.filter((e) => !["Pine", "Birch", "Oak", "Succulent"].includes(String(e.Template)));
+    const why = firstVisitProblems({ ...r, bytes: writeTimber(file) } as GenerateResult);
+    expect(why).toContain("its file misses the starting-logs floor");
+    expect(why.some((w) => /^its file fails .*start\.wood_floor/.test(w))).toBe(true);
+  });
+
+  it("turns a map away when it misses one of the three outcomes (M9b)", () => {
+    const missed = { ...r, outcomes: { met: false } } as GenerateResult;
+    expect(firstVisitProblems(missed)).toEqual(["it misses one of the three outcomes"]);
+  });
+
+  it("turns a map away when its project file reopens as another map", () => {
+    const other = generate(makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } }));
+    expect(reopensAs(r, encodeProject(generatedDocument(other))).same).toBe(false);
   });
 });
 

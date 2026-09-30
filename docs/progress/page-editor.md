@@ -20,10 +20,11 @@ directly (`tests/contract/cardNumbers`, `generateDot`, `yourMaps`, `candidatesSt
   signature and credits.
 - **Your maps** (`yourMaps/`): IndexedDB storage, the background saver, the list; §6's quiet note (`QuietNote.tsx`).
 - **The candidates strip** (`candidates/`): a reducer over M9b's candidate events, and the row.
-- **The first-visit maps** (`core/library/firstVisit.ts`, `tools/first-visit-maps.ts`, `public/first-visit/`): six,
-  one per named theme, seed 1 passed for each on generator 0.7.0 (TypeScript validator, the starting-logs floor, Python
-  load checks); 171–234 KB each, 1.2 MB in all; each reopens from its project file in 0.2–1.4 s, against 0.8–5 s to
-  generate.
+- **The first-visit maps** (`core/library/firstVisit.ts`, `tools/first-visit-maps.ts`): six, one per named theme;
+  seed 1 passed for each on generator 0.7.0 (TypeScript validator, the starting-logs floor, Python load checks);
+  171–234 KB each, 1.2 MB in all; each reopens from its project file in 0.2–1.4 s, against 0.8–5 s to generate. Under
+  D343 (Kyler, the same day) the deploy builds and checks them before each build and stops on any failure; they are
+  never committed (`public/first-visit/` is gitignored), and the contract test checks the checks on one 96² map.
 - **A workbench** (`workbench/index.html`, test builds only) mounts the parts for `tests/e2e/page-parts.spec.ts`.
 
 **Defaults this step chose** (for Kyler's audit and the design pass):
