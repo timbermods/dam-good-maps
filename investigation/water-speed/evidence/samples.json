@@ -1,0 +1,744 @@
+[
+  {
+    "id": "generated-any-128-1",
+    "kind": "generated",
+    "theme": "any",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "e135b939adf6d8855552f030fc332aa364759fb50fd14263739347bbdd973064",
+    "exportHash": "b8029935aebf99bc8dbbb7d2896afd4afa6c7f36364019e63827bd8a63230c8a",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 134024
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "7b76c9c4173233ab6c151c9fee5563428565860f6ef6351e549b59ac9df01492"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "c889e46abfd338351f8a5a481028d3dcc7163366ba086893f7c954ee98fc0974"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "191d327119f133ab02ca292e19d9c37b1ed7afb613c2231841430410bd6e0fb3",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "5c189d95451938d3833642425f4b6c90aa5b84313777dcc09df7809187303489"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "ea5fdb0f5e47492e92549a3547936d6d410577a0ca395434e085853411393a68",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "67ce2e3d8d87a4106aa91cd637d424a309b21de511d793a49a62220d814fd6c6"
+        }
+      }
+    ],
+    "checkpoints": 300,
+    "elapsedMs": 12505.0439
+  },
+  {
+    "id": "generated-riverValley-128-1",
+    "kind": "generated",
+    "theme": "riverValley",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "5ec2ae911865031f0cade2396fc66f06bf9df38e90c76cbe80462603e05ea6e1",
+    "exportHash": "e8df4fcc9e332d623830c920849d62ed76b5024713088e35e233cab4c431d109",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 154570
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "4e47d87b75d3f43cd811216a51be490bfd7245c45a04f796f5f87473eaf74e24"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 256,
+      "digest": "ef004fc1072f9ea78711851f38415dcc42c101c845dd0b5a2c6cfbd1e381fc6c"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "e4572a863b15cdb194853ffb689e32defc760bbe1e4266f971fec06b7f0d8c4e",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "99d16f3f7a8ad5a589d5d276ff8b8b91562bd22da91ba3e2d739e036808ddfb9"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "3d498343cdd53bbf7abd0311e3e6d83f224356c564f248c300f16831b1b24342",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "c97def56420c98de8cd38bb7aa7e7a462c6f958fc3164b6ed54058857badadb5"
+        }
+      }
+    ],
+    "checkpoints": 287,
+    "elapsedMs": 14406.555
+  },
+  {
+    "id": "generated-canyon-128-1",
+    "kind": "generated",
+    "theme": "canyon",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "76c5946b86d2226ff770cca5dd89ac6ebc22f8262d70129041ad5d28f21a8904",
+    "exportHash": "85a3b90f3d31529cbf38490d770d2682c1f0852e6fdcdb7bc4b69453242d1134",
+    "generated": {
+      "passed": true,
+      "attempts": 5,
+      "attemptComparisons": 5,
+      "bytes": 203490
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "5db484bf85306672bfae325c7e7da8d2b3f2aecea2f51eddf8a6e204dfe9ec6a"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "b5e0c899facfd2169c76496ac91a6742986f62564137dcf0a926e0ed7aec3c18"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "1a7dddae6a65c3b5371c124f321ccba000c3e7ce36ce84dcff6731929e9b25d8",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "10c2c5bc744e007a62887bc53566a3ea0f827bb8f3362410578d5db1077c8f24"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "489c7edeb0ec0ae740020144c8461c235ee38dd98e9f676b5f86e7b694b8b3b3",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "1f18a38e34773525d2d780218f8b674376c9a3e1c104744aae5c01f8bc9f24a9"
+        }
+      }
+    ],
+    "checkpoints": 279,
+    "elapsedMs": 65846.059
+  },
+  {
+    "id": "generated-highlands-128-1",
+    "kind": "generated",
+    "theme": "highlands",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "e1c83b54d94f16f991fd73e6dd20c1d85743555f1d1146bc84931209b383fac2",
+    "exportHash": "a09f92b764492c9217ceddccfcbee11a619aad9903b2aa090efb4f82cca0822c",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 147904
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "1530babe9a659697bb44e29014617b13c39c114e4546eb539514b8919f3e0eb4"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 512,
+      "digest": "28a0f396ecf4f6e86330e1359112e12b864ee8a0618ec3b77c9294fef7c4874f"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "be05ecfa067dc50f98aec465503f895846070d0d9785e5b9c1ef7729ac19109a",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "241999e49cbe5410ae7eba1ab97977f4fc568ad3e8e454fad03afb1aef2332a4"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "dd895f0eaee6aa54496f16acdf805e879bef455080d2cf690202186109de93a1",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "8a29e52a89c6c6734f7057b7c42049608612d655333a0190475f14f07f4a828d"
+        }
+      }
+    ],
+    "checkpoints": 303,
+    "elapsedMs": 15193.9129
+  },
+  {
+    "id": "generated-lakeBasin-128-1",
+    "kind": "generated",
+    "theme": "lakeBasin",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "3bfe371b801245c342e05ab8af6264b77d0f47d42e8275ec0b3c77c752dca7e4",
+    "exportHash": "54349f6205147f74cd5bf57433fef99e43032d39b860a09c3a131f8fd461ff35",
+    "generated": {
+      "passed": true,
+      "attempts": 4,
+      "attemptComparisons": 4,
+      "bytes": 155483
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 1408,
+      "digest": "d33eead2780c28da3a34d579cd10aeed657a3bbb2e2e45f125b835ba01c71433"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "b1ce9dceb602c5d025a6971594e658ed1593dd7a5a47b3fedeb560a1b93eca6d"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "3f2b6f84560663f61dc5c489ecb174d9e78a16cb35ff174fa39c881f054313e2",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "8442afdbc680fd4fbe961d2419a4148227bfeb8c1ba604d30c451c98f63cb060"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "3ae315289c5cb0709863d8fd884fec343f0e74803ff6eb93732d899ecec5d7e4",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "fdbb69b6e45d8a4475b9c50e6e158b800c030a42b7de0daf6504aceea4e75d6c"
+        }
+      }
+    ],
+    "checkpoints": 303,
+    "elapsedMs": 18912.3481
+  },
+  {
+    "id": "generated-delta-128-1",
+    "kind": "generated",
+    "theme": "delta",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "20c561a60458712517997a248b99416e2ec50ddf999f07f4aef2faa27fe6dd8c",
+    "exportHash": "aae2817851d22ea4ed4377ff7df1f62db0d18fdaf43500a617081228a6d31622",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 176674
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 768,
+      "digest": "db9211367a8b9887367c31c57731e3504c1b6a20a997557026ccfa6dcf193afb"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 384,
+      "digest": "19882e5ba1ae8dc8d3d7554f887652a70816738a75b06343fb742693f8a2cb69"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "59c7890ef88e195bde22cc0779a4ea47a32c61ee5bead0d3eabfbba185e47cbc",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "61869b6c5809aa8c9e9dd478abd7c7d2ccccaaf1f99c7cfb914d9b40c713f616"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "3fe7078636d7b8ca183fc485771a1a4777fdaa5a291e6c143f509fb29500a13a",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "248627bc27c2904d60072faab37b1294bd652703e8921aff9105bf45b9b559bd"
+        }
+      }
+    ],
+    "checkpoints": 292,
+    "elapsedMs": 17980.2797
+  },
+  {
+    "id": "generated-islands-128-1",
+    "kind": "generated",
+    "theme": "islands",
+    "size": 128,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "fcac3408c85ab9534fb9356589ee3a34f893fb2b053fb6517cd7a1cb4367aca4",
+    "exportHash": "9e6d8f4ae4af2b3bfd7629b1cb5d32629430323559120ae07b46d6fd93ac7d05",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 191737
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 2176,
+      "digest": "ca855847324bd0aecb45ee58311140b80c705c4e90f88129138c6accddaf2d38"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "67d22d7a84e679014b16089c307e610607f0823791cd7975e341fba8a3cb4c54"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "a1c260567225c342802fb77096e446b76249ad600e07ea5662badcb674083814",
+        "return": {
+          "settled": true,
+          "ticks": 704,
+          "digest": "9829ded2b33e3ed9edba25a502d00aad30f414e936b0d2a25c6f6fe2b4aaa54a"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "2f254700a3925605fa5ed32c34ec89986f193a88192b32abbe41c629d2115929",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "737836e317455925223819387049a98016bdc9d2d338963c5806d28ad48aa910"
+        }
+      }
+    ],
+    "checkpoints": 313,
+    "elapsedMs": 32613.3535
+  },
+  {
+    "id": "generated-any-256-1",
+    "kind": "generated",
+    "theme": "any",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "be3617adab9478bbe2057b627de642479c4db642a09f99b86ccec8523acdeb85",
+    "exportHash": "f55a84e3b37568cb8f594a83a3b5bd739936521816e0fdaf219a1131e9a75c61",
+    "generated": {
+      "passed": true,
+      "attempts": 2,
+      "attemptComparisons": 2,
+      "bytes": 287387
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "d4692a76c98a6764bc13d1c0b565aba8ea0cd575a52fa637272a371bae2b2769"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 128,
+      "digest": "5904e5af319e0932753b7f9ba0946885ffad5f8d973c00f7823f4d10394565da"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "7433a2db2f2637f0be5d3f63b71b9d6c5644551a4bc26a155e1f8cdb0ca04958",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "2294194f3dc2b3fe817bdaf43bcdabaa94f9cd818e2b619e9dbccd96d553cd8f"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "4cf6a2b3848bfd1833f10f97f044d45b3544dceb9b0340dd79f754ab19dec9b5",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "165ee9e071636d4802d84552ee499d4cba0759a2abad60477127cfae595cceda"
+        }
+      }
+    ],
+    "checkpoints": 288,
+    "elapsedMs": 70645.8226
+  },
+  {
+    "id": "generated-riverValley-256-1",
+    "kind": "generated",
+    "theme": "riverValley",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "b46505c52f12912ada7b6c2ba02193556623de9e906472cc60ea4b1d1706eda7",
+    "exportHash": "71a089dca0601af180063c33fd32156420d2c0478eedcaa1dda0ab31fe42af66",
+    "generated": {
+      "passed": true,
+      "attempts": 2,
+      "attemptComparisons": 2,
+      "bytes": 363032
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 1024,
+      "digest": "623e11247fd44fef2f7b108d27c887f5f70f7820eb094f4e59b3293d65601080"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "6f0c2fa31229cd8f6adcfd5592810ed86b6594942a821b679ba59e5131b59aac"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "1bbdd03c5b24f36eb0e334b927c1b7bd3b434b745985a7e30518d1108dd3ca14",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "e7dbc30cba24f4d5c3311d5a6f3fd201658860277e44a986e0d0dab50bde538d"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "3c207f4f0e891d2d6065c9e9e6d839703a49f60f17a289afa0de900bc68fa9b0",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "9b7915adb9f1fdcd90b40562cbc46df012cea03b2bc09369dafcacdc00d2e92e"
+        }
+      }
+    ],
+    "checkpoints": 286,
+    "elapsedMs": 63112.04500000001
+  },
+  {
+    "id": "generated-canyon-256-1",
+    "kind": "generated",
+    "theme": "canyon",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "bb0dfc29c67257cf83e00e028abfa66d88e31c6bdc0d2bc02e0244cc5f97b682",
+    "exportHash": "15796b3d66c785cc74fcda72c2c69e06d6fca71e21abf44a7a74bebeed969740",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 336964
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 1280,
+      "digest": "26de12f078fa3bcaa0c86866c9f63bb0cd3d9ce56ec5b3e1c4a89390fd882874"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 192,
+      "digest": "1f5acaa449601edda53616f5711d60b21bc84f2f5054efea5824e6c221fd28c7"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "61ba8535785a1baf8c1c039896c177dabec60f7d522108b385565e60ee776f05",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "90377b09897012895effe64977a1a74bf64a527f11b32389e249033e9758dc71"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "1cc6ebb3a55e73c06f78e37b691a90b03ff6fe94353db86e0ba2eeffeb56521d",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "33dd30b80f397760d3f46080b2fe8e31a95c394b76aa3d9663a68eb2c16c15bb"
+        }
+      }
+    ],
+    "checkpoints": 292,
+    "elapsedMs": 57387.701100000006
+  },
+  {
+    "id": "generated-highlands-256-1",
+    "kind": "generated",
+    "theme": "highlands",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "b856f2878051188456d1cda80cb889c7896128e4fd1e6cff0649b7bd9e605bb0",
+    "exportHash": "9c4be4dccee18a3112a351506b4129f7ee39f366b1776bbaeee78524899568c7",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 290242
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 2560,
+      "digest": "ab6d79ed0a1a9e4cc44b65bd4897026b8140a9c6c2231624046ca5386fd5df8f"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 320,
+      "digest": "d23090820f06ea2ff4c3f6ac58aaf2a4e8d889439ef303cef86f9955b5abde4d"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "214acefa8a597ce5a85e2e8565dd5c4f15e2d4b7d4494dfcf88d77d365e54e9f",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "6a05248dce2bca2da4a4a5ee64a5006faf4a9fa882874dd39ade99e20bfd8076"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "51c443e5d2bb1c3a11a3b238db1186431f0eaea81905c14ab2165c24207c4f78",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "6271cd4f5db368227ae575bb4d1f80965b462e10882014941c2c4a26151a0c72"
+        }
+      }
+    ],
+    "checkpoints": 330,
+    "elapsedMs": 47935.4641
+  },
+  {
+    "id": "generated-lakeBasin-256-1",
+    "kind": "generated",
+    "theme": "lakeBasin",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "5d7001549f5a6086f7074147ab488ab66ea37958a4b44336fc8a7e7660d78302",
+    "exportHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "generated": {
+      "passed": false,
+      "attempts": 2,
+      "attemptComparisons": 2,
+      "bytes": 0
+    },
+    "canonical": {
+      "settled": false,
+      "ticks": 3072,
+      "digest": "d445de92c74ff2d0197f75caded63225c9f7d57e72717c6bacd7c0452e25ecfe"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 704,
+      "digest": "b225330ab22f83466cb856cac7957401ede706ca11eed2f1dd1dc9dd8a92dbfa"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "4a2c5063b0b57c9b5bfb019afbd96445ae247d16cb1468a133e5b4d5502c7211",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "7f79e3fa59b397767e853408de637d9db42c3754342e7446615ab084abc3633f"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "a9cde1ddce47b99826cf8245cfe3b5e26c65a2f3104c35959dabe01718e253ad",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "0f2c1355583b4aca86cbca73595e05949005bd2d37ecf4a051425ae7f0f52f65"
+        }
+      }
+    ],
+    "checkpoints": 366,
+    "elapsedMs": 108541.21599999999
+  },
+  {
+    "id": "generated-delta-256-1",
+    "kind": "generated",
+    "theme": "delta",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "d38742dd45cc1fcb1a1e4a0beb240814d6cfca6b732f2c0d14e73b65e4dec313",
+    "exportHash": "694c2a6fb412f9d9dd66d18b0991acd916a168edb3eb0e3182458c6c1bb96494",
+    "generated": {
+      "passed": true,
+      "attempts": 2,
+      "attemptComparisons": 2,
+      "bytes": 306833
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 896,
+      "digest": "927f13668123e049b9ee67e3fd603cee91e5f7dfc245774692060f84b94aeebb"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "b65eb8d5125d3d83196047d481c688ebd1dca3038d25eb1aeb4ee522d9068454"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "3261c84a5abaf6355dbd06f8725430782af996b06cb6844bc4f1dd5e56d6a33b",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "d50e4a7b6c3d48604c2fdc21bce1361af2f8094a2b0e1dfd7fc69276358f71be"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "c3a74d806020135a64cbf0fe4390505b77e940085e36d6fbe815cf9eea087f80",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "1c4afe1e743a67e1dd9a19ced77edc224639f8602bc19a2e716d3379d1e9bee8"
+        }
+      }
+    ],
+    "checkpoints": 299,
+    "elapsedMs": 89318.54579999999
+  },
+  {
+    "id": "generated-islands-256-1",
+    "kind": "generated",
+    "theme": "islands",
+    "size": 256,
+    "seed": 1,
+    "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+    "status": "pass",
+    "inputHash": "7395592ae6a590e16ef9afaa7b7cd05799391eacfeabb24f69bd2d86bc07885f",
+    "exportHash": "7a3fa340e0ddf8db34600a6e063f6e9b21988bf4318462758c109147473016ea",
+    "generated": {
+      "passed": true,
+      "attempts": 1,
+      "attemptComparisons": 1,
+      "bytes": 367072
+    },
+    "canonical": {
+      "settled": true,
+      "ticks": 1792,
+      "digest": "3e6c826fbf0840a79eab97da59481566dce99a1a647f339871949354c1138b9a"
+    },
+    "live": {
+      "settled": true,
+      "ticks": 448,
+      "digest": "487aa72cf9cc089902368249a7b8f67549877d68b0d21f29b748c89e307661f0"
+    },
+    "weather": [
+      {
+        "hazard": "drought",
+        "days": 9,
+        "frames": 128,
+        "waterDigest": "6317be85aeb97ea267add20d0544f1a3ac3fdbfa3cd9128d537747ed7836a143",
+        "return": {
+          "settled": false,
+          "ticks": 768,
+          "digest": "b89da640c2e21e722b22b0857bc7ed366e0dcf3ae22c9d1131e6700b998b6651"
+        }
+      },
+      {
+        "hazard": "badtide",
+        "days": 8,
+        "frames": 120,
+        "waterDigest": "6fce168325b6470835cf8fe6afd10100e7df6c8efb945806c415a3255704fb0c",
+        "return": {
+          "settled": true,
+          "ticks": 64,
+          "digest": "c6221822481be27d8be79d232b1dcc1164176a6b11ce0adbd0ff5f7f3fde6a02"
+        }
+      }
+    ],
+    "checkpoints": 320,
+    "elapsedMs": 70658.87040000001
+  }
+]
