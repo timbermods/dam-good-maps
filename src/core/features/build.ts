@@ -52,7 +52,7 @@ import { rasterizeResource, resourceOrder, type Placed } from "./raster/resource
 import { objectTiles, rasterizeObjects } from "./objects";
 import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
-import { BuildTarget, clipRect, fullRegion, type FieldCache, type Rect, type TileRegion } from "./target";
+import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
 
 export { BuildTarget } from "./target";
@@ -194,26 +194,39 @@ export interface BuildOptions {
   /** The water and soil rules the map is built under (sim/water.ts, sim/soil.ts; their defaults
    *  when absent, D308). */
   rules?: WaterRules;
+  /** Path and inward fields shared by the builds of one generated land (looked up there first; a
+   *  full build without `prev` only). The result's own cache keeps the fields it used. */
+  fieldCache?: FieldCache;
 }
 
-/** The last canonical settle and the model it ran on. The settle depends only on the water model,
- *  so the planner's base build and the full build of the same attempt share it: the result is
- *  identical to settling again, only faster. */
+/** The last canonical settles and the models they ran on. The settle depends only on the water
+ *  model, so the planner's base build and the full build of the same attempt share it, and the
+ *  attempts on one land that settle the same water again (the same rivers and hollows, another
+ *  start) reuse it: the result is identical to settling again, only faster. */
 export class SettleCache {
-  private last: { model: WaterModel; emitters: string; water: CanonicalWater } | null = null;
+  /** Most recent first. */
+  private last: { model: WaterModel; emitters: string; water: CanonicalWater }[] = [];
+
+  /** How many settles it keeps (a 256² settle with its model is about 4 MB). */
+  static readonly SIZE = 4;
 
   get(m: WaterModel): CanonicalWater | null {
-    const l = this.last;
-    return l && sameModel(l.model, l.emitters, m) ? l.water : null;
+    const emitters = JSON.stringify(m.emitters);
+    const k = this.last.findIndex((l) => sameModel(l.model, l.emitters, m, emitters));
+    if (k < 0) return null;
+    const [hit] = this.last.splice(k, 1);
+    this.last.unshift(hit);
+    return hit.water;
   }
 
   set(m: WaterModel, water: CanonicalWater): void {
-    this.last = { model: { ...m, floor: m.floor.slice(), dam: m.dam ? m.dam.slice() : null }, emitters: JSON.stringify(m.emitters), water };
+    this.last.unshift({ model: { ...m, floor: m.floor.slice(), dam: m.dam ? m.dam.slice() : null }, emitters: JSON.stringify(m.emitters), water });
+    if (this.last.length > SettleCache.SIZE) this.last.length = SettleCache.SIZE;
   }
 }
 
-function sameModel(a: WaterModel, aEmitters: string, m: WaterModel): boolean {
-  if (a.W !== m.W || a.H !== m.H || aEmitters !== JSON.stringify(m.emitters)) return false;
+function sameModel(a: WaterModel, aEmitters: string, m: WaterModel, mEmitters = JSON.stringify(m.emitters)): boolean {
+  if (a.W !== m.W || a.H !== m.H || aEmitters !== mEmitters) return false;
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
@@ -554,7 +567,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const frozen = base?.frozen;
   const live = (f: Feature) => !frozen?.has(f.id);
   const features = input.features;
-  const fields: FieldCache = prev ? prev.fields : new Map();
+  const fields: FieldCache = prev ? prev.fields : opts.fieldCache ? sharedFields(opts.fieldCache) : new Map();
 
   const { terrain, region } = terrainStage(input, prev, fields);
   const heights = terrain.heights;
@@ -829,7 +842,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     field: input.field ?? null,
     locked: input.locked ?? null,
     terrain,
-    fields,
+    // (a plain map of the fields this build used, never the generator's shared cache)
+    fields: prev || !opts.fieldCache ? fields : new Map(fields),
     reserved: slopeOcc,
     slopesKey,
     slopes,

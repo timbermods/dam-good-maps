@@ -23,6 +23,7 @@ import { levelRegions, MinHeap } from "../math/grid";
 import { stream } from "../math/rng";
 import { clamp, N4, pctSorted, smoothstep } from "./num";
 import { BED_FLOOR, VT_HIGH, type Genome } from "./genome";
+import { windRoute } from "./wind";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -616,9 +617,26 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
       }
     }
     if (end < 0) return;
+    // (wound like a gully, D209: across a flat the cheapest way is a straight line, and a channel
+    // cut along it has ruler-straight banks)
+    const straight: number[] = [];
+    for (let c = end; c >= 0 && label[c] !== id; c = prev[c]) straight.push(c);
+    straight.reverse();
+    const isOut = (c: number) => {
+      const x = c % W;
+      const y = (c - x) / W;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return true;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H && spill[yy * W + xx] < S && label[yy * W + xx] !== id) return true;
+      }
+      return false;
+    };
+    const route = windRoute(straight, W, H, (i) => label[i] !== id && h[i] === S && spill[i] === S, isOut, stream(seed, "outlet-wind", id));
     // cut the way at a level below the flat, `width` tiles wide (never the kept water)
     const r = (width - 1) / 2;
-    for (let c = end; c >= 0 && label[c] !== id; c = prev[c]) {
+    for (const c of route) {
       const cx = c % W;
       const cy = (c - cx) / W;
       for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++)

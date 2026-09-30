@@ -9,7 +9,7 @@
 // function (D342): the generator applies it as the map arrives; the editor could offer it as a fix.
 
 import { hash32 } from "../math/hash";
-import { MinHeap } from "../math/grid";
+import { distanceFrom, MinHeap } from "../math/grid";
 import { fbm } from "../math/noise";
 
 const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -118,7 +118,7 @@ export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike
 
 /** The way out of the basin whose water rose over its spill level, worn `width` tiles wide (a
  *  wandering width round it), or null when there is none to wear. */
-export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: { seed: number; width: number; keep?: Uint8Array | null; noOutlet?: Uint8Array | null; basin?: { tiles: number[]; level: number } | null }): OutletWear | null {
+export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: { seed: number; width: number; keep?: Uint8Array | null; noOutlet?: Uint8Array | null; basin?: { tiles: number[]; level: number } | null; floor?: number }): OutletWear | null {
   const N = W * H;
   // (the caller may name the stuck water itself: water still rising over a flat at its spill level,
   // which is no depression)
@@ -128,12 +128,38 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   const inB = new Uint8Array(N);
   for (const i of basin.tiles) inB[i] = 1;
   const spill = spillOf(h, W, H, opts.noOutlet ?? null);
-  // the route the water leaves by: from the basin over ground at or under its level, to lower ground
-  // or the map's edge, cheapest by a noisy cost so it follows the land's own way out
+  // where the water comes in: basin tiles beside water standing higher than the basin's (a river
+  // running in); the way the water goes runs from there through the basin, and a neck of the basin
+  // narrower than the width asked holds the water up as a narrow way out does
+  let surf = 0;
+  for (const i of basin.tiles) surf += h[i] + depth[i];
+  surf /= basin.tiles.length;
+  const entries: number[] = [];
+  for (const i of basin.tiles) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (!inB[j] && depth[j] > 0.05 && h[j] + depth[j] > surf + 0.02) {
+        entries.push(i);
+        break;
+      }
+    }
+  }
+  // (how far each basin tile lies from its shore: a neck is where the basin is narrow)
+  const shore = new Uint8Array(N);
+  for (let i = 0; i < N; i++) shore[i] = inB[i] ? 0 : 1;
+  const wide = distanceFrom(shore, W, H);
+  // the route the water leaves by: from where it comes in (or the whole basin), through the basin
+  // and on over ground at or under its level, to lower ground or the map's edge, cheapest by a
+  // noisy cost so it follows the land's own way out
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const hp = new MinHeap();
-  for (const i of basin.tiles) {
+  for (const i of entries.length ? entries : basin.tiles) {
     cost[i] = 0;
     hp.push(0, i);
   }
@@ -162,7 +188,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
-      if (inB[j] || h[j] > S || cost[j] <= k) continue;
+      if ((!entries.length && inB[j]) || h[j] > S || cost[j] <= k) continue;
       const nk = k + 1 + 1.6 * (fbm(ns, xx, yy, 6, 2) + 1);
       if (nk < cost[j]) {
         cost[j] = nk;
@@ -173,7 +199,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   }
   if (end < 0) return null;
   const route: number[] = [];
-  for (let c = end; c >= 0 && !inB[c]; c = prev[c]) route.push(c);
+  for (let c = end; c >= 0 && (entries.length || !inB[c]); c = prev[c]) route.push(c);
   // (and on down the way the water runs from there, twice the width: the widened sill needs a way
   // down as wide as itself)
   {
@@ -209,7 +235,11 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   }
   // the banks, as water wears them: within a wandering inner width of the route the ground comes
   // down to the route's bed; beyond it, a level more for each tile out, so the banks step back up
-  // (a worn slope, never a wall or a square notch); a tile never goes up, and never below the bed
+  // (a worn slope, never a wall or a square notch); a tile never goes up, and never below the bed.
+  // Past the basin's shore the bed runs a level under its spill level, so the sill the water crosses
+  // is short (a long flat at the basin's level takes a slope of water, a head the basin rises by, to
+  // carry the flow: the land stage's widening does the same, land/levels.ts `widenOutlets`)
+  const low = Math.max(opts.floor ?? 0, S - 1);
   const ws = hash32(opts.seed, "outlet-wear-width");
   const target = new Int16Array(N).fill(-1);
   const band: number[] = [];
@@ -218,9 +248,12 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   for (const r of route) {
     const rx = r % W;
     const ry = (r - rx) / W;
-    const bed = Math.min(h[r], S);
+    // (a neck's banks come down to the basin's level, never to its floor)
+    const bed = inB[r] ? S : Math.min(h[r], nearB[r] ? S : low);
     // (a width that wanders along the way, 0.5–1.5 of the asked for)
     const R = half * (0.5 + 0.5 * (fbm(ws, rx, ry, 7, 2) + 1));
+    // (inside the basin only its necks: where it is as wide as that already, nothing is worn)
+    if (inB[r] && wide[r] > R) continue;
     for (let dy = -reach; dy <= reach; dy++)
       for (let dx = -reach; dx <= reach; dx++) {
         const xx = rx + dx;

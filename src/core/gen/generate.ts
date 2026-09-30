@@ -36,6 +36,7 @@ import type { JsonObject } from "../format/json";
 import { pumpShoreDistance, reachAt, startWaterShore, walkDistance } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, type BuildResult, type GeneratedField, type LockedLayer } from "../features/build";
+import type { FieldCache } from "../features/target";
 import { entityTiles } from "../features/edits";
 import { featureId } from "../features/ids";
 import { objectTiles } from "../features/objects";
@@ -253,6 +254,10 @@ interface LandStage {
   ramps: ReturnType<typeof naturalRamps>;
   firstLook: number;
   cache: SettleCache;
+  /** River path fields shared by the builds on it. */
+  fields: FieldCache;
+  /** The settles counted on it (the settle cache hands later attempts the ones they share). */
+  counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
   tried: Uint8Array;
   /** Where badwater hollows that kept the water from settling stood (and round them): kept off. */
@@ -410,7 +415,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
  *  Drought reserve setting reads), off the locks and the protected tiles; each is cut a level
  *  lower, never below the beds' floor. Returns how many were cut. */
 export const SHELF_MIN = 60;
-function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
+function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null, seed = 0): number {
   const N = W * H;
   const spill = drainage(h, W, H, { eight: false }).filled;
   const shelf = new Uint8Array(N);
@@ -456,9 +461,59 @@ function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, lo
     }
     return true;
   });
-  for (const i of keep) h[i]--;
-  return keep.length;
+  // (D209: a shelf cut along a straight line leaves a ruler-straight bank, where the water it holds
+  // runs as a channel between straight edges. Along every straight run of the water's edge the cut
+  // makes, a tile of the cut in every few stays as it was, so the bank is ragged, as a worn one is)
+  const wet = new Float64Array(N);
+  for (let i = 0; i < N; i++) if (spill[i] > h[i]) wet[i] = 1;
+  const cutAt = new Uint8Array(N);
+  for (const i of keep) {
+    wet[i] = 1;
+    cutAt[i] = 1;
+  }
+  for (const run of straightness(W, H, wet, { wet: 0.5, minRun: SHELF_RUN }).runs) {
+    const [ax, ay] = run.from;
+    const [bx, by] = run.to;
+    const vx = bx - ax;
+    const vy = by - ay;
+    const l2 = vx * vx + vy * vy;
+    if (!(l2 > 0)) continue;
+    // the cut's tiles along the run (their middles within a tile of it), in order along it
+    const along: [number, number][] = [];
+    const x0 = Math.max(0, Math.floor(Math.min(ax, bx)) - 1);
+    const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx)) + 1);
+    const y0 = Math.max(0, Math.floor(Math.min(ay, by)) - 1);
+    const y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by)) + 1);
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (!cutAt[i]) continue;
+        const t = ((x + 0.5 - ax) * vx + (y + 0.5 - ay) * vy) / l2;
+        if (t < 0 || t > 1) continue;
+        const px = ax + t * vx - (x + 0.5);
+        const py = ay + t * vy - (y + 0.5);
+        if (px * px + py * py <= 1) along.push([t, i]);
+      }
+    along.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    // (a notch every 5–8 tiles along it)
+    let next = 3 + (hash32(seed, "shelf-notch", run.from[0], run.from[1]) % 4);
+    for (let k = 0; k < along.length; k++) {
+      if (k < next) continue;
+      cutAt[along[k][1]] = 0;
+      next = k + 5 + (hash32(seed, "shelf-notch", along[k][1]) % 4);
+    }
+  }
+  let n = 0;
+  for (const i of keep)
+    if (cutAt[i]) {
+      h[i]--;
+      n++;
+    }
+  return n;
 }
+/** The shortest straight run of a cut shelf's water edge that gets notches (D209: the limits are 44
+ *  and a canal's 34; a shelf's straight edge is often both banks of a narrow channel). */
+const SHELF_RUN = 14;
 
 /** What the finished map says about how it plays, for its description (gen/names.ts). */
 function playFacts(r: GenerateResult): PlayFacts {
@@ -1070,7 +1125,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
-  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect);
+  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect, hash32(seed, "shelves", attempt));
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -1136,17 +1191,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   const fixes = info.fixes!;
   const cache = from ? from.cache : new SettleCache();
+  const fieldCache: FieldCache = from ? from.fields : new Map();
+  const counted = from ? from.counted : new WeakSet<object>();
   const contains = new Set<string>(hy.rivers.map((r) => r.id));
-  let settleKey: unknown = null;
   const fieldOf = (): GeneratedField => {
     const steps = standingSteps(ramps.steps, h, W, H);
     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
   };
   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
-    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
+    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
     if (stop === "water") return b;
-    if (b.settle.depth !== settleKey) {
-      settleKey = b.settle.depth;
+    // (a settle counts once: the cache hands the attempts on a land the settles they share)
+    if (!counted.has(b.settle.depth)) {
+      counted.add(b.settle.depth);
       info.settles++;
     }
     return b;
@@ -1352,7 +1409,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried: new Uint8Array(N), badTried: new Uint8Array(N), unsettled: 0, dropped: [], fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
@@ -1380,11 +1437,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (a source's tiles are no way out: the game walls them off from the edge)
     const sourceTiles = new Uint8Array(N);
     for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
-    // (the basin over its spill level, or else the water still rising)
-    const stuckWater = risenBasin(h, W, H, b.water, sourceTiles) ?? risingWater(b);
+    // (the water still rising at the end of the settle, found by running it on; else the basin over
+    // its spill level: a plain whose water stands over its own level rises, not only a hollow)
+    const stuckWater = risingWater(b) ?? risenBasin(h, W, H, b.water, sourceTiles);
     if (!stuckWater) return null;
     for (const width of WEAR_WIDTHS) {
-      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater });
+      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater, floor: BED_FLOOR });
       if (!w) return null;
       const before = h.slice();
       h.set(w.heights);
@@ -1499,6 +1557,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     h.set(bad.heights);
     for (const f of bad.features) contains.add(f.id);
     b1 = build([...rivers, ...bad.features], "resources");
+  }
+  // (a plug that holds its lake back, D274, and keeps the water from settling: its lake fills for
+  // days over the plug's narrow line. It is opened, and stays open on the later attempts on this
+  // land; the land stays)
+  if (!b1.settle.settled && !lastAttempt && plug && rivers.some((f) => f.id === plug.feature.id)) {
+    const open = rivers.filter((f) => f.id !== plug.feature.id);
+    const b2 = build([...open, ...bad.features], "resources");
+    if (b2.settle.settled) {
+      rivers = open;
+      b1 = b2;
+      fixes.push("plug opened");
+      landStage?.dropped.push(plug.feature.id);
+    }
   }
   // D350 (b): a basin whose water rose over its spill level, its way out too narrow: that way out worn
   // wider as the map arrives (the smallest cut that settles it, as if water wore it), recorded in the
