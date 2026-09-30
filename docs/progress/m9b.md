@@ -185,10 +185,13 @@ the generator before batch 5 (00b39b56), at batch 5's hand-back (7b6eba7e) and n
 | Start rules: no badwater within | Passes now (moved 20–35). |
 | Designed for | Passes now (moved 17). |
 
-D333's own first cut weakened two more, both fixed: Buildable land (the springs added toward far
-land cut Generous's flats: none where the player asks for Generous) and Drought reserve (small lake
+D333's own first cut weakened three more, all fixed: Buildable land (the springs added toward far
+land cut Generous's flats: none where the player asks for Generous), Drought reserve (small lake
 shelves cut, and the added springs, drew starts to water or away from it: shelves of 60+ tiles only,
-and no added springs where the reserve is moved from the theme's).
+and no added springs where the reserve is moved from the theme's; and the experiment runs 12 seeds,
+since one map's natural storage runs from 0 to 3,500 and four seeds measured which map drew a big
+lake: 235 moved on 12) and Rivers (a count the player set failed within 24 attempts on one map: no
+added springs where the player set the Rivers count).
 
 ### 48² maps (D333 (7))
 
@@ -606,7 +609,8 @@ check, the start, the water settling).
   13, River Valley 7), the badwater river (River Valley 128² seed 3), the builders' ranges (seed
   13), the dropped source (River Valley 96² seed 2); the 4242 sha `050fe985…`.
 - D333, decisions: `versions.test.ts`: only a missed theme promise gets a note (D333 (5)); the
-  settings suite (`tools/settings-suite.ts`, the nightly's `settings.test.ts`): Relief moves at
+  settings suite (`tools/settings-suite.ts`, the nightly's `settings.test.ts`): Drought reserve on
+  12 seeds (its per-map storage spans 0–3,500; the target unchanged), Relief moves at
   least 2 levels (the base raise leaves 12 of the 15), Badwater distance at least 6 tiles (item 47's
   pits stand off the lowest ground and keep short ditches), Forest density at least 250 living trees
   (item 26), Mine sites 2 → 4 (item 47's two); `objects.test.ts`'s second district walks round the

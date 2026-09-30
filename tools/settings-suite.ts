@@ -166,6 +166,9 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 2,
   },
   {
+    // (12 seeds since D333: one map's natural storage runs from 0 to 3,500, and on four seeds the
+    // mean moved with whichever map drew a big lake, the setting's own effect hidden under it)
+    minSeeds: 12,
     setting: "Drought reserve",
     target: "stored water near the start: the best of the dam site within 40 tiles and the natural water kept through the drought",
     theme: "riverValley",
