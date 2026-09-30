@@ -3,6 +3,7 @@
 // (PLAN §19.4), never random.
 
 import { LOGS_PER_TREE_SPECIES } from "../data/logFloor";
+import { CORE, FLUIDS, NO_DELAY, RESERVES, TIMED, type Timed } from "../data/parity";
 import { F, isObject, num, type JsonObject } from "./json";
 import type { Orientation, Placement } from "./footprints";
 
@@ -93,19 +94,59 @@ export function ruin(b: Base & { height: number; variant: string; orientation: O
   };
 }
 
-export function timeActivated(): JsonObject {
-  return { IsEnabled: false, CyclesUntilCountdownActivation: 5, DaysUntilActivation: F(10), DaysPassed: F(0) };
+/** The `TimeActivatedComponent` a water object or a core writes: `IsEnabled` false starts at once (what the
+ *  game's map editor writes for a new source, with the spec's countdown), true starts it `days` days into
+ *  cycle `cycles` (TimedComponentActivator). Its four fields in the game's order. */
+export function timeActivated(t: Timed = NO_DELAY): JsonObject {
+  return { IsEnabled: t.enabled, CyclesUntilCountdownActivation: t.cycles, DaysUntilActivation: F(t.days), DaysPassed: F(0) };
+}
+
+/** A start delay from the component of an entity (the page's options read it). */
+export function timedOf(components: JsonObject | Record<string, unknown> | undefined): Timed {
+  const ta = components?.TimeActivatedComponent as Record<string, unknown> | undefined;
+  if (!ta || typeof ta !== "object") return { ...NO_DELAY };
+  const days = ta.DaysUntilActivation as { value?: number } | number | undefined;
+  return {
+    enabled: ta.IsEnabled === true,
+    cycles: typeof ta.CyclesUntilCountdownActivation === "number" ? ta.CyclesUntilCountdownActivation : TIMED.cycles,
+    days: typeof days === "number" ? days : typeof days?.value === "number" ? days.value : TIMED.days,
+  };
 }
 
 /** WaterSource (1×1) or BadwaterSource (3×3). The WaterSource component precedes BlockObject,
- *  as in official maps. */
-export function waterSource(b: Base & { strength: number; bad?: boolean }): EntitySpec {
+ *  as in official maps. `timed`: a start delay (the source then stores no current strength until it starts). */
+export function waterSource(b: Base & { strength: number; bad?: boolean; timed?: Timed }): EntitySpec {
+  const running = !b.timed?.enabled;
   return {
     ...pos(b),
     template: b.bad ? "BadwaterSource" : "WaterSource",
-    before: { WaterSource: { SpecifiedStrength: F(b.strength), CurrentStrength: F(b.strength) } },
-    components: { TimeActivatedComponent: timeActivated() },
+    before: { WaterSource: { SpecifiedStrength: F(b.strength), CurrentStrength: F(running ? b.strength : 0) } },
+    components: { TimeActivatedComponent: timeActivated(b.timed) },
   };
+}
+
+/** The objects the game's map editor places that carry a `WaterSource` beside the two sources: the seeps,
+ *  the aquifer, the drill on it and the badtide drain (PLAN §20 D337), each written in the component order of
+ *  the official maps (FORMAT.md §5, checked against Oasis, Pillars, Spillage and Nomads):
+ *  - WaterSeep, BadwaterSeep: WaterSource, BlockObject, WaterDepthStrengthModifier, TimeActivatedComponent;
+ *  - BadtideDrain: WaterSource, BlockObject, TimeActivatedComponent (its orientation is the way it flows);
+ *  - Aquifer: BlockObject, WaterSource, no start delay, and no current strength (it gives nothing until a
+ *    powered drill stands on it, and every drill starts without power);
+ *  - AncientAquiferDrill: BlockObject alone.
+ *  A negative strength is a sink (the game's `LimitStrength` only caps it from above). */
+export function fluidObject(b: Base & { template: string; strength?: number; timed?: Timed; orientation?: Orientation; flipped?: boolean }): EntitySpec {
+  const spec = FLUIDS[b.template];
+  if (!spec) throw new Error(`${b.template} is not a water object`);
+  const strength = b.strength ?? spec.defaultStrength ?? 1;
+  const e = { ...pos(b), template: b.template, orientation: b.orientation ?? ("Cw0" as Orientation), flipped: !!b.flipped && spec.flippable };
+  if (!spec.tiles) return { ...e, components: {} };
+  if (spec.needsDrill) return { ...e, components: { WaterSource: { SpecifiedStrength: F(strength), CurrentStrength: F(0) } } };
+  const delayed = !!b.timed?.enabled;
+  const off = delayed || !!spec.activeIn;
+  const components: JsonObject = {};
+  if (spec.depthLimit !== undefined) components.WaterDepthStrengthModifier = { CurrentModifier: F(1) };
+  components.TimeActivatedComponent = timeActivated(b.timed);
+  return { ...e, before: { WaterSource: { SpecifiedStrength: F(strength), CurrentStrength: F(off ? 0 : strength) } }, components };
 }
 
 export function slope(b: Base & { orientation: Orientation }): EntitySpec {
@@ -119,20 +160,47 @@ export function blockObject(b: Base & { template: string; orientation: Orientati
   return { ...pos(b), orientation: b.orientation, flipped: !!b.flipped, template: b.template, components: {} };
 }
 
-/** Official maps' countdown: 10.5 days after its cycle starts (notes/navigation_ruins_entities §8). */
-export const CORE_DAYS = 10.5;
+/** Official maps' countdown: 10.5 days after its cycle starts (notes/navigation_ruins_entities §8; the
+ *  blueprint's `DaysUntilActivation`). */
+export const CORE_DAYS = CORE.days;
 
 /** An UnstableCore (2×2): it explodes `DaysUntilActivation` days into cycle `cycles`, removing the
- *  terrain and objects within its radius + 1. `UnstableCore` must be written (the loader throws
- *  without it); the component order is the official maps'. */
-export function unstableCore(b: Base & { orientation: Orientation; radius: number; cycles: number }): EntitySpec {
+ *  terrain and objects within a sphere of radius `radius` + 1 (the blueprint's `InnerRadius`; PLAN §20
+ *  D339, `sim/explosion.ts`). `UnstableCore` must be written (the loader throws without it); the component
+ *  order is the official maps': BlockObject, TimeActivatedComponent, UnstableCore. The countdown is not
+ *  optional (`IsEnabled` is always true). */
+export function unstableCore(b: Base & { orientation: Orientation; radius: number; cycles: number; days?: number; flipped?: boolean }): EntitySpec {
   return {
     ...pos(b),
     orientation: b.orientation,
+    flipped: !!b.flipped,
     template: "UnstableCore",
     components: {
-      TimeActivatedComponent: { IsEnabled: true, CyclesUntilCountdownActivation: b.cycles, DaysUntilActivation: F(CORE_DAYS), DaysPassed: F(0) },
+      TimeActivatedComponent: { IsEnabled: true, CyclesUntilCountdownActivation: b.cycles, DaysUntilActivation: F(b.days ?? CORE_DAYS), DaysPassed: F(0) },
       UnstableCore: { ExplosionRadius: b.radius },
+    },
+  };
+}
+
+/** A reserve (ReservePile, ReserveWarehouse or ReserveTank): a stockpile of one good the map starts with,
+ *  written as the official maps store it (Nomads' warehouses): BlockObject, FixedStockpile,
+ *  SingleGoodAllower, Inventory:Stockpile, StockpileVisualizers, Inventory:ConstructionSite (the building's
+ *  cost, kept because a reserve is placed finished). */
+export function reserve(b: Base & { template: string; good: string; amount: number; orientation?: Orientation; flipped?: boolean }): EntitySpec {
+  const spec = RESERVES[b.template];
+  if (!spec) throw new Error(`${b.template} is not a reserve`);
+  const amount = Math.max(0, Math.min(spec.capacity, Math.round(b.amount)));
+  return {
+    ...pos(b),
+    orientation: b.orientation ?? "Cw0",
+    flipped: !!b.flipped,
+    template: b.template,
+    components: {
+      FixedStockpile: { FixedGoodId: b.good },
+      SingleGoodAllower: { AllowedGood: b.good },
+      "Inventory:Stockpile": { Storage: { Goods: amount > 0 ? [{ Good: b.good, Amount: amount }] : [] } },
+      StockpileVisualizers: { CurrentGood: b.good },
+      "Inventory:ConstructionSite": { Storage: { Goods: Object.entries(spec.cost).map(([Good, Amount]) => ({ Good, Amount })) } },
     },
   };
 }

@@ -56,6 +56,10 @@ export function tallDir(): string {
 export function ceilingDir(): string {
   return resolve(process.env.DGM_PROBE_CEILING ?? join(DEFAULT_PROBE_HOME, 'ceiling'));
 }
+/** The parity maps tools/probe-parity.ts writes (PLAN §20 D337, D338, D339), with their manifest parity.json. */
+export function parityDir(): string {
+  return resolve(process.env.DGM_PROBE_PARITY ?? join(DEFAULT_PROBE_HOME, 'parity'));
+}
 export const probePaths = () => {
   const home = probeHome();
   return {

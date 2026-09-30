@@ -437,6 +437,25 @@ export class WaterSim {
       const src = this.emitters[e];
       if (!this.seepOn[e]) continue;
       const add = (DT * src.strength * scale) / src.cells.length;
+      if (add < 0) {
+        // a sink (a negative strength, D337): each of its tiles loses dt·|S|/N of its water, down to dry, as the
+        // game's `WaterDepthSetter` floors it; the contamination follows the game's own formula (a sink takes
+        // out water of its own kind: `UpdateContaminationFromWaterChange`)
+        for (const i of src.cells) {
+          const d0 = D[i];
+          if (!(d0 > 0)) continue;
+          const d1 = d0 + add;
+          if (d1 > 0) {
+            const c1 = (C[i] * d0 + src.contamination * add) / d1;
+            C[i] = c1 < 0 ? 0 : c1 > 1 ? 1 : c1;
+            D[i] = d1;
+          } else {
+            C[i] = 0;
+            D[i] = 0;
+          }
+        }
+        continue;
+      }
       if (!(add > 0)) continue; // a source that is off (or a drought) adds nothing
       for (const i of src.cells) {
         const d0 = D[i];

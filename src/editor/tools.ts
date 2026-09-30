@@ -2,6 +2,8 @@
 // options and the object it places, where an object stands when the pointer is on a tile, and the
 // overlay the map shows its footprints, selections and problems in.
 
+import { NO_DELAY, type Timed } from "../core/data/parity";
+import { placeComponents } from "../core/doc/objectOps";
 import { FOOTPRINTS, type Orientation } from "../core/format/footprints";
 import type { ToolRequest } from "../worker/session";
 
@@ -11,6 +13,9 @@ export interface ToolOptions {
   sourceBad: boolean;
   sourceStrength: number;
   badwaterStrength: number;
+  /** A source's start delay (D337: "Starts: at once", or after a countdown), clean and bad. */
+  sourceTimed?: Timed;
+  badwaterTimed?: Timed;
 }
 
 /** A water source's strengths, blocks per second (one tile: at most 8, the game's most per tile),
@@ -19,7 +24,7 @@ export const SOURCE_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 export const BADWATER_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 72];
 
 /** The strengths a placed source starts at: the game's own (its blueprints' `DefaultStrength`: WaterSource 1, BadwaterSource 3; D323 item 46). Both are among the official maps' (docs/FINDINGS.md "Sources"). */
-export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1, badwaterStrength: 3 };
+export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1, badwaterStrength: 3, sourceTimed: { ...NO_DELAY }, badwaterTimed: { ...NO_DELAY } };
 
 /** The Coordinates that centre a template's rotated footprint on the tile clicked. */
 export function coordinatesAt(template: string, x: number, y: number, o: Orientation): [number, number] {
@@ -47,7 +52,8 @@ export function sourceRequest(o: ToolOptions, x: number, y: number): Extract<Too
   const s = o.sourceBad ? o.badwaterStrength : o.sourceStrength;
   const template = o.sourceBad ? "BadwaterSource" : "WaterSource";
   const [cx, cy] = coordinatesAt(template, x, y, "Cw0");
-  return { tool: "entity", template, x: cx, y: cy, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s, CurrentStrength: s } } };
+  // (the game's components for it: the strength, and its start delay, `objectOps.placeComponents`)
+  return { tool: "entity", template, x: cx, y: cy, orientation: "Cw0", components: placeComponents(template, { strength: s, timed: (o.sourceBad ? o.badwaterTimed : o.sourceTimed) ?? NO_DELAY }) };
 }
 
 // ---------------------------------------------------------------------------------- overlays
@@ -64,6 +70,8 @@ export const FAINT: Rgba = [230, 240, 230, 70];
 export const RAISES: Rgba = [90, 200, 110, 140];
 export const LOWERS: Rgba = [240, 160, 70, 150];
 export const GOOD: Rgba = [80, 200, 90, 170];
+/** A brush's tiles on ground that will kill what is planted there (dry ground for trees and bushes, moist for succulents): amber, still allowed (D235). */
+export const DRY: Rgba = [236, 168, 44, 180];
 export const BAD: Rgba = [230, 60, 50, 180];
 export const PROBLEM: Rgba = [230, 60, 50, 150];
 /** The locked land outside the working area (D254): dimmed. */

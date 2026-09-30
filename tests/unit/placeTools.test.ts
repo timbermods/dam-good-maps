@@ -62,8 +62,11 @@ describe("a placed source starts at the game's own default strength (D323 item 4
   it("1 water/s for a water source, 3 for a badwater source, from the game's blueprints (WaterSourceSpec DefaultStrength); both sit among the official maps' strengths", () => {
     expect(DEFAULT_OPTIONS.sourceStrength).toBe(1);
     expect(DEFAULT_OPTIONS.badwaterStrength).toBe(3);
-    expect(sourceRequest(DEFAULT_OPTIONS, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } });
-    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true }, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } });
+    // (and, as the game's editor writes a new source, its start delay switched off: TimeActivatedComponent with the spec's
+    // countdown, D337; it starts at once)
+    const off = { IsEnabled: false, CyclesUntilCountdownActivation: 5, DaysUntilActivation: 10, DaysPassed: 0 };
+    expect(sourceRequest(DEFAULT_OPTIONS, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 }, TimeActivatedComponent: off });
+    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true }, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 }, TimeActivatedComponent: off });
     // (docs/FINDINGS.md "Sources": official water sources run 0.25 to 1.5, badwater 0.5 to 3.0)
     expect(SOURCE_STRENGTHS).toContain(DEFAULT_OPTIONS.sourceStrength);
     expect(BADWATER_STRENGTHS).toContain(DEFAULT_OPTIONS.badwaterStrength);

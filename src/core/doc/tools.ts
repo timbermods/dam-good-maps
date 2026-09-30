@@ -626,6 +626,7 @@ export function planPiece(s: MapSession, kind: SetPieceKind, request: PlanRecord
 const GROUND_OBJECTS = new Set([
   "UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic", "GeothermalField", "UnstableCore", "Thorns", "NaturalDam", "Blockage",
   "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "ReservePile", "ReserveTank", "ReserveWarehouse", "AncientAquiferDrill",
+  "WaterSeep", "BadwaterSeep", "Aquifer", "BadtideDrain",
 ]);
 
 /** What an edit that reshapes the ground (a set piece, a lake, a landform, a river) does to the map

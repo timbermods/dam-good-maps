@@ -683,3 +683,33 @@ button[aria-pressed="true"] {
   padding: 3px 10px;
   border-radius: 999px;
 }
+
+/* an object's label with Markers on (D337, D338): a seep, a core, a reserve; quiet, the sources' marker style */
+.object-marker {
+  border-style: solid;
+  border-color: var(--muted, currentColor);
+  opacity: 0.92;
+}
+
+/* the map after a core goes off (D339): a view only, with the way back beside it */
+.blast-note {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+/* a number in an options row (a start delay's cycle and days, a core's cycle, a reserve's amount) */
+.number-field input[type="number"] {
+  width: 4.5em;
+}
+
+.number-field .unit {
+  margin-left: 0.25em;
+  opacity: 0.8;
+}

@@ -79,7 +79,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
+  // (D338: Succulent and Mixed woods follow the berry bush, before the ruin)
+  expect(shelfWords.slice(0, 10)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Succulent", "Mixed woods", "Ruin"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
   // the forces, all five ready (D216, D219, D291), in their own row under the tools (D323, item 9)
   const forces = page.getByRole("group", { name: "Forces" });

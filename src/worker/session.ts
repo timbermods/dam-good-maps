@@ -60,6 +60,8 @@ import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { mapObjects, waterModel } from "../core/sim/model";
+import { blastInfo, explosionAfter, type BlastInfo, type ExplosionAfter } from "../core/doc/blast";
+import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
@@ -996,6 +998,15 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
   return changed(s, r.ok, r.errors, t0);
 }
 
+/** Many independent operations (a brush stroke's objects) as one undo step, rebuilt once (`applyBatch`, PLAN §20
+ *  D235, D338). */
+export function applyBatch(ops: EditOp[], label: string, origin: OpOrigin = "user"): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = s.applyBatch(ops, origin, label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 /** A badwater source placed or moved in a group of edits (a clean source switched to bad: the old
  *  one removed, the new one placed; a source dragged) cuts its own spring pool where its ground
  *  isn't level (D290), in the same step, before it. */
@@ -1676,6 +1687,38 @@ export function entitiesAt(x: number, y: number): EntityInfo[] {
     out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, from, components: plainJson(rest) as Record<string, unknown> });
   }
   return out;
+}
+
+/** The labels Markers shows on the water objects, cores and reserves (`core/doc/objectOps.ts` `markerNotes`). */
+export function objectNotes(): MarkerNote[] {
+  return markerNotes(need().built.entities);
+}
+
+// ------------------------------------------------------------------------------ an unstable core's blast
+
+/** What a core would clear (its options row shows it while the core is selected, D338 (1)); `core/doc/blast.ts`. */
+export function explosionInfo(id: string): BlastInfo {
+  return blastInfo(need(), id);
+}
+
+export interface ExplosionPreview {
+  view: MapView;
+  info: ExplosionAfter["info"];
+  /** Tiles under roofs (caves, overhangs, what the blast leaves hanging): the water there is approximate. */
+  roofed: number;
+}
+
+/** The map as it will be after the core `id` goes off, as the page's view (PLAN §20 D339): the core's plain
+ *  answer (`explosionAfter`) drawn as a map. A view only: the document is not touched. */
+export function explosionPreview(id: string): ExplosionPreview {
+  const s = need();
+  const { x: W, y: H } = s.size;
+  const a = explosionAfter(s, id);
+  const cols = [...a.columns.keys()].sort((p, q) => p - q);
+  const columns: MapView["columns"] = { tiles: Int32Array.from(cols), voxels: new Uint8Array(cols.length * LAYERS) };
+  cols.forEach((i, k) => columns.voxels.set(a.columns.get(i)!.subarray(0, LAYERS), k * LAYERS));
+  const view: MapView = { W, H, heights: a.heights, columns, water: waterFromDepth(a.heights, a.depth, a.contamination), entities: entityView(entityInputs(a.entities)), soil: soilView(a.moisture, a.soilContamination) };
+  return { view, info: a.info, roofed: a.roofed };
 }
 
 /** The hover preview of a single object or an entity: its tiles, and why it can't stand there. */

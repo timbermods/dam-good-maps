@@ -40,7 +40,10 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type Profile, type ValidationReport } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
-import { entityProblem } from "./placing";
+import { entityProblem, resourceOwners } from "./placing";
+import { applyPaintObjects } from "./paint";
+import { entityTiles } from "../features/edits";
+import { FOOTPRINTS, worldBlocks } from "../format/footprints";
 import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
@@ -348,6 +351,11 @@ export class MapSession {
     return this.log.length;
   }
 
+  /** The number the next operation will take (seeds the ids a brush stroke gives its objects). */
+  get nextSeq(): number {
+    return this.seqNext;
+  }
+
   /** Whether the map's water is the file's own (an unedited import, or one with caves, whose
    *  water export keeps): the 3D view then draws `storedWater()`, not `built.water`. */
   get showsStoredWater(): boolean {
@@ -474,14 +482,17 @@ export class MapSession {
     const { x: W, y: H } = this.size;
     const entityIds = new Set<string>();
     const slopeTiles = new Set<number>();
+    const templates = new Map<string, string>();
     const starts = new Set(this.st.features.filter((f) => f.kind === "start").map((f) => f.id));
     let otherStarts = 0;
     for (const e of this.cur.entities) {
       entityIds.add(e.id);
+      templates.set(e.id, e.template);
       if (e.template === "Slope") slopeTiles.add(e.y * W + e.x);
       else if (e.template === "StartingLocation" && !starts.has(e.owner)) otherStarts++;
     }
     const errors = validateOp(op, {
+      templateOf: (id) => templates.get(id),
       state: this.st,
       W,
       H,
@@ -512,6 +523,8 @@ export class MapSession {
     }
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    // a brush stroke is planned on the map as it stands, and its objects go in as one step (D342)
+    if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
     const applied = this.applyChecked(op, origin, label);
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
@@ -524,7 +537,7 @@ export class MapSession {
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = op.op === "specPatch" ? ["a settings change cannot be part of a group of edits"] : this.check(op);
+      const errors = op.op === "specPatch" ? ["a settings change cannot be part of a group of edits"] : op.op === "paintObjects" ? ["a brush stroke cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
@@ -537,6 +550,71 @@ export class MapSession {
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
+    this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
+    this.snapshot();
+    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+  }
+
+  /** Apply many independent operations as one step, all or none, with one rebuild at the end (a brush
+   *  stroke's hundreds of placed objects: `applyAll` rebuilds the map after each). Each is checked as it
+   *  stands now, against the map as it is before the group, so no operation may refer to what another of
+   *  the group makes; the plan that made them (`gen/paint.ts`) keeps them off each other's tiles, and a group
+   *  that overlaps itself is refused. Placement rules that need the map's objects (`ctx.placement`) are
+   *  checked once, against a table made once. */
+  applyBatch(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const { x: W, y: H } = this.size;
+    const entityIds = new Set<string>();
+    const slopeTiles = new Set<number>();
+    const starts = new Set(this.st.features.filter((f) => f.kind === "start").map((f) => f.id));
+    let otherStarts = 0;
+    const taken = new Map<number, string>();
+    const skip = resourceOwners(this);
+    for (const e of this.cur.entities) {
+      entityIds.add(e.id);
+      if (e.template === "Slope") slopeTiles.add(e.y * W + e.x);
+      else if (e.template === "StartingLocation" && !starts.has(e.owner)) otherStarts++;
+      if (skip.has(e.owner)) continue;
+      for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) taken.set(ty * W + tx, e.template);
+    }
+    const columns = this.columns;
+    const ctx = {
+      state: this.st,
+      W,
+      H,
+      generated: !!this.gen.spec,
+      entityIds,
+      slopeTiles,
+      lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
+      otherStarts,
+    };
+    const errors: string[] = [];
+    for (const op of ops) {
+      if (op.op === "specPatch") return { ok: false, errors: ["a settings change cannot be part of a group of edits"], applied: [], dirty: null };
+      if (op.op === "paintObjects") return { ok: false, errors: ["a brush stroke cannot be part of a group of edits"], applied: [], dirty: null };
+      const why = validateOp(op, ctx);
+      if (why.length) return { ok: false, errors: why, applied: [], dirty: null };
+      if (op.op === "placeEntity") {
+        const p = op.params;
+        const fp = FOOTPRINTS[p.template];
+        const own = new Set<number>();
+        for (const b of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped })) {
+          if (b.x < 0 || b.y < 0 || b.x >= W || b.y >= H) {
+            errors.push("it does not fit on the map");
+            break;
+          }
+          own.add(b.y * W + b.x);
+        }
+        for (const i of own) {
+          if (columns.has(i)) errors.push("there is a cave or overhang there");
+          else if (taken.has(i)) errors.push(`${taken.get(i)} stands there`);
+          else taken.set(i, p.template);
+        }
+        entityIds.add(p.id);
+      }
+      if (errors.length) return { ok: false, errors: [errors[0]], applied: [], dirty: null };
+    }
+    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    this.cur = this.rebuilt();
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };

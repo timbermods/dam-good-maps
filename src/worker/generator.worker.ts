@@ -100,6 +100,8 @@ const api = {
   /** A slider's step: steps a moment apart with the same key are one undo step. */
   applyStep: (op: EditOp, label: string, key: string) => sendUpdate(ed.applyStep(op, label, key)),
   applyAll: (ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyAll(ops, label, origin)),
+  /** Many independent placements (a brush stroke's objects) as one undo step, rebuilt once. */
+  applyBatch: (ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyBatch(ops, label, origin)),
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
@@ -113,6 +115,15 @@ const api = {
   deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
+  /** The labels Markers shows on the water objects, cores and reserves. */
+  objectNotes: () => ed.objectNotes(),
+  /** What an unstable core would clear on this map (its row's information). */
+  explosionInfo: (id: string) => ed.explosionInfo(id),
+  /** The map as it will be after the core goes off (a view only, D339). */
+  explosionPreview(id: string) {
+    const r = ed.explosionPreview(id);
+    return transfer(r, viewBuffers(r.view) as Transferable[]);
+  },
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),

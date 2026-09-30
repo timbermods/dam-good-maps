@@ -32,6 +32,10 @@ once, and only for the plan it was printed for.
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
   worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
   group `Ceiling`, with `--keep-mods`.
+- The parity maps (PLAN §20 D337, D338, D339): make them with `npx tsx tools/probe-parity.ts` (it writes
+  `C:\dgm-probe\parity\`: seven maps built in the editor's own core, one for each object the shelf gained, and their
+  manifest `parity.json`), then play them as the group `Parity`, with `--keep-mods`. Like every launch it needs Kyler's yes
+  in chat first (CLAUDE.md).
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
