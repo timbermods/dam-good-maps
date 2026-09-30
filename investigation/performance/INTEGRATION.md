@@ -61,15 +61,23 @@ machine's cached Firefox is revision 1509; this is separate from the product dep
 The matrix includes all five current forces at Power 100 using their natural Auto size, Fast and
 Watch, largest supported Raise stroke, seven whole-map Select actions, undo/redo of each, camera
 orbit/zoom, seeded interruptions/ten rapid undos/successive forces, and mixed one-hour sessions.
-High is explicitly unsupported at this base. Firefox laptop emulation is explicitly unsupported;
-Edge laptop uses CDP **4× page CPU slowdown**, native GPU and memory. Worker CPU and GPU are not
-claimed throttled. This proxy cannot certify a typical laptop or replace physical laptop results.
+High and Standard use a read-only presentation integration of the pinned `feature/high-look`
+commit `84fe4d363cabb958429c07c02fc6a25738a360f8` with force-base rendering additions. Before building,
+run `node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8`; the unique four renderer
+conflicts are resolved in ignored copies by retaining both import/type declarations, High's
+render hooks and material disposal, and force-effect disposal. `look-source.json` binds the files.
+This integration is only a comparison fixture, not another adoption patch or a branch merge.
+Both browsers' laptop profile uses a Windows job hard cap of **625/10000 of total CPU capacity**
+on this 16-thread PC: one logical CPU in aggregate for the isolated harness and inherited browser
+tree, with affinity mask 15 (four logical CPUs). GPU and RAM remain native. It includes worker CPU,
+and is a constrained CPU proxy, not a physical laptop. The helper restores affinity and releases
+the job between cases. No other process or machine power settings are changed.
 
 ## Evidence and budgets
 
 `load.ps1` samples five times before and after each non-smoke run (CPU ≤15%, hottest GPU engine
 ≤20%). During runs it logs process CPU and descendants of the harness; unrelated activity above
-15% invalidates the run. Unknown GPU load also refuses qualification. Do not terminate other
+15%, or total sampled CPU above 15%, invalidates the run. Unknown GPU load also refuses qualification. Do not terminate other
 agents to obtain quiet numbers. Smoke runs exercise functionality only and supply no timing summary.
 
 Pacing runs record every display-frame delta, every renderer method interval and available long
@@ -94,8 +102,8 @@ For each scenario, retain final typed-array bytes, object data and feature snaps
 after, plus undo/redo snapshots. Add export-file byte comparison before adoption; current snapshots
 alone are not a proof that every exported field is identical. Do not relax budgets to hide failures.
 
-Before making this an adoption gate, replace unsupported configurations with real High rendering
-and a dedicated physical laptop profile, calibrate frame budgets from three quiet baselines,
+Before making this an adoption gate, validate the integrated High fixture and the CPU proxy,
+calibrate frame budgets from three quiet baselines,
 complete frame/audio inspection and end-versus-start memory/pacing comparisons, and record oracle
 results with matching `captureHashes`, all `requiredManualOracles` checked, zero glitch/dropout/
 crackle counts and `heldTextureReleaseMsMax`. Frame PNGs, timestamp JSON, PCM and raw events are

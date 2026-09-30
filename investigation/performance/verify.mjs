@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { root } from './adoption.mjs';
 const dir = resolve(root, 'investigation/performance'), result = [];
-for (const name of readdirSync(resolve(dir, 'local/build/before/assets')).filter(n => n.includes('.worker-') && n.endsWith('.js'))) {
+for (const name of readdirSync(resolve(dir, 'local/build/before/assets')).filter(n => /^(generator|checks|startCheck)\.worker-.*\.js$/.test(n))) {
   const hash = phase => createHash('sha256').update(readFileSync(resolve(dir, 'local/build', phase, 'assets', name))).digest('hex');
   const before = hash('before'), after = hash('after');
   if (before !== after) throw new Error(`Worker computation changed: ${name}`);

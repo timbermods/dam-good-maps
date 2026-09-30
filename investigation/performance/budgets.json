@@ -2,7 +2,7 @@
   "status": "provisional-until-quiet-baselines-exist",
   "minimumRepeats": 3,
   "sizes": [128, 256],
-  "looks": ["clean", "high"],
+  "looks": ["standard", "high"],
   "browsers": ["edge", "firefox"],
   "profiles": ["native", "laptop"],
   "quiet": { "cpuPercentMax": 15, "gpuEnginePercentMax": 20, "samples": 5 },

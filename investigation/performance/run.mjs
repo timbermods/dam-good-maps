@@ -25,7 +25,7 @@ process.on('exit', releaseLock);
 const flags = Object.fromEntries(process.argv.slice(2).map(arg => { const [k, ...v] = arg.replace(/^--/, '').split('='); return [k, v.join('=') || true]; }));
 const mode = flags.mode ?? 'measure', phase = flags.phase ?? 'before';
 const browsers = String(flags.browsers ?? 'edge,firefox').split(','), profiles = String(flags.profiles ?? 'native,laptop').split(',');
-const sizes = String(flags.sizes ?? '128,256').split(',').map(Number), looks = String(flags.looks ?? 'clean,high').split(',');
+const sizes = String(flags.sizes ?? '128,256').split(',').map(Number), looks = String(flags.looks ?? 'standard,high').split(',');
 const repetitions = Number(flags.repeats ?? 3), hour = flags.hour === true;
 const capture = mode === 'capture' || (mode === 'smoke' && flags['validate-capture'] === true);
 if (!['before', 'after'].includes(phase) || !['measure', 'capture', 'smoke'].includes(mode) || !Number.isInteger(repetitions) || repetitions < (mode === 'smoke' ? 1 : 3)) throw new Error('Bad run mode/phase/repeats');
@@ -48,7 +48,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const build = resolve(local, 'build', phase);
 const provenance = JSON.parse(readFileSync(resolve(build, 'provenance.json')));
 const harnessDigest = createHash('sha256');
-for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'metrics.mjs', 'load.ps1', 'run.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
+for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
 const harnessHash = harnessDigest.digest('hex');
 const server = createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -68,6 +68,8 @@ async function stopOwnRun() {
 }
 process.once('SIGINT', stopOwnRun);
 process.once('SIGTERM', stopOwnRun);
+const deadlineTimer = flags.deadline ? setTimeout(stopOwnRun, Math.max(1, Number(flags.deadline) - Date.now())) : undefined;
+deadlineTimer?.unref();
 function firefoxPath() {
   if (flags['firefox-path']) return String(flags['firefox-path']);
   const bundled = resolve(local, 'browsers');
@@ -91,8 +93,8 @@ function captureHash(folder, audio, raw) {
 let busy = false;
 try {
   outer: for (const browserName of browsers) for (const profile of profiles) for (const size of sizes) for (const look of looks) {
-    if (look !== 'clean' || (profile === 'laptop' && browserName === 'firefox')) {
-      results.push({ browser: browserName, profile, size, look, status: 'unsupported', reason: look !== 'clean' ? 'High look absent in feature/forces base' : 'Firefox has no supported CPU slowdown API; no comparable laptop result' }); save(); continue;
+    if (!['clean', 'standard', 'high'].includes(look) || (look === 'high' && !provenance.lookRef)) {
+      results.push({ browser: browserName, profile, size, look, status: 'unsupported', reason: 'High renderer overlay missing or unknown look' }); save(); continue;
     }
     for (let repeat = 1; repeat <= repetitions; repeat++) {
       const chosen = flags.cases ? cases.filter(c => String(flags.cases).split(',').includes(c.id)) : cases;
@@ -102,12 +104,22 @@ try {
         const item = { browser: browserName, profile, size, look, case: c.id, repeat, status: 'running', qualified: mode !== 'smoke', provenance, harnessHash };
         results.push(item); save();
         console.log(`${name}: ${mode}`);
-        let browser, context, page, drainPromise, draining = false, monitor;
+        let browser, context, page, drainPromise, draining = false, monitor, throttleHelper;
         try {
           // Functional smoke can run headlessly while agents share the desktop. Measurements and
           // evidence captures always use an interactive compositor and retain hardware checks.
           const headless = mode === 'smoke' && !flags['validate-capture'];
           item.headless = headless;
+          if (profile === 'laptop') {
+            const lease = join(output, `${name}-cpu-profile.json`);
+            throttleHelper = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(dir, 'laptop-profile.ps1'), '-RunnerPid', String(process.pid), '-Output', lease], { windowsHide: true, stdio: 'ignore' });
+            const deadline = Date.now() + 30000;
+            while (!existsSync(lease) && Date.now() < deadline) await new Promise(r => setTimeout(r, 200));
+            if (!existsSync(lease)) throw new Error('CPU profile handshake timed out');
+            item.cpuProfile = JSON.parse(readFileSync(lease));
+            if (!item.cpuProfile.ready) throw new Error(item.cpuProfile.error);
+            item.throttle = item.cpuProfile.description;
+          } else item.throttle = 'none';
           browser = await (browserName === 'edge' ? chromium.launch({ channel: 'msedge', headless }) : firefox.launch({ executablePath: firefoxPath(), headless }));
           activeBrowser = browser;
           context = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
@@ -117,11 +129,6 @@ try {
           });
           page = await context.newPage(); page.setDefaultTimeout(180000);
           item.version = browser.version();
-          if (profile === 'laptop') {
-            const cdp = await context.newCDPSession(page);
-            await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-            item.throttle = 'Edge CDP 4x page CPU slowdown; native GPU/memory; worker CPU not claimed throttled';
-          } else item.throttle = 'none';
           const spots = await setup(page, url, size, look);
           // Generation, shader warm-up, decode and setup finish before the quiet gate.
           if (mode !== 'smoke') {
@@ -227,7 +234,7 @@ try {
             monitor.kill(); monitor = undefined;
             const duringPath = join(output, `${name}-load-during.jsonl`);
             item.loadDuring = existsSync(duringPath) ? readFileSync(duringPath, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)) : [];
-            if (!item.loadDuring.length || item.loadDuring.some(s => s.unrelatedCpuPercent > budgets.quiet.cpuPercentMax)) { item.qualified = false; item.status = 'invalid-busy'; }
+            if (!item.loadDuring.length || item.loadDuring.some(s => s.cpuPercent > budgets.quiet.cpuPercentMax || s.unrelatedCpuPercent > budgets.quiet.cpuPercentMax)) { item.qualified = false; item.status = 'invalid-busy'; busy = true; }
           }
           writeFileSync(join(output, `${name}-raw.json`), JSON.stringify(raw));
           if (capture) item.captureHash = captureHash(captures, join(output, `${name}-audio.jsonl`), join(output, `${name}-raw.json`));
@@ -253,8 +260,13 @@ try {
           draining = false;
           if (drainPromise) { await drainPromise.catch(() => {}); }
           await browser?.close(); save();
+          if (throttleHelper) {
+            writeFileSync(join(output, `${name}-cpu-profile.json.stop`), 'restore');
+            await new Promise(ok => throttleHelper.exitCode !== null ? ok() : throttleHelper.once('exit', ok));
+          }
           activeBrowser = activeMonitor = undefined;
         }
+        if (busy) break outer;
       }
     }
   }

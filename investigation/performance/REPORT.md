@@ -16,17 +16,21 @@ was collected, so no before/after hitch count or frame-time improvement is claim
 
 | Qualified before → after p99 / hitches | Edge 154.0.4258.37 | Firefox 146.0.1 |
 |---|---|---|
-| Native PC, Clean, 128²/256² | N/A: busy | N/A: busy |
-| Laptop proxy, Clean, 128²/256² | N/A: busy | Unsupported throttle |
-| Both profiles, High | Look absent at base | Look absent at base |
+| Native PC, Standard/High, 128²/256² | Awaiting quiet window | Awaiting quiet window |
+| CPU proxy, Standard/High, 128²/256² | Awaiting quiet window | Awaiting quiet window |
 
-Proxy: Edge CDP **4× page CPU slowdown**; worker CPU, GPU and RAM remain native. This is
-not a second physical machine. Firefox also lacks the Long Tasks API here.
+Prepared both looks from pinned High commit `84fe4d36`, integrated with force presentation
+additions in ignored copies. Both browsers' proxy has a Windows job cap of **625/10000** total
+CPU (one logical CPU aggregate), four-core affinity, native GPU/RAM; it includes the isolated
+harness and browser/worker tree. It is not a second physical machine. Firefox lacks the Long Tasks API.
 
 Verification: **25 adoption tests + 3 harness tests**, zero type errors, three byte-identical
 computation bundles. Craterize Fast, largest Raise stroke and whole-map Select Raise on
 128² Clean have **6/6** matching before/after final snapshots across both browsers,
 including exact redo. These are single functional smoke runs, not timing certification.
+The integrated application typecheck also passes; force-base palette tests target a different look
+revision. Edge's proposed High/CPU-proxy smoke passed with exact redo; Firefox's smoke was interrupted
+before the window to release resources and remains unverified.
 
 An unqualified 256² diagnostic capture flagged 60,097 below-ground water surfaces and
 1,048,182 target/queued-mesh mismatches; these can be depth-occluded and are **not confirmed
@@ -41,6 +45,10 @@ Craterize Power 100 Fast; wait; Undo. Both builds in Edge and Firefox showed
 said “Ready to play”. It is untouched and excluded from the smoothness gate. Record this
 for the interface pass after **“The page is the editor”**.
 
-Still required: three quiet repeats, actual High/laptop coverage, hour sessions, qualified
+The **September 30, 02:00–04:00 PDT** runner is armed; its five-minute load qualification and
+discard/retry log are in `local/window-status.json` and `local/window-load.jsonl`. `WINDOW.md` records
+the plan and regeneration. No window timing is claimed until qualification completes.
+
+Still required: three quiet repeats, High/CPU-proxy coverage, hour sessions, qualified
 worst-case/abuse GIFs, pixel/audio review, export-byte proof and measured budgets.
 `INTEGRATION.md` gives regeneration and the future-force gate.

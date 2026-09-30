@@ -58,11 +58,16 @@ export async function idle(page, { afterHistory = false } = {}) {
   await page.waitForTimeout(1200);
 }
 export async function setup(page, url, size, look) {
-  if (look !== 'clean') throw new Error(`Unsupported requested look '${look}': base has no High renderer/selector`);
+  if (!['clean', 'standard', 'high'].includes(look)) throw new Error(`Unknown look '${look}'`);
   await page.goto(`${url}/#s=4242&z=${size}&d=n&t=highlands`);
   await page.getByText(/All \d+ checks passed/).waitFor({ timeout: 180000 });
   await page.getByRole('button', { name: 'Refine this map' }).click();
   await page.waitForFunction(() => window.dgmEditor && window.dgm3d && window.performanceHarness, null, { timeout: 180000 });
+  await page.evaluate(look => {
+    const r = window.dgm3d.renderer;
+    if (r.setLookChoice) r.setLookChoice(look === 'clean' ? 'standard' : look, false);
+    else if (look === 'high') throw new Error('Pinned High renderer was not loaded');
+  }, look);
   await page.bringToFront();
   await page.getByRole('group', { name: 'Forces', exact: true }).getByRole('button', { name: 'Craterize (8)', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Top-down', exact: true }).click();
