@@ -209,7 +209,10 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `npm ci` at the root and in `investigation/probe` if the lockfiles changed, then run from that folder. Always print the
   plan and check it before launching: the right maps, a sensible time, no fallback to a bigger batch. The map writers some
   groups need first (`tools/probe-3d.ts`, `tools/probe-parity.ts`) are not among the four rules: if one is refused, leave
-  the batch for Kyler.
+  the batch for Kyler. **Being replaced (Kyler, 2026-09-30):** `batch --group <name>` writes that group's maps first, from the group's own
+  writer, then runs them, and prints the maps written as part of the plan; so the four commands cover every group, now
+  and later. Built on `chore/probe-sizes` and applied to the Parity group on `feature/parity`; the 3D group gets it when
+  it merges.
 - **DGM Probe** (`investigation/probe`): the only way Claude may launch Timberborn, and **only after Kyler's yes in chat for
   that batch, every time** (CLAUDE.md, D117). **On this machine only (§9), D218 lifts the ask:** run a batch whenever the plan
   calls for one, and report it in STATUS and on #57; everything else below still applies. Elsewhere, ask in one message: how
