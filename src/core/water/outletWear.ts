@@ -26,14 +26,14 @@ export interface OutletWear {
 
 /** Spill level of every tile: the lowest level water standing there drains at, through the map
  *  edge (priority flood). */
-function spillOf(h: Uint8Array, W: number, H: number): Int16Array {
+function spillOf(h: Uint8Array, W: number, H: number, noOutlet: Uint8Array | null = null): Int16Array {
   const N = W * H;
   const spill = new Int16Array(N).fill(-1);
   const heap = new MinHeap();
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
+    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !noOutlet?.[i]) {
       spill[i] = h[i];
       heap.push(h[i], i);
     }
@@ -58,9 +58,9 @@ function spillOf(h: Uint8Array, W: number, H: number): Int16Array {
 
 /** The largest basin (tiles below their spill level) whose water stands over that level (0.05 or
  *  more), and the level. */
-export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>): { tiles: number[]; level: number } | null {
+export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, noOutlet: Uint8Array | null = null): { tiles: number[]; level: number } | null {
   const N = W * H;
-  const spill = spillOf(h, W, H);
+  const spill = spillOf(h, W, H, noOutlet);
   const risen = new Uint8Array(N);
   // (a basin's tiles: below their spill level; a river's own channel stands over its spill level
   // wherever its water runs, and is no basin)
@@ -118,14 +118,16 @@ export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike
 
 /** The way out of the basin whose water rose over its spill level, worn `width` tiles wide (a
  *  wandering width round it), or null when there is none to wear. */
-export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: { seed: number; width: number; keep?: Uint8Array | null }): OutletWear | null {
+export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, opts: { seed: number; width: number; keep?: Uint8Array | null; noOutlet?: Uint8Array | null; basin?: { tiles: number[]; level: number } | null }): OutletWear | null {
   const N = W * H;
-  const basin = risenBasin(h, W, H, depth);
+  // (the caller may name the stuck water itself: water still rising over a flat at its spill level,
+  // which is no depression)
+  const basin = opts.basin ?? risenBasin(h, W, H, depth, opts.noOutlet ?? null);
   if (!basin) return null;
   const S = basin.level;
   const inB = new Uint8Array(N);
   for (const i of basin.tiles) inB[i] = 1;
-  const spill = spillOf(h, W, H);
+  const spill = spillOf(h, W, H, opts.noOutlet ?? null);
   // the route the water leaves by: from the basin over ground at or under its level, to lower ground
   // or the map's edge, cheapest by a noisy cost so it follows the land's own way out
   const cost = new Float64Array(N).fill(Infinity);
@@ -144,7 +146,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
     const x = c % W;
     const y = (c - x) / W;
     if (!inB[c]) {
-      let out = x === 0 || y === 0 || x === W - 1 || y === H - 1;
+      let out = (x === 0 || y === 0 || x === W - 1 || y === H - 1) && !opts.noOutlet?.[c];
       for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
@@ -257,7 +259,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
     }
   // (where the cut would drain the basin all the same, the ground round what drained stays)
   for (let round = 0; round < 4; round++) {
-    const after = spillOf(out, W, H);
+    const after = spillOf(out, W, H, opts.noOutlet ?? null);
     const drained = basin.tiles.filter((i) => after[i] < spill[i]);
     if (!drained.length) break;
     if (round === 3) return null;

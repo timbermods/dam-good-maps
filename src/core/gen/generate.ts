@@ -25,7 +25,7 @@
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
-import { wearOutlet } from "../water/outletWear";
+import { risenBasin, wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
 import { standIslandsClear } from "../land/islands";
@@ -750,6 +750,44 @@ function fallingWater(b: BuildResult): Uint8Array | null {
   return out;
 }
 
+/** The largest group of water still rising at the end of a settle that didn't settle (256 more ticks,
+ *  tiles that gained more than 0.003), with the most common spill level under it, or null (D350). */
+function risingWater(b: BuildResult): { tiles: number[]; level: number } | null {
+  const { W, H } = b;
+  const N = W * H;
+  const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+  if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
+  const before = sim.D.slice();
+  sim.run(256);
+  const rise = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (sim.D[i] > before[i] + 0.003) rise[i] = 1;
+  const seen = new Uint8Array(N);
+  let best: number[] = [];
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!rise[s0] || seen[s0]) continue;
+    const q = [s0];
+    seen[s0] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+        if (n >= 0 && rise[n] && !seen[n]) {
+          seen[n] = 1;
+          q.push(n);
+        }
+      }
+    }
+    if (q.length > best.length) best = q;
+  }
+  if (best.length < 20) return null;
+  const spill = spillLevels(b.waterModel);
+  const count = new Map<number, number>();
+  for (const i of best) count.set(spill[i], (count.get(spill[i]) ?? 0) + 1);
+  const level = [...count].sort((a, c) => c[1] - a[1] || a[0] - c[0])[0][0];
+  return { tiles: best.sort((a, c) => a - c), level };
+}
+
 /** Whether water from `cells` runs down (or level) on the spill levels to a tile of `mask`, as the
  *  canonical pre-fill runs it (sim/prefill.ts). */
 function reachesDown(cells: readonly number[], spill: Float64Array, W: number, H: number, mask: Uint8Array): boolean {
@@ -1335,8 +1373,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) keepW[(y + dy) * W + x + dx] = 1;
       }
     for (let i = 0; i < N; i++) if (bad.avoid[i] || protect?.[i] || ctx?.locked?.mask[i]) keepW[i] = 1;
+    // (a source's tiles are no way out: the game walls them off from the edge)
+    const sourceTiles = new Uint8Array(N);
+    for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
+    // (the basin over its spill level, or else the water still rising)
+    const stuckWater = risenBasin(h, W, H, b.water, sourceTiles) ?? risingWater(b);
+    if (!stuckWater) return null;
     for (const width of WEAR_WIDTHS) {
-      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW });
+      const w = wearOutlet(h, W, H, b.water, { seed: hash32(seed, "outlet-wear", attempt, width), width, keep: keepW, noOutlet: sourceTiles, basin: stuckWater });
       if (!w) return null;
       const before = h.slice();
       h.set(w.heights);
