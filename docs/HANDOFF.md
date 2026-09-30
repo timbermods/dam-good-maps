@@ -111,8 +111,8 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
    generator and the editor. Its brief is `docs/UI-BRIEF.md` (D330, from Kyler's UI round on `docs/UI-QUESTIONS.md`), approved by Kyler on 2026-09-29; built right after the forces' release
    on `build` with item 34's split of the editor's giant files into feature folders; when it's rebuilt, "Refine this map", the expand button and the Legend button join `tools/retired-terms.json`. It also draws
-   item 22's strip and item 24's number.**, Kyler's editor UI audit and the design pass (D236), the four
-   terrain-above-terrain steps (D279–D281), the Weather view (D285), housekeeping (D283 (3); includes the three stale
+   item 22's strip and item 24's number.**, the Weather view (D285, D349), the four
+   terrain-above-terrain steps (D279–D281), then polish: Kyler's editor UI audit and the design pass (D236, D349), housekeeping (D283 (3); includes the three stale
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
