@@ -2,8 +2,8 @@
 // "not here"; it adapts to where it is used, scaled by Power. The sweep behind the check: each force
 // used the editor's way (its row's settings at a Power, nature drawing the rest, as the page sends them)
 // at many places on generated maps, headless in the editor's own worker session (D342), on fixed seeds so
-// it is the same every run. Carve, Craterize, Erupt and Glaciate are clicked; Quake, whose gesture is a
-// drawn fault (a click draws none), is given a short fault through the place, Slide and Lift.
+// it is the same every run. Carve, Craterize, Erupt and Glaciate are clicked; Quake is clicked (a short
+// natural fault the land turns, D360) and given a short drawn fault through the place, Slide and Lift.
 //
 // "Visible": at least VISIBLE_TILES tiles change height by a level or more (a 3 × 3 patch). Used by
 // tests/contract/forceEverywhere.test.ts (a sample, every run) and tests/contract/forceEverywhere.heavy.test.ts
@@ -23,8 +23,8 @@ import * as ed from "../../src/worker/session";
 /** Tiles that must change height (by a level or more) for a use to count as visible. */
 export const VISIBLE_TILES = 9;
 
-export type Use = "carve" | "craterize" | "erupt" | "glaciate" | "quake slide" | "quake lift";
-export const USES: readonly Use[] = ["carve", "craterize", "erupt", "glaciate", "quake slide", "quake lift"];
+export type Use = "carve" | "craterize" | "erupt" | "glaciate" | "quake slide" | "quake lift" | "quake slide click" | "quake lift click";
+export const USES: readonly Use[] = ["carve", "craterize", "erupt", "glaciate", "quake slide", "quake lift", "quake slide click", "quake lift click"];
 export const POWERS = [10, 50, 90] as const;
 
 /** Kinds of ground a place is picked for (plus plain random ones). */
@@ -128,6 +128,10 @@ function request(use: Use, power: number, p: Place, W: number, H: number, next: 
       return { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "vent", power, size: null, shape: null, summit: null, flows: null, ridges: null } as unknown as EruptSettings, origin, ...base };
     case "glaciate":
       return { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "flow", power, size: null, benches: null, steps: null, tarn: null, scree: null } as unknown as GlaciateSettings, origin, ...base };
+    case "quake slide click":
+    case "quake lift click":
+      // a click: the page sends the tap itself (D360 (1b))
+      return { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: use === "quake lift click" ? "lift" : "slide", power, scarp: null } as unknown as QuakeSettings, path: [{ x: p.x, y: p.y }, { x: p.x, y: p.y }], side: next() < 0.5 ? 1 : -1, ...base };
     default: {
       // a short fault through the place, 12 tiles, on the map
       const a = next() * Math.PI;
@@ -188,11 +192,9 @@ export function describe(o: Outcome): string {
 
 /** What the sweep found doing nothing visible, kept for Kyler (D356: a force that works only in narrow
  *  situations becomes an option or is dropped; he decides). Each is allowed here until it is decided,
- *  and the check fails on anything else. */
-export const KNOWN: readonly { use: Use; ground: Ground; power: number; why: string }[] = [
-  { use: "carve", ground: "edge", power: 10, why: "a creek unleashed at the map's edge runs straight off it: a few tiles cut (2026-09-30)" },
-  { use: "carve", ground: "edge", power: 50, why: "the same at mid Power on a delta's low edge: 2 tiles cut (256², 2026-09-30)" },
-];
+ *  and the check fails on anything else. Empty since D360 (1): Carve clicked at the map's edge carves
+ *  inward, and a Quake click makes a short fault. */
+export const KNOWN: readonly { use: Use; ground: Ground; power: number; why: string }[] = [];
 
 /** The uses that did nothing visible and are not among the known ones. */
 export const unexpected = (o: readonly Outcome[]) => invisible(o).filter((r) => !KNOWN.some((k) => k.use === r.use && k.ground === r.place.ground && k.power === r.power));

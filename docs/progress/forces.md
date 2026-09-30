@@ -1,5 +1,13 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **D360 (1), 2026-09-30: the gaps D356's check found, closed (`fix/force-gaps`).** (a) Carve clicked where its water
+> would run straight off the map (its drainage reaching the edge within a few tiles of a click within 8 of it) carves
+> inward: an aimed river toward the lowest ground within 60° of straight in, 18 + Power/2 tiles away
+> (`core/forces/carve/edge.ts`; the worker turns the click into it, the operation keeps it). (b) A Quake click, Lift
+> or Slide, makes a short natural fault (`clickFault`): along the contour, seeded on flat ground, bent and turned by
+> the seed, so Try another varies it; the page now starts a Lift on a click. The sweep clicks Quake too;
+> `KNOWN` is empty. Tests: `tests/contract/forceGaps.test.ts`.
+
 > **D344, 2026-09-29: the forces sitting, batch A (`feature/sitting-a`).** A4 (amends D341 (2)): Esc cancels a
 > gesture still being drawn (a line not yet let go; a painted Lift, taken back at once); once a force plays, in Fast
 > or Watch, Esc skips it to its end, kept as one step (`ForceDriver.escape`: the keep of `stop`); Ctrl+Z (or Z,

@@ -94,8 +94,13 @@ editor is desktop-first (D185).
   (Carve, Craterize, Erupt and Glaciate clicked; Quake's Slide and Lift on a short drawn fault) at random places and on
   each kind of ground (flat, water, a peak, a slope, the map's edge, beside the start), at low, mid and high Power,
   headless on fixed seeds, and fails where fewer than 9 tiles change by a level; a sample runs in the quick suite,
-  every theme at 128² nightly, and `tools/force-everywhere.ts` sweeps 128² and 256². What it found doing nothing waits
-  for Kyler's decision in its `KNOWN` list; a force adopted later gets the same check.
+  every theme at 128² nightly, and `tools/force-everywhere.ts` sweeps 128² and 256². What it finds doing nothing waits for
+  Kyler's decision in its `KNOWN` list (empty since D360 (1)); a force adopted later gets the same check. **Carve
+  clicked at the map's edge carves inward** (D360 (1a), `core/forces/carve/edge.ts`): where its water would run
+  straight off the map, the click becomes a river aimed into the map, toward the lowest ground within 60° of straight
+  in, cutting through rises; its operation keeps the aim. **A Quake click makes a short natural fault** (D360 (1b),
+  `clickFault` in `core/forces/quake.ts`), Lift or Slide: 10 to 22 tiles with Power, along the slope's contour (a
+  seeded way on flat ground), turned and bent by the seed, so Try another varies it; its operation keeps the fault.
   **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its floor,
   the height ceiling, the file format); it never refuses, stops short or reshapes its result for playability. Where it
   carves, buries or moves the start's ground, the start is carried to the nearest level ground where it stands well, in
