@@ -234,10 +234,11 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
       // orange-red: where the ground changed, it turned redder
       expect(some.redder, at).toBeGreaterThan(10);
       expect(most.redder, at).toBeGreaterThan(10);
-      // cleared, the clean ground comes back: no more changed than a redraw of it alone (a GPU, or
-      // software drawing, may put a value a level or two apart), and never a vein's worth
+      // cleared, the clean ground comes back: no more pixels changed than a redraw of it alone, and
+      // none by a vein's worth (software drawing on CI puts a few values up to 6 apart after the
+      // contaminated frames; a vein changes many by far more)
       expect(cleared.share, at).toBeLessThanOrEqual(Math.max(again.share, 1e-4));
-      expect(cleared.max, at).toBeLessThanOrEqual(Math.max(again.max, 2));
+      expect(cleared.max, at).toBeLessThanOrEqual(Math.max(again.max, 8));
     }
   }
   expect(errors).toEqual([]);
