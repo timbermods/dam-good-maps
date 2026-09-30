@@ -332,7 +332,7 @@ export function pickStart(
               uneven = true;
             }
           }
-        if (!ok || dWet[i] < 3.5) continue;
+        if (!ok || dWet[i] < 3.5 || padFloods(h, W, H, D, x, y, L)) continue;
         // the walk from the 3×3 to a shore on its own level, or to one on another level over steps
         // of one level; the second is checked over the derived slopes below
         let w = Infinity;
@@ -456,6 +456,22 @@ export function pickStart(
   return { x, y, level: h[c.i], orientation: c.o, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };
 }
 
+/** Whether water beside a start's pad would run onto it (D348): water within three tiles of the
+ *  center whose surface stands within 0.05 of the pad's level, or above it. Such a pad is dry only
+ *  while the water beside it stays under the spill threshold (a floodplain level with its river's
+ *  surface): the settled water floods it once the pad is levelled, or the next surge does. */
+export function padFloods(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, x: number, y: number, L: number): boolean {
+  for (let dy = -3; dy <= 3; dy++)
+    for (let dx = -3; dx <= 3; dx++) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (D[j] > 0.001 && h[j] + D[j] > L - 0.05) return true;
+    }
+  return false;
+}
+
 /** A start for a shown land whose settled water left no place for one (D348): level dry ground (a
  *  5×5 at one level, else within a level, which is levelled), its ring dry, its door onto level
  *  ground, off `avoid`, with no water asked for: a spring by it gives it water afterwards (D330's
@@ -474,7 +490,7 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
       for (let x = margin; x < W - margin; x++) {
         const i = y * W + x;
         const L = h[i];
-        if (opts.avoid?.[i] || dWet[i] < 3.5) continue;
+        if (opts.avoid?.[i] || dWet[i] < 3.5 || padFloods(h, W, H, D, x, y, L)) continue;
         const foot = opts.foot ? (opts.foot.size[opts.foot.lab[i]] ?? 0) : 0;
         if (opts.minFoot && foot < opts.minFoot) continue;
         let ok = true;
