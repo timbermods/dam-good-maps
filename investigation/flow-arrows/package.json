@@ -1,1 +1,21 @@
-{"name":"flow-arrows-demo","private":true,"type":"module","scripts":{"generate":"node generate.mjs","dev":"vite --config vite.config.mjs","capture":"node capture.mjs"},"dependencies":{"three":"^0.186.0","fflate":"^0.8.3","ajv":"^8.20.0","vite":"^8.3.0","esbuild":"^0.28.0","@playwright/test":"^1.63.0","sharp":"^0.34.0"}}
+{
+  "name": "water-motion-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "dev": "vite --config vite.config.mjs",
+    "capture": "node capture.mjs",
+    "benchmark": "node benchmark.mjs"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.63.0",
+    "ajv": "^8.20.0",
+    "esbuild": "^0.28.0",
+    "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
+    "sharp": "^0.34.0",
+    "three": "^0.186.0",
+    "vite": "^8.3.0"
+  }
+}

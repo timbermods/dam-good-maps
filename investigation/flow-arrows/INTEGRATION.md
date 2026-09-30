@@ -1,6 +1,7 @@
-# Integration
+# Integration — round 3
 
-Add a session view preference `flowArrows`, default false, beside look controls; no map/export/undo schema change.
-Transfer the settle's retained `out` and matching depth with each displayed water revision, including preview results; reject stale revisions and show no arrows when flow is absent. Do not substitute surface slope.
-Let MapRenderer own FlowArrows instead of the demo's private scene/camera bridge, updating water and flow in one commit.
-Keep CSS-pixel sizing/spacing and whole-glyph occlusion in both looks; resample on camera changes, stop drift for reduced motion, and dispose the overlay with the renderer.
+Transfer retained `settle.out` and matching depth with every water revision, including previews; reject stale revisions. Commit water, current texture and rebuilt fleck paths together. No slope fallback.
+Move surface advection into both looks' water-material hooks, preserving their palettes and existing shading; use the renderer's single clock and normal render scheduler. Replace this demo's string patches/private bridge with explicit hooks.
+Add session view preference **Flow**, default false, to the view bar. It controls only flecks; surface motion stays on. No map/export/undo schema change. Remove the earlier arrow integration.
+Own/dispose the current texture, trajectory texture and point draw in MapRenderer. Preserve CSS-pixel sizing and depth testing; build paths off-thread on water revisions if rebuild cost affects interactive painting.
+Reduced motion: surface time at 2.5%, fleck time held. Native side/fall animation keeps its existing policy. Keep the balanced-momentum semantics explicit; exact transport requires retaining the solver's pre-balancing flux separately.

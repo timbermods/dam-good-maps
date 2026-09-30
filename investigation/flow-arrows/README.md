@@ -1,10 +1,10 @@
-# Flow arrows — round 2, feedback 45
+# Water in motion — round 3
 
-Standalone demo on `investigation/flow-arrows`, based on high-look `8c975822`. Product modules are read-only imports; all authored changes stay here. Original generated maps and glyphs only, no Timberborn files.
+Standalone investigation on high-look **84fe4d36**, including the “Timberborn's soul” proposal. All authored files are here; product modules are read-only imports. Original procedural content only; no Timberborn files.
 
-## Run / regenerate
+## Run and regenerate
 
-Use Node 24 (or a Vite 8 compatible version). From this directory:
+From this directory, with Node 24:
 
 ```sh
 npm ci
@@ -12,28 +12,32 @@ npm run generate
 npm run dev
 ```
 
-Open http://127.0.0.1:5184/. **Flow arrows starts off.** Choose High or Standard and either map, enable it, orbit/zoom, then try **Edit riverbed** / **Undo riverbed edit**. Enable reduced motion in your OS/browser to make the arrows stand still.
+Open http://127.0.0.1:5184/. The existing water surface moves in both looks; **Flow starts off**. Toggle Flow for small drifting light flecks. Try Overview, Close view, and Edit riverbed/Undo. OS/browser reduced motion slows surface advection to 2.5% and holds the flecks still.
 
-Fixtures are River Valley seed 4242 with defaults, and Delta seed 5 with badwater off to expose its three clean-water distributaries, both 128². Generation uses the existing `generate` and `buildMap`, saving original and lowered-5×5-riverbed results. Every snapshot now includes its own `settle.out` and settle depth. The edit button replaces water and flow together; it replays these real canonical results, not an interactive simulation.
+Fixtures use the current product generator: River Valley 4242 and Delta **42**, both 128², plus River Valley 4242 at 256² for timing. Delta disables badwater so its two distributaries are clear. Seed 5 from round 2 no longer produced the required forks with this generator. Bed edits preserve the generated field and rerun `buildMap`.
 
-**Rerun generation after updating from round 1.** Missing flow data disables arrows rather than guessing from the surface. `flow.ts` derives centre currents from opposing net face outflows divided by depth. Direction order and rate units follow `src/core/sim/water.ts`; rates are not divided by DT again. The retained field is the solver's balanced outflow momentum, not its unretained pre-balancing transport array. No surface-slope estimator is used.
+**Wrong-way source edit** cuts an original level-bed meandering reach through the generated valley. Moving its source from the west boundary to the east swaps the solver's source wall and open outlet, then runs the existing `canonicalSettle` again. Both surface motion and Flow reverse. The badwater case settles the same reach with a contaminated source. These are controlled diagnostic edits, not saved playable maps. The demo replays real settled snapshots; it does not run a new simulation or flip display vectors.
 
-The glyph is 22–27 CSS pixels long with a pale 2.8 px stroke and 1.2 px dark edge; placement starts 54–70 px apart. Faster current gives longer arrows, closer placement and faster drift (3–11 px/s, deliberately slowed/compressed). Arrows remain anchored to wet water, retire at banks/falls, and hide as whole glyphs behind terrain. At distant zoom a glyph may extend beyond a narrow channel's pixel width to preserve its readable shape. Entity footprints are avoided. Open centres preserve the view below; no opaque panel or depth writing.
+`flow.ts` derives current from opposing net faces of `settle.out` and the same snapshot's depth. Rates are not divided by DT again. This is the solver's retained balanced momentum, not the unretained raw transport flux. Missing flow means no advection or flecks; there is no surface-slope fallback.
 
-## Captures / focused checks
+`surface.ts` changes the sampling coordinates of existing water formulas, retaining their palettes, depth/shore masks, texture functions and transparency. Two fading phases avoid visible resets. `flecks.ts` prepares wet-only midpoint trajectories on a water update; one GPU point draw plays them. Their soft 9-CSS-pixel footprint stays readable across zooms, with soft translucent edges and depth testing. Density follows current speed; paths follow bends, join and separate without authored routes. This is bounded visual advection, not fluid-particle simulation.
 
-With the server running, from a second terminal here:
+## Moving captures and checks
+
+With the server running, in another terminal here:
 
 ```sh
 npm run capture
+node benchmark.mjs
 ```
 
-Uses installed Microsoft Edge through Playwright with D3D11 and the product's GPU test hook to compare actual High/Standard. Normal use retains the product's fallback. Drift is frozen for reproducible captures. Each pair is downscaled from two 1440×1000 browser captures to 1728×600: **High left, Standard right**.
+Requires installed Microsoft Edge. Playwright uses D3D11 and the product's GPU test hook. The four GIFs and matching JPEGs are downscaled **High left / Standard right**. River and wrong-way cases use the default overview camera; Delta frames its actual forks. The wrong-way GIF shows source relocation first with surface motion alone, then with Flow enabled.
 
-- [Default river overview](captures/river-overview.jpg)
-- [Delta split channels](captures/delta-split.jpg)
-- [Close view](captures/close-view.jpg)
+- [River surface](captures/river-overview.gif) · [still](captures/river-overview.jpg)
+- [Delta split channels](captures/delta-split.gif) · [still](captures/delta-split.jpg)
+- [Wrong-way edit](captures/wrong-way.gif) · [still](captures/wrong-way.jpg)
+- [Badwater](captures/badwater.gif) · [still](captures/badwater.jpg)
 
-The same command checks actual-flow direction/units, still and unavailable flow, edits/undo, six zoom distances, slow drift and reduced motion, and writes diagnostic views of the shallowest/deepest moving clean/bad water. Generated map/flow JSON, generator bundle, metadata, full-size screenshots, contrast sheet, Vite cache and smoke results stay in gitignored `local/`. Only the three small JPEG pairs are committed.
+The capture command also checks flow sign/units, still/missing flow, atomic edit replacement, undo, default-off and reduced motion, and saves a close-up locally. The benchmark compares original shaders/no flecks against both layers, with equal orbit paths and an ABBA order. See [REPORT.md](REPORT.md) for measured numbers and limits; [INTEGRATION.md](INTEGRATION.md) for adoption.
 
-See [REPORT.md](REPORT.md) and [INTEGRATION.md](INTEGRATION.md).
+Maps, flow arrays, full-size captures, frame sequences, bundles, caches and raw timings stay in gitignored `local/`. Regenerate all of them with the commands above. Only compact GIF/JPEG pairs are committed. The demo owns one animation clock; unrelated scenery is held at a reference time for reproducible recordings.
