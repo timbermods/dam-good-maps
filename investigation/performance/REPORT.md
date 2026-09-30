@@ -56,3 +56,5 @@ Untouched and nonblocking; interface lifecycle/status belongs after **“The pag
 `INTEGRATION.md` gives regeneration and the mandatory gate for future forces. The current
 per-case quiet waits alone require 384 minutes plus the hour; batching needs resolution before
 another two-hour window. Budgets have not been relaxed. The one-window recurrence is stopped.
+
+**Next authorized window:** 10:30–13:30 PDT. Continuous qualification now replaces the 384 minutes of per-case waiting: qualify once, retain sampling across cases, requalify only after a load-discarded case. All scaled coverage and budgets remain. Eleven harness regressions pass; the morning's zero qualified result is unchanged.

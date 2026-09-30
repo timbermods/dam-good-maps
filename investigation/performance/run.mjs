@@ -8,6 +8,7 @@ import { root } from './adoption.mjs';
 import { cases, forces, setup, act, idle, snapshot } from './scenarios.mjs';
 import { summarize } from './metrics.mjs';
 import {protectDrain} from './drain.mjs';
+import {ContinuousLoad,segment} from './continuous-load.mjs';
 import { configurations, coreCases, isQuiet, loadSpiked } from './coverage.mjs';
 const dir = resolve(root, 'investigation/performance'), local = resolve(dir, 'local');
 mkdirSync(local, { recursive: true });
@@ -55,8 +56,10 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const build = resolve(local, 'build', phase);
 const provenance = JSON.parse(readFileSync(resolve(build, 'provenance.json')));
 const harnessDigest = createHash('sha256');
-for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs', 'drain.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
+for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs', 'drain.mjs', 'continuous-load.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
 const harnessHash = harnessDigest.digest('hex');
+const ownsLoadSession=mode!=='smoke'&&!flags['load-session'];
+const loadSession=mode==='smoke'?null:flags['load-session']?new ContinuousLoad(String(flags['load-session']),budgets.quiet):ContinuousLoad.start(dir,budgets.quiet,{end:Number(flags.deadline??Date.now()+86400000)});
 const server = createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   const special = ['/investigation/performance/probe.js', '/investigation/performance/audio-worklet.js'].includes(pathname);
@@ -141,9 +144,17 @@ try {
           page = await context.newPage(); page.setDefaultTimeout(180000);
           item.version = browser.version();
           const spots = await setup(page, url, size, look);
-          // Generation, shader warm-up, decode and setup finish before the quiet gate.
+          const initial = await snapshot(page); // Extraction is setup, before interaction pacing.
+          if(mode!=='smoke')await page.bringToFront();
+          // One continuous qualification carries across cases; only a discarded run resets it.
           if (mode !== 'smoke') {
-            item.load = await load(true);
+            if(ownsLoadSession&&!await loadSession.qualify(Number(flags.deadline??Date.now()+86400000)))throw new Error('Quiet session deadline expired');
+            const lease=loadSession.lease();
+            item.load=lease.qualification;
+            item.loadSession={id:lease.id,generation:lease.generation,qualifiedAt:lease.qualifiedAt,trace:lease.trace};
+            item.loadAtStart=loadSession.rows().at(-1);
+            item.measurementFrom=Date.now();
+            if(hour&&lease.end-Date.now()<budgets.longSession.durationMs+60000)throw new Error('Insufficient time for full hour and reference/cleanup; refusing shortened session');
             writeFileSync(join(output, `${name}-load.json`), JSON.stringify(item.load, null, 2));
             if (!isQuiet(item.load,budgets.quiet)) {
               item.status = 'blocked-busy'; item.qualified = false; busy = true; save();
@@ -151,15 +162,15 @@ try {
             }
           }
           item.device = await page.evaluate(capture => window.performanceHarness.begin({ capture }), capture);
-          if (mode !== 'smoke') monitor = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(dir, 'load.ps1'), '-Samples', '10000', '-IntervalMs', '1000', '-ParentPid', String(process.pid), '-Streaming', '-Output', join(output, `${name}-load-during.jsonl`)], { windowsHide: true, stdio: 'ignore' });
-          activeMonitor = monitor;
+          activeMonitor = ownsLoadSession?loadSession?.monitor:undefined;
           if (mode !== 'smoke') loadWatch = setInterval(async () => {
-            const file = join(output, `${name}-load-during.jsonl`);
-            if (aborting || !existsSync(file)) return;
-            const lines = readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
-            let sample; try { sample = JSON.parse(lines.at(-1)); } catch { return; }
+            if (aborting) return;
+            const sample=loadSession.rows().at(-1);
+            if(!sample)return;
+            if(Date.parse(sample.at)<item.measurementFrom&&Date.now()-Date.parse(sample.at)<=budgets.quiet.maxSampleGapMs)return;
             if (!loadSpiked([sample],budgets.quiet) && Date.now()-Date.parse(sample.at)<=budgets.quiet.maxSampleGapMs) return;
             aborting = true; busy = true; item.qualified = false; item.status = 'invalid-busy'; item.abortLoad = sample; save();
+            loadSession.invalidate('load spike or telemetry gap during '+name);
             const raw = await page.evaluate(() => window.performanceHarness.end()).catch(() => null);
             if (raw) writeFileSync(join(output, `${name}-aborted-raw.json`), JSON.stringify(raw));
             console.log('CPU spike or telemetry gap; discarding this attempt and releasing the browser.');
@@ -189,7 +200,6 @@ try {
               save();
             });
           }
-          const initial = await snapshot(page);
           await act(page, c, spots, 4242 + repeat); await idle(page);
           const final = await snapshot(page);
           if (['force', 'brush', 'select', 'orbit'].includes(c.kind) && hash(initial.worker) === hash(final.worker)) throw new Error(`Scenario ${c.id} changed no final bytes; refusing a no-op pass`);
@@ -259,12 +269,12 @@ try {
           // A second gate catches unrelated work that started during the run. Invalid runs remain
           // raw evidence but are excluded by gate.mjs. Nothing stops other agents' processes.
           if (mode !== 'smoke') {
-            item.loadAfter = await load();
-            if (!item.loadAfter.quiet) { item.qualified = false; item.status = 'invalid-busy'; }
-            monitor.kill(); monitor = undefined;
-            const duringPath = join(output, `${name}-load-during.jsonl`);
-            item.loadDuring = existsSync(duringPath) ? readFileSync(duringPath, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)) : [];
-            if (loadSpiked(item.loadDuring,budgets.quiet)) { item.qualified = false; item.status = 'invalid-busy'; busy = true; }
+            item.measurementUntil=Date.now();
+            const checked=await loadSession.finish(item.measurementFrom,item.measurementUntil);
+            item.loadDuring=checked.rows;
+            item.loadAfter={quiet:checked.valid,samples:checked.rows.slice(-1)};
+            writeFileSync(join(output,`${name}-load-during.jsonl`),checked.rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
+            if (!checked.valid) { item.qualified = false; item.status = 'invalid-busy'; busy = true;loadSession.invalidate('load spike or missing bracketing telemetry during '+name); }
           }
           writeFileSync(join(output, `${name}-raw.json`), JSON.stringify(raw));
           if (capture) item.captureHash = captureHash(captures, join(output, `${name}-audio.jsonl`), join(output, `${name}-raw.json`));
@@ -274,6 +284,7 @@ try {
           item.capture = capture ? captures : undefined;
           console.log(`${name}: ${item.status}; redo bytes ${item.redoExact ? 'equal' : 'DIFFERENT'}`);
         } catch (error) {
+          if(loadSession&&item.measurementFrom){item.loadDuring=segment(loadSession.rows(),item.measurementFrom,Date.now());writeFileSync(join(output,`${name}-load-during.jsonl`),item.loadDuring.map(r=>JSON.stringify(r)).join('\n')+'\n');}
           item.status = item.status === 'invalid-busy' ? item.status : 'error'; item.qualified = false; item.error = String(error.stack ?? error);
           if (page) {
             const raw = await page.evaluate(() => window.performanceHarness?.end()).catch(() => null);
@@ -301,6 +312,6 @@ try {
       }
     }
   }
-} finally { server.close(); save(); releaseLock(); }
+} finally { if(ownsLoadSession)loadSession.close(); server.close(); save(); releaseLock(); }
 console.log(`Evidence: ${output}`);
 process.exitCode = busy || results.some(r => r.status !== 'complete') ? 2 : 0;

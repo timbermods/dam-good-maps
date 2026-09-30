@@ -1,121 +1,70 @@
-import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { cases } from './scenarios.mjs';
-import { phaseAt } from './window-policy.mjs';
-import { configurations, coreCases } from './coverage.mjs';
-const dir = fileURLToPath(new URL('.', import.meta.url)), local = resolve(dir, 'local');
-mkdirSync(local, { recursive: true });
-const flags = Object.fromEntries(process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')));
-const budget = JSON.parse(readFileSync(resolve(dir,'budgets.json'))), suite = flags.suite ?? 'core';
-const hourTask={mode:'measure',id:'brush-large',...budget.longSession};
-const start = Date.parse(flags.start ?? '2026-09-30T09:00:00Z'), end = Date.parse(flags.end ?? '2026-09-30T11:00:00Z'), shortEnd = end - 70 * 60000;
-const hourFirst = Object.hasOwn(flags,'hour-first');
-const shortCutoff = hourFirst ? end : shortEnd;
-if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || Date.now() >= end) throw new Error('Provide an authorized, unexpired --start=<UTC ISO> --end=<UTC ISO> window');
-const statusPath = resolve(local, 'window-status.json');
-if (existsSync(statusPath)) {
-  const previous = JSON.parse(readFileSync(statusPath));
-  if (previous.state !== 'finished') {
-    try { process.kill(previous.pid, 0); throw new Error(`Window runner ${previous.pid} already active`); } catch(e) { if(e.code !== 'ESRCH') throw e; }
-  }
+import {spawn} from 'node:child_process';
+import {readFileSync,writeFileSync,appendFileSync,existsSync,readdirSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {cases} from './scenarios.mjs';
+import {configurations,coreCases} from './coverage.mjs';
+import {ContinuousLoad} from './continuous-load.mjs';
+const dir=fileURLToPath(new URL('.',import.meta.url)),local=resolve(dir,'local');
+mkdirSync(local,{recursive:true});
+const flags=Object.fromEntries(process.argv.slice(2).map(arg=>{const [k,...v]=arg.replace(/^--/,'').split('=');return [k,v.join('=')||true]}));
+const budget=JSON.parse(readFileSync(resolve(dir,'budgets.json'))),suite=flags.suite??'core';
+const start=Date.parse(flags.start),end=Date.parse(flags.end);
+if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||Date.now()>=end)throw new Error('Explicit authorized, unexpired UTC window required');
+const statusPath=resolve(local,'window-status.json');
+if(existsSync(statusPath)){
+ const old=JSON.parse(readFileSync(statusPath));
+ if(old.state!=='finished'){let alive=false;try{process.kill(old.pid,0);alive=true}catch{}if(alive)throw new Error('Window runner already active: '+old.pid)}
 }
-const status = { pid: process.pid, suite, quietRule:budget.quiet, window: { start, end }, started: new Date().toISOString(), state: 'waiting', attempts: [], pending: [] };
-const save = () => writeFileSync(statusPath, JSON.stringify(status, null, 2));
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-save();
-async function cpu() {
-  return new Promise((ok, fail) => {
-    const p = spawn('powershell.exe', ['-NoProfile', '-Command', '(Get-CimInstance Win32_Processor).LoadPercentage'], {windowsHide:true});
-    let out=''; p.stdout.on('data',b=>out+=b); p.on('error',fail); p.on('exit',code=>code===0 && out.trim() ? ok(Number(out.trim())) : fail(new Error('CPU sample unavailable')));
-  });
-}
-async function quiet(until) {
-  let since, previous;
-  status.state='waiting-for-60-quiet-seconds'; save();
-  while(Date.now()<until) {
-    const percent=await cpu(), now=Date.now();
-    appendFileSync(resolve(local,'window-load.jsonl'), JSON.stringify({at:new Date(now).toISOString(),cpuPercent:percent})+'\n');
-    if(previous !== undefined && now - previous > budget.quiet.maxSampleGapMs) since=undefined;
-    if(now>=start && Number.isFinite(percent) && percent>=0 && percent<=budget.quiet.cpuPercentMax) since??=now; else since=undefined;
-    previous=now;
-    status.cpuPercent=percent; status.quietSince=since; save();
-    if(since && now-since>=budget.quiet.durationMs) return true;
-    await sleep(5000);
-  }
-  return false;
-}
-const queue=[];
+const session=ContinuousLoad.start(dir,budget.quiet,{start,end:end-15000});
+const status={pid:process.pid,suite,window:{start,end},started:new Date().toISOString(),state:'waiting',quietRule:budget.quiet,
+ method:'qualify once; continuous sampling; requalify only after a load-discarded case',loadSession:session.path,attempts:[],pending:[],hourChoice:'single CPU-proxy/High hour first; retry between shorter cases while a full hour can fit'};
+const save=()=>writeFileSync(statusPath,JSON.stringify(status,null,2));
 const selected=suite==='core'?coreCases:cases;
 const priority=['craterize-fast','brush-large','abuse',...selected.map(c=>c.id).filter(id=>!['craterize-fast','brush-large','abuse'].includes(id))];
-// Spread remaining time across looks and platforms; acquire real footage before bulk timing.
-for(const id of priority) for(const config of configurations(budget,suite)) {
-  queue.push({...config,mode:'capture',id,repeats:config.captureRepeats});
-  queue.push({...config,mode:'measure',id});
+const queue=[];
+for(const id of priority)for(const config of configurations(budget,suite))for(const mode of ['capture','measure']){
+ const repeats=mode==='capture'?config.captureRepeats:config.repeats;
+ for(let repeat=1;repeat<=repeats;repeat++)for(const phase of ['before','after'])queue.push({...config,id,mode,repeat,repeats:1,phase});
 }
-status.pending=queue; save();
-async function run(task,phase,hour=false) {
-  const args=['run.mjs',`--suite=${suite}`,`--mode=${task.mode}`,`--phase=${phase}`,`--cases=${task.id}`,`--sizes=${task.size}`,`--profiles=${task.profile}`,`--browsers=${task.browser}`,`--looks=${task.look}`,`--repeats=${hour?1:task.repeats}`,`--deadline=${end-15000}`,...(hour?['--hour']:[])];
-  const previous=new Set(readdirSync(resolve(local,'runs')));
-  status.state='running'; status.current={...task,phase,hour}; save();
-  const code=await new Promise(ok=>{
-    const child=spawn(process.execPath,args,{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});
-    child.stdout.on('data',b=>{process.stdout.write(b);appendFileSync(resolve(local,'window-run.log'),b)});
-    child.stderr.on('data',b=>{process.stderr.write(b);appendFileSync(resolve(local,'window-run.log'),b)});
-    const deadline=setTimeout(()=>child.kill('SIGINT'),Math.max(1,end-Date.now()));
-    child.on('exit',c=>{clearTimeout(deadline);ok(c)});
-  });
-  const folders=readdirSync(resolve(local,'runs')).filter(n=>!previous.has(n));
-  const rows=folders.flatMap(n=>JSON.parse(readFileSync(resolve(local,'runs',n,'manifest.json'))).results);
-  status.attempts.push({task,phase,hour,code,folders,qualified:rows.filter(r=>r.qualified&&r.status==='complete').length,discarded:rows.filter(r=>!r.qualified).length}); save();
-  return rows.some(r=>['invalid-busy','blocked-busy'].includes(r.status))?'busy':code===0?'complete':'error';
+const hourTask={...budget.longSession,id:'brush-large',mode:'measure',phase:'after',repeat:1,repeats:1,hour:true};
+queue.unshift(hourTask);status.pending=queue;save();
+async function run(task){
+ const args=['run.mjs','--suite='+suite,'--mode='+task.mode,'--phase='+task.phase,'--cases='+task.id,'--sizes='+task.size,
+ '--profiles='+task.profile,'--browsers='+task.browser,'--looks='+task.look,'--repeats=1','--repeat-start='+task.repeat,
+ '--deadline='+(end-15000),'--load-session='+session.path,...(task.hour?['--hour']:[])];
+ const previous=new Set(readdirSync(resolve(local,'runs')));
+ status.state='running';status.current=task;status.qualificationGeneration=session.state().generation;save();
+ const code=await new Promise((ok,fail)=>{
+  const child=spawn(process.execPath,args,{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  for(const stream of [child.stdout,child.stderr])stream.on('data',b=>{process.stdout.write(b);appendFileSync(resolve(local,'window-run.log'),b)});
+  const deadline=setTimeout(()=>child.kill('SIGINT'),Math.max(1,end-Date.now()));
+  child.on('error',fail);child.on('exit',c=>{clearTimeout(deadline);ok(c)});
+ });
+ const folders=readdirSync(resolve(local,'runs')).filter(n=>!previous.has(n));
+ const rows=folders.flatMap(n=>{const p=resolve(local,'runs',n,'manifest.json');return existsSync(p)?JSON.parse(readFileSync(p)).results:[]});
+ status.attempts.push({task,phase:task.phase,hour:!!task.hour,code,folders,qualified:rows.filter(r=>r.qualified&&r.status==='complete').length,discarded:rows.filter(r=>!r.qualified).length});save();
+ return rows.some(r=>['invalid-busy','blocked-busy'].includes(r.status))?'busy':code===0&&rows.length?'complete':'error';
 }
-try {
-  if(hourFirst) {
-    status.hourChoice='hour first, then shorter work, as authorized for this window';save();
-    let outcome='busy';
-    while(outcome==='busy' && Date.now()<end-64*60000 && await quiet(end-64*60000)) outcome=await run(hourTask,'after',true);
-    status.hourOutcome=outcome;save();
+try{
+ while(queue.length&&Date.now()<end-15000){
+  const task=queue.shift();status.pending=queue;save();
+  if(task.hour&&Date.now()>end-65*60000){status.hourOutcome='No full-hour slot remains; not shortened';status.missingHour=true;save();continue}
+  if(!session.state().valid){
+   status.state='qualifying-once-or-after-discard';save();
+   if(!await session.qualify(task.hour?end-65*60000:end-15000)){
+    if(task.hour){status.missingHour=true;continue}
+    queue.unshift(task);break;
+   }
   }
-  while(queue.length && Date.now()<shortCutoff) {
-    if(!await quiet(shortCutoff)) break;
-    const task=queue.shift(); status.pending=queue; save();
-    let failed=false;
-    for(const phase of ['before','after']) {
-      const outcome=await run(task,phase);
-      if(outcome==='busy'){queue.push(task);failed=true;break}
-      if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});failed=true;break}
-    }
-    // The child independently qualifies 60 seconds before every case; this outer loop dispatches.
-    if(!failed) {
-      while(queue.length && Date.now()<shortCutoff) {
-        const task2=queue.shift();status.pending=queue;save();let outcome='complete';
-        for(const phase of ['before','after']){outcome=await run(task2,phase);if(outcome!=='complete')break}
-        if(outcome==='busy'){queue.push(task2);break}
-        if(outcome==='error'){status.errors??=[];status.errors.push({task:task2});}
-      }
-    }
-  }
-  let hourAttempted = false;
-  if(!hourFirst && phaseAt(Date.now(),start,end,false,queue.length>0)==='hour' && await quiet(end-64*60000)) {
-    hourAttempted = true;
-    status.hourChoice=`after/${hourTask.browser}/${hourTask.profile}/${hourTask.size}/${hourTask.look}; remaining configurations and repetitions stay pending`;save();
-    let outcome=await run(hourTask,'after',true);
-    while(outcome==='busy' && phaseAt(Date.now(),start,end,true)==='hour' && await quiet(end-64*60000)) outcome=await run(hourTask,'after',true);
-  } else if(!hourFirst) status.hourChoice='Insufficient quiet time for a full hour; not shortened';
-  // Missing the full-hour start is not a reason to stop monitoring the rest of the window.
-  // If an hour was started it remains the last workload; otherwise finish shorter paired work.
-  while(!hourAttempted && queue.length && Date.now()<end) {
-    if(!await quiet(end)) break;
-    let busy=false;
-    while(queue.length && Date.now()<end && !busy) {
-      const task=queue.shift();status.pending=queue;save();
-      for(const phase of ['before','after']) {
-        const outcome=await run(task,phase);
-        if(outcome==='busy'){queue.push(task);busy=true;break}
-        if(outcome==='error'){status.errors??=[];status.errors.push({task,phase});break}
-      }
-    }
-  }
-} finally {status.state='finished';status.finished=new Date().toISOString();status.pending=queue;delete status.current;save();}
+  const outcome=await run(task);
+  if(task.hour)status.hourOutcome=outcome;
+  if(outcome==='busy'){
+   session.invalidate('discarded '+task.id+' '+task.phase);
+   if(task.hour){if(Date.now()<end-65*60000)queue.splice(Math.min(12,queue.length),0,task);else status.missingHour=true}
+   else queue.push(task);
+  }else if(outcome==='error'){status.errors??=[];status.errors.push(task)}
+ }
+}finally{
+ session.close();status.state='finished';status.finished=new Date().toISOString();status.pending=queue;delete status.current;save();
+}

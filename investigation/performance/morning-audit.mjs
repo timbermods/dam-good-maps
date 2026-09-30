@@ -10,7 +10,7 @@ const local=resolve(dir,'local'), runs=resolve(local,'runs');
 mkdirSync(resolve(local,'morning-hitches'),{recursive:true});
 const budget=JSON.parse(readFileSync(resolve(dir,'budgets.json')));
 const fingerprint=createHash('sha256');
-for(const file of ['probe.js','audio-worklet.js','scenarios.mjs','coverage.mjs','budgets.json','metrics.mjs','load.ps1','laptop-profile.ps1','run.mjs','drain.mjs']) fingerprint.update(file).update(readFileSync(resolve(dir,file)));
+for(const file of ['probe.js','audio-worklet.js','scenarios.mjs','coverage.mjs','budgets.json','metrics.mjs','load.ps1','laptop-profile.ps1','run.mjs','drain.mjs', 'continuous-load.mjs']) fingerprint.update(file).update(readFileSync(resolve(dir,file)));
 const currentHarnessHash=fingerprint.digest('hex');
 const digest=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
 const read=p=>JSON.parse(readFileSync(p,'utf8').replace(/^\uFEFF/,''));

@@ -58,3 +58,7 @@ visibility/PCM context telemetry. No late validation run is taken.
 regenerates the diagnostic contact sheet/GIF. REPORT.md and morning-review.json distinguish
 discarded observations from missing qualified evidence. PR #107 remains draft; recurrence stops.
 Morning controller status/load/log are frozen in `local/windows/2026-09-30-0740/`.
+
+## New authorized window
+
+2026-09-30 10:30–13:30 PDT (17:30–20:30 UTC): qualify once, sample continuously, requalify only after a load-discarded case. The probe may finish after 10:30; the quiet prefix waits for it. Start one serial runner with these explicit bounds; the hour goes first. The morning evidence is archived and remains invalid. Afternoon source telemetry is the loadSession path in window-status.json, not the historical window-load.jsonl.

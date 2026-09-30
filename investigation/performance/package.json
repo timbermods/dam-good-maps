@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test.mjs && node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs",
+    "test": "node test.mjs && node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs continuous-load.test.mjs",
     "run": "node run.mjs",
     "gifs": "python gifs.py",
     "gate": "node gate.mjs"

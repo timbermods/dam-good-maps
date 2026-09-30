@@ -1,8 +1,9 @@
-param([int]$Samples = 2, [int]$IntervalMs = 1000, [string]$Output = '', [int]$ParentPid = 0, [double]$CpuMax = 25, [int]$QuietDurationMs = 0, [int]$MaxSampleGapMs = 30000, [double]$DeadlineMs = 0, [switch]$Streaming)
+param([int]$Samples = 2, [int]$IntervalMs = 1000, [string]$Output = '', [int]$ParentPid = 0, [double]$CpuMax = 25, [int]$QuietDurationMs = 0, [int]$MaxSampleGapMs = 30000, [double]$DeadlineMs = 0, [string]$Metadata = '', [switch]$Streaming)
 $ErrorActionPreference = 'Stop'
 $cpu = Get-CimInstance Win32_Processor
 $os = Get-CimInstance Win32_OperatingSystem
 $gpus = @(Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name })
+if ($Metadata) { [IO.File]::WriteAllText($Metadata, ([pscustomobject]@{cpu=$cpu.Name; logicalCores=$cpu.NumberOfLogicalProcessors; gpus=$gpus; memoryGB=$os.TotalVisibleMemorySize/1MB; freeMemoryGB=$os.FreePhysicalMemory/1MB} | ConvertTo-Json)) }
 $rows = @()
 $quietSince = $null
 $lastSample = $null

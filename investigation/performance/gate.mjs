@@ -19,7 +19,7 @@ const currentBefore = resolve(dir, 'local/build/before/provenance.json');
 const baselineHash = existsSync(currentBefore) ? JSON.parse(readFileSync(currentBefore)).sourceHash : undefined;
 const baselineBuild = existsSync(currentBefore) ? JSON.parse(readFileSync(currentBefore)).buildHash : undefined;
 const harnessDigest = createHash('sha256');
-for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs', 'drain.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
+for (const file of ['probe.js', 'audio-worklet.js', 'scenarios.mjs', 'coverage.mjs', 'budgets.json', 'metrics.mjs', 'load.ps1', 'laptop-profile.ps1', 'run.mjs', 'drain.mjs', 'continuous-load.mjs']) harnessDigest.update(file).update(readFileSync(resolve(dir, file)));
 const harnessHash = harnessDigest.digest('hex');
 const verbs = readFileSync(resolve(root, 'src/core/forces/op.ts'), 'utf8').match(/export const VERBS[^=]*=\s*\[([^\]]+)\]/)?.[1]?.match(/"([a-z]+)"/g)?.map(s => s.slice(1, -1)) ?? [];
 if (!verbs.length) failures.push({ reason: 'cannot enumerate current force registry' });
@@ -75,7 +75,7 @@ for (const requirement of requirements(budget,suite)) {
     if (!row.device?.longTasksSupported) failures.push({id:`${browser}/${profile}/${size}/${look}/hour`,reason:'hour Long Tasks oracle unavailable'});
     if (!row.longReference) { failures.push({ id: `${browser}/${profile}/${size}/${look}/hour`, reason: 'missing matched start/end reference interaction' }); continue; }
     const { first, last } = row.longReference;
-    const beforeMB = median(row.load?.samples?.map(s => s.browserPrivateMB) ?? []);
+    const beforeMB = row.loadAtStart?.browserPrivateMB ?? median(row.load?.samples?.map(s => s.browserPrivateMB) ?? []);
     const afterMB = median(row.loadAfter?.samples?.map(s => s.browserPrivateMB) ?? []);
     if (!(beforeMB > 0 && afterMB > 0) || afterMB > beforeMB * budget.longSession.browserPrivateGrowthRatioMax) failures.push({ id: `${browser}/${profile}/${size}/${look}/hour`, reason: 'browser private-memory evidence unavailable or over provisional growth budget', beforeMB, afterMB });
     if (!first.frames || !last.frames || [first, last].some(s => s.hitches.length || s.glitches.length || s.longTasks.length)) failures.push({ id: `${browser}/${profile}/${size}/${look}/hour`, reason: 'reference interaction missing or contains hitch/task/glitch' });

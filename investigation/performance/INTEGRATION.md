@@ -35,7 +35,7 @@ node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
 node build.mjs before
 node build.mjs after
 node test.mjs
-node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs
+node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs continuous-load.test.mjs
 python audio.test.py
 node typecheck.mjs
 node run.mjs --mode=smoke --phase=after --sizes=128 --looks=standard --cases=craterize-fast,brush-large --repeats=1
@@ -165,3 +165,7 @@ render queue, without making this readout a smoothness failure or modifying the 
 
 **Every force adopted later—Erode, Rift, Landslide, Meander and Deposit—must pass this same harness
 before it merges.** Register its actual gestures; unknown/missing force coverage must fail.
+
+## Superseding continuous qualification (September 30, 10:30–13:30 PDT)
+
+Kyler authorized qualification once at CPU <=25% for 60 seconds, then cases back to back under one continuous sampler. Only a load-discarded case invalidates that qualification and triggers another minute. This replaces per-case quiet waits; coverage, repetitions and other budgets are unchanged. window.mjs shares its session with children; standalone/CI runs qualify once per invocation. Each active interval retains bracketing CPU samples and its original qualification generation. Fixture generation and initial byte extraction precede the active interval, while continuous raw telemetry remains recorded. Missing or stale telemetry still fails. The hour is attempted first, with retry opportunities between shorter cases while at least 65 minutes remain; it is never shortened. Private-memory start evidence comes from the current browser sample, rather than an old qualification prefix.
