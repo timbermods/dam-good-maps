@@ -482,7 +482,7 @@ export function App() {
   }
 
   const openInput = (
-    <label class="button ghost wide" title="Open a .timber map or a project file in the editor">
+    <label class="button ghost wide" title="Open a map or project file">
       Open a map
       <input
         type="file"
@@ -505,7 +505,7 @@ export function App() {
         <div class="top-row">
           <h1>Dam Good Maps</h1>
           <nav class="top-nav" aria-label="Pages">
-            <a href={PLACES_URL} title="Real places: maps shaped from the land of real places">Real places</a>
+            <a href={PLACES_URL} title="Maps shaped from the land of real places">Real places</a>
           </nav>
         </div>
         <p class="tag">Timberborn maps from a seed: generate, refine, download, play.</p>
@@ -536,7 +536,7 @@ export function App() {
           <span>
             You're editing <strong>{session!.name}</strong>. The map below is a new one, made from these settings.
           </span>
-          <button type="button" class="primary" title="Go back to the map you were editing, with its edits" onClick={() => void generator.sessionView().then(enterEditor)}>
+          <button type="button" class="primary" title="Go back to the map you were editing" onClick={() => void generator.sessionView().then(enterEditor)}>
             Back to editing
           </button>
         </div>
@@ -559,7 +559,7 @@ export function App() {
             onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
           />
           <div class="generate-bar">
-            <button type="button" class="primary" disabled={busy || !!opening} title="Make a new map from these settings (Enter in the panel does the same)" onClick={generateClick}>
+            <button type="button" class="primary" disabled={busy || !!opening} title="Make a new map (Enter)" onClick={generateClick}>
               {busy ? "Generating…" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
             {edited ? <p class="note">Generate makes a new map. Yours stays saved, with its edits.</p> : null}
@@ -589,7 +589,7 @@ export function App() {
               <button type="button" aria-pressed={preview === "2d"} title="A flat picture of the map with layers to show" onClick={() => setPreview("2d")}>
                 2D
               </button>
-              <button type="button" aria-pressed={preview === "3d"} title="The map in 3D: turn, move and zoom it" onClick={() => setPreview("3d")}>
+              <button type="button" aria-pressed={preview === "3d"} title="The map in 3D" onClick={() => setPreview("3d")}>
                 3D
               </button>
             </div>
@@ -646,10 +646,10 @@ export function App() {
                 </button>
                 {fromSession ? (
                   <>
-                    <button type="button" class="ghost" title="Check the edited map and save it as a .timber for Timberborn" onClick={() => setExporting(true)}>
+                    <button type="button" class="ghost" title="Check the map and save it for Timberborn" onClick={() => setExporting(true)}>
                       Export {session?.timberName ?? result.timberName}
                     </button>
-                    <button type="button" class="ghost" title="Save the map with all its edits as a project file, to open and change later" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
+                    <button type="button" class="ghost" title="Save the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
                       Download project file
                     </button>
                   </>
@@ -659,7 +659,7 @@ export function App() {
                       type="button"
                       class="ghost"
                       disabled={busy || !result.passed}
-                      title="Download the map as a .timber file for Timberborn's Maps folder"
+                      title="Download the .timber file"
                       onClick={() => {
                         saveFile(result.timber, result.timberName);
                         setDownloaded(true);
@@ -667,17 +667,17 @@ export function App() {
                     >
                       Download {result.timberName}
                     </button>
-                    <button type="button" class="ghost" disabled={busy || !result.passed || savingToTimberborn} title="Save the map straight into Timberborn's Maps folder (Chrome and Edge; elsewhere it downloads)" onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
+                    <button type="button" class="ghost" disabled={busy || !result.passed || savingToTimberborn} title="Save it into Timberborn's Maps folder" onClick={() => void saveToTimberbornClick(result.timber, result.timberName)}>
                       {savingToTimberborn ? "Saving…" : "Save to Timberborn"}
                     </button>
-                    <button type="button" class="ghost" title="Save the map as a project file, to open and edit later" onClick={() => saveFile(result.project, result.projectName, "application/gzip")}>
+                    <button type="button" class="ghost" title="Save the map as a project" onClick={() => saveFile(result.project, result.projectName, "application/gzip")}>
                       Download project file
                     </button>
                     <button
                       type="button"
                       class="ghost"
                       disabled={busy || !result.passed}
-                      title="The same map with no water in the file: the game fills the rivers during the first day (for comparing in game)"
+                      title="The same map without its water"
                       onClick={async () => {
                         const f = await generator.emptyWater();
                         if (f) saveFile(f.bytes, f.name);

@@ -71,11 +71,11 @@ const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten:
 export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, levelLines: false, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
-  { tool: "raise", name: "Raise", key: "1", hint: "Raise the ground under the brush to the level beside the pointer, as the game editor's relative raise: higher ground stays. Shift+scroll sets the level; past its ends, Free raises softly." },
-  { tool: "lower", name: "Lower", key: "2", hint: "Cut the ground under the brush down to the level beside the pointer, as the game editor's relative lower: lower ground stays. Shift+scroll sets the level; past its ends, Free digs softly. From water, it carves a bed the water follows." },
-  { tool: "flatten", name: "Flatten", key: "3", hint: "Set the ground under the brush to the level beside the pointer, as the game editor's absolute height. Shift+scroll or Ctrl+click sets the level." },
-  { tool: "smooth", name: "Smooth", key: "4", hint: "Smooth steps and bumps toward the ground round them." },
-  { tool: "naturalize", name: "Naturalize", key: "5", hint: "Wear cliffs into slopes and break straight edges, as weather would." },
+  { tool: "raise", name: "Raise", key: "1", hint: "raise the ground" },
+  { tool: "lower", name: "Lower", key: "2", hint: "lower the ground" },
+  { tool: "flatten", name: "Flatten", key: "3", hint: "level the ground" },
+  { tool: "smooth", name: "Smooth", key: "4", hint: "smooth bumps and steps" },
+  { tool: "naturalize", name: "Naturalize", key: "5", hint: "weather cliffs into slopes" },
 ];
 
 export const BRUSH_NAMES: Record<BrushTool, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };

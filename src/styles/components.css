@@ -586,3 +586,42 @@ button.pick-line[aria-pressed="true"] {
 .force-cluster + .force-cluster {
   margin-left: 10px;
 }
+
+/* a force's More / Less: an accent outline and a chevron, so it is clear more settings are behind it (D361, item 10) */
+.more-button {
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.more-button::after {
+  content: "";
+  display: inline-block;
+  margin-left: 6px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.more-button[aria-expanded="true"]::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+/* the strength of the source being pointed at or picked, highlighted: this source's and, in a row, the row's (D361, item 6) */
+.source-readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.source-readout .source-readout-label {
+  font-weight: 400;
+  opacity: 0.75;
+}

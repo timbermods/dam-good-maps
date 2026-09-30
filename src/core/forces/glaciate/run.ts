@@ -2,7 +2,7 @@
 // it is planned (a few slices a step: the worker answers the page between them) the ice gathers where
 // it was asked; then the ice advances for three seconds, the land under it taking its final levels as
 // the front passes (every height is the plan's before the retreat begins), and melts back for two.
-// The editor paces the stages (D321, item 29: Fast, or Watch); nothing changes before the ice reaches
+// The editor paces the stages (D321, item 29: Fast, or Slow forces); nothing changes before the ice reaches
 // it (item 30): the objects in its path go as the front passes, and the water stays as it was until
 // the land is final, when the valley's own water (its tarn, its meltwater river) takes over. What is
 // kept is always the plan's final map (the stages only show it), so the result never depends on the

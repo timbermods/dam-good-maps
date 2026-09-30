@@ -552,6 +552,30 @@ export interface StartCheck {
   warnings: string[];
 }
 
+/** What the start's colour means, one thing everywhere (D361): green, it fits and meets every start
+ *  requirement; amber, it fits but misses some (the panel lists which); red, it cannot be placed
+ *  there. */
+export type StartStatus = "ok" | "warn" | "blocked";
+export function startStatus(check: Pick<StartCheck, "problem" | "meets">): StartStatus {
+  return check.problem ? "blocked" : check.meets ? "ok" : "warn";
+}
+
+/** Whether two checks of one start say the same (so a placed start's colour and panel change only
+ *  when something about it changed, not each time the water moves on and it is asked again). */
+export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
+  return (
+    a.problem === b.problem &&
+    a.meets === b.meets &&
+    a.water === b.water &&
+    a.wood === b.wood &&
+    a.woodGrowing === b.woodGrowing &&
+    a.woodFloor === b.woodFloor &&
+    a.bushes === b.bushes &&
+    a.warnings.length === b.warnings.length &&
+    a.warnings.every((w, i) => w === b.warnings[i])
+  );
+}
+
 export interface StartNeeds {
   rules: { waterWithin: number; woodWithin20: number; bushesWithin20: number; badwaterWithin: number; ruinsWithin: number };
   /** Dry land walkable from the start that the map aims for. */
@@ -823,6 +847,31 @@ export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): Sou
     out.push({ members: members.map((m) => list[m]), tiles: members.map((m) => mid[m]), x, y, z: heights[i] ?? 0, strength: Math.round(strength * 100) / 100, bad });
   }
   return out;
+}
+
+/** The strength of one source and of the row it stands in (D361, item 6): the settings row, the
+ *  scroll's note and the marker's label all say the same numbers. `own` is the source's, `row` the
+ *  whole group's (the marker's label), `count` its sources. Null when `k` is in no group. */
+export interface SourceStrengths {
+  own: number;
+  row: number;
+  count: number;
+  bad: boolean;
+}
+export function sourceStrengths(groups: readonly SourceGroup[], strengthOf: (k: number) => number, k: number): SourceStrengths | null {
+  const g = groups.find((x) => x.members.includes(k));
+  if (!g) return null;
+  return { own: Math.round(strengthOf(k) * 100) / 100, row: g.strength, count: g.members.length, bad: g.bad };
+}
+/** The scroll moves one source, not the row: `own` becomes `value` and the row's total with it. */
+export function withOwnStrength(s: SourceStrengths, value: number): SourceStrengths {
+  return { ...s, own: value, row: Math.round((s.row - s.own + value) * 100) / 100 };
+}
+/** What the strength is, in words: "0.25 water/s" for a lone source; in a row, both numbers, so it
+ *  is clear the scroll changes this source and not the row ("this source 0.25 · row 1 water/s"). */
+export function sourceStrengthWords(s: SourceStrengths): string {
+  const unit = `${s.bad ? "badwater" : "water"}/s`;
+  return s.count > 1 ? `this source ${s.own} · row ${s.row} ${unit}` : `${s.own} ${unit}`;
 }
 
 /** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over

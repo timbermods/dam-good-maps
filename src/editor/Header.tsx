@@ -167,44 +167,44 @@ export function Header(p: HeaderProps) {
           </svg>
         </button>
         {p.dot}
-        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save the map into Timberborn's Maps folder" : "Download the map as a .timber file for Timberborn's Maps folder"}>
+        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
           {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
         </button>
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open a map or project file, save the project, download the .timber, clear everything, the history, or start a new map" onClick={() => setMenu(!menu)}>
+          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
             ⋯
           </button>
           {menu ? (
             <ul class="menu" role="menu" aria-label="More">
               <li role="none">
-                <button type="button" role="menuitem" title="Open a .timber map or a project file in the editor" onClick={pick(() => file.current?.click())}>
+                <button type="button" role="menuitem" title="Open a map or project file" onClick={pick(() => file.current?.click())}>
                   Open…
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" title="Save the map with all its edits as a project file, to open and change later" onClick={pick(p.onSaveProject)}>
+                <button type="button" role="menuitem" title="Save the map and its edits as a project" onClick={pick(p.onSaveProject)}>
                   Save project
                 </button>
               </li>
               {p.canFolder ? (
                 <li role="none">
-                  <button type="button" role="menuitem" disabled={!!saving} title="Download the map as a .timber file to put in Timberborn's Maps folder yourself" onClick={pick(() => p.onSave("download"))}>
+                  <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
                     {saving?.kind === "download" ? savingWords : "Download .timber"}
                   </button>
                 </li>
               ) : null}
               <li role="none">
-                <button type="button" role="menuitem" title="Take away every source, tree, bush, ruin, object and the start; the land stays" onClick={pick(p.onClearEverything)}>
+                <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
                   Clear everything
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" aria-pressed={p.historyOpen} title="Show every step of the map's history: click one to go back to it" onClick={pick(p.onHistory)}>
+                <button type="button" role="menuitem" aria-pressed={p.historyOpen} title="Every step of the map's history" onClick={pick(p.onHistory)}>
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings: the map stays saved in this browser" : "Close this map and start another"} onClick={pick(p.onBack)}>
+                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
                   {p.info.kind === "generated" ? "Back to settings" : "New map"}
                 </button>
               </li>
