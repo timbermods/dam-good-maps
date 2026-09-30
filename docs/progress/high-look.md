@@ -413,6 +413,25 @@ at the game's two angles, the game's shot first), `d334-water.jpg`, `d334-clear-
 water and 3D browser specs on port 4207 (18 passed, the two new ones included); badwater's calibration (Standard; every
 target within 0).
 
+## D346: dry earth a little greyer from above
+
+Kyler's sitting on real maps (D346) approved the look in both looks, with the three leftovers as they are, and one tune:
+from above our dry earth read warmer and pinker than the game's, which is a muted brown-mauve with grey patches. The
+palette's three dry colours lose about a quarter of their chroma and turn a few degrees cooler (`dry` [0.463, 0.403,
+0.367], `dryCool` [0.444, 0.414, 0.438], `dryWarm` [0.52, 0.438, 0.375]), in both looks; High's grade, which warmed and
+saturated it further, now spares dry earth (`DRY_EARTH_GRADE` 0.65, the rest a slightly cool grey; grass untouched).
+Judged at full size against `pair-1-game.jpg` on the overview's natural dry upland (median of its dry pixels):
+
+| | L* | chroma | hue |
+|---|---|---|---|
+| Timberborn | 42.3 | 9.4 | 47° |
+| Standard, before / after | 44.9 / 44.4 | 11.1 / 8.0 | 54° / 46° |
+| High, before / after | 49.1 / 48.2 | 21.3 / 11.6 | 58° / 55° |
+
+The close views keep their look (the earth there only a touch greyer). Tests: the two pins of the accepted dry inputs
+(`look-clean.test.ts`, `look-readable.test.ts`) read the new values; every readability check keeps its strictness.
+Captures: the `d334-*.jpg` set redrawn with the tune (before is still the commit before the soul's adoption).
+
 ## The measurements (information, D115; D250 (2))
 
 `npx tsx tools/measure-high.ts` on this machine: RTX 2070 SUPER (ANGLE, Direct3D 11), Chrome headed at 1600×900

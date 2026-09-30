@@ -70,10 +70,10 @@ describe("the clean view", () => {
   });
 
   it("colours dry ground a warm brown drifting to mauve and tan, cracked dark, as Timberborn's references (D334)", () => {
-    // Kyler's approved inputs (investigation/high-soul, D334: the earth may be warm brown and mauve)
-    expect(GROUND.dry).toEqual([0.48, 0.405, 0.35]);
-    expect(GROUND.dryCool).toEqual([0.46, 0.415, 0.445]);
-    expect(GROUND.dryWarm).toEqual([0.54, 0.44, 0.345]);
+    // Kyler's approved inputs (D334: the earth may be warm brown and mauve; D346: a little greyer from above)
+    expect(GROUND.dry).toEqual([0.463, 0.403, 0.367]);
+    expect(GROUND.dryCool).toEqual([0.444, 0.414, 0.438]);
+    expect(GROUND.dryWarm).toEqual([0.52, 0.438, 0.375]);
     expect(GROUND.crack).toEqual([0.19, 0.14, 0.125]);
     // three patches that differ, each darker at its cracks
     const patches = [GROUND.dry, GROUND.dryCool, GROUND.dryWarm];

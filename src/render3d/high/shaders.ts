@@ -25,6 +25,10 @@
 import { WATER } from "../palette";
 import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
 
+/** How much of its colour dry earth keeps under High's grade, the rest a slightly cool grey (D346: the game's
+ *  earth, greyer and cooler from above). */
+export const DRY_EARTH_GRADE = 0.65;
+
 /** A number as GLSL writes a float. */
 const g = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 import type { ShaderHooks } from "../materials";
@@ -179,7 +183,10 @@ export function terrainHooks(): ShaderHooks {
           c *= 1.0 + broad * 0.15 + mottling * 0.065;
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
-        // (exposure 1.00, D334: grass needs no hold-down of its own to sit at the game's L* 50-55)`,
+        // (exposure 1.00, D334: grass needs no hold-down of its own to sit at the game's L* 50-55)
+        // the grade's saturation and warm balance spare dry earth, which the game draws a muted
+        // brown-mauve from above (D346)
+        if (hlGrade > 0.5) c = mix(dot(c, vec3(0.2126, 0.7152, 0.0722)) * vec3(0.97, 1.0, 1.05), c, mix(${g(DRY_EARTH_GRADE)}, 1.0, moist));`,
     // the poisoned bed (#38): under polluted water, the ground's own contamination shows through
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {

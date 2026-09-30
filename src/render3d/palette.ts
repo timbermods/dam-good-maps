@@ -37,16 +37,17 @@ export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
    *  drift between it, a cooler mauve and a warmer tan (D334, from Timberborn's references: the earth
-   *  may be warm brown and mauve, amending D324's neutral grey-beige). Grass a muted green, darker
+   *  may be warm brown and mauve, amending D324's neutral grey-beige; D346: from above a little greyer and
+   *  less saturated, a muted brown-mauve with grey patches, as the game's overview reads). Grass a muted green, darker
    *  and less yellow than it was (the game's L* 50-55 on screen, D324); it reads apart from dry earth
    *  as it does in the game, by hue and its painted strokes, with no lightness gap asked beyond the
    *  game's own (D334 (2); `look-readable.test.ts` reports the colour-blindness simulations as
    *  information). */
-  dry: [0.48, 0.405, 0.35] as Rgb,
+  dry: [0.463, 0.403, 0.367] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.46, 0.415, 0.445] as Rgb,
+  dryCool: [0.444, 0.414, 0.438] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.54, 0.44, 0.345] as Rgb,
+  dryWarm: [0.52, 0.438, 0.375] as Rgb,
   /** The cracks in dry ground. */
   crack: [0.19, 0.14, 0.125] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */

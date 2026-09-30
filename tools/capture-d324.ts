@@ -229,16 +229,20 @@ async function pair(browser: Browser, tool: Page): Promise<void> {
   const cells: string[][] = PAIR_VIEWS.map((v) => [`data:image/jpeg;base64,${readFileSync(v.game).toString("base64")}`]);
   const labels: string[][] = PAIR_VIEWS.map((v) => [`Timberborn: ${v.label}`]);
   for (const [side, port] of [["before", PORT], ["after", PORT + 1]] as const) {
+    if (RAW && side === "before") continue;
     await openPair(page, port);
     for (const [look, name] of [["standard", "Standard"], ["high", "High"]] as const) {
       await setLook(page, look);
       for (const [k, v] of PAIR_VIEWS.entries()) {
         const idx = 1 + (look === "high" ? 2 : 0) + (side === "after" ? 1 : 0);
-        cells[k][idx] = (await pairShot(page, v)).toString("base64");
+        const png = await pairShot(page, v);
+        if (RAW) (mkdirSync(RAW, { recursive: true }), writeFileSync(join(RAW, `pair-${k}-${look}.png`), png));
+        cells[k][idx] = png.toString("base64");
         labels[k][idx] = `${name}, ${side}: ${v.label}`;
       }
     }
   }
+  if (RAW) return void (await context.close());
   const b64 = (await tool.evaluate(`(${COMPOSE_JS})(${JSON.stringify({ images: cells.flat(), labels: labels.flat(), cols: 5, scale: 0.3, quality: 80 })})`)) as string;
   const buf = Buffer.from(b64, "base64");
   const file = join(OUT, `${PREFIX}-pair.jpg`);
@@ -262,7 +266,7 @@ async function main() {
     page.on("pageerror", (e) => errors.push(String(e)));
     const tool = await browser.newPage();
     await tool.goto(`http://localhost:${PORT + 1}/`);
-    if (!RAW && !REUSE && (!ONLY || ONLY.includes("pair"))) {
+    if (!REUSE && (!ONLY || ONLY.includes("pair"))) {
       console.log("pair");
       await pair(browser, tool);
     }

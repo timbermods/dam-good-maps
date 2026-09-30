@@ -108,10 +108,10 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
   };
 
   it("measure every grass against every patch of dry earth in each simulation, as information, from Kyler's accepted colours", () => {
-    // the accepted inputs (D324's grass, D334's earth)
+    // the accepted inputs (D324's grass, D334's earth as D346 greyed it)
     expect(GROUND.moistLow).toEqual([0.445, 0.575, 0.28]);
     expect(GROUND.moistHigh).toEqual([0.415, 0.55, 0.265]);
-    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.48, 0.405, 0.35], [0.46, 0.415, 0.445], [0.54, 0.44, 0.345]]);
+    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.463, 0.403, 0.367], [0.444, 0.414, 0.438], [0.52, 0.438, 0.375]]);
     // the matrix (L* gap, Lab distance) for each grass, patch and simulation: finite and within
     // range. D334 (2) asks for the game's own readability, with no gap: these numbers are reported
     // (docs/progress/high-look.md), not held to one; the captures judge the look
