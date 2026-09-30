@@ -30,19 +30,21 @@ describe("a basin's way out worn wider (D350 (b))", () => {
     expect(b.tiles.length).toBeGreaterThan(600);
   });
 
-  it("widens the way out to its own bed, raggedly, and the basin keeps its level", () => {
+  it("widens the way out to its own bed with stepped banks, raggedly, and the basin keeps its level", () => {
     const { h, depth } = scene();
     const keep = new Uint8Array(W * H);
     keep[30 * W + 50] = 1;
     const w = wearOutlet(h, W, H, depth, { seed: 7, width: 7, keep })!;
     expect(w).not.toBeNull();
     expect(w.level).toBe(6);
-    // never below the route's bed, only ever lower, never on what it keeps
+    // never below the route's bed, only ever lower, never on what it keeps; the banks step back up
+    // a level a tile (a worn slope, no wall)
     for (const i of w.cut) {
-      expect(w.heights[i]).toBe(6);
-      expect(h[i]).toBeGreaterThan(6);
+      expect(w.heights[i]).toBeGreaterThanOrEqual(6);
+      expect(w.heights[i]).toBeLessThan(h[i]);
       expect(keep[i]).toBe(0);
     }
+    expect(w.cut.some((i) => w.heights[i] === 7)).toBe(true);
     // wider than the channel was, and a width that wanders (no straight notch)
     const widths: number[] = [];
     for (let x = 42; x < W - 2; x++) {

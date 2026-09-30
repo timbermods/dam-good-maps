@@ -161,7 +161,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
       if (inB[j] || h[j] > S || cost[j] <= k) continue;
-      const nk = k + 1 + 0.8 * (fbm(ns, xx, yy, 7, 2) + 1);
+      const nk = k + 1 + 1.6 * (fbm(ns, xx, yy, 6, 2) + 1);
       if (nk < cost[j]) {
         cost[j] = nk;
         prev[j] = c;
@@ -205,34 +205,34 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
         if (xx >= 0 && yy >= 0 && xx < W && yy < H) nearB[yy * W + xx] = 1;
       }
   }
-  // each tile within the wandering half-width of the route takes the route's bed nearest it, where
-  // it stands higher
+  // the banks, as water wears them: within a wandering inner width of the route the ground comes
+  // down to the route's bed; beyond it, a level more for each tile out, so the banks step back up
+  // (a worn slope, never a wall or a square notch); a tile never goes up, and never below the bed
   const ws = hash32(opts.seed, "outlet-wear-width");
-  const best = new Float64Array(N).fill(Infinity);
   const target = new Int16Array(N).fill(-1);
   const band: number[] = [];
   const half = opts.width / 2;
-  const reach = Math.ceil(half * 1.4) + 1;
+  const reach = Math.ceil(half * 1.5) + 6;
   for (const r of route) {
     const rx = r % W;
     const ry = (r - rx) / W;
-    // (a width that wanders along the way, 0.6–1.4 of the asked for)
-    const R = half * (0.6 + 0.4 * (fbm(ws, rx, ry, 9, 2) + 1));
+    const bed = Math.min(h[r], S);
+    // (a width that wanders along the way, 0.5–1.5 of the asked for)
+    const R = half * (0.5 + 0.5 * (fbm(ws, rx, ry, 7, 2) + 1));
     for (let dy = -reach; dy <= reach; dy++)
       for (let dx = -reach; dx <= reach; dx++) {
-        const d2 = dx * dx + dy * dy;
-        // (a ragged edge: each bank tile's own reach wanders a little too)
-        const edge = R + 0.7 * fbm(ws + 1, rx + dx, ry + dy, 3, 1);
-        if (d2 > edge * edge) continue;
         const xx = rx + dx;
         const yy = ry + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        // (each bank tile's own reach wanders by up to a tile and a half: a ragged edge)
+        const inner = R + 1.5 * fbm(ws + 1, xx, yy, 2.5, 2);
+        const t = bed + Math.max(0, Math.ceil(Math.hypot(dx, dy) - inner));
         const j = yy * W + xx;
-        if (target[j] < 0) band.push(j);
-        if (d2 < best[j]) {
-          best[j] = d2;
-          target[j] = Math.min(h[r], S);
-        }
+        if (t >= h[j]) continue;
+        if (target[j] < 0) {
+          band.push(j);
+          target[j] = t;
+        } else if (t < target[j]) target[j] = t;
       }
   }
   const out = h.slice();
@@ -241,6 +241,20 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
     const t = nearB[j] ? Math.max(target[j], S) : target[j];
     if (out[j] > t) out[j] = t;
   }
+  // (a lowered tile with nothing as low beside it is a pit the ragged edge left: it stays)
+  for (let round = 0; round < 2; round++)
+    for (const j of band) {
+      if (out[j] === h[j]) continue;
+      const x = j % W;
+      const y = (j - x) / W;
+      let joined = false;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H && out[yy * W + xx] <= out[j]) joined = true;
+      }
+      if (!joined) out[j] = h[j];
+    }
   // (where the cut would drain the basin all the same, the ground round what drained stays)
   for (let round = 0; round < 4; round++) {
     const after = spillOf(out, W, H);
