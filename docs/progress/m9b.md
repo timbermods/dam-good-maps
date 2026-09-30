@@ -5,9 +5,10 @@
 > the two Sources: None maps' water check fixed; the refill gap explained, below). D333's answers are
 > built: the land kept once it passes (speed), first maps' quality, one note for a missed promise,
 > the nightly settings' verdicts and re-bases, item 47 scaled below 80², the Sources setting in
-> PLAN §5, `walkReach` and `levers` in the worker's response (#92). Next: the release candidate
-> (the batches, the review set). Defaults this session chose: decisions-pending #135–#149 (#135, #144,
-> #146 settled by D333).
+> PLAN §5, `walkReach` and `levers` in the worker's response (#92). CI green on c95d84ba; the nightly
+> settings experiment passes 32 of 34 locally (Verticality and Lakes and basins still weak). Next: the
+> release candidate (the batches, the review set). Defaults this session chose: decisions-pending
+> #135–#149 (#135, #144, #146 settled by D333).
 
 Kyler's decisions: PLAN §20 D252, D273–D278, D282, D286, D294 (the starting list from M9a's review
 set), D298 (the game's own soil rules). The yardstick: `docs/PERFECT.md`'s "Maps", "Water" and
