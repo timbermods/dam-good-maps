@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D342), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D343), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -76,66 +76,55 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 
 None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
 
-### Your checklist for the forces sitting (on the preview from `feature/glaciate`; refreshed on Tuesday with D312–D315)
+### Your checklist for the forces sitting (the preview from `feature/forces` at 9e14f189, 2026-09-29)
 
-One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refine this map**:
-1. **Erupt** (D226): steep and broad at high power (a peak, never a flat mesa; cones on the flanks; it completes); on low
-   ground and on high ground once the one ceiling (D244) is in.
-2. **Power and size apart:** Carve's Width and new **Depth**, Craterize's **Size**, Erupt's **Size**.
-3. **Quake:** Lift and Slide; Lift on a high map once the ceiling is in.
-4. **Unleash on a source** (D239): select a source, **Unleash** (or U); from a pool; drag to aim; Try another.
-5. **Brushes and sources** (D249): raise land over a group of sources with **Clear sources** on (they glow red and go with
-   the stroke) and off (they ride the ground: no pits, no pillars); hover near a source with any tool and press Delete; a
-   Remove drag that starts on a source takes only sources. Captures of both strokes will be in the forces' progress log.
-6. **Brushes:** the size number and slider in the options row (D226); Smooth without "make walkable" (D247); **Level
-   lines** now in the view bar beside Height colours, working with any tool (D248).
-7. **The shelf:** Water source, Badwater source, Start, Pine, … (D226).
-8. **Sounds:** louder by default; #64's recorded sounds for every action and force.
-9. From the ceiling probe (D244), what the probe can't do:
-   - the camera close to a summit (the volcano's peak, the 256² plateau): no dipping into the peak; the layer slider
-     shows and hides the top levels;
-   - building on the upper slopes (paths, stairs, a lodge, a pump, a tank at levels 17–22): builders reach them (stairs
-     are likely needed); stacking at 22 stops at level 32;
-   - the waterfall from 21 in play (dries in a drought, turns bad in a badtide);
-   - Timberborn's own map editor, two minutes: open a Ceiling map, save it under a new name, reopen: the summit stays 22.
-   The maps are in `C:\dgm-probe\ceiling\`.
-10. **Bound only by nature** (D257): run Carve, Craterize, Erupt and Quake straight through the start: each completes, and
-    the start lands on the nearest level ground; the checks dot says what broke, and its one-click fixes mend it.
-11. **Clean gestures** (D258): no route line, outline or footprint on the land before or during a force; Unleash, Strike,
-    Vent and Unleash on a source start on one click; Aim is a drag with only a thin arrow, gone as the force starts;
-    Quake's fault and Erupt's fissure still show as you draw them.
-12. **Select** (D259): its button on the bar; Circle and Brush shapes; Set level up to the ceiling and Ctrl+click for the
-    level; then, with a selection open, paint and use a force: nothing changes outside it, the edge meets the locked land
-    without a cliff, water still flows across; Ctrl+drag with a brush out, then keep painting; one row (the chip), Esc to
-    clear. **Wand** (D261): click a river, trim it to one stretch with Alt, then Raise, Smooth or Set level its bed: the
-    banks don't change, and the bed shows through clear water.
-13. **Water recedes** (D260): remove one of two sources feeding a wide sheet on flat raised land, then the other: the
-    water settles to what's fed, then drains, within a second or two; the removed source's marker and label go at once.
-14. **Smart Lower** (D263): hold a stroke out of a river across flat land, pausing on the way: the new channel's water is
-    about one tile deep all along, with no pit where it leaves; draw along it again: two deep. Plain Lower away from water
-    still digs deeper while held.
-15. **Map-wide Select actions** (D264): Ctrl+A, 16, **Cut down** on a tall map (nothing left above 16, nothing lower
-    touched); **Fill up** on a hollow; Wand a deep lake, **Max water depth** 3 (the same surface, 3 deep); the same on a
-    river (about 3 deep, and the report says so if any stayed deeper); each one undo step with its label.
-16. **The lean editor** (D287–D289): one Top-down toggle; no Dam sites, Moisture or Drought views; no Remove tool (Select, then
-    Delete: objects and sources go, the start stays; point at one thing and press Delete); each force's row is Power, Size, at most one
-    choice (Carve: river or dry canyon) and Try another, which varies the rest; Carve aimed through a rise.
-17. **Badwater on a riverbed** (D290): switch a source in an uneven river to badwater: it cuts a small level pool and stands; undo brings back
-    the ground and the clean source.
-18. **Glaciate** (D291, once round 4 is in and adopted): a click flows down a valley, a drag aims with only the arrow; Power, Size,
-    Meltwater, Try another; one river on the floor; the camera stays put.
-    Its More holds Benches, Steps, Tarn and Scree, each on Auto. The floor's one-river measurements and captures were made with
-    round 4's values (some benches, some steps, a tarn, scree); a click draws its own, so a glacier with many steps or sheer walls
-    hasn't been measured: say if the floor ever reads as more than one river.
-19. **The camera stays put** (D265): Carve, Unleash and Erupt run without the view moving; no Follow anywhere.
-20. **The forces' pace** (D266): Erupt swells in about four seconds, Carve runs as tuned, whatever the water's speed.
-21. **More, on each force** (D309, once built; the preview will be refreshed): open More; every detail says Auto; run a force and see
-    the values it took; pin one and Try another: the pinned detail stays, the others vary; pin all the shown values and it repeats.
-22. **From your sitting** (D312, D313; once built, the preview refreshed): the faint size ring on every force, growing with Power and
-    Size; Shift+click waypoints for Carve and Glaciate (Enter or a click launches, Backspace removes, Esc cancels); Erupt's land final
-    in about two seconds; Smooth's softer sound beside Flatten's; the quieter default volume.
-23. **Delete sources** (D315, once built): Ctrl+A, then Delete sources: every source goes, every tree and ruin stays, the water drains;
-    undo brings them all back.
+One sitting on <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refine this map**. Each line is
+one thing to try; say what feels wrong.
+
+**The forces** (batch 1, D321, D327)
+1. **Fast and Watch** (item 29): every force's land is final in about two seconds; **Watch** (beside Sound) plays it
+   about four times slower, and a click, a new gesture or Esc jumps to the end.
+2. **Nothing changes before the force reaches it** (item 30): watch a Glaciate or Carve in Watch; trees, sources and
+   water go only as it passes.
+3. **Esc and undo, at any moment** (D341): press Esc mid-force, right after release, while it settles: the map is
+   exactly as before, and nothing lands afterwards.
+4. **Floor** (item 40), last in every force's More: set it to 3 and dig hard; nothing goes below it.
+5. **Trees stay upright** (item 7) after heavy Quake and repeated forces.
+6. **Freehand paths** (item 41, D327): drag a path for Carve and Glaciate; drag a curved fault for Quake (Slide follows
+   the curve) and a curved fissure for Erupt. One size ring, where the cursor is (item 13).
+7. **Carve** (items 17, 25, 18): River depth 2 by default (or Off), Canyon depth, Banks (Auto): farmable flat banks
+   at the waterline, no thin standing sheet.
+8. **Erupt** (item 14): at Power 74, Steep, Heavy flows: a cone with a clear summit, never a shapeless mound.
+9. **Glaciate** is on the forces row with the others (D320).
+
+**The brushes** (batch 2, D322)
+10. **Target level** (item 37): Raise, Lower and Flatten work to the number beside the pointer; Shift+scroll or
+    Ctrl+click sets it; Esc lets it follow the ground again; past either end is **Free**. Precise is gone.
+11. **Hold F** and move: the size shows beside the pointer (the label bug is fixed).
+12. **Ground · Water · Both** (item 2) and **Sources: Ride · Keep · Clear** (item 31), remembered per brush; Clear on
+    a Flatten at the ground's own level still clears the sources and their water at once (item 15).
+13. **Size** up to half the map's width (item 42).
+14. A source's strength is now **Ctrl+scroll** over it; note that a trackpad pinch over a source changes its strength
+    instead of zooming.
+
+**Select, Delete, the shelf, shortcuts** (batch 3, D323, D328)
+15. **Delete** (items 1, 44): objects and sources first, then one ground level; Select's Delete is a menu with counts;
+    **Clear everything** in ⋯; the start can be deleted ("No start", and Save asks for one). Deleting a generated
+    start restores its ground (as you accepted).
+16. **Select** (items 6, 43): marking modes as icons, Up/Down one level, a level number with Flatten, Cut down, Fill
+    up to it, hover previews, **Whole map**.
+17. **Placing** (items 11, 32, D328): drag from the shelf; drag the Start to move it; on uneven ground an object levels
+    its own footprint (cut and fill to its usual level, natural edges); sources stay cut-only; one hint label.
+18. **Edge walls** on an edited map warn in the checks dot with **Lower the wall** (item 12), never blocking a save.
+19. **Keys** (item 16): Z undo, C redo, X closes the selection; Quake's flip is now **V**.
+20. **New sources** start at the game's defaults (item 46): water 1, badwater 3.
+21. **Generate** always makes a new map (item 20, D336): a typed seed pins it (a lock); an edited map stays one step
+    away with **Back to editing**; edits never replay onto new land.
+22. **The four rows** (item 9): view bar, tools, forces, the active tool's settings (structure only; the design pass
+    styles it). The notices sit in a strip under the map.
+
+Not in this sitting: the High look (its own sitting, #75), the parity batch (#95, after the forces release), Real
+places (parked, D319).
 
 ### 2. Released or merged
 
@@ -178,6 +167,10 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/> → **Refin
 Tuesday's session refreshes it with the forces sitting's changes and tells you.
 
 ### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
+
+- **2026-09-29, on Kyler's main PC, on his YES** (settings backed up to `C:dgm-probesettings-backup6-09-29T22-36-02`; registry unchanged, nothing left behind; only Steam's `steam_autocloud.vdf` files changed):
+  - **M9b** (`m9b-20260929b`, `feature/m9b` at 7695e6a8, 18 maps): 14 pass every check, both 256² chaos maps included. The two Sources: None maps fail only the water check's handling of an empty map (0/0 wet tiles). River Valley and Lake Basin 128² seed 2 diverge from the game from day 7, when the water refills after the drought (the model refills more); with M9b.
+  - **3D, T1–T6** (`terrain3d-20260929`, `feature/terrain3d-a` at 24b88b9b, with the support check's timing fix): every check passes; walking and pumps not measurable, as before. Erode had no in-game maps yet.
 
 1. **M9a** (`20260927-0853-batch`, 15 maps, 40 min): **98 passed, 5 failed**, so no tag yet. Every map loads; objects, terrain and the
    tall map pass. The cause of most failures, found by M9a: our files write the water's flows as zero (as the official maps ship),
@@ -544,7 +537,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D342.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D343.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
