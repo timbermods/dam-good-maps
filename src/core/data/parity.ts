@@ -1,5 +1,5 @@
 // The game's own values for the objects the shelf places by the game's editor's rules (PLAN §20 D337,
-// D338, D339), read from Timberborn 1.1.2.4's blueprints and code and pinned in parity.json by
+// D338, D339), read from Timberborn 1.1.2.4's blueprints and code and pinned in parity-values.json by
 // tools/export-parity.ts (never edit the JSON by hand). Everything here is a fact of the game, in our own
 // words; the game's files are not in the repository.
 //
@@ -21,7 +21,7 @@
 // - the reserves: `StockpileSpec` (capacity and the type of good it holds) and the map editor's fixed-stockpile
 //   panel (`FixedStockpileInventorySetter`: a new one holds the first good of its type, in full).
 
-import data from "./parity.json" with { type: "json" };
+import data from "./parity-values.json" with { type: "json" };
 
 /** The most a water object emits for each tile it emits into (`MaxWaterSourceStrength`). */
 export const MAX_STRENGTH_PER_TILE: number = data.maxStrengthPerTile;

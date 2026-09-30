@@ -145,7 +145,7 @@ Measured on 17 of the 19 official maps (Nomads and Oasis left out; Beaverome's t
   middle 80%, one of 40 at most), the long side about twice the short (median 2.0, 1.4 to 3.5), filling 0.62 of the box along its
   long axis (0.48 to 0.73), each thorn touching 3.5 others of its 8 neighbours (2.8 to 4.2). Each thorn is turned and flipped
   at random. The editor's Thorns brush grows patches of these numbers (`THORN_PATCH` in `src/core/gen/paint.ts`).
-- **The game's other editor objects (D337, D338, D339)** are pinned in [`src/core/data/parity.json`](../src/core/data/parity.json)
+- **The game's other editor objects (D337, D338, D339)** are pinned in [`src/core/data/parity-values.json`](../src/core/data/parity-values.json)
   by `tools/export-parity.ts` (read from the installed game's blueprints, never copied in): the Badtide Drain is 1 x 3 (one tile
   emits, strength 1, badwater, active only in a badtide); seeps are 2 x 2 (four tiles, limit 0.8 deep, back on at 0.72; the
   Badwater seep too); a strength is at most 8 for each tile an object emits into; the Unstable Core has radius 0 to 5 (5 by

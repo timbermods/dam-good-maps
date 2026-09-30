@@ -1,8 +1,8 @@
 // The game's values for the objects the shelf places by the game's rules (PLAN §20 D337, D338, D339), read from the
-// installed game's blueprints and pinned in src/core/data/parity.json (parity.ts says where each value comes from).
+// installed game's blueprints and pinned in src/core/data/parity-values.json (parity.ts says where each value comes from).
 //
 //   npx tsx tools/export-parity.ts            prints what it read
-//   npx tsx tools/export-parity.ts --write    also pins it in src/core/data/parity.json
+//   npx tsx tools/export-parity.ts --write    also pins it in src/core/data/parity-values.json
 //   npx tsx tools/export-parity.ts --check    fails if the pinned file is for another game version or differs
 //
 // Reads Timberborn_Data/StreamingAssets/Modding/Blueprints.zip and Localizations.zip (read only, never copied into
@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 
 const GAME = process.env.DGM_GAME_DIR ?? "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Timberborn";
-const OUT = join(import.meta.dirname, "..", "src", "core", "data", "parity.json");
+const OUT = join(import.meta.dirname, "..", "src", "core", "data", "parity-values.json");
 const MODDING = join(GAME, "Timberborn_Data", "StreamingAssets", "Modding");
 
 type Blueprint = Record<string, any>;
@@ -102,8 +102,8 @@ if (process.argv.includes("--write")) {
 } else if (process.argv.includes("--check")) {
   const pinned = JSON.parse(readFileSync(OUT, "utf8"));
   if (JSON.stringify(pinned) !== JSON.stringify(JSON.parse(text))) {
-    console.error(`src/core/data/parity.json is not what the installed game (${version}) says: rerun tools/export-parity.ts --write`);
+    console.error(`src/core/data/parity-values.json is not what the installed game (${version}) says: rerun tools/export-parity.ts --write`);
     process.exit(1);
   }
-  console.log(`src/core/data/parity.json matches the game (${version})`);
+  console.log(`src/core/data/parity-values.json matches the game (${version})`);
 } else console.log(text);

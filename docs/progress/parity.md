@@ -6,7 +6,7 @@ Branch `feature/parity`, made from `feature/select-shelf-2`; the draft PR goes i
 
 ## What was built
 
-- **The game's values, pinned.** [`src/core/data/parity.json`](../../src/core/data/parity.json) holds what the installed game's
+- **The game's values, pinned.** [`src/core/data/parity-values.json`](../../src/core/data/parity-values.json) holds what the installed game's
   blueprints say (1.1.2.4), regenerated and checked by `npx tsx tools/export-parity.ts [--write|--check]` (read only from
   `Modding\Blueprints.zip` and `Localizations.zip`; nothing is copied into the repository). `src/core/data/parity.ts` reads it.
   - Water objects: WaterSource 1x1 (default 1), BadwaterSource 3x3 (3), Water and Badwater Seep 2x2 (default 1, depth limit 0.8,
