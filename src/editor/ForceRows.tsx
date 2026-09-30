@@ -92,7 +92,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
         <span class="bar-status" role="status">
           {st.stopping ? "Settling…" : doing}
         </span>
-        <button type="button" disabled={st.stopping} onClick={p.onRevert} title="Take all of it back (Esc)">
+        <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
           Revert
         </button>
       </div>

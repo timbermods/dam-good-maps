@@ -8,6 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
+import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -91,7 +92,8 @@ async function click(page: Page, at: [number, number]) {
 }
 
 async function kept(page: Page) {
-  await expect.poll(() => status(page), { timeout: 60_000 }).toBeNull();
+  await expect.poll(async () => (await timing(page))?.kept ?? 0, { timeout: 60_000 }).toBeGreaterThan(0);
+  expect(await status(page)).toBeNull();
   await idle(page);
 }
 
@@ -117,23 +119,39 @@ test("Fast (the default): each force's land is final within about two seconds of
     await kept(page);
     const t = (await timing(page))!;
     expect(t.final, c.name).toBeGreaterThan(0);
-    // about two seconds from the gesture on a GPU (a busy machine's frames add a little); where the
-    // browser draws in software (CI), each frame costs the page far more: there the pacing is checked
-    // by forceDriver.test and the wall clock only bounded, as Erupt's (c90e071b)
-    console.log(`${c.name}: worked out ${t.worked} ms, land final ${t.final} ms${software ? " (software rendering)" : ""}`);
-    expect(t.final, c.name).toBeLessThan(software ? 8000 : 2600);
+    // its land final within about two seconds of the gesture, as the page plans its showing (or just
+    // after a slow working-out, never less than a short showing). D341: the plan is checked here, the
+    // driver keeps to it on exact time (forceDriver.test); the wall clock is information, a busy or
+    // software-drawing machine's frames only adding to it (DGM_BENCH_FORCES times the real thing)
+    console.log(`${c.name}: worked out ${t.worked} ms, land final ${t.final} ms (planned ${t.due})${software ? " (software rendering)" : ""}`);
+    expect(t.speed, c.name).toBe("fast");
+    expect(t.due, c.name).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
     await page.keyboard.press("Control+z");
     await idle(page);
   }
-  // Watch: remembered; a carve plays on past Fast's two seconds, and a click jumps it to its end
+  // Watch: remembered; a carve plays out about four times Fast's own, and a click jumps it to its end.
+  // (The click comes in the page frame that sees it showing, so it finds it at work on any machine.)
   await watch.click();
   await expect(watch).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("7");
   const n0 = (await labels(page)).length;
   await drag(page, s.high, s.low);
-  await page.waitForTimeout(2500);
-  expect((await status(page))?.speed).toBe("watch");
-  await click(page, s.mid);
+  const seen = await page.waitForFunction(
+    () => {
+      const st = window.dgmEditor!.force();
+      const t = window.dgmEditor!.forceTiming();
+      if (!st || !t || st.steps < 1) return false;
+      document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      return { speed: st.speed, show: t.show, total: t.total };
+    },
+    null,
+    { timeout: 60_000 },
+  );
+  const w = (await seen.jsonValue()) as { speed: string; show: number; total: number };
+  expect(w.speed).toBe("watch");
+  expect(w.show).toBe(showMs("carve", w.total, "watch", 0));
+  expect(w.show).toBeGreaterThan(FAST_MS);
+  expect(w.show).toBeLessThanOrEqual(WATCH_FACTOR * FAST_MS);
   await kept(page);
   expect((await labels(page)).length).toBe(n0 + 1);
   await page.reload();

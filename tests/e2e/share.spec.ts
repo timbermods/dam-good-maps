@@ -42,7 +42,10 @@ test("changing a setting and generating puts it in the link", async ({ page }) =
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.locator("summary", { hasText: /^Water$/ }).click();
   await page.getByLabel("Waterfalls").selectOption("many");
+  const first = await page.evaluate(() => window.dgm!.current!()?.sha256);
   await page.getByRole("button", { name: /Generate/ }).click();
+  // (the new map, not the first one's card still showing: generating takes its time on a slow machine)
+  await expect.poll(() => page.evaluate(() => window.dgm!.current!()?.sha256), { timeout: 120_000 }).not.toBe(first);
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await expect(page).toHaveURL(/&wf=m/);
   const shown = await page.evaluate(() => window.dgm!.current!());

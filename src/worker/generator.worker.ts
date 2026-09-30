@@ -128,13 +128,15 @@ const api = {
   forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
   /** Try another: the last kept force again, with the next seed. `pins`: the row's current
    *  per-detail state (D309); left out, every detail re-rolls. */
-  forceAgain: (pins?: Record<string, unknown>) => sendStarted(ed.forceAgain(pins)),
+  forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
   forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
   /** A painted Lift's fault as it is painted now. */
   forcePaint: (path: ed.ForcePoint[], side: 1 | -1) => sendFrame(ed.forcePaint(path, side)),
-  forceStop: () => sendUpdate(ed.forceStop()),
-  forceCancel() {
-    const v = ed.forceCancel();
+  /** Keep the force at work (`gesture`: only if it is that one, D341). */
+  forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+  /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
+  forceCancel(gesture?: number) {
+    const v = ed.forceCancel(gesture);
     return transfer(v, viewBuffers(v) as Transferable[]);
   },
   // (the carve's own calls)

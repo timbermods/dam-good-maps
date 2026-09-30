@@ -8,7 +8,7 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type SessionMode } from "../core/doc/session";
+import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import {
   deleteEdit,
@@ -920,6 +920,8 @@ export function closeSession(): void {
   stopWater();
   force = null;
   series = null;
+  lastKept = null;
+  takenBack.clear();
   session = null;
   sent = null;
   originalFull = null;
@@ -1764,6 +1766,9 @@ export type ForceRequest = (
   /** The editor's row (D289): the choices it doesn't show are drawn from the land and the seed
    *  (nature.ts), again at each Try another. */
   natural?: boolean;
+  /** The gesture's own name (D341): Esc or undo for it (`forceCancel`) reaches this force whenever it
+   *  arrives. Left out, the worker names it. */
+  gesture?: number;
 };
 
 /** A carve to start: the carve's own request (kept for the carve's calls). */
@@ -1813,12 +1818,26 @@ export interface ForceStarted {
   settings: AnyForceSettings | null;
   /** Which force (Try another: the kept one's). */
   verb?: Verb;
+  /** Its gesture (D341): what `forceCancel` names to take it back. */
+  gesture?: number;
+}
+
+/** What Esc or undo took back (`forceCancel`): the force at work, a force already kept (as if it had
+ *  never been: its step gone from the history, what Redo held back as it was), or nothing; the map's
+ *  view as it now stands, and the session's news when the history changed. */
+export interface ForceTakenBack extends ViewUpdate {
+  taken: "work" | "kept" | null;
+  info?: SessionInfo;
+  /** Why nothing was taken back, when a kept force was named. */
+  reason?: string;
 }
 
 /** The force at work: its run on its own copy of the map, the map it started from (its result is
  *  against it), and what the page shows of it. */
 let force: {
   session: MapSession;
+  /** Its gesture (D341). */
+  gesture: number;
   verb: Verb;
   carve: CarveRun | null;
   /** A carve as the page is shown it: worked out first, then played back (carve/play.ts). */
@@ -1847,7 +1866,24 @@ const CARVE_PLAN_MS = 24;
 /** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
  *  again from its original land, with the next seed, while one of them is the latest step of the
  *  history. */
-let series: { session: MapSession; seqs: Set<number>; base: FullForceMap; state: TerrainState; request: ForceRequest; nextSeed: number } | null = null;
+interface ForceSeries {
+  session: MapSession;
+  seqs: Set<number>;
+  base: FullForceMap;
+  state: TerrainState;
+  request: ForceRequest;
+  nextSeed: number;
+}
+let series: ForceSeries | null = null;
+
+/** Esc or undo leaves the map exactly as it was before the gesture, whenever it arrives, and nothing
+ *  lands afterwards (PLAN §20 D341). The page names each force it starts (its gesture), so the rule
+ *  holds here, whatever the order the calls arrive in: a gesture taken back before its start reached
+ *  the worker never starts; one at work is dropped; one already kept (its keep was on its way when
+ *  Esc came) is taken back as if it had never been kept, while its step is still the latest. */
+let gestureLast = 0;
+const takenBack = new Set<number>();
+let lastKept: { gesture: number; session: MapSession; mark: HistoryMark; series: ForceSeries | null; seq: number } | null = null;
 
 /** Water a kept force hands on: the map's water carries on flowing from it. */
 let handoff: WarmState | null = null;
@@ -1982,6 +2018,10 @@ function refusal(e: unknown): string {
 }
 
 function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replaces?: number, state: TerrainState = s.terrainState()): ForceStarted {
+  // (its gesture, D341: one taken back before it got here never starts)
+  const gesture = req.gesture ?? gestureLast + 1;
+  if (takenBack.delete(gesture)) return refuse("That force was taken back");
+  gestureLast = Math.max(gestureLast, gesture);
   const { W, H } = base;
   const N = W * H;
   if (req.natural) req = naturalRequest(req, base);
@@ -2086,6 +2126,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   draftToken++;
   force = {
     session: s,
+    gesture,
     verb: req.verb,
     carve,
     play: carve ? new CarvePlay(carve) : null,
@@ -2100,7 +2141,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     heatSent: false,
     viewAt: -Infinity,
   };
-  return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb };
+  return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb, gesture };
 }
 
 /** The editor's force (D289): the choices its row doesn't show, drawn from the ground where it acts
@@ -2140,7 +2181,7 @@ export function forceStart(req: ForceRequest): ForceStarted {
  *  force started without `natural` (a plain caller, its settings already exact) keeps them exactly,
  *  as before D309: nature.ts never ran for it, so there is nothing to reset. Kept, it replaces that
  *  one (one undo step brings the earlier one back); every try takes a seed. */
-export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
+export function forceAgain(pins?: Record<string, unknown>, gesture?: number): ForceStarted {
   const s = need();
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
@@ -2148,7 +2189,9 @@ export function forceAgain(pins?: Record<string, unknown>): ForceStarted {
   const settings: Record<string, unknown> = { ...sr.request.settings, ...(sr.request.natural ? { ...autoDetailsOf(sr.request.verb), ...pins } : {}), seed: sr.nextSeed };
   // (a pin sent as undefined is back to its default: the Floor at 1 is no floor in the record)
   for (const [k, v] of Object.entries(settings)) if (v === undefined) delete settings[k];
-  const req = { ...sr.request, settings, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as unknown as ForceRequest;
+  // (a gesture of its own: the kept force's is not this one's)
+  const req = { ...sr.request, settings, gesture, ...(sr.request.verb === "quake" ? { painting: false } : {}) } as unknown as ForceRequest;
+  if (gesture === undefined) delete req.gesture;
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
 
@@ -2266,15 +2309,37 @@ function restoreView(s: MapSession): ViewUpdate {
   return view;
 }
 
-/** Esc (or undo) while a force is at work: all of it goes at once, and the map's water carries on. */
-export function forceCancel(): ViewUpdate {
+/** Esc (or undo) for a force (D341): all of it goes at once, whenever it arrives, and the map's water
+ *  carries on. `gesture` names the force (the page's); left out, the force at work. At work, it is
+ *  dropped; already kept and still the latest step (its keep was on its way when Esc came), it is
+ *  taken back as if it had never been kept; not started yet, it never will. */
+export function forceCancel(gesture?: number): ForceTakenBack {
+  const t0 = performance.now();
   const f = force;
-  force = null;
   const s = session;
-  if (!f || !s || f.session !== s) return {};
-  const view = restoreView(s);
-  kickWater();
-  return view;
+  if (f && (gesture === undefined || f.gesture === gesture)) {
+    force = null;
+    if (!s || f.session !== s) return { taken: null };
+    const view = restoreView(s);
+    kickWater();
+    return { ...view, taken: "work" };
+  }
+  if (gesture === undefined) return { taken: null };
+  const k = lastKept;
+  if (k && k.gesture === gesture && s && k.session === s) {
+    lastKept = null;
+    if (!s.takeBack(k.mark)) return { taken: null, reason: "Something changed the map since: undo takes it back" };
+    // (Try another's series as it was before it)
+    if (series && series === k.series) series.seqs.delete(k.seq);
+    else series = k.series;
+    // (the map's water flows on from the water before the force, not the force's)
+    stopWater();
+    const u = changed(s, true, [], t0);
+    // (the whole view, not what changed since the keep: the page may never have shown the keep)
+    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info };
+  }
+  if (gesture > gestureLast) takenBack.add(gesture);
+  return { taken: null };
 }
 
 export const carveCancel = forceCancel;
@@ -2309,12 +2374,14 @@ function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord
 
 /** Keep the force (Stop, or it ended by itself; a painted Lift let go): what it has done, as one
  *  operation and one undo step. The water it shows flows on into the map's settled water. */
-export function forceStop(): SessionUpdate & { kept: boolean } {
+export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   const t0 = performance.now();
   const s = need();
   const f = force;
+  if (f && f.session !== s) force = null;
+  // (a gesture taken back is never kept, D341: nothing lands after Esc)
+  if (!f || f.session !== s || (gesture !== undefined && f.gesture !== gesture)) return { ...changed(s, false, ["There is no force at work"], t0), kept: false };
   force = null;
-  if (!f || f.session !== s) return { ...changed(s, false, ["There is no force at work"], t0), kept: false };
   const refused = (errors: string[]) => {
     const view = restoreView(s);
     kickWater();
@@ -2365,6 +2432,8 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
     if (params.felled) params.felled = params.felled.filter((m) => here.has(m.id));
   }
   handoff = water;
+  // (where the history stood: its Esc, arriving after this keep, takes it back exactly, D341)
+  const mark = s.mark();
   const res = s.apply({ op: "forceResult", params }, "user");
   if (!res.ok) {
     handoff = null;
@@ -2372,8 +2441,11 @@ export function forceStop(): SessionUpdate & { kept: boolean } {
   }
   carryStart(s, params);
   const seq = lastSeq(s)!;
+  const seriesBefore = series;
   if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
   else series = { session: s, seqs: new Set([seq]), base: f.before, state: f.state, request: f.request, nextSeed: f.request.settings.seed ?? 0 };
+  const step = s.stepSince(mark);
+  lastKept = step ? { gesture: f.gesture, session: s, mark: step, series: seriesBefore, seq } : null;
   const u = changed(s, true, [], t0);
   handoff = null;
   // the page shows the force's water: the map's water flows on from it, not from the water before

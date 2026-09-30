@@ -498,7 +498,7 @@ Make a valley, drop a source, and there's a river.
     the origin), then played back at Fast's or Watch's pace (D321), the land and the objects changing only as the head
     reaches them and the water as it was until the land is final;
   - Space pauses it; it keeps itself when it ends (no Stop, D289); Esc (in Fast) or Ctrl+Z (or undo) reverts the whole
-    carve instantly.
+    carve instantly, at any moment until it is kept, its keep on its way included (D341); once kept, undo does.
 
   The water cuts its own gorge or valley, with floodplains and a delta. An oxbow lake holds its
   water behind its sediment; with nothing feeding it, it evaporates over time, as in the game. Its
@@ -1023,8 +1023,15 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
   `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Watch, `WATCH_FACTOR` (four) times
   Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as Esc
-  would. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks Fast through the
-  page (with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
+  would. **Esc or undo at any moment leaves the map exactly as it was before the gesture, and nothing lands
+  afterwards** (D341): each force the page starts is a gesture with its own name (`ForceRequest.gesture`), and
+  `forceCancel(gesture)` holds the rule in the worker whatever it has reached: not started yet, it never starts; at
+  work, it is dropped; kept already (Esc came while its keep was on its way), it is taken back as if never kept,
+  its step gone and Redo as it was (`MapSession.mark`, `stepSince`, `takeBack`), while that step is still the latest.
+  The page's keep sends nothing once Esc has come; Revert stays live while a force is being kept. The driver's time
+  is a clock it is given (`ForceClock`): `tests/contract/forceEsc.test.ts` steps it and presses Esc at every moment
+  of every force's run, in Fast and Watch. `tools/bench-forces.ts` times the worker's own cost; `tests/e2e/forceSpeed.spec.ts` checks through the
+  page the showing the driver plans for Fast and Watch (never a busy machine's wall clock, D341; it prints the times, and with `DGM_BENCH_FORCES=1`, each force's largest case at 128² and 256²). Which builds show the forces:
   `src/editor/release.ts` (D219).
 - "Move the start here" (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for a spot on
   the stroke's level ground where the district center stands (its footprint and door level and dry,
