@@ -1,0 +1,122 @@
+diff --git a/src/core/library/firstVisit.ts b/src/core/library/firstVisit.ts
+index 9d63828c..a18cc865 100644
+--- a/src/core/library/firstVisit.ts
++++ b/src/core/library/firstVisit.ts
+@@ -13,38 +13,9 @@ import { mapName } from "../gen/pack";
+ import { encodeSpecFragment, makeSpec, THEME_NAMES, type ThemeId } from "../spec/mapspec";
+ import { validateMap } from "../validate/checks";
+
+-export const FIRST_VISIT_FORMAT = 1;
+-/** Their folder under the site's base, and in the repository under public/. */
+-export const FIRST_VISIT_DIR = "first-visit";
+-export const FIRST_VISIT_SIZE = 128;
+-
+-export interface FirstVisitMap {
+-  id: string;
+-  /** The project file, relative to the index. */
+-  file: string;
+-  name: string;
+-  theme: ThemeId;
+-  seed: number;
+-  /** The map's share fragment (its spec). */
+-  fragment: string;
+-  /** The project file's size, and the sha256 of the .timber the map exports as generated. */
+-  bytes: number;
+-  sha256: string;
+-}
+-
+-export interface FirstVisitIndex {
+-  format: 1;
+-  /** The generator that made them: a page on another version generates live instead. */
+-  generatorVersion: string;
+-  size: number;
+-  maps: FirstVisitMap[];
+-}
+-
+-/** One map at random, or null when there is none for this generator (the page generates live). */
+-export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: string, random: () => number = Math.random): FirstVisitMap | null {
+-  if (!index || index.format !== FIRST_VISIT_FORMAT || index.generatorVersion !== generatorVersion || !index.maps.length) return null;
+-  return index.maps[Math.min(index.maps.length - 1, Math.floor(random() * index.maps.length))];
+-}
++export { FIRST_VISIT_FORMAT, FIRST_VISIT_DIR, FIRST_VISIT_SIZE, pickFirstVisit } from "./firstVisitPicker";
++import { FIRST_VISIT_SIZE, type FirstVisitMap } from "./firstVisitPicker";
++export type { FirstVisitMap, FirstVisitIndex } from "./firstVisitPicker";
+
+ /** Why a generated map can't be a first-visit map, one plain reason each (none: it can):
+  *  - the generator's own report fails (every blocking check, the starting-logs floor among them,
+diff --git a/src/core/library/firstVisitPicker.ts b/src/core/library/firstVisitPicker.ts
+new file mode 100644
+index 00000000..939bc383
+--- /dev/null
++++ b/src/core/library/firstVisitPicker.ts
+@@ -0,0 +1,36 @@
++// Browser-safe first-visit metadata and selection. Build-time generation stays in firstVisit.ts.
++import type { ThemeId } from "../spec/mapspec";
++
++export const FIRST_VISIT_FORMAT = 1;
++/** Their folder under the site's base, and in the repository under public/. */
++export const FIRST_VISIT_DIR = "first-visit";
++export const FIRST_VISIT_SIZE = 128;
++
++export interface FirstVisitMap {
++  id: string;
++  /** The project file, relative to the index. */
++  file: string;
++  name: string;
++  theme: ThemeId;
++  seed: number;
++  /** The map's share fragment (its spec). */
++  fragment: string;
++  /** The project file's size, and the sha256 of the .timber the map exports as generated. */
++  bytes: number;
++  sha256: string;
++}
++
++export interface FirstVisitIndex {
++  format: 1;
++  /** The generator that made them: a page on another version generates live instead. */
++  generatorVersion: string;
++  size: number;
++  maps: FirstVisitMap[];
++}
++
++/** One map at random, or null when there is none for this generator (the page generates live). */
++export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: string, random: () => number = Math.random): FirstVisitMap | null {
++  if (!index || index.format !== FIRST_VISIT_FORMAT || index.generatorVersion !== generatorVersion || !index.maps.length) return null;
++  return index.maps[Math.min(index.maps.length - 1, Math.floor(random() * index.maps.length))];
++}
++
+diff --git a/src/page/firstVisit/load.ts b/src/page/firstVisit/load.ts
+index da670186..efbfbef6 100644
+--- a/src/page/firstVisit/load.ts
++++ b/src/page/firstVisit/load.ts
+@@ -3,7 +3,7 @@
+ // returns null and the page generates live, as every later Generate does.
+
+ import { GENERATOR_VERSION } from "../../core/spec/mapspec";
+-import { FIRST_VISIT_DIR, pickFirstVisit, type FirstVisitIndex, type FirstVisitMap } from "../../core/library/firstVisit";
++import { FIRST_VISIT_DIR, pickFirstVisit, type FirstVisitIndex, type FirstVisitMap } from "../../core/library/firstVisitPicker";
+
+ export const FIRST_VISIT_URL = `${import.meta.env.BASE_URL}${FIRST_VISIT_DIR}/`;
+
+diff --git a/src/page/firstVisit/start.ts b/src/page/firstVisit/start.ts
+new file mode 100644
+index 00000000..f2971599
+--- /dev/null
++++ b/src/page/firstVisit/start.ts
+@@ -0,0 +1,15 @@
++// Adoption seam: the workspace starts its renderer/editor and first map together.
++// Supply the existing worker API; errors keep the workspace's usual fallback policy.
++import { loadFirstVisit } from "./load";
++
++export async function startFirstVisit<T, U>(
++  loadEditor: () => Promise<T>,
++  openProject: (bytes: Uint8Array) => Promise<U>,
++  random: () => number = Math.random,
++): Promise<{ editor: T; opened: U; map: NonNullable<Awaited<ReturnType<typeof loadFirstVisit>>>["map"] } | null> {
++  const [editor, first] = await Promise.all([
++    loadEditor(),
++    loadFirstVisit(random).then(async (first) => first ? { opened: await openProject(first.project), map: first.map } : null),
++  ]);
++  return first ? { editor, ...first } : null;
++}

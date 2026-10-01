@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "node prepare.mjs",
+    "measure": "node measure.mjs",
+    "gate": "node gate.mjs",
+    "test": "node --test tests.mjs cache-tests.mjs"
+  }
+}
