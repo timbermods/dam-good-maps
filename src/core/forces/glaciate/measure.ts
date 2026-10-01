@@ -193,7 +193,8 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
 
 /** One cross-section of the land a glacier left (D368 (3)): at `arc` tiles down its path, the span of
  *  ground it changed through its middle (`width`); on the third of that span round its centreline, how
- *  far it lowered the ground (`floor`, the median) and the level it left (`level`, the median); the
+ *  far it lowered the ground (`floor`, the median); the lowest level it left on its centreline (`level`,
+ *  within a tile of it: its floor's); the
  *  most it lowered any tile on the section (`deepest`: its walls' height) and the levels it took out
  *  across it (`area`). */
 export interface GlacierSection {
@@ -208,7 +209,7 @@ export interface GlacierSection {
 /** The cross-sections of a glacier's result along its path (the stations' middles, tiles + 0.5), one
  *  a station from `fromArc` tiles down it to `toArc`: information for the tests and the captures of
  *  Power and Size (D368 (3)), never a gate. A section runs square to the path, out from its middle
- *  until three tiles in a row are unchanged. */
+ *  until six tiles in a row are unchanged (a light scour leaves some of its valley as it was). */
 export function glacierSections(before: ArrayLike<number>, after: ArrayLike<number>, W: number, H: number, path: readonly { x: number; y: number }[], fromArc = 0, toArc = Infinity): GlacierSection[] {
   const out: GlacierSection[] = [];
   let arc = 0;
@@ -229,7 +230,7 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
     };
     const reach = (dir: 1 | -1) => {
       let last = 0;
-      for (let t = dir, quiet = 0; Math.abs(t) <= 80 && quiet < 3; t += dir) {
+      for (let t = dir, quiet = 0; Math.abs(t) <= 80 && quiet < 6; t += dir) {
         const c = cut(t);
         if (c === null) break;
         if (c !== 0) {
@@ -248,7 +249,7 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
     const levels: number[] = [];
     for (let t = Math.max(lo, -third); t <= Math.min(hi, third); t++) {
       middle.push(Math.max(0, cut(t) ?? 0));
-      levels.push(after[Math.floor(q.y + ny * t) * W + Math.floor(q.x + nx * t)]);
+      if (Math.abs(t) <= 1) levels.push(after[Math.floor(q.y + ny * t) * W + Math.floor(q.x + nx * t)]);
     }
     middle.sort((x, y) => x - y);
     levels.sort((x, y) => x - y);
@@ -259,7 +260,7 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
       deepest = Math.max(deepest, c);
       area += Math.max(0, c);
     }
-    out.push({ arc, width, floor: middle[middle.length >> 1], level: levels[levels.length >> 1], deepest, area });
+    out.push({ arc, width, floor: middle[middle.length >> 1], level: levels[0], deepest, area });
   }
   return out;
 }

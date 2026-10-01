@@ -89,12 +89,13 @@ export interface Hanging {
   joinLength: number;
 }
 
-/** Its defaults: Power 100 (round 4's glacier in full, the deep U-shaped valley Kyler approved; lower
- *  Powers carve shallower, D368 (3)), Auto size, Meltwater on, and the demo's first personality. */
-export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 100, size: null, meltwater: true, seed: 891 };
+/** Its defaults: Power 60, a middle depth like the other forces' (Power 100 is round 4's glacier in full,
+ *  the deep U-shaped valley Kyler approved; lower Powers lift it toward a light scour, D368 (3)), Auto
+ *  size, Meltwater on, and the demo's first personality. */
+export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 60, size: null, meltwater: true, seed: 891 };
 
 /** The Power round 4's glacier was designed at (the investigation's default): the plan is always round
- *  4's, as deep as it was there, and Glaciate's Power scales it afterwards (`glacierStrength`). */
+ *  4's, as deep as it was there, and Glaciate's Power lifts it afterwards (`shallowGlacier`). */
 export const ROUND4_POWER = 60;
 
 /** Size's range in tiles (the row's slider). */

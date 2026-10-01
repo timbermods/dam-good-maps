@@ -380,15 +380,19 @@ editor is desktop-first (D185).
   more draws the line, which shows as it is drawn, and on release the glacier grinds along it through the ridges, the
   way it was drawn (the line resampled every two tiles, smoothed into one curve); nothing predicts the valley on the
   land (D258); its operation keeps the line (`where.path`). Its ring at the cursor shows its width, its Size (D312;
-  how big, never what shape). **Power is how deep the ice carves, Size how wide** (D368 (3);
-  `core/forces/strength.ts`): the plan is always round 4's glacier, as deep as round 4 made it, and Power scales every
-  level it changes (`glacierStrength`), from a light scour at Power 0 (about an eighth as deep, every tile it reaches
-  still a level down) evenly to round 4's deep U-shaped valley in full at Power 100, its default (so the default
-  glacier is the one Kyler approved). Size is its width alone. Neither drives the other: how far it flows, the relief
-  its depth is measured from and its Auto Size (30) are round 4's whatever the Power (`FLOW_REACH`, `RELIEF_SPAN`,
-  `GLACIATE_AUTO_SIZE`); `tests/contract/glaciatePowerSize.test.ts` measures it across its valley
-  (`glacierSections`). A glacier below Power 100 leaves its floor less even than round 4's, and its water spreads
-  wider over it. Its row is **Power**, **Size** (Auto: 30)
+  how big, never what shape). **Power is how deep the ice carves, Size how wide** (D368 (3), amended): lower Power
+  makes the glacier shallower and changes nothing else. Power 100 is round 4's glacier in full, the deep U-shaped
+  valley Kyler approved; below it the plan lifts each station's floor toward a level under the valley's bottom there
+  (`liftFloors` in `glaciate/plan.ts`, by `glacierDepth`'s share, running only downhill and staying over a river
+  already in its way), never fills the ground under it, and cuts no tile deeper than `glacierCut` allows (1 level at
+  Power 0, a light scour; 6 at 50; channels and pools two more), all before its river, falls, tarn and water checks
+  are laid, so they are laid on the shallower floor as on round 4's: at every Power the valley is a U and its water
+  lies in a channel or a tarn, never a sheet (`tests/contract/glaciateFloor.test.ts`). Scaling every level instead
+  flattened the profile and stranded the water. Its default Power is 60, a middle depth like the other forces'.
+  Size is its width alone. Neither drives the other: how far it flows, the relief its depth is measured from and its
+  Auto Size (30) are round 4's whatever the Power (`FLOW_REACH`, `RELIEF_SPAN`, `GLACIATE_AUTO_SIZE`);
+  `tests/contract/glaciatePowerSize.test.ts` measures it across its valley (`glacierSections`). Its row is
+  **Power**, **Size** (Auto: 30)
   and **Meltwater** (on by default), with **Try another** once one is kept (D289), and **More** (D309): its **Benches**
   (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,

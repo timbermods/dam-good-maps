@@ -34,6 +34,9 @@ import * as ed from "../../src/worker/session";
 import { storedMap } from "../../investigation/forces-core/core/map";
 import { makePlan as protoPlan } from "../../investigation/glaciate/model";
 
+/** Round 4's glacier in full: Power 100 (D368 (3), amended: lower Powers lift it). */
+const FULL = { ...GLACIATE_DEFAULTS, power: 100 };
+
 const history = () => ed.sessionInfo().history.filter((h) => h.applied);
 const lastOp = () => history().at(-1)!;
 
@@ -96,7 +99,7 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
         for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.min(m.maxHeight, m.heights[i] + raise);
         for (const e of m.entities) e.z = Math.min(m.maxHeight, e.z + raise);
         const intent = { origin: y * m.W + x, ...(end ? { end: end[1] * m.W + end[0] } : {}) };
-        const settings = { ...GLACIATE_DEFAULTS, mode: end ? ("aim" as const) : ("flow" as const) };
+        const settings = { ...FULL, mode: end ? ("aim" as const) : ("flow" as const) };
         const p = makePlan(snapshotMap(m), settings, intent, undefined, false);
         const what = `${x},${y} raised ${raise}`;
         for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] < Math.min(m.heights[i], FLOOR_DEFAULT)) expect.fail(`${what}: tile ${i} below the Floor`);
@@ -113,21 +116,19 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
 
   it("finishes the floor's water (D292): the river visits the falls' pools and inflows, no join runs along a wall's foot, and the game's water keeps off the dry floor", () => {
     const m = fixture("canyon-128");
-    const p = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
+    const p = makePlan(snapshotMap(m), FULL, { origin: 22 * m.W + 22 });
     expect(p.finished.style).toBe("visits");
     expect(p.finished.reached).toBeGreaterThan(0);
     expect(p.finished.floods).toBeLessThanOrEqual(floodAllowance(p));
     for (const j of p.joins) expect(j.length, j.kind).toBeLessThanOrEqual(j.kind === "inflow" ? 40 : 12);
     // the settled water: fewer separate wet passages across the floor than round 4 left
-    const round4 = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 }, undefined, false);
+    const round4 = makePlan(snapshotMap(m), FULL, { origin: 22 * m.W + 22 }, undefined, false);
     const settle = (q: typeof p) => measureGlaciate(q, canonicalSettle({ ...modelOf(q.map), retained: [q.retained] }));
     expect(settle(p).passages).toBeLessThan(settle(round4).passages);
   });
 
   it("is sliced without changing its result, and never goes past the ceiling", () => {
     const m = fixture("canyon-128");
-    // (at its default Power, 100, the run keeps its plan in full: below it, Power scales every level,
-    // D368 (3))
     const whole = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
     const r = new GlaciateRun(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
     let planning = 0;
@@ -139,7 +140,7 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
     r.finishAll();
     expect(Array.from(r.final()!.heights)).toEqual(Array.from(whole.map.heights));
     const low = { ...snapshotMap(m), maxHeight: 16 };
-    const p = makePlan(low, GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
+    const p = makePlan(low, FULL, { origin: 22 * m.W + 22 });
     for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] !== m.heights[i]) expect(p.map.heights[i]).toBeLessThanOrEqual(16);
   });
 });
@@ -273,7 +274,7 @@ describe("Glaciate's details behind More, each on Auto until pinned (D309)", () 
   it("each detail shapes the land: no tarn keeps no lake, many steps drop the floor by more levels, sheer walls cut no benches; left out, round 4's", () => {
     const m = fixture("canyon-128");
     const at = { origin: 22 * m.W + 22 };
-    const plan = (d: object) => makePlan(snapshotMap(m), { ...GLACIATE_DEFAULTS, ...d }, at, undefined, false);
+    const plan = (d: object) => makePlan(snapshotMap(m), { ...FULL, ...d }, at, undefined, false);
     const r4 = plan({});
     expect(Array.from(plan({ benches: "some", steps: "some", tarn: true, scree: true }).map.heights)).toEqual(Array.from(r4.map.heights));
     expect(r4.retained.tiles.length).toBeGreaterThan(0);

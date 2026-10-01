@@ -26,6 +26,7 @@ import { entityTiles as tilesOf, plainEntities, snapshotMap, type FullForceMap }
 import { isPlant } from "../objects";
 import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
+import { glacierCut, glacierDepth } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
 import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
 
@@ -215,6 +216,12 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
   // still sink into the floor without going below the Floor; the plan is held at it below as well)
   for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance);
+  // Power (D368 (3), amended): a gentler glacier's floor lies higher, toward the valley it runs down,
+  // and it cuts no tile deeper than Power allows; everything after (its river, its falls, its tarn,
+  // the water's checks) is laid on that floor as on round 4's, so it is a shallower U and nothing else
+  const gentle = glacierDepth(s.power) < 1;
+  const cap = glacierCut(s.power);
+  if (gentle) liftFloors(before, path, s.power);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);
@@ -270,15 +277,22 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     const shift = Math.round(2.2 * portable.sin((i % W) * 0.22 + Math.floor(i / W) * 0.16 + phase));
     const f = path[clamp(k + shift, 0, path.length - 1)].floor;
     floor[i] = f;
-    if (d <= 1) {
-      m.heights[i] = Math.min(top, f + 1);
+    if (d <= 1 && gentle && before.heights[i] - (f + 1) > cap) {
+      // (a gentler glacier's sides: worn down by as much as Power cuts, following the slope; still its
+      // trough, so its river's channel runs on across them)
+      m.heights[i] = before.heights[i] - cap;
+      mask[i] = 1;
+      arrival[i] = q.s;
+    } else if (d <= 1) {
+      // (a gentler glacier never fills the ground under its floor: the valley's bottom stays)
+      m.heights[i] = gentle ? Math.min(before.heights[i], f + 1) : Math.min(top, f + 1);
       mask[i] = 1;
       arrival[i] = q.s;
     } else if (d < 1 + 3 / q.r) {
       const M = before.heights[i];
       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
       if (M - f >= 5 && hard < 0.5 && portable.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
-        m.heights[i] = Math.min(M, f + Math.round((M - f) * 0.58));
+        m.heights[i] = Math.max(M - cap, Math.min(M, f + Math.round((M - f) * 0.58)));
         mask[i] = 2;
         arrival[i] = q.s;
       }
@@ -972,6 +986,17 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       return false;
     });
   }
+  // (a gentler glacier cuts no tile deeper than Power allows, its channels and pools two levels more,
+  // and lays nothing higher; its water and tarn are worked out on that ground, below)
+  if (gentle) {
+    const most = cap + 2;
+    const was = m.heights.slice();
+    for (let i = 0; i < n; i++) m.heights[i] = Math.max(before.heights[i] - most, Math.min(before.heights[i] + cap, m.heights[i]));
+    m.entities = m.entities.map((e) => {
+      const i = e.y * W + e.x;
+      return e.z === was[i] && was[i] !== m.heights[i] ? { ...e, z: m.heights[i] } : e;
+    });
+  }
   // the Floor (D321, item 40): where the trough, its channels or its tarn would go below it, they run
   // shallower, held at it (its water and tarn are worked out on the held ground, below)
   holdAtFloor(before.heights, m.heights, cutFloor);
@@ -1024,4 +1049,36 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   if (!cut && !deposited && m.entities.length === before.entities.length) throw new Error(PHYSICAL);
   Object.assign(plan.metrics, { cut, deposited, carriedAway: cut - deposited, outwash });
   return plan;
+}
+
+/** How far under the valley's bottom a glacier at Power 0 still lowers its floor (levels). */
+const SCOUR = 1;
+
+/** A gentler glacier's floor (D368 (3), amended): each station's floor rises from round 4's toward a
+ *  level under the valley's bottom there (the lowest ground near its centreline, and under any river
+ *  already in its way, so its channel takes that river), by the share of round 4's depth Power keeps
+ *  (`glacierDepth`), and runs only downhill along the way, so its river still does. */
+function liftFloors(before: FullForceMap, path: Station[], power: number): void {
+  const t = glacierDepth(power);
+  const { W, H } = before;
+  const h = before.heights;
+  let prev = Infinity;
+  for (const q of path) {
+    let low = Infinity;
+    let wet = Infinity;
+    for (let y = Math.max(0, Math.floor(q.y - q.r)); y < Math.min(H, q.y + q.r); y++)
+      for (let x = Math.max(0, Math.floor(q.x - q.r)); x < Math.min(W, q.x + q.r); x++) {
+        const i = y * W + x;
+        const off = portable.hypot(x + 0.5 - q.x, y + 0.5 - q.y);
+        if (off <= 2.5) low = Math.min(low, h[i]);
+        if (off <= 4 && before.water.depth[i] > 0.05) wet = Math.max(wet === Infinity ? -Infinity : wet, h[i] + before.water.depth[i]);
+      }
+    const full = q.floor;
+    // (a river already in its way keeps its own bed: the floor stays over its water, never planed
+    // down to it, where the water would spread)
+    const scour = Math.max(full, low - 1 - SCOUR, wet === Infinity ? -Infinity : Math.ceil(wet));
+    const lifted = Math.min(prev, full + Math.round((1 - t) * (scour - full)));
+    prev = lifted;
+    q.floor = Math.max(full, lifted);
+  }
 }

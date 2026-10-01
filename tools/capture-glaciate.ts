@@ -10,7 +10,7 @@
 //   npx tsx tools/capture-glaciate.ts [--out docs/progress/glaciate] [--port 4291] [--only canyon]
 //
 // With --power-size (D368 (3): Power is how deep, Size how wide), the Highlands case alone, on the site
-// as it is: Power 0, 50 and 100 at Size 24, and Size 12 and 40 at Power 100, each beside the land
+// as it is: Power 0, 50 and 100 at Size 24, and Size 12 and 40 at Power 60, each beside the land
 // before (glaciate-power.png and glaciate-size.png, oblique above, top-down below).
 //
 //   npx tsx tools/capture-glaciate.ts --power-size --out docs/progress/forces --port 4227
@@ -196,7 +196,7 @@ async function powerSize(): Promise<void> {
     };
     for (const [name, runs] of [
       ["glaciate-power", [[0, 24], [50, 24], [100, 24]]],
-      ["glaciate-size", [[100, 12], [100, 40]]],
+      ["glaciate-size", [[60, 12], [60, 40]]],
     ] as const) {
       const shots = [];
       for (const [power, size] of runs) shots.push(await one(power, size));
