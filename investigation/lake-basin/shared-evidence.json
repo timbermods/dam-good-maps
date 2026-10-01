@@ -1,0 +1,217 @@
+{
+  "auditBase": "da46492225cecc57530a7ffe21a5a30f0d89cc73",
+  "newerCore": "65b759d013d8bf6c2aeec6341a202f8dbe5152ce",
+  "historicalMinePair": {
+    "size": 96,
+    "seed": 14,
+    "attemptFailures": [
+      "a river's head under a lake",
+      "water story (planned)",
+      "no room for the mine sites",
+      "start.farmland + start.level_land + start.wood",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site + start.farmland + start.level_land + start.food + start.wood + start.wood_floor",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site + start.farmland + start.level_land + start.wood + start.wood_floor",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site",
+      "resources.mine_site + start.farmland + start.food",
+      "resources.mine_site",
+      "no start"
+    ],
+    "finalFailures": [
+      "start.count",
+      "resources.badwater_source",
+      "resources.mine_site",
+      "no start"
+    ],
+    "attempts": 21,
+    "settles": 24,
+    "roomProofs": [
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 227
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 178
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      },
+      {
+        "kind": "roomMap",
+        "want": 2,
+        "lo": 23.5,
+        "allowed": 176
+      }
+    ],
+    "placementCalls": 34,
+    "nullPlacements": 7,
+    "newerCoreBlockingFailures": [],
+    "caution": "Mine access permits one-level steps; reachable:false alone is not a failed absolute."
+  },
+  "fixedBadwaterReached": {
+    "size": 96,
+    "seed": 13,
+    "settled": true,
+    "ticks": 896,
+    "check": {
+      "id": "water.source_in_flow",
+      "class": "design",
+      "ok": false,
+      "value": 1,
+      "limit": 0,
+      "message": "1 of 12 water sources stand where water from another source already flows: a source is where water begins",
+      "where": {
+        "tiles": [
+          [
+            74,
+            68
+          ]
+        ],
+        "entities": [
+          "4d016ce8-a208-4aaf-b036-75a68ed58b75"
+        ]
+      },
+      "severity": "error"
+    },
+    "emitter": {
+      "cells": [
+        6602,
+        6698,
+        6794,
+        6603,
+        6699,
+        6795,
+        6604,
+        6700,
+        6796
+      ],
+      "strength": 1.25,
+      "contamination": 1
+    },
+    "terminalBranch": "src/core/gen/generate.ts:1840-1849 at newerCore",
+    "otherFailingSeeds": [
+      [
+        128,
+        19
+      ],
+      [
+        256,
+        11
+      ]
+    ]
+  }
+}
