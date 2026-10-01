@@ -189,5 +189,11 @@ under New game.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Timberborn is a game by Mechanistry; this project is not affiliated
-with Mechanistry.
+Copyright (c) 2026 Timbermods. Free software under the [GNU Affero General Public License v3](LICENSE) (or any later
+version): use, study, modify and share it freely. If you distribute a modified version, or run one as a website or
+service, you must offer its full source to its users under the same licence.
+
+The maps you make with Dam Good Maps are yours; the code's licence doesn't cover them. Versions published before
+2026-10-01 stay under the MIT licence they were released with.
+
+Timberborn is a game by Mechanistry; this project is not affiliated with Mechanistry.

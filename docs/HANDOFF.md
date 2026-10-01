@@ -6,7 +6,7 @@
 > where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
 > (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
 
-> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
 > smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
 > works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
 > skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
@@ -14,7 +14,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D378) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
+editor work), `PLAN.md` §20 (every decision, D1–D379) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
 ## 0. Resume here (2026-10-01, 07:00 PDT: the session ended on Kyler's main PC; the next one runs on another machine)
@@ -66,7 +66,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    is not done.
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): **the quick-click bug (D378: Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force should skip to its end while the new one plays in full; check every force)**, **tests for an eruption in High and for the highlight on High's basin sources (D378)**, Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
-   the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
+   (the High look's release is done) the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
    "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
    failing absolutes 2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed);
@@ -194,7 +194,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D379**.
+number on `dev` is **#94**. The next decision is **D380**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -308,7 +308,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D379), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D380), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
