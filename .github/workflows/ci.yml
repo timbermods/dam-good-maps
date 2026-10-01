@@ -10,7 +10,26 @@ on:
 # breakage. Timings are information, not gates: each job's summary lists them against their
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
 # (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
+#
+# A change that only touches documents, LICENSE or package.json's descriptive fields (not dependencies,
+# devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines) and
+# finishes in minutes: the `changes` job decides (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). A
+# skipped job counts as passed for merge and release (tools/release.sh). Any other change, a manual run, or a
+# change it can't compare keeps the full suite, unchanged. `test` (typecheck, the quick suite, the build) always runs.
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      heavy: ${{ steps.which.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Do the heavy suites need to run?
+        id: which
+        run: node tools/ci-changes.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.event.pull_request.head.sha || github.sha }}"
+
   test:
     runs-on: ubuntu-latest
     # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
@@ -40,6 +59,8 @@ jobs:
   # split is by file, so the same workflow suits any branch. Raising the shard count is the fix if a
   # branch's specs outgrow the 30 minutes a job gets, never a longer limit.
   browser:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
     name: browser (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -78,6 +99,8 @@ jobs:
           retention-days: 7
 
   oracle:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -99,6 +122,8 @@ jobs:
         run: npm run oracle -- --seeds 1,5,9,10,14,18,19 --sizes 96,128,256
 
   generation:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -147,6 +172,8 @@ jobs:
   # (nightly.yml). The guard against native approximate maths in the core is in the quick suite
   # (tests/unit/portable.test.ts).
   engines:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
